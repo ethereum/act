@@ -1,0 +1,3 @@
+[submodule "pandoc-tangle"]
+	path = pandoc-tangle
+	url = https://github.com/ehildenb/pandoc-tangle.git
