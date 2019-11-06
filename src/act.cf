@@ -4,42 +4,69 @@ comment "/*" "*/" ;
 Main. Act ::= [Header] ;
 
 
-Behave.  Header ::= "behaviour" Ident "of" Ident ;
-Interf.  Header ::= "interface" Ident "(" [Decl] ")" ;
-Iff.     Header ::= "iff" "\n" [BExp] ;
-IffIn.   Header ::= "iff in range" Type "\n" [Exp] ;
-If.      Header ::= "if" [BExp] ;
-Storage. Header ::= "storage" [Update] ;
-Return.  Header ::= "returns" Exp  ;
+Behave.   Header ::= "behaviour" Ident "of" Ident ;
+Interf.   Header ::= "interface" Ident "(" [Decl] ")" ;
+Quant.    Header ::= "for all" [TDecl] ;
+Iff.      Header ::= "iff" [BExp] ;
+IffIn.    Header ::= "iff in range" Type "\n" [Exp] ;
+If.       Header ::= "if" [BExp] ;
+StorageH. Header ::= "storage" [Update] ;
+Return.   Header ::= "returns" Exp  ;
 
-Change. Update ::= Exp "=>" Exp ;
-Remain. Update ::= Exp ;
+
+-- New, "abuse of syntax" format
+Change. Update ::= Storage "=>" Exp ;
+Const. Update ::= Storage ;
+-- Old, verbose format
+OChange. Update ::= Storage "|->" Exp "=>" Exp ;
+OConst. Update ::= Storage "|->" Exp ;
+
+Map.    Storage ::= Ident [Lookup] ;
+Struct. Storage ::= Storage "." Ident ;
+
+Look. Lookup ::= "[" Ident "]" ;
 
 BAnd. BExp   ::= BExp "and" BExp ;
 BOr. BExp    ::= BExp "or" BExp ;
 BEq. BExp    ::= Exp "==" Exp ;
+BNeq. BExp   ::= Exp "=/=" Exp ;
+BLEQ. BExp   ::= Exp "<=" Exp ;
+BLE. BExp    ::= Exp "<" Exp ;
+BGEQ. BExp   ::= Exp ">=" Exp ;
+BGE. BExp    ::= Exp ">" Exp ;
+_. BExp      ::= "(" BExp ")" ;
 BTrue. BExp  ::= "true" ;
 BFalse. BExp ::= "false" ;
 
 EAdd. Exp  ::= Exp  "+" Exp1 ;
 ESub. Exp  ::= Exp  "-" Exp1 ;
+_.    Exp  ::= "(" Exp ")" ;
 EMul. Exp1 ::= Exp1 "*" Exp2 ;
 EDiv. Exp1 ::= Exp1 "/" Exp2 ;
 EInt. Exp2 ::= Integer ;
-EVar. Exp2 ::= Ident ;
+EVar. Exp2 ::= Storage ;
 
 coercions Exp 2 ;
 
 
 Dec. Decl ::= Type Ident ;
+TDec. TDecl ::= Ident ":" Type ;
 
-rules Type ::= "uint256" | "uint126" | "uint8" | "address" | "bool" ;
+rules Type ::= "uint"    | "int"
+             | "uint256" | "int256"
+             | "uint126" | "int126"
+             | "uint8"   | "int8"
+             | "address"
+             | "bytes32"
+             | "bool" ;
 
 separator Decl "," ;
-separator BExp "" ;
-separator Exp "" ;
-separator Update "\n" ;
-terminator Header "" ;
+separator nonempty TDecl "" ;
+separator Lookup "" ;
+separator nonempty BExp "" ;
+separator nonempty Exp "" ;
+separator nonempty Update "" ;
+separator nonempty Header "" ;
 
 
 
