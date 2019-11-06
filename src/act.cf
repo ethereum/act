@@ -1,0 +1,45 @@
+comment "//" ;
+comment "/*" "*/" ;
+
+Main. Act ::= [Header] ;
+
+
+Behave.  Header ::= "behaviour" Ident "of" Ident ;
+Interf.  Header ::= "interface" Ident "(" [Decl] ")" ;
+Iff.     Header ::= "iff" "\n" [BExp] ;
+IffIn.   Header ::= "iff in range" Type "\n" [Exp] ;
+If.      Header ::= "if" [BExp] ;
+Storage. Header ::= "storage" [Update] ;
+Return.  Header ::= "returns" Exp  ;
+
+Change. Update ::= Exp "=>" Exp ;
+Remain. Update ::= Exp ;
+
+BAnd. BExp   ::= BExp "and" BExp ;
+BOr. BExp    ::= BExp "or" BExp ;
+BEq. BExp    ::= Exp "==" Exp ;
+BTrue. BExp  ::= "true" ;
+BFalse. BExp ::= "false" ;
+
+EAdd. Exp  ::= Exp  "+" Exp1 ;
+ESub. Exp  ::= Exp  "-" Exp1 ;
+EMul. Exp1 ::= Exp1 "*" Exp2 ;
+EDiv. Exp1 ::= Exp1 "/" Exp2 ;
+EInt. Exp2 ::= Integer ;
+EVar. Exp2 ::= Ident ;
+
+coercions Exp 2 ;
+
+
+Dec. Decl ::= Type Ident ;
+
+rules Type ::= "uint256" | "uint126" | "uint8" | "address" | "bool" ;
+
+separator Decl "," ;
+separator BExp "" ;
+separator Exp "" ;
+separator Update "\n" ;
+terminator Header "" ;
+
+
+
