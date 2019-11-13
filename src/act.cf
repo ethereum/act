@@ -8,51 +8,71 @@ Behave.   Header ::= "behaviour" Ident "of" Ident ;
 Interf.   Header ::= "interface" Ident "(" [Decl] ")" ;
 Quant.    Header ::= "for all" [TDecl] ;
 Iff.      Header ::= "iff" [BExp] ;
-IffIn.    Header ::= "iff in range" Type "\n" [Exp] ;
+IffIn.    Header ::= "iff in range" Type "\n" [IExp] ;
 If.       Header ::= "if" [BExp] ;
 StorageH. Header ::= "storage" [Update] ;
-Return.   Header ::= "returns" Exp  ;
+WhereH.   Header ::= "where" [FuncDef] ;
+Return.   Header ::= "returns" IExp  ;
 
 
 -- New, "abuse of syntax" format
-Change. Update ::= Storage "=>" Exp ;
+Change. Update ::= Storage "=>" IExp ;
 Const. Update ::= Storage ;
 -- Old, verbose format
 OChange. Update ::= Storage "|->" Exp "=>" Exp ;
-OConst. Update ::= Storage "|->" Exp ;
+OConst. Update ::= Storage "|->" IExp ;
 
 Map.    Storage ::= Ident [Lookup] ;
 Struct. Storage ::= Storage "." Ident ;
 
-Look. Lookup ::= "[" Ident "]" ;
+Look. Lookup ::= "[" Exp "]" ;
 
+--Any expression
+Int.   Exp ::= IExp ;
+Bool.  Exp ::= BExp ;
+Bytes. Exp ::= BYExp ;
+Func.  Exp ::= Ident "(" [Exp] ")" ;
+
+--Boolean expressions
 BAnd. BExp   ::= BExp "and" BExp ;
 BOr. BExp    ::= BExp "or" BExp ;
-BEq. BExp    ::= Exp "==" Exp ;
-BNeq. BExp   ::= Exp "=/=" Exp ;
-BLEQ. BExp   ::= Exp "<=" Exp ;
-BLE. BExp    ::= Exp "<" Exp ;
-BGEQ. BExp   ::= Exp ">=" Exp ;
-BGE. BExp    ::= Exp ">" Exp ;
+BEq. BExp    ::= IExp "==" IExp ;
+BNeq. BExp   ::= IExp "=/=" IExp ;
+BLEQ. BExp   ::= IExp "<=" IExp ;
+BLE. BExp    ::= IExp "<" IExp ;
+BGEQ. BExp   ::= IExp ">=" IExp ;
+BGE. BExp    ::= IExp ">" IExp ;
 _. BExp      ::= "(" BExp ")" ;
 BTrue. BExp  ::= "true" ;
 BFalse. BExp ::= "false" ;
 
-EAdd. Exp  ::= Exp  "+" Exp1 ;
-ESub. Exp  ::= Exp  "-" Exp1 ;
-_.    Exp  ::= "(" Exp ")" ;
-EMul. Exp1 ::= Exp1 "*" Exp2 ;
-EDiv. Exp1 ::= Exp1 "/" Exp2 ;
-EInt. Exp2 ::= Integer ;
-EVar. Exp2 ::= Storage ;
+--Integer expressions
+EAdd. IExp  ::= IExp  "+" IExp1 ;
+ESub. IExp  ::= IExp  "-" IExp1 ;
+_.    IExp  ::= "(" IExp ")" ;
+ITE.  IExp  ::= "if" BExp "then" IExp "else" IExp ;
+EMul. IExp1 ::= IExp1 "*" IExp2 ;
+EDiv. IExp1 ::= IExp1 "/" IExp2 ;
+Wild. IExp2 ::= "_" ;
+EInt. IExp2 ::= Integer ;
+StorageVar. IExp2 ::= Storage ;
 
-coercions Exp 2 ;
+--Bytes expressions
+BYAdd.  BYExp  ::= BYExp "++" BYExp ;
+BYLit.  BYExp  ::= String ;
+BYVar.  BYExp  ::= Ident ;
+Slice.  BYExp  ::= BYExp "[" Integer ".." Integer "]" ;
 
+coercions IExp 2 ;
 
 Dec. Decl ::= Type Ident ;
 TDec. TDecl ::= Ident ":" Type ;
 
+Fun. FuncDef ::= Ident "(" [Ident] ")" "=" Exp ;
+
 rules Type ::= "uint"    | "int"
+             | "bytes" Length
+             | "bytes"
              | "uint256" | "int256"
              | "uint126" | "int126"
              | "uint8"   | "int8"
@@ -60,11 +80,16 @@ rules Type ::= "uint"    | "int"
              | "bytes32"
              | "bool" ;
 
+Index. Length ::= "[" Integer "]" ;
+
+separator Ident "," ;
 separator Decl "," ;
+separator Exp "," ;
 separator nonempty TDecl "" ;
+separator nonempty FuncDef "" ;
 separator Lookup "" ;
 separator nonempty BExp "" ;
-separator nonempty Exp "" ;
+separator nonempty IExp "" ;
 separator nonempty Update "" ;
 separator nonempty Header "" ;
 
