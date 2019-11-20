@@ -15,28 +15,54 @@ The two main functions of the contract are `deposit` and `get_deposit_root`.
 behaviour deposit of ValidatorRegistration
 interface deposit(bytes[48] pubkey, bytes[32] withdrawal_credentials, bytes[96] signature, bytes32 deposit_data_root)
 
+for all
+
+   x : uint256
+
 storage
 
     branch[index_of_first_one(deposit_count, 0)] |-> _ => sha256(
           sha256(
              sha256(pubkey ++ "0x00000000000000000000000000000000") ++ withdrawal_credentials)
-          ++ sha256(CALLVALUE ++ sha256(
+          ++ sha256(to_bytes(CALLVALUE / 10^9, 64) ++ sha256(
              sha256(signature[0..64]) ++ sha256(signature[65..96] ++ "0x0000000000000000000000000000000000000000000000000000000000000000")))
-          )
+             )
+     deposit_count |-> x => x + 1
 
 where
 
    index_of_first_one(N, M) = if N % 2 == 1 then M else index_of_first_one(N / 2, M + 1)
+
+iff in range uint256
+
+   x + 1
 ```
 
 ## Get deposit root
 
 ```act
-TODO
+behaviour get_deposit_root of ValidatorRegistration
+interface get_deposit_root()
+
+for all
+
+   br    : bytes32[32]
+   zeros : bytes32[32]
+
+//This example begs for some list abstractions
+storage
+    
+    branch |-> br
+    zero_hashes |-> zeros
+    deposit_count |-> x
+
+returns sha256(hashLoR(br, zeros, deposit_count)
+               ++ to_bytes(x, 64) ++ "0x000000000000000000000000000000000000000000000000")
+
+where
+
+    hashLoR(frontier, zs, count) = foldr (\(i, (br, z)) acc -> if deposit_count / 2^i % 2 == 1 then sha256(br, acc) else sha256(acc, z) $ zip [1..] $ zip zeros br
 ```
-
-`TODO: check what happens with incorrect calldata arguments given`.
-
 
 # Properties
 
