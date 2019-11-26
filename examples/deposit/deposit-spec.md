@@ -80,6 +80,23 @@ For every list of calls `C = [C_0, C_1, ... C_n]` applied to the contracts initi
 `Proof:`
 Since the only calls that modify state are valid calls to `deposit`, it suffices to consider `D` to get the contract state after `C`. What remains to show is that the incremental merkle tree algorithm yields the same result as the root of a partial merkle tree. This has been demonstrated by Daejun in [https://github.com/runtimeverification/verified-smart-contracts/blob/deposit/deposit/formal-incremental-merkle-tree-algorithm.pdf].
 
-`TODO: Formalize this claim!`
+Formal statement concept art:
 
+```act
+property inc_merkle of deposit
 
+for all
+
+    x : uint
+    A : bytes[208][2^x]
+
+have
+
+    merkle_root(A) == get_deposit_root(apply([deposit(a) | a in A], initial_state))
+
+where
+
+    merkle_root(A) := ...
+```
+
+In the above, assume that `apply` is an act keyword. An alternative is to make every behaviour result in a stateful function, in which case `apply` is essentially a `fold`.
