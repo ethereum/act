@@ -55,6 +55,7 @@ ITE.  IExp  ::= "if" BExp "then" IExp "else" IExp ;
 EMul. IExp1 ::= IExp1 "*" IExp2 ;
 EDiv. IExp1 ::= IExp1 "/" IExp2 ;
 EMod. IExp1 ::= IExp1 "%" IExp2 ;
+EExp. IExp1 ::= IExp1 "^" IExp2 ;
 Wild. IExp2 ::= "_" ;
 EVar. IExp2 ::= Ident ;
 EInt. IExp2 ::= Integer ;
@@ -99,4 +100,5 @@ separator nonempty BExp "" ;
 separator nonempty IExp "" ;
 separator nonempty Update "" ;
 separator nonempty Header "" ;
+terminator Header "End" ;
 
