@@ -1,0 +1,64 @@
+contract Token
+
+balanceOf : mapping(address=>uint256)
+allowance : mapping(address=>mapping(address=>uint256)
+
+behaviour transfer of Token
+interface transfer(uint256 value, address to)
+
+iff
+
+   CALLVALUE == 0
+   value <= balanceOf[CALLER]
+   CALLER =/= to => balanceOf[to] + value < 2^256
+
+case CALLER =/= to:
+
+   balanceOf[CALLER] := balanceOf[CALLER] - value
+   balanceOf[to]     := balanceOf[to] + value
+
+   returns 1
+
+case CALLER == to:
+
+   noop
+
+   returns 1
+
+behaviour transferFrom of Token
+interface transferFrom(address src, address dst, uint amount)
+
+iff
+
+   value <= balanceOf[CALLER]
+   src    =/= dst => balanceOf[dst] + value < 2^256
+   CALLER =/= src => 0 <= allowance[src][CALLER] - value
+   CALLVALUE == 0
+
+case src =/= dst:
+
+   case CALLER == src:
+
+      balances[src] := balances[src] - value
+      balances[dst] := balances[dst] + value
+      returns 1
+   
+   case CALLER =/= src and allowance[src]CALLER] == 2^256 - 1:
+
+      balances[src] := balances[src] - value
+      balances[dst] := balances[dst] + value
+      returns 1
+   
+   case _:
+
+      allowance[src][CALLER] := allowance[src][CALLER] - value
+      balances[src]          := balances[src] - value
+      balances[dst]          := balances[dst] + value
+      returns 1
+
+case src == dst:
+
+   noop
+   returns 1
+
+end
