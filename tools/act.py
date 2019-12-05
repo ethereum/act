@@ -14,7 +14,6 @@ class Act:
 			The path/source unit that contains the contract.
 		"""
 		self._name = path + "." + contractName
-		self._contract = contract
 		self._stateVariables = []
 		self._properties = []
 		self._behaviors = []
@@ -41,7 +40,7 @@ class Act:
 		"""
 		name = function["name"]
 		fProperty = "property " + name + ".post of " + name + "\n"
-		fBehavior = "behavior " + name + ".behavior of " + name + "\n"
+		fBehavior = "behavior " + name + ".behavior of " + self._name + "\n"
 		fInterface = "interface " + name + "("
 		fInterface += ",".join([inParam["type"] + " " + inParam["name"] for inParam in function["inputs"]])
 		fInterface += ")"
