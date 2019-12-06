@@ -1,8 +1,8 @@
-src/act.cf: 
-	bnfc -m --haskell src/act.cf -o src/haskell
-	bnfc -m --latex src/act.cf -o src/latex && cd src/latex && make
+#src/act.cf: 
 
-build: src/act.cf
+build: ./src/act.cf
+	bnfc -m --haskell src/act.cf -o src/haskell && cd src/haskell && make
+	bnfc -m --latex src/act.cf -o src/latex && cd src/latex && make
 
 test_specs=$(wildcard tests/*/*.act)
 

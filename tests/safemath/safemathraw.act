@@ -9,6 +9,4 @@ iff
 
     CALLVALUE == 0
 
-noop
-
 returns X + Y

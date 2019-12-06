@@ -1,18 +1,18 @@
-contract Vat
+// contract Vat
 
-ilk  : bytes32 -> {Art : uint256,
-                   rate : uint256,
-                   spot : uint256,
-                   line : uint256,
-                   dust : uint256}
-urn  : bytes32 -> {ink : uint256,
-                   art : uint256}
-Line : uint256
-live : uint256
-can  : address -> address -> uint256
-gem  : bytes32 -> address -> uint256
-debt : uint256
-dai  : address -> uint256
+// ilk  : bytes32 -> {Art : uint256,
+//                    rate : uint256,
+//                    spot : uint256,
+//                    line : uint256,
+//                    dust : uint256}
+// urn  : bytes32 -> {ink : uint256,
+//                    art : uint256}
+// Line : uint256
+// live : uint256
+// can  : address -> address -> uint256
+// gem  : bytes32 -> address -> uint256
+// debt : uint256
+// dai  : address -> uint256
 
 behaviour frob of Vat
 interface frob(bytes32 i, address u, address v, address w, int dink, int dart)
@@ -43,11 +43,11 @@ iff
     (dink <= 0) or (v == CALLER or Can[v][CALLER] == 1)
     (dart >= 0) or (w == CALLER or Can[w][CALLER] == 1)
 
-    urns[i][u].ink := urns[i][u].ink + dink
-    urns[i][u].art := urns[i][u].art + dart
-    ilks[i].Art    := ilks[i].Art + dart
-    gem[i][v]      := gem[i][v]   - dink
-    dai[w]         := dai[w] + ilks[i].rate * dart
-    debt           := debt   + ilks[i].rate * dart
+storage
 
-end
+    urns[i][u].ink => urns[i][u].ink + dink
+    urns[i][u].art => urns[i][u].art + dart
+    ilks[i].Art    => ilks[i].Art + dart
+    gem[i][v]      => gem[i][v]   - dink
+    dai[w]         => dai[w] + ilks[i].rate * dart
+    debt           => debt   + ilks[i].rate * dart

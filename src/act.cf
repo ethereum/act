@@ -1,31 +1,48 @@
 comment "//" ;
 comment "/*" "*/" ;
 
-Main. Act ::= [Header] ;
+Main. Act ::= [Behaviour] ;
 
+--TODO: support for `where` sublanguage
 
-Behave.   Header ::= "behaviour" Ident "of" Ident ;
-Interf.   Header ::= "interface" Ident "(" [Decl] ")" ;
-Quant.    Header ::= "for all" [TDecl] ;
-Iff.      Header ::= "iff" [BExp] ;
-IffIn.    Header ::= "iff in range" Type "\n" [IExp] ;
-If.       Header ::= "if" [BExp] ;
-StorageH. Header ::= "storage" [Update] ;
-WhereH.   Header ::= "where" [FuncDef] ;
-Return.   Header ::= "returns" IExp  ;
+-- Behaviour either specify a state transition, a return value,
+-- or both
+Transition. Behaviour ::= "behaviour" Ident "of" Ident
+                          "interface" Ident "(" [Decl] ")"
+                          [IffH]
+                          "storage"
+                          StorageH ;
 
+Returns. Behaviour ::= "behaviour" Ident "of" Ident
+                     "interface" Ident "(" [Decl] ")"
+                     [IffH]
+                     ReturnH ;
 
--- New, "abuse of syntax" format
+TransReturn. Behaviour ::= "behaviour" Ident "of" Ident
+                          "interface" Ident "(" [Decl] ")"
+                          [IffH]
+                          "storage"
+                          StorageH
+                          ReturnH ;
+
+Iff.   IffH ::= "iff" [BExp] ;
+IffIn. IffH ::= "iff in range" Type "\n" [IExp] ;
+
+--Storage headers and return headers may branch into cases:
+Leaf. StorageH ::= [Update] ;
+NoopLeaf. StorageH ::= "noop" ; 
+Case. CaseExpr ::= "case" BExp ":" StorageH ;
+Branch. StorageH ::= [CaseExpr] ;
+
+-- New, concise syntax
 Change. Update ::= Storage "=>" IExp ;
-Const. Update ::= Storage ;
--- Old, verbose format
-OChange. Update ::= Storage "|->" Exp "=>" Exp ;
-OConst. Update ::= Storage "|->" Exp ;
 
-Map.    Storage ::= Ident [Lookup] ;
+Map.    Storage ::= Ident [Lookup] ; --Empty lookup map is a constant storage var
 Struct. Storage ::= Storage "." Ident ;
 
 Look. Lookup ::= "[" Exp "]" ;
+
+Return. ReturnH ::= "returns" IExp  ;
 
 --Any expression
 Int.   Exp ::= IExp ;
@@ -36,6 +53,7 @@ Bytes. Exp ::= BYExp ;
 --TODO: precedence
 BAnd. BExp   ::= BExp "and" BExp ;
 BOr. BExp    ::= BExp "or" BExp ;
+BImpl. BExp  ::= BExp "=>" BExp ;
 BEq. BExp    ::= IExp "==" IExp ;
 BNeq. BExp   ::= IExp "=/=" IExp ;
 BLEQ. BExp   ::= IExp "<=" IExp ;
@@ -45,6 +63,7 @@ BGE. BExp    ::= IExp ">" IExp ;
 _. BExp      ::= "(" BExp ")" ;
 BTrue. BExp  ::= "true" ;
 BFalse. BExp ::= "false" ;
+BWildcard. BExp ::= "_";
 BFunc. BExp  ::= Ident "(" [Exp] ")" ;
 
 --Integer expressions
@@ -59,7 +78,7 @@ EExp. IExp1 ::= IExp1 "^" IExp2 ;
 Wild. IExp2 ::= "_" ;
 EVar. IExp2 ::= Ident ;
 EInt. IExp2 ::= Integer ;
---StorageVar. IExp2 ::= Storage ;
+StorageVar. IExp2 ::= Storage ;
 IFunc. IExp  ::= Ident "(" [Exp] ")" ;
 
 --Bytes expressions
@@ -93,12 +112,15 @@ Index. Length ::= "[" Integer "]" ;
 separator Ident "," ;
 separator Decl "," ;
 separator Exp "," ;
+separator IffH "" ;
+separator Behaviour "" ;
+separator CaseExpr "" ;
 separator nonempty TDecl "" ;
 separator nonempty FuncDef "" ;
-separator nonempty Lookup "" ;
+separator Lookup "" ;
 separator nonempty BExp "" ;
 separator nonempty IExp "" ;
 separator nonempty Update "" ;
-separator nonempty Header "" ;
-terminator Header "End" ;
+-- separator nonempty Header "" ;
+-- terminator Header "End" ;
 
