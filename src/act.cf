@@ -4,26 +4,18 @@ comment "/*" "*/" ;
 Main. Act ::= [Behaviour] ;
 
 --TODO: support for `where` sublanguage
-
+--TODO: tx environment variables (CALLER, NUMBER, TIMESTAMP...)
 -- Behaviour either specify a state transition, a return value,
 -- or both
 Transition. Behaviour ::= "behaviour" Ident "of" Ident
                           "interface" Ident "(" [Decl] ")"
                           [IffH]
-                          "storage"
-                          StorageH ;
+                          Post ;
 
-Returns. Behaviour ::= "behaviour" Ident "of" Ident
-                     "interface" Ident "(" [Decl] ")"
-                     [IffH]
-                     ReturnH ;
-
-TransReturn. Behaviour ::= "behaviour" Ident "of" Ident
-                          "interface" Ident "(" [Decl] ")"
-                          [IffH]
-                          "storage"
-                          StorageH
-                          ReturnH ;
+Storage. Post ::= "storage" StorageH ;
+ReturnH.  Post ::= "returns" Exp ;
+StorageReturn. Post ::= "storage" StorageH
+                        "returns" IExp ;
 
 Iff.   IffH ::= "iff" [BExp] ;
 IffIn. IffH ::= "iff in range" Type "\n" [IExp] ;
@@ -35,14 +27,12 @@ Case. CaseExpr ::= "case" BExp ":" StorageH ;
 Branch. StorageH ::= [CaseExpr] ;
 
 -- New, concise syntax
-Change. Update ::= Storage "=>" IExp ;
+Change. Update ::= Entry "=>" IExp ;
 
-Map.    Storage ::= Ident [Lookup] ; --Empty lookup map is a constant storage var
-Struct. Storage ::= Storage "." Ident ;
+Map.    Entry ::= Ident [Lookup] ; --Empty lookup map is a constant storage var
+Struct. Entry ::= Entry "." Ident ;
 
 Look. Lookup ::= "[" Exp "]" ;
-
-Return. ReturnH ::= "returns" IExp  ;
 
 --Any expression
 Int.   Exp ::= IExp ;
@@ -51,16 +41,16 @@ Bytes. Exp ::= BYExp ;
 
 --Boolean expressions
 --TODO: precedence
-BAnd. BExp   ::= BExp "and" BExp ;
-BOr. BExp    ::= BExp "or" BExp ;
+BAnd.  BExp  ::= BExp "and" BExp ;
+BOr.   BExp  ::= BExp "or" BExp ;
 BImpl. BExp  ::= BExp "=>" BExp ;
-BEq. BExp    ::= IExp "==" IExp ;
-BNeq. BExp   ::= IExp "=/=" IExp ;
-BLEQ. BExp   ::= IExp "<=" IExp ;
-BLE. BExp    ::= IExp "<" IExp ;
-BGEQ. BExp   ::= IExp ">=" IExp ;
-BGE. BExp    ::= IExp ">" IExp ;
-_. BExp      ::= "(" BExp ")" ;
+BEq.   BExp  ::= IExp "==" IExp ;
+BNeq.  BExp  ::= IExp "=/=" IExp ;
+BLEQ.  BExp  ::= IExp "<=" IExp ;
+BLE.   BExp  ::= IExp "<" IExp ;
+BGEQ.  BExp  ::= IExp ">=" IExp ;
+BGE.   BExp  ::= IExp ">" IExp ;
+_.     BExp  ::= "(" BExp ")" ;
 BTrue. BExp  ::= "true" ;
 BFalse. BExp ::= "false" ;
 BWildcard. BExp ::= "_";
@@ -78,12 +68,13 @@ EExp. IExp1 ::= IExp1 "^" IExp2 ;
 Wild. IExp2 ::= "_" ;
 EVar. IExp2 ::= Ident ;
 EInt. IExp2 ::= Integer ;
-StorageVar. IExp2 ::= Storage ;
+StorageVar. IExp2 ::= Entry ;
 IFunc. IExp  ::= Ident "(" [Exp] ")" ;
 
 --Bytes expressions
 BYAdd.  BYExp  ::= BYExp "++" BYExp ;
 BYFunc. BYExp  ::= Ident "(" [Exp] ")" ;
+BYHash. BYExp  ::= "keccak256" "(" Exp ")";
 BYLit.  BYExp2  ::= String ;
 BYVar.  BYExp2  ::= Ident ;
 Paren.  BYExp3  ::= "(" BYExp ")" ;
@@ -104,7 +95,7 @@ rules Type ::= "uint"    | "int"
              | "uint126" | "int126"
              | "uint8"   | "int8"
              | "address"
-             | "bytes32"
+             | "bytes32" | "bytes4"
              | "bool" ;
 
 Index. Length ::= "[" Integer "]" ;
@@ -113,7 +104,7 @@ separator Ident "," ;
 separator Decl "," ;
 separator Exp "," ;
 separator IffH "" ;
-separator Behaviour "" ;
+separator nonempty Behaviour "" ;
 separator CaseExpr "" ;
 separator nonempty TDecl "" ;
 separator nonempty FuncDef "" ;
@@ -121,6 +112,5 @@ separator Lookup "" ;
 separator nonempty BExp "" ;
 separator nonempty IExp "" ;
 separator nonempty Update "" ;
--- separator nonempty Header "" ;
 -- terminator Header "End" ;
 
