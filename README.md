@@ -106,3 +106,11 @@ ii) Given behaviour, prove that the postcondition holds.
 iii) Given postconditions, show contract invariant property
 iiii) Given (transition system = "CONTRACT"), show that arbitrary property holds
 
+Developing:
+-----------
+
+The front-end parser is built using `bnfc`. For a reliable building experience, use `nix`:
+```sh
+nix-shell shell.nix
+make test-parse
+```

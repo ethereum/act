@@ -1,12 +1,11 @@
 #src/act.cf: 
 
-build: ./src/act.cf
+build-hs: ./src/act.cf
 	bnfc -m --haskell src/act.cf -o src/haskell && cd src/haskell && make
-	bnfc -m --latex src/act.cf -o src/latex && cd src/latex && make
 
 test_specs=$(wildcard tests/*/*.act)
 
-test-parse: build $(test_specs:=.parse)
+test-parse: build-hs $(test_specs:=.parse)
 
 # Just checks parsing
 tests/%.parse:
