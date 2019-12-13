@@ -2,7 +2,7 @@
 
 ```act
 behaviour add of SafeAdd
-interface add(x : uint256, y : uint256)
+interface add(uint256 x, uint256 y)
 
 iff in range uint256
 

@@ -15,19 +15,15 @@ The two main functions of the contract are `deposit` and `get_deposit_root`.
 behaviour deposit of ValidatorRegistration
 interface deposit(bytes[48] pubkey, bytes[32] withdrawal_credentials, bytes[96] signature, bytes32 deposit_data_root)
 
-for all
-
-   x : uint256
-
 storage
 
-    branch[index_of_first_one(deposit_count, 0)] |-> _ => sha256(
+    branch[index_of_first_one(deposit_count, 0)] => sha256
           sha256(
              sha256(pubkey ++ "0x00000000000000000000000000000000") ++ withdrawal_credentials)
           ++ sha256(to_bytes(CALLVALUE / 10^9, 64) ++ sha256(
              sha256(signature[0..64]) ++ sha256(signature[65..96] ++ "0x0000000000000000000000000000000000000000000000000000000000000000")))
              )
-     deposit_count |-> x => x + 1
+     deposit_count => deposit_count + 1
 
 where
 
@@ -44,20 +40,8 @@ iff in range uint256
 behaviour get_deposit_root of ValidatorRegistration
 interface get_deposit_root()
 
-for all
-
-   br    : bytes32[32]
-   zeros : bytes32[32]
-
-//This example begs for some list abstractions
-storage
-    
-    branch |-> br
-    zero_hashes |-> zeros
-    deposit_count |-> x
-
-returns sha256(hashLoR(br, zeros, deposit_count)
-               ++ to_bytes(x, 64) ++ "0x000000000000000000000000000000000000000000000000")
+returns sha256(hashLoR(branch, zero_hashes, deposit_count)
+               ++ to_bytes(deposit_count, 64) ++ "0x000000000000000000000000000000000000000000000000")
 
 where
 
