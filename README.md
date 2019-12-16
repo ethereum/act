@@ -20,7 +20,7 @@ It is currently being used as the starting point for this project, requiring few
 
 Infrastructure
 ==============
-The grammar for the specification language is in the `src` repository. This is the front end parsing of the language. Given set of `act` behaviours (transitions), one can generate a set of proof obligations, expressed as a json object:
+The grammar for the specification language is in the `src` repository. This is the front end parsing of the language. Given a set of `act` behaviours (transitions), one can generate a set of proof obligations, expressed as a JSON object:
 ```json
 [{"name": "Transfer_case0",
  "contract": "Token",
