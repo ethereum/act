@@ -1,5 +1,5 @@
-Smart Contract Specification Language
-=====================================
+Act
+===
 
 This project is an effort by several groups working on formal methods for Ethereum smart contracts, aiming at creating a simple but effective language to write formal specification.
 
@@ -101,10 +101,10 @@ The grammar for the specification language is in the `src` repository. This is t
 Multiple levels of proofs:
 --------------------------
 
-i) Given "behaviour case", show that poststorage is implemented by the bytecode.
-ii) Given behaviour, prove that the postcondition holds.
-iii) Given postconditions, show contract invariant property
-iiii) Given (transition system = "CONTRACT"), show that arbitrary property holds
+1. Given "behaviour case", show that poststorage is implemented by the bytecode.
+2. Given behaviour, prove that the postcondition holds.
+3. Given postconditions, show contract invariant property
+4. Given (transition system = "CONTRACT"), show that arbitrary property holds
 
 Developing:
 -----------
