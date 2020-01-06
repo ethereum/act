@@ -10,21 +10,23 @@ Main. Act ::= [Behaviour] ;
 Transition. Behaviour ::= "behaviour" Ident "of" Ident
                           "interface" Ident "(" [Decl] ")"
                           [IffH]
-                          Post ;
+                          PostCond ;
 
+CaseSplit. PostCond ::= [CaseExpr] ;
+Direct. PostCond    ::= Post ; 
+Case. CaseExpr ::= "case" BExp ":" PostCond ;
 Storage. Post ::= "storage" StorageH ;
 ReturnH.  Post ::= "returns" Exp ;
 StorageReturn. Post ::= "storage" StorageH
                         "returns" IExp ;
 
-Iff.   IffH ::= "iff" [BExp] ;
-IffIn. IffH ::= "iff in range" Type "\n" [IExp] ;
-
 --Storage headers and return headers may branch into cases:
 Leaf. StorageH ::= [Update] ;
-NoopLeaf. StorageH ::= "noop" ; 
-Case. CaseExpr ::= "case" BExp ":" StorageH ;
-Branch. StorageH ::= [CaseExpr] ;
+NoopLeaf. StorageH ::= "noop" ;
+
+
+Iff.   IffH ::= "iff" [BExp] ;
+IffIn. IffH ::= "iff in range" Type "\n" [IExp] ;
 
 -- New, concise syntax
 Change. Update ::= Entry "=>" IExp ;
@@ -105,7 +107,7 @@ separator Decl "," ;
 separator Exp "," ;
 separator IffH "" ;
 separator nonempty Behaviour "" ;
-separator CaseExpr "" ;
+separator nonempty CaseExpr "" ;
 separator nonempty TDecl "" ;
 separator nonempty FuncDef "" ;
 separator Lookup "" ;
