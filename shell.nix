@@ -1,5 +1,12 @@
-with import <nixpkgs> {}; with haskellPackages;
-stdenv.mkDerivation {
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.mkShell {
   name = "act";
-  buildInputs = [ BNFC alex happy ];
+  buildInputs = (with pkgs; [
+    coq_8_9
+  ]) ++ (with pkgs.haskellPackages; [
+    alex
+    BNFC
+    happy
+  ]);
 }
