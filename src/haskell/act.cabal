@@ -17,10 +17,10 @@ build-type:          Simple
 extra-source-files:  CHANGELOG.md
 
 executable act
-  main-is:             Main.hs
+  main-is:             Splitter.hs
   -- other-modules:
   -- other-extensions:
-  build-depends:       base >=4.9 && <5,
-                       hevm >= 0.22,
+  build-depends:       base   >=4.9 && <5,
+                       aeson  >= 1.0,
   -- hs-source-dirs:
   default-language:    Haskell2010

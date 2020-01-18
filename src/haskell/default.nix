@@ -1,2 +1,11 @@
-{ nixpkgs ? import <nixpkgs> {}, compiler ? "ghc865" }:
-nixpkgs.pkgs.haskell.packages.${compiler}.callPackage ./act.nix { }
+{ mkDerivation, aeson, base, stdenv }:
+mkDerivation {
+  pname = "act";
+  version = "0.1.0.0";
+  src = ./.;
+  isLibrary = false;
+  isExecutable = true;
+  executableHaskellDepends = [ aeson base ];
+  license = "unknown";
+  hydraPlatforms = stdenv.lib.platforms.none;
+}
