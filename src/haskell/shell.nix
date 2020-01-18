@@ -1,2 +1,8 @@
-{ nixpkgs ? import <nixpkgs> {}, compiler ? "ghc865" }:
-(import ./default.nix { inherit nixpkgs compiler; }).env
+with import <nixpkgs> {};
+let
+drv = haskell.lib.addBuildTool (
+    haskellPackages.callPackage (import ./default.nix) {}
+  ) [cabal-install cabal2nix];
+
+in
+  drv
