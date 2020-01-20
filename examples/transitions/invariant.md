@@ -37,7 +37,7 @@ case _:
 
 ensures
 
-	pre(x) = 0 => post(x) = 1
+	x != 0
 
 
 behavior g of A
@@ -51,7 +51,7 @@ case _:
 
 ensures
 
-	pre(x) = 1 => post(x) = 2
+	x != 1
 
 
 behavior h of A
@@ -65,5 +65,5 @@ case _:
 
 ensures
 
-	pre(x) = 2 => post(x) = 0
+	x != 2
 ```
