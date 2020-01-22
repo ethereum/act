@@ -1,0 +1,5 @@
+behaviour f of A
+interface f()
+
+storage
+  noop
