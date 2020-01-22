@@ -1,0 +1,24 @@
+behaviour remote of B
+interface set_remote(uint y)
+
+iff
+   CALLVALUE == 0
+
+// we can specify how a call to a function of B
+// updates the storage of anothere by labelling the storage header
+// by the address of that contract
+storage a
+   x => y
+
+behaviour multi of B
+interface set_remote(uint y)
+
+iff
+   CALLVALUE == 0
+
+// or specify changes over multiple contracts at once
+storage
+   y => 1
+
+storage a
+   x => y

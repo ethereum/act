@@ -15,10 +15,16 @@ Transition. Behaviour ::= "behaviour" Ident "of" Ident
 CaseSplit. PostCond ::= [CaseExpr] ;
 Direct. PostCond    ::= Post ; 
 Case. CaseExpr ::= "case" BExp ":" PostCond ;
-Storage. Post ::= "storage" StorageH ;
+StorageH. Post ::= [Storage] ;
 ReturnH.  Post ::= "returns" Exp ;
-StorageReturn. Post ::= "storage" StorageH
+StorageReturn. Post ::= [Storage]
                         "returns" IExp ;
+
+--storage headers of this contract
+ThisStorage. Storage ::= "storage" StorageH ;
+
+--external storage headers
+ExtStorage. Storage ::= "storage" Ident StorageH ;
 
 --Storage headers and return headers may branch into cases:
 Leaf. StorageH ::= [Update] ;
@@ -106,6 +112,7 @@ separator Ident "," ;
 separator Decl "," ;
 separator Exp "," ;
 separator IffH "" ;
+separator Storage "" ;
 separator nonempty Behaviour "" ;
 separator nonempty CaseExpr "" ;
 separator nonempty TDecl "" ;
