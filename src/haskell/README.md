@@ -1,7 +1,7 @@
 First, build the haskell parser by executing
 
 ```sh
-nix-shell --command 'bnfc -m --haskell src/act.cf -o src/haskell' --pure    
+nix-shell --command 'make build-hs' --pure    
 ```
 in the main directory.
 

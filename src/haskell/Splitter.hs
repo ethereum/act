@@ -15,19 +15,17 @@ import LexAct
 import ParAct
 import ErrM
 
-type StorageLayout = [TDecl]
-
 data Obligation = Obligation
   { _name      :: String,
     _contract  :: String,
     _StatusCode :: String,
-    _methodName :: String,
-    _inputArgs  :: [(String, String)]
+    _methodName :: String
+--    _inputArgs  :: [(String, String)]
 --    _return     :: Exp
 --    _env        :: [(String, Ident)],
 -- --    _variables :: [(Ident, Type)],
 --     _preStore  :: [(Entry, Exp)],
---     _postStore :: [(Entry, Exp)],
+--     _postStore :: [(Entry, Exp)],-
 --     _preCondition :: [BExp],
 --     _postCondition :: [BExp]
   } deriving (Show)
@@ -38,7 +36,7 @@ instance ToJSON Obligation where
            , "contract"  .= _contract
            , "statusCode"  .= _StatusCode
            , "methodName"  .= _methodName
-           , "inputArgs"   .= array _inputArgs
+--           , "inputArgs"   .= array _inputArgs
 --           , "return"  .= show _return
            -- , "calldata"  .= show _calldata
            -- , "preStore"  .= show _preStore
@@ -55,8 +53,8 @@ split (Transition (Ident name) (Ident contract) (Ident methodName) args [] claim
       {_name     = name,
        _contract = contract,
        _StatusCode = "EVMC_SUCCESS",
-       _methodName = methodName,
-       _inputArgs = fmap (\(Dec ty (Ident id)) -> (show ty, show id)) args
+       _methodName = methodName
+--       _inputArgs = fmap (\(Dec ty (Ident id)) -> (show ty, show id)) args
 --       _return     = ""
 --       _return     = returnExp,
 --       _env        = defaultEnv,
@@ -101,7 +99,3 @@ main = do
 
 defaultEnv :: [(String, Ident)]
 defaultEnv = [("CALLER", Ident "CALLER_VAR")]
-
-toTDecl :: Decl -> TDecl
-toTDecl (Dec ty var) = TDec var ty
-
