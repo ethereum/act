@@ -8,6 +8,7 @@ import GHC.Generics
 import System.Environment ( getArgs )
 import System.Exit ( exitFailure )
 import Data.Text          (Text, pack, unpack)
+import Data.Vector (fromList)
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import AbsAct
@@ -19,14 +20,14 @@ data Obligation = Obligation
   { _name      :: String,
     _contract  :: String,
     _StatusCode :: String,
-    _methodName :: String
---    _inputArgs  :: [(String, String)]
---    _return     :: Exp
+    _methodName :: String,
+    _inputArgs  :: [Decl],
+    _return     :: Exp,
+    _preConditions :: [BExp]
 --    _env        :: [(String, Ident)],
 -- --    _variables :: [(Ident, Type)],
 --     _preStore  :: [(Entry, Exp)],
 --     _postStore :: [(Entry, Exp)],-
---     _preCondition :: [BExp],
 --     _postCondition :: [BExp]
   } deriving (Show)
 
@@ -36,37 +37,40 @@ instance ToJSON Obligation where
            , "contract"  .= _contract
            , "statusCode"  .= _StatusCode
            , "methodName"  .= _methodName
---           , "inputArgs"   .= array _inputArgs
---           , "return"  .= show _return
+           , "inputArgs"   .= (Array $ fromList (map
+                                                (\(Dec abiType (Ident name)) ->
+                                                  object [ pack name .= ppSolType abiType ])
+                                                 _inputArgs))
+           , "return"  .= kPrintBytes _return
+           , "preConditions"  .= (Array $ fromList (fmap (String . pack . kPrintBool) _preConditions))
            -- , "calldata"  .= show _calldata
            -- , "preStore"  .= show _preStore
            -- , "postStore"  .= show _postStore
-           -- , "preCondition"  .= show _preCondition
            -- , "postCondition"  .= show _postCondition
            ]
 
 
 split :: Behaviour -> [Obligation]
-split (Transition (Ident name) (Ident contract) (Ident methodName) args [] claim) =
+split (Transition (Ident name) (Ident contract) (Ident methodName) args iffs claim) =
   case claim of
-    Direct post -> [Obligation
+    Direct (ReturnP returnExpr)  ->
+      --success case:
+      [Obligation
       {_name     = name,
        _contract = contract,
        _StatusCode = "EVMC_SUCCESS",
-       _methodName = methodName
---       _inputArgs = fmap (\(Dec ty (Ident id)) -> (show ty, show id)) args
---       _return     = ""
---       _return     = returnExp,
+       _methodName = methodName,
+       _inputArgs  = args,
+       _return     = returnExpr,
+       _preConditions  = concat $ fmap iffHToBool iffs
 --       _env        = defaultEnv,
 --       _calldata   = methodName args,
        -- _variables  = [], --hmmm
        -- _preStore   = [],
        -- _postStore  = [],
-       -- _preCondition  = [],
        -- _postCondition = []
       }]
     CaseSplit _ -> error "TODO"
-split _ = error "The impossible has occurred"
 
 usage :: IO ()
 usage = do
@@ -81,7 +85,7 @@ type ParseFun a = [Token] -> Err a
 
 run :: ParseFun Act -> String -> IO (Act)
 run p s = let ts = myLexer s in case p ts of
-           Bad s    -> error "could not parse"
+           Bad s    -> error "could not parse" -- TODO: how to get more information
            Ok  (Main b) -> return (Main b)
 
 runFile :: ParseFun Act -> FilePath -> IO (Act)
@@ -99,3 +103,43 @@ main = do
 
 defaultEnv :: [(String, Ident)]
 defaultEnv = [("CALLER", Ident "CALLER_VAR")]
+
+
+ppSolType :: Type -> String
+ppSolType Type_uint = "uint256"
+ppSolType Type_int = "int256"
+ppSolType Type_uint256 = "uint256"
+ppSolType Type_int256 = "int256"
+ppSolType Type_int126 = "int126"
+ppSolType Type_uint126 = "uint126"
+ppSolType Type_int8 = "int8"
+ppSolType Type_uint8 = "uint8"
+ppSolType Type_address = "address"
+ppSolType Type_bytes32 = "bytes32"
+ppSolType Type_bytes4 = "bytes4"
+ppSolType Type_bool = "bool"
+
+min :: Type -> IExp
+min Type_uint = EInt 0
+min _ = error "todo: min"
+
+max :: Type -> IExp
+max Type_uint = EInt 115792089237316195423570985008687907853269984665640564039
+max _ = error "todo: max"
+-- K specific printing
+--Prints an act expression as a K ByteArray
+kPrintBytes :: Exp -> String
+kPrintBytes _ = "TODO: krpintBytes" --todo
+
+kPrintInt :: IExp -> String
+kPrintInt _ = "TODO: kprintInt"
+
+iffHToBool :: IffH -> [BExp]
+iffHToBool (Iff bexps) = bexps
+iffHToBool (IffIn abitype exprs) =
+  fmap
+    (\exp -> BAnd (BGEQ (Main.min abitype) exp) (BGEQ exp (Main.max abitype)))
+    exprs
+
+kPrintBool :: BExp -> String
+kPrintBool _ = "TODO: kPrintBool"

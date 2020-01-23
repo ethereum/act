@@ -15,9 +15,9 @@ Transition. Behaviour ::= "behaviour" Ident "of" Ident
 CaseSplit. PostCond ::= [CaseExpr] ;
 Direct. PostCond    ::= Post ; 
 Case. CaseExpr ::= "case" BExp ":" PostCond ;
-StorageH. Post ::= [Storage] ;
-ReturnH.  Post ::= "returns" Exp ;
-StorageReturn. Post ::= [Storage]
+StorageP. Post ::= [Storage] ;
+ReturnP.  Post ::= "returns" Exp ;
+StorageReturnP. Post ::= [Storage]
                         "returns" IExp ;
 
 --storage headers of this contract
@@ -100,15 +100,15 @@ Dec. Decl ::= Type Ident ;
 
 Fun. FuncDef ::= Ident "(" [Ident] ")" "=" Exp ;
 
-rules Type ::= "uint"    | "int"
-             | "bytes" Length
-             | "bytes"
+--more todo obv
+rules Type ::= "uint"    | "int" 
              | "uint256" | "int256"
              | "uint126" | "int126"
              | "uint8"   | "int8"
              | "address"
              | "bytes32" | "bytes4"
              | "bool" ;
+ArrayType. Type ::= Type Length ;
 
 Contr. Type ::= Ident ;
 
