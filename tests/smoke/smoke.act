@@ -1,5 +1,5 @@
 behaviour f of A
-interface f()
+interface f(uint x)
 
 storage
   noop
