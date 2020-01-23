@@ -4,10 +4,6 @@ interface set_remote(uint _x)
 iff
    CALLVALUE == 0
 
-storage
-
-  y => 1
-
 // we can specify how a call to a function of B
 // updates the storage of A by labelling the storage header
 storage a
@@ -23,7 +19,7 @@ storage
    // newAddr should be a builtin function
    a => newAddr(ADDRESS, NONCE)
 
-// storage labels can also introduce new contracts
+   // storage labels can also introduce new contracts
 creates storage newAddr(ADDRESS, NONCE)
-   x := 1
+   uint x := 1
 
