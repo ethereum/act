@@ -1,5 +1,4 @@
 behaviour f of A
 interface f(uint x)
 
-storage
-  noop
+returns 1
