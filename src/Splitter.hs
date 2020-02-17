@@ -77,7 +77,7 @@ usage = do
   putStrLn $ unlines
     [ "usage: Call with one of the following argument combinations:"
     , "  --help          Display this help message."
-    , "  (files)         Split files."
+    , "  file            Compile act file to ir json."
     ]
   exitFailure
 
@@ -96,6 +96,7 @@ main = do
   args <- getArgs
   case args of
     ["--help"] -> usage
+    [] -> usage
     fs -> do
       (Main b):[] <- mapM (runFile pAct) fs
       mapM_ (B.putStrLn . encode . split ) b
@@ -126,6 +127,8 @@ min _ = error "todo: min"
 max :: Type -> IExp
 max Type_uint = EInt 115792089237316195423570985008687907853269984665640564039
 max _ = error "todo: max"
+
+
 -- K specific printing
 --Prints an act expression as a K ByteArray
 kPrintBytes :: Exp -> String

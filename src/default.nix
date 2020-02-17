@@ -1,5 +1,5 @@
-{ mkDerivation, aeson, array, base, bytestring, stdenv, text
-, vector
+{ mkDerivation, aeson, alex, array, base, bytestring, happy, stdenv
+, text, vector
 }:
 mkDerivation {
   pname = "act";
@@ -10,6 +10,7 @@ mkDerivation {
   executableHaskellDepends = [
     aeson array base bytestring text vector
   ];
+  executableToolDepends = [ alex happy ];
   license = "unknown";
   hydraPlatforms = stdenv.lib.platforms.none;
 }
