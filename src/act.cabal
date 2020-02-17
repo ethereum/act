@@ -12,8 +12,7 @@ author:              Martin Lundfall
 maintainer:          martin.lundfall@protonmail.com
 -- copyright:
 -- category:
-build-type:          Simple
-extra-source-files:  CHANGELOG.md
+extra-source-files:  src/act.cf CHANGELOG.md
 
 executable act
   main-is:             Splitter.hs

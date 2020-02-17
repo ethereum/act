@@ -106,11 +106,32 @@ Multiple levels of proofs:
 3. Given postconditions, show contract invariant property
 4. Given (transition system = "CONTRACT"), show that arbitrary property holds
 
+Building:
+---------
+With nix:
+
+```sh
+nix-build
+```
+
+without nix:
+
+Install BNFC and cabal, then
+```sh
+make
+```
+
+
 Developing:
 -----------
 
-The front-end parser is built using `bnfc`. For a reliable building experience, use `nix`:
+Enter a nix-shell to get the dependencies of the project:
 ```sh
-nix-shell shell.nix
-make test-parse
+nix-shell
 ```
+
+If you need to modify the cabal file, run
+```sh
+cabal2nix src/act.cabal > src/default.nix
+```
+and then modify default.nix to have BNFC as a dependency and `preBuild = "make parser"`.
