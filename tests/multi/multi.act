@@ -5,7 +5,7 @@ iff
    CALLVALUE == 0
 
 // we can specify how a call to a function of B
-// updates the storage of anothere by labelling the storage header
+// updates the storage of another by labelling the storage header
 // by the address of that contract
 storage a
    x => y
