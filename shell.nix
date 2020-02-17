@@ -1,10 +1,7 @@
 with import <nixpkgs> {}; with haskellPackages;
-stdenv.mkDerivation {
-  name = "act";
-  buildInputs = [
-    BNFC
-    alex
-    happy
-    ghc
-  ];
-}
+let
+  drv = haskell.lib.addBuildTool (
+    haskellPackages.callPackage (import src/default.nix) {}
+  ) [cabal-install cabal2nix BNFC alex happy ghc];
+in
+  drv
