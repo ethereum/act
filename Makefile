@@ -1,16 +1,15 @@
 .DEFAULT_GOAL := compiler
 .PHONY: parser compiler
 
-parser: parser.timestamp
+parser: src/parser.timestamp
 
 # generates the haskell files that do parsing (compiler compiler)
-parser.timestamp: src/act.cf
-	mkdir src/parser && bnfc -m --haskell src/act.cf -o src/parser
-	touch parser.timestamp
+src/parser.timestamp: src/act.cf
+	cd src && make parser && cd ..
 
 # builds the rest of the haskell files (compiler)
 compiler: parser
-	cd src && cabal v2-build --config-file=$OUT --builddir=$OUT && cd ..
+	cd src && cabal v2-build && cd ..
 
 test_specs=$(wildcard tests/*/*.act)
 
