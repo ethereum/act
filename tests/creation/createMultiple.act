@@ -1,0 +1,13 @@
+behaviour create_a of B
+interface create_a()
+
+iff
+   CALLVALUE == 0
+
+storage
+   a => newAddr(ADDRESS, NONCE)
+
+// storage labels can also introduce new contracts
+creates A at newAddr(ADDRESS, NONCE)
+   uint x := 1
+

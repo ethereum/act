@@ -1,0 +1,25 @@
+behaviour remote of B
+interface set_remote(uint _x)
+
+iff
+   CALLVALUE == 0
+
+// we can specify how a call to a function of B
+// updates the storage of A by labelling the storage header
+storage a
+   x => _x
+
+behaviour create_a of B
+interface create_a()
+
+iff
+   CALLVALUE == 0
+
+storage
+   // newAddr should be a builtin function
+   a => newAddr(ADDRESS, NONCE)
+
+   // storage labels can also introduce new contracts
+creates B at newAddr(ADDRESS, NONCE)
+   uint x := 1
+

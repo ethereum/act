@@ -10,21 +10,33 @@ Main. Act ::= [Behaviour] ;
 Transition. Behaviour ::= "behaviour" Ident "of" Ident
                           "interface" Ident "(" [Decl] ")"
                           [IffH]
-                          Post ;
+                          PostCond ;
 
-Storage. Post ::= "storage" StorageH ;
+CaseSplit. PostCond ::= [CaseExpr] ;
+Direct. PostCond    ::= Post ; 
+Case. CaseExpr ::= "case" BExp ":" PostCond ;
+StorageH. Post ::= [Storage] ;
 ReturnH.  Post ::= "returns" Exp ;
-StorageReturn. Post ::= "storage" StorageH
+StorageReturn. Post ::= [Storage]
                         "returns" IExp ;
 
-Iff.   IffH ::= "iff" [BExp] ;
-IffIn. IffH ::= "iff in range" Type "\n" [IExp] ;
+--storage headers of this contract
+ThisStorage. Storage ::= "storage" StorageH ;
+CreatesThis. Storage ::= "creates" Ident [Assign] ;
+
+--external storage headers
+ExtStorage. Storage ::= "storage" IExp StorageH ;
+CreatesExt. Storage ::= "creates" Ident "at" IExp [Assign] ;
 
 --Storage headers and return headers may branch into cases:
 Leaf. StorageH ::= [Update] ;
-NoopLeaf. StorageH ::= "noop" ; 
-Case. CaseExpr ::= "case" BExp ":" StorageH ;
-Branch. StorageH ::= [CaseExpr] ;
+NoopLeaf. StorageH ::= "noop" ;
+
+--assignments types storage variables
+Assignm. Assign ::= Type Ident ":=" Exp ;
+
+Iff.   IffH ::= "iff" [BExp] ;
+IffIn. IffH ::= "iff in range" Type "\n" [IExp] ;
 
 -- New, concise syntax
 Change. Update ::= Entry "=>" IExp ;
@@ -59,6 +71,7 @@ BFunc. BExp  ::= Ident "(" [Exp] ")" ;
 --Integer expressions
 EAdd. IExp  ::= IExp  "+" IExp1 ;
 ESub. IExp  ::= IExp  "-" IExp1 ;
+Addr. IExp  ::= "newAddr" "(" IExp "," IExp ")" ;
 _.    IExp  ::= "(" IExp ")" ;
 ITE.  IExp  ::= "if" BExp "then" IExp "else" IExp ;
 EMul. IExp1 ::= IExp1 "*" IExp2 ;
@@ -84,7 +97,6 @@ coercions IExp 2 ;
 coercions BYExp 3 ;
 
 Dec. Decl ::= Type Ident ;
-TDec. TDecl ::= Ident ":" Type ;
 
 Fun. FuncDef ::= Ident "(" [Ident] ")" "=" Exp ;
 
@@ -98,15 +110,18 @@ rules Type ::= "uint"    | "int"
              | "bytes32" | "bytes4"
              | "bool" ;
 
+Contr. Type ::= Ident ;
+
 Index. Length ::= "[" Integer "]" ;
 
 separator Ident "," ;
 separator Decl "," ;
 separator Exp "," ;
 separator IffH "" ;
+separator Storage "" ;
+separator Assign "" ;
 separator nonempty Behaviour "" ;
-separator CaseExpr "" ;
-separator nonempty TDecl "" ;
+separator nonempty CaseExpr "" ;
 separator nonempty FuncDef "" ;
 separator Lookup "" ;
 separator nonempty BExp "" ;

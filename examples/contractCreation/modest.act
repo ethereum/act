@@ -1,0 +1,18 @@
+// A modest example specifying the creation of a new contract,
+// in this case the contract subject at question.
+// Specifying the creation of a contract serves multiple purposes:
+// from a formal semantics perspective, it defines the base case
+// for the inductive system that is a smart contract. From a syntactic
+// perspective, it defines the storage layout of the contract, by explicit
+// typing of storage variables.
+
+behaviour creation of Modest
+interface constructor()
+
+creates Modest
+    // storage variables must be given an explicit initial value
+    // if they are not assigned a value in the constructor code,
+    // this is 0. TODO (is this annoying?)
+    uint x := 1
+    address y := CALLER
+
