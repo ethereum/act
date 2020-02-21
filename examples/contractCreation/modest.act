@@ -9,7 +9,7 @@
 behaviour creation of Modest
 interface constructor()
 
-creates storage
+creates Modest
     // storage variables must be given an explicit initial value
     // if they are not assigned a value in the constructor code,
     // this is 0. TODO (is this annoying?)

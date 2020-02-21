@@ -22,11 +22,11 @@ StorageReturn. Post ::= [Storage]
 
 --storage headers of this contract
 ThisStorage. Storage ::= "storage" StorageH ;
-CreatesThis. Storage ::= "creates" "storage" [Assign] ;
+CreatesThis. Storage ::= "creates" Ident [Assign] ;
 
 --external storage headers
-ExtStorage. Storage ::= "storage" Ident StorageH ;
-CreatesExt. Storage ::= "creates" "storage" Ident [Assign] ;
+ExtStorage. Storage ::= "storage" IExp StorageH ;
+CreatesExt. Storage ::= "creates" Ident "at" IExp [Assign] ;
 
 --Storage headers and return headers may branch into cases:
 Leaf. StorageH ::= [Update] ;
@@ -71,6 +71,7 @@ BFunc. BExp  ::= Ident "(" [Exp] ")" ;
 --Integer expressions
 EAdd. IExp  ::= IExp  "+" IExp1 ;
 ESub. IExp  ::= IExp  "-" IExp1 ;
+Addr. IExp  ::= "newAddr" "(" IExp "," IExp ")" ;
 _.    IExp  ::= "(" IExp ")" ;
 ITE.  IExp  ::= "if" BExp "then" IExp "else" IExp ;
 EMul. IExp1 ::= IExp1 "*" IExp2 ;
@@ -108,6 +109,8 @@ rules Type ::= "uint"    | "int"
              | "address"
              | "bytes32" | "bytes4"
              | "bool" ;
+
+Contr. Type ::= Ident ;
 
 Index. Length ::= "[" Integer "]" ;
 

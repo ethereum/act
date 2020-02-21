@@ -20,6 +20,6 @@ storage
    a => newAddr(ADDRESS, NONCE)
 
    // storage labels can also introduce new contracts
-creates storage newAddr(ADDRESS, NONCE)
+creates B at newAddr(ADDRESS, NONCE)
    uint x := 1
 

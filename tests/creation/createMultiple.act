@@ -5,11 +5,9 @@ iff
    CALLVALUE == 0
 
 storage
-// newAddr should be a builtin, but let's just a free variable
-// c for now
-   a => c
+   a => newAddr(ADDRESS, NONCE)
 
 // storage labels can also introduce new contracts
-creates storage c
+creates A at newAddr(ADDRESS, NONCE)
    uint x := 1
 
