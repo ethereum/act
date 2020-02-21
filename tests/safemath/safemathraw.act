@@ -3,10 +3,10 @@ interface add(uint256 x, uint256 y)
 
 iff in range uint256
 
-    X + Y
+    x + y
 
 iff
 
     CALLVALUE == 0
 
-returns X + Y
+returns x + y

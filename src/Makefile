@@ -1,3 +1,5 @@
+.PHONY: parser
+
 parser: parser.timestamp
 
 # generates the haskell files that do parsing (compiler compiler)

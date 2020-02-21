@@ -68,6 +68,7 @@ BFalse. BExp ::= "false" ;
 BWildcard. BExp ::= "_";
 BFunc. BExp  ::= Ident "(" [Exp] ")" ;
 
+
 --Integer expressions
 EAdd. IExp  ::= IExp  "+" IExp1 ;
 ESub. IExp  ::= IExp  "-" IExp1 ;
@@ -81,17 +82,18 @@ EExp. IExp1 ::= IExp1 "^" IExp2 ;
 Wild. IExp2 ::= "_" ;
 EVar. IExp2 ::= Ident ;
 EInt. IExp2 ::= Integer ;
-StorageVar. IExp2 ::= Entry ;
 IFunc. IExp  ::= Ident "(" [Exp] ")" ;
 
 --Bytes expressions
 BYAdd.  BYExp  ::= BYExp "++" BYExp ;
 BYFunc. BYExp  ::= Ident "(" [Exp] ")" ;
-BYHash. BYExp  ::= "keccak256" "(" Exp ")";
 BYLit.  BYExp2  ::= String ;
 BYVar.  BYExp2  ::= Ident ;
-Paren.  BYExp3  ::= "(" BYExp ")" ;
+_.  BYExp3  ::= "(" BYExp ")" ;
 Slice.  BYExp  ::= BYExp "[" Integer ".." Integer "]" ;
+--built in functions
+BYHash. BYExp  ::= "keccak256" "(" Exp ")";
+BYAbiE. BYExp  ::= "abiEncode" "(" Exp ")";
 
 coercions IExp 2 ;
 coercions BYExp 3 ;
@@ -105,10 +107,11 @@ rules Type ::= "uint"    | "int"
              | "uint256" | "int256"
              | "uint126" | "int126"
              | "uint8"   | "int8"
-             | "address"
+             | "address" | "bytes"
              | "bytes32" | "bytes4"
              | "bool" ;
 ArrayType. Type ::= Type Length ;
+TupleType. Type ::= "(" [Type] ")" ;
 
 Contr. Type ::= Ident ;
 
@@ -120,6 +123,7 @@ separator Exp "," ;
 separator IffH "" ;
 separator Storage "" ;
 separator Assign "" ;
+separator Type "," ;
 separator nonempty Behaviour "" ;
 separator nonempty CaseExpr "" ;
 separator nonempty FuncDef "" ;
