@@ -8,16 +8,23 @@ src/parser.timestamp: src/act.cf
 	cd src && make parser && cd ..
 
 # builds the rest of the haskell files (compiler)
-compiler: parser
-	cd src && cabal v2-build && cd ..
+bin/act: parser src/Splitter.hs
+	cd src && cabal v2-install --installdir=../bin --overwrite-policy=always && cd ..
+	touch bin/act
+  #cd src && cabal v2-install --installdir=../bin --overwrite-policy=always && cd ..
+
+repl:
+	cd src && cabal v2-repl
+
+compiler: bin/act
 
 test_specs=$(wildcard tests/*/*.act)
 
-test-parser: parser $(test_specs:=.parse)
+test-parse: parser compiler $(test_specs:=.parse)
 
 # Just checks parsing
 tests/%.parse:
-	./src/haskell/TestAct tests/$*
+	./bin/act parse --file tests/$*
 
 test-compiler: compiler $(test_specs:=.compile)
 

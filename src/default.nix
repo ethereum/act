@@ -1,5 +1,5 @@
 { mkDerivation, aeson, alex, array, base, BNFC, bytestring, happy
-, stdenv, text, vector
+, optparse-generic , stdenv, text, vector
 }:
 mkDerivation {
   pname = "act";
@@ -8,7 +8,7 @@ mkDerivation {
   isLibrary = false;
   isExecutable = true;
   executableHaskellDepends = [
-    aeson array base bytestring text vector
+    aeson array base bytestring optparse-generic text vector
   ];
   preBuild = "make parser";
   executableToolDepends = [ alex BNFC happy ];
