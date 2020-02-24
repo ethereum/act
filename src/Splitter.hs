@@ -1,7 +1,11 @@
 {-# LANGUAGE DeriveGeneric  #-}
+{-# Language DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# Language TypeOperators #-}
 import Data.List
 import Data.Aeson hiding (Bool)
 import Data.Aeson.Types hiding (Bool)
@@ -16,7 +20,35 @@ import AbsAct
 import LexAct
 import ParAct
 import ErrM
+import Options.Generic
+--command line options
+data Command w
+  = Parse { file  :: w ::: String <?> "Path to file to parse"}
+  | Compile { file :: w ::: String <?> "Path to file to parse"
+            , k    :: w ::: Bool <?> "output k files"
+            , ir   :: w ::: Bool <?> "output intermediate representation"
+            , coq  :: w ::: Bool <?> "output coq files"
+            , out  :: w ::: Maybe String <?> "output path"
+            }
+    deriving (Generic)
 
+instance ParseRecord (Command Wrapped)
+deriving instance Show (Command Unwrapped)
+
+main :: IO ()
+main = do
+    cmd <- unwrapRecord "Act -- Smart contract specifier"
+    case cmd of
+      (Parse f) -> do contents <- readFile f
+                      case pAct $ myLexer contents of
+                        (Ok _) -> print "success"
+                        (Bad s) -> error s
+      (Compile f _ _ _ out) -> case (ir cmd) of
+        True -> do contents <- readFile f
+                   case pAct $ myLexer contents of
+                     (Ok (Main behaviours)) -> mapM_ (B.putStrLn . encode . split) behaviours
+                     (Bad errormsg)         -> error errormsg
+        False -> error "TODO"
 
 --Intermediate format
 data Obligation = Obligation
@@ -80,6 +112,9 @@ getExpType (Int _) = Type_uint
 getExpType (Bool _) = Type_bool
 getExpType (Bytes _) = Type_bytes
 
+
+defaultEnv :: [(String, Ident)]
+defaultEnv = [("CALLER", Ident "CALLER_VAR")]
 class Pretty a where
   pprint :: a -> String
 
@@ -135,38 +170,6 @@ instance Pretty BYExp where
   pprint (BYHash x) = "keccak256" <> pprint x
   pprint (BYAbiE x) = "abiEncode" <> pprint x
 
-usage :: IO ()
-usage = do
-  putStrLn $ unlines
-    [ "usage: Call with one of the following argument combinations:"
-    , "  --help          Display this help message."
-    , "  file            Compile act file to ir json."
-    ]
-  exitFailure
-
-type ParseFun a = [Token] -> Err a
-
-run :: ParseFun Act -> String -> IO (Act)
-run p s = let ts = myLexer s in case p ts of
-           Bad s    -> error "could not parse" -- TODO: how to get more information
-           Ok  (Main b) -> return (Main b)
-
-runFile :: ParseFun Act -> FilePath -> IO (Act)
-runFile p f = readFile f >>= run p
-
-main :: IO ()
-main = do
-  args <- getArgs
-  case args of
-    ["--help"] -> usage
-    [] -> usage
-    fs -> do
-      (Main b):[] <- mapM (runFile pAct) fs
-      mapM_ (B.putStrLn . encode . split ) b
-    
-
-defaultEnv :: [(String, Ident)]
-defaultEnv = [("CALLER", Ident "CALLER_VAR")]
 
 instance Pretty Type where
   pprint Type_uint = "uint256"

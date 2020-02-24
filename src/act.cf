@@ -12,6 +12,7 @@ Transition. Behaviour ::= "behaviour" Ident "of" Ident
                           [IffH]
                           PostCond ;
 
+
 CaseSplit. PostCond ::= [CaseExpr] ;
 Direct. PostCond    ::= Post ; 
 Case. CaseExpr ::= "case" BExp ":" PostCond ;
@@ -24,6 +25,7 @@ StorageReturnP. Post ::= [Storage]
 ThisStorage. Storage ::= "storage" StorageH ;
 CreatesThis. Storage ::= "creates" Ident [Assign] ;
 
+
 --external storage headers
 ExtStorage. Storage ::= "storage" IExp StorageH ;
 CreatesExt. Storage ::= "creates" Ident "at" IExp [Assign] ;
@@ -31,6 +33,7 @@ CreatesExt. Storage ::= "creates" Ident "at" IExp [Assign] ;
 --Storage headers and return headers may branch into cases:
 Leaf. StorageH ::= [Update] ;
 NoopLeaf. StorageH ::= "noop" ;
+
 
 --assignments types storage variables
 Assignm. Assign ::= Type Ident ":=" Exp ;
@@ -80,7 +83,7 @@ EDiv. IExp1 ::= IExp1 "/" IExp2 ;
 EMod. IExp1 ::= IExp1 "%" IExp2 ;
 EExp. IExp1 ::= IExp1 "^" IExp2 ;
 Wild. IExp2 ::= "_" ;
-EVar. IExp2 ::= Ident ;
+EVar. IExp2 ::= Entry ;
 EInt. IExp2 ::= Integer ;
 IFunc. IExp  ::= Ident "(" [Exp] ")" ;
 
