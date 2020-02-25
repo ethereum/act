@@ -1,3 +1,15 @@
+behaviour init of Token
+interface constructor(string _symbol, string _name, string _version, uint _totalSupply)
+
+creates Token
+    string name         := _name
+    string symbol       := _symbol
+    uint256 totalSupply := _totalSupply
+
+    mapping(address => uint) balanceOf :=  [CALLER := _totalSupply]
+    mapping(address=>mapping(address=>uint)) allowance := []
+
+
 behaviour transfer of Token
 interface transfer(uint256 value, address to)
 

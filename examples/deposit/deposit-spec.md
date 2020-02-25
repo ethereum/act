@@ -29,9 +29,9 @@ where
 
    index_of_first_one(N, M) = if N % 2 == 1 then M else index_of_first_one(N / 2, M + 1)
 
-iff in range uint256
+iff in range uint32
 
-   x + 1
+   depost_count + 1
 ```
 
 ## Get deposit root
