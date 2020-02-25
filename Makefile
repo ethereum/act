@@ -8,8 +8,7 @@ src/parser.timestamp: src/act.cf
 	cd src && make parser && cd ..
 
 # builds the rest of the haskell files (compiler)
-# for some reason make rebuilds every time...
-bin/act: parser src/Splitter.hs
+bin/act: src/parser.timestamp src/Splitter.hs
 	cd src && cabal v2-install --installdir=../bin --overwrite-policy=always && cd ..
 
 repl:
