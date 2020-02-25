@@ -59,8 +59,8 @@ data Obligation = Obligation
     _inputArgs  :: [Decl],
     _return     :: (Exp, Type),
     _preConditions :: [BExp]
---    _env        :: [(String, Ident)],
--- --    _variables :: [(Ident, Type)],
+--    _env        :: [(String, Var)],
+-- --    _variables :: [(Var, Type)],
 --     _preStore  :: [(Entry, Exp)],
 --     _postStore :: [(Entry, Exp)],-
 --     _postCondition :: [BExp]
@@ -72,12 +72,12 @@ instance ToJSON Obligation where
            , "contract"  .= _contract
            , "statusCode"  .= _StatusCode
            , "methodName"  .= _methodName
-           , "inputArgs"   .= (Array $ fromList (map
+           , "inputArgs"   .= (Data.Aeson.Types.Array $ fromList (map
                                                 (\(Dec abiType name) ->
                                                   object [ "name" .= pprint name, "type" .= pprint abiType ])
                                                  _inputArgs))
            , "return"  .= object [ "value" .= pprint (fst _return), "type" .= pprint (snd _return) ]
-           , "preConditions"  .= (Array $ fromList (fmap (String . pack . pprint) _preConditions))
+           , "preConditions"  .= (Data.Aeson.Types.Array $ fromList (fmap (String . pack . pprint) _preConditions))
            -- , "calldata"  .= show _calldata
            -- , "preStore"  .= show _preStore
            -- , "postStore"  .= show _postStore
@@ -86,7 +86,7 @@ instance ToJSON Obligation where
 
 
 split :: Behaviour -> [Obligation]
-split (Transition (Ident name) (Ident contract) (Ident methodName) args iffs claim) =
+split (Transition (Var name) (Var contract) (Var methodName) args iffs claim) =
   case claim of
     Direct (ReturnP returnExpr)  ->
       --success case:
@@ -113,13 +113,13 @@ getExpType (Bool _) = Type_bool
 getExpType (Bytes _) = Type_bytes
 
 
-defaultEnv :: [(String, Ident)]
-defaultEnv = [("CALLER", Ident "CALLER_VAR")]
+defaultEnv :: [(String, Var)]
+defaultEnv = [("CALLER", Var "CALLER_VAR")]
 class Pretty a where
   pprint :: a -> String
 
-instance Pretty Ident where
-  pprint (Ident a) = a
+instance Pretty Var where
+  pprint (Var a) = a
 
 instance Pretty Exp where
   pprint (Int a) = pprint a
@@ -185,6 +185,7 @@ instance Pretty Type where
   pprint Type_bytes32 = "bytes32"
   pprint Type_bytes4 = "bytes4"
   pprint Type_bool = "bool"
+  pprint Type_string = "string"
 
 min :: Type -> IExp
 min Type_uint = EInt 0

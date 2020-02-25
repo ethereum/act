@@ -7,11 +7,13 @@ Main. Act ::= [Behaviour] ;
 --TODO: tx environment variables (CALLER, NUMBER, TIMESTAMP...)
 -- Behaviour either specify a state transition, a return value,
 -- or both
-Transition. Behaviour ::= "behaviour" Ident "of" Ident
-                          "interface" Ident "(" [Decl] ")"
+Transition. Behaviour ::= "behaviour" Var "of" Var
+                          "interface" Var "(" [Decl] ")"
                           [IffH]
                           PostCond ;
 
+-- our variables can start with underscores
+token Var ((letter | '_')(letter | digit | '_')*) ;
 
 CaseSplit. PostCond ::= [CaseExpr] ;
 Direct. PostCond    ::= Post ; 
@@ -23,12 +25,12 @@ StorageReturnP. Post ::= [Storage]
 
 --storage headers of this contract
 ThisStorage. Storage ::= "storage" StorageH ;
-CreatesThis. Storage ::= "creates" Ident [Assign] ;
+CreatesThis. Storage ::= "creates" Var [Assign] ;
 
 
 --external storage headers
 ExtStorage. Storage ::= "storage" IExp StorageH ;
-CreatesExt. Storage ::= "creates" Ident "at" IExp [Assign] ;
+CreatesExt. Storage ::= "creates" Var "at" IExp [Assign] ;
 
 --Storage headers and return headers may branch into cases:
 Leaf. StorageH ::= [Update] ;
@@ -36,7 +38,7 @@ NoopLeaf. StorageH ::= "noop" ;
 
 
 --assignments types storage variables
-Assignm. Assign ::= Type Ident ":=" Exp ;
+Assignm. Assign ::= Type Var ":=" Exp ;
 
 Iff.   IffH ::= "iff" [BExp] ;
 IffIn. IffH ::= "iff in range" Type "\n" [IExp] ;
@@ -44,15 +46,15 @@ IffIn. IffH ::= "iff in range" Type "\n" [IExp] ;
 -- New, concise syntax
 Change. Update ::= Entry "=>" IExp ;
 
-Map.    Entry ::= Ident [Lookup] ; --Empty lookup map is a constant storage var
-Struct. Entry ::= Entry "." Ident ;
-
-Look. Lookup ::= "[" Exp "]" ;
+VarEntry.   Entry ::= Var ;
+ArrayEntry. Entry ::= Entry "[" Exp "]" ;
+Struct.     Entry ::= Entry "." Var ;
 
 --Any expression
 Int.   Exp ::= IExp ;
 Bool.  Exp ::= BExp ;
 Bytes. Exp ::= BYExp ;
+Array. Exp ::= "[" [Defn]"]" ;
 
 --Boolean expressions
 --TODO: precedence
@@ -69,8 +71,10 @@ _.     BExp  ::= "(" BExp ")" ;
 BTrue. BExp  ::= "true" ;
 BFalse. BExp ::= "false" ;
 BWildcard. BExp ::= "_";
-BFunc. BExp  ::= Ident "(" [Exp] ")" ;
+BFunc. BExp  ::= Var "(" [Exp] ")" ;
 
+--Array expressions (list or maps)
+Let. Defn ::= Exp ":=" Exp ;
 
 --Integer expressions
 EAdd. IExp  ::= IExp  "+" IExp1 ;
@@ -85,13 +89,13 @@ EExp. IExp1 ::= IExp1 "^" IExp2 ;
 Wild. IExp2 ::= "_" ;
 EVar. IExp2 ::= Entry ;
 EInt. IExp2 ::= Integer ;
-IFunc. IExp  ::= Ident "(" [Exp] ")" ;
+IFunc. IExp  ::= Var "(" [Exp] ")" ;
 
 --Bytes expressions
 BYAdd.  BYExp  ::= BYExp "++" BYExp ;
-BYFunc. BYExp  ::= Ident "(" [Exp] ")" ;
+BYFunc. BYExp  ::= Var "(" [Exp] ")" ;
 BYLit.  BYExp2  ::= String ;
-BYVar.  BYExp2  ::= Ident ;
+BYVar.  BYExp2  ::= Var ;
 _.  BYExp3  ::= "(" BYExp ")" ;
 Slice.  BYExp  ::= BYExp "[" Integer ".." Integer "]" ;
 --built in functions
@@ -101,9 +105,9 @@ BYAbiE. BYExp  ::= "abiEncode" "(" Exp ")";
 coercions IExp 2 ;
 coercions BYExp 3 ;
 
-Dec. Decl ::= Type Ident ;
+Dec. Decl ::= Type Var ;
 
-Fun. FuncDef ::= Ident "(" [Ident] ")" "=" Exp ;
+Fun. FuncDef ::= Var "(" [Var] ")" "=" Exp ;
 
 --more todo obv
 rules Type ::= "uint"    | "int" 
@@ -112,25 +116,23 @@ rules Type ::= "uint"    | "int"
              | "uint8"   | "int8"
              | "address" | "bytes"
              | "bytes32" | "bytes4"
-             | "bool" ;
-ArrayType. Type ::= Type Length ;
-TupleType. Type ::= "(" [Type] ")" ;
+             | "bool"    | "string" ;
+ArrayType.   Type ::= Type "[" Integer "]" ;
+MappingType. Type ::= "mapping" "(" Type "=>" Type ")" ;
+TupleType.   Type ::= "(" [Type] ")" ;
+Contract.    Type ::= Var ;
 
-Contr. Type ::= Ident ;
-
-Index. Length ::= "[" Integer "]" ;
-
-separator Ident "," ;
+separator Var "," ;
 separator Decl "," ;
 separator Exp "," ;
 separator IffH "" ;
 separator Storage "" ;
 separator Assign "" ;
 separator Type "," ;
+separator Defn "," ;
 separator nonempty Behaviour "" ;
 separator nonempty CaseExpr "" ;
 separator nonempty FuncDef "" ;
-separator Lookup "" ;
 separator nonempty BExp "" ;
 separator nonempty IExp "" ;
 separator nonempty Update "" ;
