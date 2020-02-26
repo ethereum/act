@@ -39,9 +39,17 @@ main :: IO ()
 main = do
     cmd <- unwrapRecord "Act -- Smart contract specifier"
     case cmd of
-      (Parse f) -> do contents <- readFile f
+      (Parse f) -> do contents <- readFile f      
                       case pAct $ myLexer contents of
-                        (Ok _) -> print "success"
+                        (Ok (Main a)) -> do print "success"
+                                            print a
+                        (Bad s) -> error s
+
+      (Type f) -> do contents <- readFile f      
+                      case pAct $ myLexer contents of --todo: proper monadic lifts
+                        (Ok (Main a)) -> case typecheck a of
+                          (Ok a)  -> print "success"
+                          (Bad s) -> error s
                         (Bad s) -> error s
       (Compile f _ _ _ out) -> case (ir cmd) of
         True -> do contents <- readFile f
@@ -50,6 +58,13 @@ main = do
                      (Bad errormsg)         -> error errormsg
         False -> error "TODO"
 
+typecheck :: [Behaviour] -> Err Act
+typecheck bs = 
+
+--checks a transition given a typing of its storage variables
+checkTransition :: Behaviour -> Map Var (Map Var Type) -> Err Act
+
+  
 --Intermediate format
 data Obligation = Obligation
   { _name      :: String,
@@ -58,7 +73,7 @@ data Obligation = Obligation
     _methodName :: String,
     _inputArgs  :: [Decl],
     _return     :: (Exp, Type),
-    _preConditions :: [BExp]
+    _preConditions :: [Exp]
 --    _env        :: [(String, Var)],
 -- --    _variables :: [(Var, Type)],
 --     _preStore  :: [(Entry, Exp)],
@@ -121,12 +136,17 @@ class Pretty a where
 instance Pretty Var where
   pprint (Var a) = a
 
+instance Pretty Arg where
+  pprint (Argm a) = pprint a
+
+
 instance Pretty Exp where
   pprint (Int a) = pprint a
   pprint (Bool a) = pprint a
   pprint (Bytes a) = pprint a
 
-instance Pretty IExp where
+instance Pretty Exp where
+-- integers
   pprint (EAdd x y) = pprint x <> " + " <> pprint y
   pprint (ESub x y) = pprint x <> " - " <> pprint y
   pprint (EMul x y) = pprint x <> " * " <> pprint y
@@ -137,38 +157,31 @@ instance Pretty IExp where
                      "then" <> pprint x <>
                      "else" <> pprint y
   pprint Wild = "_"
-  pprint (EVar a) = pprint a
-  pprint (EInt a) = show a
-  pprint (IFunc x y) = pprint x <> "(" <> intercalate "," (fmap pprint y) <> ")"
-
-instance Pretty Entry where
-  pprint _ = "TODO: entry"
-
-instance Pretty BExp where
-  pprint (BAnd x y) =  pprint x <> " and " <> pprint y
-  pprint (BOr x y) =   pprint x <> " or "  <> pprint y
+  pprint (IEntry a) = pprint a
+  pprint (IVar a)   = pprint a
+  pprint (EInt a)   = show a
+  pprint (Func x y) = pprint x <> "(" <> intercalate "," (fmap pprint y) <> ")"
+-- booleans
+  pprint (BAnd x y)  = pprint x <> " and " <> pprint y
+  pprint (BOr x y)   = pprint x <> " or "  <> pprint y
   pprint (BImpl x y) = pprint x <> " => "  <> pprint y
-  pprint (BEq x y) =   pprint x <> " == "  <> pprint y
-  pprint (BNeq x y) =  pprint x <> " =/= " <> pprint y
-  pprint (BLEQ x y) =  pprint x <> " <= "  <> pprint y
-  pprint (BLE x y) =   pprint x <> " < "   <> pprint y
-  pprint (BGEQ x y) =  pprint x <> " >= "  <> pprint y
-  pprint (BGE x y) =   pprint x <> " > "   <> pprint y
+  pprint (BEq x y)   = pprint x <> " == "  <> pprint y
+  pprint (BNeq x y)  = pprint x <> " =/= " <> pprint y
+  pprint (BLEQ x y)  = pprint x <> " <= "  <> pprint y
+  pprint (BLE x y)   = pprint x <> " < "   <> pprint y
+  pprint (BGEQ x y)  = pprint x <> " >= "  <> pprint y
+  pprint (BGE x y)   = pprint x <> " > "   <> pprint y
   pprint BTrue = "true"
   pprint BFalse = "false"
   pprint BWildcard = "_"
-  pprint (BFunc x ys) = pprint x <> "(" <> intercalate "," (fmap pprint ys) <> ")"
-
-
-instance Pretty BYExp where
-  pprint (BYAdd x y) = pprint x <> "++" <> pprint y
-  pprint (BYFunc x y) = pprint x <> "(" <> intercalate "," (fmap pprint y) <> ")"
-  pprint (BYLit s) = s
-  pprint (BYVar x) = pprint x
+-- bytes
+  pprint (BYAdd x y)  = pprint x <> "++" <> pprint y
   pprint (Slice byexp a b) = pprint byexp
     <> "[" <> show a <> ".." <> show b <> "]"
   pprint (BYHash x) = "keccak256" <> pprint x
   pprint (BYAbiE x) = "abiEncode" <> pprint x
+  pprint (Newaddr x) = "newAddr"  <> map pprint x
+  pprint (Newaddr2 x) = "newAddr" <> map pprint x
 
 
 instance Pretty Type where
@@ -187,14 +200,14 @@ instance Pretty Type where
   pprint Type_bool = "bool"
   pprint Type_string = "string"
 
-min :: Type -> IExp
-min Type_uint = EInt 0
-min Type_uint256 = EInt 0
-min Type_uint126 = EInt 0
-min Type_uint8 = EInt 0
+min :: Type -> Exp
+min Type_uint = IntLit 0
+min Type_uint256 = IntLit 0
+min Type_uint126 = IntLit 0
+min Type_uint8 = IntLit 0
 --todo, the rest
 
-max :: Type -> IExp
+max :: Type -> Exp
 max Type_uint    = EInt 115792089237316195423570985008687907853269984665640564039
 max Type_uint256 = EInt 115792089237316195423570985008687907853269984665640564039
 max _ = error "todo: max"
@@ -204,15 +217,9 @@ max _ = error "todo: max"
 kPrintBytes :: Exp -> String
 kPrintBytes _ = "TODO: krpintBytes" --todo
 
-kPrintInt :: IExp -> String
-kPrintInt _ = "TODO: kprintInt"
-
-iffHToBool :: IffH -> [BExp]
+iffHToBool :: IffH -> [Exp]
 iffHToBool (Iff bexps) = bexps
 iffHToBool (IffIn abitype exprs) =
   fmap
     (\exp -> BAnd (BLEQ (Main.min abitype) exp) (BLEQ exp (Main.max abitype)))
     exprs
-
-kPrintBool :: BExp -> String
-kPrintBool _ = "TODO: kPrintBool"
