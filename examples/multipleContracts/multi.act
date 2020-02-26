@@ -6,7 +6,7 @@ iff
 
 // we can specify how a call to a function of B
 // updates the storage of A by labelling the storage header
-storage a
+storage at a
    x => _x
 
 behaviour create_a of B

@@ -5,8 +5,6 @@ Main. Act ::= [Behaviour] ;
 
 --TODO: support for `where` sublanguage
 --TODO: tx environment variables (CALLER, NUMBER, TIMESTAMP...)
--- Behaviour either specify a state transition, a return value,
--- or both
 Transition. Behaviour ::= "behaviour" Var "of" Var
                           "interface" Var "(" [Decl] ")"
                           [IffH]
@@ -16,21 +14,28 @@ Transition. Behaviour ::= "behaviour" Var "of" Var
 token Var ((letter | '_')(letter | digit | '_')*) ;
 
 CaseSplit. PostCond ::= [CaseExpr] ;
-Direct. PostCond    ::= Post ; 
-Case. CaseExpr ::= "case" BExp ":" PostCond ;
+Direct. PostCond    ::= Post ;
+Case. CaseExpr ::= "case" Exp ":"
+                   PostCond ;
+
+-- Behaviour either specify a state transition, a return value,
+-- or both
 StorageP. Post ::= [Storage] ;
 ReturnP.  Post ::= "returns" Exp ;
 StorageReturnP. Post ::= [Storage]
-                        "returns" IExp ;
+                        "returns" Exp ;
 
 --storage headers of this contract
-ThisStorage. Storage ::= "storage" StorageH ;
-CreatesThis. Storage ::= "creates" Var [Assign] ;
-
+ThisStorage. Storage ::= "storage"
+                         StorageH ;
+CreatesThis. Storage ::= "creates" Var
+                         [Assign] ;
 
 --external storage headers
-ExtStorage. Storage ::= "storage" IExp StorageH ;
-CreatesExt. Storage ::= "creates" Var "at" IExp [Assign] ;
+ExtStorage. Storage ::= "storage" "at" Exp
+                        StorageH ;
+CreatesExt. Storage ::= "creates" Var "at" Exp
+                        [Assign] ;
 
 --Storage headers and return headers may branch into cases:
 Leaf. StorageH ::= [Update] ;
@@ -38,79 +43,65 @@ NoopLeaf. StorageH ::= "noop" ;
 
 
 --assignments types storage variables
-Assignm. Assign ::= Type Var ":=" Exp ;
+Assignval. Assign ::= Type Var ":=" Exp ;
+Assignmap. Assign ::= Type Var ":=" "[" [Defn] "]" ;
 
-Iff.   IffH ::= "iff" [BExp] ;
-IffIn. IffH ::= "iff in range" Type "\n" [IExp] ;
+Iff.   IffH ::= "iff" [Exp] ;
+IffIn. IffH ::= "iff in range" Type "\n" [Exp] ;
 
 -- New, concise syntax
-Change. Update ::= Entry "=>" IExp ;
-
-VarEntry.   Entry ::= Var ;
-ArrayEntry. Entry ::= Entry "[" Exp "]" ;
-Struct.     Entry ::= Entry "." Var ;
-
---Any expression
-Int.   Exp ::= IExp ;
-Bool.  Exp ::= BExp ;
-Bytes. Exp ::= BYExp ;
-Array. Exp ::= "[" [Defn]"]" ;
-
---Boolean expressions
---TODO: precedence
-BAnd.  BExp  ::= BExp "and" BExp ;
-BOr.   BExp  ::= BExp "or" BExp ;
-BImpl. BExp  ::= BExp "=>" BExp ;
-BEq.   BExp  ::= IExp "==" IExp ;
-BNeq.  BExp  ::= IExp "=/=" IExp ;
-BLEQ.  BExp  ::= IExp "<=" IExp ;
-BLE.   BExp  ::= IExp "<" IExp ;
-BGEQ.  BExp  ::= IExp ">=" IExp ;
-BGE.   BExp  ::= IExp ">" IExp ;
-_.     BExp  ::= "(" BExp ")" ;
-BTrue. BExp  ::= "true" ;
-BFalse. BExp ::= "false" ;
-BWildcard. BExp ::= "_";
-BFunc. BExp  ::= Var "(" [Exp] ")" ;
+Change. Update ::= Exp "=>" Exp ;
 
 --Array expressions (list or maps)
 Let. Defn ::= Exp ":=" Exp ;
 
+--Boolean expressions
+BAnd.  Exp  ::= Exp "and" Exp ;
+BOr.   Exp  ::= Exp "or" Exp ;
+BImpl. Exp  ::= Exp "=>" Exp ;
+BEq.   Exp  ::= Exp "==" Exp ;
+BNeq.  Exp  ::= Exp "=/=" Exp ;
+BLEQ.  Exp  ::= Exp "<=" Exp ;
+BLE.   Exp  ::= Exp "<" Exp ;
+BGEQ.  Exp  ::= Exp ">=" Exp ;
+BGE.   Exp  ::= Exp ">" Exp ;
+_.     Exp  ::= "(" Exp ")" ;
+BTrue. Exp  ::= "true" ;
+BFalse. Exp ::= "false" ;
+BWildcard. Exp ::= "_";
+
+--todo: precedence
 --Integer expressions
-EAdd. IExp  ::= IExp  "+" IExp1 ;
-ESub. IExp  ::= IExp  "-" IExp1 ;
-Addr. IExp  ::= "newAddr" "(" IExp "," IExp ")" ;
-_.    IExp  ::= "(" IExp ")" ;
-ITE.  IExp  ::= "if" BExp "then" IExp "else" IExp ;
-EMul. IExp1 ::= IExp1 "*" IExp2 ;
-EDiv. IExp1 ::= IExp1 "/" IExp2 ;
-EMod. IExp1 ::= IExp1 "%" IExp2 ;
-EExp. IExp1 ::= IExp1 "^" IExp2 ;
-Wild. IExp2 ::= "_" ;
-EVar. IExp2 ::= Entry ;
-EInt. IExp2 ::= Integer ;
-IFunc. IExp  ::= Var "(" [Exp] ")" ;
-
+EAdd. Exp ::= Exp  "+" Exp ;
+ESub. Exp ::= Exp  "-" Exp ;
+_.    Exp ::= "(" Exp ")" ;
+ITE.  Exp ::= "if" Exp "then" Exp "else" Exp ;
+EMul. Exp ::= Exp "*" Exp ;
+EDiv. Exp ::= Exp "/" Exp ;
+EMod. Exp ::= Exp "%" Exp ;
+EExp. Exp ::= Exp "^" Exp ;
+Wild. Exp ::= "_" ;
+Zoom. Exp ::= Exp "." Var ;
+Func. Exp ::= Var "(" [Exp] ")" ;
+-- lookups
+Look. Exp ::= Exp "[" Exp "]" ;
 --Bytes expressions
-BYAdd.  BYExp  ::= BYExp "++" BYExp ;
-BYFunc. BYExp  ::= Var "(" [Exp] ")" ;
-BYLit.  BYExp2  ::= String ;
-BYVar.  BYExp2  ::= Var ;
-_.  BYExp3  ::= "(" BYExp ")" ;
-Slice.  BYExp  ::= BYExp "[" Integer ".." Integer "]" ;
+Cat.   Exp ::= Exp "++" Exp ;
+Slice. Exp ::= Exp "[" Integer ".." Integer "]" ;
 --built in functions
-BYHash. BYExp  ::= "keccak256" "(" Exp ")";
-BYAbiE. BYExp  ::= "abiEncode" "(" Exp ")";
-
-coercions IExp 2 ;
-coercions BYExp 3 ;
+Newaddr.  Exp ::= "newAddr" "(" Exp "," Exp ")";
+Newaddr2. Exp ::= "newAddr" "(" Exp "," Exp "," Exp ")";
+BYHash.   Exp ::= "keccak256" "(" Exp ")";
+BYAbiE.   Exp ::= "abiEncode" "(" Exp ")";
+-- terminals
+StringLit. Exp ::= String ;
+VarLit.    Exp ::= Var ;
+IntLit.    Exp ::= Integer ;
 
 Dec. Decl ::= Type Var ;
 
-Fun. FuncDef ::= Var "(" [Var] ")" "=" Exp ;
-
 --more todo obv
-rules Type ::= "uint"    | "int" 
+rules Type ::= "uint"    | "int"
              | "uint256" | "int256"
              | "uint126" | "int126"
              | "uint8"   | "int8"
@@ -122,19 +113,19 @@ MappingType. Type ::= "mapping" "(" Type "=>" Type ")" ;
 TupleType.   Type ::= "(" [Type] ")" ;
 Contract.    Type ::= Var ;
 
+--fragments of where language
+Fun. FuncDef ::= Var "(" [Var] ")" "=" Exp ;
+
 separator Var "," ;
 separator Decl "," ;
 separator Exp "," ;
 separator IffH "" ;
-separator Storage "" ;
+separator nonempty Storage "" ;
 separator Assign "" ;
 separator Type "," ;
 separator Defn "," ;
 separator nonempty Behaviour "" ;
 separator nonempty CaseExpr "" ;
 separator nonempty FuncDef "" ;
-separator nonempty BExp "" ;
-separator nonempty IExp "" ;
+separator nonempty Exp "" ;
 separator nonempty Update "" ;
--- terminator Header "End" ;
-
