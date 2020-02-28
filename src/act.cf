@@ -56,26 +56,25 @@ Change. Update ::= Exp "=>" Exp ;
 Let. Defn ::= Exp ":=" Exp ;
 
 --Boolean expressions
-BAnd.  Exp  ::= Exp "and" Exp ;
-BOr.   Exp  ::= Exp "or" Exp ;
-BImpl. Exp  ::= Exp "=>" Exp ;
-BEq.   Exp  ::= Exp "==" Exp ;
-BNeq.  Exp  ::= Exp "=/=" Exp ;
-BLEQ.  Exp  ::= Exp "<=" Exp ;
-BLE.   Exp  ::= Exp "<" Exp ;
-BGEQ.  Exp  ::= Exp ">=" Exp ;
-BGE.   Exp  ::= Exp ">" Exp ;
+EAnd.  Exp  ::= Exp "and" Exp ;
+EOr.   Exp  ::= Exp "or" Exp ;
+EImpl. Exp  ::= Exp "=>" Exp ;
+EEq.   Exp  ::= Exp "==" Exp ;
+ENeq.  Exp  ::= Exp "=/=" Exp ;
+ELEQ.  Exp  ::= Exp "<=" Exp ;
+ELE.   Exp  ::= Exp "<" Exp ;
+EGEQ.  Exp  ::= Exp ">=" Exp ;
+EGE.   Exp  ::= Exp ">" Exp ;
 _.     Exp  ::= "(" Exp ")" ;
-BTrue. Exp  ::= "true" ;
-BFalse. Exp ::= "false" ;
-BWildcard. Exp ::= "_";
+ETrue. Exp  ::= "true" ;
+EFalse. Exp ::= "false" ;
 
 --todo: precedence
 --Integer expressions
 EAdd. Exp ::= Exp  "+" Exp ;
 ESub. Exp ::= Exp  "-" Exp ;
 _.    Exp ::= "(" Exp ")" ;
-ITE.  Exp ::= "if" Exp "then" Exp "else" Exp ;
+EITE. Exp ::= "if" Exp "then" Exp "else" Exp ;
 EMul. Exp ::= Exp "*" Exp ;
 EDiv. Exp ::= Exp "/" Exp ;
 EMod. Exp ::= Exp "%" Exp ;
