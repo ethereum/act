@@ -2,11 +2,11 @@
 
 The majority of the formal verification work that has been employed in practice so far in the ethereum ecosystem has been dealing with _functional correctness_, that is, given a specification of how a contract method should update the state, or an explicit assertion in the body of a method, demonstrate that the implementation correctly matches this specification or satisfies the assertion made. This can be done on an EVM level using tools like [KEVM](https://www.ideals.illinois.edu/handle/2142/97207) or on the solidity level using the [builtin smt-checker](https://github.com/leonardoalt/text/blob/master/solidity_isola_2018/main.pdf) or [solc-verify](https://arxiv.org/abs/1907.04262).
 
-But often, the most crucial elements of how the smart contract behaves arises out of the interplay between its different functions, and its essence is best captured through a set of _invariant properties_, i.e. a predicate over its state variables which should hold before and after every function call. Some tools can already prove simple invariants, but struggle with invariants containing non-linear arithmetic expressions. 
+But often, the most crucial elements of how the smart contract behaves arise out of the interplay between its different functions, and its essence is best captured through a set of _invariant properties_, i.e. a predicate over its state variables which should hold before and after every function call. Some tools can already prove simple invariants, but struggle with invariants containing non-linear arithmetic expressions. 
 
 ## Linear invariants
 
-Here is an example of a invariant provable by solc-verify
+Here is an example of an invariant provable by solc-verify
 (solc-verfiy)
 ```sol
 pragma solidity >=0.5.0;
@@ -69,7 +69,7 @@ contract C {
 
 The smt-checker can in some cases also automatically infer invariants. 
 
-The examples above are easy for SMT-solvers to reason about, since they deal with expressions of [linear arithmetic](https://cse-wiki.unl.edu/wiki/images/0/04/DecisionProcedure-Chapter5a.pdf). Linear arithmetic expressions can contain any valid combination of the symbols `<, <=, and, or, ==, +, -`, but they can crucially not contain multiplication by a an unknown variable.
+The examples above are easy for SMT solvers to reason about, since they deal with expressions of [linear arithmetic](https://cse-wiki.unl.edu/wiki/images/0/04/DecisionProcedure-Chapter5a.pdf). Linear arithmetic expressions can contain any valid combination of the symbols `<, <=, and, or, ==, +, -`, but they can crucially not contain multiplication between variables.
 
 ## Non-linear invariants
 
@@ -108,7 +108,7 @@ contract Homogeneous {
 }
 ```
 
-The smt-checker encodes this using _constrained horn clauses_ and ends up with an smt query that can be simplified to the following:
+The smt-checker encodes this using _constrained horn clauses_ and ends up with a Horn query that can be simplified to the following:
 
 ```smt2
 (declare-rel state (Int Int Int))
@@ -161,11 +161,12 @@ The smt-checker encodes this using _constrained horn clauses_ and ends up with a
 
 ```
 
-The last line ask the smt proving engine to try to deduce the relation `error`, a relation that will only hold true if the we can end up in a state where the invariant is violated.
+The smt-checker uses Spacer to solve Horn queries. Spacer is distributed inside the theorem prover z3.
+The last line asks the Horn solver whether the relation `error` is reachable, a relation that will only hold true if we can end up in a state where the invariant is violated.
 
-Given this query, z3 simply times out, as does the smt-checker given the contract above. The induction combined with the non-linear arithmetic expressions are beyond the reach of the tactics employed by the solver for constrained horn clauses.
+Given this Horn query, z3 simply times out, as does the smt-checker given the contract above. The induction combined with the non-linear arithmetic expressions are beyond the reach of the tactics employed by the solver for constrained horn clauses.
 
-But if we simplify the query so as to not model the full transition system implied by the contract, but rather just the inductive step, we get better results:
+However, if we simplify the Horn query to an SMT theorem so as to not model the full transition system implied by the contract, but rather just the inductive step, we get better results:
 
 ```smt2
 (define-fun f ((x_pre Int) (y_pre Int) (z_pre Int) (scalar Int)
@@ -195,10 +196,10 @@ But if we simplify the query so as to not model the full transition system impli
 (get-model)
 ```
 
-The query above asserts that for any state satisfying the invariant, applying either the method f or g the invariant will continue to hold. This query is provable by z3.
+The SMT query above asserts that for any state satisfying the invariant, applying either the method f or g the invariant will continue to hold. This theorem is provable by z3's SMT solver.
 
 
 ## Conclusions
 
-Combining non-linear arithmetic expressions and horn clauses to model smart contract invariants proves difficult for smt checkers.
+Combining non-linear arithmetic expressions and horn clauses to model smart contract invariants proves difficult for SMT-based approaches.
 But proving only the inductive step and employing a "meta-proof" that these steps are sufficient to conclude the invariant might be a more feasible strategy for proving more complicated invariants.
