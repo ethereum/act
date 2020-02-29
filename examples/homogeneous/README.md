@@ -1,4 +1,4 @@
-## Contract invariants - model checking and proof assistant methods
+# Contract invariants - model checking and proof assistant methods
 
 The majority of the formal verification work that has been employed in practice so far in the ethereum ecosystem has been dealing with _functional correctness_, that is, given a specification of how a contract method should update the state, or an explicit assertion in the body of a method, demonstrate that the implementation correctly matches this specification or satisfies the assertion made. This can be done on an EVM level using tools like [KEVM](https://www.ideals.illinois.edu/handle/2142/97207) or on the solidity level using the [builtin smt-checker](https://github.com/leonardoalt/text/blob/master/solidity_isola_2018/main.pdf) or [solc-verify](https://arxiv.org/abs/1907.04262).
 
@@ -66,8 +66,7 @@ contract C {
 	}
 }
 ```
-
-The smt-checker can in some cases also automatically infer invariants. 
+The smt-checker can in some cases also automatically infer invariants. The resulting horn query can be simplified to [something like this](./statemachinequery.smt2).
 
 The examples above are easy for SMT solvers to reason about, since they deal with expressions of [linear arithmetic](https://cse-wiki.unl.edu/wiki/images/0/04/DecisionProcedure-Chapter5a.pdf). Linear arithmetic expressions can contain any valid combination of the symbols `<, <=, and, or, ==, +, -`, but they can crucially not contain multiplication between variables.
 
@@ -158,7 +157,6 @@ The smt-checker encodes this using _constrained horn clauses_ and ends up with a
 ))
 
 (query error :print-certificate true)
-
 ```
 
 The smt-checker uses Spacer to solve Horn queries. Spacer is distributed inside the theorem prover z3.
@@ -198,8 +196,12 @@ However, if we simplify the Horn query to an SMT theorem so as to not model the 
 
 The SMT query above asserts that for any state satisfying the invariant, applying either the method f or g the invariant will continue to hold. This theorem is provable by z3's SMT solver.
 
+## Inductive vs. non-inductive invariants
+
+It is worth noticing that the argument for why the invariant `x * y == z` holds true of the `Homogeneous` contract relies on the fact that the invariant is _inductive_. An inductive invariant is a property such that, asssuming the invariant holds before the execution of any method, it remains true after its execution. When an invariant is inductive, the proving heuristic is fairly straight forward: we just need to show that it is preserved by every contract method.
+Notice that this is not the case for the invariant `x < 9` of the contract `C` above. Assuming `x < 9` and applying `j`, it is not the case that `x < 9`. Instead, to prove such an invariant we must first find a stronger invariant (in this case `x < 3`) which is inductive, and then demonstrate that the inductive invariant implies the original one.
 
 ## Conclusions
 
 Combining non-linear arithmetic expressions and horn clauses to model smart contract invariants proves difficult for SMT-based approaches.
-But proving only the inductive step and employing a "meta-proof" that these steps are sufficient to conclude the invariant might be a more feasible strategy for proving more complicated invariants.
+But proving only the inductive step and employing a "meta-proof" that these steps are sufficient to conclude the invariant might be a more feasible strategy for proving more complicated invariants. This strategy only works when the invariant in question is inductive, however.
