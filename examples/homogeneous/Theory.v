@@ -1,8 +1,8 @@
 Require Import Homogeneous.Homogeneous.
-Require Import ZArith.
-Open Scope Z_scope.
+Require Import NArith.
+Open Scope N_scope.
 
-Lemma scaling : forall (a b c : Z), a = b -> a * c = b * c.
+Lemma scaling : forall (a b c : N), a = b -> a * c = b * c.
 Proof.
   intros a b c H.
   rewrite H.
@@ -17,7 +17,7 @@ Definition invariant s :=
 Hint Unfold invariant.
 
 Theorem f_preservation :
-  forall (s : State) (scalar : Z), invariant s -> invariant (f s scalar).
+  forall (s : State) (scalar : N), invariant s -> invariant (f s scalar).
 Proof.
   intros s scalar H.
   unfold invariant in *.
@@ -25,9 +25,9 @@ Proof.
   destruct (range (x s * scalar)).
   - destruct (range (z s * scalar)).
     + simpl.
-      rewrite <- Z.mul_assoc.
-      rewrite (Z.mul_comm scalar).
-      rewrite -> Z.mul_assoc.
+      rewrite <- N.mul_assoc.
+      rewrite (N.mul_comm scalar).
+      rewrite -> N.mul_assoc.
       apply scaling with (c := scalar).
       assumption.
     + assumption.
@@ -35,7 +35,7 @@ Proof.
 Qed.
 
 Theorem g_preservation :
-  forall (s : State) (scalar : Z), invariant s -> invariant (g s scalar).
+  forall (s : State) (scalar : N), invariant s -> invariant (g s scalar).
 Proof.
   intros s scalar H.
   unfold invariant in *.
@@ -43,7 +43,7 @@ Proof.
   destruct (range (y s * scalar)).
   - destruct (range (z s * scalar)).
     + simpl.
-      rewrite -> Z.mul_assoc.
+      rewrite -> N.mul_assoc.
       apply scaling with (c := scalar).
       assumption.
     + assumption.
