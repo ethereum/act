@@ -1,12 +1,12 @@
 
 (* goal is to generate something like this file from the act spec *)
 
-Require Import PeanoNat.
+Require Import Arith.
 
 (* some boilerplate *)
 Definition UINT_MIN := 0.
-Definition UINT_MAX := 2 ^ 8. (* fix later *)
-Definition range (n : nat) := andb (UINT_MIN <=? n) (n <=? UINT_MAX).
+Definition UINT_MAX := 2 ^ 256.
+Definition range (n : nat) := ((UINT_MIN <=? n) && (n <=? UINT_MAX)) % bool.
 Definition range' (n : nat) := (n >= UINT_MIN) /\ (n <= UINT_MAX).
 
 (* type of contract states *)

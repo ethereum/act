@@ -1,40 +1,32 @@
 
 (* here are some example results using the definitions from increment.v *)
 
-Require Import Increment.increment.
-Require Import PeanoNat.
-Require Import Plus.
+Require Import Increment.Increment.
+Require Import Arith.
 
 
-(* some arithmetic lemmas we'll need. i'm sure there are nicer ways of doing
-   this.
- *)
-
-Lemma pluszero : forall (n : nat) , n + 0 = n.
+(* we'll need this for preservation *)
+Lemma le_add : forall a b c, a <= b -> a <= b + c.
 Proof.
-  intros n.
-  rewrite plus_comm. reflexivity.
+  intros a b c H.
+  rewrite Nat.add_comm.
+  induction c as [| c' IH].
+  - simpl. assumption.
+  - simpl. apply le_S. assumption.
 Qed.
 
-Lemma plusone : forall (n : nat) , n + 1 = S n.
-Proof.
-  intros n.
-  rewrite plus_comm. reflexivity.
-Qed.    
-
-
 (* statement of the main invariant we'd like to prove *)
-Notation invariant s := (2 <= x s).
+Definition invariant s := (2 <= x s).
 
 (* proof that each transition function preserves our invariant *)
 Theorem preservation : forall (s : State) , invariant s -> invariant (incr s).
 Proof.
   intros s H.
   unfold incr.
+  unfold invariant in *.
   destruct (range (x s)).
-  - simpl. rewrite -> plusone.
-    apply le_S. apply H.
-  - apply H.
+  - simpl. apply le_add. assumption.
+  - assumption.
 Qed.
 
 (* now we combine everything to prove that reachability implies the invariant *)
