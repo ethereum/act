@@ -203,5 +203,5 @@ Notice that this is not the case for the invariant `x < 9` of the contract `C` a
 
 ## Conclusions
 
-Combining non-linear arithmetic expressions and horn clauses to model smart contract invariants proves difficult for SMT-based approaches.
+Combining non-linear arithmetic expressions and Horn clauses to model smart contract invariants proves difficult for SMT-based approaches.
 But proving only the inductive step and employing a "meta-proof" that these steps are sufficient to conclude the invariant might be a more feasible strategy for proving more complicated invariants. This strategy only works when the invariant in question is inductive, however.
