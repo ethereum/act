@@ -66,7 +66,7 @@ contract C {
 	}
 }
 ```
-The smt-checker can in some cases also automatically infer invariants. The resulting horn query can be simplified to [something like this](./statemachinequery.smt2).
+The smt-checker can in some cases also automatically infer invariants. The resulting Horn query can be simplified to [something like this](./statemachinequery.smt2).
 
 The examples above are easy for SMT solvers to reason about, since they deal with expressions of [linear arithmetic](https://cse-wiki.unl.edu/wiki/images/0/04/DecisionProcedure-Chapter5a.pdf). Linear arithmetic expressions can contain any valid combination of the symbols `<, <=, and, or, ==, +, -`, but they can crucially not contain multiplication between variables.
 
