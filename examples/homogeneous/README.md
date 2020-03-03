@@ -107,7 +107,7 @@ contract Homogeneous {
 }
 ```
 
-The smt-checker encodes this using _constrained horn clauses_ and ends up with a Horn query that can be simplified to the following:
+The smt-checker encodes this using _constrained Horn clauses_ and ends up with a Horn query that can be simplified to the following:
 
 ```smt2
 (declare-rel state (Int Int Int))
