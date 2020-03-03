@@ -162,7 +162,7 @@ The smt-checker encodes this using _constrained Horn clauses_ and ends up with a
 The smt-checker uses Spacer to solve Horn queries. Spacer is distributed inside the theorem prover z3.
 The last line asks the Horn solver whether the relation `error` is reachable, a relation that will only hold true if we can end up in a state where the invariant is violated.
 
-Given this Horn query, z3 simply times out, as does the smt-checker given the contract above. The induction combined with the non-linear arithmetic expressions are beyond the reach of the tactics employed by the solver for constrained horn clauses.
+Given this Horn query, z3 simply times out, as does the smt-checker given the contract above. The induction combined with the non-linear arithmetic expressions are beyond the reach of the tactics employed by the solver for constrained Horn clauses.
 
 However, if we simplify the Horn query to an SMT theorem so as to not model the full transition system implied by the contract, but rather just the inductive step, we get better results:
 
