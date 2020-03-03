@@ -198,7 +198,7 @@ The SMT query above asserts that for any state satisfying the invariant, applyin
 
 ## Inductive vs. non-inductive invariants
 
-It is worth noticing that the argument for why the invariant `x * y == z` holds true of the `Homogeneous` contract relies on the fact that the invariant is _inductive_. An inductive invariant is a property such that, asssuming the invariant holds before the execution of any method, it remains true after its execution. When an invariant is inductive, the proving heuristic is fairly straight forward: we just need to show that it is preserved by every contract method.
+It is worth noticing that the argument for why the invariant `x * y == z` holds true of the `Homogeneous` contract relies on the fact that the invariant is _inductive_. An inductive invariant is a property such that, assuming the invariant holds before the execution of any method, it remains true after its execution. When an invariant is inductive, the proving heuristic is fairly straightforward: we just need to show that it is preserved by every contract method.
 Notice that this is not the case for the invariant `x < 9` of the contract `C` above. Assuming `x < 9` and applying `j`, it is not the case that `x < 9`. Instead, to prove such an invariant we must first find a stronger invariant (in this case `x < 3`) which is inductive, and then demonstrate that the inductive invariant implies the original one.
 
 ## Conclusions
