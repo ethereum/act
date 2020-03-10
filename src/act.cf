@@ -1,14 +1,22 @@
 comment "//" ;
 comment "/*" "*/" ;
 
-Main. Act ::= [Behaviour] ;
+Main. Act ::= [RawBehaviour] ;
 
 --TODO: support for `where` sublanguage
 --TODO: tx environment variables (CALLER, NUMBER, TIMESTAMP...)
-Transition. Behaviour ::= "behaviour" Var "of" Var
+Transition. RawBehaviour ::= "behaviour" Var "of" Var
                           "interface" Var "(" [Decl] ")"
                           [IffH]
                           PostCond ;
+
+Constructor. RawBehaviour ::= "behaviour" Var "of" Var
+                          "interface" "constructor" "(" [Decl] ")"
+                          [IffH]
+                          StorageDecl ;
+
+Layout. StorageDecl ::= "creates"
+                         [Assign] ;
 
 -- our variables can start with underscores
 token Var ((letter | '_')(letter | digit | '_')*) ;
@@ -28,8 +36,6 @@ StorageReturnP. Post ::= [Storage]
 --storage headers of this contract
 ThisStorage. Storage ::= "storage"
                          StorageH ;
-CreatesThis. Storage ::= "creates" Var
-                         [Assign] ;
 
 --external storage headers
 ExtStorage. Storage ::= "storage" "at" Exp
@@ -45,6 +51,7 @@ NoopLeaf. StorageH ::= "noop" ;
 --assignments types storage variables
 Assignval. Assign ::= Type Var ":=" Exp ;
 Assignmap. Assign ::= Type Var ":=" "[" [Defn] "]" ;
+--todo: structs
 
 Iff.   IffH ::= "iff" [Exp] ;
 IffIn. IffH ::= "iff in range" Type "\n" [Exp] ;
@@ -80,13 +87,13 @@ EDiv. Exp ::= Exp "/" Exp ;
 EMod. Exp ::= Exp "%" Exp ;
 EExp. Exp ::= Exp "^" Exp ;
 Wild. Exp ::= "_" ;
-Zoom. Exp ::= Exp "." Var ;
+Zoom. Exp ::= Var "." Exp ;
 Func. Exp ::= Var "(" [Exp] ")" ;
 -- lookups
 Look. Exp ::= Exp "[" Exp "]" ;
 --Bytes expressions
-Cat.   Exp ::= Exp "++" Exp ;
-Slice. Exp ::= Exp "[" Integer ".." Integer "]" ;
+ECat.   Exp ::= Exp "++" Exp ;
+ESlice. Exp ::= Exp "[" Exp ".." Exp "]" ;
 --built in functions
 Newaddr.  Exp ::= "newAddr" "(" Exp "," Exp ")";
 Newaddr2. Exp ::= "newAddr" "(" Exp "," Exp "," Exp ")";
@@ -123,7 +130,7 @@ separator nonempty Storage "" ;
 separator Assign "" ;
 separator Type "," ;
 separator Defn "," ;
-separator nonempty Behaviour "" ;
+separator nonempty RawBehaviour "" ;
 separator nonempty CaseExpr "" ;
 separator nonempty FuncDef "" ;
 separator nonempty Exp "" ;
