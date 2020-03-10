@@ -8,7 +8,7 @@ But often, the most crucial elements of how the smart contract behaves arise out
 
 Here is an example of an invariant provable by solc-verify
 (solc-verfiy)
-```sol
+```solidity
 pragma solidity >=0.5.0;
 
 /**
@@ -32,7 +32,7 @@ contract SimpleBank {
 ```
 
 and here is an example by the smt-checker:
-```sol
+```solidity
 pragma experimental SMTChecker;
 
 contract C {
@@ -73,7 +73,7 @@ The examples above are easy for SMT solvers to reason about, since they deal wit
 ## Non-linear invariants
 
 Here is a simple example contract with an invariant `x * y == z` that the smt-checker is unable to prove in its current form:
-```sol
+```solidity
 pragma solidity ^0.5.15;
 pragma experimental SMTChecker;
 
