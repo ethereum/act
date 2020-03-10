@@ -11,7 +11,7 @@ src/parser.timestamp: src/act.cf
 bin/act: src/parser.timestamp src/Splitter.hs
 	cd src && cabal v2-install --installdir=../bin --overwrite-policy=always && cd ..
 
-repl:
+repl: src/parser.timestamp
 	cd src && cabal v2-repl
 
 compiler: bin/act

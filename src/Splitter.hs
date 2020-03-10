@@ -52,7 +52,8 @@ main = do
       (TypeCheck f) -> do contents <- readFile f      
                           case pAct $ myLexer contents of --todo: proper monadic lifts
                             (Ok (Main a)) -> case typecheck a of
-                              (Ok a)  -> print "success"
+                              (Ok a)  -> do print "success:"
+                                            print $ show a
                               (Bad s) -> error s
                             (Bad s) -> error s
       -- (Compile f _ _ _ out) -> case (ir cmd) of
@@ -93,27 +94,28 @@ type Env = (Map Contract (Map Var Type), Map Var Type)
 -- checks a transition given a typing of its storage variables
 checkBehaviour :: Map Contract (Map Var Type) -> RawBehaviour -> Err Behaviour
 checkBehaviour store (Transition name contract method decls iffs cases) = do
-  iff <- checkIffs env contract iffs
+  iff <- checkIffs env iffs
   cases <- case cases of
-    Direct (ReturnP exp) -> inferExpr env exp
+    Direct (ReturnP exp) -> do returnexp <- inferExpr env exp
+                               return $ Map.singleton BTrue (mempty, Just returnexp)
     Direct (StorageP updates) -> error "TODO: storage"
-    Direct (StorageReturnP updates exp) -> do typedExp <- inferExpr exp
+    Direct (StorageReturnP updates exp) -> do typedExp <- inferExpr env exp
                                               error "TODO: storage"
   return (Behaviour name contract (method, decls) iff cases)
   where env = (store, fromMaybe mempty (Map.lookup contract store) <> abiVars <> defaultStore)
         abiVars = Map.fromList $ map (\(Dec typ var) -> (var, typ)) decls
-checkBehaviour store (Constructor name contract decls iffs cases) = error "TODO"
+checkBehaviour store (Constructor name contract decls iffs cases) = error "TODO: check constructor"
 
 checkIffs :: Env -> [IffH] -> Err [BExp]
-checkIffs env c ((Iff exps):xs) = do
+checkIffs env ((Iff exps):xs) = do
   head <- mapM (checkBool env) exps
-  tail <- checkIffs env c xs
+  tail <- checkIffs env xs
   Ok $ head <> tail
-checkIffs env c ((IffIn typ exps):xs) = do
+checkIffs env ((IffIn typ exps):xs) = do
   head <- mapM (checkInt env) exps
-  tail <- checkIffs env c xs
+  tail <- checkIffs env xs
   Ok $ map (bound typ) head <> tail
-checkIffs _ _ [] = Ok []
+checkIffs _ [] = Ok []
 
 bound :: Type -> IExp -> BExp
 bound typ exp = And (LEQ (lowerBound typ) exp) $ LEQ exp (upperBound typ)
@@ -153,15 +155,61 @@ abiTypeToMeta Type_bytes32 = ByteStr
 abiTypeToMeta Type_bytes4  = ByteStr
 abiTypeToMeta Type_string  = ByteStr
 
-inferExpr :: Env -> Exp -> Err TypedExp
-inferExpr = _
+inferExpr :: Env -> Expr -> Err TypedExp
+inferExpr env exp = let intintint op v1 v2 = do w1 <- checkInt env v1
+                                                w2 <- checkInt env v2
+                                                Ok $ IntExp $ op w1 w2
+                        boolintint op v1 v2 = do w1 <- checkInt env v1
+                                                 w2 <- checkInt env v2
+                                                 Ok $ BoolExp $ op w1 w2
+                        boolboolbool op v1 v2 = do w1 <- checkBool env v1
+                                                   w2 <- checkBool env v2
+                                                   Ok $ BoolExp $ op w1 w2
 
-checkExpr :: Env -> MType -> Exp -> Err TypedExp
-checkExpr env Integer exp = checkInt   env exp
-checkExpr env Boolean exp = checkBool  env exp
-checkExpr env ByteStr exp = checkBytes env exp
+                    in case exp of
+    EAnd  v1 v2 -> boolboolbool And  v1 v2
+    EOr   v1 v2 -> boolboolbool Or   v1 v2
+    EImpl v1 v2 -> boolboolbool Impl v1 v2
+    EEq   v1 v2 -> boolintint  IEq  v1 v2
+    ENeq  v1 v2 -> boolintint  INEq v1 v2
+    ELE   v1 v2 -> boolintint  LE   v1 v2
+    ELEQ  v1 v2 -> boolintint  LEQ  v1 v2
+    EGE   v1 v2 -> boolintint  GE   v1 v2
+    EGEQ  v1 v2 -> boolintint  GEQ  v1 v2
+    ETrue ->  Ok $ BoolExp BTrue
+    EFalse -> Ok $ BoolExp BFalse
+    EITE v1 v2 v3 -> do w1 <- checkBool env v1
+                        w2 <- checkInt env v2
+                        w3 <- checkInt env v3
+                        Ok $ IntExp $ ITE w1 w2 w3
+    EAdd v1 v2 -> intintint Add v1 v2
+    ESub v1 v2 -> intintint Sub v1 v2
+    EMul v1 v2 -> intintint Mul v1 v2
+    EDiv v1 v2 -> intintint Div v1 v2
+    EMod v1 v2 -> intintint Mod v1 v2
+    EExp v1 v2 -> intintint Exp v1 v2
+    VarLit v1 -> error "TODO: infer var type"
+    IntLit n -> Ok $ IntExp $ Lit n
+    _ -> error "TODO: infer other stuff type"
+    -- Wild -> 
+    -- Zoom Var Exp
+    -- Func Var [Expr]
+    -- Look Expr Expr
+    -- ECat Expr Expr
+    -- ESlice Expr Expr Expr
+    -- Newaddr Expr Expr
+    -- Newaddr2 Expr Expr Expr
+    -- BYHash Expr
+    -- BYAbiE Expr
+    -- StringLit String
 
-checkBool :: Env -> Exp -> Err BExp
+
+checkExpr :: Env -> MType -> Expr -> Err TypedExp
+checkExpr env Integer exp = checkInt   env exp >>= Ok . IntExp
+checkExpr env Boolean exp = checkBool  env exp >>= Ok . BoolExp
+checkExpr env ByteStr exp = checkBytes env exp >>= Ok . ByteExp
+
+checkBool :: Env -> Expr -> Err BExp
 checkBool env@(others,thisContext) b =
   let checkInts op v1 v2 = do w1 <- checkInt env v1
                               w2 <- checkInt env v2
@@ -185,16 +233,16 @@ checkBool env@(others,thisContext) b =
     VarLit v -> case Map.lookup v thisContext of
       Just Type_bool -> Ok (BoolVar v)
       _ -> Bad $ "Unexpected variable: " <> pprint v <> " of type boolean"
-    Look v1 v2 -> case Map.lookup v1 thisContext of
-      Just (MappingType t1 t2) -> error "TODO: lookups"
-                                  --do checkExpr store contract (abiTypeToMeta t1)
-      Just (ArrayType typ len) -> error "TODO: arrays"
-      _ -> Bad $ "Unexpected lookup in " <> pprint v1 <> ": not array or mapping."
+    -- Look v1 v2 -> case Map.lookup v1 thisContext of
+    --   Just (MappingType t1 t2) -> error "TODO: lookups"
+    --                               --do checkExpr store contract (abiTypeToMeta t1)
+    --   Just (ArrayType typ len) -> error "TODO: arrays"
+    --   _ -> Bad $ "Unexpected lookup in " <> pprint v1 <> ": not array or mapping."
     -- TODO: zoom, lookup and functions
     s -> Bad $ "Unexpected expression: " <> show s <> " of type boolean"
 
-checkInt :: Env -> Exp -> Err IExp
-checkInt env e =
+checkInt :: Env -> Expr -> Err IExp
+checkInt env@(others,thisContext) e =
   let checkInts op v1 v2 = do w1 <- checkInt env v1
                               w2 <- checkInt env v2
                               Ok $ op w1 w2
@@ -204,9 +252,16 @@ checkInt env e =
   EMul v1 v2 -> checkInts Mul v1 v2
   EDiv v1 v2 -> checkInts Div v1 v2
   EMod v1 v2 -> checkInts Mod v1 v2
-  _ -> error "TODO"
+  EExp v1 v2 -> checkInts Exp v1 v2
+  VarLit v -> case Map.lookup v thisContext of
+    Just typ -> case abiTypeToMeta typ of
+                  Integer -> Ok (IntVar v)
+                  _ -> Bad $ "Unexpected variable: " <> pprint v <> " of type integer"
+    _ -> Bad $ "Uknown variable: " <> pprint v <> " of type integer"
+  IntLit n -> Ok $ Lit n
+  v -> error ("TODO: check int, case:" <> show v )
 
-checkBytes :: Map Contract (Map Var Type) -> Contract -> Exp -> Err ByExp
+checkBytes :: Env -> Expr -> Err ByExp
 checkBytes = error ""
 
 -- AST post typechecking
@@ -216,18 +271,19 @@ data Behaviour = Behaviour
    _interface :: (Var, [Decl]),
 --   _storage :: Maybe (Map Var Type),
    _preconditions :: [BExp],
-   _cases :: Map BExp PrePost
-  }
+   _cases :: Map BExp Claim
+  } deriving (Show)
 
-data PrePost = PrePost (Map Var [StorageUpdate], Maybe TypedExp)
+type Claim = (Map Var [StorageUpdate], Maybe TypedExp)
 
-            --                     pre       , post
-data StorageUpdate = StorageUpdate StorageVar TypedExp
+--                    pre       , post
+type StorageUpdate = (StorageVar, TypedExp)
 
 data TypedExp
   = BoolExp BExp
   | IntExp  IExp
   | ByteExp ByExp
+  deriving (Show)
 
 data BExp
     = And  BExp BExp
@@ -244,6 +300,7 @@ data BExp
     | BTrue
     | BFalse
     | BoolVar Var
+  deriving (Show)
 
 data IExp
     = Add IExp IExp
@@ -255,17 +312,18 @@ data IExp
     | Exp IExp IExp
     | Lit Integer
     | IntVar Var
+  deriving (Show)
 
 data ByExp
     = Cat ByExp ByExp
     | Slice ByExp IExp IExp
-
+  deriving (Show)
 
 data StorageVar
     = Entry Var
     | Struct StorageVar Var
     | Lookup StorageVar 
-
+  deriving (Show)
 
 -- --Intermediate format
 -- data Obligation = Obligation
@@ -274,12 +332,12 @@ data StorageVar
 --     _StatusCode :: String,
 --     _methodName :: String,
 --     _inputArgs  :: [Decl],
---     _return     :: (Exp, Type),
---     _preConditions :: [Exp]
+--     _return     :: (Expr, Type),
+--     _preConditions :: [Expr]
 -- --    _env        :: [(String, Var)],
 -- -- --    _variables :: [(Var, Type)],
--- --     _preStore  :: [(Entry, Exp)],
--- --     _postStore :: [(Entry, Exp)],-
+-- --     _preStore  :: [(Entry, Expr)],
+-- --     _postStore :: [(Entry, Expr)],-
 -- --     _postCondition :: [BExp]
 --   } deriving (Show)
 
@@ -343,7 +401,7 @@ instance Pretty Var where
 -- --   pprint (Argm a) = pprint a
 
 
--- instance Pretty Exp where
+-- instance Pretty Expr where
 -- -- integers
 --   pprint (EAdd x y) = pprint x <> " + " <> pprint y
 --   pprint (ESub x y) = pprint x <> " - " <> pprint y
@@ -394,24 +452,24 @@ instance Pretty Var where
 --   pprint Type_bool = "bool"
 --   pprint Type_string = "string"
 
--- min :: Type -> Exp
+-- min :: Type -> Expr
 -- min Type_uint = IntLit 0
 -- min Type_uint256 = IntLit 0
 -- min Type_uint126 = IntLit 0
 -- min Type_uint8 = IntLit 0
 -- --todo, the rest
 
--- max :: Type -> Exp
+-- max :: Type -> Expr
 -- max Type_uint    = EInt 115792089237316195423570985008687907853269984665640564039
 -- max Type_uint256 = EInt 115792089237316195423570985008687907853269984665640564039
 -- max _ = error "todo: max"
 
 
 -- --Prints an act expression as a K ByteArray
--- kPrintBytes :: Exp -> String
+-- kPrintBytes :: Expr -> String
 -- kPrintBytes _ = "TODO: krpintBytes" --todo
 
--- iffHToBool :: IffH -> [Exp]
+-- iffHToBool :: IffH -> [Expr]
 -- iffHToBool (Iff bexps) = bexps
 -- iffHToBool (IffIn abitype exprs) =
 --   fmap
