@@ -23,24 +23,24 @@ token Var ((letter | '_')(letter | digit | '_')*) ;
 
 CaseSplit. PostCond ::= [CaseExpr] ;
 Direct. PostCond    ::= Post ;
-Case. CaseExpr ::= "case" Exp ":"
+Case. CaseExpr ::= "case" Expr ":"
                    PostCond ;
 
 -- Behaviour either specify a state transition, a return value,
 -- or both
 StorageP. Post ::= [Storage] ;
-ReturnP.  Post ::= "returns" Exp ;
+ReturnP.  Post ::= "returns" Expr ;
 StorageReturnP. Post ::= [Storage]
-                        "returns" Exp ;
+                        "returns" Expr ;
 
 --storage headers of this contract
 ThisStorage. Storage ::= "storage"
                          StorageH ;
 
 --external storage headers
-ExtStorage. Storage ::= "storage" "at" Exp
+ExtStorage. Storage ::= "storage" "at" Expr
                         StorageH ;
-CreatesExt. Storage ::= "creates" Var "at" Exp
+CreatesExt. Storage ::= "creates" Var "at" Expr
                         [Assign] ;
 
 --Storage headers and return headers may branch into cases:
@@ -49,60 +49,60 @@ NoopLeaf. StorageH ::= "noop" ;
 
 
 --assignments types storage variables
-Assignval. Assign ::= Type Var ":=" Exp ;
+Assignval. Assign ::= Type Var ":=" Expr ;
 Assignmap. Assign ::= Type Var ":=" "[" [Defn] "]" ;
 --todo: structs
 
-Iff.   IffH ::= "iff" [Exp] ;
-IffIn. IffH ::= "iff in range" Type "\n" [Exp] ;
+Iff.   IffH ::= "iff" [Expr] ;
+IffIn. IffH ::= "iff in range" Type "\n" [Expr] ;
 
 -- New, concise syntax
-Change. Update ::= Exp "=>" Exp ;
+Change. Update ::= Expr "=>" Expr ;
 
 --Array expressions (list or maps)
-Let. Defn ::= Exp ":=" Exp ;
+Let. Defn ::= Expr ":=" Expr ;
 
 --Boolean expressions
-EAnd.  Exp  ::= Exp "and" Exp ;
-EOr.   Exp  ::= Exp "or" Exp ;
-EImpl. Exp  ::= Exp "=>" Exp ;
-EEq.   Exp  ::= Exp "==" Exp ;
-ENeq.  Exp  ::= Exp "=/=" Exp ;
-ELEQ.  Exp  ::= Exp "<=" Exp ;
-ELE.   Exp  ::= Exp "<" Exp ;
-EGEQ.  Exp  ::= Exp ">=" Exp ;
-EGE.   Exp  ::= Exp ">" Exp ;
-_.     Exp  ::= "(" Exp ")" ;
-ETrue. Exp  ::= "true" ;
-EFalse. Exp ::= "false" ;
+EAnd.  Expr  ::= Expr "and" Expr ;
+EOr.   Expr  ::= Expr "or" Expr ;
+EImpl. Expr  ::= Expr "=>" Expr ;
+EEq.   Expr  ::= Expr "==" Expr ;
+ENeq.  Expr  ::= Expr "=/=" Expr ;
+ELEQ.  Expr  ::= Expr "<=" Expr ;
+ELE.   Expr  ::= Expr "<" Expr ;
+EGEQ.  Expr  ::= Expr ">=" Expr ;
+EGE.   Expr  ::= Expr ">" Expr ;
+_.     Expr  ::= "(" Expr ")" ;
+ETrue. Expr  ::= "true" ;
+EFalse. Expr ::= "false" ;
 
 --todo: precedence
 --Integer expressions
-EAdd. Exp ::= Exp  "+" Exp ;
-ESub. Exp ::= Exp  "-" Exp ;
-_.    Exp ::= "(" Exp ")" ;
-EITE. Exp ::= "if" Exp "then" Exp "else" Exp ;
-EMul. Exp ::= Exp "*" Exp ;
-EDiv. Exp ::= Exp "/" Exp ;
-EMod. Exp ::= Exp "%" Exp ;
-EExp. Exp ::= Exp "^" Exp ;
-Wild. Exp ::= "_" ;
-Zoom. Exp ::= Var "." Exp ;
-Func. Exp ::= Var "(" [Exp] ")" ;
+EAdd. Expr ::= Expr  "+" Expr ;
+ESub. Expr ::= Expr  "-" Expr ;
+_.    Expr ::= "(" Expr ")" ;
+EITE. Expr ::= "if" Expr "then" Expr "else" Expr ;
+EMul. Expr ::= Expr "*" Expr ;
+EDiv. Expr ::= Expr "/" Expr ;
+EMod. Expr ::= Expr "%" Expr ;
+EExp. Expr ::= Expr "^" Expr ;
+Wild. Expr ::= "_" ;
+Zoom. Expr ::= Var "." Expr ;
+Func. Expr ::= Var "(" [Expr] ")" ;
 -- lookups
-Look. Exp ::= Exp "[" Exp "]" ;
+Look. Expr ::= Expr "[" Expr "]" ;
 --Bytes expressions
-ECat.   Exp ::= Exp "++" Exp ;
-ESlice. Exp ::= Exp "[" Exp ".." Exp "]" ;
+ECat.   Expr ::= Expr "++" Expr ;
+ESlice. Expr ::= Expr "[" Expr ".." Expr "]" ;
 --built in functions
-Newaddr.  Exp ::= "newAddr" "(" Exp "," Exp ")";
-Newaddr2. Exp ::= "newAddr" "(" Exp "," Exp "," Exp ")";
-BYHash.   Exp ::= "keccak256" "(" Exp ")";
-BYAbiE.   Exp ::= "abiEncode" "(" Exp ")";
+Newaddr.  Expr ::= "newAddr" "(" Expr "," Expr ")";
+Newaddr2. Expr ::= "newAddr" "(" Expr "," Expr "," Expr ")";
+BYHash.   Expr ::= "keccak256" "(" Expr ")";
+BYAbiE.   Expr ::= "abiEncode" "(" Expr ")";
 -- terminals
-StringLit. Exp ::= String ;
-VarLit.    Exp ::= Var ;
-IntLit.    Exp ::= Integer ;
+StringLit. Expr ::= String ;
+VarLit.    Expr ::= Var ;
+IntLit.    Expr ::= Integer ;
 
 Dec. Decl ::= Type Var ;
 
@@ -120,11 +120,11 @@ TupleType.   Type ::= "(" [Type] ")" ;
 Contract.    Type ::= Var ;
 
 --fragments of where language
-Fun. FuncDef ::= Var "(" [Var] ")" "=" Exp ;
+Fun. FuncDef ::= Var "(" [Var] ")" "=" Expr ;
 
 separator Var "," ;
 separator Decl "," ;
-separator Exp "," ;
+separator Expr "," ;
 separator IffH "" ;
 separator nonempty Storage "" ;
 separator Assign "" ;
@@ -133,5 +133,5 @@ separator Defn "," ;
 separator nonempty RawBehaviour "" ;
 separator nonempty CaseExpr "" ;
 separator nonempty FuncDef "" ;
-separator nonempty Exp "" ;
+separator nonempty Expr "" ;
 separator nonempty Update "" ;
