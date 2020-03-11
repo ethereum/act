@@ -65,7 +65,7 @@ Let. Defn ::= Expr ":=" Expr ;
 --Boolean expressions
 EAnd.  Expr  ::= Expr "and" Expr ;
 EOr.   Expr  ::= Expr "or" Expr ;
-EImpl. Expr  ::= Expr "=>" Expr ;
+EImpl. Expr  ::= Expr "==>" Expr ;
 EEq.   Expr  ::= Expr "==" Expr ;
 ENeq.  Expr  ::= Expr "=/=" Expr ;
 ELEQ.  Expr  ::= Expr "<=" Expr ;
@@ -87,7 +87,7 @@ EDiv. Expr ::= Expr "/" Expr ;
 EMod. Expr ::= Expr "%" Expr ;
 EExp. Expr ::= Expr "^" Expr ;
 Wild. Expr ::= "_" ;
-Zoom. Expr ::= Var "." Expr ;
+Zoom. Expr ::= Expr "." Expr ;
 Func. Expr ::= Var "(" [Expr] ")" ;
 -- lookups
 Look. Expr ::= Expr "[" Expr "]" ;
