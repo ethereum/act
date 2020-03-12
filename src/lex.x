@@ -32,7 +32,10 @@ tokens :-
 
   -- builtin types
   uint                                  { \ p s -> UINT p }
+  int                                   { \ p s -> INT p }
+  string                                { \ p s -> STRING p }
   address                               { \ p s -> ADDRESS p }
+  bytes                                 { \ p s -> BYTES p }
 
   -- symbols
   ":="                                  { \ p s -> ASSIGN p }
@@ -93,7 +96,10 @@ data Token =
 
   -- builtin types
   | UINT P
+  | INT P
   | ADDRESS P
+  | STRING P
+  | BYTES P
 
   -- symbols
   | ASSIGN P
