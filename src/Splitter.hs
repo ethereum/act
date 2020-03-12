@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# Language TypeOperators #-}
+{-# OPTIONS -XMagicHash #-}
 import Data.List
 import Data.Aeson hiding (Bool)
 import Data.Aeson.Types hiding (Bool)
@@ -44,12 +45,18 @@ main = do
     cmd <- unwrapRecord "Act -- Smart contract specifier"
     case cmd of
       (Parse f) -> do contents <- readFile f      
-                      case pAct $ myLexer contents of
-                        (Ok (Main a)) -> do print "success"
-                                            print a
-                        (Bad s) -> error s
+                      let tokens = myLexer contents
+                          getErrPos ((Err x):xs) = Just x
+                          getErrPos (_:xs) = getErrPos xs
+                          getErrPos [] = Nothing
+                      case getErrPos tokens of
+                               Just (Pn col lin _) -> print $ "syntax error at line " <> show lin <> ", column " <> show col
+                               Nothing -> case pAct tokens of
+                                            Ok (Main act) -> do print "success"
+                                                                  print act
+                                            Bad s -> error s -- todo: get position information
 
-      (TypeCheck f) -> do contents <- readFile f      
+      (TypeCheck f) -> do contents <- readFile f
                           case pAct $ myLexer contents of --todo: proper monadic lifts
                             (Ok (Main a)) -> case typecheck a of
                               (Ok a)  -> do print "success:"
@@ -84,7 +91,8 @@ fromAssign (Assignmap typ var _) = (var, typ)
 defaultStore :: Map Var Type
 defaultStore = Map.fromList
   [(Var "CALLVALUE", Type_uint),
-   (Var "CALLER", Type_address)
+   (Var "CALLER", Type_address),
+   (Var "BLOCKNUMBER", Type_uint)
    --others TODO
   ]
 
@@ -101,8 +109,9 @@ checkBehaviour store (Transition name contract method decls iffs cases) = do
     Direct (StorageP updates) -> error "TODO: storage"
     Direct (StorageReturnP updates exp) -> do typedExp <- inferExpr env exp
                                               error "TODO: storage"
+    CaseSplit _ -> error "TODO"  --three cases
   return (Behaviour name contract (method, decls) iff cases)
-  where env = (store, fromMaybe mempty (Map.lookup contract store) <> abiVars <> defaultStore)
+  where env = (store, fromMaybe mempty (Map.lookup contract store) <> abiVars <> defaultStore) -- TODO: 'where' section
         abiVars = Map.fromList $ map (\(Dec typ var) -> (var, typ)) decls
 checkBehaviour store (Constructor name contract decls iffs cases) = error "TODO: check constructor"
 
@@ -154,6 +163,10 @@ abiTypeToMeta Type_bytes   = ByteStr
 abiTypeToMeta Type_bytes32 = ByteStr
 abiTypeToMeta Type_bytes4  = ByteStr
 abiTypeToMeta Type_string  = ByteStr
+
+-- symbolToSignature :: Expr -> [MType]
+-- symbolToSignature _ = _
+
 
 inferExpr :: Env -> Expr -> Err TypedExp
 inferExpr env exp = let intintint op v1 v2 = do w1 <- checkInt env v1
@@ -285,6 +298,10 @@ data TypedExp
   | ByteExp ByExp
   deriving (Show)
 
+data Entry
+  = DirectVar Var
+  | LookUp Var TypedExp
+
 data BExp
     = And  BExp BExp
     | Or   BExp BExp
@@ -324,6 +341,10 @@ data StorageVar
     | Struct StorageVar Var
     | Lookup StorageVar 
   deriving (Show)
+
+-------
+
+
 
 -- --Intermediate format
 -- data Obligation = Obligation
