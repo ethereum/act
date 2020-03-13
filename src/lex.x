@@ -1,5 +1,5 @@
 {
-module Lex (Token (..), alexScanTokens) where
+module Lex (LEX (..), Lexeme (..), alexScanTokens) where
 import Prelude hiding (EQ, GT, LT)
 }
 
@@ -8,131 +8,145 @@ import Prelude hiding (EQ, GT, LT)
 $digit = 0-9                    -- digits
 $alpha = [a-z A-Z]              -- alphabetic characters
 $ident = [$alpha _]
+$space = [\ \t\f\v\r]
 
 tokens :-
 
-  $white+                               ;
+  ($space* \n)+       { mk BREAK }
+  $space+             ;
 
   -- reserved words
-  behaviour                             { \ p s -> BEHAVIOUR p }
-  of                                    { \ p s -> OF p }
-  interface                             { \ p s -> INTERFACE p }
-  constructor                           { \ p s -> CONSTRUCTOR p }
-  creates                               { \ p s -> CREATES p }
-  case                                  { \ p s -> CASE p }
-  returns                               { \ p s -> RETURNS p }
-  storage                               { \ p s -> STORAGE p }
-  noop                                  { \ p s -> NOOP p }
-  "iff in range"                        { \ p s -> IFFINRANGE p }
-  iff                                   { \ p s -> IF p }
-  and                                   { \ p s -> AND p }
-  or                                    { \ p s -> OR p }
-  true                                  { \ p s -> TRUE p }
-  false                                 { \ p s -> FALSE p }
+  behaviour                             { mk BEHAVIOUR }
+  of                                    { mk OF }
+  interface                             { mk INTERFACE }
+  constructor                           { mk CONSTRUCTOR }
+  creates                               { mk CREATES }
+  case                                  { mk CASE }
+  returns                               { mk RETURNS }
+  storage                               { mk STORAGE }
+  noop                                  { mk NOOP } 
+  
+  iff $white+ in $white+ range          { mk IFFINRANGE }
+  iff                                   { mk IFF }
+  and                                   { mk AND }
+  or                                    { mk OR }
+  true                                  { mk TRUE }
+  false                                 { mk FALSE }
+  mapping                               { mk MAPPING }
 
   -- builtin types
-  uint                                  { \ p s -> UINT p }
-  int                                   { \ p s -> INT p }
-  string                                { \ p s -> STRING p }
-  address                               { \ p s -> ADDRESS p }
-  bytes                                 { \ p s -> BYTES p }
+  uint $digit+                   { \ p s -> L (UINT (read (drop 4 s))) p }
+  uint                           { mk (UINT 256) }
+  bytes $digit+                  { \ p s -> L (BYTES (read (drop 5 s))) p }
+  bytes                          { error "TODO" }
+  address                        { mk ADDRESS }
+  bool                           { mk BOOL }
+  string                         { mk STRING }
 
   -- symbols
-  ":="                                  { \ p s -> ASSIGN p }
-  "->"                                  { \ p s -> ARROW p }
-  "=>"                                  { \ p s -> ARROW' p }
-  "=="                                  { \ p s -> EQEQ p }
-  "=/="                                 { \ p s -> NEQ p }
-  ">="                                  { \ p s -> GE p }
-  "<="                                  { \ p s -> LE p }
-  "++"                                  { \ p s -> CAT p }
-  ".."                                  { \ p s -> SLICE p }
-  "("                                   { \ p s -> LPAREN p }
-  ")"                                   { \ p s -> RPAREN p }
-  "["                                   { \ p s -> LBRACK p }
-  "]"                                   { \ p s -> RBRACK p }
-  "="                                   { \ p s -> EQ p }
-  ">"                                   { \ p s -> GT p }
-  "<"                                   { \ p s -> LT p }
-  ":"                                   { \ p s -> COLON p }
-  "+"                                   { \ p s -> PLUS p }
-  "-"                                   { \ p s -> MINUS p }
-  "*"                                   { \ p s -> STAR p }
-  "/"                                   { \ p s -> SLASH p }
-  "%"                                   { \ p s -> MOD p }
-  "^"                                   { \ p s -> CARROT p }
-  "_"                                   { \ p s -> SCORE p }
-  "."                                   { \ p s -> DOT p }
-  ","                                   { \ p s -> COMMA p }
+  ":="                                  { mk ASSIGN }
+  "=>"                                  { mk ARROW }
+  -- "->"                                  { mk ARROW' }
+  "=="                                  { mk EQEQ }
+  "=/="                                 { mk NEQ }
+  ">="                                  { mk GE }
+  "<="                                  { mk LE }
+  "++"                                  { mk CAT }
+  ".."                                  { mk SLICE }
+  "("                                   { mk LPAREN }
+  ")"                                   { mk RPAREN }
+  "["                                   { mk LBRACK }
+  "]"                                   { mk RBRACK }
+  "="                                   { mk EQ }
+  ">"                                   { mk GT }
+  "<"                                   { mk LT }
+  ":"                                   { mk COLON }
+  "+"                                   { mk PLUS }
+  "-"                                   { mk MINUS }
+  "*"                                   { mk STAR }
+  "/"                                   { mk SLASH }
+  "%"                                   { mk MOD }
+  "^"                                   { mk CARROT }
+  "_"                                   { mk SCORE }
+  "."                                   { mk DOT }
+  ","                                   { mk COMMA }
 
   -- identifiers
-  $ident ($ident | $digit)*   { \ p s -> ID p s }
+  $ident ($ident | $digit)*   { \ p s -> L (ID s) p }
 
   -- literals
-  $digit+                     { \ p s -> LIT p (read s) }
-
+  $digit+                     { \ p s -> L (ILIT (read s)) p }
 {
 
-type P = AlexPosn
+data LEX =
 
-data Token =
+  -- newlines
+    BREAK
 
   -- reserved words
-    BEHAVIOUR P
-  | OF        P
-  | INTERFACE P
-  | CONSTRUCTOR P
-  | CREATES P
-  | CASE P
-  | RETURNS P
-  | STORAGE P
-  | NOOP P
-  | IFFINRANGE P
-  | IF P
-  | AND P
-  | OR P
-  | TRUE P
-  | FALSE P
+  | BEHAVIOUR
+  | OF       
+  | INTERFACE
+  | CONSTRUCTOR
+  | CREATES
+  | CASE
+  | RETURNS
+  | STORAGE
+  | NOOP
+  | IFFINRANGE
+  | IFF
+  | AND
+  | OR
+  | TRUE
+  | FALSE
+  | MAPPING
 
   -- builtin types
-  | UINT P
-  | INT P
-  | ADDRESS P
-  | STRING P
-  | BYTES P
+  | UINT  Int
+  | BYTES Int
+  | ADDRESS
+  | BOOL
+  | STRING
 
   -- symbols
-  | ASSIGN P
-  | ARROW P
-  | ARROW' P
-  | EQEQ P
-  | NEQ P
-  | GE P
-  | LE P
-  | CAT P
-  | SLICE P
-  | LPAREN P
-  | RPAREN P
-  | LBRACK P
-  | RBRACK P
-  | EQ P
-  | GT P
-  | LT P
-  | COLON P
-  | PLUS P
-  | MINUS P
-  | STAR P
-  | SLASH P
-  | MOD P
-  | CARROT P
-  | SCORE P
-  | DOT P
-  | COMMA P
+  | ASSIGN
+  | ARROW
+  | EQEQ
+  | NEQ
+  | GE
+  | LE
+  | CAT
+  | SLICE
+  | LPAREN
+  | RPAREN
+  | LBRACK
+  | RBRACK
+  | EQ
+  | GT
+  | LT
+  | COLON
+  | PLUS
+  | MINUS
+  | STAR
+  | SLASH
+  | MOD
+  | CARROT
+  | SCORE
+  | DOT
+  | COMMA
 
   -- identifiers
-  | ID P String
+  | ID String
 
   -- literals
-  | LIT P Integer
-  deriving (Eq,Show)
+  | ILIT Integer
+
+  deriving (Eq, Show)
+
+data Lexeme = L LEX AlexPosn
+  deriving (Eq, Show)
+
+-- helper function to reduce boilerplate
+mk :: LEX -> (AlexPosn -> String -> Lexeme)
+mk lexeme p _ = L lexeme p
 }
