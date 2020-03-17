@@ -23,16 +23,18 @@ data Layout = Layout {
 
 data Encoding = Inplace | Mapping | DynamicArray | Bytes
 
-data KSpec = {
+data KSpec = KSpec {
   k :: KTerm,
   program :: String,
   jumpDests :: String,
-  callData :: TypedExpr,
-  output :: TypedExpr,
+  callData :: TypedExp,
+  output :: TypedExp,
   statusCode :: StatusCode,
   kreturn :: String
 --  accounts :: Map Contract
 }
+
+data KTerm = Execute | Halt
 
 data StatusCode
   = EVMC_SUCCESS
