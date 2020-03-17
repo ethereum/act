@@ -24,7 +24,7 @@ import Control.Monad
 import Syntax
 import ErrM
 import Splitter
-import LexAct
+--import LexAct hiding (Err)
 import Options.Generic
 import RefinedAst
 
@@ -32,6 +32,8 @@ import RefinedAst
 -- to be defined by parser
 myLexer :: String -> [Token]
 myLexer = error "import ParAct to parse"
+
+data Token = Token
 
 pAct :: [Token] -> Err Act
 pAct = error "to be defined by parser"
@@ -56,16 +58,10 @@ main = do
     cmd <- unwrapRecord "Act -- Smart contract specifier"
     case cmd of
       (Parse f) -> do contents <- readFile f
-                      let tokens = myLexer contents
-                          getErrPos ((Err x):xs) = Just x
-                          getErrPos (_:xs) = getErrPos xs
-                          getErrPos [] = Nothing
-                      case getErrPos tokens of
-                               Just (Pn col lin _) -> print $ "syntax error at line " <> show lin <> ", column " <> show col
-                               Nothing -> case pAct tokens of
-                                            Ok (Main act) -> do print "success"
-                                                                print act
-                                            Bad s -> error s -- todo: get position information
+                      case pAct $ myLexer contents of
+                        Ok (Main act) -> do print "success"
+                                            print act
+                        Bad s -> error s -- todo: get position information
 
       (TypeCheck f) -> do contents <- readFile f
                           case pAct $ myLexer contents of --todo: proper monadic lifts
@@ -105,7 +101,7 @@ defaultStore =
    --others TODO
   ]
 
---typing of vars: other contract scopes, global (to this function)
+-- typing of vars: other contract scopes, global (to this function)
 type Env = (Map Contract (Map Id Type), Map Id Type)
 
 -- checks a transition given a typing of its storage variables
@@ -115,11 +111,11 @@ checkBehaviour store (Transition name contract method decls iffs claim) = do
   claims <- case claim of
     TDirect post -> do p <- checkPost env (IntVar contract) post
                        Ok [(BTrue, p)]
-    TCases cases -> sequence $ fmap
-      (\(Case _ cond post) -> do p <- checkPost env (IntVar contract) post
-                                 c <- checkBool env cond
-                                 Ok (c, p))
-      cases
+    TCases cases -> sequence $ fmap (\(Case _ cond post) ->
+                                       do p <- checkPost env (IntVar contract) post
+                                          c <- checkBool env cond
+                                          Ok (c, p))
+                               cases
   return (Behaviour name contract (method, decls) iff (Map.fromList claims))
   where env = (store, fromMaybe mempty (Map.lookup (IntVar contract) store) <> abiVars)
         abiVars = Map.fromList $ map (\(Dec typ var) -> (var, typ)) decls
@@ -144,7 +140,14 @@ checkPost env contract (Post maybeStorage extStorage maybeReturn) =
 
 
 checkStorageExpr :: Env -> Contract -> Entry -> Expr -> Err (Entry, TypedExp)
-checkStorageExpr = error "TODO: checkStorageExpr"
+checkStorageExpr env@(contractStores, localVars) contract entry expr =
+  case entry of
+    Simple p id -> case Map.lookup contract contractStores of
+      Nothing -> Bad $ "Unknown contract: " <> show contract
+      Just store -> case Map.lookup id store of
+        Nothing -> Bad $ "Unknown variable: " <> show id <> " of contract: " <> show contract <> " at " <> show p
+        Just typ -> do sequence $ (entry, checkExpr env (metaType typ) expr)
+    Lookup p container index -> error "TODO"
 
 checkIffs :: Env -> [IffH] -> Err [BExp]
 checkIffs env ((Iff pos exps):xs) = do
