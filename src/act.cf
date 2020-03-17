@@ -114,7 +114,8 @@ rules Type ::= "uint"    | "int"
              | "address" | "bytes"
              | "bytes32" | "bytes4"
              | "bool"    | "string" ;
-ArrayType.   Type ::= Type "[" Integer "]" ;
+StaticArrayType. Type ::= Type "[" Integer "]" ;
+DynamicArrayType. Type ::= Type "[" "]" ;
 MappingType. Type ::= "mapping" "(" Type "=>" Type ")" ;
 TupleType.   Type ::= "(" [Type] ")" ;
 Contract.    Type ::= Var ;

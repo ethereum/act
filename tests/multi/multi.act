@@ -7,7 +7,7 @@ iff
 // we can specify how a call to a function of B
 // updates the storage of another by labelling the storage header
 // by the address of that contract
-storage at a
+storage a
    x => y
 
 behaviour multi of B
@@ -20,5 +20,5 @@ iff
 storage
    y => 1
 
-storage at a
+storage a
    x => y
