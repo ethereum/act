@@ -1,0 +1,16 @@
+[Transition (P 0 0 0, "add") (P 0 0 0, "SafeAdd")
+ (P 0 0 0, "add")
+            [Dec (T_uint 256) (P 0 0 0, "x")
+            ,Dec (T_uint 256) (P 0 0 0, "y")]
+[IffIn (P 0 0 0) (T_uint 256) [EAdd (P 0 0 0) (Var (P 0 0 0) (P 0 0 0, "x"))
+                                              (Var (P 0 0 0) (P 0 0 0, "y"))
+                              ]
+,Iff (P 0 0 0) [EEq (P 0 0 0) (EnvExpr (P 0 0 0) CALLVALUE) (IntLit (P 0 0 0) 0)]]
+
+(TDirect (Post Nothing [] (Just (EAdd (P 0 0 0)
+                                 (Var (P 0 0 0) (P 0 0 0, "x"))
+                                 (Var (P 0 0 0) (P 0 0 0, "y"))
+                                )
+                          )
+         )
+)]
