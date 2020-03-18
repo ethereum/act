@@ -1,0 +1,1 @@
+[Transition (Var "add") (Var "SafeAdd") (Var "add") [Dec Type_uint256 (Var "x"),Dec Type_uint256 (Var "y")] [IffIn Type_uint256 [EAdd (VarLit (Var "x")) (VarLit (Var "y"))],Iff [EEq (VarLit (Var "CALLVALUE")) (IntLit 0)]] (Direct (ReturnP (EAdd (VarLit (Var "x")) (VarLit (Var "y")))))]
