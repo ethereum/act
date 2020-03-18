@@ -1,0 +1,1 @@
+[Transition (Var "create_a") (Var "B") (Var "create_a") [] [Iff [EEq (VarLit (Var "CALLVALUE")) (IntLit 0)]] (Direct (StorageP [ThisStorage (Leaf [Change (VarLit (Var "a")) (Newaddr (VarLit (Var "ADDRESS")) (VarLit (Var "NONCE")))]),CreatesExt (Var "A") (Newaddr (VarLit (Var "ADDRESS")) (VarLit (Var "NONCE"))) [Assignval Type_uint (Var "x") (IntLit 1)]]))]

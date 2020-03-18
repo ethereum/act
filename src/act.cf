@@ -38,7 +38,7 @@ ThisStorage. Storage ::= "storage"
                          StorageH ;
 
 --external storage headers
-ExtStorage. Storage ::= "storage" "at" Expr
+ExtStorage. Storage ::= "storage" Expr
                         StorageH ;
 CreatesExt. Storage ::= "creates" Var "at" Expr
                         [Assign] ;
