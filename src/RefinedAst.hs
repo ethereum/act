@@ -1,3 +1,6 @@
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 module RefinedAst where
 import GHC.Generics
 import Data.Map.Strict    (Map)
@@ -7,12 +10,12 @@ import Data.ByteString       (ByteString)
 import Syntax
 
 -- AST post typechecking
-data Behaviour = Behaviour
+data Behaviour a = Behaviour
   {_name :: Id,
    _contract :: Id,
    _interface :: (Id, [Decl]),
    _preconditions :: [BExp],
-   _cases :: Map BExp Claim
+   _cases :: Map BExp (Claim a)
   }   deriving (Eq, Ord, Show, Read)
 
 type Contract = IExp
@@ -23,23 +26,29 @@ data MType
   | Boolean
   | ByteStr
   deriving (Eq, Ord, Show, Read)
-type Claim = (Map Contract [StorageUpdate], Maybe TypedExp)
 
---                    pre       , post
-type StorageUpdate = (Entry, TypedExp)
+-- the type var a holds the type of the return expression
+data Claim a = Claim (Map Contract [StorageUpdate]) (Maybe (TExp a))
 
-data TypedExp
-  = BoolExp BExp
-  | IntExp  IExp
-  | ByteExp ByExp
-  deriving (Eq, Ord, Show, Read)
+-- meta types that work as GADT "tags"
+data T_Int
+data T_Bool
+data Mapping k a
 
-data TypedEntry
-  = BoolEntry Entry
-  | IntEntry Entry
-  | ByteEntry Entry
-  deriving (Eq, Ord, Show, Read)  
-  
+data StorageUpdate
+  = IntUpdate (TEntry T_Int) (TExp T_Int)
+  | BoolUpdate (TEntry T_Bool) (TExp T_Bool)
+
+data TEntry typ where 
+  IntEntry  :: Id -> T_Int -> TEntry T_Int
+  BoolEntry :: Id -> T_Bool -> TEntry T_Bool
+  TLookup  :: (TEntry (Mapping k a)) -> (TExp k) -> TEntry a
+--  Struct  :: (TEntry (Mapping k a)) -> (TExp k) -> TEntry a
+
+data TExp typ where
+  Int  :: IExp -> TExp T_Int
+  Bool :: BExp -> TExp T_Bool
+
 data BExp
     = And  BExp BExp
     | Or   BExp BExp
@@ -66,6 +75,7 @@ data IExp
     | Mod IExp IExp
     | Exp IExp IExp
     | Lit Integer
+    | IEnv EthEnv
     | IntVar Id
   deriving (Eq, Ord, Show, Read)
 
@@ -76,3 +86,5 @@ data ByExp
     | ByStr String
     | ByLit ByteString
   deriving (Eq, Ord, Show, Read)
+
+-- add array MTypes and post conditions
