@@ -13,9 +13,11 @@ data Act = Main [RawBehaviour]
   deriving (Eq, Ord, Show, Read)
 
 data RawBehaviour
-    = Transition Id Id Id [Decl] [IffH] TransitionClaim
-    | Constructor Id Id [Decl] [IffH] ConstructionClaim
+    = Transition Id Id Id [Decl] [IffH] TransitionClaim (Maybe Ensures)
+    | Constructor Id Id [Decl] [IffH] ConstructionClaim (Maybe Ensures)
   deriving (Eq, Ord, Show, Read)
+
+type Ensures = [Expr]
 
 data ConstructionClaim = CCases Pn [(Expr, PostCreates)] | CDirect PostCreates
   deriving (Eq, Ord, Show, Read)
@@ -103,17 +105,23 @@ data EthEnv
 data Decl = Dec Type Id
   deriving (Eq, Ord, Show, Read)
 
+-- storage types
+data Container
+   = Direct Type
+   | Mapping Type Container
+
+-- callvalue types
+-- TODO: refine to "elementary" types and whatnot
 data Type
-    = T_uint Int
-    | T_int Int
-    | T_address
-    | T_bytes Int
-    | T_bytes_dynamic
-    | T_bool
-    | T_string
-    | T_array_static Type Integer
-    | T_array_dynamic Type
-    | T_map Type Type
-    | T_tuple [Type]
-    | T_contract Id
+   = T_uint Int
+   | T_int Int
+   | T_address
+   | T_bytes Int
+   | T_bytes_dynamic
+   | T_bool
+   | T_string
+   | T_array_static Type Integer
+   | T_array_dynamic Type
+   | T_tuple [Type]
+   | T_contract Id
   deriving (Eq, Ord, Show, Read)
