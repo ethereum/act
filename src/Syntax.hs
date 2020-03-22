@@ -1,23 +1,31 @@
 -- data types for the parsed syntax.
 -- Has the correct basic structure, but doesn't necessarily type check
 -- It is also equipped with position information for extra debugging xp
-
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Syntax where
-
+import Data.List          (intercalate)
 data Pn = P !Int !Int !Int
-   deriving (Eq, Read, Show,Ord)
+   deriving (Eq, Read, Ord, Show)
 
-type Id = (Pn, String)
+type Id = String
 
 data Act = Main [RawBehaviour]
   deriving (Eq, Ord, Show, Read)
 
 data RawBehaviour
-    = Transition Id Id Id [Decl] [IffH] TransitionClaim (Maybe Ensures)
-    | Constructor Id Id [Decl] [IffH] ConstructionClaim (Maybe Ensures)
+    = Transition Id Id Interface [IffH] TransitionClaim (Maybe Ensures)
+    | Constructor Id Id Interface [IffH] ConstructionClaim (Maybe Ensures)
   deriving (Eq, Ord, Show, Read)
 
 type Ensures = [Expr]
+
+data Interface = Interface Id [Decl]
+  deriving (Eq, Ord, Read)
+
+instance Show Interface where
+  show (Interface a d) = show a <> "(" <> concat (fmap show d) <> ")"
 
 data ConstructionClaim = CCases Pn [(Expr, PostCreates)] | CDirect PostCreates
   deriving (Eq, Ord, Show, Read)
@@ -40,11 +48,11 @@ data PostCreates
 type Storage = [(Entry, Expr)]
 
 data ExtStorage
-    = ExtStorage Expr [(Entry, Expr)]
+    = ExtStorage Id [(Entry, Expr)]
     | ExtCreates Id Expr [Assign]
   deriving (Eq, Ord, Show, Read)
 
-data Assign = Assignval Decl Expr | AssignMany Decl [Defn] | AssignStruct Decl [Defn]
+data Assign = Assignval StorageDecl Expr | AssignMany StorageDecl [Defn] | AssignStruct StorageDecl [Defn]
   deriving (Eq, Ord, Show, Read)
 
 data IffH = Iff Pn [Expr] | IffIn Pn Type [Expr]
@@ -102,13 +110,20 @@ data EthEnv
    | BLOCKHASH
   deriving (Eq, Ord, Show, Read)
 
-data Decl = Dec Type Id
+data StorageDecl = StorageDec Container Id
   deriving (Eq, Ord, Show, Read)
+
+data Decl = Dec Type Id
+  deriving (Eq, Ord, Read)
+
+instance Show Decl where
+  show (Dec t a) = show t <> " " <> show a
 
 -- storage types
 data Container
    = Direct Type
    | Mapping Type Container
+  deriving (Eq, Ord, Show, Read)
 
 -- callvalue types
 -- TODO: refine to "elementary" types and whatnot
@@ -124,4 +139,20 @@ data Type
    | T_array_dynamic Type
    | T_tuple [Type]
    | T_contract Id
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Read)
+
+instance Show Type where
+  show = abiTypeSolidity
+
+abiTypeSolidity :: Type -> String
+abiTypeSolidity t = case t of
+  T_uint n         -> "uint" <> show n
+  T_int n          -> "int" <> show n
+  T_address        -> "address"
+  T_bool           -> "bool"
+  T_bytes n        -> "bytes" <> show n
+  T_bytes_dynamic  -> "bytes"
+  T_string         -> "string"
+  T_array_static t n -> abiTypeSolidity t <> "[" <> show n <> "]"
+  T_array_dynamic t -> abiTypeSolidity t <> "[]"
+  T_tuple ts       -> "(" <> intercalate "," (fmap abiTypeSolidity ts) <> ")"
