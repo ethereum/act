@@ -2,27 +2,41 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# Language DeriveAnyClass #-}
 module RefinedAst where
+import Data.Text          (Text, pack, unpack)
 import GHC.Generics
 import Data.Map.Strict    (Map)
 import qualified Data.Map.Strict      as Map
 import Data.ByteString       (ByteString)
 
 import Syntax
+import Data.Aeson
+import Data.Aeson.Types
+import Data.Vector (fromList)
+import Data.Bits
+import Data.Char
 
+import Data.Text          (Text, pack)
+import Data.Vector        (Vector)
+import Data.Word          (Word32, Word8)
+import Data.Sequence        (Seq)
+
+import Numeric (readHex, showHex)
 -- AST post typechecking
-data Behaviour a = Behaviour
+data Behaviour = Behaviour
   {_name :: Id,
    _contract :: Id,
    _interface :: (Id, [Decl]),
    _preconditions :: [Exp T_Bool],
    _postconditions :: [Exp T_Bool],
-   _cases :: Map (Exp T_Bool) Claim
+--   _contracts :: SolcContract,
+   _stateUpdates :: Map Id [StorageUpdate],
+   _returns :: Maybe ReturnExp
   }
-  --deriving (Eq, Ord, Show, Read)
-
-type Contract = Exp T_Int
-
 --types understood by proving tools
 data MType 
   = Integer
@@ -34,7 +48,7 @@ data MType
 --type Claim = (Map Contract [OldStorageUpdate], Maybe (TypedExp))
 
 -- the type var a holds the type of the return expression
-data Claim = Claim (Map Contract [StorageUpdate]) (Maybe (ReturnExp))
+--data Claim = Claim (Map Text [StorageUpdate]) (Maybe (ReturnExp))
 --  deriving (Eq, Ord, Show, Read)
 
 --type OldStorageUpdate = (Entry, TypedExp)
@@ -106,12 +120,15 @@ data Exp t where
   And  :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
   Or   :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
   Impl :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
-  Eq  :: Exp t -> Exp t -> Exp T_Bool
+  Eq  :: Exp T_Int -> Exp T_Int -> Exp T_Bool --TODO: make polymorphic
+  NEq  :: Exp t -> Exp t -> Exp T_Bool
   Neg :: Exp T_Bool -> Exp T_Bool
   LE :: Exp T_Int -> Exp T_Int -> Exp T_Bool
+  LEQ :: Exp T_Int -> Exp T_Int -> Exp T_Bool
+  GEQ :: Exp T_Int -> Exp T_Int -> Exp T_Bool
   GE :: Exp T_Int -> Exp T_Int -> Exp T_Bool
   LitBool :: Bool -> Exp T_Bool
-  BVar :: Id -> Exp T_Bool
+  BoolVar :: Id -> Exp T_Bool
   -- integers
   Add :: Exp T_Int -> Exp T_Int -> Exp T_Int
   Sub :: Exp T_Int -> Exp T_Int -> Exp T_Int
@@ -119,7 +136,7 @@ data Exp t where
   Div :: Exp T_Int -> Exp T_Int -> Exp T_Int
   Mod :: Exp T_Int -> Exp T_Int -> Exp T_Int
   Exp :: Exp T_Int -> Exp T_Int -> Exp T_Int
-  LitInt :: Int -> Exp T_Int
+  LitInt :: Integer -> Exp T_Int
   IntVar :: Id -> Exp T_Int
   IntEnv :: EthEnv -> Exp T_Int
   -- bytestrings
@@ -136,55 +153,49 @@ deriving instance Show (Exp t)
 data ReturnExp
   = ExpInt    (Exp T_Int)
   | ExpBool   (Exp T_Bool)
+  | ExpBytes  (Exp T_Bytes)
   | ExpTuple  (Exp T_Tuple)
---  | List      Exp T_List
-  
+  deriving (Show)
 
--- data TypedExp
---   = BoolExp BExp
---   | IntExp  IExp
---   | ByteExp ByExp
---   | TupleExp TypedExp TypedExp
---   | ListExp [TypedExp]
---   deriving (Eq, Ord, Show, Read)
+--instance ToJSON (Exp ('T_Int)) where
+
+instance ToJSON Behaviour where
+  toJSON (Behaviour {..}) = object  [ "name" .= _name
+                                    , "contract"  .= _contract
+                                    , "interface"  .= (pack $ show (fst _interface) <> show (snd _interface))
+                                    , "preConditions"   .= (Array $ fromList $ fmap toJSON _preconditions)
+                                    , "returns" .= toJSON _returns]
 
 
--- data BExp
---     = And  BExp BExp
---     | Or   BExp BExp
---     | Impl BExp BExp
---     | IEq  IExp IExp
---     | INEq IExp IExp
---     | YEq  ByExp ByExp
---     | Neg  BExp
---     | LE   IExp IExp
---     | GE   IExp IExp
---     | LEQ  IExp IExp
---     | GEQ  IExp IExp
---     | BTrue
---     | BFalse
---     | BoolVar Id
---   deriving (Eq, Ord, Show, Read)
+instance ToJSON ReturnExp where
+   toJSON (ExpInt a) = object ["sort" .= (pack "int")
+                              ,"expression" .= toJSON a]
+   toJSON (ExpBool a) = object ["sort" .= (String $ pack "bool")
+                               ,"expression" .= toJSON a]
+   -- toJSON (ExpTuple a) = object ["sort" .= (String $ pack "tuple")
+   --                              ,"expression" .= toJSON a]
 
--- data IExp
---     = Add IExp IExp
---     | Sub IExp IExp
---     | ITE BExp IExp IExp
---     | Mul IExp IExp
---     | Div IExp IExp
---     | Mod IExp IExp
---     | Exp IExp IExp
---     | Lit Integer
---     | IEnv EthEnv
---     | IntVar Id
---   deriving (Eq, Ord, Show, Read)
 
--- data ByExp
---     = Cat ByExp ByExp
---     | Slice ByExp IExp IExp
---     | ByVar Id
---     | ByStr String
---     | ByLit ByteString
---   deriving (Eq, Ord, Show, Read)
+instance ToJSON (Exp T_Int) where
+  toJSON (Add a b) = object [   "symbol"   .= (String $ pack "+")
+                             ,  "arity"    .= (Number $ 2)
+                             ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
+  toJSON (IntVar a) = String $ pack a
+  toJSON (LitInt a) = toJSON a
+  toJSON (IntEnv a) = String $ pack $ show a
+  toJSON v = error $ "todo: json ast for: " <> show v
 
--- add array MTypes and post conditions
+instance ToJSON (Exp T_Bool) where
+  toJSON (And a b) = object [   "symbol"   .= pack "and"
+                             ,  "arity"    .= (Number $ 2)
+                             ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
+  toJSON (LE a b) = object [   "symbol"   .= pack "<"
+                             ,  "arity"    .= (Number $ 2)
+                             ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
+  toJSON (Eq a b) = object [   "symbol"   .= pack "="
+                             ,  "arity"    .= (Number $ 2)
+                             ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
+  toJSON (LEQ a b) = object [   "symbol"   .= pack "<="
+                             ,  "arity"    .= (Number $ 2)
+                             ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
+  toJSON v = error $ "todo: json ast for: " <> show v
