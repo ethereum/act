@@ -1,0 +1,62 @@
+{
+  "name": "add",
+  "preConditions": [
+    {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            0,
+            {
+              "arity": 2,
+              "args": [
+                "x",
+                "y"
+              ],
+              "symbol": "+"
+            }
+          ],
+          "symbol": "<="
+        },
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                "x",
+                "y"
+              ],
+              "symbol": "+"
+            },
+            1.157920892373162e+77
+          ],
+          "symbol": "<="
+        }
+      ],
+      "symbol": "and"
+    },
+    {
+      "arity": 2,
+      "args": [
+        "CALLVALUE",
+        0
+      ],
+      "symbol": "="
+    }
+  ],
+  "contract": "SafeAdd",
+  "interface": "\"add\"[uint256 \"x\",uint256 \"y\"]",
+  "returns": {
+    "expression": {
+      "arity": 2,
+      "args": [
+        "x",
+        "y"
+      ],
+      "symbol": "+"
+    },
+    "sort": "int"
+  }
+}
