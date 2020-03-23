@@ -59,9 +59,8 @@ data IffH = Iff Pn [Expr] | IffIn Pn Type [Expr]
   deriving (Eq, Ord, Show, Read)
 
 data Entry
-  = Simple Pn Id
-  | Lookup Pn Entry Expr
-  | Struct Pn Entry Id
+--  = Entry Pn Id [Either Expr Id] TODO
+  = Entry Pn Id [Expr]
   deriving (Eq, Ord, Show, Read)
 
 data Defn = Defn Pn Expr Expr
@@ -87,8 +86,10 @@ data Expr
     | EMod Pn Expr Expr
     | EExp Pn Expr Expr
     | Zoom Pn Expr Expr
+    | EntryExp Entry
     | Func Pn Id [Expr]
-    | Look Pn Expr Expr
+    | ListConst Expr
+    | EmptyList
     | ECat Pn Expr Expr
     | ESlice Pn Expr Expr Expr
     | Newaddr Pn Expr Expr
@@ -96,7 +97,6 @@ data Expr
     | BYHash Pn Expr
     | BYAbiE Pn Expr
     | StringLit Pn String
-    | StorageEntry Pn Entry
     | Var Pn Id
     | EnvExpr Pn EthEnv
     | IntLit Pn Integer
@@ -117,7 +117,7 @@ data Decl = Dec Type Id
   deriving (Eq, Ord, Read)
 
 instance Show Decl where
-  show (Dec t a) = show t <> " " <> show a
+  show (Dec t a) = show t <> " " <> a
 
 -- storage types
 data Container
@@ -126,7 +126,7 @@ data Container
   deriving (Eq, Ord, Show, Read)
 
 -- callvalue types
--- TODO: refine to "elementary" types and whatnot
+-- TODO: refine to "elementary" types and whatnot?
 data Type
    = T_uint Int
    | T_int Int

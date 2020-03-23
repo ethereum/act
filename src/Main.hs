@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric  #-}
 {-# Language DataKinds #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -19,6 +20,7 @@ import Data.Maybe
 import qualified Data.Map.Strict      as Map -- abandon in favor of [(a,b)]?
 import Data.Vector (fromList)
 import qualified Data.ByteString.Lazy.Char8 as B
+--import qualified Data.ByteString as B
 import Control.Monad
 
 import Syntax
@@ -66,17 +68,15 @@ main = do
 
       (ParseAndTypeCheck f) -> do contents <- readFile f
                                   case pAct $ myLexer contents of --todo: proper monadic lifts
-                                    (Ok (Main a)) -> case typecheck a of
-                                      (Ok a)  -> do print "success:"
---                                                    print $ show a
+                                    (Ok (Main spec)) -> case typecheck spec of
+                                      (Ok a)  -> B.putStrLn $ encode a
                                       (Bad s) -> error s
                                     (Bad s) -> error s
 
       (TypeCheck f) -> do contents <- readFile f
                           let act = read contents :: [RawBehaviour]
                           case typecheck act of
-                            (Ok a)  -> do print "success:"
-                                          print $ fmap encode a
+                            (Ok a)  -> B.putStrLn $ encode a
                             (Bad s) -> error s
 
       (KaseSplit specFile implFile) -> do specText <- readFile specFile
@@ -84,7 +84,6 @@ main = do
                                           case typecheck spec of
                                             (Ok a)  -> do implText <- readFile implFile
                                                           print "ok"
---                                                          print a
                                             (Bad s) -> error s
 
 
@@ -122,8 +121,8 @@ defaultStore =
    --others TODO
   ]
 
--- typing of vars: other contract scopes, calldata args
-type Env = (Map Id (Map Id Container), Map Id MType)
+-- typing of vars: this contract storage, other contract scopes, calldata args
+type Env = (Map Id Container, Map Id (Map Id Container), Map Id MType)
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Map Id (Map Id Container) -> RawBehaviour -> Err [Behaviour]
@@ -134,46 +133,90 @@ splitBehaviour store (Transition name contract (Interface method decls) iffs cla
     TDirect post -> do (updates,maybeReturn) <- checkPost env contract post
                        return [mkCase iff maybeReturn updates postcondition]
     TCases cases -> error "coming soon"
-  where env = (store, abiVars)
+  where env = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
         abiVars = Map.fromList $ map (\(Dec typ var) -> (var, metaType typ)) decls
         mkCase pre return storage postc = Behaviour name contract (method, decls) pre postc storage return
-splitBehaviour store (Constructor name contract decls iffs cases post) = error "TODO: check constructor"
+splitBehaviour store (Constructor name contract decls iffs cases post) = Ok [] --error "TODO: check constructor"
 
 checkPost :: Env -> Id -> Post -> Err (Map Id [StorageUpdate], Maybe ReturnExp)
-checkPost env contract (Post maybeStorage extStorage maybeReturn) =
+checkPost env@(ours, theirs, localVars) contract (Post maybeStorage extStorage maybeReturn) =
   do  returnexp <- sequence $ fmap (inferExpr env) maybeReturn
       ourStorage <- case maybeStorage of
         Just entries -> checkEntries contract entries
         Nothing -> Ok []
       otherStorage <- checkStorages extStorage
       return $ ((Map.fromList $ (contract, ourStorage):otherStorage), returnexp)
-  where checkEntries name entries = sequence $ fmap (uncurry $ checkStorageExpr env name) entries
+  where checkEntries name entries = sequence $ fmap (uncurry $ checkStorageExpr (fromMaybe mempty (Map.lookup name theirs), theirs, localVars)) entries
         checkStorages :: [ExtStorage] -> Err [(Id, [StorageUpdate])]
         checkStorages [] = Ok []
         checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries
                                                           ps <- checkStorages xs
-                                                          Ok $ (contract, p):ps
+                                                          Ok $ (name, p):ps
         checkStorages ((ExtCreates _ name entries):xs) = error "TODO: check other storages"
 
--- checkexp :: Map Id MType -> Expr -> Err (Exp a)
--- checkexp env exp a = case exp of
---   Var _ n -> case Map.lookup n env of
---     Nothing -> Bad "fu"
---     Just t -> if t == a then Ok $ V n else Bad "fu"
---   (EAdd _ a b) -> liftM2 Addd (checkexp env a T_Int) (checkIntt env b T_Int)
---   (EAnd _ a b) -> liftM2 Andd (checkexp env a T_Int) (checkIntt env b T_Int)
+checkStorageExpr :: Env -> Entry -> Expr -> Err StorageUpdate
+checkStorageExpr env@(ours, theirs, localVars) entry@(Entry p id ixs) expr =
+    case Map.lookup id ours of
+      Just container -> case final container of
+          Integer -> liftM2 IntUpdate (checkIntEntry env entry container) (checkInt env expr)
+          Boolean -> liftM2 BoolUpdate (checkBoolEntry env entry container) (checkBool env expr)
+          ByteStr -> liftM2 BytesUpdate (checkBytesEntry env entry container) (checkBytes env expr)
+      Nothing -> Bad $ "Unknown storage variable: " <> show id <> " at: " <> show p
+  where final (Direct m) = metaType m
+        final (Syntax.Mapping t c) = final c
 
-checkStorageExpr :: Env -> Id -> Entry -> Expr -> Err StorageUpdate
-checkStorageExpr  = error "just one minute"
--- checkStorageExpr env@(contractStores, localVars) contract entry expr =
---   case entry of
---     Simple p id -> case Map.lookup contract contractStores of
---       Nothing -> Bad $ "Unknown contract: " <> show contract
---       Just store -> case Map.lookup id store of
---         Nothing -> Bad $ "Unknown variable: " <> show id <> " of contract: " <> show contract <> " at " <> show p
---         Just typ -> do sequence $ (entry, checkExpr env (metaType typ) expr)
---     Lookup p container index -> error "TODO"
+checkIntEntry :: Env -> Entry -> Container -> Err (TContainer () T_Int)
+checkIntEntry _ (Entry p id []) (Direct t ) = case metaType t of
+                                              Integer -> Ok $ DirectInt id
+                                              Boolean -> Bad $ "Typing error"
+                                              ByteStr -> Bad $ "Typing error"
+checkIntEntry _ (Entry p id []) _ = Bad $ "Abstract container specifications not (yet) supported"
+checkIntEntry env (Entry p id (e:es)) (Syntax.Mapping t c) =
+  case metaType t of
+    Integer -> do exp <- checkInt env e
+                  rest <- checkIntEntry env (Entry p id es) c
+                  return $ Lookup (IntIndexed rest) exp
+    Boolean -> do exp <- checkBool env e
+                  rest <- checkIntEntry env (Entry p id es) c
+                  return $ Lookup (BoolIndexed rest) exp
+    ByteStr -> do exp <- checkBytes env e
+                  rest <- checkIntEntry env (Entry p id es) c
+                  return $ Lookup (BytesIndexed rest) exp
 
+checkBoolEntry :: Env -> Entry -> Container -> Err (TContainer () T_Bool)
+checkBoolEntry env (Entry p id []) (Syntax.Direct t) = case metaType t of
+                                            Integer -> Bad $ "Typing error"
+                                            Boolean -> Ok $ DirectBool id
+                                            ByteStr -> Bad $ "Typing error"
+checkBoolEntry env (Entry p id (e:es)) (Syntax.Mapping t c) = case metaType t of
+                                                  Integer -> do exp <- checkInt env e
+                                                                rest <- checkBoolEntry env (Entry p id es) c
+                                                                return $ Lookup (IntIndexed rest) exp
+                                                  Boolean -> do exp <- checkBool env e
+                                                                rest <- checkBoolEntry env (Entry p id es) c
+                                                                return $ Lookup (BoolIndexed rest) exp
+                                                  ByteStr -> do exp <- checkBytes env e
+                                                                rest <- checkBoolEntry env (Entry p id es) c
+                                                                return $ Lookup (BytesIndexed rest) exp
+checkBoolEntry env _ _ = Bad $ "Wrong arguments given to mapping"
+
+checkBytesEntry :: Env -> Entry -> Container -> Err (TContainer () T_Bytes)
+checkBytesEntry env (Entry p id []) (Syntax.Direct t) = case metaType t of
+                                            Integer -> Bad $ "Typing error"
+                                            Boolean -> Bad $ "Typing error"
+                                            ByteStr -> Ok $ DirectBytes id
+checkBytesEntry env (Entry p id (e:es)) (Syntax.Mapping t c) = case metaType t of
+                                                  Integer -> do exp <- checkInt env e
+                                                                rest <- checkBytesEntry env (Entry p id es) c
+                                                                return $ Lookup (IntIndexed rest) exp
+                                                  Boolean -> do exp <- checkBool env e
+                                                                rest <- checkBytesEntry env (Entry p id es) c
+                                                                return $ Lookup (BoolIndexed rest) exp
+                                                  ByteStr -> do exp <- checkBytes env e
+                                                                rest <- checkBytesEntry env (Entry p id es) c
+                                                                return $ Lookup (BytesIndexed rest) exp
+checkBytesEntry env _ _ = Bad $ "Wrong arguments given to mapping"
+        
 checkIffs :: Env -> [IffH] -> Err [Exp T_Bool]
 checkIffs env ((Iff pos exps):xs) = do
   head <- mapM (checkBool env) exps
@@ -208,14 +251,6 @@ metaType T_bool          = Boolean
 metaType T_bytes_dynamic = ByteStr
 metaType T_string        = ByteStr
 metaType _ = error "TODO"
-
-
---TODO: consolidate checkInt, checkBool, inferExpr and checkByte into this one instead
--- checkExpr :: Env -> MType -> Expr -> Err ReturnExp
--- checkExpr env Integer exp = checkInt   env exp >>= Ok . ExpInt
--- checkExpr env Boolean exp = checkBool  env exp >>= Ok . ExpBool
--- checkExpr env ByteStr exp = checkBytes env exp >>= Ok . ExpBytes
--- checkExpr env Tuple   exp = checkBytes env exp >>= Ok . ExpTuple
 
 inferExpr :: Env -> Expr -> Err ReturnExp
 inferExpr env exp = let intintint op v1 v2 = do w1 <- checkInt env v1
@@ -264,7 +299,7 @@ inferExpr env exp = let intintint op v1 v2 = do w1 <- checkInt env v1
     -- StringLit String
 
 checkBool :: Env -> Expr -> Err (Exp T_Bool)
-checkBool env@(others,thisContext) b =
+checkBool env@(ours, theirs,thisContext) b =
   let checkInts op v1 v2 = do w1 <- checkInt env v1
                               w2 <- checkInt env v2
                               Ok $ op w1 w2
@@ -295,8 +330,9 @@ checkBool env@(others,thisContext) b =
     -- TODO: zoom, lookup and functions
     s -> Bad $ "Unexpected expression: " <> show s <> " of type boolean"
 
+
 checkInt :: Env -> Expr -> Err (Exp T_Int)
-checkInt env@(others,thisContext) e =
+checkInt env@(ours, theirs,thisContext) e =
   let checkInts op v1 v2 = do w1 <- checkInt env v1
                               w2 <- checkInt env v2
                               Ok $ op w1 w2
@@ -314,6 +350,11 @@ checkInt env@(others,thisContext) e =
   EnvExpr _ n -> case lookup n defaultStore of
     Nothing -> Bad $ "unknown environment variable: " <> show n
     Just Integer -> Ok $ IntEnv n
+  EntryExp e@(Entry p id _) -> case Map.lookup id ours of
+    Nothing -> Bad $ "unknown environment variable: " <> show id
+    Just c -> do a <- checkIntEntry env e c
+                 return $ TEntry a
+    
   v -> error ("TODO: check int, case:" <> show v )
 
 checkBytes :: Env -> Expr -> Err (Exp T_Bytes)
