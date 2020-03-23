@@ -17,15 +17,9 @@ import Syntax
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
-import Data.Bits
 import Data.Char
+import Data.List
 
-import Data.Text          (Text, pack)
-import Data.Vector        (Vector)
-import Data.Word          (Word32, Word8)
-import Data.Sequence        (Seq)
-
-import Numeric (readHex, showHex)
 -- AST post typechecking
 data Behaviour = Behaviour
   {_name :: Id,
@@ -37,82 +31,39 @@ data Behaviour = Behaviour
    _stateUpdates :: Map Id [StorageUpdate],
    _returns :: Maybe ReturnExp
   }
+
 --types understood by proving tools
 data MType 
   = Integer
   | Boolean
   | ByteStr
   | Mapping (Map MType MType)
---  deriving (Eq, Ord, Show, Read)
-
---type Claim = (Map Contract [OldStorageUpdate], Maybe (TypedExp))
-
--- the type var a holds the type of the return expression
---data Claim = Claim (Map Text [StorageUpdate]) (Maybe (ReturnExp))
---  deriving (Eq, Ord, Show, Read)
-
---type OldStorageUpdate = (Entry, TypedExp)
-
+  deriving (Eq, Ord, Show, Read)
 
 -- meta types that work as GADT "tags"
---data MType = Int T_Int | Bool T_Bool | Mapp Mapping k a
 data T_Int
 data T_Bool
 data T_Bytes
-data T_List t
+--data T_List t
 data T_Tuple
-data Mapping a b
 
---token = [("totalSupply", Integer), ("balanceOf", Map Integer Integer)]
-
---updates = [("totalSupply", VarInt
 data StorageUpdate
-  = IntUpdate (TEntry T_Int) (Exp T_Int)
-  | BoolUpdate (TEntry T_Bool) (Exp T_Bool)
-  | BytesUpdate (TEntry T_Bytes) (Exp T_Bytes)
---  deriving (Eq, Ord, Show, Read)
+  = IntUpdate (TContainer () T_Int) (Exp T_Int)
+  | BoolUpdate (TContainer () T_Bool) (Exp T_Bool)
+  | BytesUpdate (TContainer () T_Bytes) (Exp T_Bytes)
+  deriving (Show)
 
---totalSupply[msg.sender] => Exp T_Int
-
---Map Id MType
-
-data TContainer t where --
-  DirectInt    :: TContainer T_Int
-  DirectBool   :: TContainer T_Bool
-  DirectBytes  :: TContainer T_Bytes
-  IntIndexed   :: TContainer T_Int -> TContainer t -> TContainer (Mapping T_Int t)
-  BoolIndexed  :: TContainer T_Int -> TContainer t -> TContainer (Mapping T_Int t)
-  BytesIndexed :: TContainer T_Int -> TContainer t -> TContainer (Mapping T_Int t)
-deriving instance Show (TContainer t)
-
---   Direct ::  Id -> Container t
--- --  Mapping :: Id -> Container (a -> b)
--- deriving instance Show (Container t)
-
-data TEntry t where
-  Simple :: TContainer t -> TEntry t
-  Lookup :: TContainer (Mapping a b) -> Exp a -> TEntry b
-deriving instance Show (TEntry t)
-
--- data TEntry a where
---   IntEntry  :: TEntry 'Integer
---   BoolEntry :: TEntry 'Boolean
---   LookEntry :: 'Mapp a b c -> Exp b -> TEntry c
--- data MType typ where 
---   Integer  :: MType T_Int
---   Boolean  :: MType T_Bool
---   MapContainer  :: TEntry a -> TEntry b -> TEntry (Mapping a b)
--- --  MapEntry     :: forall k a. Id -> TEntry (Mapping k a)
---   TLookup    :: (TEntry (Mapping k a)) -> (Exp k) -> TEntry a
-
---deriving instance Show (TEntry t)
---  Struct  :: (TEntry (Mapping k a)) -> (TExp k) -> TEntry a
-
--- data TExp typ where
---   Int  :: IExp -> TExp T_Int
---   Bool :: BExp -> TExp T_Bool
---   List :: [TExp t] -> TExp (T_List t)
---  deriving (Show)
+data TContainer s t where --
+  DirectInt    :: Id -> TContainer () T_Int
+  DirectBool   :: Id -> TContainer () T_Bool
+  DirectBytes  :: Id -> TContainer () T_Bytes
+  --constructors
+  IntIndexed   :: TContainer a t -> TContainer (T_Int,a) t
+  BoolIndexed  :: TContainer a t -> TContainer (T_Bool,a) t
+  BytesIndexed :: TContainer a t -> TContainer (T_Bytes,a) t
+  --destructor
+  Lookup   :: TContainer (a,b) t -> Exp a -> TContainer b t
+deriving instance Show (TContainer a t)
 
 -- typed expressions
 data Exp t where
@@ -147,6 +98,7 @@ data Exp t where
   ByLit :: ByteString -> Exp T_Bytes
   --polymorphic
   ITE :: Exp T_Bool -> Exp t -> Exp t
+  TEntry :: (TContainer () t) -> Exp t
   
 deriving instance Show (Exp t)
 
@@ -157,15 +109,34 @@ data ReturnExp
   | ExpTuple  (Exp T_Tuple)
   deriving (Show)
 
---instance ToJSON (Exp ('T_Int)) where
+-- intermediate json output helpers ---
 
 instance ToJSON Behaviour where
   toJSON (Behaviour {..}) = object  [ "name" .= _name
                                     , "contract"  .= _contract
-                                    , "interface"  .= (pack $ show (fst _interface) <> show (snd _interface))
+                                    , "interface"  .= (String $ pack $ fst _interface <> "(" <> intercalate "," (fmap show (snd _interface)) <> ")")
                                     , "preConditions"   .= (Array $ fromList $ fmap toJSON _preconditions)
+                                    , "stateUpdates" .= object (fmap (\(a, b) -> (pack a) .= toJSON b) (Map.toList _stateUpdates))
                                     , "returns" .= toJSON _returns]
 
+
+instance ToJSON StorageUpdate where
+  toJSON (IntUpdate a b) = object ["location" .= toJSON a
+                                  ,"value"    .= toJSON b]
+
+instance ToJSON (TContainer a b) where
+  toJSON (DirectInt a) = String $ pack a
+  toJSON (DirectBool a) = String $ pack a
+  toJSON (DirectBytes a) = String $ pack a
+  toJSON (Lookup (IntIndexed a) b) = object ["symbol" .= pack "lookup",
+                                             "arity"  .= (Number 2),
+                                             "args"   .= (Array $ fromList [toJSON a, toJSON b])]
+  toJSON (Lookup (BoolIndexed a) b) = object ["symbol" .= pack "lookup",
+                                              "arity"  .= (Number 2),
+                                              "args"   .= (Array $ fromList [toJSON a, toJSON b])]
+  toJSON (Lookup (BytesIndexed a) b) = object ["symbol" .= pack "lookup",
+                                               "arity"  .= (Number 2),
+                                               "args"   .= (Array $ fromList [toJSON a, toJSON b])]
 
 instance ToJSON ReturnExp where
    toJSON (ExpInt a) = object ["sort" .= (pack "int")
@@ -177,25 +148,29 @@ instance ToJSON ReturnExp where
 
 
 instance ToJSON (Exp T_Int) where
-  toJSON (Add a b) = object [   "symbol"   .= (String $ pack "+")
-                             ,  "arity"    .= (Number $ 2)
+  toJSON (Add a b) = object [   "symbol"   .= pack "+"
+                             ,  "arity"    .= (Number 2)
                              ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
   toJSON (IntVar a) = String $ pack a
   toJSON (LitInt a) = toJSON a
   toJSON (IntEnv a) = String $ pack $ show a
+  toJSON (TEntry a) = toJSON a
   toJSON v = error $ "todo: json ast for: " <> show v
 
 instance ToJSON (Exp T_Bool) where
   toJSON (And a b) = object [   "symbol"   .= pack "and"
-                             ,  "arity"    .= (Number $ 2)
+                             ,  "arity"    .= (Number 2)
                              ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
   toJSON (LE a b) = object [   "symbol"   .= pack "<"
-                             ,  "arity"    .= (Number $ 2)
+                             ,  "arity"    .= (Number 2)
                              ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
   toJSON (Eq a b) = object [   "symbol"   .= pack "="
-                             ,  "arity"    .= (Number $ 2)
+                             ,  "arity"    .= (Number 2)
                              ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
   toJSON (LEQ a b) = object [   "symbol"   .= pack "<="
-                             ,  "arity"    .= (Number $ 2)
+                             ,  "arity"    .= (Number 2)
                              ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
   toJSON v = error $ "todo: json ast for: " <> show v
+
+instance ToJSON (Exp T_Bytes) where
+  toJSON a = String $ pack $ show a
