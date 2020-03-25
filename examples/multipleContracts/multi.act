@@ -6,7 +6,7 @@ iff
 
 // we can specify how a call to a function of B
 // updates the storage of A by labelling the storage header
-storage at a
+storage a
    x => _x
 
 behaviour create_a of B
@@ -22,4 +22,3 @@ storage
    // storage labels can also introduce new contracts
 creates B at newAddr(ADDRESS, NONCE)
    uint x := 1
-
