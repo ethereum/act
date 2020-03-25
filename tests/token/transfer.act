@@ -16,7 +16,7 @@ iff
 
    CALLVALUE == 0
    value <= balanceOf[CALLER]
-   CALLER =/= to ==> balanceOf[to] + value < 2^256
+   CALLER =/= to => balanceOf[to] + value < 2^256
 
 case CALLER =/= to:
 
@@ -37,8 +37,8 @@ interface transferFrom(address src, address dst, uint amount)
 iff
 
    value <= balanceOf[CALLER]
-   src    =/= dst ==> balanceOf[dst] + value < 2^256
-   CALLER =/= src ==> 0 <= allowance[src][CALLER] - value
+   src    =/= dst => balanceOf[dst] + value < 2^256
+   CALLER =/= src => 0 <= allowance[src][CALLER] - value
    CALLVALUE == 0
 
 case src =/= dst:
