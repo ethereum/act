@@ -1,5 +1,5 @@
 {
-module Lex (LEX (..), Lexeme (..), alexScanTokens) where
+module Lex (LEX (..), Lexeme (..), lexer, showposn) where
 import Prelude hiding (EQ, GT, LT)
 }
 
@@ -12,8 +12,9 @@ $space = [\ \t\f\v\r]
 
 tokens :-
 
-  ($space* \n)+       { mk BREAK }
-  $space+             ;
+  -- ($space* \n)+       { mk BREAK }
+  -- $space+             ;
+  $white+                               ;
 
   -- reserved words
   behaviour                             { mk BEHAVIOUR }
@@ -80,8 +81,8 @@ tokens :-
 
 data LEX =
 
-  -- newlines
     BREAK
+  | EOF
 
   -- reserved words
   | BEHAVIOUR
@@ -146,7 +147,15 @@ data LEX =
 data Lexeme = L LEX AlexPosn
   deriving (Eq, Show)
 
+-- annoying that we can't override the show instance for this here
+showposn (AlexPn _ line column) =
+  concat [show line, ":", show column]
+
+
 -- helper function to reduce boilerplate
 mk :: LEX -> (AlexPosn -> String -> Lexeme)
 mk lexeme p _ = L lexeme p
+
+lexer :: String -> [Lexeme]
+lexer = alexScanTokens
 }

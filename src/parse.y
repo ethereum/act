@@ -6,10 +6,13 @@ import Syntax
 }
 
 %name parse
+%monad { E } { thenE } { returnE }
 %tokentype { Lexeme }
 %error { parseError }
 
 %token
+
+  eof                         { L EOF _ }
 
   -- reserved words
   'behaviour'                 { L BEHAVIOUR _ }
@@ -71,24 +74,29 @@ import Syntax
 
 %%
 
+ACT : list(Transition)                                { () }
 
-ACT : Transition { $1 }
+Transition : 'behaviour' id 'of' id
+             'interface' id '(' seplist(Decl, ',') ')'
+             opt(Precondition)
+             Claim                                    { () }
 
-Transition : 'behaviour' id 'of' id break
-             'interface' id '(' list(Decl, ',') ')' break
-             'iff' break list(Expr, break) break
-             {- Claim break -}                              { () }
-
-Claim : 'storage' break list(Store, break)            { () }
+Claim : 'storage' list(Store)                         { () }
       | 'returns' Expr                                { () }
+      | 'storage' list(Store) 'returns' Expr          { () }
 
-Store : Expr '=>' Expr                { ($1, $3) }
+Precondition : 'iff' list(Expr)                            { () }
+             | 'iff in range' list(Expr)                   { () }
+             | 'iff' list(Expr) 'iff in range' list(Expr)  { () }
+             | 'iff in range' list(Expr) 'iff' list(Expr)  { () }
 
-Creation : 'creates' break list(Init, break)  { Creates $3 [] }
+Store : Expr '=>' Expr                                { ($1, $3) }
 
-Init : Decl ':=' Expr              { Init $1 $3 }
+Creation : 'creates' break seplist(Init, break)       { Creates $3 [] }
 
-Decl : Type id             { Decl $1 (Id $2) }
+Init : Decl ':=' Expr                                 { Init $1 $3 }
+
+Decl : Type id                                        { Decl $1 (Id $2) }
 
 Type : 'uint'
        { case validsize $1 of
@@ -100,34 +108,64 @@ Type : 'uint'
               True  -> T_bytes $1
               False -> error "invalid bytes size"
        }
-     | Type '[' ilit ']'                   { T_array_static $1 $3 }
-     | 'mapping' '(' Type '=>' Type ')'    { T_map $3 $5 }
-     | 'address'                           { T_address }
-     | 'bool'                              { T_bool }
-     | 'string'                            { T_string }
+     | Type '[' ilit ']'                              { T_array_static $1 $3 }
+     | 'mapping' '(' Type '=>' Type ')'               { T_map $3 $5 }
+     | 'address'                                      { T_address }
+     | 'bool'                                         { T_bool }
+     | 'string'                                       { T_string }
 
-Expr : ilit                                { IntLit $1 }
+Expr : ilit                                           { IntLit $1 }
 
 -- parameterized productions
 
-list(x, sep) : x                          { [$1]    }
-             | list(x, sep) sep x         { $3 : $1 }
+seplist(x, sep) : x                                   { [$1]    }
+                | seplist(x, sep) sep x               { $3 : $1 }
 
-opt(x) : x                                { Just $1 }
-       | {- empty -}                      { Nothing }
+list(x) : x                                           { [$1]    }
+        | list(x) x                                   { $2 : $1 }
 
+opt(x) : x                                            { Just $1 }
+       | {- empty -}                                  { Nothing }
 
 {
 
 validsize :: Int -> Bool
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
-parseError :: [Lexeme] -> a
-parseError xs = error "parse error"
+parseError :: [Lexeme] -> E a
+parseError tokens =
+  case (head tokens) of
+  L token posn -> failE $ concat [
+    "parse error on ",
+    show token,
+    " at ",
+    showposn posn]
 
 main = do
   contents <- getContents
-  print $ alexScanTokens contents
-  let tree = parse $ alexScanTokens contents
+  let tree = parse $ lexer contents
   print tree
+
+
+-- error handling
+data E a = Ok a | Failed String
+  deriving (Show, Eq)
+
+thenE :: E a -> (a -> E b) -> E b
+m `thenE` k =
+  case m of
+  Ok a -> k a
+  Failed e -> Failed e
+
+returnE :: a -> E a
+returnE a = Ok a
+
+failE :: String -> E a
+failE err = Failed err
+
+catchE :: E a -> (String -> E a) -> E a
+catchE m k = 
+  case m of
+  Ok a -> Ok a
+  Failed e -> k e
 }
