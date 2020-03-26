@@ -3,10 +3,11 @@ module Main where
 import Prelude hiding (EQ, GT, LT)
 import Lex
 import Syntax
+import Control.Monad.Except
 }
 
 %name parse
-%monad { E } { thenE } { returnE }
+%monad { Except String } { (>>=) } { return }
 %tokentype { Lexeme }
 %error { parseError }
 
@@ -132,10 +133,10 @@ opt(x) : x                                            { Just $1 }
 validsize :: Int -> Bool
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
-parseError :: [Lexeme] -> E a
+parseError :: [Lexeme] -> Except String a
 parseError tokens =
   case (head tokens) of
-  L token posn -> failE $ concat [
+  L token posn -> throwError $ concat [
     "parse error on ",
     show token,
     " at ",
@@ -145,27 +146,4 @@ main = do
   contents <- getContents
   let tree = parse $ lexer contents
   print tree
-
-
--- error handling
-data E a = Ok a | Failed String
-  deriving (Show, Eq)
-
-thenE :: E a -> (a -> E b) -> E b
-m `thenE` k =
-  case m of
-  Ok a -> k a
-  Failed e -> Failed e
-
-returnE :: a -> E a
-returnE a = Ok a
-
-failE :: String -> E a
-failE err = Failed err
-
-catchE :: E a -> (String -> E a) -> E a
-catchE m k = 
-  case m of
-  Ok a -> Ok a
-  Failed e -> k e
 }
