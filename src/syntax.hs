@@ -4,8 +4,8 @@
 
 module Syntax where
 
-newtype Id = Id String
-  deriving (Eq, Ord, Show, Read)
+type Id = String
+  -- deriving (Eq, Ord, Show, Read)
 
 data Act = Main [RawBehaviour]
   deriving (Eq, Ord, Show, Read)
@@ -62,24 +62,25 @@ data Expr
     | EImpl Expr Expr
     | EEq Expr Expr
     | ENeq Expr Expr
-    | ELEQ Expr Expr
-    | ELE Expr Expr
-    | EGEQ Expr Expr
-    | EGE Expr Expr
+    | ELe Expr Expr
+    | ELt Expr Expr
+    | EGe Expr Expr
+    | EGt Expr Expr
     | ETrue
     | EFalse
     | EAdd Expr Expr
     | ESub Expr Expr
-    | EITE Expr Expr Expr
+    | ECond Expr Expr Expr
     | EMul Expr Expr
     | EDiv Expr Expr
     | EMod Expr Expr
     | EExp Expr Expr
-    | Zoom Expr Expr
-    | Func Id [Expr]
-    | Look Expr Expr
     | ECat Expr Expr
-    | ESlice Expr Expr Expr
+    | ESlice Id Expr Expr
+    -- why are these names different?
+    | Zoom Expr Expr
+    | App Id [Expr]
+    | Look Id Expr
     | Newaddr Expr Expr
     | Newaddr2 Expr Expr Expr
     | BYHash Expr

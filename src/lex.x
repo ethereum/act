@@ -34,6 +34,9 @@ tokens :-
   true                                  { mk TRUE }
   false                                 { mk FALSE }
   mapping                               { mk MAPPING }
+  if                                    { mk IF }
+  if                                    { mk THEN }
+  else                                  { mk ELSE }
 
   -- builtin types
   uint $digit+                   { \ p s -> L (UINT (read (drop 4 s))) p }
@@ -101,6 +104,9 @@ data LEX =
   | TRUE
   | FALSE
   | MAPPING
+  | IF
+  | THEN
+  | ELSE
 
   -- builtin types
   | UINT  Int

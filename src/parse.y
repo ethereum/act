@@ -32,6 +32,9 @@ import Control.Monad.Except
   'true'                      { L TRUE _ }
   'false'                     { L FALSE _ }
   'mapping'                   { L MAPPING _ }
+  'if'                        { L IF _ }
+  'then'                      { L THEN _ }
+  'else'                      { L ELSE _ }
 
   -- builtin types
   'uint'                      { L (UINT $$) _ }
@@ -41,10 +44,9 @@ import Control.Monad.Except
   'string'                    { L STRING _ }
 
   -- symbols
-  break                          { L BREAK _ }
+  break                       { L BREAK _ }
   ':='                        { L ASSIGN _ }
   '=>'                        { L ARROW _ }
-  -- '->'                        { L ARROW' _ }
   '=='                        { L EQEQ _ }
   '=/='                       { L NEQ _ }
   '>='                        { L GE _ }
@@ -73,9 +75,40 @@ import Control.Monad.Except
 
   ilit                        { L (ILIT $$) _ }
 
+
+-- associativity and precedence (wip) --
+
+%nonassoc '=>'
+%nonassoc 'if' 'then' 'else'
+
+%left 'and'
+%left 'or'
+
+%left '+' '-'
+%left '*' '/'
+%nonassoc '%'
+%right '^'
+
+%nonassoc '<=' '<' '>=' '>' '==' '=/='
+
 %%
 
-ACT : list(Transition)                                { () }
+ACT : list(Transition)                                { $1 }
+
+
+-- parameterized productions --
+
+seplist(x, sep) : x                                   { [$1]    }
+                | seplist(x, sep) sep x               { $3 : $1 }
+
+list(x) : x                                           { [$1]    }
+        | list(x) x                                   { $2 : $1 }
+
+opt(x) : x                                            { Just $1 }
+       | {- empty -}                                  { Nothing }
+
+
+-- rules --
 
 Transition : 'behaviour' id 'of' id
              'interface' id '(' seplist(Decl, ',') ')'
@@ -97,7 +130,7 @@ Creation : 'creates' break seplist(Init, break)       { Creates $3 [] }
 
 Init : Decl ':=' Expr                                 { Init $1 $3 }
 
-Decl : Type id                                        { Decl $1 (Id $2) }
+Decl : Type id                                        { Decl $1 $2 }
 
 Type : 'uint'
        { case validsize $1 of
@@ -115,18 +148,47 @@ Type : 'uint'
      | 'bool'                                         { T_bool }
      | 'string'                                       { T_string }
 
-Expr : ilit                                           { IntLit $1 }
+Expr :
 
--- parameterized productions
+    '(' Expr ')'                                        { $2 }
 
-seplist(x, sep) : x                                   { [$1]    }
-                | seplist(x, sep) sep x               { $3 : $1 }
+  -- terminals
+  | id                                                  { Var $1 }
+  | ilit                                                { IntLit $1 }
+  -- missing string literal
+  -- missing wildcard
 
-list(x) : x                                           { [$1]    }
-        | list(x) x                                   { $2 : $1 }
+  -- boolean expressions
+  | Expr 'and' Expr                                     { EAnd   $1 $3 }
+  | Expr 'or'  Expr                                     { EOr    $1 $3 }
+  | Expr '=>'  Expr                                     { EImpl  $1 $3 }
+  | Expr '=='  Expr                                     { EEq    $1 $3 }
+  | Expr '=/=' Expr                                     { ENeq   $1 $3 }
+  | Expr '<='  Expr                                     { ELe    $1 $3 }
+  | Expr '<'   Expr                                     { ELt    $1 $3 }
+  | Expr '>='  Expr                                     { EGe    $1 $3 }
+  | Expr '>'   Expr                                     { EGt    $1 $3 }
+  | 'true'                                              { ETrue        }
+  | 'false'                                             { EFalse       }
 
-opt(x) : x                                            { Just $1 }
-       | {- empty -}                                  { Nothing }
+  -- integer expressions
+  | Expr '+'   Expr                                     { EAdd   $1 $3 }
+  | Expr '-'   Expr                                     { ESub   $1 $3 }
+  | Expr '*'   Expr                                     { EMul   $1 $3 }
+  | Expr '/'   Expr                                     { EDiv   $1 $3 }
+  | Expr '%'   Expr                                     { EMod   $1 $3 }
+  | Expr '^'   Expr                                     { EExp   $1 $3 }
+
+  -- composites
+  | 'if' Expr 'then' Expr 'else' Expr                   { ECond $2 $4 $6 }
+{-
+  | id '[' Expr ']'                                     { Look $1 $3 }
+  | id '(' seplist(Expr, ',') ')'                       { App $1 $3 }
+  | Expr '++' Expr                                      { ECat $1 $3 }
+  | id '[' Expr '..' Expr ']'                           { ESlice $1 $3 $5 }
+-}
+
+  -- missing builtins
 
 {
 
