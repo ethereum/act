@@ -1,12 +1,9 @@
-
-// simple example of something that will require interactive proof
-// we want to show that f and g maintain the invariant xy = z
+// We want to show that f and g maintain the invariant xy = z
 
 pragma solidity ^0.5.15;
 pragma experimental SMTChecker;
 
 contract Homogeneous {
-
     uint x;
     uint y;
     uint z;

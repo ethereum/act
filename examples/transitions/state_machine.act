@@ -1,0 +1,36 @@
+behaviour init of StateMachine
+creates
+	uint256 x := 0
+
+invariants
+	x <= 2
+
+
+behavior f of StateMachine
+interface f()
+
+case x == 0:
+	x := 1
+
+case _:
+	noop
+
+
+behavior g of StateMachine
+interface g()
+
+case x == 1:
+	x := 2
+
+case _:
+	noop
+
+
+behavior h of StateMachine
+interface h()
+
+case x == 2:
+	x := 0
+
+case _:
+	noop
