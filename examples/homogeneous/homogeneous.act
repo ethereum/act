@@ -17,9 +17,9 @@ iff
 	x * scalar > x
 	z * scalar > z
 
-case _:
-	x := x * scalar
-	z := z * scalar
+storage
+	x => x * scalar
+	z => z * scalar
 
 
 behaviour g of Homogeneous
@@ -29,6 +29,6 @@ iff
 	y * scalar > y
 	z * scalar > z
 
-case _:
-	y := y * scalar
-	z := z * scalar
+storage
+	y => y * scalar
+	z => z * scalar
