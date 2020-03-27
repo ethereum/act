@@ -1,4 +1,4 @@
-contract C {
+contract StateMachine {
     uint x;
   
     function f() public {      
