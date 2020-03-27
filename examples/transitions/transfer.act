@@ -1,18 +1,20 @@
-# Transfer function a la ERC20
+// Transfer function a la ERC20
 
 behaviour transfer of Token
 interface transfer(uint256 value, address to)
 
 iff in range uint256
-     balanceOf[CALLER] - value
-     balanceOf[to] + value
+	balanceOf[CALLER] - value
+	balanceOf[to] + value
 
 iff
-     CALLVALUE == 0
+	CALLVALUE == 0
 
 case CALLER =/= to:
-     balanceOf[CALLER] => balanceOf[CALLER] - value
-     balanceOf[to] => balanceOf[to] + value
+	storage
+		balanceOf[CALLER] => balanceOf[CALLER] - value
+		balanceOf[to] => balanceOf[to] + value
+	returns 1
 
 case _:
-	noop
+	returns 1

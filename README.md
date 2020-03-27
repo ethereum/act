@@ -23,8 +23,9 @@ Everyone is encouraged to join/start discussions on issues and pull requests.
 Language
 ========
 
-Acts are based on behaviours from the specified smart contract. Take the
-following toy state machine written in Solidity as an example:
+Act specifications are functional descriptions of the behaviour of a smart
+contract.  Take the following toy state machine written in Solidity as an
+example:
 
 ```sol
 contract StateMachine {
@@ -62,32 +63,36 @@ behaviour f of StateMachine
 interface f()
 
 case x == 0:
-	x := 1
+	storage
+		x => 1
 
 case _:
 	noop
 
 ensures
-	(x == 0) || (x == 1)
+	(x == 0) or (x == 1)
 
 
 behaviour g of StateMachine
 interface g()
 
 case x == 1:
-	x := 0
+	storage:
+		x => 0
 
 case _:
 	noop
 
 ensures
-	(x == 1) || (x == 0)
+	(x == 1) or (x == 0)
 ```
 
-A `case` inside a `behaviour` specifies how storage changes, and is the
-lowest level mechanism in the specification. Functions post conditions are
-described in the `ensures` section. Contract invariants are high level
-properties given for the entire contract.
+The `case`s of a `behaviour` specify how storage changes as a result of calling
+the function, and its return argument, if present. They make up the lowest
+level description of the specification. Functions pre and post conditions are
+described in the `iff` and `ensures` sections, respectively. Contract
+invariants specify relations between its storage variables that should remain
+true for the entire lifetime of the contract.
 
 More examples can be found in the `examples` directory.
 
@@ -100,10 +105,12 @@ properties that might be too hard to prove from the bytecode, such as
 contract invariants, we hope that it is easier to do that via multiple easier
 steps:
 
-1. Given `behaviour case`, show that `post storage` is implemented by the
-   bytecode.
-2. Given `behaviour`, prove that the `post condition` holds.
-3. Given `post conditions`, show contract invariant properties.
+1. Given a `behaviour`, show that implementation bytecode results in storage
+   updates and return values as specified.
+2. Given a `behaviour`, prove that the `post condition` described in the
+   `ensures` section holds, assuming the `pre condition` described in the `iff`
+   section.
+3. Given a set of `behaviour`s, prove contract invariants.
 4. Given `(transition system = "CONTRACT")`, show that arbitrary properties
    hold.
 
@@ -223,7 +230,7 @@ case CALLER == to:
    returns 1
 
 behaviour transferFrom of Token
-interface transferFrom(address src, address dst, uint amount)
+interface transferFrom(address src, address dst, uint value)
 
 iff
 
@@ -267,7 +274,7 @@ case src == dst:
    returns 1
 ```
 
-Parsing te Act gives us the generated proof obligations:
+Parsing the Act gives us the generated proof obligations:
 
 ```JSON
 [
