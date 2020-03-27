@@ -1,42 +1,118 @@
 Act
 ===
 
-This project is an effort by several groups working on formal methods for Ethereum smart contracts, aiming at creating a simple but effective language to write formal specification.
-It extends on the previous [Act](https://github.com/dapphub/klab/blob/master/acts.md) project.
+This project is an effort by several groups working on formal methods for
+Ethereum smart contracts, aiming at creating a simple but effective language
+to write formal specification.
+It extends on the previous
+[Act](https://github.com/dapphub/klab/blob/master/acts.md) project.
 
 Some general features it hopes to achieve are:
 - Simple structure and logic.
-- Support writing properties on a high level (closer to Solidity/Vyper) as well as on the machine level.
-- Cross-tool communication: Different tools might be able to generate different knowledge and use the specification language to exchange information.
-- No attachment to a particular logic. If a tool wishes to support certain expressions, extensions can be written.
+- Support writing properties on a high level (closer to Solidity/Vyper) as
+  well as on the machine level.
+- Cross-tool communication: Different tools might be able to generate
+  different knowledge and use the specification language to exchange
+  information.
+- No attachment to a particular logic. If a tool wishes to support certain
+  expressions, extensions can be written.
 
 Everyone is encouraged to join/start discussions on issues and pull requests.
+
 
 Language
 ========
 
-TODO
-Write simple example explaining the basic syntax.
+Acts are based on behaviours from the specified smart contract. Take the
+following toy state machine written in Solidity as an example:
+
+```sol
+contract StateMachine {
+    uint x;
+  
+    function f() public {      
+        if (x == 0)
+            x = 1;             
+    }
+
+    function g() public {
+        if (x == 1)
+            x = 0;
+    }
+}
+```
+
+The initial state is `x = 0`, and `x` can toggle between 1 and 0 by calling
+functions `f` and `g`, respectively.
+
+A simple specification for the program above could be the following Act:
+
+```act
+behaviour init of StateMachine
+interface constructor()
+
+creates
+	uint256 x := 0
+
+invariants
+	x <= 1
+
+
+behaviour f of StateMachine
+interface f()
+
+case x == 0:
+	x := 1
+
+case _:
+	noop
+
+ensures
+	(x == 0) || (x == 1)
+
+
+behaviour g of StateMachine
+interface g()
+
+case x == 1:
+	x := 0
+
+case _:
+	noop
+
+ensures
+	(x == 1) || (x == 0)
+```
+
+A `case` inside a `behaviour` specifies how storage changes, and is the
+lowest level mechanism in the specification. Functions post conditions are
+described in the `ensures` section. Contract invariants are high level
+properties given for the entire contract.
+
+More examples can be found in the `examples` directory.
 
 
 Modular Approach
 ================
 
-Act is designed to enable modular verification. Instead of checking properties that might
-be too hard to prove from the bytecode, such as contract invariants, we hope that it is
-easier to do that via multiple easier steps:
+Act is designed to enable modular verification. Instead of checking
+properties that might be too hard to prove from the bytecode, such as
+contract invariants, we hope that it is easier to do that via multiple easier
+steps:
 
-1. Given `behaviour case`, show that `post storage` is implemented by the bytecode.
+1. Given `behaviour case`, show that `post storage` is implemented by the
+   bytecode.
 2. Given `behaviour`, prove that the `post condition` holds.
 3. Given `post conditions`, show contract invariant properties.
-4. Given `(transition system = "CONTRACT")`, show that arbitrary properties hold.
+4. Given `(transition system = "CONTRACT")`, show that arbitrary properties
+   hold.
 
-Note that steps 2, 3 and 4 can be done over Act only, without interaction with
-the source code/bytecode. Checking that the code implements the behaviour
-specification correctly should be much easier than proving that certain post
-conditions or contract invariants hold. Besides, reasoning about higher level
-properties outside the source code/bytecode also makes it easier to apply
-different tools, which we here refer to as `proof backends`.
+Note that steps 2, 3 and 4 can be done over Act only, without interaction
+with the source code/bytecode. Checking that the code implements the
+behaviour specification correctly should be much easier than proving that
+certain post conditions or contract invariants hold. Besides, reasoning about
+higher level properties outside the source code/bytecode also makes it easier
+to apply different tools, which we here refer to as `proof backends`.
 
 
 Proof Backends
@@ -109,7 +185,8 @@ contract Token {
 }
 ```
 
-The behaviours of the constructor and the functions `transfer` and `transferFrom` can be specified as the following Act:
+The behaviours of the constructor and the functions `transfer` and
+`transferFrom` can be specified as the following Act:
 
 ```act
 behaviour init of Token
@@ -234,8 +311,8 @@ Parsing te Act gives us the generated proof obligations:
 ```
 
 Different proof backends can make use of this single JSON output without the
-need to parse an Act, and apply its own techniques to try and answer the proof
-obligations.
+need to parse an Act, and apply its own techniques to try and answer the
+proof obligations.
 
 
 Building:
