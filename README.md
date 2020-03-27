@@ -27,7 +27,7 @@ Act specifications are functional descriptions of the behaviour of a smart
 contract.  Take the following toy state machine written in Solidity as an
 example:
 
-```sol
+```solidity
 contract StateMachine {
     uint x;
   
@@ -114,12 +114,10 @@ steps:
 4. Given `(transition system = "CONTRACT")`, show that arbitrary properties
    hold.
 
-Note that steps 2, 3 and 4 can be done over Act only, without interaction
-with the source code/bytecode. Checking that the code implements the
-behaviour specification correctly should be much easier than proving that
-certain post conditions or contract invariants hold. Besides, reasoning about
-higher level properties outside the source code/bytecode also makes it easier
-to apply different tools, which we here refer to as `proof backends`.
+Note that steps 2, 3 and 4 can be done over Act only, without interaction with
+the source code/bytecode. Reasoning about higher level properties outside the
+source code/bytecode also makes it easier to apply different tools, which we
+here refer to as `proof backends`.
 
 
 Proof Backends
@@ -138,140 +136,30 @@ Infrastructure
 The grammar for the specification language is in the `src` repository. This
 is the front end parsing of the language. Given a set of `act` behaviours
 (transitions), one can generate a set of proof obligations as a JSON object.
-For example, take the following Token contract:
+For example, take the following simplified Token contract:
 
-```sol
+```solidity
 contract Token {
-    // --- ERC20 Data ---
-    uint8   constant public decimals = 18;
-    string  public name;
-    string  public symbol;
-    uint256 public totalSupply;
+	uint8 constant public decimals = 18;
+	string public name;
+	string public symbol;
 
-    mapping (address => uint)                      public balanceOf;
-    mapping (address => mapping (address => uint)) public allowance;
+	mapping (address => uint) public balanceOf;
 
-    event Approval(address indexed holder, address indexed spender, uint value);
-    event Transfer(address indexed from, address indexed to, uint value);
-
-    function add(uint x, uint y) internal pure returns (uint z) {
-        require((z = x + y) >= x, "math-add-overflow");
-    }
-    function sub(uint x, uint y) internal pure returns (uint z) {
-        require((z = x - y) <= x, "math-sub-underflow");
-    }
-
-    constructor(string memory symbol_, string memory name_, string memory version_, uint256 chainId_) public {
-        symbol = symbol_;
-        name   = name_;
-        totalSupply = _totalSupply;
-        balances[msg.sender] = _totalSupply;
-    }
-
-    // --- Token ---
-    function transfer(address to, uint value) public returns (bool) {
-        transferFrom(msg.sender, to, value);
-        return true;
-    }
-    function transferFrom(address from, address to, uint value)
-        public returns (bool)
-    {
-        if (from != msg.sender && allowance[from][msg.sender] != uint(-1)) {
-            allowance[from][msg.sender] = sub(allowance[from][msg.sender], value);
-        }
-        balanceOf[from] = sub(balanceOf[from], value);
-        balanceOf[to] = add(balanceOf[to], value);
-        emit Transfer(from, to, value);
-        return true;
-    }
-    function approve(address spender, uint value) public returns (bool) {
-        allowance[msg.sender][spender] = value;
-        emit Approval(msg.sender, spender, value);
-        return true;
-    }
+	function mint(uint value) public {
+		balanceOf[msg.sender] += value;
+	}
 }
 ```
 
-The behaviours of the constructor and the functions `transfer` and
-`transferFrom` can be specified as the following Act:
+The behaviour of function `mint` can be specified as the following Act:
 
 ```act
-behaviour init of Token
-interface constructor(string _symbol, string _name, string _version, uint _totalSupply)
+behaviour mint of Token
+interface mint(uint value)
 
-creates
-    string name         := _name
-    string symbol       := _symbol
-    uint256 totalSupply := _totalSupply
-    mapping(address => uint) balanceOf :=  [CALLER := _totalSupply]
-    mapping(address=>mapping(address=>uint)) allowance := []
-
-
-behaviour transfer of Token
-interface transfer(uint256 value, address to)
-
-iff
-
-   CALLVALUE == 0
-   value <= balanceOf[CALLER]
-   CALLER =/= to => balanceOf[to] + value < 2^256
-
-case CALLER =/= to:
-
-   storage
-
-     balanceOf[CALLER] => balanceOf[CALLER] - value
-     balanceOf[to]     => balanceOf[to] + value
-
-   returns 1
-
-case CALLER == to:
-
-   returns 1
-
-behaviour transferFrom of Token
-interface transferFrom(address src, address dst, uint value)
-
-iff
-
-   value <= balanceOf[CALLER]
-   src    =/= dst => balanceOf[dst] + value < 2^256
-   CALLER =/= src => 0 <= allowance[src][CALLER] - value
-   CALLVALUE == 0
-
-case src =/= dst:
-
-   case CALLER == src:
-
-      storage
-
-         balances[src] => balances[src] - value
-         balances[dst] => balances[dst] + value
-
-      returns 1
-
-   case CALLER =/= src and allowance[src][CALLER] == 2^256 - 1:
-
-      storage
-
-         balances[src] => balances[src] - value
-         balances[dst] => balances[dst] + value
-
-      returns 1
-
-   case _:
-
-      storage
-
-         allowance[src][CALLER] => allowance[src][CALLER] - value
-         balances[src]          => balances[src] - value
-         balances[dst]          => balances[dst] + value
-
-      returns 1
-
-case src == dst:
-
-   returns 1
+storage
+	balanceOf[CALLER] => balanceOf[CALLER] + value
 ```
 
 Parsing the Act gives us the generated proof obligations:
