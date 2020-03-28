@@ -86,10 +86,6 @@ main = do
                                                           print "ok"
                                             (Bad s) -> error s
 
-
-
-
-
 typecheck :: [RawBehaviour] -> Err [Behaviour]
 typecheck behvs = let store = lookupVars behvs in
                   do bs <- mapM (splitBehaviour store) behvs
@@ -105,7 +101,7 @@ lookupVars ((Constructor _ contract _ _ form _):bs) =
             CDirect (PostCreates defs _ ) -> defs
   in
   Map.singleton contract (Map.fromList $ map fromAssign assigns)
-  <> lookupVars bs
+  <> lookupVars bs -- TODO: deal with variable overriding
   where fromAssign (Assignval (StorageDec typ var) _) = (var, typ)
         fromAssign (AssignMany (StorageDec typ var) _) = (var, typ)
         fromAssign (AssignStruct _ _) = error "TODO: assignstruct"
@@ -124,29 +120,39 @@ defaultStore =
 -- typing of vars: this contract storage, other contract scopes, calldata args
 type Env = (Map Id Container, Map Id (Map Id Container), Map Id MType)
 
+joinand :: [Exp T_Bool] -> Exp T_Bool
+joinand [x] = x
+joinand (x:xs) = And x (joinand xs)
+joinand [] = error "no"
+
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Map Id (Map Id Container) -> RawBehaviour -> Err [Behaviour]
-splitBehaviour store (Transition name contract (Interface method decls) iffs claim maybePost) = do
+splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs claim maybePost) = do
   iff <- checkIffs env iffs
-  postcondition <- sequence $ fmap (checkBool env) (fromMaybe [] maybePost)
+  postcondition <- mapM (checkBool env) (fromMaybe [] maybePost)
   case claim of
     TDirect post -> do (updates,maybeReturn) <- checkPost env contract post
-                       return [mkCase iff maybeReturn updates postcondition]
-    TCases cases -> error "coming soon"
+                       return $ mkCases iff maybeReturn updates (joinand postcondition)
+    TCases cases -> foldM (\a -> \(Case _ conds post) -> do c <- checkBool env conds
+                                                            (p, maybeReturn) <- checkPost env contract post
+                                                            return $ a <> mkCases (c:iff) maybeReturn p (joinand postcondition))
+                         [] cases
   where env = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
         abiVars = Map.fromList $ map (\(Dec typ var) -> (var, metaType typ)) decls
-        mkCase pre return storage postc = Behaviour name contract (method, decls) pre postc storage return
+        mkCases [] ret storage postc = [Behaviour name contract iface (LitBool True) postc storage ret]
+        mkCases pre ret storage postc = [Behaviour name contract iface (joinand pre) postc storage ret
+                                        ,Behaviour name contract iface (Neg (joinand pre)) postc mempty Nothing]
 splitBehaviour store (Constructor name contract decls iffs cases post) = Ok [] --error "TODO: check constructor"
 
 checkPost :: Env -> Id -> Post -> Err (Map Id [StorageUpdate], Maybe ReturnExp)
 checkPost env@(ours, theirs, localVars) contract (Post maybeStorage extStorage maybeReturn) =
-  do  returnexp <- sequence $ fmap (inferExpr env) maybeReturn
+  do  returnexp <- mapM (inferExpr env) maybeReturn
       ourStorage <- case maybeStorage of
         Just entries -> checkEntries contract entries
         Nothing -> Ok []
       otherStorage <- checkStorages extStorage
       return $ ((Map.fromList $ (contract, ourStorage):otherStorage), returnexp)
-  where checkEntries name entries = sequence $ fmap (uncurry $ checkStorageExpr (fromMaybe mempty (Map.lookup name theirs), theirs, localVars)) entries
+  where checkEntries name entries = mapM (uncurry $ checkStorageExpr (fromMaybe mempty (Map.lookup name theirs), theirs, localVars)) entries
         checkStorages :: [ExtStorage] -> Err [(Id, [StorageUpdate])]
         checkStorages [] = Ok []
         checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries

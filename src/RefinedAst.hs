@@ -24,9 +24,9 @@ import Data.List
 data Behaviour = Behaviour
   {_name :: Id,
    _contract :: Id,
-   _interface :: (Id, [Decl]),
-   _preconditions :: [Exp T_Bool],
-   _postconditions :: [Exp T_Bool],
+   _interface :: Interface,
+   _preconditions :: Exp T_Bool,
+   _postconditions :: Exp T_Bool,
 --   _contracts :: SolcContract,
    _stateUpdates :: Map Id [StorageUpdate],
    _returns :: Maybe ReturnExp
@@ -110,13 +110,12 @@ data ReturnExp
   deriving (Show)
 
 -- intermediate json output helpers ---
-
 instance ToJSON Behaviour where
   toJSON (Behaviour {..}) = object  [ "name" .= _name
                                     , "contract"  .= _contract
-                                    , "interface"  .= (String $ pack $ fst _interface <> "(" <> intercalate "," (fmap show (snd _interface)) <> ")")
-                                    , "preConditions"   .= (Array $ fromList $ fmap toJSON _preconditions)
-                                    , "stateUpdates" .= object (fmap (\(a, b) -> (pack a) .= toJSON b) (Map.toList _stateUpdates))
+                                    , "interface"  .= (String . pack $ show _interface)
+                                    , "preConditions"   .= (toJSON _preconditions)
+                                    , "stateUpdates" .= toJSON _stateUpdates
                                     , "returns" .= toJSON _returns]
 
 
@@ -170,6 +169,10 @@ instance ToJSON (Exp T_Bool) where
   toJSON (LEQ a b) = object [   "symbol"   .= pack "<="
                              ,  "arity"    .= (Number 2)
                              ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
+  toJSON (LitBool a) = String $ pack $ show a
+  toJSON (Neg a) = object [   "symbol"   .= pack "not"
+                             ,  "arity"    .= (Number 1)
+                             ,  "args"     .= (Array $ fromList [toJSON a])]
   toJSON v = error $ "todo: json ast for: " <> show v
 
 instance ToJSON (Exp T_Bytes) where

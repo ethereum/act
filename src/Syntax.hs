@@ -25,7 +25,7 @@ data Interface = Interface Id [Decl]
   deriving (Eq, Ord, Read)
 
 instance Show Interface where
-  show (Interface a d) = show a <> "(" <> concat (fmap show d) <> ")"
+  show (Interface a d) = a <> "(" <> intercalate ", " (fmap show d) <> ")"
 
 data ConstructionClaim = CCases Pn [(Expr, PostCreates)] | CDirect PostCreates
   deriving (Eq, Ord, Show, Read)
@@ -155,4 +155,4 @@ abiTypeSolidity t = case t of
   T_string         -> "string"
   T_array_static t n -> abiTypeSolidity t <> "[" <> show n <> "]"
   T_array_dynamic t -> abiTypeSolidity t <> "[]"
-  T_tuple ts       -> "(" <> intercalate "," (fmap abiTypeSolidity ts) <> ")"
+  T_tuple ts       -> "(" <> intercalate ", " (fmap abiTypeSolidity ts) <> ")"
