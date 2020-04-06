@@ -219,14 +219,6 @@ With nix:
 nix-build
 ```
 
-without nix:
-
-Install BNFC and cabal, then
-```sh
-make
-```
-
-
 Developing:
 -----------
 
