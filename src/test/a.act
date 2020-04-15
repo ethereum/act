@@ -1,17 +1,12 @@
-behaviour b of C
-interface iface(uint x)
+behaviour add of SafeAdd
+interface add(uint256 x, uint256 y)
+
+iff in range uint256
+
+    x + y
 
 iff
 
-  5
-  6
+    CALLVALUE == 0
 
-storage
-
-  a => 1
-  b => 2
-  c => 3
-
-returns true
-
-
+returns x + y

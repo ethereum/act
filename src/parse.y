@@ -98,10 +98,15 @@ ACT : list(Transition)                                { $1 }
 
 -- parameterized productions --
 
+pair(a,b) : a b                                       { ($1,$2) }
+
 seplist(x, sep) : x                                   { [$1]    }
                 | seplist(x, sep) sep x               { $3 : $1 }
 
-list(x) : x                                           { [$1]    }
+nonempty(x) : x                                       { [$1]    }
+            | nonempty(x) x                           { $2 : $1 }
+
+list(x) : {- empty -}                                 { []      }
         | list(x) x                                   { $2 : $1 }
 
 opt(x) : x                                            { Just $1 }
@@ -111,25 +116,40 @@ opt(x) : x                                            { Just $1 }
 -- rules --
 
 Transition : 'behaviour' id 'of' id
-             'interface' id '(' seplist(Decl, ',') ')'
-             opt(Precondition)
-             Claim                                    { () }
+             Interface
+             list(Precondition)
+             Cases
+             opt(Ensures)                             { Transition $2 $4 $5 $6 $7 $8 }
 
-Claim : 'storage' list(Store)                         { () }
-      | 'returns' Expr                                { () }
-      | 'storage' list(Store) 'returns' Expr          { () }
+Ensures : nonempty(Expr)                              { $1 }
 
-Precondition : 'iff' list(Expr)                            { () }
-             | 'iff in range' list(Expr)                   { () }
-             | 'iff' list(Expr) 'iff in range' list(Expr)  { () }
-             | 'iff in range' list(Expr) 'iff' list(Expr)  { () }
+Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface $2 $4 }
 
-Store : Expr '=>' Expr                                { ($1, $3) }
+Case : 'case' Expr ':'                                { $2 }
 
-Creation : 'creates' break seplist(Init, break)       { Creates $3 [] }
+Cases : Post                                          { TDirect $1 }
+      | nonempty(pair(Case,Post))                     { TCases $1 }
 
-Init : Decl ':=' Expr                                 { Init $1 $3 }
+Post : opt(Storage) list(ExtStorage) opt(Returns)     { Post $1 $2 $3 }
 
+Returns : 'returns' Expr                              { $2 }
+
+Storage : 'storage' nonempty(Store)                   { $2 }
+
+ExtStorage : 'storage' id break nonempty(Store)       { ExtStorage $2 $4 }
+--           | 'creates' id break nonempty(Store)       { ExtCreates $2 $4 }
+
+Precondition : 'iff' nonempty(Expr)                   { Iff $2 }
+             | 'iff in range' Type nonempty(Expr)     { IffIn $2 $3 }
+
+Store : Entry '=>' Expr                               { ($1, $3) }
+
+Entry : id list(Expr)                                 { Entry $1 $2 }
+
+--Creation : 'creates' break seplist(Init, break)       { Creates $3 [] }
+--
+--Init : Decl ':=' Expr                                 { Init $1 $3 }
+--
 Decl : Type id                                        { Decl $1 $2 }
 
 Type : 'uint'
@@ -143,11 +163,12 @@ Type : 'uint'
               False -> error "invalid bytes size"
        }
      | Type '[' ilit ']'                              { T_array_static $1 $3 }
-     | 'mapping' '(' Type '=>' Type ')'               { T_map $3 $5 }
      | 'address'                                      { T_address }
      | 'bool'                                         { T_bool }
      | 'string'                                       { T_string }
 
+Container : 'mapping' '(' Type '=>' Container ')'     { Mapping $3 $5 }
+          | Type                                      { Direct $1 }
 Expr :
 
     '(' Expr ')'                                        { $2 }
@@ -164,10 +185,10 @@ Expr :
   | Expr '=>'  Expr                                     { EImpl  $1 $3 }
   | Expr '=='  Expr                                     { EEq    $1 $3 }
   | Expr '=/=' Expr                                     { ENeq   $1 $3 }
-  | Expr '<='  Expr                                     { ELe    $1 $3 }
-  | Expr '<'   Expr                                     { ELt    $1 $3 }
-  | Expr '>='  Expr                                     { EGe    $1 $3 }
-  | Expr '>'   Expr                                     { EGt    $1 $3 }
+  | Expr '<='  Expr                                     { ELEQ   $1 $3 }
+  | Expr '<'   Expr                                     { ELT    $1 $3 }
+  | Expr '>='  Expr                                     { EGEQ   $1 $3 }
+  | Expr '>'   Expr                                     { EGT    $1 $3 }
   | 'true'                                              { ETrue        }
   | 'false'                                             { EFalse       }
 
@@ -180,14 +201,13 @@ Expr :
   | Expr '^'   Expr                                     { EExp   $1 $3 }
 
   -- composites
-  | 'if' Expr 'then' Expr 'else' Expr                   { ECond $2 $4 $6 }
+  | 'if' Expr 'then' Expr 'else' Expr                   { EITE $2 $4 $6 }
 {-
   | id '[' Expr ']'                                     { Look $1 $3 }
   | id '(' seplist(Expr, ',') ')'                       { App $1 $3 }
   | Expr '++' Expr                                      { ECat $1 $3 }
   | id '[' Expr '..' Expr ']'                           { ESlice $1 $3 $5 }
 -}
-
   -- missing builtins
 
 {
@@ -195,10 +215,10 @@ Expr :
 validsize :: Int -> Bool
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
-parseError :: [Lexeme] -> Except String a
-parseError tokens =
-  case (head tokens) of
-  L token posn -> throwError $ concat [
+parseError :: [Lexeme] -> Except String arror
+parseError [] = throwError "no valid tokens"
+parseError ((L token posn):tokens) =
+  throwError $ concat [
     "parse error on ",
     show token,
     " at ",
