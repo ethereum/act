@@ -1,5 +1,5 @@
-{ mkDerivation, aeson, alex, array, base, BNFC, bytestring, containers, happy
-, optparse-generic , stdenv, sbv_8_4, text, vector, hevm
+{ mkDerivation, aeson, alex, array, base, bytestring, containers, happy
+, optparse-generic, stdenv, sbv_8_4, text, vector, mtl, hevm
 }:
 mkDerivation {
   pname = "act";
@@ -8,10 +8,10 @@ mkDerivation {
   isLibrary = false;
   isExecutable = true;
   executableHaskellDepends = [
-    aeson array base bytestring containers hevm optparse-generic sbv_8_4 text vector
+    aeson array base bytestring containers hevm optparse-generic sbv_8_4 text vector mtl
   ];
-  preBuild = "make parser";
-  executableToolDepends = [ alex BNFC happy ];
+  preBuild = "make";
+  executableToolDepends = [ alex happy ];
   license = "unknown";
   hydraPlatforms = stdenv.lib.platforms.none;
 }

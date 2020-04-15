@@ -1,13 +1,14 @@
 {
-module Main where
+module Parse where
 import Prelude hiding (EQ, GT, LT)
 import Lex
+import EVM.ABI
 import Syntax
 import Control.Monad.Except
 }
 
 %name parse
-%monad { Except String } { (>>=) } { return }
+%monad { Except (AlexPosn,String } { (>>=) } { return }
 %tokentype { Lexeme }
 %error { parseError }
 
@@ -196,19 +197,19 @@ StorageDecl : Container id                            { StorageDecl $1 $2 }
 
 Type : 'uint'
        { case validsize $1 of
-              True  -> T_uint $1 
+              True  -> AbiUIntType $1 
               False -> error "invalid uint size"
        }
      | 'int'
        { case validsize $1 of
-              True  -> T_int $1
+              True  -> AbiIntType $1
               False -> error "invalid int size"
        }
-     | 'bytes'                                        { T_bytes $1 }
-     | Type '[' ilit ']'                              { T_array_static $1 $3 }
-     | 'address'                                      { T_address }
-     | 'bool'                                         { T_bool }
-     | 'string'                                       { T_string }
+     | 'bytes'                                        { AbiBytesType $1 }
+     | Type '[' ilit ']'                              { AbiArrayType (fromIntegral $3) $1 }
+     | 'address'                                      { AbiAddressType }
+     | 'bool'                                         { AbiBoolType }
+     | 'string'                                       { AbiStringType }
 
 Container : 'mapping' '(' Type '=>' Container ')'     { Mapping $3 $5 }
           | Type                                      { Direct $1 }
@@ -250,7 +251,7 @@ Expr :
   | Expr '.' Expr                                       { Zoom (pos $2) $1 $3 }
 --  | id '(' seplist(Expr, ',') ')'                     { App    (pos $1) $1 $3 }
   | Expr '++' Expr                                      { ECat   (pos $2) $1 $3 }
---  | id '[' Expr '..' Expr ']'                           { ESlice (pos $2) $1 $3 $5 }
+--  | id '[' Expr '..' Expr ']'                         { ESlice (pos $2) $1 $3 $5 }
   -- missing builtins
   | 'newAddr' '(' Expr ',' Expr ')'                     { Newaddr (pos $1) $3 $5 }
 {
@@ -258,19 +259,12 @@ Expr :
 validsize :: Int -> Bool
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
-parseError :: [Lexeme] -> Except String arror
-parseError [] = throwError "no valid tokens"
+parseError :: [Lexeme] -> Except (AlexPosn,String) arror
+parseError [] = throwError (AlexPn 0 0 0, "no valid tokens")
 parseError ((L token posn):tokens) =
-  throwError $ concat [
+  throwError $ (posn, concat [
     "parse error on ",
     show token,
     " at ",
-    showposn posn]
-
-main = do
-  contents <- getContents
-  let lexemes = lexer contents
-  let tree = parse $ lexer contents
-  print tree
---  print lexemes
+    showposn posn])
 }

@@ -1,5 +1,5 @@
 {
-module Lex (LEX (..), Lexeme (..), lexer, showposn, AlexPosn, pos) where
+module Lex (LEX (..), Lexeme (..), lexer, showposn, AlexPosn (..), pos) where
 import Prelude hiding (EQ, GT, LT)
 }
 

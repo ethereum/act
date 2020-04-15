@@ -1,12 +1,11 @@
-main: lex.hs parse.hs Syntax.hs
-	ghc -o main Syntax.hs parse.hs lex.hs 
+main: Lex.hs Parse.hs 
 
-parse.hs: parse.y
-	happy parse.y
+Parse.hs: Parse.y
+	happy Parse.y
 
-lex.hs: lex.x
-	alex lex.x
+Lex.hs: Lex.x
+	alex Lex.x
 
 .PHONY: clean
 clean:
-	rm -f *.hi *.o lex.hs parse.hs main
+	rm -f *.hi *.o Lex.hs Parse.hs main

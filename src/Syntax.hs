@@ -6,6 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Syntax where
 import Data.List          (intercalate)
+import EVM.ABI (AbiType)
 import Lex
 
 type Pn = AlexPosn
@@ -56,7 +57,7 @@ data ExtStorage
 data Assign = AssignVal StorageDecl Expr | AssignMany StorageDecl [Defn] | AssignStruct StorageDecl [Defn]
   deriving (Eq, Show)
 
-data IffH = Iff Pn [Expr] | IffIn Pn Type [Expr]
+data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
   deriving (Eq, Show)
 
 data Entry
@@ -115,7 +116,7 @@ data EthEnv
 data StorageDecl = StorageDecl Container Id
   deriving (Eq, Show)
 
-data Decl = Decl Type Id
+data Decl = Decl AbiType Id
   deriving (Eq)
 
 instance Show Decl where
@@ -123,38 +124,6 @@ instance Show Decl where
 
 -- storage types
 data Container
-   = Direct Type
-   | Mapping Type Container
+   = Direct AbiType
+   | Mapping AbiType Container
   deriving (Eq, Show)
-
--- callvalue types
--- TODO: refine to "elementary" types and whatnot?
-data Type
-   = T_uint Int
-   | T_int Int
-   | T_address
-   | T_bytes Int
-   | T_bytes_dynamic
-   | T_bool
-   | T_string
-   | T_array_static Type Integer
-   | T_array_dynamic Type
-   | T_tuple [Type]
-   | T_contract Id
-  deriving (Eq)
-
-instance Show Type where
-  show = abiTypeSolidity
-
-abiTypeSolidity :: Type -> String
-abiTypeSolidity t = case t of
-  T_uint n         -> "uint" <> show n
-  T_int n          -> "int" <> show n
-  T_address        -> "address"
-  T_bool           -> "bool"
-  T_bytes n        -> "bytes" <> show n
-  T_bytes_dynamic  -> "bytes"
-  T_string         -> "string"
-  T_array_static t n -> abiTypeSolidity t <> "[" <> show n <> "]"
-  T_array_dynamic t -> abiTypeSolidity t <> "[]"
-  T_tuple ts       -> "(" <> intercalate ", " (fmap abiTypeSolidity ts) <> ")"
