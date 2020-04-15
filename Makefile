@@ -5,7 +5,7 @@ parser: src/parser.timestamp
 
 # generates the haskell files that do parsing (compiler compiler)
 src/parser.timestamp: src/act.cf
-	cd src && make parser && cd ..
+	cd src && make && cd ..
 
 # builds the rest of the haskell files (compiler)
 bin/act: src/parser.timestamp src/Main.hs

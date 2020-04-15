@@ -6,65 +6,66 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Syntax where
 import Data.List          (intercalate)
-data Pn = P !Int !Int !Int
-   deriving (Eq, Read, Ord, Show)
+import Lex
 
+type Pn = AlexPosn
+  
 type Id = String
 
 data Act = Main [RawBehaviour]
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Show)
 
 data RawBehaviour
     = Transition Id Id Interface [IffH] TransitionClaim (Maybe Ensures)
-    | Constructor Id Id Interface [IffH] ConstructionClaim (Maybe Ensures)
-  deriving (Eq, Ord, Show, Read)
+    | Constructor Id Id Interface [IffH] Creates [ExtStorage] (Maybe Ensures) (Maybe Invariants)
+  deriving (Eq, Show)
 
 type Ensures = [Expr]
 
+type Invariants = [Expr]
+
 data Interface = Interface Id [Decl]
-  deriving (Eq, Ord, Read)
+  deriving (Eq)
 
 instance Show Interface where
   show (Interface a d) = a <> "(" <> intercalate ", " (fmap show d) <> ")"
 
-data ConstructionClaim = CCases Pn [(Expr, PostCreates)] | CDirect PostCreates
-  deriving (Eq, Ord, Show, Read)
-
-data TransitionClaim = TCases [Case] | TDirect Post
-  deriving (Eq, Ord, Show, Read)
+data TransitionClaim = Cases [Case] | TDirect Post
+  deriving (Eq, Show)
 
 data Case
-    = Case Pn Expr Post
-  deriving (Eq, Ord, Show, Read)
+    = Leaf Pn Expr Post
+    | Branch Pn Expr [Case]
+  deriving (Eq, Show)
 
 data Post
     = Post (Maybe Storage) [ExtStorage] (Maybe Expr)
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Show)
 
-data PostCreates
-    = PostCreates [Assign] [ExtStorage]
-  deriving (Eq, Ord, Show, Read)
+data Creates
+    = Creates [Assign]
+  deriving (Eq, Show)
 
 type Storage = [(Entry, Expr)]
 
 data ExtStorage
     = ExtStorage Id [(Entry, Expr)]
     | ExtCreates Id Expr [Assign]
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Show)
 
-data Assign = Assignval StorageDecl Expr | AssignMany StorageDecl [Defn] | AssignStruct StorageDecl [Defn]
-  deriving (Eq, Ord, Show, Read)
+data Assign = AssignVal StorageDecl Expr | AssignMany StorageDecl [Defn] | AssignStruct StorageDecl [Defn]
+  deriving (Eq, Show)
 
 data IffH = Iff Pn [Expr] | IffIn Pn Type [Expr]
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Show)
 
 data Entry
---  = Entry Pn Id [Either Expr Id] TODO
-  = Entry Pn Id [Expr]
-  deriving (Eq, Ord, Show, Read)
+  = Entry Id [Expr]
+  deriving (Eq, Show)
 
-data Defn = Defn Pn Expr Expr
-  deriving (Eq, Ord, Show, Read)
+--data Defn = Defn Pn Expr Expr
+data Defn = Defn Expr Expr
+  deriving (Eq, Show)
 
 data Expr
     = EAnd Pn Expr Expr
@@ -73,9 +74,9 @@ data Expr
     | EEq Pn Expr Expr
     | ENeq Pn Expr Expr
     | ELEQ Pn Expr Expr
-    | ELE Pn Expr Expr
+    | ELT Pn Expr Expr
     | EGEQ Pn Expr Expr
-    | EGE Pn Expr Expr
+    | EGT Pn Expr Expr
     | ETrue Pn
     | EFalse Pn
     | EAdd Pn Expr Expr
@@ -86,7 +87,7 @@ data Expr
     | EMod Pn Expr Expr
     | EExp Pn Expr Expr
     | Zoom Pn Expr Expr
-    | EntryExp Entry
+    | Look Pn Expr Expr
     | Func Pn Id [Expr]
     | ListConst Expr
     | EmptyList
@@ -97,10 +98,11 @@ data Expr
     | BYHash Pn Expr
     | BYAbiE Pn Expr
     | StringLit Pn String
-    | Var Pn Id
+    | Var Id
+    | Wild
     | EnvExpr Pn EthEnv
-    | IntLit Pn Integer
-  deriving (Eq, Ord, Show, Read)
+    | IntLit Integer
+  deriving (Eq, Show)
 
 data EthEnv
    = CALLER
@@ -108,22 +110,22 @@ data EthEnv
    | BLOCKNUMBER
    | TXORIGIN
    | BLOCKHASH
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Show)
 
-data StorageDecl = StorageDec Container Id
-  deriving (Eq, Ord, Show, Read)
+data StorageDecl = StorageDecl Container Id
+  deriving (Eq, Show)
 
-data Decl = Dec Type Id
-  deriving (Eq, Ord, Read)
+data Decl = Decl Type Id
+  deriving (Eq)
 
 instance Show Decl where
-  show (Dec t a) = show t <> " " <> a
+  show (Decl t a) = show t <> " " <> a
 
 -- storage types
 data Container
    = Direct Type
    | Mapping Type Container
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Show)
 
 -- callvalue types
 -- TODO: refine to "elementary" types and whatnot?
@@ -139,7 +141,7 @@ data Type
    | T_array_dynamic Type
    | T_tuple [Type]
    | T_contract Id
-  deriving (Eq, Ord, Read)
+  deriving (Eq)
 
 instance Show Type where
   show = abiTypeSolidity

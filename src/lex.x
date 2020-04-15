@@ -1,5 +1,5 @@
 {
-module Lex (LEX (..), Lexeme (..), lexer, showposn) where
+module Lex (LEX (..), Lexeme (..), lexer, showposn, AlexPosn, pos) where
 import Prelude hiding (EQ, GT, LT)
 }
 
@@ -34,18 +34,26 @@ tokens :-
   true                                  { mk TRUE }
   false                                 { mk FALSE }
   mapping                               { mk MAPPING }
+  ensures                               { mk ENSURES }
+  invariants                            { mk INVARIANTS }
   if                                    { mk IF }
-  if                                    { mk THEN }
+  then                                  { mk THEN }
   else                                  { mk ELSE }
+  at                                    { mk AT }
 
   -- builtin types
   uint $digit+                   { \ p s -> L (UINT (read (drop 4 s))) p }
+  int  $digit+                   { \ p s -> L (INT  (read (drop 3 s))) p }
   uint                           { mk (UINT 256) }
+  int                            { mk (INT 256) }
   bytes $digit+                  { \ p s -> L (BYTES (read (drop 5 s))) p }
   bytes                          { error "TODO" }
   address                        { mk ADDRESS }
   bool                           { mk BOOL }
   string                         { mk STRING }
+
+  -- builtin functions
+  newAddr                        { mk NEWADDR }
 
   -- symbols
   ":="                                  { mk ASSIGN }
@@ -74,7 +82,7 @@ tokens :-
   "_"                                   { mk SCORE }
   "."                                   { mk DOT }
   ","                                   { mk COMMA }
-
+  "//"                                  [.]* ; -- Toss single line comments
   -- identifiers
   $ident ($ident | $digit)*   { \ p s -> L (ID s) p }
 
@@ -104,16 +112,23 @@ data LEX =
   | TRUE
   | FALSE
   | MAPPING
+  | ENSURES
+  | INVARIANTS
   | IF
   | THEN
   | ELSE
+  | AT
 
   -- builtin types
   | UINT  Int
+  | INT   Int
   | BYTES Int
   | ADDRESS
   | BOOL
   | STRING
+
+  -- builtin functions
+  | NEWADDR
 
   -- symbols
   | ASSIGN
@@ -157,6 +172,8 @@ data Lexeme = L LEX AlexPosn
 showposn (AlexPn _ line column) =
   concat [show line, ":", show column]
 
+pos :: Lexeme -> AlexPosn
+pos (L _ p) = p
 
 -- helper function to reduce boilerplate
 mk :: LEX -> (AlexPosn -> String -> Lexeme)
