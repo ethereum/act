@@ -1,1 +1,1 @@
-[Transition (Var "f") (Var "A") (Var "f") [Dec (StaticArrayType Type_address 2) (Var "xs")] [] (Direct (ReturnP (Look (VarLit (Var "xs")) (IntLit 1))))]
+[Transition "f" "A" f(AbiArrayType 2 AbiAddressType xs) [] (TDirect (Post Nothing [] (Just (Look (AlexPn 55 4 11) (Var "xs") (IntLit 1))))) Nothing]

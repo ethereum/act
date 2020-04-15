@@ -1,1 +1,1 @@
-[Constructor (Var "creation") (Var "Modest") [] [] (Layout [Assignval Type_uint (Var "x") (IntLit 1),Assignval Type_address (Var "y") (VarLit (Var "CALLER"))])]
+[Constructor "creation" "Modest" constructor() [] (Creates [AssignVal (StorageDecl (Direct AbiAddressType) "y") (Var "CALLER"),AssignVal (StorageDecl (Direct (AbiUIntType 256)) "x") (IntLit 1)]) [] Nothing Nothing]
