@@ -101,17 +101,23 @@ data Expr
     | StringLit Pn String
     | Var Id
     | Wild
-    | EnvExpr Pn EthEnv
+    | EnvExpr EthEnv
     | IntLit Integer
   deriving (Eq, Show)
 
 data EthEnv
-   = CALLER
-   | CALLVALUE
-   | BLOCKNUMBER
-   | TXORIGIN
-   | BLOCKHASH
-  deriving (Eq, Show)
+   = Caller Pn
+   | Callvalue Pn
+   | Origin Pn
+  deriving (Show)
+
+
+--custom instance which is not concerned with the position
+instance Eq EthEnv where
+ (==) (Caller _) (Caller _) = True
+ (==) (Callvalue _) (Callvalue _) = True
+ (==) (Origin _) (Origin _) = True
+ (==) _ _ = False
 
 data StorageDecl = StorageDecl Container Id
   deriving (Eq, Show)

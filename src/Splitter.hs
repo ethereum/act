@@ -4,7 +4,8 @@ module Splitter where
 import Syntax
 import RefinedAst
 import EVM (VM)
-import EVM.Symbolic (verify, PreCondition, PostCondition)
+import EVM.Symbolic (verify, Precondition, Postcondition)
+--import EVM.Solidity (AbiType)
 import EVM.Solidity (SolcContract)
 import Data.Map.Strict    (Map) -- abandon in favor of [(a,b)]?
 
@@ -49,7 +50,7 @@ import Data.Map.Strict    (Map) -- abandon in favor of [(a,b)]?
 --   | EVMC_REVERT
 --   | EVMC_OOG
 --   deriving (Show, Ord, Eq, Read)
-type Signature = (Text, AbiType)
+--type Signature = (Text, AbiType)
 
-kaseSplit :: Behaviour -> SolcContract -> (VM, Signature, Precondition, Postcondition)
-kaseSplit = error "TODO"
+-- kaseSplit :: Behaviour -> SolcContract -> (VM, Signature, Precondition, Postcondition)
+-- kaseSplit = error "TODO"

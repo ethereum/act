@@ -1,14 +1,17 @@
 .DEFAULT_GOAL := compiler
 .PHONY: parser compiler
 
-parser: src/parser.timestamp
+parser: src/Lex.hs src/Parse.hs
 
-# generates the haskell files that do parsing (compiler compiler)
-src/parser.timestamp: src/act.cf
-	cd src && make && cd ..
+src/Parse.hs: src/Parse.y src/Syntax.hs
+	happy src/Parse.y
+
+
+src/Lex.hs: src/Lex.x
+	alex src/Lex.x
 
 # builds the rest of the haskell files (compiler)
-bin/act: src/parser.timestamp src/Main.hs
+bin/act: src/Lex.hs src/Parse.hs src/Main.hs
 	cd src && cabal v2-install --installdir=../bin --overwrite-policy=always && cd ..
 
 repl: src/parser.timestamp

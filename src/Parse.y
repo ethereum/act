@@ -8,7 +8,7 @@ import Control.Monad.Except
 }
 
 %name parse
-%monad { Except (AlexPosn,String } { (>>=) } { return }
+%monad { Except (AlexPosn,String) } { (>>=) } { return }
 %tokentype { Lexeme }
 %error { parseError }
 
@@ -50,7 +50,12 @@ import Control.Monad.Except
 
   -- builtin functions
   'newAddr'                   { L NEWADDR _ }
-   
+
+  -- environment variables
+  'CALLER'                    { L CALLER _ }
+  'CALLVALUE'                 { L CALLVALUE _ }
+  'ORIGIN'                    { L ORIGIN _ }
+  
   -- symbols
   break                       { L BREAK _ }
   ':='                        { L ASSIGN _ }
@@ -213,6 +218,11 @@ Type : 'uint'
 
 Container : 'mapping' '(' Type '=>' Container ')'     { Mapping $3 $5 }
           | Type                                      { Direct $1 }
+
+EnvVar : 'CALLER'                                     { Caller (pos $1) }
+       | 'CALLVALUE'                                  { Callvalue (pos $1) }
+       | 'ORIGIN'                                     { Origin (pos $1) }
+
 Expr :
 
     '(' Expr ')'                                        { $2 }
@@ -252,8 +262,10 @@ Expr :
 --  | id '(' seplist(Expr, ',') ')'                     { App    (pos $1) $1 $3 }
   | Expr '++' Expr                                      { ECat   (pos $2) $1 $3 }
 --  | id '[' Expr '..' Expr ']'                         { ESlice (pos $2) $1 $3 $5 }
+  | EnvVar                                              { EnvExpr $1 }
   -- missing builtins
   | 'newAddr' '(' Expr ',' Expr ')'                     { Newaddr (pos $1) $3 $5 }
+
 {
 
 validsize :: Int -> Bool

@@ -55,6 +55,11 @@ tokens :-
   -- builtin functions
   newAddr                        { mk NEWADDR }
 
+  -- environment vars
+  CALLER                                { mk CALLER }
+  CALLVALUE                             { mk CALLVALUE }
+  ORIGIN                                { mk ORIGIN }
+ 
   -- symbols
   ":="                                  { mk ASSIGN }
   "=>"                                  { mk ARROW }
@@ -129,6 +134,11 @@ data LEX =
 
   -- builtin functions
   | NEWADDR
+
+  -- environment vars
+  | CALLER
+  | CALLVALUE
+  | ORIGIN
 
   -- symbols
   | ASSIGN
