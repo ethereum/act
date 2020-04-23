@@ -1,0 +1,1 @@
+[{"stateUpdates":{"A":[]},"name":"f","preConditions":{"arity":2,"args":["True","True"],"symbol":"and"},"contract":"A","interface":"f(AbiUIntType 256 x)","returns":{"expression":1,"sort":"int"}}]
