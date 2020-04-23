@@ -1,5 +1,5 @@
 {
-module Lex (LEX (..), Lexeme (..), lexer, showposn, AlexPosn (..), pos) where
+module Lex (LEX (..), Lexeme (..), lexer, showposn, AlexPosn (..), pos, arg) where
 import Prelude hiding (EQ, GT, LT)
 }
 
@@ -59,6 +59,8 @@ tokens :-
   CALLER                                { mk CALLER }
   CALLVALUE                             { mk CALLVALUE }
   ORIGIN                                { mk ORIGIN }
+  THIS                                  { mk THIS }  -- normally called address, but that's taken
+  NONCE                                 { mk NONCE } -- technically not an opcode
  
   -- symbols
   ":="                                  { mk ASSIGN }
@@ -139,6 +141,8 @@ data LEX =
   | CALLER
   | CALLVALUE
   | ORIGIN
+  | THIS
+  | NONCE
 
   -- symbols
   | ASSIGN
@@ -184,6 +188,9 @@ showposn (AlexPn _ line column) =
 
 pos :: Lexeme -> AlexPosn
 pos (L _ p) = p
+
+arg :: Lexeme -> String
+arg (L (ID s) p) = s
 
 -- helper function to reduce boilerplate
 mk :: LEX -> (AlexPosn -> String -> Lexeme)

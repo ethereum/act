@@ -36,9 +36,9 @@ interface transferFrom(address src, address dst, uint amount)
 
 iff
 
-   value <= balanceOf[CALLER]
-   src    =/= dst => balanceOf[dst] + value < 2^256
-   CALLER =/= src => 0 <= allowance[src][CALLER] - value
+   amount <= balanceOf[CALLER]
+   src    =/= dst => balanceOf[dst] + amount < 2^256
+   CALLER =/= src => 0 <= allowance[src][CALLER] - amount
    CALLVALUE == 0
 
 case src =/= dst:
@@ -47,8 +47,8 @@ case src =/= dst:
 
       storage
 
-         balances[src] => balances[src] - value
-         balances[dst] => balances[dst] + value
+         balanceOf[src] => balanceOf[src] - amount
+         balanceOf[dst] => balanceOf[dst] + amount
 
       returns 1
 
@@ -56,8 +56,8 @@ case src =/= dst:
 
       storage
 
-         balances[src] => balances[src] - value
-         balances[dst] => balances[dst] + value
+         balanceOf[src] => balanceOf[src] - amount
+         balanceOf[dst] => balanceOf[dst] + amount
 
       returns 1
 
@@ -65,9 +65,9 @@ case src =/= dst:
 
       storage
 
-         allowance[src][CALLER] => allowance[src][CALLER] - value
-         balances[src]          => balances[src] - value
-         balances[dst]          => balances[dst] + value
+         allowance[src][CALLER] => allowance[src][CALLER] - amount
+         balanceOf[src]          => balanceOf[src] - amount
+         balanceOf[dst]          => balanceOf[dst] + amount
 
       returns 1
 

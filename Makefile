@@ -14,7 +14,7 @@ src/Lex.hs: src/Lex.x
 bin/act: src/Lex.hs src/Parse.hs src/Main.hs
 	cd src && cabal v2-install --installdir=../bin --overwrite-policy=always && cd ..
 
-repl: src/parser.timestamp
+repl: src/Lex.hs src/Parse.hs
 	cd src && cabal v2-repl
 
 compiler: bin/act

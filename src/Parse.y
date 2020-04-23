@@ -4,11 +4,11 @@ import Prelude hiding (EQ, GT, LT)
 import Lex
 import EVM.ABI
 import Syntax
-import Control.Monad.Except
+import ErrM
 }
 
 %name parse
-%monad { Except (AlexPosn,String) } { (>>=) } { return }
+%monad { Err } { (>>=) } { return }
 %tokentype { Lexeme }
 %error { parseError }
 
@@ -55,6 +55,8 @@ import Control.Monad.Except
   'CALLER'                    { L CALLER _ }
   'CALLVALUE'                 { L CALLVALUE _ }
   'ORIGIN'                    { L ORIGIN _ }
+  'THIS'                      { L THIS _ }
+  'NONCE'                     { L NONCE _ }
   
   -- symbols
   break                       { L BREAK _ }
@@ -84,7 +86,7 @@ import Control.Monad.Except
   '.'                         { L DOT _ }
   ','                         { L COMMA _ }
 
-  id                          { L (ID $$) _ }
+  id                          { L (ID _) _ }
 
   ilit                        { L (ILIT $$) _ }
 
@@ -97,15 +99,16 @@ import Control.Monad.Except
 %left 'and'
 %left 'or'
 
+%nonassoc '<=' '<' '>=' '>' '==' '=/='
+
+
 %left '+' '-'
 %left '*' '/'
 %left '++'
-%left '['
+%left '[' -- no idea about this one
 %nonassoc '%'
-%left '.' -- or maybe left, not sure
+%left '.' -- no idea about this one
 %right '^'
-
-%nonassoc '<=' '<' '>=' '>' '==' '=/='
 
 %%
 
@@ -119,10 +122,6 @@ pair(a,b) : a b                                       { ($1,$2) }
 seplist(x, sep) : {- empty -}                         { []      }
                 | x                                   { [$1]    }
                 | seplist(x, sep) sep x               { $3 : $1 }
-
-nonemptysep(x, sep) : x                                   { [$1]    }
-                    | seplist(x, sep) sep x               { $3 : $1 }
-
 
 nonempty(x) : x                                       { [$1]    }
             | nonempty(x) x                           { $2 : $1 }
@@ -143,7 +142,8 @@ Transition : 'behaviour' id 'of' id
              Interface
              list(Precondition)
              Cases
-             opt(Ensures)                             { Transition $2 $4 $5 $6 $7 $8 }
+             opt(Ensures)                             { Transition (arg $2) (arg $4)
+                                                        $5 $6 $7 $8 }
 
 Constructor : 'behaviour' id 'of' id
               'interface' 'constructor' '(' seplist(Decl, ',') ')'
@@ -151,7 +151,7 @@ Constructor : 'behaviour' id 'of' id
               Creation
               list(ExtStorage)
               opt(Ensures)
-              opt(Invariants)                          { Constructor $2 $4
+              opt(Invariants)                          { Constructor (arg $2) (arg $4)
                                                          (Interface "constructor" $8)
                                                          $10 $11 $12 $13 $14 }
 
@@ -159,13 +159,14 @@ Ensures : 'ensures' nonempty(Expr)                    { $2 }
 
 Invariants : 'invariants' nonempty(Expr)              { $2 }
 
-Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface $2 $4 }
+Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface (arg $2) $4 }
 
 Case : 'case' Expr ':' nonempty(Case)                 { Branch (pos $1) $2 $4 }
      | 'case' Expr ':' Post                           { Leaf (pos $1) $2 $4 }
 
-Cases : Post                                          { TDirect $1 }
-      | nonempty(Case)                                { Cases $1 }
+Cases : Post                                          { Branch nowhere (BoolLit True)
+                                                          [Leaf nowhere (BoolLit True) $1] }
+      | nonempty(Case)                                { Branch nowhere (BoolLit True) $1 }
 
 
 Post  : Storage list(ExtStorage)                      { Post (Just $1) $2 Nothing }
@@ -177,15 +178,15 @@ Returns : 'returns' Expr                              { $2 }
 
 Storage : 'storage' nonempty(Store)                   { $2 }
 
-ExtStorage : 'storage' id nonempty(Store)             { ExtStorage $2 $3 }
-           | 'creates' id 'at' Expr nonempty(Assign)  { ExtCreates $2 $4 $5 }
+ExtStorage : 'storage' id nonempty(Store)             { ExtStorage (arg $2) $3 }
+           | 'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (arg $2) $4 $5 }
 
 Precondition : 'iff' nonempty(Expr)                   { Iff (pos $1) $2 }
              | 'iff in range' Type nonempty(Expr)     { IffIn (pos $1) $2 $3 }
 
 Store : Entry '=>' Expr                               { ($1, $3) }
 
-Entry : id list(Zoom)                                 { Entry $1 $2 }
+Entry : id list(Zoom)                                 { Entry (pos $1) (arg $1) $2 }
 
 Zoom : '[' Expr ']'                                   { $2 }
      | '.' Expr                                       { $2 }
@@ -196,9 +197,9 @@ Assign : StorageDecl ':=' Expr                        { AssignVal $1 $3 }
        | StorageDecl ':=' '[' seplist(Defn, ',') ']'  { AssignMany $1 $4 }
 
 Defn : Expr ':=' Expr                                 { Defn $1 $3 }
-Decl : Type id                                        { Decl $1 $2 }
+Decl : Type id                                        { Decl $1 (arg $2) }
 
-StorageDecl : Container id                            { StorageDecl $1 $2 }
+StorageDecl : Container id                            { StorageDecl $1 (arg $2) }
 
 Type : 'uint'
        { case validsize $1 of
@@ -219,16 +220,11 @@ Type : 'uint'
 Container : 'mapping' '(' Type '=>' Container ')'     { Mapping $3 $5 }
           | Type                                      { Direct $1 }
 
-EnvVar : 'CALLER'                                     { Caller (pos $1) }
-       | 'CALLVALUE'                                  { Callvalue (pos $1) }
-       | 'ORIGIN'                                     { Origin (pos $1) }
-
 Expr :
 
     '(' Expr ')'                                        { $2 }
 
   -- terminals
-  | id                                                  { Var $1 }
   | ilit                                                { IntLit $1 }
   | '_'                                                 { Wild }
   -- missing string literal
@@ -257,24 +253,31 @@ Expr :
 
   -- composites
   | 'if' Expr 'then' Expr 'else' Expr                   { EITE (pos $1) $2 $4 $6 }
-  | Expr '[' Expr ']'                                   { Look (pos $2) $1 $3 }
+  | Entry                                               { EntryExp $1 }
+--  | id list(Zoom)                                       { Look (pos $1) (arg $1) $2 }
   | Expr '.' Expr                                       { Zoom (pos $2) $1 $3 }
 --  | id '(' seplist(Expr, ',') ')'                     { App    (pos $1) $1 $3 }
   | Expr '++' Expr                                      { ECat   (pos $2) $1 $3 }
 --  | id '[' Expr '..' Expr ']'                         { ESlice (pos $2) $1 $3 $5 }
-  | EnvVar                                              { EnvExpr $1 }
+  | 'CALLER'                                            { EnvExp (pos $1) Caller }
+  | 'ORIGIN'                                            { EnvExp (pos $1) Origin }
+  | 'CALLVALUE'                                         { EnvExp (pos $1) Callvalue }
+  | 'THIS'                                              { EnvExp (pos $1) Address }
+  | 'NONCE'                                             { EnvExp (pos $1) Nonce }
   -- missing builtins
-  | 'newAddr' '(' Expr ',' Expr ')'                     { Newaddr (pos $1) $3 $5 }
+  | 'newAddr' '(' Expr ',' Expr ')'                     { ENewaddr (pos $1) $3 $5 }
 
 {
+
+nowhere = AlexPn 0 0 0
 
 validsize :: Int -> Bool
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
-parseError :: [Lexeme] -> Except (AlexPosn,String) arror
-parseError [] = throwError (AlexPn 0 0 0, "no valid tokens")
+parseError :: [Lexeme] -> Err a
+parseError [] = Bad (AlexPn 0 0 0, "no valid tokens")
 parseError ((L token posn):tokens) =
-  throwError $ (posn, concat [
+  Bad $ (posn, concat [
     "parse error on ",
     show token,
     " at ",

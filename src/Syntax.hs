@@ -6,6 +6,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Syntax where
 import Data.List          (intercalate)
+import Data.Bifunctor
+import Data.Bifoldable
+import Data.Bitraversable
 import EVM.ABI (AbiType)
 import Lex
 
@@ -17,7 +20,7 @@ data Act = Main [RawBehaviour]
   deriving (Eq, Show)
 
 data RawBehaviour
-    = Transition Id Id Interface [IffH] TransitionClaim (Maybe Ensures)
+    = Transition Id Id Interface [IffH] (Case Expr Post) (Maybe Ensures)
     | Constructor Id Id Interface [IffH] Creates [ExtStorage] (Maybe Ensures) (Maybe Invariants)
   deriving (Eq, Show)
 
@@ -31,13 +34,24 @@ data Interface = Interface Id [Decl]
 instance Show Interface where
   show (Interface a d) = a <> "(" <> intercalate ", " (fmap show d) <> ")"
 
-data TransitionClaim = Cases [Case] | TDirect Post
+data Case a b
+    = Leaf Pn a b
+    | Branch Pn a [Case a b]
   deriving (Eq, Show)
 
-data Case
-    = Leaf Pn Expr Post
-    | Branch Pn Expr [Case]
-  deriving (Eq, Show)
+-- these instances are unused right now...
+-- could be deleted later
+instance Bifunctor Case where
+  bimap f g (Leaf pn e p)   = Leaf pn (f e) (g p)
+  bimap f g (Branch pn e p) = Branch pn (f e) (map (bimap f g) p)
+
+instance Bifoldable Case where
+  bifoldMap f g (Leaf pn e p)   = f e <> g p
+  bifoldMap f g (Branch pn e p) = f e <> mconcat (map (bifoldMap f g) p)
+
+instance Bitraversable Case where
+  bitraverse f g (Leaf pn e p)   = Leaf pn <$> (f e) <*> (g p)
+  bitraverse f g (Branch pn e p) = Branch pn <$> (f e) <*> (traverse (bitraverse f g) p)
 
 data Post
     = Post (Maybe Storage) [ExtStorage] (Maybe Expr)
@@ -61,7 +75,7 @@ data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
   deriving (Eq, Show)
 
 data Entry
-  = Entry Id [Expr]
+  = Entry Pn Id [Expr]
   deriving (Eq, Show)
 
 --data Defn = Defn Pn Expr Expr
@@ -71,6 +85,7 @@ data Defn = Defn Expr Expr
 data Expr
     = EAnd Pn Expr Expr
     | EOr Pn Expr Expr
+    | ENot Pn Expr
     | EImpl Pn Expr Expr
     | EEq Pn Expr Expr
     | ENeq Pn Expr Expr
@@ -88,36 +103,32 @@ data Expr
     | EMod Pn Expr Expr
     | EExp Pn Expr Expr
     | Zoom Pn Expr Expr
-    | Look Pn Expr Expr
+    | EntryExp Entry
+--    | Look Pn Id [Expr]
     | Func Pn Id [Expr]
     | ListConst Expr
     | EmptyList
     | ECat Pn Expr Expr
     | ESlice Pn Expr Expr Expr
-    | Newaddr Pn Expr Expr
-    | Newaddr2 Pn Expr Expr Expr
+    | ENewaddr Pn Expr Expr
+    | ENewaddr2 Pn Expr Expr Expr
     | BYHash Pn Expr
     | BYAbiE Pn Expr
     | StringLit Pn String
-    | Var Id
+    | Var Pn Id
     | Wild
-    | EnvExpr EthEnv
+    | EnvExp Pn EthEnv
     | IntLit Integer
+    | BoolLit Bool
   deriving (Eq, Show)
 
 data EthEnv
-   = Caller Pn
-   | Callvalue Pn
-   | Origin Pn
-  deriving (Show)
-
-
---custom instance which is not concerned with the position
-instance Eq EthEnv where
- (==) (Caller _) (Caller _) = True
- (==) (Callvalue _) (Callvalue _) = True
- (==) (Origin _) (Origin _) = True
- (==) _ _ = False
+   = Caller
+   | Callvalue
+   | Origin
+   | Address
+   | Nonce
+  deriving (Show, Eq)
 
 data StorageDecl = StorageDecl Container Id
   deriving (Eq, Show)
