@@ -56,7 +56,7 @@ import ErrM
   'CALLVALUE'                 { L CALLVALUE _ }
   'ORIGIN'                    { L ORIGIN _ }
   'BLOCKHASH'                 { L BLOCKHASH _ }
-  'NUMBER'                    { L NUMBER _ }
+  'BLOCKNUMBER'               { L BLOCKNUMBER _ }
   'DIFFICULTY'                { L DIFFICULTY _ }
   'CHAINID'                   { L CHAINID _ }
   'GASLIMIT'                  { L GASLIMIT _ }
@@ -270,7 +270,7 @@ Expr :
   | 'CALLER'                                            { EnvExp (pos $1) Caller }
   | 'ORIGIN'                                            { EnvExp (pos $1) Origin }
   | 'BLOCKHASH'                                         { EnvExp (pos $1) Blockhash }
-  | 'NUMBER'                                            { EnvExp (pos $1) Number }
+  | 'BLOCKNUMBER'                                       { EnvExp (pos $1) Blocknumber }
   | 'DIFFICULTY'                                        { EnvExp (pos $1) Difficulty }
   | 'CHAINID'                                           { EnvExp (pos $1) Chainid }
   | 'GASLIMIT'                                          { EnvExp (pos $1) Gaslimit }

@@ -61,7 +61,7 @@ tokens :-
   CALLVALUE                             { mk CALLVALUE }
   ORIGIN                                { mk ORIGIN }
   BLOCKHASH                             { mk BLOCKHASH }
-  NUMBER                                { mk NUMBER }
+  BLOCKNUMBER                           { mk BLOCKNUMBER }
   DIFFICULTY                            { mk DIFFICULTY }
   CHAINID                               { mk CHAINID }
   GASLIMIT                              { mk GASLIMIT }
@@ -150,7 +150,7 @@ data LEX =
   | CALLVALUE
   | ORIGIN
   | BLOCKHASH
-  | NUMBER
+  | BLOCKNUMBER
   | DIFFICULTY
   | CHAINID
   | GASLIMIT

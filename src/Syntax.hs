@@ -127,7 +127,7 @@ data EthEnv
    | Callvalue
    | Origin
    | Blockhash
-   | Number
+   | Blocknumber
    | Difficulty
    | Chainid
    | Gaslimit

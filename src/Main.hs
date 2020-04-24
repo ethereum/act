@@ -138,7 +138,7 @@ defaultStore =
   [(Callvalue, Integer),
    (Caller, Integer),
    (Blockhash, ByteStr),
-   (Number, Integer),
+   (Blocknumber, Integer),
    (Difficulty, Integer),
    (Timestamp, Integer),
    (Gaslimit, Integer),
