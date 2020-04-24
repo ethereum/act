@@ -16,7 +16,7 @@ import System.Environment ( getArgs )
 import System.Exit ( exitFailure )
 import Data.Text          (Text, pack, unpack)
 import EVM.ABI
-import EVM.Solidity
+import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import Data.Map.Strict    (Map)
 import Data.Maybe
@@ -57,12 +57,17 @@ data Command w
                       , k       :: w ::: Bool         <?> "output k files"
                       , ir      :: w ::: Bool         <?> "output k files"
                       , coq     :: w ::: Bool         <?> "output coq files"
-                      , out     :: w ::: Maybe String <?> "output path"
+                      , out     :: w ::: Maybe String <?> "output directory"
                       }
     deriving (Generic)
 
 instance ParseRecord (Command Wrapped)
 deriving instance Show (Command Unwrapped)
+
+
+errMessage :: (Pn, String) -> Maybe a -> Err a
+errMessage _ (Just c) = Ok c
+errMessage e Nothing = Bad e
 
 safeDrop :: Int -> [a] -> [a]
 safeDrop 0 a = a
@@ -70,11 +75,17 @@ safeDrop _ [a] = [a]
 safeDrop n (x:xs) = safeDrop (n-1) xs
 
 prettyErr :: String -> (Pn, String) -> IO ()
-prettyErr contents (AlexPn _ line col,msg) = do let cxt = safeDrop (line - 1) (lines contents)
-                                                putStrLn $ show line <> " | " <> head cxt
-                                                putStrLn $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
-                                                putStrLn $ msg
-                                                exitFailure
+prettyErr contents pn@(AlexPn _ line col,msg) =
+  if fst pn == nowhere then
+    do putStrLn $ "Internal error"
+       putStrLn $ msg
+       exitFailure
+  else
+    do let cxt = safeDrop (line - 1) (lines contents)
+       putStrLn $ show line <> " | " <> head cxt
+       putStrLn $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
+       putStrLn $ msg
+       exitFailure
 
 main :: IO ()
 main = do
@@ -87,20 +98,31 @@ main = do
                       case parse $ lexer contents of
                         Bad e -> prettyErr contents e
                         Ok x -> print x
+
       (Type f) -> do contents <- readFile f
-                     case parse $ lexer contents of
-                                    Bad e -> prettyErr contents e
-                                    Ok spec -> case typecheck spec of
-                                                  (Ok a)  -> B.putStrLn $ encode a
-                                                  (Bad e) -> prettyErr contents e
+                     case parse (lexer contents) >>= typecheck of
+                       Ok a  -> B.putStrLn $ encode a
+                       Bad e -> prettyErr contents e
 
-      -- (Compile spec soljson) -> do contents <- readFile f
+      (Compile spec soljson k ir coq out) -> do
+        specContents <- readFile spec
+        solContents  <- readFile soljson
+        errKSpecs <- pure $ do refinedSpecs  <- parse (lexer specContents) >>= typecheck
+                               (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
+                                 $ Solidity.readJSON $ pack solContents
+                               forM refinedSpecs (makekSpec sources)
+        case errKSpecs of
+             Bad e -> prettyErr specContents e
+             Ok kSpecs -> do
+               let printFile (filename, content) = case out of
+                     Nothing -> writeFile filename content
+                     Just dir -> writeFile (dir <> filename) content
+               forM_ kSpecs printFile
+                   
+                                     
+                 
 
-      --                   case parse $ lexer contents of
-      --                               Bad e -> prettyErr contents e
-      --                               Ok spec -> case typecheck spec of
-      --                                             (Ok a)  -> B.putStrLn $ encode a
-      --                                             (Bad e) -> prettyErr contents e
+                                                      
 
 --       (TypeCheck f) -> do contents <- readFile f
 --                           let act = read contents :: [RawBehaviour]
@@ -153,7 +175,7 @@ defaultStore =
 -- typing of vars: this contract storage, other contract scopes, calldata args
 type Env = (Map Id Container, Map Id (Map Id Container), Map Id MType)
 
--- todo: make Exp T_Bool a monoid so that this is mconcat
+-- todo: make Exp T_Bool a monoid so that this is mconcat?
 joinand :: [Exp T_Bool] -> Exp T_Bool
 joinand [x] = x
 joinand (x:xs) = And x (joinand xs)

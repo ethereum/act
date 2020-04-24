@@ -1,7 +1,7 @@
 {nixpkgs ? import <nixpkgs> {}, compiler ? "ghc865"}:
 let  dapptools = builtins.fetchGit {
     url = "https://github.com/dapphub/dapptools.git";
-    rev = "064c25ada217f519a9d4e3cc750c33dbaa5083dc";
+    rev = "345b6ea42704c51af44c00bb18eb0becc768cf1f";
     ref = "symbolic";
   };
   pkgs-for-dapp = import <nixpkgs> {

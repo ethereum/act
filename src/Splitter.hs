@@ -3,10 +3,13 @@ module Splitter where
 
 import Syntax
 import RefinedAst
+import ErrM
+import Data.Text
+import Parse
 import EVM (VM)
 import EVM.Symbolic (verify, Precondition, Postcondition)
 --import EVM.Solidity (AbiType)
-import EVM.Solidity (SolcContract)
+import EVM.Solidity (SolcContract(..))
 import Data.Map.Strict    (Map) -- abandon in favor of [(a,b)]?
 
 -- data Implementation = Implementation
@@ -35,7 +38,7 @@ import Data.Map.Strict    (Map) -- abandon in favor of [(a,b)]?
 --  accounts :: Map Contract
 -- deriving (Ord, Eq, Read)
 
--- instance Show KSpec where
+-- instance Show KSpec whereR
 --   show KSpec { .. }  = error "TODO"
 
 -- data KTerm = Execute | Halt
@@ -52,5 +55,7 @@ import Data.Map.Strict    (Map) -- abandon in favor of [(a,b)]?
 --   deriving (Show, Ord, Eq, Read)
 --type Signature = (Text, AbiType)
 
--- kaseSplit :: Behaviour -> SolcContract -> (VM, Signature, Precondition, Postcondition)
--- kaseSplit = error "TODO"
+type KSpec = String
+
+makekSpec :: Map Text SolcContract -> Behaviour -> Err (String, KSpec)
+makekSpec sources  Behaviour{..} = Bad (nowhere, "todo: make k spec")
