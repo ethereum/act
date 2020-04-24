@@ -126,6 +126,13 @@ data EthEnv
    = Caller
    | Callvalue
    | Origin
+   | Blockhash
+   | Number
+   | Difficulty
+   | Chainid
+   | Gaslimit
+   | Coinbase
+   | Timestamp
    | Address
    | Nonce
   deriving (Show, Eq)

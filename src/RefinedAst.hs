@@ -165,12 +165,12 @@ instance ToJSON (Exp T_Bool) where
   toJSON (GEQ a b)  = symbol ">=" a b
   toJSON (LitBool a) = String $ pack $ show a
   toJSON (Neg a) = object [   "symbol"   .= pack "not"
-                          ,  "arity"    .= (Number 1)
+                          ,  "arity"    .= (Data.Aeson.Types.Number 1)
                           ,  "args"     .= (Array $ fromList [toJSON a])]
   toJSON v = error $ "todo: json ast for: " <> show v
 
 symbol s a b = object [  "symbol"   .= pack s
-                      ,  "arity"    .= (Number 2)
+                      ,  "arity"    .= (Data.Aeson.Types.Number 2)
                       ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
 
 

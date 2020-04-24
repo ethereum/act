@@ -18,6 +18,7 @@ tokens :-
 
   -- reserved words
   behaviour                             { mk BEHAVIOUR }
+  behavior                              { mk BEHAVIOUR }
   of                                    { mk OF }
   interface                             { mk INTERFACE }
   constructor                           { mk CONSTRUCTOR }
@@ -59,6 +60,13 @@ tokens :-
   CALLER                                { mk CALLER }
   CALLVALUE                             { mk CALLVALUE }
   ORIGIN                                { mk ORIGIN }
+  BLOCKHASH                             { mk BLOCKHASH }
+  NUMBER                                { mk NUMBER }
+  DIFFICULTY                            { mk DIFFICULTY }
+  CHAINID                               { mk CHAINID }
+  GASLIMIT                              { mk GASLIMIT }
+  COINBASE                              { mk COINBASE }
+  TIMESTAMP                             { mk TIMESTAMP } 
   THIS                                  { mk THIS }  -- normally called address, but that's taken
   NONCE                                 { mk NONCE } -- technically not an opcode
  
@@ -85,7 +93,7 @@ tokens :-
   "*"                                   { mk STAR }
   "/"                                   { mk SLASH }
   "%"                                   { mk MOD }
-  "^"                                   { mk CARROT }
+  "^"                                   { mk CARET }
   "_"                                   { mk SCORE }
   "."                                   { mk DOT }
   ","                                   { mk COMMA }
@@ -141,6 +149,13 @@ data LEX =
   | CALLER
   | CALLVALUE
   | ORIGIN
+  | BLOCKHASH
+  | NUMBER
+  | DIFFICULTY
+  | CHAINID
+  | GASLIMIT
+  | COINBASE
+  | TIMESTAMP
   | THIS
   | NONCE
 
@@ -166,7 +181,7 @@ data LEX =
   | STAR
   | SLASH
   | MOD
-  | CARROT
+  | CARET
   | SCORE
   | DOT
   | COMMA

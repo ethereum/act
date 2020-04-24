@@ -55,8 +55,16 @@ import ErrM
   'CALLER'                    { L CALLER _ }
   'CALLVALUE'                 { L CALLVALUE _ }
   'ORIGIN'                    { L ORIGIN _ }
+  'BLOCKHASH'                 { L BLOCKHASH _ }
+  'NUMBER'                    { L NUMBER _ }
+  'DIFFICULTY'                { L DIFFICULTY _ }
+  'CHAINID'                   { L CHAINID _ }
+  'GASLIMIT'                  { L GASLIMIT _ }
+  'COINBASE'                  { L COINBASE _ }
+  'TIMESTAMP'                 { L TIMESTAMP _ }
   'THIS'                      { L THIS _ }
   'NONCE'                     { L NONCE _ }
+
   
   -- symbols
   break                       { L BREAK _ }
@@ -81,7 +89,7 @@ import ErrM
   '*'                         { L STAR _ }
   '/'                         { L SLASH _ }
   '%'                         { L MOD _ }
-  '^'                         { L CARROT _ }
+  '^'                         { L CARET _ }
   '_'                         { L SCORE _ }
   '.'                         { L DOT _ }
   ','                         { L COMMA _ }
@@ -261,6 +269,13 @@ Expr :
 --  | id '[' Expr '..' Expr ']'                         { ESlice (pos $2) $1 $3 $5 }
   | 'CALLER'                                            { EnvExp (pos $1) Caller }
   | 'ORIGIN'                                            { EnvExp (pos $1) Origin }
+  | 'BLOCKHASH'                                         { EnvExp (pos $1) Blockhash }
+  | 'NUMBER'                                            { EnvExp (pos $1) Number }
+  | 'DIFFICULTY'                                        { EnvExp (pos $1) Difficulty }
+  | 'CHAINID'                                           { EnvExp (pos $1) Chainid }
+  | 'GASLIMIT'                                          { EnvExp (pos $1) Gaslimit }
+  | 'COINBASE'                                          { EnvExp (pos $1) Coinbase }
+  | 'TIMESTAMP'                                         { EnvExp (pos $1) Timestamp }
   | 'CALLVALUE'                                         { EnvExp (pos $1) Callvalue }
   | 'THIS'                                              { EnvExp (pos $1) Address }
   | 'NONCE'                                             { EnvExp (pos $1) Nonce }

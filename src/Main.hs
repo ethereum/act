@@ -10,13 +10,13 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 import Data.List
-import Data.Aeson hiding (Bool)
-import Data.Aeson.Types hiding (Bool, parse)
+import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
 import System.Environment ( getArgs )
 import System.Exit ( exitFailure )
 import Data.Text          (Text, pack, unpack)
 import EVM.ABI
+import EVM.Solidity
 import qualified Data.Text as Text
 import Data.Map.Strict    (Map)
 import Data.Maybe
@@ -52,10 +52,12 @@ data Command w
 
   | Type              { file  :: w ::: String <?> "Path to file"}
 
-  | Compile           { file :: w ::: String <?> "Path to file"
-                      , k    :: w ::: Bool <?> "output k files"
-                      , coq  :: w ::: Bool <?> "output coq files"
-                      , out  :: w ::: Maybe String <?> "output path"
+  | Compile           { spec    :: w ::: String       <?> "Path to spec"
+                      , soljson :: w ::: String       <?> "Path to .sol.json"
+                      , k       :: w ::: Bool         <?> "output k files"
+                      , ir      :: w ::: Bool         <?> "output k files"
+                      , coq     :: w ::: Bool         <?> "output coq files"
+                      , out     :: w ::: Maybe String <?> "output path"
                       }
     deriving (Generic)
 
@@ -92,6 +94,14 @@ main = do
                                                   (Ok a)  -> B.putStrLn $ encode a
                                                   (Bad e) -> prettyErr contents e
 
+      -- (Compile spec soljson) -> do contents <- readFile f
+
+      --                   case parse $ lexer contents of
+      --                               Bad e -> prettyErr contents e
+      --                               Ok spec -> case typecheck spec of
+      --                                             (Ok a)  -> B.putStrLn $ encode a
+      --                                             (Bad e) -> prettyErr contents e
+
 --       (TypeCheck f) -> do contents <- readFile f
 --                           let act = read contents :: [RawBehaviour]
 --                           case typecheck act of
@@ -127,6 +137,13 @@ defaultStore :: [(EthEnv, MType)]
 defaultStore =
   [(Callvalue, Integer),
    (Caller, Integer),
+   (Blockhash, ByteStr),
+   (Number, Integer),
+   (Difficulty, Integer),
+   (Timestamp, Integer),
+   (Gaslimit, Integer),
+   (Coinbase, Integer),
+   (Chainid, Integer),
    (Address, Integer),
    (Origin, Integer),
    (Nonce, Integer)
@@ -165,7 +182,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
                                         e@(Leaf _ c _) -> (c:a, e)
                                         e@(Branch _ c _) -> (c:a, e)) []
 
-        -- split case into pass and fail case 
+        -- split case into pass and fail case
         splitCase ifs [] ret storage postc = [Behaviour name contract iface (joinand ifs) postc storage ret]
         splitCase ifs iffs ret storage postc = [ Behaviour name contract iface (joinand (ifs <> iffs)) postc storage ret
                                                , Behaviour name contract iface (And (joinand ifs) (Neg (joinand iffs))) postc mempty Nothing]
