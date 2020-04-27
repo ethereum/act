@@ -1,2 +1,20 @@
 {nixpkgs ? import <nixpkgs> {}, compiler ? "ghc865"}:
-nixpkgs.pkgs.haskell.packages.${compiler}.callPackage (import ./src/default.nix) {}
+let
+  dapptools = builtins.fetchGit {
+    url = "https://github.com/dapphub/dapptools.git";
+    rev = "064c25ada217f519a9d4e3cc750c33dbaa5083dc";
+    ref = "symbolic";
+  };
+  pkgs-for-dapp = import <nixpkgs> {
+    overlays = [
+      (import (dapptools + /overlay.nix))
+    ];
+  };
+  haskellPackages = nixpkgs.pkgs.haskell.packages.${compiler}.override (old: {
+    overrides = nixpkgs.pkgs.lib.composeExtensions (old.overrides or (_: _: {})) (
+      import (dapptools + /haskell.nix) { lib = nixpkgs.pkgs.lib; pkgs = pkgs-for-dapp; }
+    );
+  });
+in
+
+haskellPackages.callPackage (import ./src/default.nix) {}

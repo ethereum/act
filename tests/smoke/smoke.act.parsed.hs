@@ -1,1 +1,1 @@
-[Transition (Var "f") (Var "A") (Var "f") [Dec Type_uint (Var "x")] [] (Direct (ReturnP (IntLit 1)))]
+[Transition "f" "A" f(AbiUIntType 256 x) [] (Branch (AlexPn 0 0 0) (BoolLit True) [Leaf (AlexPn 0 0 0) (BoolLit True) (Post Nothing [] (Just (IntLit 1)))]) Nothing]

@@ -1,8 +1,11 @@
-.PHONY: parser
+main: Lex.hs Parse.hs 
 
-parser: parser.timestamp
+Parse.hs: Parse.y
+	happy Parse.y
 
-# generates the haskell files that do parsing (compiler compiler)
-parser.timestamp: act.cf
-	mkdir -p parser && bnfc -m --haskell act.cf -o parser
-	touch parser.timestamp
+Lex.hs: Lex.x
+	alex Lex.x
+
+.PHONY: clean
+clean:
+	rm -f *.hi *.o Lex.hs Parse.hs main

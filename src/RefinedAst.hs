@@ -24,9 +24,9 @@ import Data.List
 data Behaviour = Behaviour
   {_name :: Id,
    _contract :: Id,
-   _interface :: (Id, [Decl]),
-   _preconditions :: [Exp T_Bool],
-   _postconditions :: [Exp T_Bool],
+   _interface :: Interface,
+   _preconditions :: Exp T_Bool,
+   _postconditions :: Exp T_Bool,
 --   _contracts :: SolcContract,
    _stateUpdates :: Map Id [StorageUpdate],
    _returns :: Maybe ReturnExp
@@ -71,8 +71,8 @@ data Exp t where
   And  :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
   Or   :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
   Impl :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
-  Eq  :: Exp T_Int -> Exp T_Int -> Exp T_Bool --TODO: make polymorphic
-  NEq  :: Exp t -> Exp t -> Exp T_Bool
+  Eq  :: Exp T_Int -> Exp T_Int -> Exp T_Bool --TODO: make polymorphic (but can't print them then)
+  NEq  :: Exp T_Int -> Exp T_Int -> Exp T_Bool
   Neg :: Exp T_Bool -> Exp T_Bool
   LE :: Exp T_Int -> Exp T_Int -> Exp T_Bool
   LEQ :: Exp T_Int -> Exp T_Int -> Exp T_Bool
@@ -96,6 +96,9 @@ data Exp t where
   ByVar :: Id -> Exp T_Bytes
   ByStr :: String -> Exp T_Bytes
   ByLit :: ByteString -> Exp T_Bytes
+  -- builtins
+  NewAddr :: Exp T_Int -> Exp T_Int -> Exp T_Int
+  
   --polymorphic
   ITE :: Exp T_Bool -> Exp t -> Exp t
   TEntry :: (TContainer () t) -> Exp t
@@ -110,13 +113,12 @@ data ReturnExp
   deriving (Show)
 
 -- intermediate json output helpers ---
-
 instance ToJSON Behaviour where
   toJSON (Behaviour {..}) = object  [ "name" .= _name
                                     , "contract"  .= _contract
-                                    , "interface"  .= (String $ pack $ fst _interface <> "(" <> intercalate "," (fmap show (snd _interface)) <> ")")
-                                    , "preConditions"   .= (Array $ fromList $ fmap toJSON _preconditions)
-                                    , "stateUpdates" .= object (fmap (\(a, b) -> (pack a) .= toJSON b) (Map.toList _stateUpdates))
+                                    , "interface"  .= (String . pack $ show _interface)
+                                    , "preConditions"   .= (toJSON _preconditions)
+                                    , "stateUpdates" .= toJSON _stateUpdates
                                     , "returns" .= toJSON _returns]
 
 
@@ -128,15 +130,9 @@ instance ToJSON (TContainer a b) where
   toJSON (DirectInt a) = String $ pack a
   toJSON (DirectBool a) = String $ pack a
   toJSON (DirectBytes a) = String $ pack a
-  toJSON (Lookup (IntIndexed a) b) = object ["symbol" .= pack "lookup",
-                                             "arity"  .= (Number 2),
-                                             "args"   .= (Array $ fromList [toJSON a, toJSON b])]
-  toJSON (Lookup (BoolIndexed a) b) = object ["symbol" .= pack "lookup",
-                                              "arity"  .= (Number 2),
-                                              "args"   .= (Array $ fromList [toJSON a, toJSON b])]
-  toJSON (Lookup (BytesIndexed a) b) = object ["symbol" .= pack "lookup",
-                                               "arity"  .= (Number 2),
-                                               "args"   .= (Array $ fromList [toJSON a, toJSON b])]
+  toJSON (Lookup (IntIndexed a) b) = symbol "lookup" a b 
+  toJSON (Lookup (BoolIndexed a) b) = symbol "lookup" a b
+  toJSON (Lookup (BytesIndexed a) b) = symbol "lookup" a b
 
 instance ToJSON ReturnExp where
    toJSON (ExpInt a) = object ["sort" .= (pack "int")
@@ -148,9 +144,10 @@ instance ToJSON ReturnExp where
 
 
 instance ToJSON (Exp T_Int) where
-  toJSON (Add a b) = object [   "symbol"   .= pack "+"
-                             ,  "arity"    .= (Number 2)
-                             ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
+  toJSON (Add a b) = symbol "+" a b
+  toJSON (Sub a b) = symbol "-" a b
+  toJSON (Exp a b) = symbol "^" a b
+  toJSON (NewAddr a b) = symbol "newAddr" a b
   toJSON (IntVar a) = String $ pack a
   toJSON (LitInt a) = toJSON a
   toJSON (IntEnv a) = String $ pack $ show a
@@ -158,19 +155,24 @@ instance ToJSON (Exp T_Int) where
   toJSON v = error $ "todo: json ast for: " <> show v
 
 instance ToJSON (Exp T_Bool) where
-  toJSON (And a b) = object [   "symbol"   .= pack "and"
-                             ,  "arity"    .= (Number 2)
-                             ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
-  toJSON (LE a b) = object [   "symbol"   .= pack "<"
-                             ,  "arity"    .= (Number 2)
-                             ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
-  toJSON (Eq a b) = object [   "symbol"   .= pack "="
-                             ,  "arity"    .= (Number 2)
-                             ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
-  toJSON (LEQ a b) = object [   "symbol"   .= pack "<="
-                             ,  "arity"    .= (Number 2)
-                             ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
+  toJSON (And a b)  = symbol "and" a b
+  toJSON (LE a b)   = symbol "<" a b
+  toJSON (GE a b)   = symbol ">" a b
+  toJSON (Impl a b) = symbol "=>" a b
+  toJSON (NEq a b)  = symbol "=/=" a b
+  toJSON (Eq a b)   = symbol "==" a b
+  toJSON (LEQ a b)  = symbol "<=" a b
+  toJSON (GEQ a b)  = symbol ">=" a b
+  toJSON (LitBool a) = String $ pack $ show a
+  toJSON (Neg a) = object [   "symbol"   .= pack "not"
+                          ,  "arity"    .= (Data.Aeson.Types.Number 1)
+                          ,  "args"     .= (Array $ fromList [toJSON a])]
   toJSON v = error $ "todo: json ast for: " <> show v
+
+symbol s a b = object [  "symbol"   .= pack s
+                      ,  "arity"    .= (Data.Aeson.Types.Number 2)
+                      ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
+
 
 instance ToJSON (Exp T_Bytes) where
   toJSON a = String $ pack $ show a

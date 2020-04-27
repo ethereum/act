@@ -1,0 +1,4 @@
+behaviour f of A
+interface f(address[2] xs)
+
+returns xs[1]

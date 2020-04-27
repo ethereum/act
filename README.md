@@ -219,14 +219,6 @@ With nix:
 nix-build
 ```
 
-without nix:
-
-Install BNFC and cabal, then
-```sh
-make
-```
-
-
 Developing:
 -----------
 
@@ -234,9 +226,19 @@ Enter a nix-shell to get the dependencies of the project:
 ```sh
 nix-shell
 ```
+this gives all the necessary prerequisites for recompiling:
+```sh
+make compiler
+```
+or entering a `ghci` REPL:
+```sh
+make repl
+```
 
 If you need to modify the cabal file, run
 ```sh
 cabal2nix src/act.cabal > src/default.nix
 ```
-and then modify default.nix to have BNFC as a dependency and `preBuild = "make parser"`.
+
+the `src/default.nix` may also require some manual tweaking.
+

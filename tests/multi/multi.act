@@ -1,3 +1,16 @@
+behaviour init of a
+interface constructor()
+
+creates
+   uint x := 0
+
+behaviour init of B
+interface constructor()
+
+creates
+   uint y := 0
+
+
 behaviour remote of B
 interface set_remote(uint y)
 

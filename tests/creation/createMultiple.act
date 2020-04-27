@@ -1,3 +1,9 @@
+behaviour init of B
+interface constructor()
+
+creates
+  address a := 0
+
 behaviour create_a of B
 interface create_a()
 
@@ -5,9 +11,9 @@ iff
    CALLVALUE == 0
 
 storage
-   a => newAddr(ADDRESS, NONCE)
+   a => newAddr(THIS, NONCE)
 
 // storage labels can also introduce new contracts
-creates A at newAddr(ADDRESS, NONCE)
+creates A at newAddr(THIS, NONCE)
    uint x := 1
 
