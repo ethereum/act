@@ -125,6 +125,7 @@ data Expr
 data EthEnv
    = Caller
    | Callvalue
+   | Calldepth
    | Origin
    | Blockhash
    | Blocknumber
