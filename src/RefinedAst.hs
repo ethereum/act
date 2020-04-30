@@ -23,14 +23,22 @@ import Data.List
 -- AST post typechecking
 data Behaviour = Behaviour
   {_name :: Id,
+   _mode :: Mode,
+   _creation :: Bool,
    _contract :: Id,
    _interface :: Interface,
    _preconditions :: Exp T_Bool,
    _postconditions :: Exp T_Bool,
---   _contracts :: SolcContract,
+   _contracts :: [Id],
    _stateUpdates :: Map Id [StorageUpdate],
    _returns :: Maybe ReturnExp
   }
+
+data Mode
+  = Pass
+  | Fail
+  | OOG
+  deriving (Eq, Show)
 
 --types understood by proving tools
 data MType 
@@ -116,9 +124,12 @@ data ReturnExp
 instance ToJSON Behaviour where
   toJSON (Behaviour {..}) = object  [ "name" .= _name
                                     , "contract"  .= _contract
+                                    , "mode" .= (String . pack $ show _mode)
+                                    , "creation" .= _creation
                                     , "interface"  .= (String . pack $ show _interface)
                                     , "preConditions"   .= (toJSON _preconditions)
                                     , "stateUpdates" .= toJSON _stateUpdates
+                                    , "contracts" .= toJSON _contracts
                                     , "returns" .= toJSON _returns]
 
 

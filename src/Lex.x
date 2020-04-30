@@ -59,6 +59,7 @@ tokens :-
   -- environment vars
   CALLER                                { mk CALLER }
   CALLVALUE                             { mk CALLVALUE }
+  CALLDEPTH                             { mk CALLDEPTH }
   ORIGIN                                { mk ORIGIN }
   BLOCKHASH                             { mk BLOCKHASH }
   BLOCKNUMBER                           { mk BLOCKNUMBER }
@@ -148,6 +149,7 @@ data LEX =
   -- environment vars
   | CALLER
   | CALLVALUE
+  | CALLDEPTH
   | ORIGIN
   | BLOCKHASH
   | BLOCKNUMBER

@@ -64,11 +64,6 @@ data Command w
 instance ParseRecord (Command Wrapped)
 deriving instance Show (Command Unwrapped)
 
-
-errMessage :: (Pn, String) -> Maybe a -> Err a
-errMessage _ (Just c) = Ok c
-errMessage e Nothing = Bad e
-
 safeDrop :: Int -> [a] -> [a]
 safeDrop 0 a = a
 safeDrop _ [a] = [a]
@@ -115,8 +110,8 @@ main = do
              Bad e -> prettyErr specContents e
              Ok kSpecs -> do
                let printFile (filename, content) = case out of
-                     Nothing -> writeFile filename content
-                     Just dir -> writeFile (dir <> filename) content
+                     Nothing -> putStrLn (filename <> ".k") >> putStrLn content
+                     Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
                forM_ kSpecs printFile
                    
                                      
@@ -205,14 +200,14 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
                                         e@(Branch _ c _) -> (c:a, e)) []
 
         -- split case into pass and fail case
-        splitCase ifs [] ret storage postc = [Behaviour name contract iface (joinand ifs) postc storage ret]
-        splitCase ifs iffs ret storage postc = [ Behaviour name contract iface (joinand (ifs <> iffs)) postc storage ret
-                                               , Behaviour name contract iface (And (joinand ifs) (Neg (joinand iffs))) postc mempty Nothing]
+        splitCase ifs [] ret storage postc contracts = [Behaviour name Pass False contract iface (joinand ifs) postc contracts storage ret]
+        splitCase ifs iffs ret storage postc contracts = [ Behaviour name Pass False contract iface (joinand (ifs <> iffs)) postc contracts storage ret
+                                                         , Behaviour name Fail False contract iface (And (joinand ifs) (Neg (joinand iffs))) postc contracts storage Nothing]
 
         -- flatten case tree
         flatten iff postc pathcond (Leaf _ cond post) = do c <- checkBool env cond
-                                                           (p, maybeReturn) <- checkPost env contract post
-                                                           return $ splitCase (c:pathcond) iff maybeReturn p (joinand postc)
+                                                           (p, maybeReturn, contracts) <- checkPost env contract post
+                                                           return $ splitCase (c:pathcond) iff maybeReturn p (joinand postc) contracts
 
         flatten iff postc pathcond (Branch _ cond cs) = do c <- checkBool env cond
                                                            leaves <- mapM (flatten iff postc (c:pathcond)) (normalize cs)
@@ -220,14 +215,16 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
 
 splitBehaviour store (Constructor name contract decls iffs cases post ensures invariants) = Ok [] --error "TODO: check constructor"
 
-checkPost :: Env -> Id -> Post -> Err (Map Id [StorageUpdate], Maybe ReturnExp)
+checkPost :: Env -> Id -> Post -> Err (Map Id [StorageUpdate], Maybe ReturnExp, [Id])
 checkPost env@(ours, theirs, localVars) contract (Post maybeStorage extStorage maybeReturn) =
   do  returnexp <- mapM (inferExpr env) maybeReturn
       ourStorage <- case maybeStorage of
         Just entries -> checkEntries contract entries
         Nothing -> Ok []
       otherStorage <- checkStorages extStorage
-      return $ ((Map.fromList $ (contract, ourStorage):otherStorage), returnexp)
+      return $ ((Map.fromList $ (contract, ourStorage):otherStorage),
+                 returnexp,
+                 contract:(map fst otherStorage))
   where checkEntries name entries = mapM (uncurry $ checkStorageExpr (fromMaybe mempty (Map.lookup name theirs), theirs, localVars)) entries
         checkStorages :: [ExtStorage] -> Err [(Id, [StorageUpdate])]
         checkStorages [] = Ok []

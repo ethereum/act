@@ -54,6 +54,7 @@ import ErrM
   -- environment variables
   'CALLER'                    { L CALLER _ }
   'CALLVALUE'                 { L CALLVALUE _ }
+  'CALLDEPTH'                 { L CALLDEPTH _ }
   'ORIGIN'                    { L ORIGIN _ }
   'BLOCKHASH'                 { L BLOCKHASH _ }
   'BLOCKNUMBER'               { L BLOCKNUMBER _ }
@@ -268,6 +269,7 @@ Expr :
   | Expr '++' Expr                                      { ECat   (pos $2) $1 $3 }
 --  | id '[' Expr '..' Expr ']'                         { ESlice (pos $2) $1 $3 $5 }
   | 'CALLER'                                            { EnvExp (pos $1) Caller }
+  | 'CALLDEPTH'                                         { EnvExp (pos $1) Calldepth }
   | 'ORIGIN'                                            { EnvExp (pos $1) Origin }
   | 'BLOCKHASH'                                         { EnvExp (pos $1) Blockhash }
   | 'BLOCKNUMBER'                                       { EnvExp (pos $1) Blocknumber }
