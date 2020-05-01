@@ -10,6 +10,7 @@ import ErrM
 import Data.Text hiding (foldr, intercalate)
 import Data.List
 import Data.Maybe
+import Data.ByteString hiding (pack, unpack, intercalate)
 import qualified Data.Text as Text
 import Parse
 import Data.Bifunctor
@@ -143,18 +144,24 @@ kAccount name source updates =
   "account" |- ("\n"
    <> "acctID" |- kVar name
    <> "balance" |- (kVar name <> "_balance")
-   <> "code" |- ("#parseByteStack(" <> show (ByteStringS (_runtimeCode source)) <> ")")
+   <> "code" |- (kByteStack (_runtimeCode source))
    <> "storage" |- (mconcat ( fmap (kStorageEntry (_storageLayout source)) updates) <> "\n.Map")
+   <> "origStorage" |- ".Map" -- need to be generalized once "kStorageEntry" is implemented
    <> "nonce" |- "_"
       )
+
+kByteStack :: ByteString -> String
+kByteStack bs = "#parseByteStack(\"" <> show (ByteStringS bs) <> "\")"
 
 
 mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> (String, String)
 mkTerm this accounts behaviour@Behaviour{..} = (name, term)
   where code = if _creation then _creationCode this
                else _runtimeCode this
-        name = _name <> "_" <> show _mode
-        term =  "rule [" <> name <> "]:\n"
+        repl '_' = '.'
+        repl  c  = c
+        name = _contract <> "_" <> _name <> "_" <> show _mode
+        term =  "rule [" <> (fmap repl name) <> "]:\n"
              <> "k" |- "#execute"
              <> "exit-code" |- "1"
              <> "mode" |- "NORMAL"
@@ -166,8 +173,8 @@ mkTerm this accounts behaviour@Behaviour{..} = (name, term)
                   <> "interimStates" |- "_"
                   <> "touchedAccounts" |- "_"
                   <> "callState" |- ("\n"
-                     <> "program" |- ("#parseByteStack(" <> show (ByteStringS code) <> ")")
-                     <> "jumpDests" |- ("#computeValidJumpDests(#parseByteStack(" <> show (ByteStringS code) <> "))")
+                     <> "program" |- kByteStack code
+                     <> "jumpDests" |- ("#computeValidJumpDests(" <> kByteStack code <> ")")
                      <> "id" |- kVar _contract
                      <> "caller" |- (show Caller)
                      <> "callData" |- kCalldata _interface
@@ -203,6 +210,7 @@ mkTerm this accounts behaviour@Behaviour{..} = (name, term)
                      <> "difficulty" |- (show Difficulty)
                      <> "number" |- (show Blocknumber)
                      <> "gasLimit" |- "_"
+                     <> "gasUsed" |- "_"
                      <> "timestamp" |- (show Timestamp)
                      <> "extraData" |- "_"
                      <> "mixHash" |- "_"
