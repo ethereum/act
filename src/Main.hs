@@ -14,6 +14,7 @@ import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
 import System.Environment ( getArgs )
 import System.Exit ( exitFailure )
+import System.IO (hPutStrLn, stderr)
 import Data.Text          (Text, pack, unpack)
 import EVM.ABI
 import qualified EVM.Solidity as Solidity
@@ -72,14 +73,14 @@ safeDrop n (x:xs) = safeDrop (n-1) xs
 prettyErr :: String -> (Pn, String) -> IO ()
 prettyErr contents pn@(AlexPn _ line col,msg) =
   if fst pn == nowhere then
-    do putStrLn $ "Internal error"
-       putStrLn $ msg
+    do hPutStrLn stderr "Internal error"
+       hPutStrLn stderr msg
        exitFailure
   else
     do let cxt = safeDrop (line - 1) (lines contents)
-       putStrLn $ show line <> " | " <> head cxt
-       putStrLn $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
-       putStrLn $ msg
+       hPutStrLn stderr $ show line <> " | " <> head cxt
+       hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
+       hPutStrLn stderr $ msg
        exitFailure
 
 main :: IO ()
