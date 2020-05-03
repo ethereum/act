@@ -6,14 +6,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Syntax where
 import Data.List          (intercalate)
-import Data.Bifunctor
-import Data.Bifoldable
 import Data.Bitraversable
+-- import Data.Generics.Uniplate
+import Data.Generics.Str
+import Data.Generics.Uniplate.Operations
+--import Data.Generics.Uniplate.Data
 import EVM.ABI (AbiType)
+import EVM.StorageLayout
 import Lex
 
 type Pn = AlexPosn
-  
+
 type Id = String
 
 data Act = Main [RawBehaviour]
@@ -38,20 +41,6 @@ data Case a b
     = Leaf Pn a b
     | Branch Pn a [Case a b]
   deriving (Eq, Show)
-
--- these instances are unused right now...
--- could be deleted later
-instance Bifunctor Case where
-  bimap f g (Leaf pn e p)   = Leaf pn (f e) (g p)
-  bimap f g (Branch pn e p) = Branch pn (f e) (map (bimap f g) p)
-
-instance Bifoldable Case where
-  bifoldMap f g (Leaf pn e p)   = f e <> g p
-  bifoldMap f g (Branch pn e p) = f e <> mconcat (map (bifoldMap f g) p)
-
-instance Bitraversable Case where
-  bitraverse f g (Leaf pn e p)   = Leaf pn <$> (f e) <*> (g p)
-  bitraverse f g (Branch pn e p) = Branch pn <$> (f e) <*> (traverse (bitraverse f g) p)
 
 data Post
     = Post (Maybe Storage) [ExtStorage] (Maybe Expr)
@@ -121,6 +110,12 @@ data Expr
     | IntLit Integer
     | BoolLit Bool
   deriving (Eq, Show)
+
+instance Uniplate Expr where
+  uniplate (Wild) =    (Zero                    , \Zero                   -> Wild)
+  uniplate (Var p a) = (Zero                    , \Zero                   -> Var p a)
+  uniplate (EAdd p a b) = (Two (One a) (One b)  , \(Two (One a) (One b))  -> EAdd p a b)
+--  uniplate _ = _ --error "TODO"
 
 data EthEnv
    = Caller

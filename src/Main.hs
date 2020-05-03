@@ -171,7 +171,7 @@ defaultStore =
 -- typing of vars: this contract storage, other contract scopes, calldata args
 type Env = (Map Id Container, Map Id (Map Id Container), Map Id MType)
 
--- todo: make Exp T_Bool a monoid so that this is mconcat?
+-- todo: make Exp T_Bool a monoid so that this is mappend?
 joinand :: [Exp T_Bool] -> Exp T_Bool
 joinand [x] = x
 joinand (x:xs) = And x (joinand xs)
@@ -334,6 +334,9 @@ metaType AbiStringType       = ByteStr
 --metaType (AbiArrayType        Int AbiType
 --metaType (AbiTupleType        (Vector AbiType)
 metaType _ = error "TODO"
+
+
+
 
 inferExpr :: Env -> Expr -> Err ReturnExp
 inferExpr env exp = let intintint op v1 v2 = do w1 <- checkInt env v1
