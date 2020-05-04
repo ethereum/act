@@ -2,7 +2,7 @@
 let
   dapptools = builtins.fetchGit {
     url = "https://github.com/dapphub/dapptools.git";
-    rev = "345b6ea42704c51af44c00bb18eb0becc768cf1f";
+    rev = "0337f8b0a5b1b42ccfc89abf488e8e51760357db";
     ref = "symbolic";
   };
   pkgs-for-dapp = import <nixpkgs> {

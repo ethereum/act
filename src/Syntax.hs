@@ -57,7 +57,7 @@ data ExtStorage
     | ExtCreates Id Expr [Assign]
   deriving (Eq, Show)
 
-data Assign = AssignVal StorageDecl Expr | AssignMany StorageDecl [Defn] | AssignStruct StorageDecl [Defn]
+data Assign = AssignVal StorageItem Expr | AssignMany StorageItem [Defn] | AssignStruct StorageItem [Defn]
   deriving (Eq, Show)
 
 data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
@@ -133,7 +133,7 @@ data EthEnv
    | Nonce
   deriving (Show, Eq)
 
-data StorageDecl = StorageDecl Container Id
+data StorageItem = StorageItem SlotType Id
   deriving (Eq, Show)
 
 data Decl = Decl AbiType Id
@@ -141,9 +141,3 @@ data Decl = Decl AbiType Id
 
 instance Show Decl where
   show (Decl t a) = show t <> " " <> a
-
--- storage types
-data Container
-   = Direct AbiType
-   | Mapping AbiType Container
-  deriving (Eq, Show)

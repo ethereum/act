@@ -10,6 +10,7 @@ module RefinedAst where
 import Data.Text          (Text, pack, unpack)
 import GHC.Generics
 import Data.Map.Strict    (Map)
+import Data.List.NonEmpty hiding (fromList)
 import qualified Data.Map.Strict      as Map
 import Data.ByteString       (ByteString)
 
@@ -45,7 +46,7 @@ data MType
   = Integer
   | Boolean
   | ByteStr
-  | Mapping (Map MType MType)
+--  | Mapping (Map MType MType)
   deriving (Eq, Ord, Show, Read)
 
 -- meta types that work as GADT "tags"
@@ -56,30 +57,27 @@ data T_Bytes
 data T_Tuple
 
 data StorageUpdate
-  = IntUpdate (TContainer () T_Int) (Exp T_Int)
-  | BoolUpdate (TContainer () T_Bool) (Exp T_Bool)
-  | BytesUpdate (TContainer () T_Bytes) (Exp T_Bytes)
+  = IntUpdate (TStorageItem T_Int) (Exp T_Int)
+  | BoolUpdate (TStorageItem T_Bool) (Exp T_Bool)
+  | BytesUpdate (TStorageItem T_Bytes) (Exp T_Bytes)
   deriving (Show)
 
-data TContainer s t where --
-  DirectInt    :: Id -> TContainer () T_Int
-  DirectBool   :: Id -> TContainer () T_Bool
-  DirectBytes  :: Id -> TContainer () T_Bytes
-  --constructors
-  IntIndexed   :: TContainer a t -> TContainer (T_Int,a) t
-  BoolIndexed  :: TContainer a t -> TContainer (T_Bool,a) t
-  BytesIndexed :: TContainer a t -> TContainer (T_Bytes,a) t
-  --destructor
-  Lookup   :: TContainer (a,b) t -> Exp a -> TContainer b t
-deriving instance Show (TContainer a t)
+data TStorageItem a where
+  DirectInt    :: Id -> TStorageItem T_Int
+  DirectBool   :: Id -> TStorageItem T_Bool
+  DirectBytes  :: Id -> TStorageItem T_Bytes
+  MappedInt    :: Id -> NonEmpty ReturnExp -> TStorageItem T_Int
+  MappedBool   :: Id -> NonEmpty ReturnExp -> TStorageItem T_Bool
+  MappedBytes  :: Id -> NonEmpty ReturnExp -> TStorageItem T_Bytes
 
+deriving instance Show (TStorageItem a)
 -- typed expressions
 data Exp t where
   --booleans
   And  :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
   Or   :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
   Impl :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
-  Eq  :: Exp T_Int -> Exp T_Int -> Exp T_Bool --TODO: make polymorphic (but can't print them then)
+  Eq  :: Exp T_Int -> Exp T_Int -> Exp T_Bool --TODO: make polymorphic (how to ToJSON.encode them?)
   NEq  :: Exp T_Int -> Exp T_Int -> Exp T_Bool
   Neg :: Exp T_Bool -> Exp T_Bool
   LE :: Exp T_Int -> Exp T_Int -> Exp T_Bool
@@ -109,7 +107,7 @@ data Exp t where
   
   --polymorphic
   ITE :: Exp T_Bool -> Exp t -> Exp t
-  TEntry :: (TContainer () t) -> Exp t
+  TEntry :: (TStorageItem t) -> Exp t
   
 deriving instance Show (Exp t)
 
@@ -117,7 +115,6 @@ data ReturnExp
   = ExpInt    (Exp T_Int)
   | ExpBool   (Exp T_Bool)
   | ExpBytes  (Exp T_Bytes)
-  | ExpTuple  (Exp T_Tuple)
   deriving (Show)
 
 -- intermediate json output helpers ---
@@ -137,13 +134,13 @@ instance ToJSON StorageUpdate where
   toJSON (IntUpdate a b) = object ["location" .= toJSON a
                                   ,"value"    .= toJSON b]
 
-instance ToJSON (TContainer a b) where
+instance ToJSON (TStorageItem b) where
   toJSON (DirectInt a) = String $ pack a
   toJSON (DirectBool a) = String $ pack a
   toJSON (DirectBytes a) = String $ pack a
-  toJSON (Lookup (IntIndexed a) b) = symbol "lookup" a b 
-  toJSON (Lookup (BoolIndexed a) b) = symbol "lookup" a b
-  toJSON (Lookup (BytesIndexed a) b) = symbol "lookup" a b
+  toJSON (MappedInt a b) = symbol "lookup" a b 
+  toJSON (MappedBool a b) = symbol "lookup" a b
+  toJSON (MappedBytes a b) = symbol "lookup" a b
 
 instance ToJSON ReturnExp where
    toJSON (ExpInt a) = object ["sort" .= (pack "int")

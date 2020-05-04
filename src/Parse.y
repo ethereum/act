@@ -3,6 +3,8 @@ module Parse where
 import Prelude hiding (EQ, GT, LT)
 import Lex
 import EVM.ABI
+import EVM.StorageLayout
+import qualified Data.List.NonEmpty as NonEmpty
 import Syntax
 import ErrM
 }
@@ -202,13 +204,13 @@ Zoom : '[' Expr ']'                                   { $2 }
 
 Creation : 'creates' nonempty(Assign)                 { Creates $2 }
 
-Assign : StorageDecl ':=' Expr                        { AssignVal $1 $3 }
-       | StorageDecl ':=' '[' seplist(Defn, ',') ']'  { AssignMany $1 $4 }
+Assign : StorageItem ':=' Expr                        { AssignVal $1 $3 }
+       | StorageItem ':=' '[' seplist(Defn, ',') ']'  { AssignMany $1 $4 }
 
 Defn : Expr ':=' Expr                                 { Defn $1 $3 }
 Decl : Type id                                        { Decl $1 (arg $2) }
 
-StorageDecl : Container id                            { StorageDecl $1 (arg $2) }
+StorageItem : SlotType id                            { StorageItem $1 (arg $2) }
 
 Type : 'uint'
        { case validsize $1 of
@@ -226,12 +228,14 @@ Type : 'uint'
      | 'bool'                                         { AbiBoolType }
      | 'string'                                       { AbiStringType }
 
-Container : 'mapping' '(' Type '=>' Container ')'     { Mapping $3 $5 }
-          | Type                                      { Direct $1 }
+SlotType : 'mapping' '(' MappingArgs ')'             { (uncurry StorageMapping) $3 }
+         | Type                                      { StorageValue $1 }
 
-Expr :
 
-    '(' Expr ')'                                        { $2 }
+MappingArgs : Type '=>' Type                           { ($1 NonEmpty.:| [], $3) }
+            | Type '=>' 'mapping' '(' MappingArgs ')'  { (NonEmpty.cons $1 (fst $5), snd $5)  }
+
+Expr : '(' Expr ')'                                        { $2 }
 
   -- terminals
   | ilit                                                { IntLit $1 }
