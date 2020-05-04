@@ -17,10 +17,13 @@ import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
 import Data.Text          (Text, pack, unpack)
 import EVM.ABI
+import EVM.StorageLayout
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import Data.Map.Strict    (Map)
 import Data.Maybe
+import Data.List.NonEmpty (NonEmpty(..))
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict      as Map -- abandon in favor of [(a,b)]?
 import Data.Vector (fromList)
 
@@ -139,13 +142,13 @@ typecheck behvs = let store = lookupVars behvs in
                      return $ join bs
 
 --- Finds storage declarations from constructors
-lookupVars :: [RawBehaviour] -> Map Id (Map Id Container)
+lookupVars :: [RawBehaviour] -> Map Id (Map Id SlotType)
 lookupVars ((Transition _ _ _ _ _ _):bs) = lookupVars bs
 lookupVars ((Constructor _ contract _ _ (Creates assigns) _ _ _):bs) =
   Map.singleton contract (Map.fromList $ map fromAssign assigns)
   <> lookupVars bs -- TODO: deal with variable overriding
-  where fromAssign (AssignVal (StorageDecl typ var) _) = (var, typ)
-        fromAssign (AssignMany (StorageDecl typ var) _) = (var, typ)
+  where fromAssign (AssignVal (StorageItem typ var) _) = (var, typ)
+        fromAssign (AssignMany (StorageItem typ var) _) = (var, typ)
         fromAssign (AssignStruct _ _) = error "TODO: assignstruct"
 lookupVars [] = mempty
 
@@ -169,7 +172,7 @@ defaultStore =
   ]
 
 -- typing of vars: this contract storage, other contract scopes, calldata args
-type Env = (Map Id Container, Map Id (Map Id Container), Map Id MType)
+type Env = (Map Id SlotType, Map Id (Map Id SlotType), Map Id MType)
 
 -- todo: make Exp T_Bool a monoid so that this is mappend?
 joinand :: [Exp T_Bool] -> Exp T_Bool
@@ -184,7 +187,7 @@ andRaw [] = BoolLit True
 
 
 -- checks a transition given a typing of its storage variables
-splitBehaviour :: Map Id (Map Id Container) -> RawBehaviour -> Err [Behaviour]
+splitBehaviour :: Map Id (Map Id SlotType) -> RawBehaviour -> Err [Behaviour]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
   iff <- checkIffs env iffs'
   postcondition <- mapM (checkBool env) (fromMaybe [] maybePost)
@@ -237,65 +240,19 @@ checkPost env@(ours, theirs, localVars) contract (Post maybeStorage extStorage m
 checkStorageExpr :: Env -> Entry -> Expr -> Err StorageUpdate
 checkStorageExpr env@(ours, theirs, localVars) entry@(Entry p id ixs) expr =
     case Map.lookup id ours of
-      Just container -> case final container of
-          Integer -> liftM2 IntUpdate (checkIntEntry env entry container) (checkInt env expr)
-          Boolean -> liftM2 BoolUpdate (checkBoolEntry env entry container) (checkBool env expr)
-          ByteStr -> liftM2 BytesUpdate (checkBytesEntry env entry container) (checkBytes env expr)
+      Just (StorageValue t)  -> case metaType t of
+          Integer -> IntUpdate (DirectInt id) <$> checkInt env expr
+          Boolean -> BoolUpdate (DirectBool id) <$> checkBool env expr
+          ByteStr -> BytesUpdate (DirectBytes id) <$> checkBytes env expr
+      Just (StorageMapping argtyps  t) ->
+        if length argtyps /= length ixs
+        then Bad $ (p, "Argument mismatch for storageitem: " <> id)
+        else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
+             in case metaType t of
+                  Integer -> liftM2 (IntUpdate . MappedInt id) indexExprs (checkInt env expr)
+                  Boolean -> liftM2 (BoolUpdate . MappedBool id) indexExprs (checkBool env expr)
+                  ByteStr -> liftM2 (BytesUpdate . MappedBytes id) indexExprs (checkBytes env expr)
       Nothing -> Bad $ (p, "Unknown storage variable: " <> show id)
-  where final (Direct m) = metaType m
-        final (Syntax.Mapping t c) = final c
-
-checkIntEntry :: Env -> Entry -> Container -> Err (TContainer () T_Int)
-checkIntEntry _ (Entry p id []) (Direct t ) = case metaType t of
-                                              Integer -> Ok $ DirectInt id
-                                              Boolean -> Bad $ (p, "Typing error")
-                                              ByteStr -> Bad $ (p, "Typing error")
-checkIntEntry _ (Entry p id []) _ = Bad $ (p, "Abstract container specifications not (yet) supported")
-checkIntEntry env (Entry p id (e:es)) (Syntax.Mapping t c) =
-  case metaType t of
-    Integer -> do exp <- checkInt env e
-                  rest <- checkIntEntry env (Entry p id es) c
-                  return $ Lookup (IntIndexed rest) exp
-    Boolean -> do exp <- checkBool env e
-                  rest <- checkIntEntry env (Entry p id es) c
-                  return $ Lookup (BoolIndexed rest) exp
-    ByteStr -> do exp <- checkBytes env e
-                  rest <- checkIntEntry env (Entry p id es) c
-                  return $ Lookup (BytesIndexed rest) exp
-
-checkBoolEntry :: Env -> Entry -> Container -> Err (TContainer () T_Bool)
-checkBoolEntry env (Entry p id []) (Syntax.Direct t) = case metaType t of
-                                            Integer -> Bad $ (p, "Typing error")
-                                            Boolean -> Ok $ DirectBool id
-                                            ByteStr -> Bad $ (p, "Typing error")
-checkBoolEntry env (Entry p id (e:es)) (Syntax.Mapping t c) = case metaType t of
-                                                  Integer -> do exp <- checkInt env e
-                                                                rest <- checkBoolEntry env (Entry p id es) c
-                                                                return $ Lookup (IntIndexed rest) exp
-                                                  Boolean -> do exp <- checkBool env e
-                                                                rest <- checkBoolEntry env (Entry p id es) c
-                                                                return $ Lookup (BoolIndexed rest) exp
-                                                  ByteStr -> do exp <- checkBytes env e
-                                                                rest <- checkBoolEntry env (Entry p id es) c
-                                                                return $ Lookup (BytesIndexed rest) exp
-checkBoolEntry env (Entry p id _) _ = Bad $ (p, "Wrong arguments given to mapping: " <> show id)
-
-checkBytesEntry :: Env -> Entry -> Container -> Err (TContainer () T_Bytes)
-checkBytesEntry env (Entry p id []) (Syntax.Direct t) = case metaType t of
-                                            Integer -> Bad $ (p, "Typing error")
-                                            Boolean -> Bad $ (p, "Typing error")
-                                            ByteStr -> Ok $ DirectBytes id
-checkBytesEntry env (Entry p id (e:es)) (Syntax.Mapping t c) = case metaType t of
-                                                  Integer -> do exp <- checkInt env e
-                                                                rest <- checkBytesEntry env (Entry p id es) c
-                                                                return $ Lookup (IntIndexed rest) exp
-                                                  Boolean -> do exp <- checkBool env e
-                                                                rest <- checkBytesEntry env (Entry p id es) c
-                                                                return $ Lookup (BoolIndexed rest) exp
-                                                  ByteStr -> do exp <- checkBytes env e
-                                                                rest <- checkBytesEntry env (Entry p id es) c
-                                                                return $ Lookup (BytesIndexed rest) exp
-checkBytesEntry env (Entry p id _) _ = Bad $ (p, "Wrong arguments given to mapping: " <> show id)
 
 checkIffs :: Env -> [IffH] -> Err [Exp T_Bool]
 checkIffs env ((Iff pos exps):xs) = do
@@ -336,7 +293,11 @@ metaType AbiStringType       = ByteStr
 metaType _ = error "TODO"
 
 
-
+checkExpr :: Env -> Expr -> AbiType -> Err ReturnExp
+checkExpr env e typ = case metaType typ of
+  Integer -> ExpInt <$> checkInt env e
+  Boolean -> ExpBool <$> checkBool env e
+  ByteStr -> ExpBytes <$> checkBytes env e
 
 inferExpr :: Env -> Expr -> Err ReturnExp
 inferExpr env exp = let intintint op v1 v2 = do w1 <- checkInt env v1
@@ -419,7 +380,6 @@ checkBool env@(ours, theirs,thisContext) b =
     -- TODO: zoom, lookup and functions
     s -> error ("TODO: check bool, case:" <> show s )
 
-
 checkInt :: Env -> Expr -> Err (Exp T_Int)
 checkInt env@(ours, theirs,thisContext) e =
   let checkInts op v1 v2 = do w1 <- checkInt env v1
@@ -448,9 +408,18 @@ checkInt env@(ours, theirs,thisContext) e =
         _ -> Bad (p, "todo: array lookups; " <> show id)
       (Nothing, Just c) -> Bad (p, "type error at variable: " <> id <> ". Expected: Integer, got: " <> show c)
 
-      (Just c, Nothing) -> do a <- checkIntEntry env e c
-                              return $ TEntry a
-      _ -> Bad (p, "ambiguous variable: " <> show id)
+      (Just (StorageValue a), Nothing) ->
+        if metaType a == Integer
+        then Ok $ TEntry (DirectInt id)
+        else Bad (p, "type error at variable: " <> id <> ". Expected: Integer, got: " <> show (metaType a))
+      (Just (StorageMapping ts a), Nothing) ->
+        if metaType a == Integer
+        then let indexExprs = forM (NonEmpty.zip (head x :| tail x) ts)
+                                   (uncurry (checkExpr env))
+             in TEntry . (MappedInt id) <$> indexExprs
+        else Bad (p, "type error at variable: " <> id <> ". Expected: Integer, got: " <> show (metaType a))
+      (Just _, Just _) -> Bad (p, "ambiguous variable: " <> show id)
+      
   v -> error ("TODO: check int, case:" <> show v )
 
 checkBytes :: Env -> Expr -> Err (Exp T_Bytes)
