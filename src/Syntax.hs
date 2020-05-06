@@ -12,7 +12,7 @@ import Data.Generics.Str
 import Data.Generics.Uniplate.Operations
 --import Data.Generics.Uniplate.Data
 import EVM.ABI (AbiType)
-import EVM.StorageLayout
+import EVM.Solidity (SlotType)
 import Lex
 
 type Pn = AlexPosn
@@ -57,7 +57,7 @@ data ExtStorage
     | ExtCreates Id Expr [Assign]
   deriving (Eq, Show)
 
-data Assign = AssignVal StorageItem Expr | AssignMany StorageItem [Defn] | AssignStruct StorageItem [Defn]
+data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignStruct StorageVar [Defn]
   deriving (Eq, Show)
 
 data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
@@ -104,7 +104,6 @@ data Expr
     | BYHash Pn Expr
     | BYAbiE Pn Expr
     | StringLit Pn String
-    | Var Pn Id
     | Wild
     | EnvExp Pn EthEnv
     | IntLit Integer
@@ -113,7 +112,6 @@ data Expr
 
 instance Uniplate Expr where
   uniplate (Wild) =    (Zero                    , \Zero                   -> Wild)
-  uniplate (Var p a) = (Zero                    , \Zero                   -> Var p a)
   uniplate (EAdd p a b) = (Two (One a) (One b)  , \(Two (One a) (One b))  -> EAdd p a b)
 --  uniplate _ = _ --error "TODO"
 
@@ -133,7 +131,7 @@ data EthEnv
    | Nonce
   deriving (Show, Eq)
 
-data StorageItem = StorageItem SlotType Id
+data StorageVar = StorageVar SlotType Id
   deriving (Eq, Show)
 
 data Decl = Decl AbiType Id

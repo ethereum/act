@@ -3,7 +3,7 @@ module Parse where
 import Prelude hiding (EQ, GT, LT)
 import Lex
 import EVM.ABI
-import EVM.StorageLayout
+import EVM.Solidity (SlotType(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Syntax
 import ErrM
@@ -204,13 +204,13 @@ Zoom : '[' Expr ']'                                   { $2 }
 
 Creation : 'creates' nonempty(Assign)                 { Creates $2 }
 
-Assign : StorageItem ':=' Expr                        { AssignVal $1 $3 }
-       | StorageItem ':=' '[' seplist(Defn, ',') ']'  { AssignMany $1 $4 }
+Assign : StorageVar ':=' Expr                        { AssignVal $1 $3 }
+       | StorageVar ':=' '[' seplist(Defn, ',') ']'  { AssignMany $1 $4 }
 
 Defn : Expr ':=' Expr                                 { Defn $1 $3 }
 Decl : Type id                                        { Decl $1 (arg $2) }
 
-StorageItem : SlotType id                            { StorageItem $1 (arg $2) }
+StorageVar : SlotType id                            { StorageVar $1 (arg $2) }
 
 Type : 'uint'
        { case validsize $1 of

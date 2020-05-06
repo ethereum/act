@@ -17,7 +17,7 @@ import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
 import Data.Text          (Text, pack, unpack)
 import EVM.ABI
-import EVM.StorageLayout
+import EVM.Solidity (SlotType(..))
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import Data.Map.Strict    (Map)
@@ -147,8 +147,8 @@ lookupVars ((Transition _ _ _ _ _ _):bs) = lookupVars bs
 lookupVars ((Constructor _ contract _ _ (Creates assigns) _ _ _):bs) =
   Map.singleton contract (Map.fromList $ map fromAssign assigns)
   <> lookupVars bs -- TODO: deal with variable overriding
-  where fromAssign (AssignVal (StorageItem typ var) _) = (var, typ)
-        fromAssign (AssignMany (StorageItem typ var) _) = (var, typ)
+  where fromAssign (AssignVal (StorageVar typ var) _) = (var, typ)
+        fromAssign (AssignMany (StorageVar typ var) _) = (var, typ)
         fromAssign (AssignStruct _ _) = error "TODO: assignstruct"
 lookupVars [] = mempty
 
@@ -300,7 +300,8 @@ checkExpr env e typ = case metaType typ of
   ByteStr -> ExpBytes <$> checkBytes env e
 
 inferExpr :: Env -> Expr -> Err ReturnExp
-inferExpr env exp = let intintint op v1 v2 = do w1 <- checkInt env v1
+inferExpr env@(ours, theirs,thisContext) exp =
+                    let intintint op v1 v2 = do w1 <- checkInt env v1
                                                 w2 <- checkInt env v2
                                                 Ok $ ExpInt $ op w1 w2
                         boolintint op v1 v2 = do w1 <- checkInt env v1
@@ -330,9 +331,16 @@ inferExpr env exp = let intintint op v1 v2 = do w1 <- checkInt env v1
     EDiv _ v1 v2 -> intintint Div v1 v2
     EMod _ v1 v2 -> intintint Mod v1 v2
     EExp _ v1 v2 -> intintint Exp v1 v2
-    Var p v1 -> Bad (p, "TODO: infer var type")
     IntLit n -> Ok $ ExpInt $ LitInt n
-    _ -> error "TODO: infer other stuff type"
+    EntryExp (Entry p id e) -> case (Map.lookup id ours, Map.lookup id thisContext) of
+        (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> show id)
+        (Nothing, Just c) -> case c of
+            Integer -> Ok . ExpInt $ IntVar id
+            Boolean -> Ok . ExpBool $ BoolVar id
+            ByteStr -> Ok . ExpBytes $ ByVar id
+        (Just c, Nothing) -> error "internal error: TODO infer storage var type"
+        (Just _, Just _) -> Bad (p, "Ambiguous variable: " <> show id)
+    v -> error $ "internal error: infer type of:" <> show v
     -- Wild ->
     -- Zoom Var Exp
     -- Func Var [Expr]
@@ -368,10 +376,10 @@ checkBool env@(ours, theirs,thisContext) b =
     EFalse _ -> Ok $ LitBool False
     BoolLit a -> Ok $ LitBool a
     --
-    Var p v -> case Map.lookup v thisContext of
-      Just Boolean -> Ok (BoolVar v)
-      Just a -> Bad $ (p, "Type error; variable: " <> show v <> " has type " <> show a <> ", expected bool.")
-      Nothing -> Bad $ (p, "Unknown variable: " <> show v <> " of type boolean.")
+    -- Var p v -> case Map.lookup v thisContext of
+    --   Just Boolean -> Ok (BoolVar v)
+    --   Just a -> Bad $ (p, "Type error; variable: " <> show v <> " has type " <> show a <> ", expected bool.")
+    --   Nothing -> Bad $ (p, "Unknown variable: " <> show v <> " of type boolean.")
     -- Look v1 v2 -> case Map.lookup v1 thisContext of
     --   Just (MappingType t1 t2) -> error "TODO: lookups"
     --                               --do checkExpr store contract (abiTypeToMeta t1)
