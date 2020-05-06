@@ -35,11 +35,11 @@ contract Token {
         require((z = x - y) <= x, "math-sub-underflow");
     }
 
-    constructor(string memory symbol_, string memory name_, string memory version_, uint256 chainId_) public {
+    constructor(string memory symbol_, string memory name_, string memory version_, uint256 chainId_, uint _totalSupply) public {
         symbol = symbol_;
         name   = name_;
         totalSupply = _totalSupply;
-        balances[msg.sender] = _totalSupply;
+        balanceOf[msg.sender] = _totalSupply;
     }
 
     // --- Token ---
