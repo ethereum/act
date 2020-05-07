@@ -43,18 +43,21 @@ data Case a b
   deriving (Eq, Show)
 
 data Post
-    = Post (Maybe Storage) [ExtStorage] (Maybe Expr)
+    = Post (Maybe [Storage]) [ExtStorage] (Maybe Expr)
   deriving (Eq, Show)
 
 data Creates
     = Creates [Assign]
   deriving (Eq, Show)
 
-type Storage = [(Entry, Expr)]
+data Storage = Rewrite Entry Expr
+             | Constant Entry
+  deriving (Eq, Show)
 
 data ExtStorage
-    = ExtStorage Id [(Entry, Expr)]
+    = ExtStorage Id [Storage]
     | ExtCreates Id Expr [Assign]
+    | WildStorage
   deriving (Eq, Show)
 
 data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignStruct StorageVar [Defn]
@@ -65,6 +68,7 @@ data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
 
 data Entry
   = Entry Pn Id [Expr]
+  | Wild
   deriving (Eq, Show)
 
 --data Defn = Defn Pn Expr Expr
@@ -92,7 +96,7 @@ data Expr
     | EMod Pn Expr Expr
     | EExp Pn Expr Expr
     | Zoom Pn Expr Expr
-    | EntryExp Entry
+    | EntryExp Pn Id [Expr]
 --    | Look Pn Id [Expr]
     | Func Pn Id [Expr]
     | ListConst Expr
@@ -104,15 +108,15 @@ data Expr
     | BYHash Pn Expr
     | BYAbiE Pn Expr
     | StringLit Pn String
-    | Wild
+    | WildExp
     | EnvExp Pn EthEnv
     | IntLit Integer
     | BoolLit Bool
   deriving (Eq, Show)
 
-instance Uniplate Expr where
-  uniplate (Wild) =    (Zero                    , \Zero                   -> Wild)
-  uniplate (EAdd p a b) = (Two (One a) (One b)  , \(Two (One a) (One b))  -> EAdd p a b)
+-- instance Uniplate Expr where
+--   uniplate (Wild) =    (Zero                    , \Zero                   -> Wild)
+--   uniplate (EAdd p a b) = (Two (One a) (One b)  , \(Two (One a) (One b))  -> EAdd p a b)
 --  uniplate _ = _ --error "TODO"
 
 data EthEnv

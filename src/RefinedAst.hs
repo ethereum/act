@@ -30,8 +30,8 @@ data Behaviour = Behaviour
    _interface :: Interface,
    _preconditions :: Exp T_Bool,
    _postconditions :: Exp T_Bool,
-   _contracts :: [Id],
-   _stateUpdates :: Map Id [StorageUpdate],
+   _contracts :: [Id], -- can maybe be removed; should be equivalent to Map.keys(_stateupdates)
+   _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
    _returns :: Maybe ReturnExp
   }
 
@@ -61,6 +61,13 @@ data StorageUpdate
   | BoolUpdate (TStorageItem T_Bool) (Exp T_Bool)
   | BytesUpdate (TStorageItem T_Bytes) (Exp T_Bytes)
   deriving (Show)
+
+data StorageLocation
+  = IntLoc (TStorageItem T_Int)
+  | BoolLoc (TStorageItem T_Bool)
+  | BytesLoc (TStorageItem T_Bytes)
+  deriving (Show)
+
 
 data TStorageItem a where
   DirectInt    :: Id -> TStorageItem T_Int
@@ -111,6 +118,12 @@ data Exp t where
   
 deriving instance Show (Exp t)
 
+instance Semigroup (Exp T_Bool) where
+  a <> b = And a b
+
+instance Monoid (Exp T_Bool) where
+  mempty = LitBool True
+
 data ReturnExp
   = ExpInt    (Exp T_Int)
   | ExpBool   (Exp T_Bool)
@@ -128,6 +141,10 @@ instance ToJSON Behaviour where
                                     , "stateUpdates" .= toJSON _stateUpdates
                                     , "contracts" .= toJSON _contracts
                                     , "returns" .= toJSON _returns]
+
+
+instance ToJSON StorageLocation where
+  toJSON (IntLoc a) = object ["location" .= toJSON a]
 
 
 instance ToJSON StorageUpdate where

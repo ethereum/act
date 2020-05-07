@@ -91,6 +91,10 @@ kStatus Fail = "FAILURE:EndStatusCode"
 
 type KSpec = String
 
+
+defaultConditions :: String
+defaultConditions = ""
+
 getContractName :: Text -> String
 getContractName = unpack . Text.concat . Data.List.tail . Text.splitOn ":"
 
@@ -111,6 +115,7 @@ makekSpec sources behaviour =
             (Map.lookup this names)
 
       return $ mkTerm thisSource names behaviour
+
     else Bad (nowhere, "No storagelayout found")
 
 kCalldata :: Interface -> String
@@ -123,10 +128,13 @@ kCalldata (Interface a b) =
          intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args))
   <> ")"
 
-getId :: StorageUpdate -> Id
-getId (IntUpdate a _) = getId' a
-getId (BoolUpdate a _) = getId' a
-getId (BytesUpdate a _) = getId' a
+getId :: Either StorageLocation StorageUpdate -> Id
+getId (Right (IntUpdate a _)) = getId' a
+getId (Right (BoolUpdate a _)) = getId' a
+getId (Right (BytesUpdate a _)) = getId' a
+getId (Left (IntLoc a)) = getId' a
+getId (Left (BoolLoc a)) = getId' a
+getId (Left (BytesLoc a)) = getId' a
 
 getId' :: TStorageItem a -> Id
 getId' (DirectInt id) = id
@@ -156,16 +164,42 @@ kAbiEncode (Just (ExpBytes a)) = ".ByteArray"
 
 kExpr :: ReturnExp -> String
 kExpr (ExpInt a) = kExprInt a
--- kExpr (ExpBool a) = kExpr
+kExpr (ExpBool a) = kExprBool a
 -- kExpr (ExpBytes a)
 
 
 kExprInt :: Exp T_Int -> String
 kExprInt (Add a b) = "(" <> kExprInt a <> " +Int " <> kExprInt b <> ")"
+kExprInt (Sub a b) = "(" <> kExprInt a <> " -Int " <> kExprInt b <> ")"
+kExprInt (Mul a b) = "(" <> kExprInt a <> " *Int " <> kExprInt b <> ")"
+kExprInt (Div a b) = "(" <> kExprInt a <> " /Int " <> kExprInt b <> ")"
+kExprInt (Mod a b) = "(" <> kExprInt a <> " modInt " <> kExprInt b <> ")"
+kExprInt (Exp a b) = "(" <> kExprInt a <> " ^Int " <> kExprInt b <> ")"
 kExprInt (LitInt a) = show a
 kExprInt (IntVar a) = kVar a
+kExprInt (IntEnv a) = show a
 kExprInt (TEntry a) = kstorageName a
 kExprInt v = error ("Internal error: TODO kExprInt of " <> show v)
+
+
+kExprBool :: Exp T_Bool -> String
+kExprBool (And a b) = "(" <> kExprBool a <> " andBool " <> kExprBool b <> ")"
+kExprBool (Or a b) = "(" <> kExprBool a <> " orBool " <> kExprBool b <> ")"
+kExprBool (Impl a b) = "(" <> kExprBool a <> " impliesBool " <> kExprBool b <> ")"
+kExprBool (Eq a b) = "(" <> kExprInt a <> " ==Int " <> kExprInt b <> ")"
+
+kExprBool (NEq a b) = "(" <> kExprInt a <> " =/=Int " <> kExprInt b <> ")"
+kExprBool (Neg a) = "notBool (" <> kExprBool a <> ")"
+kExprBool (LE a b) = "(" <> kExprInt a <> " <Int " <> kExprInt b <> ")"
+kExprBool (LEQ a b) = "(" <> kExprInt a <> " <=Int " <> kExprInt b <> ")"
+kExprBool (GE a b) = "(" <> kExprInt a <> " >Int " <> kExprInt b <> ")"
+kExprBool (GEQ a b) = "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
+kExprBool (LitBool a) = show a
+kExprBool (BoolVar a) = kVar a
+
+
+--kExprBool (TEntry a) = kstorageName a
+kExprBool v = error ("Internal error: TODO kExprBool of " <> show v)
 
 fst' (x, _, _) = x
 snd' (_, y, _) = y
@@ -174,14 +208,15 @@ trd' (_, _, z) = z
 
 
 
-kStorageEntry :: Map Text StorageItem -> StorageUpdate -> (String, (Int, String, String))
+kStorageEntry :: Map Text StorageItem -> Either StorageLocation StorageUpdate -> (String, (Int, String, String))
 kStorageEntry storageLayout update =
-  let (loc, offset) = kSlot $
+  let (loc, offset) = kSlot update $
         fromMaybe
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (getId update)) storageLayout)
   in case update of
-       IntUpdate a b -> (loc, (offset, kstorageName a <> "_PRE", kExprInt b))
+       Right (IntUpdate a b) -> (loc, (offset, kstorageName a, kExprInt b))
+       Left (IntLoc a) -> (loc, (offset, kstorageName a, kstorageName a))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
 --  BoolUpdate (TStorageItem T_Bool) c -> 
 --  BytesUpdate (TStorageItem T_Bytes) d ->  (Exp T_Bytes)
@@ -203,13 +238,17 @@ normalize entries = foldr (\a acc -> case a of
         showSList :: [String] -> String
         showSList = intercalate " "
 
-kSlot :: StorageItem -> (String, Int)
-kSlot StorageItem{..} = case _type of
+kSlot :: Either StorageLocation StorageUpdate -> StorageItem -> (String, Int)
+kSlot update StorageItem{..} = case _type of
   (StorageValue _) -> (show _slot, _offset)
-  (StorageMapping _ _) -> error "TODO"--(show _slot, offset)
+  (StorageMapping _ _) -> case update of
+      Right (IntUpdate (MappedInt _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> " ," <> intercalate " " (fmap show (NonEmpty.toList ixs)) <> ")", _offset)
+      Right (BoolUpdate (MappedBool _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> " ," <> intercalate " " (fmap show (NonEmpty.toList ixs)) <> ")", _offset)
+      Right (BytesUpdate (MappedBytes _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> " ," <> intercalate " " (fmap show (NonEmpty.toList ixs)) <> ")", _offset)
+      _ -> error "internal error: kSlot. Please report"
 
 
-kAccount :: Id -> SolcContract -> [StorageUpdate] -> String
+kAccount :: Id -> SolcContract -> [Either StorageLocation StorageUpdate] -> String
 kAccount name source updates =
   "account" |- ("\n"
    <> "acctID" |- kVar name
@@ -295,3 +334,6 @@ mkTerm this accounts behaviour@Behaviour{..} = (name, term)
                   <> "txPending" |- "_"
                   <> "messages" |- "_"
                   )
+               <> "\nrequires "
+               <> defaultConditions
+               <> kExprBool _preconditions
