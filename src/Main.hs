@@ -56,14 +56,15 @@ data Command w
 
   | Type              { file  :: w ::: String <?> "Path to file"}
 
-  | Compile           { spec    :: w ::: String       <?> "Path to spec"
-                      , soljson :: w ::: String       <?> "Path to .sol.json"
-                      , k       :: w ::: Bool         <?> "output k files"
-                      , ir      :: w ::: Bool         <?> "output k files"
-                      , coq     :: w ::: Bool         <?> "output coq files"
-                      , out     :: w ::: Maybe String <?> "output directory"
+  | K                 { spec    :: w ::: String               <?> "Path to spec"
+                      , soljson :: w ::: String               <?> "Path to .sol.json"
+                      , gas     :: w ::: Maybe [(Id, String)] <?> "Gas usage per spec"
+                      , extractbin :: w ::: Bool              <?> "Put EVM bytecode in separate file"
+                      , out     :: w ::: Maybe String         <?> "output directory"
                       }
     deriving (Generic)
+
+deriving instance ParseField [(Id, String)]
 
 instance ParseRecord (Command Wrapped)
 deriving instance Show (Command Unwrapped)
@@ -103,7 +104,7 @@ main = do
                        Ok a  -> B.putStrLn $ encode a
                        Bad e -> prettyErr contents e
 
-      (Compile spec soljson k ir coq out) -> do
+      (K spec soljson gas extractbin out) -> do
         specContents <- readFile spec
         solContents  <- readFile soljson
         errKSpecs <- pure $ do refinedSpecs  <- parse (lexer specContents) >>= typecheck
@@ -174,17 +175,10 @@ defaultStore =
 -- typing of vars: this contract storage, other contract scopes, calldata args
 type Env = (Map Id SlotType, Map Id (Map Id SlotType), Map Id MType)
 
--- todo: make Exp T_Bool a monoid so that this is mappend?
-joinand :: [Exp T_Bool] -> Exp T_Bool
-joinand [x] = x
-joinand (x:xs) = And x (joinand xs)
-joinand [] = LitBool True
-
 andRaw :: [Expr] -> Expr
 andRaw [x] = x
 andRaw (x:xs) = EAnd nowhere x (andRaw xs)
 andRaw [] = BoolLit True
-
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Map Id (Map Id SlotType) -> RawBehaviour -> Err [Behaviour]
@@ -198,20 +192,20 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
 
         -- translate wildcards into negation of other cases
         normalize = snd . mapAccumL (\a b -> case b of
-                                        Leaf pn Wild p -> (a, Leaf pn (ENot nowhere (andRaw a)) p)
-                                        Branch pn Wild p -> (a, Branch pn (ENot nowhere (andRaw a)) p)
+                                        Leaf pn WildExp p -> (a, Leaf pn (ENot nowhere (andRaw a)) p)
+                                        Branch pn WildExp p -> (a, Branch pn (ENot nowhere (andRaw a)) p)
                                         e@(Leaf _ c _) -> (c:a, e)
                                         e@(Branch _ c _) -> (c:a, e)) []
 
         -- split case into pass and fail case
-        splitCase ifs [] ret storage postc contracts = [Behaviour name Pass False contract iface (joinand ifs) postc contracts storage ret]
-        splitCase ifs iffs ret storage postc contracts = [ Behaviour name Pass False contract iface (joinand (ifs <> iffs)) postc contracts storage ret
-                                                         , Behaviour name Fail False contract iface (And (joinand ifs) (Neg (joinand iffs))) postc contracts storage Nothing]
+        splitCase ifs [] ret storage postc contracts = [Behaviour name Pass False contract iface (mconcat ifs) postc contracts storage ret]
+        splitCase ifs iffs ret storage postc contracts = [ Behaviour name Pass False contract iface (mconcat (ifs <> iffs)) postc contracts storage ret
+                                                         , Behaviour name Fail False contract iface (And (mconcat ifs) (Neg (mconcat iffs))) postc contracts storage Nothing]
 
         -- flatten case tree
         flatten iff postc pathcond (Leaf _ cond post) = do c <- checkBool env cond
                                                            (p, maybeReturn, contracts) <- checkPost env contract post
-                                                           return $ splitCase (c:pathcond) iff maybeReturn p (joinand postc) contracts
+                                                           return $ splitCase (c:pathcond) iff maybeReturn p (mconcat postc) contracts
 
         flatten iff postc pathcond (Branch _ cond cs) = do c <- checkBool env cond
                                                            leaves <- mapM (flatten iff postc (c:pathcond)) (normalize cs)
@@ -219,7 +213,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
 
 splitBehaviour store (Constructor name contract decls iffs cases post ensures invariants) = Ok [] --error "TODO: check constructor"
 
-checkPost :: Env -> Id -> Post -> Err (Map Id [StorageUpdate], Maybe ReturnExp, [Id])
+checkPost :: Env -> Id -> Post -> Err (Map Id [Either StorageLocation StorageUpdate], Maybe ReturnExp, [Id])
 checkPost env@(ours, theirs, localVars) contract (Post maybeStorage extStorage maybeReturn) =
   do  returnexp <- mapM (inferExpr env) maybeReturn
       ourStorage <- case maybeStorage of
@@ -229,8 +223,12 @@ checkPost env@(ours, theirs, localVars) contract (Post maybeStorage extStorage m
       return $ ((Map.fromList $ (contract, ourStorage):otherStorage),
                  returnexp,
                  contract:(map fst otherStorage))
-  where checkEntries name entries = mapM (uncurry $ checkStorageExpr (fromMaybe mempty (Map.lookup name theirs), theirs, localVars)) entries
-        checkStorages :: [ExtStorage] -> Err [(Id, [StorageUpdate])]
+  where checkEntries name entries =
+          mapM (\a -> case a of
+                   Rewrite loc val -> Right <$> checkStorageExpr (fromMaybe mempty (Map.lookup name theirs), theirs, localVars) loc val
+                   Constant loc -> Left <$> checkEntry env loc
+               ) entries
+        checkStorages :: [ExtStorage] -> Err [(Id, [Either StorageLocation StorageUpdate])]
         checkStorages [] = Ok []
         checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries
                                                           ps <- checkStorages xs
@@ -238,7 +236,7 @@ checkPost env@(ours, theirs, localVars) contract (Post maybeStorage extStorage m
         checkStorages ((ExtCreates _ name entries):xs) = error "TODO: check other storages"
 
 checkStorageExpr :: Env -> Entry -> Expr -> Err StorageUpdate
-checkStorageExpr env@(ours, theirs, localVars) entry@(Entry p id ixs) expr =
+checkStorageExpr env@(ours, _, _) (Entry p id ixs) expr =
     case Map.lookup id ours of
       Just (StorageValue t)  -> case metaType t of
           Integer -> IntUpdate (DirectInt id) <$> checkInt env expr
@@ -253,6 +251,23 @@ checkStorageExpr env@(ours, theirs, localVars) entry@(Entry p id ixs) expr =
                   Boolean -> liftM2 (BoolUpdate . MappedBool id) indexExprs (checkBool env expr)
                   ByteStr -> liftM2 (BytesUpdate . MappedBytes id) indexExprs (checkBytes env expr)
       Nothing -> Bad $ (p, "Unknown storage variable: " <> show id)
+
+checkEntry :: Env -> Entry -> Err StorageLocation
+checkEntry env@(ours, _, _) (Entry p id ixs) =
+  case Map.lookup id ours of
+    Just (StorageValue t) -> case metaType t of
+          Integer -> Ok $ IntLoc (DirectInt id)
+          Boolean -> Ok $ BoolLoc (DirectBool id)
+          ByteStr -> Ok $ BytesLoc (DirectBytes id)
+    Just (StorageMapping argtyps t) ->
+      if length argtyps /= length ixs
+      then Bad $ (p, "Argument mismatch for storageitem: " <> id)
+      else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
+           in case metaType t of
+                  Integer -> (IntLoc . MappedInt id) <$> indexExprs
+                  Boolean -> (BoolLoc . MappedBool id) <$> indexExprs
+                  ByteStr -> (BytesLoc . MappedBytes id) <$> indexExprs
+    Nothing -> Bad $ (p, "Unknown storage variable: " <> show id)
 
 checkIffs :: Env -> [IffH] -> Err [Exp T_Bool]
 checkIffs env ((Iff pos exps):xs) = do
@@ -332,7 +347,7 @@ inferExpr env@(ours, theirs,thisContext) exp =
     EMod _ v1 v2 -> intintint Mod v1 v2
     EExp _ v1 v2 -> intintint Exp v1 v2
     IntLit n -> Ok $ ExpInt $ LitInt n
-    EntryExp (Entry p id e) -> case (Map.lookup id ours, Map.lookup id thisContext) of
+    EntryExp p id e -> case (Map.lookup id ours, Map.lookup id thisContext) of
         (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> show id)
         (Nothing, Just c) -> case c of
             Integer -> Ok . ExpInt $ IntVar id
@@ -409,7 +424,7 @@ checkInt env@(ours, theirs,thisContext) e =
   --   Just Integer -> Ok $ IntVar v
   --   _ -> Bad $ (p, "Unexpected variable: " <> show v <> " of type integer")
   IntLit n -> Ok $ LitInt n
-  EntryExp e@(Entry p id x) -> case (Map.lookup id ours, Map.lookup id thisContext) of
+  EntryExp p id x -> case (Map.lookup id ours, Map.lookup id thisContext) of
       (Nothing, Nothing) -> Bad $ (p, "unknown environment variable: " <> show id)
       (Nothing, Just Integer) -> case x of
         [] -> Ok $ IntVar id

@@ -191,13 +191,16 @@ Storage : 'storage' nonempty(Store)                   { $2 }
 
 ExtStorage : 'storage' id nonempty(Store)             { ExtStorage (arg $2) $3 }
            | 'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (arg $2) $4 $5 }
+           | 'storage' '_' '_' '=>' '_'               { WildStorage }
 
 Precondition : 'iff' nonempty(Expr)                   { Iff (pos $1) $2 }
              | 'iff in range' Type nonempty(Expr)     { IffIn (pos $1) $2 $3 }
 
-Store : Entry '=>' Expr                               { ($1, $3) }
-
+Store : Entry '=>' Expr                               { Rewrite $1 $3 }
+      | Entry                                         { Constant $1 }
+      
 Entry : id list(Zoom)                                 { Entry (pos $1) (arg $1) $2 }
+      | '_'                                           { Wild }
 
 Zoom : '[' Expr ']'                                   { $2 }
      | '.' Expr                                       { $2 }
@@ -235,11 +238,11 @@ SlotType : 'mapping' '(' MappingArgs ')'             { (uncurry StorageMapping) 
 MappingArgs : Type '=>' Type                           { ($1 NonEmpty.:| [], $3) }
             | Type '=>' 'mapping' '(' MappingArgs ')'  { (NonEmpty.cons $1 (fst $5), snd $5)  }
 
-Expr : '(' Expr ')'                                        { $2 }
+Expr : '(' Expr ')'                                    { $2 }
 
   -- terminals
   | ilit                                                { IntLit $1 }
-  | '_'                                                 { Wild }
+  | '_'                                                 { WildExp }
   -- missing string literal
   -- missing wildcard
 
@@ -266,7 +269,7 @@ Expr : '(' Expr ')'                                        { $2 }
 
   -- composites
   | 'if' Expr 'then' Expr 'else' Expr                   { EITE (pos $1) $2 $4 $6 }
-  | Entry                                               { EntryExp $1 }
+  | id list(Zoom)                                       { EntryExp (pos $1) (arg $1) $2 }
 --  | id list(Zoom)                                       { Look (pos $1) (arg $1) $2 }
   | Expr '.' Expr                                       { Zoom (pos $2) $1 $3 }
 --  | id '(' seplist(Expr, ',') ')'                     { App    (pos $1) $1 $3 }
