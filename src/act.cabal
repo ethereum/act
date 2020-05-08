@@ -27,8 +27,7 @@ executable act
                        array            >= 0.5.3.0,
                        optparse-generic >= 1.3,
                        vector           >= 0.12.0.3,
-                       bytestring       >= 0.10.8.2,
-                       uniplate         >= 1.6.12,
+                       bytestring       >= 0.10.8,
                        sbv              >= 8.4,
                        mtl              >= 2.2.2
 

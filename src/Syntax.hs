@@ -8,8 +8,8 @@ module Syntax where
 import Data.List          (intercalate)
 import Data.Bitraversable
 -- import Data.Generics.Uniplate
-import Data.Generics.Str
-import Data.Generics.Uniplate.Operations
+-- import Data.Generics.Str
+-- import Data.Generics.Uniplate.Operations
 --import Data.Generics.Uniplate.Data
 import EVM.ABI (AbiType)
 import EVM.Solidity (SlotType)
