@@ -1,1 +1,1 @@
-[{"stateUpdates":{"A":[]},"name":"f","preConditions":{"arity":2,"args":["True","True"],"symbol":"and"},"contract":"A","interface":"f(AbiUIntType 256 x)","returns":{"expression":1,"sort":"int"}}]
+[{"stateUpdates":{"A":[]},"mode":"Pass","creation":false,"contracts":["A"],"name":"f","preConditions":{"arity":2,"args":["True",{"arity":2,"args":["True","True"],"symbol":"and"}],"symbol":"and"},"contract":"A","interface":"f(uint256 x)","returns":{"expression":1,"sort":"int"}}]
