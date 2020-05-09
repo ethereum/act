@@ -22,7 +22,6 @@ import ErrM
   'behaviour'                 { L BEHAVIOUR _ }
   'of'                        { L OF _ }
   'interface'                 { L INTERFACE _ }
-  'constructor'               { L CONSTRUCTOR _ }
   'creates'                   { L CREATES _ }
   'case'                      { L CASE _ }
   'returns'                   { L RETURNS _ }
@@ -157,14 +156,13 @@ Transition : 'behaviour' id 'of' id
                                                         $5 $6 $7 $8 }
 
 Constructor : 'behaviour' id 'of' id
-              'interface' 'constructor' '(' seplist(Decl, ',') ')'
+              Interface
               list(Precondition)
               Creation
               list(ExtStorage)
               opt(Ensures)
               opt(Invariants)                          { Constructor (arg $2) (arg $4)
-                                                         (Interface "constructor" $8)
-                                                         $10 $11 $12 $13 $14 }
+                                                         $5 $6 $7 $8 $9 $10 }
 
 Ensures : 'ensures' nonempty(Expr)                    { $2 }
 
