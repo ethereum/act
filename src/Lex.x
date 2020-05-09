@@ -21,7 +21,6 @@ tokens :-
   behavior                              { mk BEHAVIOUR }
   of                                    { mk OF }
   interface                             { mk INTERFACE }
-  constructor                           { mk CONSTRUCTOR }
   creates                               { mk CREATES }
   case                                  { mk CASE }
   returns                               { mk RETURNS }
@@ -115,7 +114,6 @@ data LEX =
   | BEHAVIOUR
   | OF       
   | INTERFACE
-  | CONSTRUCTOR
   | CREATES
   | CASE
   | RETURNS
