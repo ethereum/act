@@ -28,12 +28,10 @@ import qualified Data.Map.Strict      as Map -- abandon in favor of [(a,b)]?
 import Data.Vector (fromList)
 
 import qualified Data.ByteString.Lazy.Char8 as B
+import Data.ByteString (ByteString)
 
 import Control.Monad
 import Control.Monad.Except
-import Data.Bitraversable
-import Data.Bifunctor
-import Data.Bifoldable
 import Data.Functor.Identity
 
 import Syntax
@@ -59,6 +57,7 @@ data Command w
   | K                 { spec    :: w ::: String               <?> "Path to spec"
                       , soljson :: w ::: String               <?> "Path to .sol.json"
                       , gas     :: w ::: Maybe [(Id, String)] <?> "Gas usage per spec"
+                      , storage    :: w ::: Maybe String    <?> "Path to storage definitions"
                       , extractbin :: w ::: Bool              <?> "Put EVM bytecode in separate file"
                       , out     :: w ::: Maybe String         <?> "output directory"
                       }
@@ -72,7 +71,7 @@ deriving instance Show (Command Unwrapped)
 safeDrop :: Int -> [a] -> [a]
 safeDrop 0 a = a
 safeDrop _ [a] = [a]
-safeDrop n (x:xs) = safeDrop (n-1) xs
+safeDrop n (_:xs) = safeDrop (n-1) xs
 
 prettyErr :: String -> (Pn, String) -> IO ()
 prettyErr contents pn@(AlexPn _ line col,msg) =
@@ -104,13 +103,14 @@ main = do
                        Ok a  -> B.putStrLn $ encode a
                        Bad e -> prettyErr contents e
 
-      (K spec soljson gas extractbin out) -> do
+      (K spec soljson gas storage extractbin out) -> do
         specContents <- readFile spec
         solContents  <- readFile soljson
+        let kOpts = KOptions (maybe mempty Map.fromList gas) storage extractbin
         errKSpecs <- pure $ do refinedSpecs  <- parse (lexer specContents) >>= typecheck
                                (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
                                  $ Solidity.readJSON $ pack solContents
-                               forM refinedSpecs (makekSpec sources)
+                               forM refinedSpecs (makekSpec sources kOpts)
         case errKSpecs of
              Bad e -> prettyErr specContents e
              Ok kSpecs -> do
@@ -269,7 +269,7 @@ checkEntry env@(ours, _, _) (Entry p id ixs) =
                   ByteStr -> (BytesLoc . MappedBytes id) <$> indexExprs
     Nothing -> Bad $ (p, "Unknown storage variable: " <> show id)
 
-checkIffs :: Env -> [IffH] -> Err [Exp T_Bool]
+checkIffs :: Env -> [IffH] -> Err [Exp Bool]
 checkIffs env ((Iff pos exps):xs) = do
   head <- mapM (checkBool env) exps
   tail <- checkIffs env xs
@@ -280,16 +280,16 @@ checkIffs env ((IffIn pos typ exps):xs) = do
   Ok $ map (bound typ) head <> tail
 checkIffs _ [] = Ok []
 
-bound :: AbiType -> (Exp T_Int) -> Exp T_Bool
+bound :: AbiType -> (Exp Int) -> Exp Bool
 bound typ exp = And (LEQ (lowerBound typ) exp) $ LEQ exp (upperBound typ)
 
-lowerBound :: AbiType -> Exp T_Int
+lowerBound :: AbiType -> Exp Int
 lowerBound (AbiIntType a) = LitInt $ 0 - 2 ^ (a - 1)
 -- todo: other negatives?
 lowerBound _ = LitInt 0
 
 --todo, the rest
-upperBound :: AbiType -> Exp T_Int
+upperBound :: AbiType -> Exp Int
 upperBound (AbiUIntType n) = LitInt $ 2 ^ n - 1
 upperBound (AbiIntType n) = LitInt $ 2 ^ (n - 1) - 1
 upperBound AbiAddressType  = LitInt $ 2 ^ 160 - 1
@@ -334,12 +334,13 @@ inferExpr env@(ours, theirs,thisContext) exp =
     ELT _   v1 v2 -> boolintint  LE   v1 v2
     ELEQ _  v1 v2 -> boolintint  LEQ  v1 v2
     EGT _   v1 v2 -> boolintint  GE   v1 v2
-    ETrue _ ->  Ok  $ ExpBool $ LitBool True
-    EFalse _ -> Ok $ ExpBool $ LitBool False
-    -- EITE _ v1 v2 v3 -> do w1 <- checkBool env v1
-    --                       w2 <- checkInt env v2
-    --                       w3 <- checkInt env v3
-    --                       Ok $ ITE w1 w2 w3
+    ETrue _ ->  Ok . ExpBool $ LitBool True
+    EFalse _ -> Ok . ExpBool $ LitBool False
+    -- TODO: make ITE polymorphic
+    EITE _ v1 v2 v3 -> do w1 <- checkBool env v1
+                          w2 <- checkInt env v2
+                          w3 <- checkInt env v3
+                          Ok . ExpInt $ ITE w1 w2 w3
     EAdd _ v1 v2 -> intintint Add v1 v2
     ESub _ v1 v2 -> intintint Sub v1 v2
     EMul _ v1 v2 -> intintint Mul v1 v2
@@ -347,14 +348,34 @@ inferExpr env@(ours, theirs,thisContext) exp =
     EMod _ v1 v2 -> intintint Mod v1 v2
     EExp _ v1 v2 -> intintint Exp v1 v2
     IntLit n -> Ok $ ExpInt $ LitInt n
+    BoolLit n -> Ok $ ExpBool $ LitBool n
     EntryExp p id e -> case (Map.lookup id ours, Map.lookup id thisContext) of
         (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> show id)
         (Nothing, Just c) -> case c of
             Integer -> Ok . ExpInt $ IntVar id
             Boolean -> Ok . ExpBool $ BoolVar id
             ByteStr -> Ok . ExpBytes $ ByVar id
-        (Just c, Nothing) -> error "internal error: TODO infer storage var type"
+        (Just (StorageValue a), Nothing) ->
+          case metaType a of
+             Integer -> Ok . ExpInt $ TEntry (DirectInt id)
+             Boolean -> Ok . ExpBool $ TEntry (DirectBool id)
+             ByteStr -> Ok . ExpBytes $ TEntry (DirectBytes id)
+        (Just (StorageMapping ts a), Nothing) ->
+           let indexExprs = forM (NonEmpty.zip (head e :| tail e) ts)
+                                     (uncurry (checkExpr env))
+           in case metaType a of
+             Integer -> ExpInt . TEntry . (MappedInt id) <$> indexExprs
+             Boolean -> ExpBool . TEntry . (MappedBool id) <$> indexExprs
+             ByteStr -> ExpBytes . TEntry . (MappedBytes id) <$> indexExprs
         (Just _, Just _) -> Bad (p, "Ambiguous variable: " <> show id)
+    EnvExp p v1 -> case lookup v1 defaultStore of
+      Just Integer -> Ok . ExpInt $ IntEnv v1
+      Just ByteStr -> Ok . ExpBytes $ ByEnv v1
+      _            -> Bad (p, "unknown environment variable: " <> show v1)
+    -- Var p v -> case Map.lookup v thisContext of
+    --   Just Integer -> Ok $ IntVar v
+    --   _ -> Bad $ (p, "Unexpected variable: " <> show v <> " of type integer")
+
     v -> error $ "internal error: infer type of:" <> show v
     -- Wild ->
     -- Zoom Var Exp
@@ -368,82 +389,103 @@ inferExpr env@(ours, theirs,thisContext) exp =
     -- BYAbiE Expr
     -- StringLit String
 
-checkBool :: Env -> Expr -> Err (Exp T_Bool)
-checkBool env@(ours, theirs,thisContext) b =
-  let checkInts op v1 v2 = do w1 <- checkInt env v1
-                              w2 <- checkInt env v2
-                              Ok $ op w1 w2
-      checkBools op v1 v2 = do w1 <- checkBool env v1
-                               w2 <- checkBool env v2
-                               Ok $ op w1 w2
-  in case b of
-    ENot  _ v1    -> Neg <$> checkBool env v1
-    EAnd  _ v1 v2 -> checkBools And  v1 v2
-    EOr   _ v1 v2 -> checkBools Or   v1 v2
-    EImpl _ v1 v2 -> checkBools Impl v1 v2
-    EEq   _ v1 v2 -> checkInts  Eq  v1 v2
-    ENeq  _ v1 v2 -> checkInts  NEq v1 v2
-    ELT   _ v1 v2 -> checkInts  LE   v1 v2
-    ELEQ  _ v1 v2 -> checkInts  LEQ  v1 v2
-    EGT   _ v1 v2 -> checkInts  GE   v1 v2
-    EGEQ  _ v1 v2 -> checkInts  GEQ  v1 v2
-    ETrue _  -> Ok $ LitBool True
-    EFalse _ -> Ok $ LitBool False
-    BoolLit a -> Ok $ LitBool a
-    --
-    -- Var p v -> case Map.lookup v thisContext of
-    --   Just Boolean -> Ok (BoolVar v)
-    --   Just a -> Bad $ (p, "Type error; variable: " <> show v <> " has type " <> show a <> ", expected bool.")
-    --   Nothing -> Bad $ (p, "Unknown variable: " <> show v <> " of type boolean.")
-    -- Look v1 v2 -> case Map.lookup v1 thisContext of
-    --   Just (MappingType t1 t2) -> error "TODO: lookups"
-    --                               --do checkExpr store contract (abiTypeToMeta t1)
-    --   Just (ArrayType typ len) -> error "TODO: arrays"
-    --   _ -> Bad $ "Unexpected lookup in " <> pprint v1 <> ": not array or mapping."
-    -- TODO: zoom, lookup and functions
-    s -> error ("TODO: check bool, case:" <> show s )
+checkBool :: Env -> Expr -> Err (Exp Bool)
+checkBool env exp =
+  case inferExpr env exp of
+    Ok (ExpInt _) -> Bad (nowhere, "expected: bool, got: int")
+    Ok (ExpBytes _) -> Bad (nowhere, "expected: bool, got: bytes")
+    Ok (ExpBool a) -> Ok a 
+    Bad e -> Bad e
 
-checkInt :: Env -> Expr -> Err (Exp T_Int)
-checkInt env@(ours, theirs,thisContext) e =
-  let checkInts op v1 v2 = do w1 <- checkInt env v1
-                              w2 <- checkInt env v2
-                              Ok $ op w1 w2
-  in case e of
-  EAdd _ v1 v2 -> checkInts Add v1 v2
-  ESub _ v1 v2 -> checkInts Sub v1 v2
-  EMul _ v1 v2 -> checkInts Mul v1 v2
-  EDiv _ v1 v2 -> checkInts Div v1 v2
-  EMod _ v1 v2 -> checkInts Mod v1 v2
-  EExp _ v1 v2 -> checkInts Exp v1 v2
-  ENewaddr _ v1 v2 -> checkInts NewAddr v1 v2
-  EnvExp p v1 -> case lookup v1 defaultStore of
-    Just Integer -> Ok $ IntEnv v1
-    Just typ     -> Bad (p, show v1 <> "has type: " <> show typ)
-    _            -> Bad (p, "unknown environment variable: " <> show v1)
-  -- Var p v -> case Map.lookup v thisContext of
-  --   Just Integer -> Ok $ IntVar v
-  --   _ -> Bad $ (p, "Unexpected variable: " <> show v <> " of type integer")
-  IntLit n -> Ok $ LitInt n
-  EntryExp p id x -> case (Map.lookup id ours, Map.lookup id thisContext) of
-      (Nothing, Nothing) -> Bad $ (p, "unknown environment variable: " <> show id)
-      (Nothing, Just Integer) -> case x of
-        [] -> Ok $ IntVar id
-        _ -> Bad (p, "todo: array lookups; " <> show id)
-      (Nothing, Just c) -> Bad (p, "type error at variable: " <> id <> ". Expected: Integer, got: " <> show c)
 
-      (Just (StorageValue a), Nothing) ->
-        if metaType a == Integer
-        then Ok $ TEntry (DirectInt id)
-        else Bad (p, "type error at variable: " <> id <> ". Expected: Integer, got: " <> show (metaType a))
-      (Just (StorageMapping ts a), Nothing) ->
-        if metaType a == Integer
-        then let indexExprs = forM (NonEmpty.zip (head x :| tail x) ts)
-                                   (uncurry (checkExpr env))
-             in TEntry . (MappedInt id) <$> indexExprs
-        else Bad (p, "type error at variable: " <> id <> ". Expected: Integer, got: " <> show (metaType a))
-      (Just _, Just _) -> Bad (p, "ambiguous variable: " <> show id)
+checkBytes :: Env -> Expr -> Err (Exp ByteString)
+checkBytes env exp =
+  case inferExpr env exp of
+    Ok (ExpInt _) -> Bad (nowhere, "expected: bytes, got: int")
+    Ok (ExpBytes a) -> Ok a
+    Ok (ExpBool _) -> Bad (nowhere, "expected: bytes, got: bool")
+    Bad e -> Bad e
+
+checkInt :: Env -> Expr -> Err (Exp Int)
+checkInt env exp =
+  case inferExpr env exp of
+    Ok (ExpInt a) -> Ok a
+    Ok (ExpBytes _) -> Bad (nowhere, "expected: int, got: bytes")
+    Ok (ExpBool _) -> Bad (nowhere, "expected: int, got: bool")
+    Bad e -> Bad e
+
+
+-- checkBool env@(ours, theirs,thisContext) b =
+--   let checkInts op v1 v2 = do w1 <- checkInt env v1
+--                               w2 <- checkInt env v2
+--                               Ok $ op w1 w2
+--       checkBools op v1 v2 = do w1 <- checkBool env v1
+--                                w2 <- checkBool env v2
+--                                Ok $ op w1 w2
+--   in case b of
+--     ENot  _ v1    -> Neg <$> checkBool env v1
+--     EAnd  _ v1 v2 -> checkBools And  v1 v2
+--     EOr   _ v1 v2 -> checkBools Or   v1 v2
+--     EImpl _ v1 v2 -> checkBools Impl v1 v2
+--     EEq   _ v1 v2 -> checkInts  Eq  v1 v2
+--     ENeq  _ v1 v2 -> checkInts  NEq v1 v2
+--     ELT   _ v1 v2 -> checkInts  LE   v1 v2
+--     ELEQ  _ v1 v2 -> checkInts  LEQ  v1 v2
+--     EGT   _ v1 v2 -> checkInts  GE   v1 v2
+--     EGEQ  _ v1 v2 -> checkInts  GEQ  v1 v2
+--     ETrue _  -> Ok $ LitBool True
+--     EFalse _ -> Ok $ LitBool False
+--     BoolLit a -> Ok $ LitBool a
+--     --
+--     -- Var p v -> case Map.lookup v thisContext of
+--     --   Just Boolean -> Ok (BoolVar v)
+--     --   Just a -> Bad $ (p, "Type error; variable: " <> show v <> " has type " <> show a <> ", expected bool.")
+--     --   Nothing -> Bad $ (p, "Unknown variable: " <> show v <> " of type boolean.")
+--     -- Look v1 v2 -> case Map.lookup v1 thisContext of
+--     --   Just (MappingType t1 t2) -> error "TODO: lookups"
+--     --                               --do checkExpr store contract (abiTypeToMeta t1)
+--     --   Just (ArrayType typ len) -> error "TODO: arrays"
+--     --   _ -> Bad $ "Unexpected lookup in " <> pprint v1 <> ": not array or mapping."
+--     -- TODO: zoom, lookup and functions
+--     s -> error ("TODO: check bool, case:" <> show s )
+
+    
+  -- let checkInts op v1 v2 = do w1 <- checkInt env v1
+  --                             w2 <- checkInt env v2
+  --                             Ok $ op w1 w2
+  -- in case e of
+  -- EAdd _ v1 v2 -> checkInts Add v1 v2
+  -- ESub _ v1 v2 -> checkInts Sub v1 v2
+  -- EMul _ v1 v2 -> checkInts Mul v1 v2
+  -- EDiv _ v1 v2 -> checkInts Div v1 v2
+  -- EMod _ v1 v2 -> checkInts Mod v1 v2
+  -- EExp _ v1 v2 -> checkInts Exp v1 v2
+  -- ENewaddr _ v1 v2 -> checkInts NewAddr v1 v2
+  -- EnvExp p v1 -> case lookup v1 defaultStore of
+  --   Just Integer -> Ok $ IntEnv v1
+  --   Just typ     -> Bad (p, show v1 <> "has type: " <> show typ)
+  --   _            -> Bad (p, "unknown environment variable: " <> show v1)
+  -- -- Var p v -> case Map.lookup v thisContext of
+  -- --   Just Integer -> Ok $ IntVar v
+  -- --   _ -> Bad $ (p, "Unexpected variable: " <> show v <> " of type integer")
+  -- IntLit n -> Ok $ LitInt n
+  -- EntryExp p id x -> case (Map.lookup id ours, Map.lookup id thisContext) of
+  --     (Nothing, Nothing) -> Bad $ (p, "unknown environment variable: " <> show id)
+  --     (Nothing, Just Integer) -> case x of
+  --       [] -> Ok $ IntVar id
+  --       _ -> Bad (p, "todo: array lookups; " <> show id)
+  --     (Nothing, Just c) -> Bad (p, "type error at variable: " <> id <> ". Expected: Integer, got: " <> show c)
+
+  --     (Just (StorageValue a), Nothing) ->
+  --       if metaType a == Integer
+  --       then Ok $ TEntry (DirectInt id)
+  --       else Bad (p, "type error at variable: " <> id <> ". Expected: Integer, got: " <> show (metaType a))
+  --     (Just (StorageMapping ts a), Nothing) ->
+  --       if metaType a == Integer
+  --       then let indexExprs = forM (NonEmpty.zip (head x :| tail x) ts)
+  --                                  (uncurry (checkExpr env))
+  --            in TEntry . (MappedInt id) <$> indexExprs
+  --       else Bad (p, "type error at variable: " <> id <> ". Expected: Integer, got: " <> show (metaType a))
+  --     (Just _, Just _) -> Bad (p, "ambiguous variable: " <> show id)
       
-  v -> error ("TODO: check int, case:" <> show v )
-
-checkBytes :: Env -> Expr -> Err (Exp T_Bytes)
-checkBytes = error ""
+  -- v -> error ("TODO: check int, case:" <> show v )

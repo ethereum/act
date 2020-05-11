@@ -28,8 +28,8 @@ data Behaviour = Behaviour
    _creation :: Bool,
    _contract :: Id,
    _interface :: Interface,
-   _preconditions :: Exp T_Bool,
-   _postconditions :: Exp T_Bool,
+   _preconditions :: Exp Bool,
+   _postconditions :: Exp Bool,
    _contracts :: [Id], -- can maybe be removed; should be equivalent to Map.keys(_stateupdates)
    _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
    _returns :: Maybe ReturnExp
@@ -49,85 +49,82 @@ data MType
 --  | Mapping (Map MType MType)
   deriving (Eq, Ord, Show, Read)
 
--- meta types that work as GADT "tags"
-data T_Int
-data T_Bool
-data T_Bytes
 --data T_List t
-data T_Tuple
+--data T_Tuple
 
 data StorageUpdate
-  = IntUpdate (TStorageItem T_Int) (Exp T_Int)
-  | BoolUpdate (TStorageItem T_Bool) (Exp T_Bool)
-  | BytesUpdate (TStorageItem T_Bytes) (Exp T_Bytes)
+  = IntUpdate (TStorageItem Int) (Exp Int)
+  | BoolUpdate (TStorageItem Bool) (Exp Bool)
+  | BytesUpdate (TStorageItem ByteString) (Exp ByteString)
   deriving (Show)
 
 data StorageLocation
-  = IntLoc (TStorageItem T_Int)
-  | BoolLoc (TStorageItem T_Bool)
-  | BytesLoc (TStorageItem T_Bytes)
+  = IntLoc (TStorageItem Int)
+  | BoolLoc (TStorageItem Bool)
+  | BytesLoc (TStorageItem ByteString)
   deriving (Show)
 
 
 data TStorageItem a where
-  DirectInt    :: Id -> TStorageItem T_Int
-  DirectBool   :: Id -> TStorageItem T_Bool
-  DirectBytes  :: Id -> TStorageItem T_Bytes
-  MappedInt    :: Id -> NonEmpty ReturnExp -> TStorageItem T_Int
-  MappedBool   :: Id -> NonEmpty ReturnExp -> TStorageItem T_Bool
-  MappedBytes  :: Id -> NonEmpty ReturnExp -> TStorageItem T_Bytes
+  DirectInt    :: Id -> TStorageItem Int
+  DirectBool   :: Id -> TStorageItem Bool
+  DirectBytes  :: Id -> TStorageItem ByteString
+  MappedInt    :: Id -> NonEmpty ReturnExp -> TStorageItem Int
+  MappedBool   :: Id -> NonEmpty ReturnExp -> TStorageItem Bool
+  MappedBytes  :: Id -> NonEmpty ReturnExp -> TStorageItem ByteString
 
 deriving instance Show (TStorageItem a)
 -- typed expressions
 data Exp t where
   --booleans
-  And  :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
-  Or   :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
-  Impl :: Exp T_Bool -> Exp T_Bool -> Exp T_Bool
-  Eq  :: Exp T_Int -> Exp T_Int -> Exp T_Bool --TODO: make polymorphic (how to ToJSON.encode them?)
-  NEq  :: Exp T_Int -> Exp T_Int -> Exp T_Bool
-  Neg :: Exp T_Bool -> Exp T_Bool
-  LE :: Exp T_Int -> Exp T_Int -> Exp T_Bool
-  LEQ :: Exp T_Int -> Exp T_Int -> Exp T_Bool
-  GEQ :: Exp T_Int -> Exp T_Int -> Exp T_Bool
-  GE :: Exp T_Int -> Exp T_Int -> Exp T_Bool
-  LitBool :: Bool -> Exp T_Bool
-  BoolVar :: Id -> Exp T_Bool
+  And  :: Exp Bool -> Exp Bool -> Exp Bool
+  Or   :: Exp Bool -> Exp Bool -> Exp Bool
+  Impl :: Exp Bool -> Exp Bool -> Exp Bool
+  Eq  :: Exp Int -> Exp Int -> Exp Bool --TODO: make polymorphic (how to ToJSON.encode them?)
+  NEq  :: Exp Int -> Exp Int -> Exp Bool
+  Neg :: Exp Bool -> Exp Bool
+  LE :: Exp Int -> Exp Int -> Exp Bool
+  LEQ :: Exp Int -> Exp Int -> Exp Bool
+  GEQ :: Exp Int -> Exp Int -> Exp Bool
+  GE :: Exp Int -> Exp Int -> Exp Bool
+  LitBool :: Bool -> Exp Bool
+  BoolVar :: Id -> Exp Bool
   -- integers
-  Add :: Exp T_Int -> Exp T_Int -> Exp T_Int
-  Sub :: Exp T_Int -> Exp T_Int -> Exp T_Int
-  Mul :: Exp T_Int -> Exp T_Int -> Exp T_Int
-  Div :: Exp T_Int -> Exp T_Int -> Exp T_Int
-  Mod :: Exp T_Int -> Exp T_Int -> Exp T_Int
-  Exp :: Exp T_Int -> Exp T_Int -> Exp T_Int
-  LitInt :: Integer -> Exp T_Int
-  IntVar :: Id -> Exp T_Int
-  IntEnv :: EthEnv -> Exp T_Int
+  Add :: Exp Int -> Exp Int -> Exp Int
+  Sub :: Exp Int -> Exp Int -> Exp Int
+  Mul :: Exp Int -> Exp Int -> Exp Int
+  Div :: Exp Int -> Exp Int -> Exp Int
+  Mod :: Exp Int -> Exp Int -> Exp Int
+  Exp :: Exp Int -> Exp Int -> Exp Int
+  LitInt :: Integer -> Exp Int
+  IntVar :: Id -> Exp Int
+  IntEnv :: EthEnv -> Exp Int
   -- bytestrings
-  Cat :: Exp T_Bytes -> Exp T_Bytes -> Exp T_Bytes
-  Slice :: Exp T_Bytes -> Exp T_Int -> Exp T_Int -> Exp T_Bytes
-  ByVar :: Id -> Exp T_Bytes
-  ByStr :: String -> Exp T_Bytes
-  ByLit :: ByteString -> Exp T_Bytes
+  Cat :: Exp ByteString -> Exp ByteString -> Exp ByteString
+  Slice :: Exp ByteString -> Exp Int -> Exp Int -> Exp ByteString
+  ByVar :: Id -> Exp ByteString
+  ByStr :: String -> Exp ByteString
+  ByLit :: ByteString -> Exp ByteString
+  ByEnv :: EthEnv -> Exp ByteString
   -- builtins
-  NewAddr :: Exp T_Int -> Exp T_Int -> Exp T_Int
+  NewAddr :: Exp Int -> Exp Int -> Exp Int
   
   --polymorphic
-  ITE :: Exp T_Bool -> Exp t -> Exp t
+  ITE :: Exp Bool -> Exp t -> Exp t -> Exp t
   TEntry :: (TStorageItem t) -> Exp t
   
 deriving instance Show (Exp t)
 
-instance Semigroup (Exp T_Bool) where
+instance Semigroup (Exp Bool) where
   a <> b = And a b
 
-instance Monoid (Exp T_Bool) where
+instance Monoid (Exp Bool) where
   mempty = LitBool True
 
 data ReturnExp
-  = ExpInt    (Exp T_Int)
-  | ExpBool   (Exp T_Bool)
-  | ExpBytes  (Exp T_Bytes)
+  = ExpInt    (Exp Int)
+  | ExpBool   (Exp Bool)
+  | ExpBytes  (Exp ByteString)
   deriving (Show)
 
 -- intermediate json output helpers ---
@@ -168,7 +165,7 @@ instance ToJSON ReturnExp where
    --                              ,"expression" .= toJSON a]
 
 
-instance ToJSON (Exp T_Int) where
+instance ToJSON (Exp Int) where
   toJSON (Add a b) = symbol "+" a b
   toJSON (Sub a b) = symbol "-" a b
   toJSON (Exp a b) = symbol "^" a b
@@ -179,7 +176,7 @@ instance ToJSON (Exp T_Int) where
   toJSON (TEntry a) = toJSON a
   toJSON v = error $ "todo: json ast for: " <> show v
 
-instance ToJSON (Exp T_Bool) where
+instance ToJSON (Exp Bool) where
   toJSON (And a b)  = symbol "and" a b
   toJSON (LE a b)   = symbol "<" a b
   toJSON (GE a b)   = symbol ">" a b
@@ -199,5 +196,5 @@ symbol s a b = object [  "symbol"   .= pack s
                       ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
 
 
-instance ToJSON (Exp T_Bytes) where
+instance ToJSON (Exp ByteString) where
   toJSON a = String $ pack $ show a
