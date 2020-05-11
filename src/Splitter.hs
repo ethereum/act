@@ -19,64 +19,14 @@ import Data.Bifunctor
 import EVM (VM, ContractCode)
 import EVM.Types
 import EVM.Symbolic (verify, Precondition, Postcondition)
---import EVM.Solidity (AbiType)
+
 import EVM.Solidity (SolcContract(..), StorageItem(..), SlotType(..))
 import Control.Monad
 import Data.Map.Strict (Map) -- abandon in favor of [(a,b)]?
 import qualified Data.Map.Strict as Map -- abandon in favor of [(a,b)]?
 
--- data Implementation = Implementation
---   {_contractBinaries :: Map Id Code,
---    _storageLayout :: Map Id Layout
---   }
-
--- type Code = (String, String)
-
--- data Layout = Layout {
---   slot :: Int,
---   offset :: Int,
---   label :: Id,
---   encoding :: Encoding,
---   length :: Int
---   }
--- data Encoding = Inplace | Mapping | DynamicArray | Bytes
-
--- data KSpec = KSpec {
---   k :: KTerm,
---   exitCode :: Int,
---   mode :: Mode,
---   schedule :: Fork
---   program :: ByteString,
---   jumpDests :: ByteString,
---   callData :: Bytes,
---   output :: Bytes,
---   statusCode :: StatusCode,
---   kreturn :: String
---  accounts :: Map Contract
--- deriving (Ord, Eq)
-
--- -- instance Show KSpec whereR
--- --   show KSpec { .. }  = error "TODO"
-
--- data Mode = Normal
---   deriving (Eq, Show)
-
--- data Fork = Istanbul
---   deriving (Eq, Show)
-
--- data KTerm = Execute | Halt
---   deriving (Eq, Show)
-
--- -- instance Show KTerm where
--- --   show Execute = "execute"
--- --   show Halt = "halt"
-
--- data StatusCode
---   = EVMC_SUCCESS
---   | EVMC_REVERT
---   | EVMC_OOG
---   deriving (Show, Eq)
-
+-- Transforms a RefinedSyntax.Behaviour
+-- to a k spec.
 
 cell :: String -> String -> String
 cell key value = "<" <> key <> "> " <> value <> " </" <> key <> "> \n"
@@ -98,8 +48,17 @@ defaultConditions = ""
 getContractName :: Text -> String
 getContractName = unpack . Text.concat . Data.List.tail . Text.splitOn ":"
 
-makekSpec :: Map Text SolcContract -> Behaviour -> Err (String, String)
-makekSpec sources behaviour =
+
+data KOptions =
+  KOptions {
+    gasExprs :: Map Id String,
+    storage :: Maybe String,
+    extractbin :: Bool
+    }
+  
+
+makekSpec :: Map Text SolcContract -> KOptions -> Behaviour -> Err (String, String)
+makekSpec sources kOpts behaviour =
   let this = _contract behaviour
       names = Map.fromList $ fmap (\(a, b) -> (getContractName a, b)) (Map.toList sources)
       hasLayout = Map.foldr ((&&) . isJust . _storageLayout) True sources
@@ -168,7 +127,7 @@ kExpr (ExpBool a) = kExprBool a
 -- kExpr (ExpBytes a)
 
 
-kExprInt :: Exp T_Int -> String
+kExprInt :: Exp Int -> String
 kExprInt (Add a b) = "(" <> kExprInt a <> " +Int " <> kExprInt b <> ")"
 kExprInt (Sub a b) = "(" <> kExprInt a <> " -Int " <> kExprInt b <> ")"
 kExprInt (Mul a b) = "(" <> kExprInt a <> " *Int " <> kExprInt b <> ")"
@@ -182,7 +141,7 @@ kExprInt (TEntry a) = kstorageName a
 kExprInt v = error ("Internal error: TODO kExprInt of " <> show v)
 
 
-kExprBool :: Exp T_Bool -> String
+kExprBool :: Exp Bool -> String
 kExprBool (And a b) = "(" <> kExprBool a <> " andBool " <> kExprBool b <> ")"
 kExprBool (Or a b) = "(" <> kExprBool a <> " orBool " <> kExprBool b <> ")"
 kExprBool (Impl a b) = "(" <> kExprBool a <> " impliesBool " <> kExprBool b <> ")"
@@ -196,17 +155,11 @@ kExprBool (GE a b) = "(" <> kExprInt a <> " >Int " <> kExprInt b <> ")"
 kExprBool (GEQ a b) = "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
 kExprBool (LitBool a) = show a
 kExprBool (BoolVar a) = kVar a
-
-
---kExprBool (TEntry a) = kstorageName a
 kExprBool v = error ("Internal error: TODO kExprBool of " <> show v)
 
 fst' (x, _, _) = x
 snd' (_, y, _) = y
 trd' (_, _, z) = z
-
-
-
 
 kStorageEntry :: Map Text StorageItem -> Either StorageLocation StorageUpdate -> (String, (Int, String, String))
 kStorageEntry storageLayout update =
@@ -218,8 +171,8 @@ kStorageEntry storageLayout update =
        Right (IntUpdate a b) -> (loc, (offset, kstorageName a, kExprInt b))
        Left (IntLoc a) -> (loc, (offset, kstorageName a, kstorageName a))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
---  BoolUpdate (TStorageItem T_Bool) c -> 
---  BytesUpdate (TStorageItem T_Bytes) d ->  (Exp T_Bytes)
+--  BoolUpdate (TStorageItem Bool) c -> 
+--  BytesUpdate (TStorageItem ByteString) d ->  (Exp ByteString)
 
 
 --packs entries packed in one slot
