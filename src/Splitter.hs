@@ -12,7 +12,7 @@ import Data.Text (Text, pack, unpack)
 import Data.List
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe
-import Data.ByteString hiding (pack, unpack, intercalate, foldr, concat)
+import Data.ByteString hiding (pack, unpack, intercalate, foldr, concat, head, tail)
 import qualified Data.Text as Text
 import Parse
 import Data.Bifunctor
@@ -41,9 +41,6 @@ kStatus Fail = "FAILURE:EndStatusCode"
 
 type KSpec = String
 
-
-defaultConditions :: String
-defaultConditions = ""
 
 getContractName :: Text -> String
 getContractName = unpack . Text.concat . Data.List.tail . Text.splitOn ":"
@@ -112,7 +109,8 @@ kstorageName (MappedInt id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.to
 kstorageName (MappedBool id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
 kstorageName (MappedBytes id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
 
-kVar = unpack . Text.toUpper . pack
+kVar :: Id -> String
+kVar a = (unpack . Text.toUpper . pack $ [head a]) <> (tail a)
 
 kAbiEncode :: Maybe ReturnExp -> String
 kAbiEncode Nothing = ".ByteArray"
@@ -142,7 +140,7 @@ kExprInt v = error ("Internal error: TODO kExprInt of " <> show v)
 
 
 kExprBool :: Exp Bool -> String
-kExprBool (And a b) = "(" <> kExprBool a <> " andBool " <> kExprBool b <> ")"
+kExprBool (And a b) = "(" <> kExprBool a <> " andBool\n " <> kExprBool b <> ")"
 kExprBool (Or a b) = "(" <> kExprBool a <> " orBool " <> kExprBool b <> ")"
 kExprBool (Impl a b) = "(" <> kExprBool a <> " impliesBool " <> kExprBool b <> ")"
 kExprBool (Eq a b) = "(" <> kExprInt a <> " ==Int " <> kExprInt b <> ")"
@@ -174,16 +172,15 @@ kStorageEntry storageLayout update =
 --  BoolUpdate (TStorageItem Bool) c -> 
 --  BytesUpdate (TStorageItem ByteString) d ->  (Exp ByteString)
 
-
 --packs entries packed in one slot
 normalize :: [(String, (Int, String, String))] -> String
 normalize entries = foldr (\a acc -> case a of
-                              (loc, [(_, pre, post)]) -> loc <> " |-> " <> pre <> " => " <> post <> "\n" <> acc
+                              (loc, [(_, pre, post)]) -> loc <> " |-> (" <> pre <> " => " <> post <> ")\n" <> acc
                               (loc, items) -> let (offsets, pres, posts) = unzip3 items
-                                              in loc <> " |-> #packWords(" <> showSList (fmap show offsets) <> ", "
+                                              in loc <> " |-> ( #packWords(" <> showSList (fmap show offsets) <> ", "
                                                      <> showSList pres <> ") "
                                                      <> " => #packWords(" <> showSList (fmap show offsets) <> ", "
-                                                     <> showSList posts <> ")\n" <> acc)
+                                                     <> showSList posts <> "))\n" <> acc)
                                  "\n"
                       (group entries)
   where group :: [(String, (Int, String, String))] -> [(String, [(Int, String, String)])]
@@ -195,9 +192,9 @@ kSlot :: Either StorageLocation StorageUpdate -> StorageItem -> (String, Int)
 kSlot update StorageItem{..} = case _type of
   (StorageValue _) -> (show _slot, _offset)
   (StorageMapping _ _) -> case update of
-      Right (IntUpdate (MappedInt _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> " ," <> intercalate " " (fmap show (NonEmpty.toList ixs)) <> ")", _offset)
-      Right (BoolUpdate (MappedBool _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> " ," <> intercalate " " (fmap show (NonEmpty.toList ixs)) <> ")", _offset)
-      Right (BytesUpdate (MappedBytes _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> " ," <> intercalate " " (fmap show (NonEmpty.toList ixs)) <> ")", _offset)
+      Right (IntUpdate (MappedInt _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
+      Right (BoolUpdate (MappedBool _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
+      Right (BytesUpdate (MappedBytes _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
       _ -> error "internal error: kSlot. Please report"
 
 
@@ -205,7 +202,7 @@ kAccount :: Id -> SolcContract -> [Either StorageLocation StorageUpdate] -> Stri
 kAccount name source updates =
   "account" |- ("\n"
    <> "acctID" |- kVar name
-   <> "balance" |- (kVar name <> "_balance")
+   <> "balance" |- (kVar name <> "_balance") -- needs to be constrained to uint256
    <> "code" |- (kByteStack (_runtimeCode source))
    <> "storage" |- (normalize ( fmap (kStorageEntry (fromJust (_storageLayout source))) updates) <> "\n.Map")
    <> "origStorage" |- ".Map" -- need to be generalized once "kStorageEntry" is implemented
@@ -214,6 +211,27 @@ kAccount name source updates =
 
 kByteStack :: ByteString -> String
 kByteStack bs = "#parseByteStack(\"" <> show (ByteStringS bs) <> "\")"
+
+defaultConditions :: String -> String
+defaultConditions acct_id =
+    "#rangeAddress(" <> acct_id <> ")\n" <>
+    "andBool " <> acct_id <> " =/=Int 0\n" <>
+    "andBool " <> acct_id <> " >Int 9\n" <>
+    "andBool #rangeAddress( " <> show Caller <> ")\n" <> 
+    "andBool #rangeAddress( " <> show Origin <> ")\n" <>
+    "andBool #rangeUInt(256, " <> show  Timestamp <> ")\n" <>
+    -- "andBool #rangeUInt(256, ECREC_BAL)" <>
+    -- "andBool #rangeUInt(256, SHA256_BAL)" <>
+    -- "andBool #rangeUInt(256, RIP160_BAL)" <>
+    -- "andBool #rangeUInt(256, ID_BAL)" <>
+    -- "andBool #rangeUInt(256, MODEXP_BAL)" <>
+    -- "andBool #rangeUInt(256, ECADD_BAL)" <>
+    -- "andBool #rangeUInt(256, ECMUL_BAL)" <>
+    -- "andBool #rangeUInt(256, ECPAIRING_BAL)" <>
+    "andBool " <> show Calldepth <> " <=Int 1024\n" <>
+    "andBool #rangeUInt(256, " <> show Callvalue <> ")\n" <>
+    "andBool #rangeUInt(256, " <> show Chainid <>  " )\n"
+
 
 
 mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> (String, String)
@@ -224,7 +242,7 @@ mkTerm this accounts behaviour@Behaviour{..} = (name, term)
         repl  c  = c
         name = _contract <> "_" <> _name <> "_" <> show _mode
         term =  "rule [" <> (fmap repl name) <> "]:\n"
-             <> "k" |- "#execute"
+             <> "k" |- "#execute => #halt"
              <> "exit-code" |- "1"
              <> "mode" |- "NORMAL"
              <> "schedule" |- "ISTANBUL"
@@ -246,7 +264,7 @@ mkTerm this accounts behaviour@Behaviour{..} = (name, term)
                         -- more general value in "internal" specs.
                      <> "wordStack" |- ".WordStack => _"
                      <> "localMem"  |- ".Map => _"
-                     <> "pc" |- "0"
+                     <> "pc" |- "0 => _"
                      <> "gas" |- "300000 => _" -- can be generalized in the future
                      <> "memoryUsed" |- "0 => _"
                      <> "callGas" |- "_ => _"
@@ -288,5 +306,5 @@ mkTerm this accounts behaviour@Behaviour{..} = (name, term)
                   <> "messages" |- "_"
                   )
                <> "\nrequires "
-               <> defaultConditions
+               <> defaultConditions (kVar _contract) <> "\n andBool\n"
                <> kExprBool _preconditions

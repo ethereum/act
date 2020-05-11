@@ -11,15 +11,12 @@ import Data.Text          (Text, pack, unpack)
 import GHC.Generics
 import Data.Map.Strict    (Map)
 import Data.List.NonEmpty hiding (fromList)
-import qualified Data.Map.Strict      as Map
 import Data.ByteString       (ByteString)
 
 import Syntax
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
-import Data.Char
-import Data.List
 
 -- AST post typechecking
 data Behaviour = Behaviour
