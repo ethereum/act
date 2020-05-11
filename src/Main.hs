@@ -70,6 +70,7 @@ deriving instance Show (Command Unwrapped)
 
 safeDrop :: Int -> [a] -> [a]
 safeDrop 0 a = a
+safeDrop p [] = []
 safeDrop _ [a] = [a]
 safeDrop n (_:xs) = safeDrop (n-1) xs
 
@@ -183,7 +184,11 @@ andRaw [] = BoolLit True
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Map Id (Map Id SlotType) -> RawBehaviour -> Err [Behaviour]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
-  iff <- checkIffs env iffs'
+  -- constrain integer calldata variables (TODO: other types)
+  let calldataBounds = join $ fmap (\(Decl typ id) -> case metaType typ of
+                                       Integer -> [IffIn nowhere typ [EntryExp nowhere id []]]
+                                       _ -> []) decls
+  iff <- checkIffs env (iffs' <> calldataBounds)
   postcondition <- mapM (checkBool env) (fromMaybe [] maybePost)
   flatten iff postcondition [] cases
 
@@ -326,6 +331,7 @@ inferExpr env@(ours, theirs,thisContext) exp =
                                                    w2 <- checkBool env v2
                                                    Ok $ ExpBool $ op w1 w2
                     in case exp of
+    ENot _  v1     -> ExpBool . Neg <$> checkBool env v1
     EAnd _  v1 v2 -> boolboolbool And  v1 v2
     EOr _   v1 v2 -> boolboolbool Or   v1 v2
     EImpl _ v1 v2 -> boolboolbool Impl v1 v2
