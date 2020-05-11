@@ -272,9 +272,9 @@ mkTerm this accounts behaviour@Behaviour{..} = (name, term)
                      <> "callDepth" |- (show Calldepth)
                      )
                   <> "substate" |- ("\n"
-                      <> "selfDestruct" |- "_"
-                      <> "log" |- "_" --TODO: spec logs?
-                      <> "refund" |- "_"
+                      <> "selfDestruct" |- "_ => _"
+                      <> "log" |- "_ => _" --TODO: spec logs?
+                      <> "refund" |- "_ => _"
                       )
                   <> "gasPrice" |- "_" --could be environment var
                   <> "origin" |- show Origin
