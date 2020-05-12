@@ -138,7 +138,7 @@ The types of proofs that can be performed by the various backends can be underst
 | Bytecode                      | Planned | WIP  |         |         |     |
 | Poststate => postcondition    |         |      | Planned |         |     |
 | Source level                  |         |      | Planned |         |     |
-| Contract level invariant      |         |      |         | Planned |     |
+| Contract level invariant      |         |      | Planned | Planned |     |
 | General higher properties     |         |      |         |         | WIP |
 
 
