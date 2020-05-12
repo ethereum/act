@@ -130,7 +130,7 @@ We are currently working on three different proof backends:
 	- SMT theorems
 
 
-The types of proofs that can be performed by the various backend can be understood in the following table:
+The types of proofs that can be performed by the various backends can be understood in the following table:
 
 | Proof type \ Backend          | HEVM    | KEVM | SMT     | Coq     |     |
 | ----------------------------- | ------- | ---- | ------- | ------- | --- |
@@ -254,4 +254,3 @@ cabal2nix src/act.cabal > src/default.nix
 ```
 
 the `src/default.nix` may also require some manual tweaking.
-
