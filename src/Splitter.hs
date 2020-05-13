@@ -173,14 +173,16 @@ kStorageEntry storageLayout update =
 --  BytesUpdate (TStorageItem ByteString) d ->  (Exp ByteString)
 
 --packs entries packed in one slot
-normalize :: [(String, (Int, String, String))] -> String
-normalize entries = foldr (\a acc -> case a of
-                              (loc, [(_, pre, post)]) -> loc <> " |-> (" <> pre <> " => " <> post <> ")\n" <> acc
+normalize :: Bool -> [(String, (Int, String, String))] -> String
+normalize pass entries = foldr (\a acc -> case a of
+                              (loc, [(_, pre, post)]) -> loc <> " |-> (" <> pre <> " => " <> if pass then post else "_" <> ")\n" <> acc
                               (loc, items) -> let (offsets, pres, posts) = unzip3 items
                                               in loc <> " |-> ( #packWords(" <> showSList (fmap show offsets) <> ", "
                                                      <> showSList pres <> ") "
-                                                     <> " => #packWords(" <> showSList (fmap show offsets) <> ", "
-                                                     <> showSList posts <> "))\n" <> acc)
+                                                     <> " => " <> if pass
+                                                                  then "#packWords(" <> showSList (fmap show offsets) <> ", " <> showSList posts <> ")"
+                                                                  else "_"
+                                                     <> ")\n" <> acc)
                                  "\n"
                       (group entries)
   where group :: [(String, (Int, String, String))] -> [(String, [(Int, String, String)])]
@@ -198,13 +200,13 @@ kSlot update StorageItem{..} = case _type of
       _ -> error "internal error: kSlot. Please report"
 
 
-kAccount :: Id -> SolcContract -> [Either StorageLocation StorageUpdate] -> String
-kAccount name source updates =
+kAccount :: Bool -> Id -> SolcContract -> [Either StorageLocation StorageUpdate] -> String
+kAccount pass name source updates =
   "account" |- ("\n"
    <> "acctID" |- kVar name
    <> "balance" |- (kVar name <> "_balance") -- needs to be constrained to uint256
    <> "code" |- (kByteStack (_runtimeCode source))
-   <> "storage" |- (normalize ( fmap (kStorageEntry (fromJust (_storageLayout source))) updates) <> "\n.Map")
+   <> "storage" |- (normalize pass ( fmap (kStorageEntry (fromJust (_storageLayout source))) updates) <> "\n.Map")
    <> "origStorage" |- ".Map" -- need to be generalized once "kStorageEntry" is implemented
    <> "nonce" |- "_"
       )
@@ -238,6 +240,7 @@ mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> (String, String)
 mkTerm this accounts behaviour@Behaviour{..} = (name, term)
   where code = if _creation then _creationCode this
                else _runtimeCode this
+        pass = _mode == Pass
         repl '_' = '.'
         repl  c  = c
         name = _contract <> "_" <> _name <> "_" <> show _mode
@@ -247,7 +250,7 @@ mkTerm this accounts behaviour@Behaviour{..} = (name, term)
              <> "mode" |- "NORMAL"
              <> "schedule" |- "ISTANBUL"
              <> "evm" |- ("\n"
-                  <> "output" |- kAbiEncode _returns
+                  <> "output" |- if pass then kAbiEncode _returns else ".ByteArray"
                   <> "statusCode" |- kStatus _mode
                   <> "callStack" |- "CallStack"
                   <> "interimStates" |- "_"
@@ -300,7 +303,7 @@ mkTerm this accounts behaviour@Behaviour{..} = (name, term)
                 )
                 <> "network" |- ("\n"
                   <> "activeAccounts" |- "_"
-                  <> "accounts" |- ("\n" <> unpack (Text.intercalate "\n" (fmap (\a -> pack $ kAccount a (fromJust $ Map.lookup a accounts) (fromJust $ Map.lookup a _stateUpdates)) _contracts)))
+                  <> "accounts" |- ("\n" <> unpack (Text.intercalate "\n" (fmap (\a -> pack $ kAccount pass a (fromJust $ Map.lookup a accounts) (fromJust $ Map.lookup a _stateUpdates)) _contracts)))
                   <> "txOrder" |- "_"
                   <> "txPending" |- "_"
                   <> "messages" |- "_"
