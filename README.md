@@ -132,15 +132,15 @@ We are currently working on three different proof backends:
 
 The types of proofs that can be performed by the various backends can be understood in the following table:
 
-| Proof type \ Backend          | HEVM    | KEVM | SMT     | Coq     |     |
-| ----------------------------- | ------- | ---- | ------- | ------- | --- |
-| Bytecode (with unknown calls) | Planned | ?    |         |         |     |
-| Bytecode                      | Planned | WIP  |         |         |     |
-| Poststate => postcondition    |         |      | Planned |         |     |
-| Source level                  |         |      | Planned |         |     |
-| Contract level invariant      |         |      | Planned | Planned |     |
-| General higher properties     |         |      |         |         | WIP |
 
+| Proof type \ Backend          | HEVM    | KEVM | SMT     | Coq     |
+| ----------------------------- | ------- | ---- | ------- | ------- |
+| Bytecode (with unknown calls) | Planned | ?    |         |         |
+| Bytecode                      | Planned | WIP  |         |         |
+| Poststate => postcondition    |         |      | Planned |         |
+| Source level                  |         |      | Planned |         |
+| Contract level invariant      |         |      | Planned | Planned |
+| General higher properties     |         |      |         | WIP     |
 
 
 Infrastructure
