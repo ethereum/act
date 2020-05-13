@@ -1,1 +1,132 @@
-[{"stateUpdates":{"A":[]},"mode":"Pass","creation":false,"contracts":["A"],"name":"f","preConditions":{"arity":2,"args":["True",{"arity":2,"args":["True","True"],"symbol":"and"}],"symbol":"and"},"contract":"A","interface":"f(uint256 x)","returns":{"expression":1,"sort":"int"}}]
+[
+  {
+    "stateUpdates": {
+      "A": []
+    },
+    "mode": "Pass",
+    "creation": false,
+    "contracts": [
+      "A"
+    ],
+    "name": "f",
+    "preConditions": {
+      "arity": 2,
+      "args": [
+        "True",
+        {
+          "arity": 2,
+          "args": [
+            "True",
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        0,
+                        "x"
+                      ],
+                      "symbol": "<="
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        "x",
+                        1.157920892373162e+77
+                      ],
+                      "symbol": "<="
+                    }
+                  ],
+                  "symbol": "and"
+                },
+                "True"
+              ],
+              "symbol": "and"
+            }
+          ],
+          "symbol": "and"
+        }
+      ],
+      "symbol": "and"
+    },
+    "contract": "A",
+    "interface": "f(uint256 x)",
+    "returns": {
+      "expression": 1,
+      "sort": "int"
+    }
+  },
+  {
+    "stateUpdates": {
+      "A": []
+    },
+    "mode": "Fail",
+    "creation": false,
+    "contracts": [
+      "A"
+    ],
+    "name": "f",
+    "preConditions": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            "True",
+            {
+              "arity": 2,
+              "args": [
+                "True",
+                "True"
+              ],
+              "symbol": "and"
+            }
+          ],
+          "symbol": "and"
+        },
+        {
+          "arity": 1,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        0,
+                        "x"
+                      ],
+                      "symbol": "<="
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        "x",
+                        1.157920892373162e+77
+                      ],
+                      "symbol": "<="
+                    }
+                  ],
+                  "symbol": "and"
+                },
+                "True"
+              ],
+              "symbol": "and"
+            }
+          ],
+          "symbol": "not"
+        }
+      ],
+      "symbol": "and"
+    },
+    "contract": "A",
+    "interface": "f(uint256 x)",
+    "returns": null
+  }
+]
