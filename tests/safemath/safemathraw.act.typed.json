@@ -1,1 +1,307 @@
-[{"stateUpdates":{"SafeAdd":[]},"mode":"Pass","creation":false,"contracts":["SafeAdd"],"name":"add","preConditions":{"arity":2,"args":["True",{"arity":2,"args":["True",{"arity":2,"args":[{"arity":2,"args":["Callvalue",0],"symbol":"=="},{"arity":2,"args":[{"arity":2,"args":[{"arity":2,"args":[0,{"arity":2,"args":["x","y"],"symbol":"+"}],"symbol":"<="},{"arity":2,"args":[{"arity":2,"args":["x","y"],"symbol":"+"},115792089237316195423570985008687907853269984665640564039457584007913129639935],"symbol":"<="}],"symbol":"and"},"True"],"symbol":"and"}],"symbol":"and"}],"symbol":"and"}],"symbol":"and"},"contract":"SafeAdd","interface":"add(uint256 y, uint256 x)","returns":{"expression":{"arity":2,"args":["x","y"],"symbol":"+"},"sort":"int"}},{"stateUpdates":{"SafeAdd":[]},"mode":"Fail","creation":false,"contracts":["SafeAdd"],"name":"add","preConditions":{"arity":2,"args":[{"arity":2,"args":["True",{"arity":2,"args":["True","True"],"symbol":"and"}],"symbol":"and"},{"arity":1,"args":[{"arity":2,"args":[{"arity":2,"args":["Callvalue",0],"symbol":"=="},{"arity":2,"args":[{"arity":2,"args":[{"arity":2,"args":[0,{"arity":2,"args":["x","y"],"symbol":"+"}],"symbol":"<="},{"arity":2,"args":[{"arity":2,"args":["x","y"],"symbol":"+"},115792089237316195423570985008687907853269984665640564039457584007913129639935],"symbol":"<="}],"symbol":"and"},"True"],"symbol":"and"}],"symbol":"and"}],"symbol":"not"}],"symbol":"and"},"contract":"SafeAdd","interface":"add(uint256 y, uint256 x)","returns":null}]
+[
+  {
+    "stateUpdates": {
+      "SafeAdd": []
+    },
+    "mode": "Pass",
+    "creation": false,
+    "contracts": [
+      "SafeAdd"
+    ],
+    "name": "add",
+    "preConditions": {
+      "arity": 2,
+      "args": [
+        "True",
+        {
+          "arity": 2,
+          "args": [
+            "True",
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "Callvalue",
+                    0
+                  ],
+                  "symbol": "=="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            0,
+                            {
+                              "arity": 2,
+                              "args": [
+                                "x",
+                                "y"
+                              ],
+                              "symbol": "+"
+                            }
+                          ],
+                          "symbol": "<="
+                        },
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                "x",
+                                "y"
+                              ],
+                              "symbol": "+"
+                            },
+                            1.157920892373162e+77
+                          ],
+                          "symbol": "<="
+                        }
+                      ],
+                      "symbol": "and"
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                0,
+                                "y"
+                              ],
+                              "symbol": "<="
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                "y",
+                                1.157920892373162e+77
+                              ],
+                              "symbol": "<="
+                            }
+                          ],
+                          "symbol": "and"
+                        },
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    0,
+                                    "x"
+                                  ],
+                                  "symbol": "<="
+                                },
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    "x",
+                                    1.157920892373162e+77
+                                  ],
+                                  "symbol": "<="
+                                }
+                              ],
+                              "symbol": "and"
+                            },
+                            "True"
+                          ],
+                          "symbol": "and"
+                        }
+                      ],
+                      "symbol": "and"
+                    }
+                  ],
+                  "symbol": "and"
+                }
+              ],
+              "symbol": "and"
+            }
+          ],
+          "symbol": "and"
+        }
+      ],
+      "symbol": "and"
+    },
+    "contract": "SafeAdd",
+    "interface": "add(uint256 y, uint256 x)",
+    "returns": {
+      "expression": {
+        "arity": 2,
+        "args": [
+          "x",
+          "y"
+        ],
+        "symbol": "+"
+      },
+      "sort": "int"
+    }
+  },
+  {
+    "stateUpdates": {
+      "SafeAdd": []
+    },
+    "mode": "Fail",
+    "creation": false,
+    "contracts": [
+      "SafeAdd"
+    ],
+    "name": "add",
+    "preConditions": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            "True",
+            {
+              "arity": 2,
+              "args": [
+                "True",
+                "True"
+              ],
+              "symbol": "and"
+            }
+          ],
+          "symbol": "and"
+        },
+        {
+          "arity": 1,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "Callvalue",
+                    0
+                  ],
+                  "symbol": "=="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            0,
+                            {
+                              "arity": 2,
+                              "args": [
+                                "x",
+                                "y"
+                              ],
+                              "symbol": "+"
+                            }
+                          ],
+                          "symbol": "<="
+                        },
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                "x",
+                                "y"
+                              ],
+                              "symbol": "+"
+                            },
+                            1.157920892373162e+77
+                          ],
+                          "symbol": "<="
+                        }
+                      ],
+                      "symbol": "and"
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                0,
+                                "y"
+                              ],
+                              "symbol": "<="
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                "y",
+                                1.157920892373162e+77
+                              ],
+                              "symbol": "<="
+                            }
+                          ],
+                          "symbol": "and"
+                        },
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    0,
+                                    "x"
+                                  ],
+                                  "symbol": "<="
+                                },
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    "x",
+                                    1.157920892373162e+77
+                                  ],
+                                  "symbol": "<="
+                                }
+                              ],
+                              "symbol": "and"
+                            },
+                            "True"
+                          ],
+                          "symbol": "and"
+                        }
+                      ],
+                      "symbol": "and"
+                    }
+                  ],
+                  "symbol": "and"
+                }
+              ],
+              "symbol": "and"
+            }
+          ],
+          "symbol": "not"
+        }
+      ],
+      "symbol": "and"
+    },
+    "contract": "SafeAdd",
+    "interface": "add(uint256 y, uint256 x)",
+    "returns": null
+  }
+]

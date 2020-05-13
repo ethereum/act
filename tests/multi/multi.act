@@ -12,7 +12,7 @@ creates
 
 
 behaviour remote of B
-interface set_remote(uint y)
+interface set_remote(uint z)
 
 iff
    CALLVALUE == 0
@@ -21,10 +21,10 @@ iff
 // updates the storage of another by labelling the storage header
 // by the address of that contract
 storage a
-   x => y
+   x => z
 
 behaviour multi of B
-interface set_remote(uint y)
+interface set_remote(uint z)
 
 iff
    CALLVALUE == 0
@@ -34,4 +34,4 @@ storage
    y => 1
 
 storage a
-   x => y
+   x => z
