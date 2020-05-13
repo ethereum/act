@@ -36,7 +36,7 @@ tests/%.parse:
 	rm tests/$*.parsed.hs.out
 
 tests/%.type:
-	./bin/act type --file tests/$* > tests/$*.typed.json.out
+	./bin/act type --file tests/$* | jq . > tests/$*.typed.json.out
 	diff tests/$*.typed.json.out tests/$*.typed.json
 	rm tests/$*.typed.json.out
 
