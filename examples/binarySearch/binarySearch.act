@@ -1,0 +1,36 @@
+behaviour init of BinarySearch
+interface constructor()
+
+creates
+	uint256[] array
+
+invariants
+	sorted(array)
+
+// Returns the index of elem if elem in array,
+// otherwise returns -1.
+behaviour search of BinarySearch
+interface search(uint256 elem)
+
+case _:
+	returns binarySearch(array, elem, 0, array.length)
+
+// postcondition
+// if elem in array, i | array[i] == elem
+// if elem not in array, -1
+
+where
+
+sorted(uint256[] a) = 
+	forall (uint256 i) i > 0 && i < array.length => array[i] >= array[i - 1] 
+
+binarySearch(uint256[] a, uint256 elem, uint256 left, uint256 right) =
+	if left >= right
+	then -1
+	else
+		if a[(right + left) / 2] == elem
+		then (right + left) / 2
+		else
+			if a[(right + left) / 2] < elem
+			then binarySearch(a, elem, (right + left) / 2 + 1, right)
+			else binarySearch(a, elem, left, (right + left) / 2 - 1)
