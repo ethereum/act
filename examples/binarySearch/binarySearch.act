@@ -9,8 +9,10 @@ invariants
 
 where
 
-sorted(uint256[] a) = 
-	forall (uint256 i) i > 0 && i < array.length => array[i] >= array[i - 1] 
+sorted (uint256[] array)
+case [] = true
+case [x] = true
+case [x,y,xs] = x <= y and sorted([y,xs])
 
 
 // Returns the index of elem if elem in array,
