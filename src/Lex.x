@@ -19,6 +19,7 @@ tokens :-
   -- reserved words
   behaviour                             { mk BEHAVIOUR }
   behavior                              { mk BEHAVIOUR }
+  constructor                           { mk CONSTRUCTOR }
   of                                    { mk OF }
   interface                             { mk INTERFACE }
   creates                               { mk CREATES }
@@ -112,6 +113,7 @@ data LEX =
 
   -- reserved words
   | BEHAVIOUR
+  | CONSTRUCTOR
   | OF       
   | INTERFACE
   | CREATES
