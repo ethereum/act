@@ -30,8 +30,9 @@ else index = -1
 
 where
 
-index = binarySearch(array, elem, 0, array.length)
+index := binarySearch(array, elem, 0, array.length)
 
+binarySearch : uint256[] -> uint256 -> uint256 -> uint256 -> uint256
 binarySearch(uint256[] a, uint256 elem, uint256 left, uint256 right) =
 	if left >= right
 	then -1
