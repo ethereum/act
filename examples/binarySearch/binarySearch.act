@@ -9,10 +9,10 @@ invariants
 
 where
 
-sorted (uint256[] array)
-case [] = true
-case [x] = true
-case [x,y,xs] = x <= y and sorted([y,xs])
+sorted : uint256[] -> bool
+sorted([]) = true
+sorted([x]) = true
+sorted(x::y::xs) = x <= y and sorted(y::xs)
 
 
 // Returns the index of elem if elem in array,
@@ -22,11 +22,15 @@ interface search(uint256 elem)
 
 returns binarySearch(array, elem, 0, array.length)
 
-// postcondition
-// if elem in array, i | array[i] == elem
-// if elem not in array, -1
+ensures
+
+if elem in array
+then array[index] = elem
+else index = -1
 
 where
+
+index = binarySearch(array, elem, 0, array.length)
 
 binarySearch(uint256[] a, uint256 elem, uint256 left, uint256 right) =
 	if left >= right
