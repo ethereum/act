@@ -25,8 +25,8 @@ returns binarySearch(array, elem, 0, array.length)
 ensures
 
 if elem in array
-then array[index] = elem
-else index = -1
+then array[index] == elem
+else index == -1
 
 where
 
