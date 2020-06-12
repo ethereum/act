@@ -10,9 +10,9 @@ invariants
 where
 
 sorted : uint256[] -> bool
-sorted([]) = true
-sorted([x]) = true
-sorted(x::y::xs) = x <= y and sorted(y::xs)
+sorted([]) := true
+sorted([x]) := true
+sorted(x::y::xs) := x <= y and sorted(y::xs)
 
 
 // Returns the index of elem if elem in array,
@@ -33,7 +33,7 @@ where
 index := binarySearch(array, elem, 0, array.length)
 
 binarySearch : uint256[] -> uint256 -> uint256 -> uint256 -> uint256
-binarySearch(uint256[] a, uint256 elem, uint256 left, uint256 right) =
+binarySearch(uint256[] a, uint256 elem, uint256 left, uint256 right) :=
 	if left >= right
 	then -1
 	else
