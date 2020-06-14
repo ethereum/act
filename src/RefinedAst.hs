@@ -1,54 +1,53 @@
-{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# Language DeriveAnyClass #-}
+
+-- {-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE FlexibleInstances #-}
+-- {-# LANGUAGE RecordWildCards #-}
+-- {-# Language DeriveAnyClass #-}
+
 module RefinedAst where
-import Data.Text          (Text, pack, unpack)
-import GHC.Generics
-import Data.Map.Strict    (Map)
-import Data.List.NonEmpty hiding (fromList)
-import Data.ByteString       (ByteString)
+
+-- import Data.Text          (Text, pack, unpack)
+-- import GHC.Generics
+-- import Data.Map.Strict    (Map)
+-- import Data.List.NonEmpty hiding (fromList)
+-- import Data.ByteString       (ByteString)
+-- import Data.Aeson
+-- import Data.Aeson.Types
+-- import Data.Vector (fromList)
 
 import Syntax
-import Data.Aeson
-import Data.Aeson.Types
-import Data.Vector (fromList)
+
+-- changes:
+-- removed _mode
+-- removed _creation
+-- removed _postconditions
+-- removed _contracts
+-- StorageUpdate now polymorphic
+-- removed distinction between StorageUpdate and StorageLocation
 
 -- AST post typechecking
-data Behaviour = Behaviour
-  {_name :: Id,
-   _mode :: Mode,
-   _creation :: Bool,
-   _contract :: Id,
-   _interface :: Interface,
-   _preconditions :: Exp Bool,
-   _postconditions :: Exp Bool,
-   _contracts :: [Id], -- can maybe be removed; should be equivalent to Map.keys(_stateupdates)
-   _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
-   _returns :: Maybe ReturnExp
-  }
+data Behaviour = Behaviour {
+  _name :: Id,
+  _contract :: Id,
+  _interface :: Interface,
+  _preconditions :: Exp Bool,
+  _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
+  _returns :: Maybe ReturnExp
+}
 
-data Mode
-  = Pass
-  | Fail
-  | OOG
-  deriving (Eq, Show)
-
---types understood by proving tools
+-- types understood by proving tools
 data MType 
   = Integer
   | Boolean
   | ByteStr
---  | Mapping (Map MType MType)
   deriving (Eq, Ord, Show, Read)
 
---data T_List t
---data T_Tuple
-
+data StorageUpdate t where
+  
 data StorageUpdate
   = IntUpdate (TStorageItem Int) (Exp Int)
   | BoolUpdate (TStorageItem Bool) (Exp Bool)
@@ -124,6 +123,8 @@ data ReturnExp
   | ExpBytes  (Exp ByteString)
   deriving (Show)
 
+{-
+
 -- intermediate json output helpers ---
 instance ToJSON Behaviour where
   toJSON (Behaviour {..}) = object  [ "name" .= _name
@@ -195,3 +196,5 @@ symbol s a b = object [  "symbol"   .= pack s
 
 instance ToJSON (Exp ByteString) where
   toJSON a = String $ pack $ show a
+
+  -}

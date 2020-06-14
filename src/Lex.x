@@ -1,6 +1,8 @@
 {
-module Lex (LEX (..), Lexeme (..), lexer, showposn, AlexPosn (..), pos, arg) where
+
+module Lex (LEX (..), Lexeme (..), AlexPosn (..), lexer) where
 import Prelude hiding (EQ, GT, LT)
+
 }
 
 %wrapper "posn"
@@ -12,13 +14,12 @@ $space = [\ \t\f\v\r]
 
 tokens :-
 
-  -- ($space* \n)+       { mk BREAK }
-  -- $space+             ;
   $white+                               ;
 
   -- reserved words
   behaviour                             { mk BEHAVIOUR }
   behavior                              { mk BEHAVIOUR }
+  constructor                           { mk CONSTRUCTOR }
   of                                    { mk OF }
   interface                             { mk INTERFACE }
   creates                               { mk CREATES }
@@ -29,8 +30,10 @@ tokens :-
   
   iff $white+ in $white+ range          { mk IFFINRANGE }
   iff                                   { mk IFF }
+  fi                                    { mk FI }
   and                                   { mk AND }
   or                                    { mk OR }
+  not                                   { mk NOT }
   true                                  { mk TRUE }
   false                                 { mk FALSE }
   mapping                               { mk MAPPING }
@@ -103,6 +106,7 @@ tokens :-
 
   -- literals
   $digit+                     { \ p s -> L (ILIT (read s)) p }
+
 {
 
 data LEX =
@@ -112,6 +116,7 @@ data LEX =
 
   -- reserved words
   | BEHAVIOUR
+  | CONSTRUCTOR
   | OF       
   | INTERFACE
   | CREATES
@@ -123,12 +128,14 @@ data LEX =
   | IFF
   | AND
   | OR
+  | NOT
   | TRUE
   | FALSE
   | MAPPING
   | ENSURES
   | INVARIANTS
   | IF
+  | FI
   | THEN
   | ELSE
   | AT
@@ -197,20 +204,11 @@ data LEX =
 data Lexeme = L LEX AlexPosn
   deriving (Eq, Show)
 
--- annoying that we can't override the show instance for this here
-showposn (AlexPn _ line column) =
-  concat [show line, ":", show column]
-
-pos :: Lexeme -> AlexPosn
-pos (L _ p) = p
-
-arg :: Lexeme -> String
-arg (L (ID s) p) = s
-
 -- helper function to reduce boilerplate
 mk :: LEX -> (AlexPosn -> String -> Lexeme)
 mk lexeme p _ = L lexeme p
 
 lexer :: String -> [Lexeme]
 lexer = alexScanTokens
+
 }
