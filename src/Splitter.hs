@@ -1,8 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# Language QuasiQuotes #-}
-{-# Language GADTs #-}
 {-# Language OverloadedStrings #-}
-{-# Language LambdaCase #-}
 module Splitter where
 
 import Syntax
@@ -85,47 +83,58 @@ kCalldata (Interface a b) =
   <> ")"
 
 getId :: Either StorageLocation StorageUpdate -> Id
-getId (Right (IntUpdate a _)) = getId' a
-getId (Right (BoolUpdate a _)) = getId' a
-getId (Right (BytesUpdate a _)) = getId' a
-getId (Left (IntLoc a)) = getId' a
-getId (Left (BoolLoc a)) = getId' a
-getId (Left (BytesLoc a)) = getId' a
+getId (Right (IntUpdate a _)) = getIntName a
+getId (Right (BoolUpdate a _)) = getBoolName a
+getId (Right (BytesUpdate a _)) = getBytesName a
+getId (Left (IntLoc a)) = getIntName a
+getId (Left (BoolLoc a)) = getBoolName a
+getId (Left (BytesLoc a)) = getBytesName a
+  
+getIntName :: StorageInt -> Id
+getIntName (DirectInt id) = id
+getIntName (MappedInt id _) = id
 
-getId' :: TStorageItem a -> Id
-getId' (DirectInt id) = id
-getId' (DirectBool id) = id
-getId' (DirectBytes id) = id
-getId' (MappedInt id _) = id
-getId' (MappedBool id _) = id
-getId' (MappedBytes id _) = id
+getBoolName :: StorageBool -> Id
+getBoolName (DirectBool id) = id
+getBoolName (MappedBool id _) = id
+
+getBytesName :: StorageBytes -> Id
+getBytesName (DirectBytes id) = id
+getBytesName (MappedBytes id _) = id
 
 
-kstorageName :: TStorageItem a -> String
-kstorageName (DirectInt id)    = kVar id
-kstorageName (DirectBool id)   = kVar id
-kstorageName (DirectBytes id)  = kVar id
-kstorageName (MappedInt id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kstorageName (MappedBool id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kstorageName (MappedBytes id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+class K a where
+  kprint :: a -> String
+
+instance K StorageInt where
+  kprint (DirectInt id) = kVar id
+  kprint (MappedInt id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+
+instance K StorageBool where
+  kprint (DirectBool id) = kVar id
+  kprint (MappedBool id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+
+instance K StorageBytes where
+  kprint (DirectBytes id) = kVar id
+  kprint (MappedBytes id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> (tail a)
 
 kAbiEncode :: Maybe ReturnExp -> String
 kAbiEncode Nothing = ".ByteArray"
-kAbiEncode (Just (ExpInt a)) = "#enc(#uint256" <> kExprInt a <> ")"
-kAbiEncode (Just (ExpBool a)) = ".ByteArray"
-kAbiEncode (Just (ExpBytes a)) = ".ByteArray"
+kAbiEncode (Just (RInt a)) = "#enc(#uint256" <> kExprInt a <> ")"
+kAbiEncode (Just (RBool a)) = ".ByteArray"
+kAbiEncode (Just (RBytes a)) = ".ByteArray"
 
 
 kExpr :: ReturnExp -> String
-kExpr (ExpInt a) = kExprInt a
-kExpr (ExpBool a) = kExprBool a
+kExpr (RInt a) = kExprInt a
+kExpr (RBool a) = kExprBool a
 -- kExpr (ExpBytes a)
 
 
-kExprInt :: Exp Int -> String
+kExprInt :: ExpInt -> String
 kExprInt (Add a b) = "(" <> kExprInt a <> " +Int " <> kExprInt b <> ")"
 kExprInt (Sub a b) = "(" <> kExprInt a <> " -Int " <> kExprInt b <> ")"
 kExprInt (Mul a b) = "(" <> kExprInt a <> " *Int " <> kExprInt b <> ")"
@@ -135,11 +144,11 @@ kExprInt (Exp a b) = "(" <> kExprInt a <> " ^Int " <> kExprInt b <> ")"
 kExprInt (LitInt a) = show a
 kExprInt (IntVar a) = kVar a
 kExprInt (IntEnv a) = show a
-kExprInt (TEntry a) = kstorageName a
+kExprInt (IntEntry a) = kprint a
 kExprInt v = error ("Internal error: TODO kExprInt of " <> show v)
 
 
-kExprBool :: Exp Bool -> String
+kExprBool :: ExpBool -> String
 kExprBool (And a b) = "(" <> kExprBool a <> " andBool\n " <> kExprBool b <> ")"
 kExprBool (Or a b) = "(" <> kExprBool a <> " orBool " <> kExprBool b <> ")"
 kExprBool (Impl a b) = "(" <> kExprBool a <> " impliesBool " <> kExprBool b <> ")"
@@ -153,6 +162,7 @@ kExprBool (GE a b) = "(" <> kExprInt a <> " >Int " <> kExprInt b <> ")"
 kExprBool (GEQ a b) = "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
 kExprBool (LitBool a) = show a
 kExprBool (BoolVar a) = kVar a
+kExprBool (BoolEntry a) = kprint a
 kExprBool v = error ("Internal error: TODO kExprBool of " <> show v)
 
 fst' (x, _, _) = x
@@ -166,8 +176,8 @@ kStorageEntry storageLayout update =
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (getId update)) storageLayout)
   in case update of
-       Right (IntUpdate a b) -> (loc, (offset, kstorageName a, kExprInt b))
-       Left (IntLoc a) -> (loc, (offset, kstorageName a, kstorageName a))
+       Right (IntUpdate a b) -> (loc, (offset, kprint a, kExprInt b))
+       Left (IntLoc a) -> (loc, (offset, kprint a, kprint a))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
 --  BoolUpdate (TStorageItem Bool) c -> 
 --  BytesUpdate (TStorageItem ByteString) d ->  (Exp ByteString)

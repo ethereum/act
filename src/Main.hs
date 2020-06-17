@@ -1,14 +1,12 @@
-{-# LANGUAGE DeriveGeneric  #-}
-{-# Language DataKinds #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# Language DataKinds #-}
 {-# Language TypeOperators #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE LambdaCase #-}
+{-# Language FlexibleInstances #-}
+{-# Language DeriveAnyClass #-}
+{-# Language DeriveGeneric #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 import Data.List
 import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
@@ -274,7 +272,7 @@ checkEntry env@(ours, _, _) (Entry p id ixs) =
                   ByteStr -> (BytesLoc . MappedBytes id) <$> indexExprs
     Nothing -> Bad $ (p, "Unknown storage variable: " <> show id)
 
-checkIffs :: Env -> [IffH] -> Err [Exp Bool]
+checkIffs :: Env -> [IffH] -> Err [ExpBool]
 checkIffs env ((Iff pos exps):xs) = do
   head <- mapM (checkBool env) exps
   tail <- checkIffs env xs
@@ -285,16 +283,16 @@ checkIffs env ((IffIn pos typ exps):xs) = do
   Ok $ map (bound typ) head <> tail
 checkIffs _ [] = Ok []
 
-bound :: AbiType -> (Exp Int) -> Exp Bool
+bound :: AbiType -> ExpInt -> ExpBool
 bound typ exp = And (LEQ (lowerBound typ) exp) $ LEQ exp (upperBound typ)
 
-lowerBound :: AbiType -> Exp Int
+lowerBound :: AbiType -> ExpInt
 lowerBound (AbiIntType a) = LitInt $ 0 - 2 ^ (a - 1)
 -- todo: other negatives?
 lowerBound _ = LitInt 0
 
 --todo, the rest
-upperBound :: AbiType -> Exp Int
+upperBound :: AbiType -> ExpInt
 upperBound (AbiUIntType n) = LitInt $ 2 ^ n - 1
 upperBound (AbiIntType n) = LitInt $ 2 ^ (n - 1) - 1
 upperBound AbiAddressType  = LitInt $ 2 ^ 160 - 1
@@ -315,23 +313,23 @@ metaType _ = error "TODO"
 
 checkExpr :: Env -> Expr -> AbiType -> Err ReturnExp
 checkExpr env e typ = case metaType typ of
-  Integer -> ExpInt <$> checkInt env e
-  Boolean -> ExpBool <$> checkBool env e
-  ByteStr -> ExpBytes <$> checkBytes env e
+  Integer -> RInt <$> checkInt env e
+  Boolean -> RBool <$> checkBool env e
+  ByteStr -> RBytes <$> checkBytes env e
 
 inferExpr :: Env -> Expr -> Err ReturnExp
 inferExpr env@(ours, theirs,thisContext) exp =
                     let intintint op v1 v2 = do w1 <- checkInt env v1
                                                 w2 <- checkInt env v2
-                                                Ok $ ExpInt $ op w1 w2
+                                                Ok $ RInt $ op w1 w2
                         boolintint op v1 v2 = do w1 <- checkInt env v1
                                                  w2 <- checkInt env v2
-                                                 Ok $ ExpBool $ op w1 w2
+                                                 Ok $ RBool $ op w1 w2
                         boolboolbool op v1 v2 = do w1 <- checkBool env v1
                                                    w2 <- checkBool env v2
-                                                   Ok $ ExpBool $ op w1 w2
+                                                   Ok $ RBool $ op w1 w2
                     in case exp of
-    ENot _  v1     -> ExpBool . Neg <$> checkBool env v1
+    ENot _  v1     -> RBool . Neg <$> checkBool env v1
     EAnd _  v1 v2 -> boolboolbool And  v1 v2
     EOr _   v1 v2 -> boolboolbool Or   v1 v2
     EImpl _ v1 v2 -> boolboolbool Impl v1 v2
@@ -340,43 +338,43 @@ inferExpr env@(ours, theirs,thisContext) exp =
     ELT _   v1 v2 -> boolintint  LE   v1 v2
     ELEQ _  v1 v2 -> boolintint  LEQ  v1 v2
     EGT _   v1 v2 -> boolintint  GE   v1 v2
-    ETrue _ ->  Ok . ExpBool $ LitBool True
-    EFalse _ -> Ok . ExpBool $ LitBool False
+    ETrue _ ->  Ok . RBool $ LitBool True
+    EFalse _ -> Ok . RBool $ LitBool False
     -- TODO: make ITE polymorphic
     EITE _ v1 v2 v3 -> do w1 <- checkBool env v1
                           w2 <- checkInt env v2
                           w3 <- checkInt env v3
-                          Ok . ExpInt $ ITE w1 w2 w3
+                          Ok . RInt $ ITE w1 w2 w3
     EAdd _ v1 v2 -> intintint Add v1 v2
     ESub _ v1 v2 -> intintint Sub v1 v2
     EMul _ v1 v2 -> intintint Mul v1 v2
     EDiv _ v1 v2 -> intintint Div v1 v2
     EMod _ v1 v2 -> intintint Mod v1 v2
     EExp _ v1 v2 -> intintint Exp v1 v2
-    IntLit n -> Ok $ ExpInt $ LitInt n
-    BoolLit n -> Ok $ ExpBool $ LitBool n
+    IntLit n -> Ok $ RInt $ LitInt n
+    BoolLit n -> Ok $ RBool $ LitBool n
     EntryExp p id e -> case (Map.lookup id ours, Map.lookup id thisContext) of
         (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> show id)
         (Nothing, Just c) -> case c of
-            Integer -> Ok . ExpInt $ IntVar id
-            Boolean -> Ok . ExpBool $ BoolVar id
-            ByteStr -> Ok . ExpBytes $ ByVar id
+            Integer -> Ok . RInt $ IntVar id
+            Boolean -> Ok . RBool $ BoolVar id
+            ByteStr -> Ok . RBytes $ ByVar id
         (Just (StorageValue a), Nothing) ->
           case metaType a of
-             Integer -> Ok . ExpInt $ TEntry (DirectInt id)
-             Boolean -> Ok . ExpBool $ TEntry (DirectBool id)
-             ByteStr -> Ok . ExpBytes $ TEntry (DirectBytes id)
+             Integer -> Ok . RInt $ IntEntry (DirectInt id)
+             Boolean -> Ok . RBool $ BoolEntry (DirectBool id)
+             ByteStr -> Ok . RBytes $ BytesEntry (DirectBytes id)
         (Just (StorageMapping ts a), Nothing) ->
            let indexExprs = forM (NonEmpty.zip (head e :| tail e) ts)
                                      (uncurry (checkExpr env))
            in case metaType a of
-             Integer -> ExpInt . TEntry . (MappedInt id) <$> indexExprs
-             Boolean -> ExpBool . TEntry . (MappedBool id) <$> indexExprs
-             ByteStr -> ExpBytes . TEntry . (MappedBytes id) <$> indexExprs
+             Integer -> RInt . IntEntry . (MappedInt id) <$> indexExprs
+             Boolean -> RBool . BoolEntry . (MappedBool id) <$> indexExprs
+             ByteStr -> RBytes . BytesEntry . (MappedBytes id) <$> indexExprs
         (Just _, Just _) -> Bad (p, "Ambiguous variable: " <> show id)
     EnvExp p v1 -> case lookup v1 defaultStore of
-      Just Integer -> Ok . ExpInt $ IntEnv v1
-      Just ByteStr -> Ok . ExpBytes $ ByEnv v1
+      Just Integer -> Ok . RInt $ IntEnv v1
+      Just ByteStr -> Ok . RBytes $ ByEnv v1
       _            -> Bad (p, "unknown environment variable: " <> show v1)
     -- Var p v -> case Map.lookup v thisContext of
     --   Just Integer -> Ok $ IntVar v
@@ -395,27 +393,27 @@ inferExpr env@(ours, theirs,thisContext) exp =
     -- BYAbiE Expr
     -- StringLit String
 
-checkBool :: Env -> Expr -> Err (Exp Bool)
+checkBool :: Env -> Expr -> Err ExpBool
 checkBool env exp =
   case inferExpr env exp of
-    Ok (ExpInt _) -> Bad (nowhere, "expected: bool, got: int")
-    Ok (ExpBytes _) -> Bad (nowhere, "expected: bool, got: bytes")
-    Ok (ExpBool a) -> Ok a 
+    Ok (RInt _) -> Bad (nowhere, "expected: bool, got: int")
+    Ok (RBytes _) -> Bad (nowhere, "expected: bool, got: bytes")
+    Ok (RBool a) -> Ok a 
     Bad e -> Bad e
 
 
-checkBytes :: Env -> Expr -> Err (Exp ByteString)
+checkBytes :: Env -> Expr -> Err ExpBytes
 checkBytes env exp =
   case inferExpr env exp of
-    Ok (ExpInt _) -> Bad (nowhere, "expected: bytes, got: int")
-    Ok (ExpBytes a) -> Ok a
-    Ok (ExpBool _) -> Bad (nowhere, "expected: bytes, got: bool")
+    Ok (RInt _) -> Bad (nowhere, "expected: bytes, got: int")
+    Ok (RBytes a) -> Ok a
+    Ok (RBool _) -> Bad (nowhere, "expected: bytes, got: bool")
     Bad e -> Bad e
 
-checkInt :: Env -> Expr -> Err (Exp Int)
+checkInt :: Env -> Expr -> Err ExpInt
 checkInt env exp =
   case inferExpr env exp of
-    Ok (ExpInt a) -> Ok a
-    Ok (ExpBytes _) -> Bad (nowhere, "expected: int, got: bytes")
-    Ok (ExpBool _) -> Bad (nowhere, "expected: int, got: bool")
+    Ok (RInt a) -> Ok a
+    Ok (RBytes _) -> Bad (nowhere, "expected: int, got: bytes")
+    Ok (RBool _) -> Bad (nowhere, "expected: int, got: bool")
     Bad e -> Bad e
