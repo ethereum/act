@@ -6,13 +6,17 @@
 
 {
 
-module Parse where
+module Parse
+  ( parse
+  ) where
+
 import Prelude hiding (EQ, GT, LT)
 import Lex
 import EVM.ABI
-import EVM.Solidity (SlotType(..))
-import qualified Data.List.NonEmpty as NonEmpty
 import Syntax
+import Data.Functor.Foldable
+import Data.Functor.Product
+import Data.Functor.Const
 
 }
 
@@ -27,7 +31,7 @@ import Syntax
 
   -- reserved words
   'behaviour'                 { L BEHAVIOUR _ }
-  'constructor'               { L CONSTRUCTOR _ }
+  'creator'                   { L CREATOR _ }
   'of'                        { L OF _ }
   'interface'                 { L INTERFACE _ }
   'creates'                   { L CREATES _ }
@@ -37,7 +41,6 @@ import Syntax
   'noop'                      { L NOOP _ }
   'iff in range'              { L IFFINRANGE _ }
   'iff'                       { L IFF _ }
-  'fi'                        { L FI _ }
   'and'                       { L AND _ }
   'or'                        { L OR _ }
   'not'                       { L NOT _ }
@@ -105,9 +108,9 @@ import Syntax
   '.'                         { L DOT _ }
   ','                         { L COMMA _ }
 
-  id                          { L (ID $$) _ }
+  id                          { L (ID _) _ }
 
-  ilit                        { L (ILIT $$) _ }
+  ilit                        { L (ILIT _) _ }
 
 
 {- --- associativity and precedence ---
@@ -137,7 +140,8 @@ import Syntax
 
 %%
 
-Act : RawConstructor list(RawBehaviour)                     { Act $1 $2 }
+-- Act : RawConstructor list(RawBehaviour)                     { Act $1 $2 }
+Act : Expr                  { Act $1 }
 
 -- parameterized productions --
 
@@ -154,18 +158,20 @@ opt(x) : x                                              { Just $1 }
        | {- empty -}                                    { Nothing }
 
 
+{-
+
 -- rules --
 
-RawConstructor : 'constructor' id 'of' id Interface Creates
-                                    { RawConstructor $2 $4 $5 $6 }
+RawConstructor : 'creator' id 'of' id Interface Creates
+                            { RawConstructor (gid $2) (gid $4) $5 $6 }
 
 RawBehaviour : 'behaviour' id 'of' id
                Interface
                opt(Precondition)
-               list(Case)           { RawBehaviour $2 $4 $5 $6 $7 }
+               list(Case)   { RawBehaviour (gid $2) (gid $4) $5 $6 $7 }
 
 Interface : 'interface' id '(' seplist(Decl, ',') ')'
-                                            { Interface $2 $4 }
+                                            { Interface (gid $2) $4 }
 
 Creates : 'creates' list(Creation)          { $2 }
 
@@ -181,12 +187,12 @@ Claim : 'storage' list(Store)               { StorageClaim $2 }
 
 Store : Ref '=>' Expr                       { Store $1 $3 }
       
-Ref : id                                    { Ref $1 }
-    | id '[' Expr ']'                       { Zoom $1 $3 }
+Ref : id                                    { Ref (gid $1) }
+    | id '[' Expr ']'                       { Zoom (gid $1) $3 }
 
-Defn : Type id ':=' Expr                    { Defn $1 $2 $4 }
+Defn : Type id ':=' Expr                    { Defn $1 (gid $2) $4 }
 
-Decl : Type id                              { Decl $1 $2 }
+Decl : Type id                              { Decl $1 (gid $2) }
 
 -- we don't distinguish between kinds here
 -- that's the job of the typechecker
@@ -207,38 +213,42 @@ Type : uint
      -- missing arrays
      | 'mapping' '(' Type '=>' Type ')'     { Mapping $3 $5 }
 
+-}
+
 Expr:
 
-    '(' Expr ')'                            { $2 }
+    '(' Expr ')'                        { $2 }
 
   -- booleans
-  | 'true'                                  { EBoolLit True }
-  | 'false'                                 { EBoolLit False }
-  | Expr 'and' Expr                         { EAnd $1 $3 }
-  | Expr 'or' Expr                          { EOr $1 $3 }
-  | 'not' Expr                              { ENot $2 }
-  | Expr '==' Expr                          { EEq $1 $3 }
-  | Expr '=/=' Expr                         { ENeq $1 $3 }
-  | Expr '<=' Expr                          { ELE $1 $3 } 
-  | Expr '<' Expr                           { ELT $1 $3 }
-  | Expr '>=' Expr                          { EGE $1 $3 }
-  | Expr '>' Expr                           { EGT $1 $3 }
+  | 'true'                      { EBoolLit True *** lp $1 }
+  | 'false'                     { EBoolLit False *** lp $1 }
+  | Expr 'and' Expr             { EAnd $1 $3 *** ep $1 }
+  | Expr 'or' Expr              { EOr $1 $3 *** ep $1 }
+  | 'not' Expr                  { ENot $2 *** lp $1 }
+  | Expr '==' Expr              { EEq $1 $3 *** ep $1 }
+  | Expr '=/=' Expr             { ENeq $1 $3 *** ep $1 }
+  | Expr '<=' Expr              { ELE $1 $3 *** ep $1 } 
+  | Expr '<' Expr               { ELT $1 $3 *** ep $1 }
+  | Expr '>=' Expr              { EGE $1 $3 *** ep $1 }
+  | Expr '>' Expr               { EGT $1 $3 *** ep $1 }
 
   -- numbers
-  | ilit                                    { EIntLit $1 }
-  | Expr '+' Expr                           { EAdd $1 $3 }
-  | Expr '-' Expr                           { ESub $1 $3 }
-  | Expr '*' Expr                           { EMul $1 $3 }
-  | Expr '/' Expr                           { EDiv $1 $3 }
-  | Expr '%' Expr                           { EMod $1 $3 }
-  | Expr '^' Expr                           { EExp $1 $3 }
+  | ilit    { case $1 of (L (ILIT i) _) -> EIntLit i *** lp $1 }
+  | Expr '+' Expr               { EAdd $1 $3 *** ep $1 }
+  | Expr '-' Expr               { ESub $1 $3 *** ep $1 }
+  | Expr '*' Expr               { EMul $1 $3 *** ep $1 }
+  | Expr '/' Expr               { EDiv $1 $3 *** ep $1 }
+  | Expr '%' Expr               { EMod $1 $3 *** ep $1 }
+  | Expr '^' Expr               { EExp $1 $3 *** ep $1 }
 
+{-
   -- other
   -- if it were up to me, i'd enforce explicit dereferencing in the style of ML
   -- https://www.cs.cmu.edu/~rwh/introsml/core/refs.htm
-  | Ref                                     { ERead $1 }
-  | EthEnv                                  { EEnv $1 }
-  | 'if' Expr 'then' Expr 'else' Expr 'fi'  { EITE $2 $4 $6 }
+  -- | Ref                                     { mk (ERead $1) $1 }
+  -- | EthEnv                                  { mk (EEnv $1) $1 }
+  | 'if' Expr 'then' Expr 'else' Expr       { EITE $2 $4 $6 *** lp $1 }
+  | '_'                                     { EScore *** lp $1 }
 
 EthEnv : 
     'CALLER'                                { EnvCaller }
@@ -255,9 +265,25 @@ EthEnv :
   | 'THIS'                                  { EnvAddress }
   | 'NONCE'                                 { EnvNonce }
 
+-}
+
 {
 
 nowhere = AlexPn 0 0 0
+
+-- get lexeme position
+lp (L _ p) = p
+
+-- get expr position
+ep (Fix (Pair _ p)) = getConst p
+
+-- ??
+-- xe (E e _) = e
+
+(***) :: ExpF AnnExp -> AlexPosn -> AnnExp
+e *** p = (Fix $ Pair e (Const p)) :: AnnExp
+
+gid (L (ID s) _) = s
 
 validsize :: Int -> Bool
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
