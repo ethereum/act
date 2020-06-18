@@ -1,3 +1,5 @@
+src/Parse.hs
+src/Lex.hs
 bin
 *.hi
 *.o
