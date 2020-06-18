@@ -1,6 +1,12 @@
 {
 
-module Lex (LEX (..), Lexeme (..), AlexPosn (..), lexer) where
+module Lex
+  ( Lex (..)
+  , Lexeme (..)
+  , AlexPosn (..)
+  , lexer
+  ) where
+
 import Prelude hiding (EQ, GT, LT)
 
 }
@@ -19,7 +25,7 @@ tokens :-
   -- reserved words
   behaviour                             { mk BEHAVIOUR }
   behavior                              { mk BEHAVIOUR }
-  constructor                           { mk CONSTRUCTOR }
+  creator                               { mk CREATOR }
   of                                    { mk OF }
   interface                             { mk INTERFACE }
   creates                               { mk CREATES }
@@ -30,7 +36,6 @@ tokens :-
   
   iff $white+ in $white+ range          { mk IFFINRANGE }
   iff                                   { mk IFF }
-  fi                                    { mk FI }
   and                                   { mk AND }
   or                                    { mk OR }
   not                                   { mk NOT }
@@ -109,14 +114,14 @@ tokens :-
 
 {
 
-data LEX =
+data Lex =
 
     BREAK
   | EOF
 
   -- reserved words
   | BEHAVIOUR
-  | CONSTRUCTOR
+  | CREATOR
   | OF       
   | INTERFACE
   | CREATES
@@ -201,11 +206,11 @@ data LEX =
 
   deriving (Eq, Show)
 
-data Lexeme = L LEX AlexPosn
+data Lexeme = L Lex AlexPosn
   deriving (Eq, Show)
 
 -- helper function to reduce boilerplate
-mk :: LEX -> (AlexPosn -> String -> Lexeme)
+mk :: Lex -> (AlexPosn -> String -> Lexeme)
 mk lexeme p _ = L lexeme p
 
 lexer :: String -> [Lexeme]

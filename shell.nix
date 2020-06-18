@@ -16,5 +16,22 @@ let  dapptools = builtins.fetchGit {
   });
 in
 nixpkgs.mkShell {
-  buildInputs = [ (h.ghcWithPackages (p: [p.hevm p.sbv_8_4 p.aeson p.alex p.array p.base p.bytestring p.containers p.happy p.optparse-generic p.text p.vector])) ];
+  buildInputs = [
+    (h.ghcWithPackages (p: with p; [ 
+      hevm
+      sbv_8_4
+      aeson
+      alex
+      array
+      base
+      bytestring
+      containers
+      happy
+      optparse-generic
+      text
+      vector
+      recursion-schemes
+      deriving-compat
+    ]))
+  ];
 }

@@ -2,16 +2,20 @@
 
   this is a happy grammar :)
 
+  14 shift/reduce conflicts in a single state are expected, due
+  to the ambiguity of if/then/else expressions.
+
  -}
 
 {
 
-module Parse where
+module Parse (parse) where
+
 import Prelude hiding (EQ, GT, LT)
+import Data.Functor.Foldable
+import Data.Functor.Product
+import Data.Functor.Const
 import Lex
-import EVM.ABI
-import EVM.Solidity (SlotType(..))
-import qualified Data.List.NonEmpty as NonEmpty
 import Syntax
 
 }
@@ -27,7 +31,7 @@ import Syntax
 
   -- reserved words
   'behaviour'                 { L BEHAVIOUR _ }
-  'constructor'               { L CONSTRUCTOR _ }
+  'creator'                   { L CREATOR _ }
   'of'                        { L OF _ }
   'interface'                 { L INTERFACE _ }
   'creates'                   { L CREATES _ }
@@ -37,7 +41,6 @@ import Syntax
   'noop'                      { L NOOP _ }
   'iff in range'              { L IFFINRANGE _ }
   'iff'                       { L IFF _ }
-  'fi'                        { L FI _ }
   'and'                       { L AND _ }
   'or'                        { L OR _ }
   'not'                       { L NOT _ }
@@ -52,8 +55,8 @@ import Syntax
   'at'                        { L AT _ }
 
   -- builtin types
-  uint                        { L (UINT $$) _ }
-  int                         { L (INT $$) _ }
+  uint                        { L (UINT _) _ }
+  int                         { L (INT _) _ }
   'bytes'                     { L (BYTES $$) _ }
   'address'                   { L ADDRESS _ }
   'bool'                      { L BOOL _ }
@@ -105,9 +108,9 @@ import Syntax
   '.'                         { L DOT _ }
   ','                         { L COMMA _ }
 
-  id                          { L (ID $$) _ }
+  id                          { L (ID _) _ }
 
-  ilit                        { L (ILIT $$) _ }
+  ilit                        { L (ILIT _) _ }
 
 
 {- --- associativity and precedence ---
@@ -137,129 +140,134 @@ import Syntax
 
 %%
 
-Act : RawConstructor list(RawBehaviour)                     { Act $1 $2 }
+Act : RawConstructor list(RawBehaviour)             { Act $1 $2 }
 
 -- parameterized productions --
 
-pair(a, b) : a b                                        { ($1, $2) }
+pair(a, b) : a b                                    { ($1, $2) }
 
-list(x) : {- empty -}                                   { []      }
-        | list(x) x                                     { $2 : $1 }
+list(x) : {- empty -}                               { []      }
+        | list(x) x                                 { $2 : $1 }
 
-seplist(x, sep) : {- empty -}                           { []      }
-                | x                                     { [$1]    }
-                | seplist(x, sep) sep x                 { $3 : $1 }
+seplist(x, sep) : {- empty -}                       { []      }
+                | x                                 { [$1]    }
+                | seplist(x, sep) sep x             { $3 : $1 }
 
-opt(x) : x                                              { Just $1 }
-       | {- empty -}                                    { Nothing }
+opt(x) : x                                          { Just $1 }
+       | {- empty -}                                { Nothing }
+
 
 
 -- rules --
 
-RawConstructor : 'constructor' id 'of' id Interface Creates
-                                    { RawConstructor $2 $4 $5 $6 }
+RawConstructor : 'creator' 'of' id Interface Creates
+  { RawConstructor (getid $3) $4 $5 Nothing    @@  lpos $1 }
+               | 'creator' 'of' id Interface Creates Claim
+  { RawConstructor (getid $3) $4 $5 (Just $6)  @@  lpos $1 }
 
 RawBehaviour : 'behaviour' id 'of' id
                Interface
                opt(Precondition)
-               list(Case)           { RawBehaviour $2 $4 $5 $6 $7 }
+               list(Case)
+  { RawBehaviour (getid $2) (getid $4) $5 $6 $7  @@  lpos $1 }
 
 Interface : 'interface' id '(' seplist(Decl, ',') ')'
-                                            { Interface $2 $4 }
+  { Interface (getid $2) $4  @@  lpos $1 }
 
-Creates : 'creates' list(Creation)          { $2 }
+Creates : 'creates' list(Creation)      { $2 }
 
-Creation : Defn                             { CDefn $1 }
-         | Decl                             { CDecl $1 }
+Creation : Defn                         { CDefn $1  @@  snd $1 }
+         | Decl                         { CDecl $1  @@  snd $1 }
 
-Precondition : 'iff' list(Expr)             { $2 }
+Precondition : 'iff' list(Expr)         { $2 }
 
-Case : 'case' Expr ':' list(Claim)          { Case $2 $4 }
+Case : 'case' Expr ':' list(Claim)      { Case $2 $4  @@  lpos $1 }
 
-Claim : 'storage' list(Store)               { StorageClaim $2 }
-      | 'returns' Expr                      { ReturnClaim $2 }
+Claim : 'storage' list(Store)           { StorageClaim $2  @@  lpos $1 }
+      | 'returns' Expr                  { ReturnClaim $2   @@  lpos $1 }
 
-Store : Ref '=>' Expr                       { Store $1 $3 }
+Store : Expr '=>' Expr                  { Store $1 $3  @@  npos $1 }
       
-Ref : id                                    { Ref $1 }
-    | id '[' Expr ']'                       { Zoom $1 $3 }
+Defn : Type id ':=' Expr                { Defn $1 (getid $2) $4 @@ npos $1 }
 
-Defn : Type id ':=' Expr                    { Defn $1 $2 $4 }
+Decl : Type id                          { Decl $1 (getid $2)  @@  npos $1 }
 
-Decl : Type id                              { Decl $1 $2 }
-
--- we don't distinguish between kinds here
--- that's the job of the typechecker
-Type : uint
-       { case validsize $1 of
-              True  -> AbiType (AbiUIntType $1) 
+-- we welcome all kinds here
+-- prejudice is the job of the typechecker
+Type : uint {
+         case validsize (uintSize $1) of
+              True  -> TUInt (uintSize $1)  @@@  lpos $1
               False -> error "invalid uint size"
        }
-     | int
-       { case validsize $1 of
-              True  -> AbiType (AbiIntType $1)
+     | int {
+         case validsize (intSize $1) of
+              True  -> TInt (intSize $1)  @@@  lpos $1
               False -> error "invalid int size"
        }
-     | 'address'                            { AbiType AbiAddressType }
-     | 'bool'                               { AbiType AbiBoolType }
-     | 'string'                             { AbiType AbiStringType }
-     -- missing bytes
-     -- missing arrays
-     | 'mapping' '(' Type '=>' Type ')'     { Mapping $3 $5 }
+     | 'address'                        { TAddress        @@@  lpos $1 }
+     | 'bool'                           { TBool           @@@  lpos $1 }
+     | 'mapping' '(' Type '=>' Type ')' { TMapping $3 $5  @@@  lpos $1 }
+
+Ref : id                        { Ref (getid $1)      @@  lpos $1 }
+    | id '[' Expr ']'           { Zoom (getid $1) $3  @@  lpos $1 }
 
 Expr:
 
-    '(' Expr ')'                            { $2 }
+    '(' Expr ')'                { $2 }
 
   -- booleans
-  | 'true'                                  { EBoolLit True }
-  | 'false'                                 { EBoolLit False }
-  | Expr 'and' Expr                         { EAnd $1 $3 }
-  | Expr 'or' Expr                          { EOr $1 $3 }
-  | 'not' Expr                              { ENot $2 }
-  | Expr '==' Expr                          { EEq $1 $3 }
-  | Expr '=/=' Expr                         { ENeq $1 $3 }
-  | Expr '<=' Expr                          { ELE $1 $3 } 
-  | Expr '<' Expr                           { ELT $1 $3 }
-  | Expr '>=' Expr                          { EGE $1 $3 }
-  | Expr '>' Expr                           { EGT $1 $3 }
+  | 'true'                      { EBoolLit True   @@@  lpos $1 }
+  | 'false'                     { EBoolLit False  @@@  lpos $1 }
+  | Expr 'and' Expr             { EAnd $1 $3      @@@  npos $1 }
+  | Expr 'or' Expr              { EOr $1 $3       @@@  npos $1 }
+  | 'not' Expr                  { ENot $2         @@@  lpos $1 }
+  | Expr '==' Expr              { EEq $1 $3       @@@  npos $1 }
+  | Expr '=/=' Expr             { ENeq $1 $3      @@@  npos $1 }
+  | Expr '<=' Expr              { ELE $1 $3       @@@  npos $1 } 
+  | Expr '<' Expr               { ELT $1 $3       @@@  npos $1 }
+  | Expr '>=' Expr              { EGE $1 $3       @@@  npos $1 }
+  | Expr '>' Expr               { EGT $1 $3       @@@  npos $1 }
 
   -- numbers
-  | ilit                                    { EIntLit $1 }
-  | Expr '+' Expr                           { EAdd $1 $3 }
-  | Expr '-' Expr                           { ESub $1 $3 }
-  | Expr '*' Expr                           { EMul $1 $3 }
-  | Expr '/' Expr                           { EDiv $1 $3 }
-  | Expr '%' Expr                           { EMod $1 $3 }
-  | Expr '^' Expr                           { EExp $1 $3 }
+  | ilit
+    { case $1 of (L (ILIT i) _) -> EIntLit i  @@@  lpos $1 }
+  | Expr '+' Expr               { EAdd $1 $3  @@@  npos $1 }
+  | Expr '-' Expr               { ESub $1 $3  @@@  npos $1 }
+  | Expr '*' Expr               { EMul $1 $3  @@@  npos $1 }
+  | Expr '/' Expr               { EDiv $1 $3  @@@  npos $1 }
+  | Expr '%' Expr               { EMod $1 $3  @@@  npos $1 }
+  | Expr '^' Expr               { EExp $1 $3  @@@  npos $1 }
 
   -- other
-  -- if it were up to me, i'd enforce explicit dereferencing in the style of ML
-  -- https://www.cs.cmu.edu/~rwh/introsml/core/refs.htm
-  | Ref                                     { ERead $1 }
-  | EthEnv                                  { EEnv $1 }
-  | 'if' Expr 'then' Expr 'else' Expr 'fi'  { EITE $2 $4 $6 }
+  | Ref                                 { ERead (fst $1)  @@@  snd $1  }
+  | EthEnv                              { EEnv (fst $1)   @@@  snd $1  }
+  | 'if' Expr 'then' Expr 'else' Expr   { EITE $2 $4 $6   @@@  lpos $1 }
+  | '_'                                 { EScore          @@@  lpos $1 }
 
 EthEnv : 
-    'CALLER'                                { EnvCaller }
-  | 'CALLVALUE'                             { EnvCallValue }
-  | 'CALLDEPTH'                             { EnvCallDepth }
-  | 'ORIGIN'                                { EnvOrigin }
-  | 'BLOCKHASH'                             { EnvBlockHash }
-  | 'BLOCKNUMBER'                           { EnvBlockNumber }
-  | 'DIFFICULTY'                            { EnvDifficulty }
-  | 'CHAINID'                               { EnvChainID }
-  | 'GASLIMIT'                              { EnvGasLimit }
-  | 'COINBASE'                              { EnvCoinbase }
-  | 'TIMESTAMP'                             { EnvTimestamp }
-  | 'THIS'                                  { EnvAddress }
-  | 'NONCE'                                 { EnvNonce }
-
+    'CALLER'                    { EnvCaller      @@  lpos $1 }
+  | 'CALLVALUE'                 { EnvCallValue   @@  lpos $1 }
+  | 'CALLDEPTH'                 { EnvCallDepth   @@  lpos $1 }
+  | 'ORIGIN'                    { EnvOrigin      @@  lpos $1 }
+  | 'BLOCKHASH'                 { EnvBlockHash   @@  lpos $1 }
+  | 'BLOCKNUMBER'               { EnvBlockNumber @@  lpos $1 }
+  | 'DIFFICULTY'                { EnvDifficulty  @@  lpos $1 }
+  | 'CHAINID'                   { EnvChainID     @@  lpos $1 }
+  | 'GASLIMIT'                  { EnvGasLimit    @@  lpos $1 }
+  | 'COINBASE'                  { EnvCoinbase    @@  lpos $1 }
+  | 'TIMESTAMP'                 { EnvTimestamp   @@  lpos $1 }
+  | 'THIS'                      { EnvAddress     @@  lpos $1 }
+  | 'NONCE'                     { EnvNonce       @@  lpos $1 }
 {
 
-nowhere = AlexPn 0 0 0
-
-validsize :: Int -> Bool
+-- utility functions
+getid (L (ID s) _) = s
+uintSize (L (UINT size) _) = size
+intSize (L (INT size) _) = size
+lpos (L _ p) = p                    -- get lexeme position
+npos (Fix (Pair _ c)) = getConst c  -- get node position
+e @@@ p = Fix $ Pair e (Const p)
+(@@) = (,)
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
 parseError :: [Lexeme] -> Either String a

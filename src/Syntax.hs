@@ -2,113 +2,123 @@
  -
  - This file contains the data types for the parsed syntax. Each
  - construct is annotated with an example. The types here should
- - mirror the structure in the happy grammar directly.
+ - mirror the structure in the happy grammar almost directly.
  -
  - TODO:
- - + implement remaining expressions
+ - + implement remaining expressions and types
  - + external storage
  -
  -}
 
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE GADTs     #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Syntax where
 
+import Data.Functor.Foldable
+import Data.Functor.Product
+import Data.Functor.Const
+import Data.Functor.Classes
+import Text.Show.Deriving
 import Data.List (intercalate)
-import EVM.ABI (AbiType)
-import EVM.Solidity (SlotType)
--- import Data.Bitraversable
+import Lex
 
 
 type Id = String
+type Pn = AlexPosn
+type Annotated t = (t, Pn)
 
--- can't override show instance for AlexPosn
--- so seems reasonable to use our own
-data Pn = Pn Int Int
+data Act = Act
+  (Annotated RawConstructor)
+  [Annotated RawBehaviour]
 
-data Act = Act RawConstructor [RawBehaviour]
-  deriving (Eq, Show)
-
+-- missing return
 data RawConstructor = RawConstructor
-  Id -- name
   Id -- contract
-  Interface
-  [Creation] -- creates
-  -- missing return
-  deriving (Eq, Show)
+  (Annotated Interface)
+  [Annotated Creation] -- creates
+  (Maybe (Annotated Claim))
 
 data RawBehaviour = RawBehaviour
   Id -- name
   Id -- contract
-  Interface
+  (Annotated Interface)
   (Maybe [Expr]) -- preconditions
-  [Case] -- cases
-  deriving (Eq, Show)
+  [Annotated Case] -- cases
 
--- `uint a := 1`
--- `mapping(address => uint)`
+-- `interface transfer(uint256 value, address to)`
+data Interface = Interface Id [Annotated Decl]
+
 data Creation
-  = CDefn Defn
-  | CDecl Decl
-  deriving (Eq, Show)
+  = CDefn (Annotated Defn)       -- `uint a := 1`
+  | CDecl (Annotated Decl)       -- `mapping(address => uint) m`
 
-data Interface = Interface Id [Decl]
-  deriving (Eq)
-
-data Case = Case Expr [Claim]
-  deriving (Eq, Show)
+data Case = Case Expr [Annotated Claim]
 
 data Claim
-  = StorageClaim [Store]
+  = StorageClaim [Annotated Store]
   | ReturnClaim Expr
-  deriving (Eq, Show)
 
-data Store = Store Ref Expr
-  deriving (Eq, Show)
-
-data Ref
-  = Ref Id
-  | Zoom Id Expr
-  deriving (Eq, Show)
+-- typechecker should ensure that only storage references appear
+-- on the LHS
+data Store = Store Expr Expr
 
 data Decl = Decl Type Id
-  deriving (Eq)
 
 data Defn = Defn Type Id Expr
-  deriving (Eq, Show)
 
-data Type
-  = AbiType AbiType
-  | Mapping Type Type
-  deriving (Eq, Show)
+-- typechecker should output HEVM types
+data TypeF t
+  = TUInt Int
+  | TInt Int
+  | TBool
+  | TAddress
+  | TMapping t t
 
-data Expr
+type Type = Fix (Product TypeF (Const Pn))
+
+data ExpF e
 
   -- booleans
   = EBoolLit Bool       -- `true`
-  | EAnd Expr Expr      -- `a and b`
-  | EOr Expr Expr       -- `a or b`
-  | ENot Expr           -- `not a`
-  | EEq Expr Expr       -- `a == b`
-  | ENeq Expr Expr      -- `a =/= b`
-  | ELE Expr Expr       -- `a <= b`
-  | ELT Expr Expr       -- `a < b`
-  | EGE Expr Expr       -- `a >= b`
-  | EGT Expr Expr       -- `a > b`
+  | EAnd e e            -- `a and b`
+  | EOr e e             -- `a or b`
+  | ENot e              -- `not a`
+  | EEq e e             -- `a == b`
+  | ENeq e e            -- `a =/= b`
+  | ELE e e             -- `a <= b`
+  | ELT e e             -- `a < b`
+  | EGE e e             -- `a >= b`
+  | EGT e e             -- `a > b`
 
   -- numbers
   | EIntLit Integer     -- `666`
-  | EAdd Expr Expr      -- `a + b`
-  | ESub Expr Expr      -- `a - b`
-  | EMul Expr Expr      -- `a * b`
-  | EDiv Expr Expr      -- `a / b`
-  | EMod Expr Expr      -- `a % b`
-  | EExp Expr Expr      -- `a ^ b`
+  | EAdd e e            -- `a + b`
+  | ESub e e            -- `a - b`
+  | EMul e e            -- `a * b`
+  | EDiv e e            -- `a / b`
+  | EMod e e            -- `a % b`
+  | EExp e e            -- `a ^ b`
 
   -- other
-  | ERead Ref           -- `a`
+  | ERead (Ref e)       -- `a`
   | EEnv EthEnv         -- `CALLVALUE`
-  | EITE Expr Expr Expr -- `if a then b else c`
+  | EITE e e e          -- `if a then b else c`
+  | EScore              -- `_`
 
-  deriving (Eq, Show)
+  deriving (Functor)
+
+-- position annotation
+type Expr = Fix (Product ExpF (Const Pn))
+
+data Ref e
+  = Ref Id
+  | Zoom Id e
+  deriving (Functor)
 
 data EthEnv
   = EnvCaller
@@ -124,12 +134,19 @@ data EthEnv
   | EnvTimestamp
   | EnvAddress
   | EnvNonce
-  deriving (Show, Eq)
 
-
-instance Show Interface where
-  show (Interface a d) = a <> "(" <> intercalate ", " (fmap show d) <> ")"
-
-instance Show Decl where
-  show (Decl t a) = show t <> " " <> a
-
+-- would much rather do this without TH if possible
+deriving instance Show EthEnv
+$(deriveShow1 ''Ref)
+$(deriveShow1 ''ExpF)
+$(deriveShow1 ''TypeF)
+deriving instance Show Act
+deriving instance Show RawConstructor
+deriving instance Show RawBehaviour
+deriving instance Show Interface
+deriving instance Show Creation
+deriving instance Show Case
+deriving instance Show Claim
+deriving instance Show Store
+deriving instance Show Decl
+deriving instance Show Defn
