@@ -40,7 +40,7 @@ import ErrM
 import Lex (lexer, AlexPosn(..))
 import Parse
 import Options.Generic
-import RefinedAst
+import RefinedSyntax
 
 --command line options
 data Command w

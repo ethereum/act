@@ -8,7 +8,7 @@
 -- {-# LANGUAGE RecordWildCards #-}
 -- {-# Language DeriveAnyClass #-}
 
-module RefinedAst where
+module RefinedSyntax where
 
 -- import Data.Text          (Text, pack, unpack)
 -- import GHC.Generics

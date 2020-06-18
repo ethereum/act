@@ -6,7 +6,7 @@
 module Splitter where
 
 import Syntax
-import RefinedAst
+import RefinedSyntax
 import ErrM
 import Data.Text (Text, pack, unpack)
 import Data.List
