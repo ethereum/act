@@ -47,7 +47,7 @@ data RawBehaviour = RawBehaviour
   Id -- name
   Id -- contract
   (Annotated Interface)
-  (Maybe [Expr]) -- preconditions
+  (Maybe [AnnExpr]) -- preconditions
   [Annotated Case] -- cases
 
 -- `interface transfer(uint256 value, address to)`
@@ -57,45 +57,49 @@ data Creation
   = CDefn (Annotated Defn)       -- `uint a := 1`
   | CDecl (Annotated Decl)       -- `mapping(address => uint) m`
 
-data Case = Case Expr [Annotated Claim]
+data Case = Case AnnExpr [Annotated Claim]
 
 data Claim
   = StorageClaim [Annotated Store]
-  | ReturnClaim Expr
+  | ReturnClaim AnnExpr
 
 -- typechecker should ensure that only storage references appear
 -- on the LHS
-data Store = Store Expr Expr
+data Store = Store AnnExpr AnnExpr
 
-data Decl = Decl Type Id
+data Decl = Decl AnnType Id
 
-data Defn = Defn Type Id Expr
+data Defn = Defn AnnType Id AnnExpr
 
--- typechecker should output HEVM types
 data TypeF t
   = TUInt Int
   | TInt Int
   | TBool
   | TAddress
   | TMapping t t
+  deriving Functor
 
-type Type = Fix (Product TypeF (Const Pn))
+type Type = Fix TypeF
+type AnnType = Fix (Product TypeF (Const Pn))
 
 data ExpF e
 
   -- booleans
   = EBoolLit Bool       -- `true`
+  | ENot e              -- `not a`
   | EAnd e e            -- `a and b`
   | EOr e e             -- `a or b`
-  | ENot e              -- `not a`
+  | EImpl e e           -- `a => b`
+
+  -- binary relations
   | EEq e e             -- `a == b`
-  | ENeq e e            -- `a =/= b`
+  | ENEq e e            -- `a =/= b`
   | ELE e e             -- `a <= b`
   | ELT e e             -- `a < b`
   | EGE e e             -- `a >= b`
   | EGT e e             -- `a > b`
 
-  -- numbers
+  -- integers
   | EIntLit Integer     -- `666`
   | EAdd e e            -- `a + b`
   | ESub e e            -- `a - b`
@@ -105,20 +109,17 @@ data ExpF e
   | EExp e e            -- `a ^ b`
 
   -- other
-  | ERead (Ref e)       -- `a`
+  | ERead Id            -- `a`
+  | EZoom e e
   | EEnv EthEnv         -- `CALLVALUE`
   | EITE e e e          -- `if a then b else c`
   | EScore              -- `_`
 
-  deriving (Functor)
+  deriving Functor
 
 -- position annotation
-type Expr = Fix (Product ExpF (Const Pn))
-
-data Ref e
-  = Ref Id
-  | Zoom Id e
-  deriving (Functor)
+type Expr = Fix ExpF
+type AnnExpr = Fix (Product ExpF (Const Pn))
 
 data EthEnv
   = EnvCaller
@@ -137,7 +138,6 @@ data EthEnv
 
 -- would much rather do this without TH if possible
 deriving instance Show EthEnv
-$(deriveShow1 ''Ref)
 $(deriveShow1 ''ExpF)
 $(deriveShow1 ''TypeF)
 deriving instance Show Act
@@ -150,3 +150,5 @@ deriving instance Show Claim
 deriving instance Show Store
 deriving instance Show Decl
 deriving instance Show Defn
+deriving instance Show a => Show (TypeF a)
+deriving instance Show a => Show (ExpF a)

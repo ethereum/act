@@ -2,7 +2,7 @@
 
   this is a happy grammar :)
 
-  14 shift/reduce conflicts in a single state are expected, due
+  16 shift/reduce conflicts in a single state are expected, due
   to the ambiguity of if/then/else expressions.
 
  -}
@@ -126,7 +126,10 @@ import Syntax
 
  -}
 
+%nonassoc '[' ']'
+
 -- boolean
+%nonassoc '=>'
 %left 'and' 'or'
 %nonassoc 'not'
 %left '==' '=/='
@@ -208,9 +211,6 @@ Type : uint {
      | 'bool'                           { TBool           @@@  lpos $1 }
      | 'mapping' '(' Type '=>' Type ')' { TMapping $3 $5  @@@  lpos $1 }
 
-Ref : id                        { Ref (getid $1)      @@  lpos $1 }
-    | id '[' Expr ']'           { Zoom (getid $1) $3  @@  lpos $1 }
-
 Expr:
 
     '(' Expr ')'                { $2 }
@@ -218,11 +218,12 @@ Expr:
   -- booleans
   | 'true'                      { EBoolLit True   @@@  lpos $1 }
   | 'false'                     { EBoolLit False  @@@  lpos $1 }
+  | 'not' Expr                  { ENot $2         @@@  lpos $1 }
   | Expr 'and' Expr             { EAnd $1 $3      @@@  npos $1 }
   | Expr 'or' Expr              { EOr $1 $3       @@@  npos $1 }
-  | 'not' Expr                  { ENot $2         @@@  lpos $1 }
+  | Expr '=>' Expr              { EImpl $1 $3     @@@  npos $1 }
   | Expr '==' Expr              { EEq $1 $3       @@@  npos $1 }
-  | Expr '=/=' Expr             { ENeq $1 $3      @@@  npos $1 }
+  | Expr '=/=' Expr             { ENEq $1 $3      @@@  npos $1 }
   | Expr '<=' Expr              { ELE $1 $3       @@@  npos $1 } 
   | Expr '<' Expr               { ELT $1 $3       @@@  npos $1 }
   | Expr '>=' Expr              { EGE $1 $3       @@@  npos $1 }
@@ -239,10 +240,11 @@ Expr:
   | Expr '^' Expr               { EExp $1 $3  @@@  npos $1 }
 
   -- other
-  | Ref                                 { ERead (fst $1)  @@@  snd $1  }
-  | EthEnv                              { EEnv (fst $1)   @@@  snd $1  }
-  | 'if' Expr 'then' Expr 'else' Expr   { EITE $2 $4 $6   @@@  lpos $1 }
-  | '_'                                 { EScore          @@@  lpos $1 }
+  | id                                  { ERead (getid $1) @@@  lpos $1 }
+  | Expr '[' Expr ']'                   { EZoom $1 $3      @@@  npos $1 }
+  | EthEnv                              { EEnv (fst $1)    @@@  snd $1  }
+  | 'if' Expr 'then' Expr 'else' Expr   { EITE $2 $4 $6    @@@  lpos $1 }
+  | '_'                                 { EScore           @@@  lpos $1 }
 
 EthEnv : 
     'CALLER'                    { EnvCaller      @@  lpos $1 }

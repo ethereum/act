@@ -2,9 +2,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 -- {-# LANGUAGE OverloadedStrings #-}
--- {-# LANGUAGE FlexibleInstances #-}
 -- {-# LANGUAGE RecordWildCards #-}
 -- {-# Language DeriveAnyClass #-}
 
@@ -12,12 +12,14 @@ module RefinedSyntax where
 
 -- import Data.Text          (Text, pack, unpack)
 -- import GHC.Generics
--- import Data.Map.Strict    (Map)
 -- import Data.List.NonEmpty hiding (fromList)
 -- import Data.ByteString       (ByteString)
 -- import Data.Aeson
 -- import Data.Aeson.Types
 -- import Data.Vector (fromList)
+
+import Data.Map.Strict (Map)
+import Data.Functor.Foldable
 
 import Syntax
 
@@ -29,6 +31,8 @@ import Syntax
 -- StorageUpdate now polymorphic
 -- removed distinction between StorageUpdate and StorageLocation
 
+{-
+
 -- AST post typechecking
 data Behaviour = Behaviour {
   _name :: Id,
@@ -39,14 +43,6 @@ data Behaviour = Behaviour {
   _returns :: Maybe ReturnExp
 }
 
--- types understood by proving tools
-data MType 
-  = Integer
-  | Boolean
-  | ByteStr
-  deriving (Eq, Ord, Show, Read)
-
-data StorageUpdate t where
   
 data StorageUpdate
   = IntUpdate (TStorageItem Int) (Exp Int)
@@ -70,60 +66,76 @@ data TStorageItem a where
   MappedBytes  :: Id -> NonEmpty ReturnExp -> TStorageItem ByteString
 
 deriving instance Show (TStorageItem a)
+
+-}
+
+-- types understood by proving tools
+data MType
+  = MBool
+  | MInt
+  | MMap MType MType
+  deriving (Eq, Show)
+
+-- needed for matching on typed expressions
+data Witness t where
+  WBool :: Witness 'MBool
+  WInt :: Witness 'MInt
+deriving instance Show (Witness t)
+deriving instance Eq (Witness t)
+
+-- typing context
+type Gamma = Map Id MType
+
 -- typed expressions
-data Exp t where
-  --booleans
-  And  :: Exp Bool -> Exp Bool -> Exp Bool
-  Or   :: Exp Bool -> Exp Bool -> Exp Bool
-  Impl :: Exp Bool -> Exp Bool -> Exp Bool
-  Eq  :: Exp Int -> Exp Int -> Exp Bool --TODO: make polymorphic (how to ToJSON.encode them?)
-  NEq  :: Exp Int -> Exp Int -> Exp Bool
-  Neg :: Exp Bool -> Exp Bool
-  LE :: Exp Int -> Exp Int -> Exp Bool
-  LEQ :: Exp Int -> Exp Int -> Exp Bool
-  GEQ :: Exp Int -> Exp Int -> Exp Bool
-  GE :: Exp Int -> Exp Int -> Exp Bool
-  LitBool :: Bool -> Exp Bool
-  BoolVar :: Id -> Exp Bool
+data Exp (t :: MType) where
+
+  -- booleans
+  BoolLit :: Bool -> Exp 'MBool
+  Not :: Exp 'MBool -> Exp 'MBool
+  And  :: Exp 'MBool -> Exp 'MBool -> Exp 'MBool
+  Or   :: Exp 'MBool -> Exp 'MBool -> Exp 'MBool
+  Impl :: Exp 'MBool -> Exp 'MBool -> Exp 'MBool
+
+  -- binary relations
+  Eq  :: Exp a -> Exp a -> Exp 'MBool
+  NEq  :: Exp a -> Exp a -> Exp 'MBool
+  LE :: Exp 'MInt-> Exp 'MInt-> Exp 'MBool
+  LT :: Exp 'MInt-> Exp 'MInt-> Exp 'MBool
+  GE :: Exp 'MInt-> Exp 'MInt-> Exp 'MBool
+  GT :: Exp 'MInt-> Exp 'MInt-> Exp 'MBool
+
   -- integers
-  Add :: Exp Int -> Exp Int -> Exp Int
-  Sub :: Exp Int -> Exp Int -> Exp Int
-  Mul :: Exp Int -> Exp Int -> Exp Int
-  Div :: Exp Int -> Exp Int -> Exp Int
-  Mod :: Exp Int -> Exp Int -> Exp Int
-  Exp :: Exp Int -> Exp Int -> Exp Int
-  LitInt :: Integer -> Exp Int
-  IntVar :: Id -> Exp Int
-  IntEnv :: EthEnv -> Exp Int
-  -- bytestrings
-  Cat :: Exp ByteString -> Exp ByteString -> Exp ByteString
-  Slice :: Exp ByteString -> Exp Int -> Exp Int -> Exp ByteString
-  ByVar :: Id -> Exp ByteString
-  ByStr :: String -> Exp ByteString
-  ByLit :: ByteString -> Exp ByteString
-  ByEnv :: EthEnv -> Exp ByteString
-  -- builtins
-  NewAddr :: Exp Int -> Exp Int -> Exp Int
-  
-  --polymorphic
-  ITE :: Exp Bool -> Exp t -> Exp t -> Exp t
-  TEntry :: (TStorageItem t) -> Exp t
+  IntLit :: Integer -> Exp 'MInt
+  Add :: Exp 'MInt -> Exp 'MInt -> Exp 'MInt
+  Sub :: Exp 'MInt -> Exp 'MInt -> Exp 'MInt
+  Mul :: Exp 'MInt -> Exp 'MInt -> Exp 'MInt
+  Div :: Exp 'MInt -> Exp 'MInt -> Exp 'MInt
+  Mod :: Exp 'MInt -> Exp 'MInt -> Exp 'MInt
+  Exp :: Exp 'MInt -> Exp 'MInt -> Exp 'MInt
+
+  Read :: Id -> Exp t
+  Zoom :: Exp ('MMap k v) -> Exp k -> Exp v
+  -- missing ethenv
+  ITE :: Exp 'MBool -> Exp a -> Exp a -> Exp a
+  -- missing underscore
+  -- missing bytestrings
+  -- missing newaddr
   
 deriving instance Show (Exp t)
 
-instance Semigroup (Exp Bool) where
+data Typed where
+  T :: Exp t -> Witness t -> Typed
+deriving instance Show Typed
+
+
+instance Semigroup (Exp 'MBool) where
   a <> b = And a b
 
-instance Monoid (Exp Bool) where
-  mempty = LitBool True
-
-data ReturnExp
-  = ExpInt    (Exp Int)
-  | ExpBool   (Exp Bool)
-  | ExpBytes  (Exp ByteString)
-  deriving (Show)
+instance Monoid (Exp 'MBool) where
+  mempty = BoolLit True
 
 {-
+
 
 -- intermediate json output helpers ---
 instance ToJSON Behaviour where
