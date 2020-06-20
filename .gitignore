@@ -1,1 +1,7 @@
-bin
+bin/
+src/Lex.hs
+src/Parse.hs
+src/dist-newstyle
+result
+**/*.cabal.local
+tests/**/*.out
