@@ -1,3 +1,15 @@
+{-
+ - ensures:
+ - declared identifiers are unique
+ - definition types match
+ - LHS of storage is a reference
+ - preconditions are boolean
+ - case conditions are boolean
+ - mapping and array types are valid
+ - cases are nonempty
+ -
+ -}
+
 {-# LANGUAGE GADTs     #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
@@ -13,13 +25,17 @@ import Prelude hiding (lookup, EQ, GT, LT)
 import Data.Functor.Foldable
 import Data.Functor.Product
 import Data.Functor.Const
-import Data.Map.Strict (Map, lookup)
+import Data.Map.Strict (Map, lookup, empty, intersection, fromList)
+import Control.Monad.Writer
+import Data.List (intercalate)
+import qualified Data.Set
 
-import Syntax
+import qualified Syntax as S
+import Syntax (ExpF (..))
 import RefinedSyntax
 import Lex (AlexPosn (..))
 
-pattern For t p = Pair t (Const p)
+pattern For t p = Pair (Const p) t
 
 -- error message formatter
 message (AlexPn _ line column) s =
@@ -54,7 +70,7 @@ binrel' t1 t2 p symbol = do
     _              -> Left $
       message p ("operator `" <> symbol <> "` type mismatch")
 
--- binary operation helper
+-- binary operations
 binop
   :: MType
   -> Either String MType
@@ -63,7 +79,7 @@ binop
   -> String
   -> Either String MType
 binop expected t1 t2 p symbol = do
-  t1' <- t2 ; t2' <- t2
+  t1' <- t1 ; t2' <- t2
   if t1' == expected && t2' == expected then
     Right t1'
   else
@@ -78,8 +94,8 @@ binop expected t1 t2 p symbol = do
     ]
            
 
-typecheck :: Gamma -> AnnExpr -> Either String MType
-typecheck gamma = cata alg where
+check :: Gamma -> S.AnnExpr -> Either String MType
+check gamma = cata alg where
 
   -- boolean operations
   alg (For (EBoolLit b) p) = Right MBool
@@ -114,21 +130,13 @@ typecheck gamma = cata alg where
 
   -- other
 
-  alg (For (ERead id) p) =
-    case lookup id gamma of
-      Just t -> Right t
-      Nothing -> Left $ message p ("identifier " <> id <> " unknown")
+  -- TODO: check references
+  -- alg (For (ERead id) p) =
+  --   case lookup id gamma of
+  --     Just t -> Right t
+  --     Nothing -> Left $ message p ("identifier " <> id <> " unknown")
 
-  alg (For (EZoom t1 t2) p) = do
-    t1' <- t1 ; t2' <- t2
-    case t1' of
-      MMap k v ->
-        if t2' == k then
-          Right v
-        else
-          Left $ message p ("mapping expected key of type " <> show k)
-
-  alg (For (EEnv env) p) = error "TODO: typecheck EEnv"
+  alg (For (EEnv env) p) = error "TODO: check EEnv"
 
   alg (For (EITE t1 t2 t3) p) = do
     t1' <- t1 ; t2' <- t2 ; t3' <- t3
@@ -141,9 +149,16 @@ typecheck gamma = cata alg where
 
   alg (For EScore p) = error "TODO: typecheck underscores"
 
+  alg _ = error "TODO: check remaining expressions"
 
-emboss :: Expr -> Typed
-emboss = cata alg where
+check' :: Gamma -> S.AnnExpr -> Writer [String] (Maybe MType)
+check' gamma e =
+  case check gamma e of
+    Left message -> writer (Nothing, [message])
+    Right t -> writer (Just t, [])
+
+emboss :: Gamma -> S.Expr -> Typed
+emboss gamma = cata alg where
 
   -- booleans
   alg (EBoolLit b) = T (BoolLit b) WBool
@@ -162,16 +177,92 @@ emboss = cata alg where
   alg (EGE (T e1 WInt) (T e2 WInt)) = T (GE e1 e2) WBool
   alg (EGT (T e1 WInt) (T e2 WInt)) = T (GT e1 e2) WBool
 
+  -- integers
+  alg (EIntLit i) = T (IntLit i) WInt
+  alg (EAdd (T e1 WInt) (T e2 WInt)) = T (Add e1 e2) WInt
+  alg (ESub (T e1 WInt) (T e2 WInt)) = T (Sub e1 e2) WInt
+  alg (EMul (T e1 WInt) (T e2 WInt)) = T (Mul e1 e2) WInt
+  alg (EDiv (T e1 WInt) (T e2 WInt)) = T (Div e1 e2) WInt
+  alg (EMod (T e1 WInt) (T e2 WInt)) = T (Mod e1 e2) WInt
+  alg (EExp (T e1 WInt) (T e2 WInt)) = T (Exp e1 e2) WInt
+
+  -- TODO: fix reads
+  -- alg (ERead id) =
+  --   case lookup id gamma of
+  --     Just MBool -> T (Read id) WBool
+  --     Nothing -> error "malformed expression"
+
   -- TODO: emboss remaining expressions
 
   alg _ = error "malformed expression"
 
-refineBehaviour :: RawBehaviour -> [AnnExpr]
-refineBehaviour (RawBehaviour name contract interface preconditions cases) =
-  map f cases where
-  f ((Case condition claim), _) = condition
+
+-- refine :: Gamma -> S.AnnExpr -> Either String Typed
+-- refine gamma e = do
+--   t <- check gamma e
+--   return $ emboss gamma $ projection e where
+--     projection = cata alg
+--     alg (Pair _ e) = Fix e
+
+-- transform :: Act S.AnnExpr -> Act (Either String Typed)
+-- transform = fmap (refine empty)
+
+-- tester :: Act (Either String Typed) -> Either String ()
+-- tester act = foldl folder (Right ()) act
+
+-- TODO: rename
+-- rproject = cata alg where
+--   alg (Pair _ a) = Fix a
+
+-- mtype :: S.Type -> MType
+-- mtype = cata alg where
+--   alg S.TBool = MBool
+--   alg _ = error "..."
+
+-- interfaceContext :: Annotated Interface -> Either String Gamma
+-- interfaceContext (pos, (Interface name decls)) =
+--   case length ids == length ids' of
+--     True  -> Right $ fromList types
+--     False -> Left $ message pos "interface contains duplicate identifiers"
+--   where
+--     tuple (Decl t id) = (id, t)
+--     ids = fmap (projection . snd) decls
+--     ids' = Data.Set.fromList ids
+--     projection (Decl t id) = id
+--     types = fmap ((fmap mtype) . tuple . snd) decls
+
+checkBehaviour
+  :: Gamma
+  -> S.Behaviour S.AnnExpr
+  -> Writer [String] (S.Behaviour MType)
+checkBehaviour gamma (S.Behaviour n c i conditions cases) =
+  error ""
 
 
+--   case mergeGamma gamma empty of
+--     Nothing -> Left $ message ipos "duplicate identifier"
+--     Just gamma' ->
+--       case foldr (<>) [] (fmap projection types) of
+--         [] -> Right $ fmap unsafeRight types
+--         messages -> Left $ intercalate "\n" messages
+-- 
+--   let types = S.Behaviour n c interface conditions' cases'
+--       conditions' = fmap (fmap (check gamma')) conditions
+--       cases' = fmap (fmap (fmap (check gamma'))) cases
+-- 
+--       unsafeRight (Right x) = x
+--       unsafeRight (Left _) = error "unreachable"
+-- 
+--       projection (Left m) = [m]
+--       projection (Right _) = []
+-- 
+
+
+mergeGamma :: Gamma -> Gamma -> Maybe Gamma
+mergeGamma g1 g2 =
+  case length (intersection g1 g2) of
+    0 -> Just $ g1 <> g2
+    _ -> Nothing
 
 tt = Fix $ EBoolLit True
 one = Fix $ EIntLit 1

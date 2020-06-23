@@ -18,56 +18,42 @@ module RefinedSyntax where
 -- import Data.Aeson.Types
 -- import Data.Vector (fromList)
 
-import Data.Map.Strict (Map)
+import Data.Map.Strict (Map, empty)
 import Data.Functor.Foldable
+import Data.Tuple (swap)
 
-import Syntax
-
--- changes:
--- removed _mode
--- removed _creation
--- removed _postconditions
--- removed _contracts
--- StorageUpdate now polymorphic
--- removed distinction between StorageUpdate and StorageLocation
-
-{-
+import qualified Syntax as S
 
 -- AST post typechecking
-data Behaviour = Behaviour {
-  _name :: Id,
-  _contract :: Id,
-  _interface :: Interface,
-  _preconditions :: Exp Bool,
-  _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
-  _returns :: Maybe ReturnExp
+
+type Id = String
+
+data Behaviour = Behaviour
+  { _name :: Id
+  , _contract :: Id
+  , _interface :: Interface
+  , _preconditions :: [Exp 'MBool]  -- possibly empty
+  , _cases :: [Case]                -- nonempty
+  , _return :: Maybe Typed
 }
 
-  
-data StorageUpdate
-  = IntUpdate (TStorageItem Int) (Exp Int)
-  | BoolUpdate (TStorageItem Bool) (Exp Bool)
-  | BytesUpdate (TStorageItem ByteString) (Exp ByteString)
-  deriving (Show)
+data Interface = Interface Id [Decl]
+  deriving Show
 
-data StorageLocation
-  = IntLoc (TStorageItem Int)
-  | BoolLoc (TStorageItem Bool)
-  | BytesLoc (TStorageItem ByteString)
-  deriving (Show)
+data Creation
+  = CDefn Defn
+  | CDecl Decl
 
+data Case = Case (Exp 'MBool) (Both [Store] Typed)
+  deriving Show
 
-data TStorageItem a where
-  DirectInt    :: Id -> TStorageItem Int
-  DirectBool   :: Id -> TStorageItem Bool
-  DirectBytes  :: Id -> TStorageItem ByteString
-  MappedInt    :: Id -> NonEmpty ReturnExp -> TStorageItem Int
-  MappedBool   :: Id -> NonEmpty ReturnExp -> TStorageItem Bool
-  MappedBytes  :: Id -> NonEmpty ReturnExp -> TStorageItem ByteString
+data Store = Store (S.Ref Typed) Typed
+  deriving Show
 
-deriving instance Show (TStorageItem a)
+data Decl = Decl MType Id
+  deriving Show
 
--}
+data Defn = Defn Decl Typed
 
 -- types understood by proving tools
 data MType
@@ -113,8 +99,7 @@ data Exp (t :: MType) where
   Mod :: Exp 'MInt -> Exp 'MInt -> Exp 'MInt
   Exp :: Exp 'MInt -> Exp 'MInt -> Exp 'MInt
 
-  Read :: Id -> Exp t
-  Zoom :: Exp ('MMap k v) -> Exp k -> Exp v
+  Read :: S.Ref Typed -> Exp a
   -- missing ethenv
   ITE :: Exp 'MBool -> Exp a -> Exp a -> Exp a
   -- missing underscore
@@ -126,6 +111,13 @@ deriving instance Show (Exp t)
 data Typed where
   T :: Exp t -> Witness t -> Typed
 deriving instance Show Typed
+
+
+data Both a b
+  = Dex a
+  | Sin b
+  | Both a b
+  deriving (Eq, Show)
 
 
 instance Semigroup (Exp 'MBool) where

@@ -164,23 +164,23 @@ opt(x) : x                                          { Just $1 }
 -- rules --
 
 RawConstructor : 'creator' 'of' id Interface Creates
-  { RawConstructor (getid $3) $4 $5 Nothing    @@  lpos $1 }
+  { RawConstructor (getid $3) $4 $5 Nothing }
                | 'creator' 'of' id Interface Creates Claim
-  { RawConstructor (getid $3) $4 $5 (Just $6)  @@  lpos $1 }
+  { RawConstructor (getid $3) $4 $5 (Just $6) }
 
 RawBehaviour : 'behaviour' id 'of' id
                Interface
                opt(Precondition)
                list(Case)
-  { RawBehaviour (getid $2) (getid $4) $5 $6 $7  @@  lpos $1 }
+  { RawBehaviour (getid $2) (getid $4) $5 $6 $7 }
 
 Interface : 'interface' id '(' seplist(Decl, ',') ')'
-  { Interface (getid $2) $4  @@  lpos $1 }
+  { Interface (getid $2) $4 }
 
 Creates : 'creates' list(Creation)      { $2 }
 
-Creation : Defn                         { CDefn $1  @@  snd $1 }
-         | Decl                         { CDecl $1  @@  snd $1 }
+Creation : Defn                         { CDefn $1  @@  fst $1 }
+         | Decl                         { CDecl $1  @@  fst $1 }
 
 Precondition : 'iff' list(Expr)         { $2 }
 
@@ -242,7 +242,7 @@ Expr:
   -- other
   | id                                  { ERead (getid $1) @@@  lpos $1 }
   | Expr '[' Expr ']'                   { EZoom $1 $3      @@@  npos $1 }
-  | EthEnv                              { EEnv (fst $1)    @@@  snd $1  }
+  | EthEnv                              { EEnv (snd $1)    @@@  fst $1  }
   | 'if' Expr 'then' Expr 'else' Expr   { EITE $2 $4 $6    @@@  lpos $1 }
   | '_'                                 { EScore           @@@  lpos $1 }
 
@@ -267,9 +267,9 @@ getid (L (ID s) _) = s
 uintSize (L (UINT size) _) = size
 intSize (L (INT size) _) = size
 lpos (L _ p) = p                    -- get lexeme position
-npos (Fix (Pair _ c)) = getConst c  -- get node position
-e @@@ p = Fix $ Pair e (Const p)
-(@@) = (,)
+npos (Fix (Pair c _)) = getConst c  -- get node position
+e @@@ p = Fix $ Pair (Const p) e
+(@@) a b = (b, a)
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
 parseError :: [Lexeme] -> Either String a

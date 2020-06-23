@@ -11,6 +11,7 @@
  -}
 
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE GADTs     #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
@@ -22,6 +23,7 @@ module Syntax where
 import Data.Functor.Foldable
 import Data.Functor.Product
 import Data.Functor.Const
+-- import Data.Functor.Identity
 import Data.Functor.Classes
 import Text.Show.Deriving
 import Data.List (intercalate)
@@ -30,57 +32,63 @@ import Lex
 
 type Id = String
 type Pn = AlexPosn
-type Annotated t = (t, Pn)
+type Annotated t = (Pn, t)
 
-data Act = Act
-  (Annotated RawConstructor)
-  [Annotated RawBehaviour]
+-- functor domain is expressions
+data Act e = Act
+  (Constructor e)
+  [Behaviour e]
+  deriving (Functor, Foldable)
 
--- missing return
-data RawConstructor = RawConstructor
+data Constructor e = Constructor
   Id -- contract
-  (Annotated Interface)
-  [Annotated Creation] -- creates
-  (Maybe (Annotated Claim))
+  Interface
+  [Creation e]  -- creates
+  (Maybe e)     -- return
+  deriving (Functor, Foldable)
 
-data RawBehaviour = RawBehaviour
+data Behaviour e = Behaviour
   Id -- name
   Id -- contract
-  (Annotated Interface)
-  (Maybe [AnnExpr]) -- preconditions
-  [Annotated Case] -- cases
+  Interface
+  [e] -- preconditions
+  [Case e] -- cases
+  deriving (Functor, Foldable)
 
 -- `interface transfer(uint256 value, address to)`
-data Interface = Interface Id [Annotated Decl]
+data Interface = Interface Id [Decl']
 
-data Creation
-  = CDefn (Annotated Defn)       -- `uint a := 1`
-  | CDecl (Annotated Decl)       -- `mapping(address => uint) m`
+data Creation e
+  = CDefn (Defn e)      -- `uint a := 1`
+  | CDecl Decl'         -- `mapping(address => uint) m`
+  deriving (Functor, Foldable)
 
-data Case = Case AnnExpr [Annotated Claim]
+data Case e
+  = Case e (Maybe [Store e]) (Maybe e)
+  deriving (Functor, Foldable)
 
-data Claim
-  = StorageClaim [Annotated Store]
-  | ReturnClaim AnnExpr
+data Store e = Store (Ref' e) e
+  deriving (Functor, Foldable)
 
--- typechecker should ensure that only storage references appear
--- on the LHS
-data Store = Store AnnExpr AnnExpr
+data Ref e
+  = Ref Id
+  | MapRef Id e
+  deriving (Functor, Foldable)
+type Ref' e = Annotated (Ref e)
 
-data Decl = Decl AnnType Id
+data Decl = Decl Type Id
+type Decl' = Annotated Decl
 
-data Defn = Defn AnnType Id AnnExpr
+data Defn e = Defn Decl e
+  deriving (Functor, Foldable)
 
-data TypeF t
+data Type
   = TUInt Int
   | TInt Int
   | TBool
   | TAddress
-  | TMapping t t
-  deriving Functor
-
-type Type = Fix TypeF
-type AnnType = Fix (Product TypeF (Const Pn))
+  | TMap Type Type
+  deriving Show
 
 data ExpF e
 
@@ -109,17 +117,16 @@ data ExpF e
   | EExp e e            -- `a ^ b`
 
   -- other
-  | ERead Id            -- `a`
-  | EZoom e e
+  | ERead (Ref e)       -- `a`
   | EEnv EthEnv         -- `CALLVALUE`
   | EITE e e e          -- `if a then b else c`
   | EScore              -- `_`
 
-  deriving Functor
+  deriving (Functor, Foldable)
 
 -- position annotation
 type Expr = Fix ExpF
-type AnnExpr = Fix (Product ExpF (Const Pn))
+type AnnExpr = Fix (Product (Const Pn) ExpF)
 
 data EthEnv
   = EnvCaller
@@ -135,20 +142,19 @@ data EthEnv
   | EnvTimestamp
   | EnvAddress
   | EnvNonce
+  deriving Show
 
 -- would much rather do this without TH if possible
-deriving instance Show EthEnv
 $(deriveShow1 ''ExpF)
-$(deriveShow1 ''TypeF)
-deriving instance Show Act
-deriving instance Show RawConstructor
-deriving instance Show RawBehaviour
+$(deriveShow1 ''Ref)
+deriving instance Show e => Show (Act e)
+deriving instance Show e => Show (Constructor e)
+deriving instance Show e => Show (Behaviour e)
 deriving instance Show Interface
-deriving instance Show Creation
-deriving instance Show Case
-deriving instance Show Claim
-deriving instance Show Store
+deriving instance Show e => Show (Creation e)
+deriving instance Show e => Show (Case e)
+deriving instance Show e => Show (Store e)
+deriving instance Show e => Show (Ref e)
 deriving instance Show Decl
-deriving instance Show Defn
-deriving instance Show a => Show (TypeF a)
+deriving instance Show e => Show (Defn e)
 deriving instance Show a => Show (ExpF a)
