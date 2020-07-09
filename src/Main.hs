@@ -9,7 +9,6 @@
 
 import Data.List
 import Data.Aeson hiding (Bool, Number)
-import GHC.Generics
 import System.Environment ( getArgs )
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
@@ -319,16 +318,16 @@ checkExpr env e typ = case metaType typ of
 
 inferExpr :: Env -> Expr -> Err ReturnExp
 inferExpr env@(ours, theirs,thisContext) exp =
-                    let intintint op v1 v2 = do w1 <- checkInt env v1
-                                                w2 <- checkInt env v2
-                                                Ok $ RInt $ op w1 w2
-                        boolintint op v1 v2 = do w1 <- checkInt env v1
-                                                 w2 <- checkInt env v2
-                                                 Ok $ RBool $ op w1 w2
-                        boolboolbool op v1 v2 = do w1 <- checkBool env v1
-                                                   w2 <- checkBool env v2
-                                                   Ok $ RBool $ op w1 w2
-                    in case exp of
+ let intintint op v1 v2 = do w1 <- checkInt env v1
+                             w2 <- checkInt env v2
+                             Ok $ RInt $ op w1 w2
+     boolintint op v1 v2 = do w1 <- checkInt env v1
+                              w2 <- checkInt env v2
+                              Ok $ RBool $ op w1 w2
+     boolboolbool op v1 v2 = do w1 <- checkBool env v1
+                                w2 <- checkBool env v2
+                                Ok $ RBool $ op w1 w2
+ in case exp of
     ENot _  v1     -> RBool . Neg <$> checkBool env v1
     EAnd _  v1 v2 -> boolboolbool And  v1 v2
     EOr _   v1 v2 -> boolboolbool Or   v1 v2
