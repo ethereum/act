@@ -18,7 +18,7 @@ import Parse
 import Data.Bifunctor
 import EVM (VM, ContractCode)
 import EVM.Types
-import EVM.Symbolic (verify, Precondition, Postcondition)
+import EVM.SymExec (verify, Precondition, Postcondition)
 
 import EVM.Solidity (SolcContract(..), StorageItem(..), SlotType(..))
 import Control.Monad
