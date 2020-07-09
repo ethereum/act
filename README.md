@@ -229,7 +229,7 @@ Building:
 With nix:
 
 ```sh
-nix-build
+nix build -f default.nix exe
 ```
 
 Developing:
@@ -247,10 +247,3 @@ or entering a `ghci` REPL:
 ```sh
 make repl
 ```
-
-If you need to modify the cabal file, run
-```sh
-cabal2nix src/act.cabal > src/default.nix
-```
-
-the `src/default.nix` may also require some manual tweaking.
