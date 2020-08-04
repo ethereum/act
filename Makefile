@@ -42,3 +42,4 @@ tests/%.type:
 
 test-compiler: compiler $(test_specs:=.compile)
 
+test: test-parse test-type
