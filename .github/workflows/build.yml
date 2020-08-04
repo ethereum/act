@@ -18,12 +18,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
-      # v10
       - uses: cachix/install-nix-action@63cf434de4e4292c6960639d56c5dd550e789d77
         with:
-          # we use the nixpkgs defined in default.nix
           skip_adding_nixpkgs_channel: false
-      # v6
+      - uses: cachix/cachix-action@49b785b55a80c6a82e616bd3a69317f05dca5137
+        with:
+          name: dapp
+          skipPush: true
+          signingKey: ''
       - name: test
         run: nix-shell --pure --command "make test"
       - name: build
