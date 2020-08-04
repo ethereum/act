@@ -1,0 +1,26 @@
+{
+    "dapptools": {
+        "branch": "master",
+        "description": "Dapp, Seth, Hevm, and more",
+        "homepage": "https://dapp.tools",
+        "owner": "dapphub",
+        "repo": "dapptools",
+        "rev": "e93845dfb49419cbe88b42bfd46ec4bbc9305fc7",
+        "sha256": "05s81vh9gfhy2myza5iwxiyazfr52r27pma2gvb1mc6zbvqnyd5j",
+        "type": "tarball",
+        "url": "https://github.com/dapphub/dapptools/archive/e93845dfb49419cbe88b42bfd46ec4bbc9305fc7.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs": {
+        "branch": "nixos-20.03",
+        "description": "A read-only mirror of NixOS/nixpkgs tracking the released channels. Send issues and PRs to",
+        "homepage": "https://github.com/NixOS/nixpkgs",
+        "owner": "nixos",
+        "repo": "nixpkgs-channels",
+        "rev": "977000f149bd4ddb65bf1af09552898a0f305c72",
+        "sha256": "1ad3bviywxd64g4vwk4ppjkkajd3rfqjhnp6xcz3w0ih0sbn0rh5",
+        "type": "tarball",
+        "url": "https://github.com/nixos/nixpkgs-channels/archive/977000f149bd4ddb65bf1af09552898a0f305c72.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    }
+}
