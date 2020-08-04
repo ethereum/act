@@ -30,10 +30,10 @@ example:
 ```solidity
 contract StateMachine {
     uint x;
-  
-    function f() public {      
+
+    function f() public {
         if (x == 0)
-            x = 1;             
+            x = 1;
     }
 
     function g() public {
@@ -246,4 +246,9 @@ make compiler
 or entering a `ghci` REPL:
 ```sh
 make repl
+```
+
+To update the project dependencies run:
+```sh
+nix-shell --command niv update
 ```
