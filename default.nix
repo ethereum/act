@@ -22,10 +22,11 @@ let
   shell = myHaskellPackages.shellFor {
     packages = p: [
       p.act
-      p.niv
     ];
     buildInputs = with pkgs.haskellPackages; [
       myHaskellPackages.cabal-install
+      myHaskellPackages.happy
+      myHaskellPackages.alex
     ];
     withHoogle = true;
   };
