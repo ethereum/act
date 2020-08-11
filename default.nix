@@ -24,9 +24,8 @@ let
       p.act
     ];
     buildInputs = with pkgs.haskellPackages; [
-      myHaskellPackages.cabal-install
-      myHaskellPackages.happy
-      myHaskellPackages.alex
+      cabal-install
+      pkgs.jq
     ];
     withHoogle = true;
   };
