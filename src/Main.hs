@@ -270,7 +270,10 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
 
     -- computes the state updates from an `Assign`
     getStateUpdates :: Assign -> [(Id, [Either StorageLocation StorageUpdate])]
-    getStateUpdates (AssignVal (StorageVar (StorageValue _) id) expr) = []
+    getStateUpdates (AssignVal (StorageVar (StorageValue (AbiUIntType size)) id) expr)
+      = [(id, [Right (IntUpdate (DirectInt id) (checkInt env expr))])]
+    getStateUpdates (AssignVal (StorageVar typ id) expr)
+      = error $ "todo: type" ++ show typ ++ "is unsupported in constructors"
     getStateUpdates _ = error "todo: support multiple and struct assignment in constructors"
 
     -- creates the pass and fail cases
