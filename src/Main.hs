@@ -188,14 +188,7 @@ andRaw [] = BoolLit True
 splitBehaviour :: Map Id (Map Id SlotType) -> RawBehaviour -> Err [Behaviour]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
   -- constrain integer calldata variables (TODO: other types)
-  let calldataBounds =
-        join $
-          fmap
-            ( \(Decl typ id) -> case metaType typ of
-                Integer -> [IffIn nowhere typ [EntryExp nowhere id []]]
-                _ -> []
-            )
-            decls
+  let calldataBounds = getCallDataBounds decls
   iff <- checkIffs env (iffs' <> calldataBounds)
   postcondition <- mapM (checkBool env) (fromMaybe [] maybePost)
   flatten iff postcondition [] cases
@@ -242,7 +235,37 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
       leaves <- mapM (flatten iff postc (c : pathcond)) (normalize cs)
       return $ join leaves
 
-splitBehaviour store (Constructor name contract decls iffs cases post ensures invariants) = Ok [] --error "TODO: check constructor"
+{-
+data Behaviour = Behaviour
+  {_name :: Id,
+   _mode :: Mode,
+   _creation :: Bool,
+   _contract :: Id,
+   _interface :: Interface,
+   _preconditions :: Exp Bool,
+   _postconditions :: Exp Bool,
+   _contracts :: [Id], -- can maybe be removed; should be equivalent to Map.keys(_stateupdates)
+   _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
+   _returns :: Maybe ReturnExp
+  }
+-}
+splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs creates extStorage maybeEnsures maybeInvariants) = do
+  let calldataBounds = getCallDataBounds decls
+  iff <- checkIffs env (iffs <> calldataBounds)
+  return [Behaviour name Pass True contract iface (LitBool True) (LitBool True) [] Map.empty Nothing]
+  where
+    env = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
+    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
+
+getCallDataBounds :: [Decl] -> [IffH]
+getCallDataBounds decls =
+  join $
+    fmap
+      ( \(Decl typ id) -> case metaType typ of
+          Integer -> [IffIn nowhere typ [EntryExp nowhere id []]]
+          _ -> []
+      )
+      decls
 
 checkPost :: Env -> Id -> Post -> Err (Map Id [Either StorageLocation StorageUpdate], Maybe ReturnExp, [Id])
 checkPost env@(ours, theirs, localVars) contract (Post maybeStorage extStorage maybeReturn) =
