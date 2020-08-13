@@ -166,6 +166,7 @@ instance ToJSON (Exp Int) where
   toJSON (Add a b) = symbol "+" a b
   toJSON (Sub a b) = symbol "-" a b
   toJSON (Exp a b) = symbol "^" a b
+  toJSON (Mul a b) = symbol "*" a b
   toJSON (NewAddr a b) = symbol "newAddr" a b
   toJSON (IntVar a) = String $ pack a
   toJSON (LitInt a) = toJSON a
