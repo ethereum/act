@@ -188,36 +188,59 @@ andRaw [] = BoolLit True
 splitBehaviour :: Map Id (Map Id SlotType) -> RawBehaviour -> Err [Behaviour]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
   -- constrain integer calldata variables (TODO: other types)
-  let calldataBounds = join $ fmap (\(Decl typ id) -> case metaType typ of
-                                       Integer -> [IffIn nowhere typ [EntryExp nowhere id []]]
-                                       _ -> []) decls
+  let calldataBounds =
+        join $
+          fmap
+            ( \(Decl typ id) -> case metaType typ of
+                Integer -> [IffIn nowhere typ [EntryExp nowhere id []]]
+                _ -> []
+            )
+            decls
   iff <- checkIffs env (iffs' <> calldataBounds)
   postcondition <- mapM (checkBool env) (fromMaybe [] maybePost)
   flatten iff postcondition [] cases
+  where
+    env = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
+    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
 
-  where env = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
-        abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
+    -- translate wildcards into negation of other cases
+    normalize :: [Case Expr b] -> [Case Expr b]
+    normalize =
+      snd
+        . mapAccumL
+          ( \a b -> case b of
+              Leaf pn WildExp p -> (a, Leaf pn (ENot nowhere (andRaw a)) p)
+              Branch pn WildExp p -> (a, Branch pn (ENot nowhere (andRaw a)) p)
+              e@(Leaf _ c _) -> (c : a, e)
+              e@(Branch _ c _) -> (c : a, e)
+          )
+          []
 
-        -- translate wildcards into negation of other cases
-        normalize = snd . mapAccumL (\a b -> case b of
-                                        Leaf pn WildExp p -> (a, Leaf pn (ENot nowhere (andRaw a)) p)
-                                        Branch pn WildExp p -> (a, Branch pn (ENot nowhere (andRaw a)) p)
-                                        e@(Leaf _ c _) -> (c:a, e)
-                                        e@(Branch _ c _) -> (c:a, e)) []
+    -- split case into pass and fail case
+    splitCase :: [Exp Bool]
+                 -> [Exp Bool]
+                 -> Maybe ReturnExp
+                 -> Map String [Either StorageLocation StorageUpdate]
+                 -> Exp Bool
+                 -> [Id]
+                 -> [Behaviour]
+    splitCase ifs [] ret storage postc contracts =
+      [Behaviour name Pass False contract iface (mconcat ifs) postc contracts storage ret]
+    splitCase ifs iffs ret storage postc contracts =
+      [ Behaviour name Pass False contract iface (mconcat (ifs <> iffs)) postc contracts storage ret,
+        Behaviour name Fail False contract iface (And (mconcat ifs) (Neg (mconcat iffs))) postc contracts storage Nothing
+      ]
 
-        -- split case into pass and fail case
-        splitCase ifs [] ret storage postc contracts = [Behaviour name Pass False contract iface (mconcat ifs) postc contracts storage ret]
-        splitCase ifs iffs ret storage postc contracts = [ Behaviour name Pass False contract iface (mconcat (ifs <> iffs)) postc contracts storage ret
-                                                         , Behaviour name Fail False contract iface (And (mconcat ifs) (Neg (mconcat iffs))) postc contracts storage Nothing]
-
-        -- flatten case tree
-        flatten iff postc pathcond (Leaf _ cond post) = do c <- checkBool env cond
-                                                           (p, maybeReturn, contracts) <- checkPost env contract post
-                                                           return $ splitCase (c:pathcond) iff maybeReturn p (mconcat postc) contracts
-
-        flatten iff postc pathcond (Branch _ cond cs) = do c <- checkBool env cond
-                                                           leaves <- mapM (flatten iff postc (c:pathcond)) (normalize cs)
-                                                           return $ join leaves
+    -- flatten case tree
+    flatten :: [Exp Bool] -> [Exp Bool] -> [Exp Bool] -> Case Expr Post -> Err [Behaviour]
+    flatten iff postc pathcond (Leaf _ cond post) = do
+      c <- checkBool env cond
+      (p, maybeReturn, contracts) <- checkPost env contract post
+      return $ splitCase (c : pathcond) iff maybeReturn p (mconcat postc) contracts
+    flatten iff postc pathcond (Branch _ cond cs) = do
+      c <- checkBool env cond
+      leaves <- mapM (flatten iff postc (c : pathcond)) (normalize cs)
+      return $ join leaves
 
 splitBehaviour store (Constructor name contract decls iffs cases post ensures invariants) = Ok [] --error "TODO: check constructor"
 
