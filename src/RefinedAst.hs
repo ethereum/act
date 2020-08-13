@@ -127,11 +127,12 @@ data ReturnExp
 -- intermediate json output helpers ---
 instance ToJSON Behaviour where
   toJSON (Behaviour {..}) = object  [ "name" .= _name
-                                    , "contract"  .= _contract
+                                    , "contract" .= _contract
                                     , "mode" .= (String . pack $ show _mode)
                                     , "creation" .= _creation
-                                    , "interface"  .= (String . pack $ show _interface)
-                                    , "preConditions"   .= (toJSON _preconditions)
+                                    , "interface" .= (String . pack $ show _interface)
+                                    , "preConditions" .= (toJSON _preconditions)
+                                    , "postConditions" .= (toJSON _postconditions)
                                     , "stateUpdates" .= toJSON _stateUpdates
                                     , "contracts" .= toJSON _contracts
                                     , "returns" .= toJSON _returns]
