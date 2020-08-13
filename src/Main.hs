@@ -9,6 +9,9 @@
 {-# Language TypeOperators #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
+
+module Main where
+
 import Data.List
 import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
@@ -119,11 +122,11 @@ main = do
                      Nothing -> putStrLn (filename <> ".k") >> putStrLn content
                      Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
                forM_ kSpecs printFile
-                   
-                                     
-                 
 
-                                                      
+
+
+
+
 
 --       (TypeCheck f) -> do contents <- readFile f
 --                           let act = read contents :: [RawBehaviour]
@@ -400,7 +403,7 @@ checkBool env exp =
   case inferExpr env exp of
     Ok (ExpInt _) -> Bad (nowhere, "expected: bool, got: int")
     Ok (ExpBytes _) -> Bad (nowhere, "expected: bool, got: bytes")
-    Ok (ExpBool a) -> Ok a 
+    Ok (ExpBool a) -> Ok a
     Bad e -> Bad e
 
 

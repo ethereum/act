@@ -2,6 +2,6 @@ bin/
 src/Lex.hs
 src/Parse.hs
 src/dist-newstyle
-result
+result*
 **/*.cabal.local
 tests/**/*.out
