@@ -211,12 +211,12 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
 
     -- split case into pass and fail case
     splitCase :: [Exp Bool]
-                 -> [Exp Bool]
-                 -> Maybe ReturnExp
-                 -> Map String [Either StorageLocation StorageUpdate]
-                 -> Exp Bool
-                 -> [Id]
-                 -> [Behaviour]
+              -> [Exp Bool]
+              -> Maybe ReturnExp
+              -> Map String [Either StorageLocation StorageUpdate]
+              -> Exp Bool
+              -> [Id]
+              -> [Behaviour]
     splitCase ifs [] ret storage postc contracts =
       [Behaviour name Pass False contract iface (mconcat ifs) postc contracts storage ret]
     splitCase ifs iffs ret storage postc contracts =
@@ -249,13 +249,42 @@ data Behaviour = Behaviour
    _returns :: Maybe ReturnExp
   }
 -}
-splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs creates extStorage maybeEnsures maybeInvariants) = do
+splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs creates@(Creates assigns) extStorage maybeEnsures maybeInvariants) = do
   let calldataBounds = getCallDataBounds decls
   iff <- checkIffs env (iffs <> calldataBounds)
-  return [Behaviour name Pass True contract iface (LitBool True) (LitBool True) [] Map.empty Nothing]
+  return $ mkCases name contract iface iff postcs [contract] stateUpdates
   where
     env = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
     abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
+    postcs = fmap getStorageBounds assigns
+    stateUpdates = Map.fromList $ concat $ fmap getStateUpdates assigns
+
+    -- computes the storage bounds from the types in an `Assign`
+    getStorageBounds :: Assign -> Exp Bool
+    getStorageBounds (AssignVal (StorageVar (StorageValue (AbiUIntType size)) id) _)
+      = And (LE (IntVar id) (Exp (LitInt 2) (LitInt $ toInteger size)))
+            (LE (LitInt 0) (IntVar id))
+    getStorageBounds (AssignVal (StorageVar typ id) expr)
+      = error $ "todo: type" ++ show typ ++ "is unsupported in constructors"
+    getStorageBounds _ = error "todo: support multiple and struct assignment in constructors"
+
+    -- computes the state updates from an `Assign`
+    getStateUpdates :: Assign -> [(Id, [Either StorageLocation StorageUpdate])]
+    getStateUpdates (AssignVal (StorageVar (StorageValue _) id) expr) = []
+    getStateUpdates _ = error "todo: support multiple and struct assignment in constructors"
+
+    -- creates the pass and fail cases
+    mkCases :: String
+            -> String
+            -> Interface
+            -> [Exp Bool]
+            -> [Exp Bool]
+            -> [String]
+            -> Map String [Either StorageLocation StorageUpdate]
+            -> [Behaviour]
+    mkCases name contract iface iffs postcs contracts stateUpdates =
+      [ Behaviour name Pass True contract iface (mconcat iffs) (mconcat postcs) contracts stateUpdates Nothing,
+        Behaviour name Fail True contract iface (Neg (mconcat iffs)) (mconcat postcs) contracts stateUpdates Nothing]
 
 getCallDataBounds :: [Decl] -> [IffH]
 getCallDataBounds decls =
