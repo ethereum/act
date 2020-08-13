@@ -209,85 +209,53 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
           )
           []
 
-    -- split case into pass and fail case
-    splitCase :: [Exp Bool]
-              -> [Exp Bool]
-              -> Maybe ReturnExp
-              -> Map String [Either StorageLocation StorageUpdate]
-              -> Exp Bool
-              -> [Id]
-              -> [Behaviour]
-    splitCase ifs [] ret storage postc contracts =
-      [Behaviour name Pass False contract iface (mconcat ifs) postc contracts storage ret]
-    splitCase ifs iffs ret storage postc contracts =
-      [ Behaviour name Pass False contract iface (mconcat (ifs <> iffs)) postc contracts storage ret,
-        Behaviour name Fail False contract iface (And (mconcat ifs) (Neg (mconcat iffs))) postc contracts storage Nothing
-      ]
-
     -- flatten case tree
     flatten :: [Exp Bool] -> [Exp Bool] -> [Exp Bool] -> Case Expr Post -> Err [Behaviour]
     flatten iff postc pathcond (Leaf _ cond post) = do
       c <- checkBool env cond
       (p, maybeReturn, contracts) <- checkPost env contract post
-      return $ splitCase (c : pathcond) iff maybeReturn p (mconcat postc) contracts
+      return $ splitCase name False contract iface (c : pathcond) iff maybeReturn p postc contracts
     flatten iff postc pathcond (Branch _ cond cs) = do
       c <- checkBool env cond
       leaves <- mapM (flatten iff postc (c : pathcond)) (normalize cs)
       return $ join leaves
 
-{-
-data Behaviour = Behaviour
-  {_name :: Id,
-   _mode :: Mode,
-   _creation :: Bool,
-   _contract :: Id,
-   _interface :: Interface,
-   _preconditions :: Exp Bool,
-   _postconditions :: Exp Bool,
-   _contracts :: [Id], -- can maybe be removed; should be equivalent to Map.keys(_stateupdates)
-   _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
-   _returns :: Maybe ReturnExp
-  }
--}
 splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs creates@(Creates assigns) extStorage maybeEnsures maybeInvariants) = do
   let calldataBounds = getCallDataBounds decls
   iff <- checkIffs env (iffs <> calldataBounds)
-  return $ mkCases name contract iface iff postcs [contract] stateUpdates
+  rawUpdates <- mapM getStateUpdates assigns
+  let stateUpdates = Map.fromList $ concat $ rawUpdates
+  return $ splitCase name True contract iface [] iff Nothing stateUpdates postcs [contract]
   where
     env = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
     abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
-    postcs = fmap getStorageBounds assigns
-    stateUpdates = Map.fromList $ concat $ fmap getStateUpdates assigns
+    postcs = getStorageBounds <$> assigns
 
     -- computes the storage bounds from the types in an `Assign`
     getStorageBounds :: Assign -> Exp Bool
     getStorageBounds (AssignVal (StorageVar (StorageValue (AbiUIntType size)) id) _)
-      = And (LE (IntVar id) (Exp (LitInt 2) (LitInt $ toInteger size)))
-            (LE (LitInt 0) (IntVar id))
+      = And (LE (LitInt 0) (IntVar id)) (LE (IntVar id) (Exp (LitInt 2) (LitInt $ toInteger size)))
     getStorageBounds (AssignVal (StorageVar typ id) expr)
       = error $ "todo: type" ++ show typ ++ "is unsupported in constructors"
-    getStorageBounds _ = error "todo: support multiple and struct assignment in constructors"
+    getStorageBounds _ = error $ "todo: support multiple and struct assignment in constructors"
 
     -- computes the state updates from an `Assign`
-    getStateUpdates :: Assign -> [(Id, [Either StorageLocation StorageUpdate])]
-    getStateUpdates (AssignVal (StorageVar (StorageValue (AbiUIntType size)) id) expr)
-      = [(id, [Right (IntUpdate (DirectInt id) (checkInt env expr))])]
+    getStateUpdates :: Assign -> Err [(Id, [Either StorageLocation StorageUpdate])]
+    getStateUpdates (AssignVal (StorageVar (StorageValue (AbiUIntType size)) id) expr) = do
+      val <- checkInt env expr
+      return $ [(id, [Right (IntUpdate (DirectInt id) val)])]
     getStateUpdates (AssignVal (StorageVar typ id) expr)
       = error $ "todo: type" ++ show typ ++ "is unsupported in constructors"
     getStateUpdates _ = error "todo: support multiple and struct assignment in constructors"
 
-    -- creates the pass and fail cases
-    mkCases :: String
-            -> String
-            -> Interface
-            -> [Exp Bool]
-            -> [Exp Bool]
-            -> [String]
-            -> Map String [Either StorageLocation StorageUpdate]
-            -> [Behaviour]
-    mkCases name contract iface iffs postcs contracts stateUpdates =
-      [ Behaviour name Pass True contract iface (mconcat iffs) (mconcat postcs) contracts stateUpdates Nothing,
-        Behaviour name Fail True contract iface (Neg (mconcat iffs)) (mconcat postcs) contracts stateUpdates Nothing]
+-- split case into pass and fail case
+splitCase :: String -> Bool -> String -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
+          -> Map String [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [String] -> [Behaviour]
+splitCase name creates contract iface ifs [] ret storage postcs contracts =
+  [ Behaviour name Pass creates contract iface (mconcat ifs) (mconcat postcs) contracts storage ret ]
+splitCase name creates contract iface ifs iffs ret storage postcs contracts =
+  [ Behaviour name Pass creates contract iface (mconcat (ifs <> iffs)) (mconcat postcs) contracts storage ret,
+    Behaviour name Fail creates contract iface (And (mconcat ifs) (Neg (mconcat iffs))) (mconcat postcs) contracts storage Nothing ]
 
 getCallDataBounds :: [Decl] -> [IffH]
 getCallDataBounds decls =
