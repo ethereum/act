@@ -303,13 +303,13 @@ checkAssign env (AssignVal (StorageVar (StorageValue typ) id) expr)
     ByteStr -> do
       val <- checkBytes env expr
       return (id, [BytesUpdate (DirectBytes id) val])
+checkAssign env (AssignVal (StorageVar (StorageMapping _ _) _) _)
+  = Bad (nowhere, "Cannot assign a single expression to a composite type")
+checkAssign env (AssignMany (StorageVar (StorageValue _) _) _)
+  = Bad (nowhere, "Cannot assign multiple values to an atomic type")
 checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) id) defns)
   = do updates <- mapM (checkDefn env keyType valType id) defns
        return $ (id, updates)
-checkAssign env (AssignVal (StorageVar (StorageMapping argtyps t) id) expr)
-  = Bad (nowhere, "Cannot assign a single expression to a composite type")
-checkAssign env (AssignMany (StorageVar (StorageValue typ) id) defns)
-  = Bad (nowhere, "Cannot assign multiple values to an atomic type")
 checkAssign _ _ = error $ "todo: support struct assignment in constructors"
 
 -- Checks that the types in a Defn match those in the mapping that is being written to

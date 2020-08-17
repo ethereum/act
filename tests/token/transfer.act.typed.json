@@ -276,6 +276,7 @@
     },
     "contract": "Token",
     "interface": "transferFrom(uint256 amount, address dst, address src)",
+    "postConditions": "True",
     "returns": {
       "expression": 1,
       "sort": "int"
@@ -571,6 +572,7 @@
     },
     "contract": "Token",
     "interface": "transferFrom(uint256 amount, address dst, address src)",
+    "postConditions": "True",
     "returns": null
   },
   {
@@ -976,6 +978,7 @@
     },
     "contract": "Token",
     "interface": "transferFrom(uint256 amount, address dst, address src)",
+    "postConditions": "True",
     "returns": {
       "expression": 1,
       "sort": "int"
@@ -1397,6 +1400,7 @@
     },
     "contract": "Token",
     "interface": "transferFrom(uint256 amount, address dst, address src)",
+    "postConditions": "True",
     "returns": null
   },
   {
@@ -1795,6 +1799,7 @@
     },
     "contract": "Token",
     "interface": "transferFrom(uint256 amount, address dst, address src)",
+    "postConditions": "True",
     "returns": {
       "expression": 1,
       "sort": "int"
@@ -2209,6 +2214,7 @@
     },
     "contract": "Token",
     "interface": "transferFrom(uint256 amount, address dst, address src)",
+    "postConditions": "True",
     "returns": null
   },
   {
@@ -2563,6 +2569,7 @@
     },
     "contract": "Token",
     "interface": "transferFrom(uint256 amount, address dst, address src)",
+    "postConditions": "True",
     "returns": {
       "expression": 1,
       "sort": "int"
@@ -2933,6 +2940,7 @@
     },
     "contract": "Token",
     "interface": "transferFrom(uint256 amount, address dst, address src)",
+    "postConditions": "True",
     "returns": null
   },
   {
@@ -3119,6 +3127,7 @@
     },
     "contract": "Token",
     "interface": "transfer(address to, uint256 value)",
+    "postConditions": "True",
     "returns": {
       "expression": 1,
       "sort": "int"
@@ -3321,6 +3330,7 @@
     },
     "contract": "Token",
     "interface": "transfer(address to, uint256 value)",
+    "postConditions": "True",
     "returns": null
   },
   {
@@ -3582,6 +3592,7 @@
     },
     "contract": "Token",
     "interface": "transfer(address to, uint256 value)",
+    "postConditions": "True",
     "returns": {
       "expression": 1,
       "sort": "int"
@@ -3859,6 +3870,196 @@
     },
     "contract": "Token",
     "interface": "transfer(address to, uint256 value)",
+    "postConditions": "True",
+    "returns": null
+  },
+  {
+    "stateUpdates": {
+      "symbol": [
+        {
+          "Right": {
+            "location": "symbol",
+            "value": "ByVar \"_symbol\""
+          }
+        }
+      ],
+      "name": [
+        {
+          "Right": {
+            "location": "name",
+            "value": "ByVar \"_name\""
+          }
+        }
+      ],
+      "balanceOf": [
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": "_totalSupply"
+          }
+        }
+      ],
+      "allowance": [],
+      "totalSupply": [
+        {
+          "Right": {
+            "location": "totalSupply",
+            "value": "_totalSupply"
+          }
+        }
+      ]
+    },
+    "mode": "Pass",
+    "creation": true,
+    "contracts": [
+      "Token"
+    ],
+    "name": "init",
+    "preConditions": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                0,
+                "_totalSupply"
+              ],
+              "symbol": "<="
+            },
+            {
+              "arity": 2,
+              "args": [
+                "_totalSupply",
+                1.157920892373162e+77
+              ],
+              "symbol": "<="
+            }
+          ],
+          "symbol": "and"
+        },
+        "True"
+      ],
+      "symbol": "and"
+    },
+    "contract": "Token",
+    "interface": "constructor(uint256 _totalSupply, string _version, string _name, string _symbol)",
+    "postConditions": "True",
+    "returns": null
+  },
+  {
+    "stateUpdates": {
+      "symbol": [
+        {
+          "Right": {
+            "location": "symbol",
+            "value": "ByVar \"_symbol\""
+          }
+        }
+      ],
+      "name": [
+        {
+          "Right": {
+            "location": "name",
+            "value": "ByVar \"_name\""
+          }
+        }
+      ],
+      "balanceOf": [
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": "_totalSupply"
+          }
+        }
+      ],
+      "allowance": [],
+      "totalSupply": [
+        {
+          "Right": {
+            "location": "totalSupply",
+            "value": "_totalSupply"
+          }
+        }
+      ]
+    },
+    "mode": "Fail",
+    "creation": true,
+    "contracts": [
+      "Token"
+    ],
+    "name": "init",
+    "preConditions": {
+      "arity": 2,
+      "args": [
+        "True",
+        {
+          "arity": 1,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        0,
+                        "_totalSupply"
+                      ],
+                      "symbol": "<="
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        "_totalSupply",
+                        1.157920892373162e+77
+                      ],
+                      "symbol": "<="
+                    }
+                  ],
+                  "symbol": "and"
+                },
+                "True"
+              ],
+              "symbol": "and"
+            }
+          ],
+          "symbol": "not"
+        }
+      ],
+      "symbol": "and"
+    },
+    "contract": "Token",
+    "interface": "constructor(uint256 _totalSupply, string _version, string _name, string _symbol)",
+    "postConditions": "True",
     "returns": null
   }
 ]

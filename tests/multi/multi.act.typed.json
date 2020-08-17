@@ -84,6 +84,7 @@
     },
     "contract": "B",
     "interface": "set_remote(uint256 z)",
+    "postConditions": "True",
     "returns": null
   },
   {
@@ -184,6 +185,7 @@
     },
     "contract": "B",
     "interface": "set_remote(uint256 z)",
+    "postConditions": "True",
     "returns": null
   },
   {
@@ -264,6 +266,7 @@
     },
     "contract": "B",
     "interface": "set_remote(uint256 z)",
+    "postConditions": "True",
     "returns": null
   },
   {
@@ -357,6 +360,53 @@
     },
     "contract": "B",
     "interface": "set_remote(uint256 z)",
+    "postConditions": "True",
+    "returns": null
+  },
+  {
+    "stateUpdates": {
+      "y": [
+        {
+          "Right": {
+            "location": "y",
+            "value": 0
+          }
+        }
+      ]
+    },
+    "mode": "Pass",
+    "creation": true,
+    "contracts": [
+      "B"
+    ],
+    "name": "init",
+    "preConditions": "True",
+    "contract": "B",
+    "interface": "constructor()",
+    "postConditions": "True",
+    "returns": null
+  },
+  {
+    "stateUpdates": {
+      "x": [
+        {
+          "Right": {
+            "location": "x",
+            "value": 0
+          }
+        }
+      ]
+    },
+    "mode": "Pass",
+    "creation": true,
+    "contracts": [
+      "a"
+    ],
+    "name": "init",
+    "preConditions": "True",
+    "contract": "a",
+    "interface": "constructor()",
+    "postConditions": "True",
     "returns": null
   }
 ]
