@@ -1,1 +1,33 @@
-[]
+[
+  {
+    "stateUpdates": {
+      "x": [
+        {
+          "Right": {
+            "location": "x",
+            "value": 1
+          }
+        }
+      ],
+      "y": [
+        {
+          "Right": {
+            "location": "y",
+            "value": "Caller"
+          }
+        }
+      ]
+    },
+    "mode": "Pass",
+    "creation": true,
+    "contracts": [
+      "Modest"
+    ],
+    "name": "creation",
+    "preConditions": "True",
+    "contract": "Modest",
+    "interface": "constructor()",
+    "postConditions": "True",
+    "returns": null
+  }
+]

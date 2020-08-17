@@ -54,6 +54,7 @@
     },
     "contract": "A",
     "interface": "f(uint256 x)",
+    "postConditions": "True",
     "returns": {
       "expression": 1,
       "sort": "int"
@@ -127,6 +128,7 @@
     },
     "contract": "A",
     "interface": "f(uint256 x)",
+    "postConditions": "True",
     "returns": null
   }
 ]

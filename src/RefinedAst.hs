@@ -137,20 +137,21 @@ instance ToJSON Behaviour where
                                     , "contracts" .= toJSON _contracts
                                     , "returns" .= toJSON _returns]
 
-
 instance ToJSON StorageLocation where
   toJSON (IntLoc a) = object ["location" .= toJSON a]
-
+  toJSON (BoolLoc a) = object ["location" .= toJSON a]
+  toJSON (BytesLoc a) = object ["location" .= toJSON a]
 
 instance ToJSON StorageUpdate where
-  toJSON (IntUpdate a b) = object ["location" .= toJSON a
-                                  ,"value"    .= toJSON b]
+  toJSON (IntUpdate a b) = object ["location" .= toJSON a ,"value"    .= toJSON b]
+  toJSON (BoolUpdate a b) = object ["location" .= toJSON a ,"value"    .= toJSON b]
+  toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value"    .= toJSON b]
 
 instance ToJSON (TStorageItem b) where
   toJSON (DirectInt a) = String $ pack a
   toJSON (DirectBool a) = String $ pack a
   toJSON (DirectBytes a) = String $ pack a
-  toJSON (MappedInt a b) = symbol "lookup" a b 
+  toJSON (MappedInt a b) = symbol "lookup" a b
   toJSON (MappedBool a b) = symbol "lookup" a b
   toJSON (MappedBytes a b) = symbol "lookup" a b
 
@@ -158,6 +159,8 @@ instance ToJSON ReturnExp where
    toJSON (ExpInt a) = object ["sort" .= (pack "int")
                               ,"expression" .= toJSON a]
    toJSON (ExpBool a) = object ["sort" .= (String $ pack "bool")
+                               ,"expression" .= toJSON a]
+   toJSON (ExpBytes a) = object ["sort" .= (String $ pack "bytestring")
                                ,"expression" .= toJSON a]
    -- toJSON (ExpTuple a) = object ["sort" .= (String $ pack "tuple")
    --                              ,"expression" .= toJSON a]
