@@ -239,12 +239,28 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
   where
     abiVars = mkAbiVars decls
     env = mkEnv contract store abiVars
-    bounds = getStorageBounds <$> assigns
+    bounds = fromMaybe [] $ sequence $ filter isJust $ getStorageBounds <$> assigns
 
     -- computes the storage bounds from the types in an `Assign`
-    getStorageBounds :: Assign -> Exp Bool
-    getStorageBounds (AssignVal (StorageVar (StorageValue (AbiUIntType size)) id) _)
-      = And (LE (LitInt 0) (IntVar id)) (LE (IntVar id) (Exp (LitInt 2) (LitInt $ toInteger size)))
+    getStorageBounds :: Assign -> Maybe (Exp Bool)
+    getStorageBounds (AssignVal (StorageVar (StorageValue typ) id) _) = case typ of
+      AbiUIntType size -> Just $ mkBound (LitInt 0) (pow size) (IntVar id)
+      AbiIntType size -> Just $ mkBound (minus $ pow $ size `div` 2) (pow $ size `div` 2) (IntVar id)
+      AbiAddressType -> Just $ mkBound (LitInt 0) (pow 160) (IntVar id)
+      _ -> Nothing
+      -- TODO: fill in these types
+      --AbiBoolType
+      --AbiBytesType size
+      --AbiStringType
+      --AbiArrayDynamicType AbiType
+      --AbiArrayType        Int AbiType
+      --AbiTupleType        (Vector AbiType)
+      --AbiBytesDynamicType
+      where
+        minus x = Sub (LitInt 0) x
+        pow x = Exp (LitInt 2) (LitInt $ toInteger x)
+        mkBound min max id = And (LE min id) (LE id max)
+
     getStorageBounds (AssignVal (StorageVar typ id) expr)
       = error $ "todo: type" ++ show typ ++ "is unsupported in constructors"
     getStorageBounds _ = error $ "todo: support multiple and struct assignment in constructors"
