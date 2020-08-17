@@ -147,7 +147,7 @@ typecheck behvs = let store = lookupVars behvs in
                      return $ join bs
 
 --- Finds storage declarations from constructors
-lookupVars :: [RawBehaviour] -> Map Id (Map Id SlotType)
+lookupVars :: [RawBehaviour] -> Store
 lookupVars ((Transition _ _ _ _ _ _):bs) = lookupVars bs
 lookupVars ((Constructor _ contract _ _ (Creates assigns) _ _ _):bs) =
   Map.singleton contract (Map.fromList $ map fromAssign assigns)
@@ -176,8 +176,10 @@ defaultStore =
    --others TODO
   ]
 
+type Store = Map Id (Map Id SlotType)
+
 -- typing of vars: this contract storage, other contract scopes, calldata args
-type Env = (Map Id SlotType, Map Id (Map Id SlotType), Map Id MType)
+type Env = (Map Id SlotType, Store, Map Id MType)
 
 andRaw :: [Expr] -> Expr
 andRaw [x] = x
@@ -185,7 +187,7 @@ andRaw (x:xs) = EAnd nowhere x (andRaw xs)
 andRaw [] = BoolLit True
 
 -- checks a transition given a typing of its storage variables
-splitBehaviour :: Map Id (Map Id SlotType) -> RawBehaviour -> Err [Behaviour]
+splitBehaviour :: Store -> RawBehaviour -> Err [Behaviour]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
   -- constrain integer calldata variables (TODO: other types)
   let calldataBounds = getCallDataBounds decls
