@@ -251,11 +251,16 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
 
     -- computes the state updates from an `Assign`
     getStateUpdates :: Assign -> Err [(Id, [Either StorageLocation StorageUpdate])]
-    getStateUpdates (AssignVal (StorageVar (StorageValue (AbiUIntType size)) id) expr) = do
-      val <- checkInt env expr
-      return [(id, [Right (IntUpdate (DirectInt id) val)])]
-    getStateUpdates (AssignVal (StorageVar typ id) expr)
-      = error $ "todo: type" ++ show typ ++ "is unsupported in constructors"
+    getStateUpdates (AssignVal (StorageVar (StorageValue typ) id) expr) = case metaType typ of
+      Integer -> do
+        val <- checkInt env expr
+        return [(id, [Right (IntUpdate (DirectInt id) val)])]
+      Boolean -> do
+        val <- checkBool env expr
+        return [(id, [Right (BoolUpdate (DirectBool id) val)])]
+      ByteStr -> do
+        val <- checkBytes env expr
+        return [(id, [Right (BytesUpdate (DirectBytes id) val)])]
     getStateUpdates _ = error "todo: support multiple and struct assignment in constructors"
 
     -- processes the expressions in the invariant block
@@ -274,6 +279,7 @@ splitCase name creates contract iface ifs iffs ret storage postcs contracts =
   [ Behaviour name Pass creates contract iface (mconcat (ifs <> iffs)) (mconcat postcs) contracts storage ret,
     Behaviour name Fail creates contract iface (And (mconcat ifs) (Neg (mconcat iffs))) (mconcat postcs) contracts storage Nothing ]
 
+-- extract a list of iff headers from the size of the types in a list of calldata declarations
 getCallDataBounds :: [Decl] -> [IffH]
 getCallDataBounds decls =
   join $
