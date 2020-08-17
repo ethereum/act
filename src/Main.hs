@@ -18,7 +18,7 @@ import GHC.Generics
 import System.Environment ( getArgs )
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
-import Data.Text          (Text, pack, unpack)
+import Data.Text (Text, pack, unpack)
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import qualified EVM.Solidity as Solidity
@@ -226,8 +226,8 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
       return $ join leaves
 
 splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs creates@(Creates assigns) extStorage maybeEnsures maybeInvariants) = do
-  rawUpdates <- mapM getStateUpdates assigns
-  let stateUpdates = Map.fromList $ concat rawUpdates
+  rawUpdates <- mapM (checkAssign env) assigns
+  let stateUpdates = Map.fromList $ (\(id, upd) -> (id, Right <$> upd)) <$> rawUpdates
 
   let calldataBounds = getCallDataBounds decls
   iffs' <- checkIffs env (iffs <> calldataBounds)
@@ -260,24 +260,9 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
         minus x = Sub (LitInt 0) x
         pow x = Exp (LitInt 2) (LitInt $ toInteger x)
         mkBound min max id = And (LE min id) (LE id max)
-
-    getStorageBounds (AssignVal (StorageVar typ id) expr)
-      = error $ "todo: type" ++ show typ ++ "is unsupported in constructors"
-    getStorageBounds _ = error $ "todo: support multiple and struct assignment in constructors"
-
-    -- computes the state updates from an `Assign`
-    getStateUpdates :: Assign -> Err [(Id, [Either StorageLocation StorageUpdate])]
-    getStateUpdates (AssignVal (StorageVar (StorageValue typ) id) expr) = case metaType typ of
-      Integer -> do
-        val <- checkInt env expr
-        return [(id, [Right (IntUpdate (DirectInt id) val)])]
-      Boolean -> do
-        val <- checkBool env expr
-        return [(id, [Right (BoolUpdate (DirectBool id) val)])]
-      ByteStr -> do
-        val <- checkBytes env expr
-        return [(id, [Right (BytesUpdate (DirectBytes id) val)])]
-    getStateUpdates _ = error "todo: support multiple and struct assignment in constructors"
+    getStorageBounds (AssignVal (StorageVar typ _) _)
+       = error $ "todo: support " ++ show typ ++ " in constructors"
+    getStorageBounds _ = error $ "todo!!: support multiple and struct assignment in constructors"
 
     -- processes the expressions in the invariant block
     processInvariants :: Ensures -> Err [Exp Bool]
@@ -305,6 +290,53 @@ getCallDataBounds decls =
           _ -> []
       )
       decls
+
+checkAssign :: Env -> Assign -> Err (Id, [StorageUpdate])
+checkAssign env (AssignVal (StorageVar (StorageValue typ) id) expr)
+  = case metaType typ of
+    Integer -> do
+      val <- checkInt env expr
+      return (id, [IntUpdate (DirectInt id) val])
+    Boolean -> do
+      val <- checkBool env expr
+      return (id, [BoolUpdate (DirectBool id) val])
+    ByteStr -> do
+      val <- checkBytes env expr
+      return (id, [BytesUpdate (DirectBytes id) val])
+checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) id) defns)
+  = do updates <- mapM (checkDefn env keyType valType id) defns
+       return $ (id, updates)
+checkAssign env (AssignVal (StorageVar (StorageMapping argtyps t) id) expr)
+  = Bad (nowhere, "Cannot assign a single expression to a composite type")
+checkAssign env (AssignMany (StorageVar (StorageValue typ) id) defns)
+  = Bad (nowhere, "Cannot assign multiple values to an atomic type")
+checkAssign _ _ = error $ "todo: support struct assignment in constructors"
+
+-- Checks that the types in a Defn match those in the mapping that is being written to
+-- TODO: handle nested mappings
+checkDefn :: Env -> AbiType -> AbiType -> Id -> Defn -> Err StorageUpdate
+checkDefn env keyType valType id (Defn l r) = case metaType keyType of
+    Integer -> do
+      key <- checkInt env l
+      checkVal (ExpInt key)
+    Boolean -> do
+      key <- checkBool env l
+      checkVal (ExpBool key)
+    ByteStr -> do
+      key <- checkBytes env l
+      checkVal (ExpBytes key)
+    where
+      checkVal key = do
+        case metaType valType of
+          Integer -> do
+            val <- checkInt env r
+            return $ IntUpdate (MappedInt id (key :| [])) val
+          Boolean -> do
+            val <- checkBool env r
+            return $ BoolUpdate (MappedBool id (key :| [])) val
+          ByteStr -> do
+            val <- checkBytes env r
+            return $ BytesUpdate (MappedBytes id (key :| [])) val
 
 checkPost :: Env -> Id -> Post -> Err (Map Id [Either StorageLocation StorageUpdate], Maybe ReturnExp, [Id])
 checkPost env@(ours, theirs, localVars) contract (Post maybeStorage extStorage maybeReturn) =
