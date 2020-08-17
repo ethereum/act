@@ -222,7 +222,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
 
 splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs creates@(Creates assigns) extStorage maybeEnsures maybeInvariants) = do
   rawUpdates <- mapM getStateUpdates assigns
-  let stateUpdates = Map.fromList $ concat $ rawUpdates
+  let stateUpdates = Map.fromList $ concat rawUpdates
 
   let calldataBounds = getCallDataBounds decls
   iffs' <- checkIffs env (iffs <> calldataBounds)
@@ -234,7 +234,7 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
   where
     env = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
     abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
-    bounds = (getStorageBounds <$> assigns)
+    bounds = getStorageBounds <$> assigns
 
     -- computes the storage bounds from the types in an `Assign`
     getStorageBounds :: Assign -> Exp Bool
@@ -248,14 +248,14 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
     getStateUpdates :: Assign -> Err [(Id, [Either StorageLocation StorageUpdate])]
     getStateUpdates (AssignVal (StorageVar (StorageValue (AbiUIntType size)) id) expr) = do
       val <- checkInt env expr
-      return $ [(id, [Right (IntUpdate (DirectInt id) val)])]
+      return [(id, [Right (IntUpdate (DirectInt id) val)])]
     getStateUpdates (AssignVal (StorageVar typ id) expr)
       = error $ "todo: type" ++ show typ ++ "is unsupported in constructors"
     getStateUpdates _ = error "todo: support multiple and struct assignment in constructors"
 
     -- processes the expressions in the invariant block
     processInvariants :: Ensures -> Err [Exp Bool]
-    processInvariants exprs = mapM (\e -> checkBool env e) exprs
+    processInvariants exprs = mapM (checkBool env) exprs
 
 -- split case into pass and fail case
 splitCase :: String -> Bool -> String -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
