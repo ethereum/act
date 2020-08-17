@@ -181,6 +181,9 @@ type Store = Map Id (Map Id SlotType)
 -- typing of vars: this contract storage, other contract scopes, calldata args
 type Env = (Map Id SlotType, Store, Map Id MType)
 
+mkEnv :: Id -> Store -> Map String MType -> Env
+mkEnv contract store abiVars = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
+
 andRaw :: [Expr] -> Expr
 andRaw [x] = x
 andRaw (x:xs) = EAnd nowhere x (andRaw xs)
@@ -195,8 +198,8 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
   postcondition <- mapM (checkBool env) (fromMaybe [] maybePost)
   flatten iff postcondition [] cases
   where
-    env = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
-    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
+    abiVars = mkAbiVars decls
+    env = mkEnv contract store abiVars
 
     -- translate wildcards into negation of other cases
     normalize :: [Case Expr b] -> [Case Expr b]
@@ -234,8 +237,8 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
 
   return $ splitCase name True contract iface [] iffs' Nothing stateUpdates postcs [contract]
   where
-    env = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
-    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
+    abiVars = mkAbiVars decls
+    env = mkEnv contract store abiVars
     bounds = getStorageBounds <$> assigns
 
     -- computes the storage bounds from the types in an `Assign`
@@ -258,6 +261,9 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
     -- processes the expressions in the invariant block
     processInvariants :: Ensures -> Err [Exp Bool]
     processInvariants exprs = mapM (checkBool env) exprs
+
+mkAbiVars :: [Decl] -> Map String MType
+mkAbiVars decls = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
 
 -- split case into pass and fail case
 splitCase :: String -> Bool -> String -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
