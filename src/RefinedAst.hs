@@ -13,24 +13,27 @@ import Data.Map.Strict    (Map)
 import Data.List.NonEmpty hiding (fromList)
 import Data.ByteString       (ByteString)
 
-import Syntax
+import Syntax hiding (Invariants)
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
 
 -- AST post typechecking
-data Behaviour = Behaviour
-  {_name :: Id,
-   _mode :: Mode,
-   _creation :: Bool,
-   _contract :: Id,
-   _interface :: Interface,
-   _preconditions :: Exp Bool,
-   _postconditions :: Exp Bool,
-   _contracts :: [Id], -- can maybe be removed; should be equivalent to Map.keys(_stateupdates)
-   _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
-   _returns :: Maybe ReturnExp
-  }
+data Behaviour =
+  Invariants [Exp Bool] [Id]
+  | Behaviour
+    {_name :: Id,
+     _mode :: Mode,
+     _creation :: Bool,
+     _contract :: Id,
+     _interface :: Interface,
+     _preconditions :: Exp Bool,
+     _postconditions :: Exp Bool,
+     _contracts :: [Id], -- can maybe be removed; should be equivalent to Map.keys(_stateupdates)
+     _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
+     _returns :: Maybe ReturnExp
+    }
+
 
 data Mode
   = Pass
@@ -126,7 +129,11 @@ data ReturnExp
 
 -- intermediate json output helpers ---
 instance ToJSON Behaviour where
-  toJSON (Behaviour {..}) = object  [ "name" .= _name
+  toJSON (Invariants exps contracts) = object [ "kind" .= (String "Invariants")
+                                              , "invariants" .= toJSON exps
+                                              , "contracts" .= toJSON contracts ]
+  toJSON (Behaviour {..}) = object  [ "kind" .= (String "Behaviour")
+                                    , "name" .= _name
                                     , "contract" .= _contract
                                     , "mode" .= (String . pack $ show _mode)
                                     , "creation" .= _creation

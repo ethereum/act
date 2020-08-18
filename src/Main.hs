@@ -37,7 +37,7 @@ import Control.Monad
 import Control.Monad.Except
 import Data.Functor.Identity
 
-import Syntax
+import Syntax hiding (Invariants)
 import Splitter
 import ErrM
 import Lex (lexer, AlexPosn(..))
@@ -235,7 +235,8 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
   let storageBounds = fst $ getStorageBounds env
       postcs = storageBounds <> invariants
 
-  return $ splitCase name True contract iface [] iffs' Nothing stateUpdates postcs [contract]
+  return $ [(Invariants invariants [contract])]
+           ++ (splitCase name True contract iface [] iffs' Nothing stateUpdates postcs [contract])
 
 mkEnv :: Id -> Store -> [Decl]-> Env
 mkEnv contract store decls = (fromMaybe mempty (Map.lookup contract store), store, abiVars)

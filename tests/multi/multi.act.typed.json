@@ -18,6 +18,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
     "contracts": [
@@ -134,6 +135,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
     "contracts": [
@@ -256,6 +258,7 @@
       ],
       "B": []
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
     "contracts": [
@@ -365,6 +368,7 @@
       ],
       "B": []
     },
+    "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
     "contracts": [
@@ -476,6 +480,13 @@
     "returns": null
   },
   {
+    "kind": "Invariants",
+    "contracts": [
+      "B"
+    ],
+    "invariants": []
+  },
+  {
     "stateUpdates": {
       "y": [
         {
@@ -486,6 +497,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
     "contracts": [
@@ -527,6 +539,13 @@
     "returns": null
   },
   {
+    "kind": "Invariants",
+    "contracts": [
+      "a"
+    ],
+    "invariants": []
+  },
+  {
     "stateUpdates": {
       "x": [
         {
@@ -537,6 +556,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
     "contracts": [

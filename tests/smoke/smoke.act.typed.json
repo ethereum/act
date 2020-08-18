@@ -3,6 +3,7 @@
     "stateUpdates": {
       "A": []
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
     "contracts": [
@@ -64,6 +65,7 @@
     "stateUpdates": {
       "A": []
     },
+    "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
     "contracts": [
