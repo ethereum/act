@@ -19,20 +19,21 @@ import Data.Aeson.Types
 import Data.Vector (fromList)
 
 -- AST post typechecking
-data Behaviour =
-  Invariants [Exp Bool] [Id]
-  | Behaviour
-    {_name :: Id,
-     _mode :: Mode,
-     _creation :: Bool,
-     _contract :: Id,
-     _interface :: Interface,
-     _preconditions :: Exp Bool,
-     _postconditions :: Exp Bool,
-     _contracts :: [Id], -- can maybe be removed; should be equivalent to Map.keys(_stateupdates)
-     _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
-     _returns :: Maybe ReturnExp
-    }
+data Claim = B Behaviour | I Invariant
+
+data Invariant = Invariant Id (Exp Bool)
+data Behaviour = Behaviour
+  {_name :: Id,
+   _mode :: Mode,
+   _creation :: Bool,
+   _contract :: Id,
+   _interface :: Interface,
+   _preconditions :: Exp Bool,
+   _postconditions :: Exp Bool,
+   _contracts :: [Id], -- can maybe be removed; should be equivalent to Map.keys(_stateupdates)
+   _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
+   _returns :: Maybe ReturnExp
+  }
 
 
 data Mode
@@ -128,21 +129,21 @@ data ReturnExp
   deriving (Show)
 
 -- intermediate json output helpers ---
-instance ToJSON Behaviour where
-  toJSON (Invariants exps contracts) = object [ "kind" .= (String "Invariants")
-                                              , "invariants" .= toJSON exps
-                                              , "contracts" .= toJSON contracts ]
-  toJSON (Behaviour {..}) = object  [ "kind" .= (String "Behaviour")
-                                    , "name" .= _name
-                                    , "contract" .= _contract
-                                    , "mode" .= (String . pack $ show _mode)
-                                    , "creation" .= _creation
-                                    , "interface" .= (String . pack $ show _interface)
-                                    , "preConditions" .= (toJSON _preconditions)
-                                    , "postConditions" .= (toJSON _postconditions)
-                                    , "stateUpdates" .= toJSON _stateUpdates
-                                    , "contracts" .= toJSON _contracts
-                                    , "returns" .= toJSON _returns]
+instance ToJSON Claim where
+  toJSON (I (Invariant contract exp)) = object [ "kind" .= (String "Invariant")
+                                               , "expression" .= toJSON exp
+                                               , "contract" .= toJSON contract ]
+  toJSON (B (Behaviour {..})) = object  [ "kind" .= (String "Behaviour")
+                                        , "name" .= _name
+                                        , "contract" .= _contract
+                                        , "mode" .= (String . pack $ show _mode)
+                                        , "creation" .= _creation
+                                        , "interface" .= (String . pack $ show _interface)
+                                        , "preConditions" .= (toJSON _preconditions)
+                                        , "postConditions" .= (toJSON _postconditions)
+                                        , "stateUpdates" .= toJSON _stateUpdates
+                                        , "contracts" .= toJSON _contracts
+                                        , "returns" .= toJSON _returns]
 
 instance ToJSON StorageLocation where
   toJSON (IntLoc a) = object ["location" .= toJSON a]

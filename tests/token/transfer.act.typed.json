@@ -4222,13 +4222,6 @@
     "returns": null
   },
   {
-    "kind": "Invariants",
-    "contracts": [
-      "Token"
-    ],
-    "invariants": []
-  },
-  {
     "stateUpdates": {
       "symbol": [
         {
