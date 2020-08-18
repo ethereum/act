@@ -874,27 +874,23 @@
     "returns": null
   },
   {
-    "kind": "Invariants",
-    "contracts": [
-      "Homogeneous"
-    ],
-    "invariants": [
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "x",
-              "y"
-            ],
-            "symbol": "*"
-          },
-          "z"
-        ],
-        "symbol": "=="
-      }
-    ]
+    "kind": "Invariant",
+    "contract": "Homogeneous",
+    "expression": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            "x",
+            "y"
+          ],
+          "symbol": "*"
+        },
+        "z"
+      ],
+      "symbol": "=="
+    }
   },
   {
     "stateUpdates": {

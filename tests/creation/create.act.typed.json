@@ -1,12 +1,5 @@
 [
   {
-    "kind": "Invariants",
-    "contracts": [
-      "Modest"
-    ],
-    "invariants": []
-  },
-  {
     "stateUpdates": {
       "x": [
         {

@@ -114,7 +114,7 @@ main = do
         errKSpecs <- pure $ do refinedSpecs  <- parse (lexer specContents) >>= typecheck
                                (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
                                  $ Solidity.readJSON $ pack solContents
-                               forM refinedSpecs (makekSpec sources kOpts)
+                               forM (catBehvs refinedSpecs) $ makekSpec sources kOpts
         case errKSpecs of
              Bad e -> prettyErr specContents e
              Ok kSpecs -> do
@@ -122,11 +122,11 @@ main = do
                      Nothing -> putStrLn (filename <> ".k") >> putStrLn content
                      Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
                forM_ kSpecs printFile
-
-
-
-
-
+        where
+          isBehv (B _) = True
+          isBehv (I _) = False
+          unwrapB (B b) = b
+          catBehvs = map unwrapB . filter isBehv
 
 --       (TypeCheck f) -> do contents <- readFile f
 --                           let act = read contents :: [RawBehaviour]
@@ -141,7 +141,7 @@ main = do
 --                                                           print "ok"
 --                                             (Bad s) -> error s
 
-typecheck :: [RawBehaviour] -> Err [Behaviour]
+typecheck :: [RawBehaviour] -> Err [Claim]
 typecheck behvs = let store = lookupVars behvs in
                   do bs <- mapM (splitBehaviour store) behvs
                      return $ join bs
@@ -187,7 +187,7 @@ andRaw (x:xs) = EAnd nowhere x (andRaw xs)
 andRaw [] = BoolLit True
 
 -- checks a transition given a typing of its storage variables
-splitBehaviour :: Store -> RawBehaviour -> Err [Behaviour]
+splitBehaviour :: Store -> RawBehaviour -> Err [Claim]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
   -- constrain integer calldata variables (TODO: other types)
   let calldataBounds = getCallDataBounds decls
@@ -212,7 +212,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
           []
 
     -- flatten case tree
-    flatten :: [Exp Bool] -> [Exp Bool] -> [Exp Bool] -> Case Expr Post -> Err [Behaviour]
+    flatten :: [Exp Bool] -> [Exp Bool] -> [Exp Bool] -> Case Expr Post -> Err [Claim]
     flatten iff postc pathcond (Leaf _ cond post) = do
       c <- checkBool env cond
       (p, maybeReturn, contracts) <- checkPost env contract post
@@ -235,7 +235,7 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
   let storageBounds = fst $ getStorageBounds env
       postcs = storageBounds <> invariants
 
-  return $ [(Invariants invariants [contract])]
+  return $ ((I . (Invariant contract)) <$> invariants)
            ++ (splitCase name True contract iface [] iffs' Nothing stateUpdates postcs [contract])
 
 mkEnv :: Id -> Store -> [Decl]-> Env
@@ -245,12 +245,12 @@ mkEnv contract store decls = (fromMaybe mempty (Map.lookup contract store), stor
 
 -- split case into pass and fail case
 splitCase :: String -> Bool -> String -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
-          -> Map String [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [String] -> [Behaviour]
+          -> Map String [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [String] -> [Claim]
 splitCase name creates contract iface ifs [] ret storage postcs contracts =
-  [ Behaviour name Pass creates contract iface (mconcat ifs) (mconcat postcs) contracts storage ret ]
+  [ B $ Behaviour name Pass creates contract iface (mconcat ifs) (mconcat postcs) contracts storage ret ]
 splitCase name creates contract iface ifs iffs ret storage postcs contracts =
-  [ Behaviour name Pass creates contract iface (mconcat (ifs <> iffs)) (mconcat postcs) contracts storage ret,
-    Behaviour name Fail creates contract iface (And (mconcat ifs) (Neg (mconcat iffs))) (mconcat postcs) contracts storage Nothing ]
+  [ B $ Behaviour name Pass creates contract iface (mconcat (ifs <> iffs)) (mconcat postcs) contracts storage ret,
+    B $ Behaviour name Fail creates contract iface (And (mconcat ifs) (Neg (mconcat iffs))) (mconcat postcs) contracts storage Nothing ]
 
 -- extracts bounds on Integer values in storage, returns Iff or Exp Bool
 -- representations for use in either pre or post conditions

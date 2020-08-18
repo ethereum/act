@@ -480,13 +480,6 @@
     "returns": null
   },
   {
-    "kind": "Invariants",
-    "contracts": [
-      "B"
-    ],
-    "invariants": []
-  },
-  {
     "stateUpdates": {
       "y": [
         {
@@ -537,13 +530,6 @@
       "symbol": "and"
     },
     "returns": null
-  },
-  {
-    "kind": "Invariants",
-    "contracts": [
-      "a"
-    ],
-    "invariants": []
   },
   {
     "stateUpdates": {
