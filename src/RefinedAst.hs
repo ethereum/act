@@ -31,7 +31,6 @@ data Behaviour = Behaviour
    _interface :: Interface,
    _preconditions :: Exp Bool,
    _postconditions :: Exp Bool,
-   _contracts :: [Id], -- can maybe be removed; should be equivalent to Map.keys(_stateupdates)
    _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
    _returns :: Maybe ReturnExp
   }
@@ -156,7 +155,6 @@ instance ToJSON Claim where
                                         , "preConditions" .= (toJSON _preconditions)
                                         , "postConditions" .= (toJSON _postconditions)
                                         , "stateUpdates" .= toJSON _stateUpdates
-                                        , "contracts" .= toJSON _contracts
                                         , "returns" .= toJSON _returns]
 
 instance ToJSON StorageLocation where

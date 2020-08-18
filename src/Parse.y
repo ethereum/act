@@ -16,8 +16,6 @@ import ErrM
 
 %token
 
-  eof                         { L EOF _ }
-
   -- reserved words
   'behaviour'                 { L BEHAVIOUR _ }
   'of'                        { L OF _ }
@@ -30,6 +28,7 @@ import ErrM
   'iff in range'              { L IFFINRANGE _ }
   'iff'                       { L IFF _ }
   'and'                       { L AND _ }
+  'not'                       { L NOT _ }
   'or'                        { L OR _ }
   'true'                      { L TRUE _ }
   'false'                     { L FALSE _ }
@@ -69,7 +68,6 @@ import ErrM
 
 
   -- symbols
-  break                       { L BREAK _ }
   ':='                        { L ASSIGN _ }
   '=>'                        { L ARROW _ }
   '=='                        { L EQEQ _ }
@@ -100,25 +98,35 @@ import ErrM
 
   ilit                        { L (ILIT $$) _ }
 
+{- --- associativity and precedence ---
+boolean operations have universally lower precedence than numeric
+operations
 
--- associativity and precedence (wip) --
+no operators are right associative
 
+some examples:
+`a == b and not c == d` should parse as `(a == b) and (not (c == d))`
+`a * b ^ c % d` should parse as `a * ((b ^ c) % d)`
+
+-}
+
+%nonassoc '[' ']' '.'
+
+-- boolean
 %nonassoc '=>'
-%nonassoc 'if' 'then' 'else'
+%left 'and' 'or'
+%nonassoc 'not'
+%left '==' '=/='
+%nonassoc '<=' '<' '>=' '>'
 
-%left 'and'
-%left 'or'
-
-%nonassoc '<=' '<' '>=' '>' '==' '=/='
-
-
+-- numeric
 %left '+' '-'
 %left '*' '/'
-%left '++'
-%left '[' -- no idea about this one
 %nonassoc '%'
-%left '.' -- no idea about this one
-%right '^'
+%left '^'
+
+-- bytestrings
+%left '++'
 
 %%
 
@@ -170,12 +178,10 @@ Invariants : 'invariants' nonempty(Expr)              { $2 }
 
 Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface (arg $2) $4 }
 
-Case : 'case' Expr ':' nonempty(Case)                 { Branch (posn $1) $2 $4 }
-     | 'case' Expr ':' Post                           { Leaf (posn $1) $2 $4 }
+Cases : Post                                          { Direct $1 }
+      | nonempty(Case)                                { Branches $1 }
 
-Cases : Post                                          { Branch nowhere (BoolLit True)
-                                                          [Leaf nowhere (BoolLit True) $1] }
-      | nonempty(Case)                                { Branch nowhere (BoolLit True) $1 }
+Case : 'case' Expr ':' Post                           { Case (pos $1) $2 $4 }
 
 
 Post  : Storage list(ExtStorage)                      { Post (Just $1) $2 Nothing }
@@ -196,8 +202,8 @@ Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
 
 Store : Entry '=>' Expr                               { Rewrite $1 $3 }
       | Entry                                         { Constant $1 }
-
-Entry : id list(Zoom)                                 { Entry (posn $1) (arg $1) $2 }
+      
+Entry : id list(Zoom)                                 { Entry (posn $1) (arg $1) $2 } 
       | '_'                                           { Wild }
 
 Zoom : '[' Expr ']'                                   { $2 }

@@ -1,6 +1,16 @@
 {
-module Lex (LEX (..), Lexeme (..), lexer, showposn, AlexPosn (..), posn, arg) where
+module Lex
+  ( LEX (..)
+  , Lexeme (..)
+  , AlexPosn (..)
+  , lexer
+  , posn
+  , showposn
+  , arg
+  ) where
+
 import Prelude hiding (EQ, GT, LT)
+
 }
 
 %wrapper "posn"
@@ -12,8 +22,6 @@ $space = [\ \t\f\v\r]
 
 tokens :-
 
-  -- ($space* \n)+       { mk BREAK }
-  -- $space+             ;
   $white+                               ;
 
   -- reserved words
@@ -30,6 +38,7 @@ tokens :-
   iff $white+ in $white+ range          { mk IFFINRANGE }
   iff                                   { mk IFF }
   and                                   { mk AND }
+  not                                   { mk NOT }
   or                                    { mk OR }
   true                                  { mk TRUE }
   false                                 { mk FALSE }
@@ -73,7 +82,6 @@ tokens :-
   -- symbols
   ":="                                  { mk ASSIGN }
   "=>"                                  { mk ARROW }
-  -- "->"                                  { mk ARROW' }
   "=="                                  { mk EQEQ }
   "=/="                                 { mk NEQ }
   ">="                                  { mk GE }
@@ -107,9 +115,6 @@ tokens :-
 
 data LEX =
 
-    BREAK
-  | EOF
-
   -- reserved words
   | BEHAVIOUR
   | OF
@@ -122,6 +127,7 @@ data LEX =
   | IFFINRANGE
   | IFF
   | AND
+  | NOT
   | OR
   | TRUE
   | FALSE

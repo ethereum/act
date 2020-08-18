@@ -18,7 +18,7 @@ data Act = Main [RawBehaviour]
   deriving (Eq, Show)
 
 data RawBehaviour
-    = Transition Id Id Interface [IffH] (Case Expr Post) (Maybe Ensures)
+    = Transition Id Id Interface [IffH] Cases (Maybe Ensures)
     | Constructor Id Id Interface [IffH] Creates [ExtStorage] (Maybe Ensures) (Maybe Invariants)
   deriving (Eq, Show)
 
@@ -32,9 +32,12 @@ data Interface = Interface Id [Decl]
 instance Show Interface where
   show (Interface a d) = a <> "(" <> intercalate ", " (fmap show d) <> ")"
 
-data Case a b
-    = Leaf Pn a b
-    | Branch Pn a [Case a b]
+data Cases =
+  Direct Post
+  | Branches [Case]
+  deriving (Eq, Show)
+  
+data Case = Case Pn Expr Post
   deriving (Eq, Show)
 
 data Post
@@ -66,7 +69,6 @@ data Entry
   | Wild
   deriving (Eq, Show)
 
---data Defn = Defn Pn Expr Expr
 data Defn = Defn Expr Expr
   deriving (Eq, Show)
 
