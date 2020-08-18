@@ -8,12 +8,13 @@
 {-# Language DeriveAnyClass #-}
 module RefinedAst where
 import Data.Text          (Text, pack, unpack)
+import Data.List (filter)
 import GHC.Generics
 import Data.Map.Strict    (Map)
 import Data.List.NonEmpty hiding (fromList)
 import Data.ByteString       (ByteString)
 
-import Syntax hiding (Invariants)
+import Syntax
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
@@ -35,6 +36,23 @@ data Behaviour = Behaviour
    _returns :: Maybe ReturnExp
   }
 
+catInvs :: [Claim] -> [Invariant]
+catInvs = fmap unwrapI . Data.List.filter isI
+  where
+    isI (B _) = False
+    isI (I _) = True
+    unwrapI (I i) = i
+
+catBehvs :: [Claim] -> [Behaviour]
+catBehvs = fmap unwrapB . Data.List.filter isB
+  where
+    isB (B _) = True
+    isB (I _) = False
+    unwrapB (B i) = i
+
+conjunction :: [Invariant] -> Exp Bool
+conjunction [] = LitBool True
+conjunction (hd@(Invariant _ exp):tl) = And exp (conjunction tl)
 
 data Mode
   = Pass

@@ -114,7 +114,7 @@ main = do
         errKSpecs <- pure $ do refinedSpecs  <- parse (lexer specContents) >>= typecheck
                                (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
                                  $ Solidity.readJSON $ pack solContents
-                               forM (catBehvs refinedSpecs) $ makekSpec sources kOpts
+                               forM (catBehvs refinedSpecs) $ makekSpec sources kOpts (catInvs refinedSpecs)
         case errKSpecs of
              Bad e -> prettyErr specContents e
              Ok kSpecs -> do
@@ -122,11 +122,6 @@ main = do
                      Nothing -> putStrLn (filename <> ".k") >> putStrLn content
                      Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
                forM_ kSpecs printFile
-        where
-          isBehv (B _) = True
-          isBehv (I _) = False
-          unwrapB (B b) = b
-          catBehvs = map unwrapB . filter isBehv
 
 --       (TypeCheck f) -> do contents <- readFile f
 --                           let act = read contents :: [RawBehaviour]

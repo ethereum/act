@@ -52,12 +52,13 @@ data KOptions =
     storage :: Maybe String,
     extractbin :: Bool
     }
-  
 
-makekSpec :: Map Text SolcContract -> KOptions -> Behaviour -> Err (String, String)
-makekSpec sources kOpts behaviour =
+
+makekSpec :: Map Text SolcContract -> KOptions -> [Invariant] -> Behaviour -> Err (String, String)
+makekSpec sources kOpts invariants behaviour =
   let this = _contract behaviour
       names = Map.fromList $ fmap (\(a, b) -> (getContractName a, b)) (Map.toList sources)
+      invExp = conjunction $ Data.List.filter (\i@(Invariant id exp) -> id == this) invariants
       hasLayout = Map.foldr ((&&) . isJust . _storageLayout) True sources
   in
     if hasLayout then do
@@ -70,7 +71,7 @@ makekSpec sources kOpts behaviour =
             (nowhere, "err: " <> show this <> "Bytecode not found\nSources available: " <> show (Map.keys sources))
             (Map.lookup this names)
 
-      return $ mkTerm thisSource names behaviour
+      return $ mkTerm thisSource names behaviour invExp
 
     else Bad (nowhere, "No storagelayout found")
 
@@ -236,8 +237,8 @@ defaultConditions acct_id =
 
 
 
-mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> (String, String)
-mkTerm this accounts behaviour@Behaviour{..} = (name, term)
+mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> Exp Bool -> (String, String)
+mkTerm this accounts behaviour@Behaviour{..} invariant = (name, term)
   where code = if _creation then _creationCode this
                else _runtimeCode this
         pass = _mode == Pass
@@ -311,3 +312,5 @@ mkTerm this accounts behaviour@Behaviour{..} = (name, term)
                <> "\nrequires "
                <> defaultConditions (kVar _contract) <> "\n andBool\n"
                <> kExprBool _preconditions
+               <> "\nensures "
+               <> kExprBool (And _postconditions invariant)
