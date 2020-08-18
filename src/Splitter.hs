@@ -156,6 +156,15 @@ kExprBool (LitBool a) = show a
 kExprBool (BoolVar a) = kVar a
 kExprBool v = error ("Internal error: TODO kExprBool of " <> show v)
 
+kExprBytes :: Exp ByteString -> String
+kExprBytes (ByVar id) = kVar id
+kExprBytes (ByStr str) = show str
+kExprBytes (ByLit bs) = show bs
+kExprBytes exp = error $ "TODO: kExprBytes of " <> show exp
+--kExprBytes (Cat a b) =
+--kExprBytes (Slice a start end) =
+--kExprBytes (ByEnv env) =
+
 fst' (x, _, _) = x
 snd' (_, y, _) = y
 trd' (_, _, z) = z
@@ -168,9 +177,11 @@ kStorageEntry storageLayout update =
          (Map.lookup (pack (getId update)) storageLayout)
   in case update of
        Right (IntUpdate a b) -> (loc, (offset, kstorageName a, kExprInt b))
+       Right (BoolUpdate a b) -> (loc, (offset, kstorageName a, kExprBool b))
+       Right (BytesUpdate a b) -> (loc, (offset, kstorageName a, kExprBytes b))
        Left (IntLoc a) -> (loc, (offset, kstorageName a, kstorageName a))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
---  BoolUpdate (TStorageItem Bool) c -> 
+--  BoolUpdate (TStorageItem Bool) c ->
 --  BytesUpdate (TStorageItem ByteString) d ->  (Exp ByteString)
 
 --packs entries packed in one slot
