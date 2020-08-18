@@ -27,7 +27,63 @@
     "preConditions": "True",
     "contract": "Modest",
     "interface": "constructor()",
-    "postConditions": "True",
+    "postConditions": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                0,
+                "x"
+              ],
+              "symbol": "<="
+            },
+            {
+              "arity": 2,
+              "args": [
+                "x",
+                1.157920892373162e+77
+              ],
+              "symbol": "<="
+            }
+          ],
+          "symbol": "and"
+        },
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    0,
+                    "y"
+                  ],
+                  "symbol": "<="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    "y",
+                    1.461501637330903e+48
+                  ],
+                  "symbol": "<="
+                }
+              ],
+              "symbol": "and"
+            },
+            "True"
+          ],
+          "symbol": "and"
+        }
+      ],
+      "symbol": "and"
+    },
     "returns": null
   }
 ]
