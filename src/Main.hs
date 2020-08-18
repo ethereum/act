@@ -221,7 +221,7 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
   let env = mkEnv contract store decls
 
   rawUpdates <- mapM (checkAssign env) assigns
-  let stateUpdates = Map.fromList $ (\(id, upd) -> (id, Right <$> upd)) <$> rawUpdates
+  let stateUpdates = Map.fromList $ [(contract, Right <$> concat rawUpdates)]
 
   let calldataBounds = getCallDataBounds decls
   iffs' <- checkIffs env (iffs <> calldataBounds)
@@ -271,21 +271,20 @@ getCallDataBounds decls =
       decls
 
 -- ensures that key types match value types in an assign
-checkAssign :: Env -> Assign -> Err (Id, [StorageUpdate])
+checkAssign :: Env -> Assign -> Err [StorageUpdate]
 checkAssign env (AssignVal (StorageVar (StorageValue typ) id) expr)
   = case metaType typ of
     Integer -> do
       val <- checkInt env expr
-      return (id, [IntUpdate (DirectInt id) val])
+      return [IntUpdate (DirectInt id) val]
     Boolean -> do
       val <- checkBool env expr
-      return (id, [BoolUpdate (DirectBool id) val])
+      return [BoolUpdate (DirectBool id) val]
     ByteStr -> do
       val <- checkBytes env expr
-      return (id, [BytesUpdate (DirectBytes id) val])
+      return [BytesUpdate (DirectBytes id) val]
 checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) id) defns)
-  = do updates <- mapM (checkDefn env keyType valType id) defns
-       return $ (id, updates)
+  = mapM (checkDefn env keyType valType id) defns
 checkAssign env (AssignVal (StorageVar (StorageMapping _ _) _) _)
   = Bad (nowhere, "Cannot assign a single expression to a composite type")
 checkAssign env (AssignMany (StorageVar (StorageValue _) _) _)
