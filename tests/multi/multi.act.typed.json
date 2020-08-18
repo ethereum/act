@@ -69,7 +69,35 @@
                       ],
                       "symbol": "and"
                     },
-                    "True"
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                0,
+                                "y"
+                              ],
+                              "symbol": "<="
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                "y",
+                                1.157920892373162e+77
+                              ],
+                              "symbol": "<="
+                            }
+                          ],
+                          "symbol": "and"
+                        },
+                        "True"
+                      ],
+                      "symbol": "and"
+                    }
                   ],
                   "symbol": "and"
                 }
@@ -170,7 +198,35 @@
                       ],
                       "symbol": "and"
                     },
-                    "True"
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                0,
+                                "y"
+                              ],
+                              "symbol": "<="
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                "y",
+                                1.157920892373162e+77
+                              ],
+                              "symbol": "<="
+                            }
+                          ],
+                          "symbol": "and"
+                        },
+                        "True"
+                      ],
+                      "symbol": "and"
+                    }
                   ],
                   "symbol": "and"
                 }
@@ -251,7 +307,35 @@
                       ],
                       "symbol": "and"
                     },
-                    "True"
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                0,
+                                "y"
+                              ],
+                              "symbol": "<="
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                "y",
+                                1.157920892373162e+77
+                              ],
+                              "symbol": "<="
+                            }
+                          ],
+                          "symbol": "and"
+                        },
+                        "True"
+                      ],
+                      "symbol": "and"
+                    }
                   ],
                   "symbol": "and"
                 }
@@ -345,7 +429,35 @@
                       ],
                       "symbol": "and"
                     },
-                    "True"
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                0,
+                                "y"
+                              ],
+                              "symbol": "<="
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                "y",
+                                1.157920892373162e+77
+                              ],
+                              "symbol": "<="
+                            }
+                          ],
+                          "symbol": "and"
+                        },
+                        "True"
+                      ],
+                      "symbol": "and"
+                    }
                   ],
                   "symbol": "and"
                 }
@@ -383,7 +495,35 @@
     "preConditions": "True",
     "contract": "B",
     "interface": "constructor()",
-    "postConditions": "True",
+    "postConditions": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                0,
+                "y"
+              ],
+              "symbol": "<="
+            },
+            {
+              "arity": 2,
+              "args": [
+                "y",
+                1.157920892373162e+77
+              ],
+              "symbol": "<="
+            }
+          ],
+          "symbol": "and"
+        },
+        "True"
+      ],
+      "symbol": "and"
+    },
     "returns": null
   },
   {
@@ -406,7 +546,35 @@
     "preConditions": "True",
     "contract": "a",
     "interface": "constructor()",
-    "postConditions": "True",
+    "postConditions": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                0,
+                "x"
+              ],
+              "symbol": "<="
+            },
+            {
+              "arity": 2,
+              "args": [
+                "x",
+                1.157920892373162e+77
+              ],
+              "symbol": "<="
+            }
+          ],
+          "symbol": "and"
+        },
+        "True"
+      ],
+      "symbol": "and"
+    },
     "returns": null
   }
 ]

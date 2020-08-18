@@ -181,9 +181,6 @@ type Store = Map Id (Map Id SlotType)
 -- typing of vars: this contract storage, other contract scopes, calldata args
 type Env = (Map Id SlotType, Store, Map Id MType)
 
-mkEnv :: Id -> Store -> Map String MType -> Env
-mkEnv contract store abiVars = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
-
 andRaw :: [Expr] -> Expr
 andRaw [x] = x
 andRaw (x:xs) = EAnd nowhere x (andRaw xs)
@@ -194,12 +191,12 @@ splitBehaviour :: Store -> RawBehaviour -> Err [Behaviour]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
   -- constrain integer calldata variables (TODO: other types)
   let calldataBounds = getCallDataBounds decls
-  iff <- checkIffs env (iffs' <> calldataBounds)
+      storageBounds = snd $ getStorageBounds env
+  iff <- checkIffs env (iffs' <> calldataBounds <> storageBounds)
   postcondition <- mapM (checkBool env) (fromMaybe [] maybePost)
   flatten iff postcondition [] cases
   where
-    abiVars = mkAbiVars decls
-    env = mkEnv contract store abiVars
+    env = mkEnv contract store decls
 
     -- translate wildcards into negation of other cases
     normalize :: [Case Expr b] -> [Case Expr b]
@@ -226,50 +223,24 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
       return $ join leaves
 
 splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs creates@(Creates assigns) extStorage maybeEnsures maybeInvariants) = do
+  let env = mkEnv contract store decls
+
   rawUpdates <- mapM (checkAssign env) assigns
   let stateUpdates = Map.fromList $ (\(id, upd) -> (id, Right <$> upd)) <$> rawUpdates
 
   let calldataBounds = getCallDataBounds decls
   iffs' <- checkIffs env (iffs <> calldataBounds)
 
-  invariants <- processInvariants $ fromMaybe [] maybeInvariants
-  let postcs = bounds <> invariants
+  invariants <- mapM (checkBool env) $ fromMaybe [] maybeInvariants
+  let storageBounds = fst $ getStorageBounds env
+      postcs = storageBounds <> invariants
 
   return $ splitCase name True contract iface [] iffs' Nothing stateUpdates postcs [contract]
-  where
-    abiVars = mkAbiVars decls
-    env = mkEnv contract store abiVars
-    bounds = fromMaybe [] $ sequence $ filter isJust $ getStorageBounds <$> assigns
 
-    -- computes the storage bounds from the types in an `Assign`
-    getStorageBounds :: Assign -> Maybe (Exp Bool)
-    getStorageBounds (AssignVal (StorageVar (StorageValue typ) id) _) = case typ of
-      AbiUIntType size -> Just $ mkBound (LitInt 0) (pow size) (IntVar id)
-      AbiIntType size -> Just $ mkBound (minus $ pow $ size `div` 2) (pow $ size `div` 2) (IntVar id)
-      AbiAddressType -> Just $ mkBound (LitInt 0) (pow 160) (IntVar id)
-      _ -> Nothing
-      -- TODO: fill in these types
-      --AbiBoolType
-      --AbiBytesType size
-      --AbiStringType
-      --AbiArrayDynamicType AbiType
-      --AbiArrayType        Int AbiType
-      --AbiTupleType        (Vector AbiType)
-      --AbiBytesDynamicType
-      where
-        minus x = Sub (LitInt 0) x
-        pow x = Exp (LitInt 2) (LitInt $ toInteger x)
-        mkBound min max id = And (LE min id) (LE id max)
-    getStorageBounds (AssignVal (StorageVar typ _) _)
-       = error $ "todo: support " ++ show typ ++ " in constructors"
-    getStorageBounds _ = error $ "todo!!: support multiple and struct assignment in constructors"
-
-    -- processes the expressions in the invariant block
-    processInvariants :: Ensures -> Err [Exp Bool]
-    processInvariants exprs = mapM (checkBool env) exprs
-
-mkAbiVars :: [Decl] -> Map String MType
-mkAbiVars decls = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
+mkEnv :: Id -> Store -> [Decl]-> Env
+mkEnv contract store decls = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
+ where
+   abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
 
 -- split case into pass and fail case
 splitCase :: String -> Bool -> String -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
@@ -279,6 +250,18 @@ splitCase name creates contract iface ifs [] ret storage postcs contracts =
 splitCase name creates contract iface ifs iffs ret storage postcs contracts =
   [ Behaviour name Pass creates contract iface (mconcat (ifs <> iffs)) (mconcat postcs) contracts storage ret,
     Behaviour name Fail creates contract iface (And (mconcat ifs) (Neg (mconcat iffs))) (mconcat postcs) contracts storage Nothing ]
+
+-- extracts bounds on Integer values in storage, returns Iff or Exp Bool
+-- representations for use in either pre or post conditions
+getStorageBounds :: Env -> ([Exp Bool], [IffH])
+getStorageBounds (ours, _, _) =
+  unzip $ catMaybes $ fmap getBound $ Map.toList ours
+  where
+    getBound :: (Id, SlotType) -> Maybe (Exp Bool, IffH)
+    getBound (id, (StorageValue typ)) = case metaType typ of
+      Integer -> Just $ (bound typ (IntVar id), IffIn nowhere typ [EntryExp nowhere id []])
+      _ -> Nothing
+    getBound (_, _) = Nothing
 
 -- extract a list of iff headers from the size of the types in a list of calldata declarations
 getCallDataBounds :: [Decl] -> [IffH]
@@ -291,6 +274,7 @@ getCallDataBounds decls =
       )
       decls
 
+-- ensures that key types match value types in an assign
 checkAssign :: Env -> Assign -> Err (Id, [StorageUpdate])
 checkAssign env (AssignVal (StorageVar (StorageValue typ) id) expr)
   = case metaType typ of
@@ -303,39 +287,39 @@ checkAssign env (AssignVal (StorageVar (StorageValue typ) id) expr)
     ByteStr -> do
       val <- checkBytes env expr
       return (id, [BytesUpdate (DirectBytes id) val])
+checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) id) defns)
+  = do updates <- mapM (checkDefn env keyType valType id) defns
+       return $ (id, updates)
 checkAssign env (AssignVal (StorageVar (StorageMapping _ _) _) _)
   = Bad (nowhere, "Cannot assign a single expression to a composite type")
 checkAssign env (AssignMany (StorageVar (StorageValue _) _) _)
   = Bad (nowhere, "Cannot assign multiple values to an atomic type")
-checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) id) defns)
-  = do updates <- mapM (checkDefn env keyType valType id) defns
-       return $ (id, updates)
 checkAssign _ _ = error $ "todo: support struct assignment in constructors"
 
--- Checks that the types in a Defn match those in the mapping that is being written to
+-- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
 checkDefn :: Env -> AbiType -> AbiType -> Id -> Defn -> Err StorageUpdate
-checkDefn env keyType valType id (Defn l r) = case metaType keyType of
+checkDefn env keyType valType id (Defn k v) = case metaType keyType of
     Integer -> do
-      key <- checkInt env l
+      key <- checkInt env k
       checkVal (ExpInt key)
     Boolean -> do
-      key <- checkBool env l
+      key <- checkBool env k
       checkVal (ExpBool key)
     ByteStr -> do
-      key <- checkBytes env l
+      key <- checkBytes env k
       checkVal (ExpBytes key)
     where
       checkVal key = do
         case metaType valType of
           Integer -> do
-            val <- checkInt env r
+            val <- checkInt env v
             return $ IntUpdate (MappedInt id (key :| [])) val
           Boolean -> do
-            val <- checkBool env r
+            val <- checkBool env v
             return $ BoolUpdate (MappedBool id (key :| [])) val
           ByteStr -> do
-            val <- checkBytes env r
+            val <- checkBytes env v
             return $ BytesUpdate (MappedBytes id (key :| [])) val
 
 checkPost :: Env -> Id -> Post -> Err (Map Id [Either StorageLocation StorageUpdate], Maybe ReturnExp, [Id])

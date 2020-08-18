@@ -243,7 +243,35 @@
                                               ],
                                               "symbol": "and"
                                             },
-                                            "True"
+                                            {
+                                              "arity": 2,
+                                              "args": [
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        0,
+                                                        "totalSupply"
+                                                      ],
+                                                      "symbol": "<="
+                                                    },
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        "totalSupply",
+                                                        1.157920892373162e+77
+                                                      ],
+                                                      "symbol": "<="
+                                                    }
+                                                  ],
+                                                  "symbol": "and"
+                                                },
+                                                "True"
+                                              ],
+                                              "symbol": "and"
+                                            }
                                           ],
                                           "symbol": "and"
                                         }
@@ -542,7 +570,35 @@
                                           ],
                                           "symbol": "and"
                                         },
-                                        "True"
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            {
+                                              "arity": 2,
+                                              "args": [
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    0,
+                                                    "totalSupply"
+                                                  ],
+                                                  "symbol": "<="
+                                                },
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    "totalSupply",
+                                                    1.157920892373162e+77
+                                                  ],
+                                                  "symbol": "<="
+                                                }
+                                              ],
+                                              "symbol": "and"
+                                            },
+                                            "True"
+                                          ],
+                                          "symbol": "and"
+                                        }
                                       ],
                                       "symbol": "and"
                                     }
@@ -945,7 +1001,35 @@
                                               ],
                                               "symbol": "and"
                                             },
-                                            "True"
+                                            {
+                                              "arity": 2,
+                                              "args": [
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        0,
+                                                        "totalSupply"
+                                                      ],
+                                                      "symbol": "<="
+                                                    },
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        "totalSupply",
+                                                        1.157920892373162e+77
+                                                      ],
+                                                      "symbol": "<="
+                                                    }
+                                                  ],
+                                                  "symbol": "and"
+                                                },
+                                                "True"
+                                              ],
+                                              "symbol": "and"
+                                            }
                                           ],
                                           "symbol": "and"
                                         }
@@ -1370,7 +1454,35 @@
                                           ],
                                           "symbol": "and"
                                         },
-                                        "True"
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            {
+                                              "arity": 2,
+                                              "args": [
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    0,
+                                                    "totalSupply"
+                                                  ],
+                                                  "symbol": "<="
+                                                },
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    "totalSupply",
+                                                    1.157920892373162e+77
+                                                  ],
+                                                  "symbol": "<="
+                                                }
+                                              ],
+                                              "symbol": "and"
+                                            },
+                                            "True"
+                                          ],
+                                          "symbol": "and"
+                                        }
                                       ],
                                       "symbol": "and"
                                     }
@@ -1766,7 +1878,35 @@
                                               ],
                                               "symbol": "and"
                                             },
-                                            "True"
+                                            {
+                                              "arity": 2,
+                                              "args": [
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        0,
+                                                        "totalSupply"
+                                                      ],
+                                                      "symbol": "<="
+                                                    },
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        "totalSupply",
+                                                        1.157920892373162e+77
+                                                      ],
+                                                      "symbol": "<="
+                                                    }
+                                                  ],
+                                                  "symbol": "and"
+                                                },
+                                                "True"
+                                              ],
+                                              "symbol": "and"
+                                            }
                                           ],
                                           "symbol": "and"
                                         }
@@ -2184,7 +2324,35 @@
                                           ],
                                           "symbol": "and"
                                         },
-                                        "True"
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            {
+                                              "arity": 2,
+                                              "args": [
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    0,
+                                                    "totalSupply"
+                                                  ],
+                                                  "symbol": "<="
+                                                },
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    "totalSupply",
+                                                    1.157920892373162e+77
+                                                  ],
+                                                  "symbol": "<="
+                                                }
+                                              ],
+                                              "symbol": "and"
+                                            },
+                                            "True"
+                                          ],
+                                          "symbol": "and"
+                                        }
                                       ],
                                       "symbol": "and"
                                     }
@@ -2536,7 +2704,35 @@
                                               ],
                                               "symbol": "and"
                                             },
-                                            "True"
+                                            {
+                                              "arity": 2,
+                                              "args": [
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        0,
+                                                        "totalSupply"
+                                                      ],
+                                                      "symbol": "<="
+                                                    },
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        "totalSupply",
+                                                        1.157920892373162e+77
+                                                      ],
+                                                      "symbol": "<="
+                                                    }
+                                                  ],
+                                                  "symbol": "and"
+                                                },
+                                                "True"
+                                              ],
+                                              "symbol": "and"
+                                            }
                                           ],
                                           "symbol": "and"
                                         }
@@ -2910,7 +3106,35 @@
                                           ],
                                           "symbol": "and"
                                         },
-                                        "True"
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            {
+                                              "arity": 2,
+                                              "args": [
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    0,
+                                                    "totalSupply"
+                                                  ],
+                                                  "symbol": "<="
+                                                },
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    "totalSupply",
+                                                    1.157920892373162e+77
+                                                  ],
+                                                  "symbol": "<="
+                                                }
+                                              ],
+                                              "symbol": "and"
+                                            },
+                                            "True"
+                                          ],
+                                          "symbol": "and"
+                                        }
                                       ],
                                       "symbol": "and"
                                     }
@@ -3103,7 +3327,35 @@
                                   ],
                                   "symbol": "and"
                                 },
-                                "True"
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            0,
+                                            "totalSupply"
+                                          ],
+                                          "symbol": "<="
+                                        },
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            "totalSupply",
+                                            1.157920892373162e+77
+                                          ],
+                                          "symbol": "<="
+                                        }
+                                      ],
+                                      "symbol": "and"
+                                    },
+                                    "True"
+                                  ],
+                                  "symbol": "and"
+                                }
                               ],
                               "symbol": "and"
                             }
@@ -3306,7 +3558,35 @@
                                   ],
                                   "symbol": "and"
                                 },
-                                "True"
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            0,
+                                            "totalSupply"
+                                          ],
+                                          "symbol": "<="
+                                        },
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            "totalSupply",
+                                            1.157920892373162e+77
+                                          ],
+                                          "symbol": "<="
+                                        }
+                                      ],
+                                      "symbol": "and"
+                                    },
+                                    "True"
+                                  ],
+                                  "symbol": "and"
+                                }
                               ],
                               "symbol": "and"
                             }
@@ -3568,7 +3848,35 @@
                                   ],
                                   "symbol": "and"
                                 },
-                                "True"
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            0,
+                                            "totalSupply"
+                                          ],
+                                          "symbol": "<="
+                                        },
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            "totalSupply",
+                                            1.157920892373162e+77
+                                          ],
+                                          "symbol": "<="
+                                        }
+                                      ],
+                                      "symbol": "and"
+                                    },
+                                    "True"
+                                  ],
+                                  "symbol": "and"
+                                }
                               ],
                               "symbol": "and"
                             }
@@ -3846,7 +4154,35 @@
                                   ],
                                   "symbol": "and"
                                 },
-                                "True"
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            0,
+                                            "totalSupply"
+                                          ],
+                                          "symbol": "<="
+                                        },
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            "totalSupply",
+                                            1.157920892373162e+77
+                                          ],
+                                          "symbol": "<="
+                                        }
+                                      ],
+                                      "symbol": "and"
+                                    },
+                                    "True"
+                                  ],
+                                  "symbol": "and"
+                                }
                               ],
                               "symbol": "and"
                             }
@@ -3958,7 +4294,35 @@
     },
     "contract": "Token",
     "interface": "constructor(uint256 _totalSupply, string _version, string _name, string _symbol)",
-    "postConditions": "True",
+    "postConditions": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                0,
+                "totalSupply"
+              ],
+              "symbol": "<="
+            },
+            {
+              "arity": 2,
+              "args": [
+                "totalSupply",
+                1.157920892373162e+77
+              ],
+              "symbol": "<="
+            }
+          ],
+          "symbol": "and"
+        },
+        "True"
+      ],
+      "symbol": "and"
+    },
     "returns": null
   },
   {
@@ -4059,7 +4423,35 @@
     },
     "contract": "Token",
     "interface": "constructor(uint256 _totalSupply, string _version, string _name, string _symbol)",
-    "postConditions": "True",
+    "postConditions": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                0,
+                "totalSupply"
+              ],
+              "symbol": "<="
+            },
+            {
+              "arity": 2,
+              "args": [
+                "totalSupply",
+                1.157920892373162e+77
+              ],
+              "symbol": "<="
+            }
+          ],
+          "symbol": "and"
+        },
+        "True"
+      ],
+      "symbol": "and"
+    },
     "returns": null
   }
 ]
