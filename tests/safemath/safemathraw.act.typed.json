@@ -3,6 +3,7 @@
     "stateUpdates": {
       "SafeAdd": []
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
     "contracts": [
@@ -155,6 +156,7 @@
     "stateUpdates": {
       "SafeAdd": []
     },
+    "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
     "contracts": [

@@ -3,6 +3,7 @@
     "stateUpdates": {
       "Token": []
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
     "contracts": [
@@ -314,6 +315,7 @@
     "stateUpdates": {
       "Token": []
     },
+    "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
     "contracts": [
@@ -755,6 +757,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
     "contracts": [
@@ -1192,6 +1195,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
     "contracts": [
@@ -1594,6 +1598,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
     "contracts": [
@@ -2024,6 +2029,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
     "contracts": [
@@ -2464,6 +2470,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
     "contracts": [
@@ -2850,6 +2857,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
     "contracts": [
@@ -3171,6 +3179,7 @@
     "stateUpdates": {
       "Token": []
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
     "contracts": [
@@ -3389,6 +3398,7 @@
     "stateUpdates": {
       "Token": []
     },
+    "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
     "contracts": [
@@ -3692,6 +3702,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
     "contracts": [
@@ -3985,6 +3996,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
     "contracts": [
@@ -4210,6 +4222,13 @@
     "returns": null
   },
   {
+    "kind": "Invariants",
+    "contracts": [
+      "Token"
+    ],
+    "invariants": []
+  },
+  {
     "stateUpdates": {
       "symbol": [
         {
@@ -4257,6 +4276,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
     "contracts": [
@@ -4373,6 +4393,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Fail",
     "creation": true,
     "contracts": [

@@ -1,5 +1,12 @@
 [
   {
+    "kind": "Invariants",
+    "contracts": [
+      "Modest"
+    ],
+    "invariants": []
+  },
+  {
     "stateUpdates": {
       "x": [
         {
@@ -18,6 +25,7 @@
         }
       ]
     },
+    "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
     "contracts": [
