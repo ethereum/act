@@ -320,16 +320,18 @@ mkTerm this accounts Behaviour{..} invariant = (name, term)
                 )
                 <> "network" |- ("\n"
                   <> "activeAccounts" |- "_"
-                  <> "accounts" |- ("\n" <> unpack (
-                    Text.intercalate "\n" (fmap (\a ->
+                  <> "accounts" |- ("\n" <> (unpack $
+                    Text.intercalate "\n" (flip fmap (Map.keys _stateUpdates) $ \a ->
                       pack $
                         kAccount pass a
                          (fromMaybe
                            (error $ show a ++ " not found in accounts: " ++ show accounts)
                            $ Map.lookup a accounts
                          )
-                         (fromMaybe [] $ Map.lookup a _stateUpdates)
-                    ) _contracts)))
+                         (fromMaybe
+                           (error $ "no stateUpdates for " ++ show a ++ " in " ++ show _stateUpdates)
+                           $ Map.lookup a _stateUpdates
+                         ))))
                   <> "txOrder" |- "_"
                   <> "txPending" |- "_"
                   <> "messages" |- "_"

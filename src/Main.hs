@@ -36,20 +36,20 @@ import Type
 
 --command line options
 data Command w
-  = Parse             { file  :: w ::: String <?> "Path to file"}
+  = Lex             { file       :: w ::: String               <?> "Path to file"}
 
-  | Lex               { file  :: w ::: String <?> "Path to file"}
+  | Parse           { file       :: w ::: String               <?> "Path to file"}
 
-  | Type              { file  :: w ::: String <?> "Path to file"}
+  | Type            { file       :: w ::: String               <?> "Path to file"}
 
-  | K                 { spec    :: w ::: String               <?> "Path to spec"
-                      , soljson :: w ::: String               <?> "Path to .sol.json"
-                      , gas     :: w ::: Maybe [(Id, String)] <?> "Gas usage per spec"
-                      , storage    :: w ::: Maybe String    <?> "Path to storage definitions"
-                      , extractbin :: w ::: Bool              <?> "Put EVM bytecode in separate file"
-                      , out     :: w ::: Maybe String         <?> "output directory"
-                      }
-    deriving (Generic)
+  | K               { spec       :: w ::: String               <?> "Path to spec"
+                    , soljson    :: w ::: String               <?> "Path to .sol.json"
+                    , gas        :: w ::: Maybe [(Id, String)] <?> "Gas usage per spec"
+                    , storage    :: w ::: Maybe String         <?> "Path to storage definitions"
+                    , extractbin :: w ::: Bool                 <?> "Put EVM bytecode in separate file"
+                    , out        :: w ::: Maybe String         <?> "output directory"
+                    }
+ deriving (Generic)
 
 deriving instance ParseField [(Id, String)]
 
