@@ -37,18 +37,14 @@ data Behaviour = Behaviour
   }
 
 catInvs :: [Claim] -> [Invariant]
-catInvs = fmap unwrapI . Data.List.filter isI
-  where
-    isI (B _) = False
-    isI (I _) = True
-    unwrapI (I i) = i
+catInvs [] = []
+catInvs ((I i):claims) = i:(catInvs claims)
+catInvs ((B _):claims) = catInvs claims
 
 catBehvs :: [Claim] -> [Behaviour]
-catBehvs = fmap unwrapB . Data.List.filter isB
-  where
-    isB (B _) = True
-    isB (I _) = False
-    unwrapB (B i) = i
+catBehvs [] = []
+catBehvs ((I _):claims) = catBehvs claims
+catBehvs ((B b):claims) = (b:catBehvs claims)
 
 conjunction :: [Invariant] -> Exp Bool
 conjunction [] = LitBool True
