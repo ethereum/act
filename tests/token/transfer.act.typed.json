@@ -4423,35 +4423,7 @@
     },
     "contract": "Token",
     "interface": "constructor(uint256 _totalSupply, string _version, string _name, string _symbol)",
-    "postConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                0,
-                "totalSupply"
-              ],
-              "symbol": "<="
-            },
-            {
-              "arity": 2,
-              "args": [
-                "totalSupply",
-                1.157920892373162e+77
-              ],
-              "symbol": "<="
-            }
-          ],
-          "symbol": "and"
-        },
-        "True"
-      ],
-      "symbol": "and"
-    },
+    "postConditions": "True",
     "returns": null
   }
 ]

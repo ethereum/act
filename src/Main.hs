@@ -245,7 +245,7 @@ splitCase name creates contract iface ifs [] ret storage postcs contracts =
   [ B $ Behaviour name Pass creates contract iface (mconcat ifs) (mconcat postcs) contracts storage ret ]
 splitCase name creates contract iface ifs iffs ret storage postcs contracts =
   [ B $ Behaviour name Pass creates contract iface (mconcat (ifs <> iffs)) (mconcat postcs) contracts storage ret,
-    B $ Behaviour name Fail creates contract iface (And (mconcat ifs) (Neg (mconcat iffs))) (mconcat postcs) contracts storage Nothing ]
+    B $ Behaviour name Fail creates contract iface (And (mconcat ifs) (Neg (mconcat iffs))) (LitBool True) contracts storage Nothing ]
 
 -- extracts bounds on Integer values in storage, returns Iff or Exp Bool
 -- representations for use in either pre or post conditions
