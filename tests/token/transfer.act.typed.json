@@ -4223,23 +4223,7 @@
   },
   {
     "stateUpdates": {
-      "symbol": [
-        {
-          "Right": {
-            "location": "symbol",
-            "value": "ByVar \"_symbol\""
-          }
-        }
-      ],
-      "name": [
-        {
-          "Right": {
-            "location": "name",
-            "value": "ByVar \"_name\""
-          }
-        }
-      ],
-      "balanceOf": [
+      "Token": [
         {
           "Right": {
             "location": {
@@ -4257,14 +4241,23 @@
             },
             "value": "_totalSupply"
           }
-        }
-      ],
-      "allowance": [],
-      "totalSupply": [
+        },
         {
           "Right": {
             "location": "totalSupply",
             "value": "_totalSupply"
+          }
+        },
+        {
+          "Right": {
+            "location": "symbol",
+            "value": "ByVar \"_symbol\""
+          }
+        },
+        {
+          "Right": {
+            "location": "name",
+            "value": "ByVar \"_name\""
           }
         }
       ]
@@ -4340,23 +4333,7 @@
   },
   {
     "stateUpdates": {
-      "symbol": [
-        {
-          "Right": {
-            "location": "symbol",
-            "value": "ByVar \"_symbol\""
-          }
-        }
-      ],
-      "name": [
-        {
-          "Right": {
-            "location": "name",
-            "value": "ByVar \"_name\""
-          }
-        }
-      ],
-      "balanceOf": [
+      "Token": [
         {
           "Right": {
             "location": {
@@ -4374,14 +4351,23 @@
             },
             "value": "_totalSupply"
           }
-        }
-      ],
-      "allowance": [],
-      "totalSupply": [
+        },
         {
           "Right": {
             "location": "totalSupply",
             "value": "_totalSupply"
+          }
+        },
+        {
+          "Right": {
+            "location": "symbol",
+            "value": "ByVar \"_symbol\""
+          }
+        },
+        {
+          "Right": {
+            "location": "name",
+            "value": "ByVar \"_name\""
           }
         }
       ]

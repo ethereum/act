@@ -481,7 +481,7 @@
   },
   {
     "stateUpdates": {
-      "y": [
+      "B": [
         {
           "Right": {
             "location": "y",
@@ -533,7 +533,7 @@
   },
   {
     "stateUpdates": {
-      "x": [
+      "a": [
         {
           "Right": {
             "location": "x",

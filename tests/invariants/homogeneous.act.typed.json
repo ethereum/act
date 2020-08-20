@@ -894,27 +894,23 @@
   },
   {
     "stateUpdates": {
-      "z": [
+      "Homogeneous": [
         {
           "Right": {
             "location": "z",
             "value": 15
           }
-        }
-      ],
-      "x": [
-        {
-          "Right": {
-            "location": "x",
-            "value": 3
-          }
-        }
-      ],
-      "y": [
+        },
         {
           "Right": {
             "location": "y",
             "value": 5
+          }
+        },
+        {
+          "Right": {
+            "location": "x",
+            "value": 3
           }
         }
       ]
