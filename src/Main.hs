@@ -12,7 +12,6 @@
 
 module Main where
 
-import Debug.Trace
 import Data.List
 import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
@@ -111,7 +110,7 @@ main = do
       (K spec soljson gas storage extractbin out) -> do
         specContents <- readFile spec
         solContents  <- readFile soljson
-        let kOpts = trace "hi" $ KOptions (maybe mempty Map.fromList gas) storage extractbin
+        let kOpts = KOptions (maybe mempty Map.fromList gas) storage extractbin
         errKSpecs <- pure $ do refinedSpecs  <- parse (lexer specContents) >>= typecheck
                                (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
                                  $ Solidity.readJSON $ pack solContents
