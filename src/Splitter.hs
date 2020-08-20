@@ -81,7 +81,7 @@ kCalldata (Interface a b) =
   <> show a <> ", "
   <> (case b of
        [] -> ".IntList"
-       args -> 
+       args ->
          intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args))
   <> ")"
 
@@ -187,16 +187,23 @@ kStorageEntry storageLayout update =
 --packs entries packed in one slot
 normalize :: Bool -> [(String, (Int, String, String))] -> String
 normalize pass entries = foldr (\a acc -> case a of
-                              (loc, [(_, pre, post)]) -> loc <> " |-> (" <> pre <> " => " <> if pass then post else "_" <> ")\n" <> acc
-                              (loc, items) -> let (offsets, pres, posts) = unzip3 items
-                                              in loc <> " |-> ( #packWords(" <> showSList (fmap show offsets) <> ", "
-                                                     <> showSList pres <> ") "
-                                                     <> " => " <> if pass
-                                                                  then "#packWords(" <> showSList (fmap show offsets) <> ", " <> showSList posts <> ")"
-                                                                  else "_"
-                                                     <> ")\n" <> acc)
-                                 "\n"
-                      (group entries)
+                                 (loc, [(_, pre, post)]) ->
+                                   loc <> " |-> (" <> pre
+                                       <> " => " <> (if pass then post else "_") <> ")\n"
+                                       <> acc
+                                 (loc, items) -> let (offsets, pres, posts) = unzip3 items
+                                                 in loc <> " |-> ( #packWords("
+                                                        <> showSList (fmap show offsets) <> ", "
+                                                        <> showSList pres <> ") "
+                                                        <> " => " <> (if pass
+                                                                     then "#packWords("
+                                                                       <> showSList (fmap show offsets)
+                                                                       <> ", " <> showSList posts <> ")"
+                                                                     else "_")
+                                                        <> ")\n"
+                                                        <> acc
+                               )
+                               "\n" (group entries)
   where group :: [(String, (Int, String, String))] -> [(String, [(Int, String, String)])]
         group a = Map.toList (foldr (\(slot, (offset, pre, post)) acc -> Map.insertWith (<>) slot [(offset, pre, post)] acc) mempty a)
         showSList :: [String] -> String
@@ -231,7 +238,7 @@ defaultConditions acct_id =
     "#rangeAddress(" <> acct_id <> ")\n" <>
     "andBool " <> acct_id <> " =/=Int 0\n" <>
     "andBool " <> acct_id <> " >Int 9\n" <>
-    "andBool #rangeAddress( " <> show Caller <> ")\n" <> 
+    "andBool #rangeAddress( " <> show Caller <> ")\n" <>
     "andBool #rangeAddress( " <> show Origin <> ")\n" <>
     "andBool #rangeUInt(256, " <> show  Timestamp <> ")\n" <>
     -- "andBool #rangeUInt(256, ECREC_BAL)" <>
@@ -262,7 +269,7 @@ mkTerm this accounts behaviour@Behaviour{..} invariant = (name, term)
              <> "mode" |- "NORMAL"
              <> "schedule" |- "ISTANBUL"
              <> "evm" |- ("\n"
-                  <> "output" |- if pass then kAbiEncode _returns else ".ByteArray"
+                  <> "output" |- (if pass then kAbiEncode _returns else ".ByteArray")
                   <> "statusCode" |- kStatus _mode
                   <> "callStack" |- "CallStack"
                   <> "interimStates" |- "_"
