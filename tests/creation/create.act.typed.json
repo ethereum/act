@@ -1,19 +1,17 @@
 [
   {
     "stateUpdates": {
-      "x": [
-        {
-          "Right": {
-            "location": "x",
-            "value": 1
-          }
-        }
-      ],
-      "y": [
+      "Modest": [
         {
           "Right": {
             "location": "y",
             "value": "Caller"
+          }
+        },
+        {
+          "Right": {
+            "location": "x",
+            "value": 1
           }
         }
       ]
