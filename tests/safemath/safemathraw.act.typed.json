@@ -153,9 +153,7 @@
     }
   },
   {
-    "stateUpdates": {
-      "SafeAdd": []
-    },
+    "stateUpdates": {},
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,

@@ -117,24 +117,7 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "a": [
-        {
-          "Right": {
-            "location": "x",
-            "value": "z"
-          }
-        }
-      ],
-      "B": [
-        {
-          "Right": {
-            "location": "y",
-            "value": 1
-          }
-        }
-      ]
-    },
+    "stateUpdates": {},
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
@@ -357,17 +340,7 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "a": [
-        {
-          "Right": {
-            "location": "x",
-            "value": "z"
-          }
-        }
-      ],
-      "B": []
-    },
+    "stateUpdates": {},
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
