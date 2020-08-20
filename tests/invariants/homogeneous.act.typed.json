@@ -212,36 +212,7 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "Homogeneous": [
-        {
-          "Right": {
-            "location": "z",
-            "value": {
-              "arity": 2,
-              "args": [
-                "z",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
-          }
-        },
-        {
-          "Right": {
-            "location": "y",
-            "value": {
-              "arity": 2,
-              "args": [
-                "y",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
-          }
-        }
-      ]
-    },
+    "stateUpdates": {},
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
@@ -649,36 +620,7 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "Homogeneous": [
-        {
-          "Right": {
-            "location": "z",
-            "value": {
-              "arity": 2,
-              "args": [
-                "z",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
-          }
-        },
-        {
-          "Right": {
-            "location": "x",
-            "value": {
-              "arity": 2,
-              "args": [
-                "x",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
-          }
-        }
-      ]
-    },
+    "stateUpdates": {},
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
