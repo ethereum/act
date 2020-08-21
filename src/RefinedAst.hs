@@ -6,13 +6,13 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# Language DeriveAnyClass #-}
+
 module RefinedAst where
-import Data.Text          (Text, pack, unpack)
-import Data.List (filter)
-import GHC.Generics
-import Data.Map.Strict    (Map)
+
+import Data.Text (pack)
+import Data.Map.Strict (Map)
 import Data.List.NonEmpty hiding (fromList)
-import Data.ByteString       (ByteString)
+import Data.ByteString (ByteString)
 
 import Syntax
 import Data.Aeson
@@ -48,7 +48,7 @@ catBehvs ((B b):claims) = (b:catBehvs claims)
 
 conjunction :: [Invariant] -> Exp Bool
 conjunction [] = LitBool True
-conjunction (hd@(Invariant _ exp):tl) = And exp (conjunction tl)
+conjunction ((Invariant _ e):tl) = And e (conjunction tl)
 
 data Mode
   = Pass
@@ -57,7 +57,7 @@ data Mode
   deriving (Eq, Show)
 
 --types understood by proving tools
-data MType 
+data MType
   = Integer
   | Boolean
   | ByteStr
@@ -123,11 +123,11 @@ data Exp t where
   ByEnv :: EthEnv -> Exp ByteString
   -- builtins
   NewAddr :: Exp Int -> Exp Int -> Exp Int
-  
+
   --polymorphic
   ITE :: Exp Bool -> Exp t -> Exp t -> Exp t
   TEntry :: (TStorageItem t) -> Exp t
-  
+
 deriving instance Show (Exp t)
 
 instance Semigroup (Exp Bool) where
@@ -144,9 +144,9 @@ data ReturnExp
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
-  toJSON (I (Invariant contract exp)) = object [ "kind" .= (String "Invariant")
-                                               , "expression" .= toJSON exp
-                                               , "contract" .= toJSON contract ]
+  toJSON (I (Invariant contract e)) = object [ "kind" .= (String "Invariant")
+                                             , "expression" .= toJSON e
+                                             , "contract" .= toJSON contract ]
   toJSON (B (Behaviour {..})) = object  [ "kind" .= (String "Behaviour")
                                         , "name" .= _name
                                         , "contract" .= _contract
@@ -215,6 +215,7 @@ instance ToJSON (Exp Bool) where
                           ,  "args"     .= (Array $ fromList [toJSON a])]
   toJSON v = error $ "todo: json ast for: " <> show v
 
+symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
 symbol s a b = object [  "symbol"   .= pack s
                       ,  "arity"    .= (Data.Aeson.Types.Number 2)
                       ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]

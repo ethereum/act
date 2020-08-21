@@ -3,25 +3,21 @@
 {-# Language GADTs #-}
 {-# Language OverloadedStrings #-}
 {-# Language LambdaCase #-}
-module Splitter where
+module K where
 
 import Syntax
 import RefinedAst
 import ErrM
 import Data.Text (Text, pack, unpack)
-import Data.List
+import Data.List hiding (group)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe
-import Data.ByteString hiding (pack, unpack, intercalate, foldr, concat, head, tail)
+import Data.ByteString hiding (group, pack, unpack, intercalate, foldr, concat, head, tail)
 import qualified Data.Text as Text
 import Parse
-import Data.Bifunctor
-import EVM (VM, ContractCode)
 import EVM.Types
-import EVM.SymExec (verify, Precondition, Postcondition)
 
 import EVM.Solidity (SolcContract(..), StorageItem(..), SlotType(..))
-import Control.Monad
 import Data.Map.Strict (Map) -- abandon in favor of [(a,b)]?
 import qualified Data.Map.Strict as Map -- abandon in favor of [(a,b)]?
 
@@ -31,6 +27,7 @@ import qualified Data.Map.Strict as Map -- abandon in favor of [(a,b)]?
 cell :: String -> String -> String
 cell key value = "<" <> key <> "> " <> value <> " </" <> key <> "> \n"
 
+(|-) :: String -> String -> String
 (|-) = cell
 
 infix 7 |-
@@ -38,6 +35,7 @@ infix 7 |-
 kStatus :: Mode -> String
 kStatus Pass = "EVMC_SUCCESS"
 kStatus Fail = "FAILURE:EndStatusCode"
+kStatus OOG = error "TODO: handle OOG specs"
 
 type KSpec = String
 
@@ -55,18 +53,13 @@ data KOptions =
 
 
 makekSpec :: Map Text SolcContract -> KOptions -> [Invariant] -> Behaviour -> Err (String, String)
-makekSpec sources kOpts invariants behaviour =
+makekSpec sources _ invariants behaviour =
   let this = _contract behaviour
       names = Map.fromList $ fmap (\(a, b) -> (getContractName a, b)) (Map.toList sources)
-      invExp = conjunction $ Data.List.filter (\i@(Invariant id exp) -> id == this) invariants
+      invExp = conjunction $ Data.List.filter (\(Invariant contract _) -> contract == this) invariants
       hasLayout = Map.foldr ((&&) . isJust . _storageLayout) True sources
   in
     if hasLayout then do
-      accounts <- forM (_contracts behaviour)
-         (\c ->
-            errMessage
-            (nowhere, "err: " <> show c <> "Bytecode not found\nSources available: " <> show (Map.keys sources))
-            (Map.lookup c names))
       thisSource <- errMessage
             (nowhere, "err: " <> show this <> "Bytecode not found\nSources available: " <> show (Map.keys sources))
             (Map.lookup this names)
@@ -94,21 +87,21 @@ getId (Left (BoolLoc a)) = getId' a
 getId (Left (BytesLoc a)) = getId' a
 
 getId' :: TStorageItem a -> Id
-getId' (DirectInt id) = id
-getId' (DirectBool id) = id
-getId' (DirectBytes id) = id
-getId' (MappedInt id _) = id
-getId' (MappedBool id _) = id
-getId' (MappedBytes id _) = id
+getId' (DirectInt name) = name
+getId' (DirectBool name) = name
+getId' (DirectBytes name) = name
+getId' (MappedInt name _) = name
+getId' (MappedBool name _) = name
+getId' (MappedBytes name _) = name
 
 
 kstorageName :: TStorageItem a -> String
-kstorageName (DirectInt id)    = kVar id
-kstorageName (DirectBool id)   = kVar id
-kstorageName (DirectBytes id)  = kVar id
-kstorageName (MappedInt id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kstorageName (MappedBool id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kstorageName (MappedBytes id ixs) = kVar id <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kstorageName (DirectInt name)    = kVar name
+kstorageName (DirectBool name)   = kVar name
+kstorageName (DirectBytes name)  = kVar name
+kstorageName (MappedInt name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kstorageName (MappedBool name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kstorageName (MappedBytes name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> (tail a)
@@ -116,14 +109,14 @@ kVar a = (unpack . Text.toUpper . pack $ [head a]) <> (tail a)
 kAbiEncode :: Maybe ReturnExp -> String
 kAbiEncode Nothing = ".ByteArray"
 kAbiEncode (Just (ExpInt a)) = "#enc(#uint256" <> kExprInt a <> ")"
-kAbiEncode (Just (ExpBool a)) = ".ByteArray"
-kAbiEncode (Just (ExpBytes a)) = ".ByteArray"
+kAbiEncode (Just (ExpBool _)) = ".ByteArray"
+kAbiEncode (Just (ExpBytes _)) = ".ByteArray"
 
 
 kExpr :: ReturnExp -> String
 kExpr (ExpInt a) = kExprInt a
 kExpr (ExpBool a) = kExprBool a
--- kExpr (ExpBytes a)
+kExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
 
 
 kExprInt :: Exp Int -> String
@@ -157,16 +150,21 @@ kExprBool (BoolVar a) = kVar a
 kExprBool v = error ("Internal error: TODO kExprBool of " <> show v)
 
 kExprBytes :: Exp ByteString -> String
-kExprBytes (ByVar id) = kVar id
+kExprBytes (ByVar name) = kVar name
 kExprBytes (ByStr str) = show str
 kExprBytes (ByLit bs) = show bs
-kExprBytes exp = error $ "TODO: kExprBytes of " <> show exp
+kExprBytes e = error $ "TODO: kExprBytes of " <> show e
 --kExprBytes (Cat a b) =
 --kExprBytes (Slice a start end) =
 --kExprBytes (ByEnv env) =
 
+fst' :: (a, b, c) -> a
 fst' (x, _, _) = x
+
+snd' :: (a, b, c) -> b
 snd' (_, y, _) = y
+
+trd' :: (a, b, c) -> c
 trd' (_, _, z) = z
 
 kStorageEntry :: Map Text StorageItem -> Either StorageLocation StorageUpdate -> (String, (Int, String, String))
@@ -256,7 +254,7 @@ defaultConditions acct_id =
 
 
 mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> Exp Bool -> (String, String)
-mkTerm this accounts behaviour@Behaviour{..} invariant = (name, term)
+mkTerm this accounts Behaviour{..} invariant = (name, term)
   where code = if _creation then _creationCode this
                else _runtimeCode this
         pass = _mode == Pass
