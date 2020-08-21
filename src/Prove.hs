@@ -1,16 +1,15 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 
 module Prove where
 
-import Data.ByteString hiding (concat, intercalate)
 import Data.List
 import Data.List.NonEmpty as NonEmpty (NonEmpty, toList)
-import Data.Map.Strict as Map
-import Data.Maybe
-import Debug.Trace
 
-import ErrM
+import Data.SBV.Trans.Control
+
 import Syntax
 import RefinedAst
 
@@ -26,36 +25,37 @@ import RefinedAst
 
    If this query returns `unsat` then the invariant must hold over the transition system
 -}
-prove :: [Claim] -> Err [Id]
-prove claims = Ok $ getStorageVars claims
+queries :: [Claim] -> [QueryT IO CheckSatResult]
+queries claims = fmap (\_ -> checkSat) claims
 
-trace' x = trace (show x) x
-
-getStorageVars :: [Claim] -> [Id]
+  {-
+getStorageVars :: [Claim] -> Query [SBV MType]
 getStorageVars claims = concat $ fmap mkPrePost $ nub $ getNames claims
   where
     mkPrePost :: Id -> [Id]
     mkPrePost name = (name <> "_pre") : (name <> "_post") : []
 
-    getNames :: [Claim] -> [Id]
-    getNames [] = []
-    getNames ((I _):tl) = getNames tl
-    getNames ((B b):tl) = (namesFromBehv b) <> (getNames tl)
+    getVars :: [Claim] -> Query [SBV MType]
+    getVars [] = []
+    getVars ((I _):tl) = getVars tl
+    getVars ((B b):tl) = (varsFromBehv b) <> (getVars tl)
 
-    namesFromBehv :: Behaviour -> [Id]
-    namesFromBehv Behaviour{..} = concat $ extract <$> contracts
+    varsFromBehv :: Behaviour -> Query [SBV MType]
+    varsFromBehv Behaviour{..} = concat $ extract <$> contracts
       where
         contracts = Map.keys(_stateUpdates)
         extract contract = nameFromLoc contract <$> (fromMaybe [] $ Map.lookup contract _stateUpdates)
+    -}
 
-    nameFromLoc :: Id -> Either StorageLocation StorageUpdate -> Id
-    nameFromLoc contract (Left (IntLoc item)) = contract <> "_" <> (nameFromItem item)
-    nameFromLoc contract (Left (BoolLoc item)) = contract <> "_" <> (nameFromItem item)
-    nameFromLoc contract (Left (BytesLoc item)) = contract <> "_" <> (nameFromItem item)
-    nameFromLoc contract (Right (IntUpdate item _)) = contract <> "_" <> (nameFromItem item)
-    nameFromLoc contract (Right (BoolUpdate item _)) = contract <> "_" <> (nameFromItem item)
-    nameFromLoc contract (Right (BytesUpdate item _)) = contract <> "_" <> (nameFromItem item)
-
+nameFromLoc :: Id -> Either StorageLocation StorageUpdate -> Id
+nameFromLoc contract entry = case entry of
+  (Left (IntLoc item)) -> contract <> "_" <> (nameFromItem item)
+  (Left (BoolLoc item)) -> contract <> "_" <> (nameFromItem item)
+  (Left (BytesLoc item)) -> contract <> "_" <> (nameFromItem item)
+  (Right (IntUpdate item _)) -> contract <> "_" <> (nameFromItem item)
+  (Right (BoolUpdate item _)) -> contract <> "_" <> (nameFromItem item)
+  (Right (BytesUpdate item _)) -> contract <> "_" <> (nameFromItem item)
+  where
     nameFromItem :: TStorageItem a -> Id
     nameFromItem (DirectInt name) = name
     nameFromItem (DirectBool name) = name

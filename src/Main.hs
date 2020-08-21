@@ -16,10 +16,14 @@ import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
+import Data.SBV
+import Data.SBV.Control hiding (timeout)
 import Data.Text (pack, unpack)
+import Data.Maybe
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Map.Strict      as Map -- abandon in favor of [(a,b)]?
+import System.Environment (setEnv)
 
 import qualified Data.ByteString.Lazy.Char8 as B
 
@@ -43,7 +47,11 @@ data Command w
 
   | Type            { file       :: w ::: String               <?> "Path to file"}
 
-  | Prove           { file  :: w ::: String <?> "Path to file"}
+  | Prove           { file  :: w ::: String <?> "Path to file"
+                    , solver :: w ::: Maybe Text <?> "Used SMT solver: z3 (default) or cvc4"
+                    , smttimeout :: w ::: Maybe Integer
+                        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
+                    }
 
   | K               { spec       :: w ::: String               <?> "Path to spec"
                     , soljson    :: w ::: String               <?> "Path to .sol.json"
@@ -58,25 +66,6 @@ deriving instance ParseField [(Id, String)]
 
 instance ParseRecord (Command Wrapped)
 deriving instance Show (Command Unwrapped)
-
-safeDrop :: Int -> [a] -> [a]
-safeDrop 0 a = a
-safeDrop _ [] = []
-safeDrop _ [a] = [a]
-safeDrop n (_:xs) = safeDrop (n-1) xs
-
-prettyErr :: String -> (Pn, String) -> IO ()
-prettyErr contents pn@(AlexPn _ line col,msg) =
-  if fst pn == nowhere then
-    do hPutStrLn stderr "Internal error"
-       hPutStrLn stderr msg
-       exitFailure
-  else
-    do let cxt = safeDrop (line - 1) (lines contents)
-       hPutStrLn stderr $ show line <> " | " <> head cxt
-       hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
-       hPutStrLn stderr $ msg
-       exitFailure
 
 main :: IO ()
 main = do
@@ -95,10 +84,18 @@ main = do
                        Ok a  -> B.putStrLn $ encode a
                        Bad e -> prettyErr contents e
 
-      (Prove f) -> do contents <- readFile f
-                      case parse (lexer contents) >>= typecheck >>= prove of
-                        Ok a  -> putStrLn $ show a
-                        Bad e -> prettyErr contents e
+      (Prove file solver smttimeout) -> do
+        contents <- readFile file
+        case parse (lexer contents) >>= typecheck of
+          Bad e -> prettyErr contents e
+          Ok claims -> do
+            let handleRes = \case
+                              Unk -> putStrLn "Timed out"
+                              Unsat -> putStrLn "Q.E.D"
+                              Sat -> putStrLn "Counterexample found"
+                              (DSat _) -> error "Unexpected dsat result!"
+            res <- mapM (runSMTWithTimeOut solver smttimeout) $ fmap query (queries claims)
+            mapM_ handleRes res
 
       (K spec soljson gas storage extractbin out) -> do
         specContents <- readFile spec
@@ -107,7 +104,8 @@ main = do
         errKSpecs <- pure $ do refinedSpecs  <- parse (lexer specContents) >>= typecheck
                                (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
                                  $ Solidity.readJSON $ pack solContents
-                               forM (catBehvs refinedSpecs) $ makekSpec sources kOpts (catInvs refinedSpecs)
+                               forM (catBehvs refinedSpecs)
+                                 $ makekSpec sources kOpts (catInvs refinedSpecs)
         case errKSpecs of
              Bad e -> prettyErr specContents e
              Ok kSpecs -> do
@@ -116,3 +114,37 @@ main = do
                      Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
                forM_ kSpecs printFile
 
+
+-- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
+runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Symbolic a -> IO a
+runSMTWithTimeOut solver maybeTimeout sym
+  | solver == Just "cvc4" = do
+      setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --incremental --interactive --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
+      a <- runSMTWith cvc4 sym
+      setEnv "SBV_CVC4_OPTIONS" ""
+      return a
+  | solver == Just "z3" = runwithz3
+  | solver == Nothing = runwithz3
+  | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
+ where timeout = fromMaybe 20000 maybeTimeout
+       runwithz3 = runSMTWith z3 $ (setTimeOut timeout) >> sym
+
+
+prettyErr :: String -> (Pn, String) -> IO ()
+prettyErr contents pn@(AlexPn _ line col,msg) =
+  if fst pn == nowhere then
+    do hPutStrLn stderr "Internal error"
+       hPutStrLn stderr msg
+       exitFailure
+  else
+    do let cxt = safeDrop (line - 1) (lines contents)
+       hPutStrLn stderr $ show line <> " | " <> head cxt
+       hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
+       hPutStrLn stderr $ msg
+       exitFailure
+  where
+    safeDrop :: Int -> [a] -> [a]
+    safeDrop 0 a = a
+    safeDrop _ [] = []
+    safeDrop _ [a] = [a]
+    safeDrop n (_:xs) = safeDrop (n-1) xs
