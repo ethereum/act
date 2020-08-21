@@ -1,5 +1,5 @@
 {
-module Lex (LEX (..), Lexeme (..), lexer, showposn, AlexPosn (..), pos, arg) where
+module Lex (LEX (..), Lexeme (..), lexer, showposn, AlexPosn (..), posn, arg) where
 import Prelude hiding (EQ, GT, LT)
 }
 
@@ -201,11 +201,12 @@ data Lexeme = L LEX AlexPosn
 showposn (AlexPn _ line column) =
   concat [show line, ":", show column]
 
-pos :: Lexeme -> AlexPosn
-pos (L _ p) = p
+posn :: Lexeme -> AlexPosn
+posn (L _ p) = p
 
 arg :: Lexeme -> String
-arg (L (ID s) p) = s
+arg (L (ID s) _) = s
+arg _ = error "TODO: support all lexemes in arg"
 
 -- helper function to reduce boilerplate
 mk :: LEX -> (AlexPosn -> String -> Lexeme)
