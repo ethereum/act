@@ -15,10 +15,9 @@ module Main where
 import Data.List
 import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
-import System.Environment ( getArgs )
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
-import Data.Text (Text, pack, unpack)
+import Data.Text (pack, unpack)
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import qualified EVM.Solidity as Solidity
@@ -28,17 +27,14 @@ import Data.Maybe
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict      as Map -- abandon in favor of [(a,b)]?
-import Data.Vector (fromList)
 
 import qualified Data.ByteString.Lazy.Char8 as B
 import Data.ByteString (ByteString)
 
 import Control.Monad
-import Control.Monad.Except
-import Data.Functor.Identity
 
-import Syntax hiding (Invariants)
-import Splitter
+import Syntax
+import Splitter hiding (normalize)
 import ErrM
 import Lex (lexer, AlexPosn(..))
 import Parse
@@ -48,12 +44,8 @@ import RefinedAst
 --command line options
 data Command w
   = Parse             { file  :: w ::: String <?> "Path to file"}
-  | Lex               { file  :: w ::: String <?> "Path to file"}
-  | ParseAndTypeCheck { file  :: w ::: String <?> "Path to file"}
 
-  | KaseSplit         { spec    :: w ::: String <?> "Path to spec"
-                      , soljson :: w ::: String <?> "Path to .sol.json"
-                      }
+  | Lex               { file  :: w ::: String <?> "Path to file"}
 
   | Type              { file  :: w ::: String <?> "Path to file"}
 
@@ -73,7 +65,7 @@ deriving instance Show (Command Unwrapped)
 
 safeDrop :: Int -> [a] -> [a]
 safeDrop 0 a = a
-safeDrop p [] = []
+safeDrop _ [] = []
 safeDrop _ [a] = [a]
 safeDrop n (_:xs) = safeDrop (n-1) xs
 
@@ -122,19 +114,6 @@ main = do
                      Nothing -> putStrLn (filename <> ".k") >> putStrLn content
                      Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
                forM_ kSpecs printFile
-
---       (TypeCheck f) -> do contents <- readFile f
---                           let act = read contents :: [RawBehaviour]
---                           case typecheck act of
---                             (Ok a)  -> B.putStrLn $ encode a
---                             (Bad s) -> error s
-
---       (KaseSplit specFile implFile) -> do specText <- readFile specFile
---                                           let spec = read specText :: [RawBehaviour]
---                                           case typecheck spec of
---                                             (Ok a)  -> do implText <- readFile implFile
---                                                           print "ok"
---                                             (Bad s) -> error s
 
 typecheck :: [RawBehaviour] -> Err [Claim]
 typecheck behvs = let store = lookupVars behvs in
@@ -217,7 +196,9 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
       leaves <- mapM (flatten iff postc (c : pathcond)) (normalize cs)
       return $ join leaves
 
-splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs creates@(Creates assigns) extStorage maybeEnsures maybeInvariants) = do
+splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvariants) = do
+  let _ = if (length extStorage > 0) then error "TODO: support extStorage in constructor" else String ""
+
   let env = mkEnv contract store decls
 
   rawUpdates <- mapM (checkAssign env) assigns
@@ -227,8 +208,9 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs c
   iffs' <- checkIffs env (iffs <> calldataBounds)
 
   invariants <- mapM (checkBool env) $ fromMaybe [] maybeInvariants
+  ensures <- mapM (checkBool env) (fromMaybe [] maybeEnsures)
   let storageBounds = fst $ getStorageBounds env
-      postcs = storageBounds <> invariants
+      postcs = storageBounds <> invariants <> ensures
 
   return $ ((I . (Invariant contract)) <$> invariants)
            ++ (splitCase name True contract iface [] iffs' Nothing stateUpdates postcs [contract])
@@ -254,8 +236,8 @@ getStorageBounds (ours, _, _) =
   unzip $ catMaybes $ fmap getBound $ Map.toList ours
   where
     getBound :: (Id, SlotType) -> Maybe (Exp Bool, IffH)
-    getBound (id, (StorageValue typ)) = case metaType typ of
-      Integer -> Just $ (bound typ (IntVar id), IffIn nowhere typ [EntryExp nowhere id []])
+    getBound (name, (StorageValue typ)) = case metaType typ of
+      Integer -> Just $ (bound typ (IntVar name), IffIn nowhere typ [EntryExp nowhere name []])
       _ -> Nothing
     getBound (_, _) = Nothing
 
@@ -264,37 +246,37 @@ getCallDataBounds :: [Decl] -> [IffH]
 getCallDataBounds decls =
   join $
     fmap
-      ( \(Decl typ id) -> case metaType typ of
-          Integer -> [IffIn nowhere typ [EntryExp nowhere id []]]
+      ( \(Decl typ name) -> case metaType typ of
+          Integer -> [IffIn nowhere typ [EntryExp nowhere name []]]
           _ -> []
       )
       decls
 
 -- ensures that key types match value types in an assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
-checkAssign env (AssignVal (StorageVar (StorageValue typ) id) expr)
+checkAssign env (AssignVal (StorageVar (StorageValue typ) name) expr)
   = case metaType typ of
     Integer -> do
       val <- checkInt env expr
-      return [IntUpdate (DirectInt id) val]
+      return [IntUpdate (DirectInt name) val]
     Boolean -> do
       val <- checkBool env expr
-      return [BoolUpdate (DirectBool id) val]
+      return [BoolUpdate (DirectBool name) val]
     ByteStr -> do
       val <- checkBytes env expr
-      return [BytesUpdate (DirectBytes id) val]
-checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) id) defns)
-  = mapM (checkDefn env keyType valType id) defns
-checkAssign env (AssignVal (StorageVar (StorageMapping _ _) _) _)
+      return [BytesUpdate (DirectBytes name) val]
+checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
+  = mapM (checkDefn env keyType valType name) defns
+checkAssign _ (AssignVal (StorageVar (StorageMapping _ _) _) _)
   = Bad (nowhere, "Cannot assign a single expression to a composite type")
-checkAssign env (AssignMany (StorageVar (StorageValue _) _) _)
+checkAssign _ (AssignMany (StorageVar (StorageValue _) _) _)
   = Bad (nowhere, "Cannot assign multiple values to an atomic type")
 checkAssign _ _ = error $ "todo: support struct assignment in constructors"
 
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
 checkDefn :: Env -> AbiType -> AbiType -> Id -> Defn -> Err StorageUpdate
-checkDefn env keyType valType id (Defn k v) = case metaType keyType of
+checkDefn env keyType valType name (Defn k v) = case metaType keyType of
     Integer -> do
       key <- checkInt env k
       checkVal (ExpInt key)
@@ -309,16 +291,16 @@ checkDefn env keyType valType id (Defn k v) = case metaType keyType of
         case metaType valType of
           Integer -> do
             val <- checkInt env v
-            return $ IntUpdate (MappedInt id (key :| [])) val
+            return $ IntUpdate (MappedInt name (key :| [])) val
           Boolean -> do
             val <- checkBool env v
-            return $ BoolUpdate (MappedBool id (key :| [])) val
+            return $ BoolUpdate (MappedBool name (key :| [])) val
           ByteStr -> do
             val <- checkBytes env v
-            return $ BytesUpdate (MappedBytes id (key :| [])) val
+            return $ BytesUpdate (MappedBytes name (key :| [])) val
 
 checkPost :: Env -> Id -> Post -> Err (Map Id [Either StorageLocation StorageUpdate], Maybe ReturnExp, [Id])
-checkPost env@(ours, theirs, localVars) contract (Post maybeStorage extStorage maybeReturn) =
+checkPost env@(_, theirs, localVars) contract (Post maybeStorage extStorage maybeReturn) =
   do  returnexp <- mapM (inferExpr env) maybeReturn
       ourStorage <- case maybeStorage of
         Just entries -> checkEntries contract entries
@@ -337,55 +319,57 @@ checkPost env@(ours, theirs, localVars) contract (Post maybeStorage extStorage m
         checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries
                                                           ps <- checkStorages xs
                                                           Ok $ (name, p):ps
-        checkStorages ((ExtCreates _ name entries):xs) = error "TODO: check other storages"
+        checkStorages _ = error "TODO: check other storages"
 
 checkStorageExpr :: Env -> Entry -> Expr -> Err StorageUpdate
-checkStorageExpr env@(ours, _, _) (Entry p id ixs) expr =
-    case Map.lookup id ours of
+checkStorageExpr env@(ours, _, _) (Entry p name ixs) expr =
+    case Map.lookup name ours of
       Just (StorageValue t)  -> case metaType t of
-          Integer -> IntUpdate (DirectInt id) <$> checkInt env expr
-          Boolean -> BoolUpdate (DirectBool id) <$> checkBool env expr
-          ByteStr -> BytesUpdate (DirectBytes id) <$> checkBytes env expr
+          Integer -> IntUpdate (DirectInt name) <$> checkInt env expr
+          Boolean -> BoolUpdate (DirectBool name) <$> checkBool env expr
+          ByteStr -> BytesUpdate (DirectBytes name) <$> checkBytes env expr
       Just (StorageMapping argtyps  t) ->
         if length argtyps /= length ixs
-        then Bad $ (p, "Argument mismatch for storageitem: " <> id)
+        then Bad $ (p, "Argument mismatch for storageitem: " <> name)
         else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
              in case metaType t of
-                  Integer -> liftM2 (IntUpdate . MappedInt id) indexExprs (checkInt env expr)
-                  Boolean -> liftM2 (BoolUpdate . MappedBool id) indexExprs (checkBool env expr)
-                  ByteStr -> liftM2 (BytesUpdate . MappedBytes id) indexExprs (checkBytes env expr)
-      Nothing -> Bad $ (p, "Unknown storage variable: " <> show id)
+                  Integer -> liftM2 (IntUpdate . MappedInt name) indexExprs (checkInt env expr)
+                  Boolean -> liftM2 (BoolUpdate . MappedBool name) indexExprs (checkBool env expr)
+                  ByteStr -> liftM2 (BytesUpdate . MappedBytes name) indexExprs (checkBytes env expr)
+      Nothing -> Bad $ (p, "Unknown storage variable: " <> show name)
+checkStorageExpr _ Wild _ = error "TODO: add support for wild storage to checkStorageExpr"
 
 checkEntry :: Env -> Entry -> Err StorageLocation
-checkEntry env@(ours, _, _) (Entry p id ixs) =
-  case Map.lookup id ours of
+checkEntry env@(ours, _, _) (Entry p name ixs) =
+  case Map.lookup name ours of
     Just (StorageValue t) -> case metaType t of
-          Integer -> Ok $ IntLoc (DirectInt id)
-          Boolean -> Ok $ BoolLoc (DirectBool id)
-          ByteStr -> Ok $ BytesLoc (DirectBytes id)
+          Integer -> Ok $ IntLoc (DirectInt name)
+          Boolean -> Ok $ BoolLoc (DirectBool name)
+          ByteStr -> Ok $ BytesLoc (DirectBytes name)
     Just (StorageMapping argtyps t) ->
       if length argtyps /= length ixs
-      then Bad $ (p, "Argument mismatch for storageitem: " <> id)
+      then Bad $ (p, "Argument mismatch for storageitem: " <> name)
       else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
            in case metaType t of
-                  Integer -> (IntLoc . MappedInt id) <$> indexExprs
-                  Boolean -> (BoolLoc . MappedBool id) <$> indexExprs
-                  ByteStr -> (BytesLoc . MappedBytes id) <$> indexExprs
-    Nothing -> Bad $ (p, "Unknown storage variable: " <> show id)
+                  Integer -> (IntLoc . MappedInt name) <$> indexExprs
+                  Boolean -> (BoolLoc . MappedBool name) <$> indexExprs
+                  ByteStr -> (BytesLoc . MappedBytes name) <$> indexExprs
+    Nothing -> Bad $ (p, "Unknown storage variable: " <> show name)
+checkEntry _ Wild = error "TODO: checkEntry for Wild storage"
 
 checkIffs :: Env -> [IffH] -> Err [Exp Bool]
-checkIffs env ((Iff pos exps):xs) = do
-  head <- mapM (checkBool env) exps
-  tail <- checkIffs env xs
-  Ok $ head <> tail
-checkIffs env ((IffIn pos typ exps):xs) = do
-  head <- mapM (checkInt env) exps
-  tail <- checkIffs env xs
-  Ok $ map (bound typ) head <> tail
+checkIffs env ((Iff _ exps):xs) = do
+  hd <- mapM (checkBool env) exps
+  tl <- checkIffs env xs
+  Ok $ hd <> tl
+checkIffs env ((IffIn _ typ exps):xs) = do
+  hd <- mapM (checkInt env) exps
+  tl <- checkIffs env xs
+  Ok $ map (bound typ) hd <> tl
 checkIffs _ [] = Ok []
 
 bound :: AbiType -> (Exp Int) -> Exp Bool
-bound typ exp = And (LEQ (lowerBound typ) exp) $ LEQ exp (upperBound typ)
+bound typ e = And (LEQ (lowerBound typ) e) $ LEQ e (upperBound typ)
 
 lowerBound :: AbiType -> Exp Int
 lowerBound (AbiIntType a) = LitInt $ 0 - 2 ^ (a - 1)
@@ -396,7 +380,8 @@ lowerBound _ = LitInt 0
 upperBound :: AbiType -> Exp Int
 upperBound (AbiUIntType n) = LitInt $ 2 ^ n - 1
 upperBound (AbiIntType n) = LitInt $ 2 ^ (n - 1) - 1
-upperBound AbiAddressType  = LitInt $ 2 ^ 160 - 1
+upperBound AbiAddressType  = LitInt $ 2 ^ (160 :: Integer) - 1
+upperBound typ  = error $ "upperBound not implemented for " ++ show typ
 
 metaType :: AbiType -> MType
 metaType (AbiUIntType _)     = Integer
@@ -419,17 +404,17 @@ checkExpr env e typ = case metaType typ of
   ByteStr -> ExpBytes <$> checkBytes env e
 
 inferExpr :: Env -> Expr -> Err ReturnExp
-inferExpr env@(ours, theirs,thisContext) exp =
-                    let intintint op v1 v2 = do w1 <- checkInt env v1
-                                                w2 <- checkInt env v2
-                                                Ok $ ExpInt $ op w1 w2
-                        boolintint op v1 v2 = do w1 <- checkInt env v1
-                                                 w2 <- checkInt env v2
-                                                 Ok $ ExpBool $ op w1 w2
-                        boolboolbool op v1 v2 = do w1 <- checkBool env v1
-                                                   w2 <- checkBool env v2
-                                                   Ok $ ExpBool $ op w1 w2
-                    in case exp of
+inferExpr env@(ours, _,thisContext) expr =
+  let intintint op v1 v2 = do w1 <- checkInt env v1
+                              w2 <- checkInt env v2
+                              Ok $ ExpInt $ op w1 w2
+      boolintint op v1 v2 = do w1 <- checkInt env v1
+                               w2 <- checkInt env v2
+                               Ok $ ExpBool $ op w1 w2
+      boolboolbool op v1 v2 = do w1 <- checkBool env v1
+                                 w2 <- checkBool env v2
+                                 Ok $ ExpBool $ op w1 w2
+  in case expr of
     ENot _  v1     -> ExpBool . Neg <$> checkBool env v1
     EAnd _  v1 v2 -> boolboolbool And  v1 v2
     EOr _   v1 v2 -> boolboolbool Or   v1 v2
@@ -454,25 +439,25 @@ inferExpr env@(ours, theirs,thisContext) exp =
     EExp _ v1 v2 -> intintint Exp v1 v2
     IntLit n -> Ok $ ExpInt $ LitInt n
     BoolLit n -> Ok $ ExpBool $ LitBool n
-    EntryExp p id e -> case (Map.lookup id ours, Map.lookup id thisContext) of
-        (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> show id)
+    EntryExp p name e -> case (Map.lookup name ours, Map.lookup name thisContext) of
+        (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> show name)
         (Nothing, Just c) -> case c of
-            Integer -> Ok . ExpInt $ IntVar id
-            Boolean -> Ok . ExpBool $ BoolVar id
-            ByteStr -> Ok . ExpBytes $ ByVar id
+            Integer -> Ok . ExpInt $ IntVar name
+            Boolean -> Ok . ExpBool $ BoolVar name
+            ByteStr -> Ok . ExpBytes $ ByVar name
         (Just (StorageValue a), Nothing) ->
           case metaType a of
-             Integer -> Ok . ExpInt $ TEntry (DirectInt id)
-             Boolean -> Ok . ExpBool $ TEntry (DirectBool id)
-             ByteStr -> Ok . ExpBytes $ TEntry (DirectBytes id)
+             Integer -> Ok . ExpInt $ TEntry (DirectInt name)
+             Boolean -> Ok . ExpBool $ TEntry (DirectBool name)
+             ByteStr -> Ok . ExpBytes $ TEntry (DirectBytes name)
         (Just (StorageMapping ts a), Nothing) ->
            let indexExprs = forM (NonEmpty.zip (head e :| tail e) ts)
                                      (uncurry (checkExpr env))
            in case metaType a of
-             Integer -> ExpInt . TEntry . (MappedInt id) <$> indexExprs
-             Boolean -> ExpBool . TEntry . (MappedBool id) <$> indexExprs
-             ByteStr -> ExpBytes . TEntry . (MappedBytes id) <$> indexExprs
-        (Just _, Just _) -> Bad (p, "Ambiguous variable: " <> show id)
+             Integer -> ExpInt . TEntry . (MappedInt name) <$> indexExprs
+             Boolean -> ExpBool . TEntry . (MappedBool name) <$> indexExprs
+             ByteStr -> ExpBytes . TEntry . (MappedBytes name) <$> indexExprs
+        (Just _, Just _) -> Bad (p, "Ambiguous variable: " <> show name)
     EnvExp p v1 -> case lookup v1 defaultStore of
       Just Integer -> Ok . ExpInt $ IntEnv v1
       Just ByteStr -> Ok . ExpBytes $ ByEnv v1
@@ -495,26 +480,26 @@ inferExpr env@(ours, theirs,thisContext) exp =
     -- StringLit String
 
 checkBool :: Env -> Expr -> Err (Exp Bool)
-checkBool env exp =
-  case inferExpr env exp of
+checkBool env e =
+  case inferExpr env e of
     Ok (ExpInt _) -> Bad (nowhere, "expected: bool, got: int")
     Ok (ExpBytes _) -> Bad (nowhere, "expected: bool, got: bytes")
     Ok (ExpBool a) -> Ok a
-    Bad e -> Bad e
+    Bad err -> Bad err
 
 
 checkBytes :: Env -> Expr -> Err (Exp ByteString)
-checkBytes env exp =
-  case inferExpr env exp of
+checkBytes env e =
+  case inferExpr env e of
     Ok (ExpInt _) -> Bad (nowhere, "expected: bytes, got: int")
     Ok (ExpBytes a) -> Ok a
     Ok (ExpBool _) -> Bad (nowhere, "expected: bytes, got: bool")
-    Bad e -> Bad e
+    Bad err -> Bad err
 
 checkInt :: Env -> Expr -> Err (Exp Int)
-checkInt env exp =
-  case inferExpr env exp of
+checkInt env e =
+  case inferExpr env e of
     Ok (ExpInt a) -> Ok a
     Ok (ExpBytes _) -> Bad (nowhere, "expected: int, got: bytes")
     Ok (ExpBool _) -> Bad (nowhere, "expected: int, got: bool")
-    Bad e -> Bad e
+    Bad err -> Bad err
