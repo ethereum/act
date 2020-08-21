@@ -26,26 +26,29 @@ import RefinedAst
    If this query returns `unsat` then the invariant must hold over the transition system
 -}
 queries :: [Claim] -> [QueryT IO CheckSatResult]
-queries claims = fmap (\_ -> checkSat) claims
+queries claims = fmap mkQuery $ gather claims
 
-  {-
-getStorageVars :: [Claim] -> Query [SBV MType]
-getStorageVars claims = concat $ fmap mkPrePost $ nub $ getNames claims
+gather :: [Claim] -> [(Invariant, [Behaviour])]
+gather claims = fmap (\i -> (i, getBehaviours i)) invariants
   where
-    mkPrePost :: Id -> [Id]
-    mkPrePost name = (name <> "_pre") : (name <> "_post") : []
+    invariants = catInvs claims
+    getBehaviours (Invariant c _) = filter (\b -> c == (_contract b)) (catBehvs claims)
 
-    getVars :: [Claim] -> Query [SBV MType]
-    getVars [] = []
-    getVars ((I _):tl) = getVars tl
-    getVars ((B b):tl) = (varsFromBehv b) <> (getVars tl)
+mkQuery :: (Invariant, [Behaviour]) -> QueryT IO CheckSatResult
+mkQuery (inv, behvs) = do
+  --declareStorageVars behvs
+  --defineFunctionPredicates behvs
+  --assertInvariant inv behvs
+  checkSat
 
-    varsFromBehv :: Behaviour -> Query [SBV MType]
-    varsFromBehv Behaviour{..} = concat $ extract <$> contracts
-      where
-        contracts = Map.keys(_stateUpdates)
-        extract contract = nameFromLoc contract <$> (fromMaybe [] $ Map.lookup contract _stateUpdates)
-    -}
+declareStorageVars :: [Behaviour] -> Query ()
+declareStorageVars = undefined
+
+defineFunctionPredicates :: [Behaviour] -> Query ()
+defineFunctionPredicates = undefined
+
+assertInvariant :: Invariant -> [Behaviour] -> Query ()
+assertInvariant = undefined
 
 nameFromLoc :: Id -> Either StorageLocation StorageUpdate -> Id
 nameFromLoc contract entry = case entry of
