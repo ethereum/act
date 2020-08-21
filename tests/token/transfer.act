@@ -41,36 +41,42 @@ iff
    CALLER =/= src => 0 <= allowance[src][CALLER] - amount
    CALLVALUE == 0
 
-case src =/= dst:
+case src =/= dst and CALLER == src:
 
-   case CALLER == src:
+   storage
 
-      storage
+     allowance[src][CALLER]
+     balanceOf[src] => balanceOf[src] - amount
+     balanceOf[dst] => balanceOf[dst] + amount
 
-         balanceOf[src] => balanceOf[src] - amount
-         balanceOf[dst] => balanceOf[dst] + amount
+   returns 1
 
-      returns 1
+case src =/= dst and CALLER =/= src and allowance[src][CALLER] == 2^256 - 1:
 
-   case CALLER =/= src and allowance[src][CALLER] == 2^256 - 1:
+   storage
 
-      storage
+     allowance[src][CALLER]
+     balanceOf[src] => balanceOf[src] - amount
+     balanceOf[dst] => balanceOf[dst] + amount
 
-         balanceOf[src] => balanceOf[src] - amount
-         balanceOf[dst] => balanceOf[dst] + amount
+   returns 1
 
-      returns 1
+case src =/= dst and CALLER =/= src and allowance[src][CALLER] < 2^256 - 1:
 
-   case _:
+   storage
 
-      storage
+     allowance[src][CALLER] => allowance[src][CALLER] - amount
+     balanceOf[src]          => balanceOf[src] - amount
+     balanceOf[dst]          => balanceOf[dst] + amount
 
-         allowance[src][CALLER] => allowance[src][CALLER] - amount
-         balanceOf[src]          => balanceOf[src] - amount
-         balanceOf[dst]          => balanceOf[dst] + amount
-
-      returns 1
+   returns 1
 
 case src == dst:
+
+   storage
+   
+     allowance[src][CALLER]
+     balanceOf[src]
+     balanceOf[dst]
 
    returns 1
