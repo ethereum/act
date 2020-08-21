@@ -116,7 +116,7 @@ tokens :-
 data LEX =
 
   -- reserved words
-  | BEHAVIOUR
+    BEHAVIOUR
   | OF
   | INTERFACE
   | CREATES
