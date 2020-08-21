@@ -6,9 +6,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "A"
-    ],
     "name": "f",
     "preConditions": {
       "arity": 2,
@@ -17,36 +14,29 @@
         {
           "arity": 2,
           "args": [
-            "True",
             {
               "arity": 2,
               "args": [
                 {
                   "arity": 2,
                   "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        0,
-                        "x"
-                      ],
-                      "symbol": "<="
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        "x",
-                        1.157920892373162e+77
-                      ],
-                      "symbol": "<="
-                    }
+                    0,
+                    "x"
                   ],
-                  "symbol": "and"
+                  "symbol": "<="
                 },
-                "True"
+                {
+                  "arity": 2,
+                  "args": [
+                    "x",
+                    1.157920892373162e+77
+                  ],
+                  "symbol": "<="
+                }
               ],
               "symbol": "and"
-            }
+            },
+            "True"
           ],
           "symbol": "and"
         }
@@ -62,32 +52,17 @@
     }
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "A": []
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "A"
-    ],
     "name": "f",
     "preConditions": {
       "arity": 2,
       "args": [
-        {
-          "arity": 2,
-          "args": [
-            "True",
-            {
-              "arity": 2,
-              "args": [
-                "True",
-                "True"
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "and"
-        },
+        "True",
         {
           "arity": 1,
           "args": [

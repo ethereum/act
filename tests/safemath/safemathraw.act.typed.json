@@ -6,9 +6,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "SafeAdd"
-    ],
     "name": "add",
     "preConditions": {
       "arity": 2,
@@ -17,17 +14,52 @@
         {
           "arity": 2,
           "args": [
-            "True",
+            {
+              "arity": 2,
+              "args": [
+                "Callvalue",
+                0
+              ],
+              "symbol": "=="
+            },
             {
               "arity": 2,
               "args": [
                 {
                   "arity": 2,
                   "args": [
-                    "Callvalue",
-                    0
+                    {
+                      "arity": 2,
+                      "args": [
+                        0,
+                        {
+                          "arity": 2,
+                          "args": [
+                            "x",
+                            "y"
+                          ],
+                          "symbol": "+"
+                        }
+                      ],
+                      "symbol": "<="
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            "x",
+                            "y"
+                          ],
+                          "symbol": "+"
+                        },
+                        1.157920892373162e+77
+                      ],
+                      "symbol": "<="
+                    }
                   ],
-                  "symbol": "=="
+                  "symbol": "and"
                 },
                 {
                   "arity": 2,
@@ -39,28 +71,14 @@
                           "arity": 2,
                           "args": [
                             0,
-                            {
-                              "arity": 2,
-                              "args": [
-                                "x",
-                                "y"
-                              ],
-                              "symbol": "+"
-                            }
+                            "y"
                           ],
                           "symbol": "<="
                         },
                         {
                           "arity": 2,
                           "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                "x",
-                                "y"
-                              ],
-                              "symbol": "+"
-                            },
+                            "y",
                             1.157920892373162e+77
                           ],
                           "symbol": "<="
@@ -78,14 +96,14 @@
                               "arity": 2,
                               "args": [
                                 0,
-                                "y"
+                                "x"
                               ],
                               "symbol": "<="
                             },
                             {
                               "arity": 2,
                               "args": [
-                                "y",
+                                "x",
                                 1.157920892373162e+77
                               ],
                               "symbol": "<="
@@ -93,35 +111,7 @@
                           ],
                           "symbol": "and"
                         },
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    0,
-                                    "x"
-                                  ],
-                                  "symbol": "<="
-                                },
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    "x",
-                                    1.157920892373162e+77
-                                  ],
-                                  "symbol": "<="
-                                }
-                              ],
-                              "symbol": "and"
-                            },
-                            "True"
-                          ],
-                          "symbol": "and"
-                        }
+                        "True"
                       ],
                       "symbol": "and"
                     }
@@ -153,32 +143,17 @@
     }
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "SafeAdd": []
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "SafeAdd"
-    ],
     "name": "add",
     "preConditions": {
       "arity": 2,
       "args": [
-        {
-          "arity": 2,
-          "args": [
-            "True",
-            {
-              "arity": 2,
-              "args": [
-                "True",
-                "True"
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "and"
-        },
+        "True",
         {
           "arity": 1,
           "args": [

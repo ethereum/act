@@ -21,10 +21,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "B",
-      "a"
-    ],
     "name": "multi",
     "preConditions": {
       "arity": 2,
@@ -33,17 +29,38 @@
         {
           "arity": 2,
           "args": [
-            "True",
+            {
+              "arity": 2,
+              "args": [
+                "Callvalue",
+                0
+              ],
+              "symbol": "=="
+            },
             {
               "arity": 2,
               "args": [
                 {
                   "arity": 2,
                   "args": [
-                    "Callvalue",
-                    0
+                    {
+                      "arity": 2,
+                      "args": [
+                        0,
+                        "z"
+                      ],
+                      "symbol": "<="
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        "z",
+                        1.157920892373162e+77
+                      ],
+                      "symbol": "<="
+                    }
                   ],
-                  "symbol": "=="
+                  "symbol": "and"
                 },
                 {
                   "arity": 2,
@@ -55,14 +72,14 @@
                           "arity": 2,
                           "args": [
                             0,
-                            "z"
+                            "y"
                           ],
                           "symbol": "<="
                         },
                         {
                           "arity": 2,
                           "args": [
-                            "z",
+                            "y",
                             1.157920892373162e+77
                           ],
                           "symbol": "<="
@@ -70,35 +87,7 @@
                       ],
                       "symbol": "and"
                     },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                "y"
-                              ],
-                              "symbol": "<="
-                            },
-                            {
-                              "arity": 2,
-                              "args": [
-                                "y",
-                                1.157920892373162e+77
-                              ],
-                              "symbol": "<="
-                            }
-                          ],
-                          "symbol": "and"
-                        },
-                        "True"
-                      ],
-                      "symbol": "and"
-                    }
+                    "True"
                   ],
                   "symbol": "and"
                 }
@@ -117,33 +106,32 @@
     "returns": null
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "a": [
+        {
+          "Right": {
+            "location": "x",
+            "value": "z"
+          }
+        }
+      ],
+      "B": [
+        {
+          "Right": {
+            "location": "y",
+            "value": 1
+          }
+        }
+      ]
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "B",
-      "a"
-    ],
     "name": "multi",
     "preConditions": {
       "arity": 2,
       "args": [
-        {
-          "arity": 2,
-          "args": [
-            "True",
-            {
-              "arity": 2,
-              "args": [
-                "True",
-                "True"
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "and"
-        },
+        "True",
         {
           "arity": 1,
           "args": [
@@ -244,10 +232,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "B",
-      "a"
-    ],
     "name": "remote",
     "preConditions": {
       "arity": 2,
@@ -256,17 +240,38 @@
         {
           "arity": 2,
           "args": [
-            "True",
+            {
+              "arity": 2,
+              "args": [
+                "Callvalue",
+                0
+              ],
+              "symbol": "=="
+            },
             {
               "arity": 2,
               "args": [
                 {
                   "arity": 2,
                   "args": [
-                    "Callvalue",
-                    0
+                    {
+                      "arity": 2,
+                      "args": [
+                        0,
+                        "z"
+                      ],
+                      "symbol": "<="
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        "z",
+                        1.157920892373162e+77
+                      ],
+                      "symbol": "<="
+                    }
                   ],
-                  "symbol": "=="
+                  "symbol": "and"
                 },
                 {
                   "arity": 2,
@@ -278,14 +283,14 @@
                           "arity": 2,
                           "args": [
                             0,
-                            "z"
+                            "y"
                           ],
                           "symbol": "<="
                         },
                         {
                           "arity": 2,
                           "args": [
-                            "z",
+                            "y",
                             1.157920892373162e+77
                           ],
                           "symbol": "<="
@@ -293,35 +298,7 @@
                       ],
                       "symbol": "and"
                     },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                "y"
-                              ],
-                              "symbol": "<="
-                            },
-                            {
-                              "arity": 2,
-                              "args": [
-                                "y",
-                                1.157920892373162e+77
-                              ],
-                              "symbol": "<="
-                            }
-                          ],
-                          "symbol": "and"
-                        },
-                        "True"
-                      ],
-                      "symbol": "and"
-                    }
+                    "True"
                   ],
                   "symbol": "and"
                 }
@@ -340,33 +317,25 @@
     "returns": null
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "a": [
+        {
+          "Right": {
+            "location": "x",
+            "value": "z"
+          }
+        }
+      ],
+      "B": []
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "B",
-      "a"
-    ],
     "name": "remote",
     "preConditions": {
       "arity": 2,
       "args": [
-        {
-          "arity": 2,
-          "args": [
-            "True",
-            {
-              "arity": 2,
-              "args": [
-                "True",
-                "True"
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "and"
-        },
+        "True",
         {
           "arity": 1,
           "args": [
@@ -466,9 +435,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
-    "contracts": [
-      "B"
-    ],
     "name": "init",
     "preConditions": "True",
     "contract": "B",
@@ -518,9 +484,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
-    "contracts": [
-      "a"
-    ],
     "name": "init",
     "preConditions": "True",
     "contract": "a",

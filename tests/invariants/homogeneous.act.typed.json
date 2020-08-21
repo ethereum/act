@@ -33,9 +33,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "Homogeneous"
-    ],
     "name": "g",
     "preConditions": {
       "arity": 2,
@@ -44,7 +41,21 @@
         {
           "arity": 2,
           "args": [
-            "True",
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "z",
+                    "scalar"
+                  ],
+                  "symbol": "*"
+                },
+                "z"
+              ],
+              "symbol": ">"
+            },
             {
               "arity": 2,
               "args": [
@@ -54,12 +65,12 @@
                     {
                       "arity": 2,
                       "args": [
-                        "z",
+                        "y",
                         "scalar"
                       ],
                       "symbol": "*"
                     },
-                    "z"
+                    "y"
                   ],
                   "symbol": ">"
                 },
@@ -72,14 +83,21 @@
                         {
                           "arity": 2,
                           "args": [
-                            "y",
+                            0,
                             "scalar"
                           ],
-                          "symbol": "*"
+                          "symbol": "<="
                         },
-                        "y"
+                        {
+                          "arity": 2,
+                          "args": [
+                            "scalar",
+                            1.157920892373162e+77
+                          ],
+                          "symbol": "<="
+                        }
                       ],
-                      "symbol": ">"
+                      "symbol": "and"
                     },
                     {
                       "arity": 2,
@@ -91,14 +109,14 @@
                               "arity": 2,
                               "args": [
                                 0,
-                                "scalar"
+                                "x"
                               ],
                               "symbol": "<="
                             },
                             {
                               "arity": 2,
                               "args": [
-                                "scalar",
+                                "x",
                                 1.157920892373162e+77
                               ],
                               "symbol": "<="
@@ -116,14 +134,14 @@
                                   "arity": 2,
                                   "args": [
                                     0,
-                                    "x"
+                                    "y"
                                   ],
                                   "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "x",
+                                    "y",
                                     1.157920892373162e+77
                                   ],
                                   "symbol": "<="
@@ -141,14 +159,14 @@
                                       "arity": 2,
                                       "args": [
                                         0,
-                                        "y"
+                                        "z"
                                       ],
                                       "symbol": "<="
                                     },
                                     {
                                       "arity": 2,
                                       "args": [
-                                        "y",
+                                        "z",
                                         1.157920892373162e+77
                                       ],
                                       "symbol": "<="
@@ -156,35 +174,7 @@
                                   ],
                                   "symbol": "and"
                                 },
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            0,
-                                            "z"
-                                          ],
-                                          "symbol": "<="
-                                        },
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            "z",
-                                            1.157920892373162e+77
-                                          ],
-                                          "symbol": "<="
-                                        }
-                                      ],
-                                      "symbol": "and"
-                                    },
-                                    "True"
-                                  ],
-                                  "symbol": "and"
-                                }
+                                "True"
                               ],
                               "symbol": "and"
                             }
@@ -212,32 +202,44 @@
     "returns": null
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "Homogeneous": [
+        {
+          "Right": {
+            "location": "z",
+            "value": {
+              "arity": 2,
+              "args": [
+                "z",
+                "scalar"
+              ],
+              "symbol": "*"
+            }
+          }
+        },
+        {
+          "Right": {
+            "location": "y",
+            "value": {
+              "arity": 2,
+              "args": [
+                "y",
+                "scalar"
+              ],
+              "symbol": "*"
+            }
+          }
+        }
+      ]
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "Homogeneous"
-    ],
     "name": "g",
     "preConditions": {
       "arity": 2,
       "args": [
-        {
-          "arity": 2,
-          "args": [
-            "True",
-            {
-              "arity": 2,
-              "args": [
-                "True",
-                "True"
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "and"
-        },
+        "True",
         {
           "arity": 1,
           "args": [
@@ -441,9 +443,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "Homogeneous"
-    ],
     "name": "f",
     "preConditions": {
       "arity": 2,
@@ -452,7 +451,21 @@
         {
           "arity": 2,
           "args": [
-            "True",
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "z",
+                    "scalar"
+                  ],
+                  "symbol": "*"
+                },
+                "z"
+              ],
+              "symbol": ">"
+            },
             {
               "arity": 2,
               "args": [
@@ -462,12 +475,12 @@
                     {
                       "arity": 2,
                       "args": [
-                        "z",
+                        "x",
                         "scalar"
                       ],
                       "symbol": "*"
                     },
-                    "z"
+                    "x"
                   ],
                   "symbol": ">"
                 },
@@ -480,14 +493,21 @@
                         {
                           "arity": 2,
                           "args": [
-                            "x",
+                            0,
                             "scalar"
                           ],
-                          "symbol": "*"
+                          "symbol": "<="
                         },
-                        "x"
+                        {
+                          "arity": 2,
+                          "args": [
+                            "scalar",
+                            1.157920892373162e+77
+                          ],
+                          "symbol": "<="
+                        }
                       ],
-                      "symbol": ">"
+                      "symbol": "and"
                     },
                     {
                       "arity": 2,
@@ -499,14 +519,14 @@
                               "arity": 2,
                               "args": [
                                 0,
-                                "scalar"
+                                "x"
                               ],
                               "symbol": "<="
                             },
                             {
                               "arity": 2,
                               "args": [
-                                "scalar",
+                                "x",
                                 1.157920892373162e+77
                               ],
                               "symbol": "<="
@@ -524,14 +544,14 @@
                                   "arity": 2,
                                   "args": [
                                     0,
-                                    "x"
+                                    "y"
                                   ],
                                   "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "x",
+                                    "y",
                                     1.157920892373162e+77
                                   ],
                                   "symbol": "<="
@@ -549,14 +569,14 @@
                                       "arity": 2,
                                       "args": [
                                         0,
-                                        "y"
+                                        "z"
                                       ],
                                       "symbol": "<="
                                     },
                                     {
                                       "arity": 2,
                                       "args": [
-                                        "y",
+                                        "z",
                                         1.157920892373162e+77
                                       ],
                                       "symbol": "<="
@@ -564,35 +584,7 @@
                                   ],
                                   "symbol": "and"
                                 },
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            0,
-                                            "z"
-                                          ],
-                                          "symbol": "<="
-                                        },
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            "z",
-                                            1.157920892373162e+77
-                                          ],
-                                          "symbol": "<="
-                                        }
-                                      ],
-                                      "symbol": "and"
-                                    },
-                                    "True"
-                                  ],
-                                  "symbol": "and"
-                                }
+                                "True"
                               ],
                               "symbol": "and"
                             }
@@ -620,32 +612,44 @@
     "returns": null
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "Homogeneous": [
+        {
+          "Right": {
+            "location": "z",
+            "value": {
+              "arity": 2,
+              "args": [
+                "z",
+                "scalar"
+              ],
+              "symbol": "*"
+            }
+          }
+        },
+        {
+          "Right": {
+            "location": "x",
+            "value": {
+              "arity": 2,
+              "args": [
+                "x",
+                "scalar"
+              ],
+              "symbol": "*"
+            }
+          }
+        }
+      ]
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "Homogeneous"
-    ],
     "name": "f",
     "preConditions": {
       "arity": 2,
       "args": [
-        {
-          "arity": 2,
-          "args": [
-            "True",
-            {
-              "arity": 2,
-              "args": [
-                "True",
-                "True"
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "and"
-        },
+        "True",
         {
           "arity": 1,
           "args": [
@@ -860,9 +864,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
-    "contracts": [
-      "Homogeneous"
-    ],
     "name": "init",
     "preConditions": "True",
     "contract": "Homogeneous",
