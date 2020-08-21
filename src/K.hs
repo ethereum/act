@@ -3,7 +3,7 @@
 {-# Language GADTs #-}
 {-# Language OverloadedStrings #-}
 {-# Language LambdaCase #-}
-module Splitter where
+module K where
 
 import Syntax
 import RefinedAst

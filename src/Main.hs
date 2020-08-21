@@ -30,7 +30,7 @@ import Lex (lexer, AlexPosn(..))
 import Options.Generic
 import Parse
 import RefinedAst
-import Splitter hiding (normalize)
+import K hiding (normalize)
 import Syntax
 import Type
 
