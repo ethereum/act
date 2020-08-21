@@ -97,7 +97,7 @@ main = do
 
       (Prove f) -> do contents <- readFile f
                       case parse (lexer contents) >>= typecheck >>= prove of
-                        Ok a  -> putStrLn a
+                        Ok a  -> putStrLn $ show a
                         Bad e -> prettyErr contents e
 
       (K spec soljson gas storage extractbin out) -> do
