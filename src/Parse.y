@@ -181,7 +181,7 @@ Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface (arg $2) $4 }
 Cases : Post                                          { Direct $1 }
       | nonempty(Case)                                { Branches $1 }
 
-Case : 'case' Expr ':' Post                           { Case (pos $1) $2 $4 }
+Case : 'case' Expr ':' Post                           { Case (posn $1) $2 $4 }
 
 
 Post  : Storage list(ExtStorage)                      { Post (Just $1) $2 Nothing }
