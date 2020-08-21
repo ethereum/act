@@ -33,6 +33,7 @@ import RefinedAst
 import K hiding (normalize)
 import Syntax
 import Type
+import Prove
 
 --command line options
 data Command w
@@ -41,6 +42,8 @@ data Command w
   | Parse           { file       :: w ::: String               <?> "Path to file"}
 
   | Type            { file       :: w ::: String               <?> "Path to file"}
+
+  | Prove           { file  :: w ::: String <?> "Path to file"}
 
   | K               { spec       :: w ::: String               <?> "Path to spec"
                     , soljson    :: w ::: String               <?> "Path to .sol.json"
@@ -91,6 +94,11 @@ main = do
                      case parse (lexer contents) >>= typecheck of
                        Ok a  -> B.putStrLn $ encode a
                        Bad e -> prettyErr contents e
+
+      (Prove f) -> do contents <- readFile f
+                      case parse (lexer contents) >>= typecheck >>= prove of
+                        Ok a  -> putStrLn a
+                        Bad e -> prettyErr contents e
 
       (K spec soljson gas storage extractbin out) -> do
         specContents <- readFile spec
