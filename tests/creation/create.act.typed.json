@@ -19,9 +19,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
-    "contracts": [
-      "Modest"
-    ],
     "name": "creation",
     "preConditions": "True",
     "contract": "Modest",

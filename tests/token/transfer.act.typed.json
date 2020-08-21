@@ -1,14 +1,67 @@
 [
   {
     "stateUpdates": {
-      "Token": []
+      "Token": [
+        {
+          "Left": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        },
+        {
+          "Left": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        },
+        {
+          "Left": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "allowance",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        }
+      ]
     },
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transferFrom",
     "preConditions": {
       "arity": 2,
@@ -27,73 +80,72 @@
             {
               "arity": 2,
               "args": [
-                "src",
-                "dst"
+                "Callvalue",
+                0
               ],
-              "symbol": "=/="
+              "symbol": "=="
             },
             {
               "arity": 2,
               "args": [
-                "True",
                 {
                   "arity": 2,
                   "args": [
                     {
                       "arity": 2,
                       "args": [
-                        "Callvalue",
-                        0
+                        "Caller",
+                        "src"
                       ],
-                      "symbol": "=="
+                      "symbol": "=/="
                     },
                     {
                       "arity": 2,
                       "args": [
+                        0,
                         {
                           "arity": 2,
                           "args": [
                             {
                               "arity": 2,
                               "args": [
-                                "Caller",
-                                "src"
+                                "allowance",
+                                [
+                                  {
+                                    "expression": "Caller",
+                                    "sort": "int"
+                                  },
+                                  {
+                                    "expression": "src",
+                                    "sort": "int"
+                                  }
+                                ]
                               ],
-                              "symbol": "=/="
+                              "symbol": "lookup"
                             },
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        "allowance",
-                                        [
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          },
-                                          {
-                                            "expression": "src",
-                                            "sort": "int"
-                                          }
-                                        ]
-                                      ],
-                                      "symbol": "lookup"
-                                    },
-                                    "amount"
-                                  ],
-                                  "symbol": "-"
-                                }
-                              ],
-                              "symbol": "<="
-                            }
+                            "amount"
                           ],
-                          "symbol": "=>"
+                          "symbol": "-"
+                        }
+                      ],
+                      "symbol": "<="
+                    }
+                  ],
+                  "symbol": "=>"
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            "src",
+                            "dst"
+                          ],
+                          "symbol": "=/="
                         },
                         {
                           "arity": 2,
@@ -104,47 +156,81 @@
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "src",
-                                    "dst"
+                                    "balanceOf",
+                                    [
+                                      {
+                                        "expression": "dst",
+                                        "sort": "int"
+                                      }
+                                    ]
                                   ],
-                                  "symbol": "=/="
+                                  "symbol": "lookup"
+                                },
+                                "amount"
+                              ],
+                              "symbol": "+"
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                2,
+                                256
+                              ],
+                              "symbol": "^"
+                            }
+                          ],
+                          "symbol": "<"
+                        }
+                      ],
+                      "symbol": "=>"
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            "amount",
+                            {
+                              "arity": 2,
+                              "args": [
+                                "balanceOf",
+                                [
+                                  {
+                                    "expression": "Caller",
+                                    "sort": "int"
+                                  }
+                                ]
+                              ],
+                              "symbol": "lookup"
+                            }
+                          ],
+                          "symbol": "<="
+                        },
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    0,
+                                    "amount"
+                                  ],
+                                  "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            "balanceOf",
-                                            [
-                                              {
-                                                "expression": "dst",
-                                                "sort": "int"
-                                              }
-                                            ]
-                                          ],
-                                          "symbol": "lookup"
-                                        },
-                                        "amount"
-                                      ],
-                                      "symbol": "+"
-                                    },
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        2,
-                                        256
-                                      ],
-                                      "symbol": "^"
-                                    }
+                                    "amount",
+                                    1.157920892373162e+77
                                   ],
-                                  "symbol": "<"
+                                  "symbol": "<="
                                 }
                               ],
-                              "symbol": "=>"
+                              "symbol": "and"
                             },
                             {
                               "arity": 2,
@@ -152,22 +238,24 @@
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "amount",
                                     {
                                       "arity": 2,
                                       "args": [
-                                        "balanceOf",
-                                        [
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          }
-                                        ]
+                                        0,
+                                        "dst"
                                       ],
-                                      "symbol": "lookup"
+                                      "symbol": "<="
+                                    },
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        "dst",
+                                        1.461501637330903e+48
+                                      ],
+                                      "symbol": "<="
                                     }
                                   ],
-                                  "symbol": "<="
+                                  "symbol": "and"
                                 },
                                 {
                                   "arity": 2,
@@ -179,15 +267,15 @@
                                           "arity": 2,
                                           "args": [
                                             0,
-                                            "amount"
+                                            "src"
                                           ],
                                           "symbol": "<="
                                         },
                                         {
                                           "arity": 2,
                                           "args": [
-                                            "amount",
-                                            1.157920892373162e+77
+                                            "src",
+                                            1.461501637330903e+48
                                           ],
                                           "symbol": "<="
                                         }
@@ -204,78 +292,22 @@
                                               "arity": 2,
                                               "args": [
                                                 0,
-                                                "dst"
+                                                "totalSupply"
                                               ],
                                               "symbol": "<="
                                             },
                                             {
                                               "arity": 2,
                                               "args": [
-                                                "dst",
-                                                1.461501637330903e+48
+                                                "totalSupply",
+                                                1.157920892373162e+77
                                               ],
                                               "symbol": "<="
                                             }
                                           ],
                                           "symbol": "and"
                                         },
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            {
-                                              "arity": 2,
-                                              "args": [
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    0,
-                                                    "src"
-                                                  ],
-                                                  "symbol": "<="
-                                                },
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    "src",
-                                                    1.461501637330903e+48
-                                                  ],
-                                                  "symbol": "<="
-                                                }
-                                              ],
-                                              "symbol": "and"
-                                            },
-                                            {
-                                              "arity": 2,
-                                              "args": [
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    {
-                                                      "arity": 2,
-                                                      "args": [
-                                                        0,
-                                                        "totalSupply"
-                                                      ],
-                                                      "symbol": "<="
-                                                    },
-                                                    {
-                                                      "arity": 2,
-                                                      "args": [
-                                                        "totalSupply",
-                                                        1.157920892373162e+77
-                                                      ],
-                                                      "symbol": "<="
-                                                    }
-                                                  ],
-                                                  "symbol": "and"
-                                                },
-                                                "True"
-                                              ],
-                                              "symbol": "and"
-                                            }
-                                          ],
-                                          "symbol": "and"
-                                        }
+                                        "True"
                                       ],
                                       "symbol": "and"
                                     }
@@ -312,13 +344,68 @@
     }
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "Token": [
+        {
+          "Left": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        },
+        {
+          "Left": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        },
+        {
+          "Left": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "allowance",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        }
+      ]
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transferFrom",
     "preConditions": {
       "arity": 2,
@@ -326,38 +413,10 @@
         {
           "arity": 2,
           "args": [
-            {
-              "arity": 2,
-              "args": [
-                "src",
-                "dst"
-              ],
-              "symbol": "=="
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "src",
-                    "dst"
-                  ],
-                  "symbol": "=/="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    "True",
-                    "True"
-                  ],
-                  "symbol": "and"
-                }
-              ],
-              "symbol": "and"
-            }
+            "src",
+            "dst"
           ],
-          "symbol": "and"
+          "symbol": "=="
         },
         {
           "arity": 1,
@@ -758,26 +817,75 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transferFrom",
     "preConditions": {
       "arity": 2,
       "args": [
         {
-          "arity": 1,
+          "arity": 2,
           "args": [
             {
               "arity": 2,
               "args": [
-                "src",
-                "dst"
+                {
+                  "arity": 2,
+                  "args": [
+                    "src",
+                    "dst"
+                  ],
+                  "symbol": "=/="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    "Caller",
+                    "src"
+                  ],
+                  "symbol": "=/="
+                }
               ],
-              "symbol": "=="
+              "symbol": "and"
+            },
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "allowance",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        2,
+                        256
+                      ],
+                      "symbol": "^"
+                    },
+                    1
+                  ],
+                  "symbol": "-"
+                }
+              ],
+              "symbol": "<"
             }
           ],
-          "symbol": "not"
+          "symbol": "and"
         },
         {
           "arity": 2,
@@ -785,73 +893,72 @@
             {
               "arity": 2,
               "args": [
-                "src",
-                "dst"
+                "Callvalue",
+                0
               ],
-              "symbol": "=/="
+              "symbol": "=="
             },
             {
               "arity": 2,
               "args": [
-                "True",
                 {
                   "arity": 2,
                   "args": [
                     {
                       "arity": 2,
                       "args": [
-                        "Callvalue",
-                        0
+                        "Caller",
+                        "src"
                       ],
-                      "symbol": "=="
+                      "symbol": "=/="
                     },
                     {
                       "arity": 2,
                       "args": [
+                        0,
                         {
                           "arity": 2,
                           "args": [
                             {
                               "arity": 2,
                               "args": [
-                                "Caller",
-                                "src"
+                                "allowance",
+                                [
+                                  {
+                                    "expression": "Caller",
+                                    "sort": "int"
+                                  },
+                                  {
+                                    "expression": "src",
+                                    "sort": "int"
+                                  }
+                                ]
                               ],
-                              "symbol": "=/="
+                              "symbol": "lookup"
                             },
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        "allowance",
-                                        [
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          },
-                                          {
-                                            "expression": "src",
-                                            "sort": "int"
-                                          }
-                                        ]
-                                      ],
-                                      "symbol": "lookup"
-                                    },
-                                    "amount"
-                                  ],
-                                  "symbol": "-"
-                                }
-                              ],
-                              "symbol": "<="
-                            }
+                            "amount"
                           ],
-                          "symbol": "=>"
+                          "symbol": "-"
+                        }
+                      ],
+                      "symbol": "<="
+                    }
+                  ],
+                  "symbol": "=>"
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            "src",
+                            "dst"
+                          ],
+                          "symbol": "=/="
                         },
                         {
                           "arity": 2,
@@ -862,47 +969,81 @@
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "src",
-                                    "dst"
+                                    "balanceOf",
+                                    [
+                                      {
+                                        "expression": "dst",
+                                        "sort": "int"
+                                      }
+                                    ]
                                   ],
-                                  "symbol": "=/="
+                                  "symbol": "lookup"
+                                },
+                                "amount"
+                              ],
+                              "symbol": "+"
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                2,
+                                256
+                              ],
+                              "symbol": "^"
+                            }
+                          ],
+                          "symbol": "<"
+                        }
+                      ],
+                      "symbol": "=>"
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            "amount",
+                            {
+                              "arity": 2,
+                              "args": [
+                                "balanceOf",
+                                [
+                                  {
+                                    "expression": "Caller",
+                                    "sort": "int"
+                                  }
+                                ]
+                              ],
+                              "symbol": "lookup"
+                            }
+                          ],
+                          "symbol": "<="
+                        },
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    0,
+                                    "amount"
+                                  ],
+                                  "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            "balanceOf",
-                                            [
-                                              {
-                                                "expression": "dst",
-                                                "sort": "int"
-                                              }
-                                            ]
-                                          ],
-                                          "symbol": "lookup"
-                                        },
-                                        "amount"
-                                      ],
-                                      "symbol": "+"
-                                    },
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        2,
-                                        256
-                                      ],
-                                      "symbol": "^"
-                                    }
+                                    "amount",
+                                    1.157920892373162e+77
                                   ],
-                                  "symbol": "<"
+                                  "symbol": "<="
                                 }
                               ],
-                              "symbol": "=>"
+                              "symbol": "and"
                             },
                             {
                               "arity": 2,
@@ -910,22 +1051,24 @@
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "amount",
                                     {
                                       "arity": 2,
                                       "args": [
-                                        "balanceOf",
-                                        [
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          }
-                                        ]
+                                        0,
+                                        "dst"
                                       ],
-                                      "symbol": "lookup"
+                                      "symbol": "<="
+                                    },
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        "dst",
+                                        1.461501637330903e+48
+                                      ],
+                                      "symbol": "<="
                                     }
                                   ],
-                                  "symbol": "<="
+                                  "symbol": "and"
                                 },
                                 {
                                   "arity": 2,
@@ -937,15 +1080,15 @@
                                           "arity": 2,
                                           "args": [
                                             0,
-                                            "amount"
+                                            "src"
                                           ],
                                           "symbol": "<="
                                         },
                                         {
                                           "arity": 2,
                                           "args": [
-                                            "amount",
-                                            1.157920892373162e+77
+                                            "src",
+                                            1.461501637330903e+48
                                           ],
                                           "symbol": "<="
                                         }
@@ -962,78 +1105,22 @@
                                               "arity": 2,
                                               "args": [
                                                 0,
-                                                "dst"
+                                                "totalSupply"
                                               ],
                                               "symbol": "<="
                                             },
                                             {
                                               "arity": 2,
                                               "args": [
-                                                "dst",
-                                                1.461501637330903e+48
+                                                "totalSupply",
+                                                1.157920892373162e+77
                                               ],
                                               "symbol": "<="
                                             }
                                           ],
                                           "symbol": "and"
                                         },
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            {
-                                              "arity": 2,
-                                              "args": [
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    0,
-                                                    "src"
-                                                  ],
-                                                  "symbol": "<="
-                                                },
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    "src",
-                                                    1.461501637330903e+48
-                                                  ],
-                                                  "symbol": "<="
-                                                }
-                                              ],
-                                              "symbol": "and"
-                                            },
-                                            {
-                                              "arity": 2,
-                                              "args": [
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    {
-                                                      "arity": 2,
-                                                      "args": [
-                                                        0,
-                                                        "totalSupply"
-                                                      ],
-                                                      "symbol": "<="
-                                                    },
-                                                    {
-                                                      "arity": 2,
-                                                      "args": [
-                                                        "totalSupply",
-                                                        1.157920892373162e+77
-                                                      ],
-                                                      "symbol": "<="
-                                                    }
-                                                  ],
-                                                  "symbol": "and"
-                                                },
-                                                "True"
-                                              ],
-                                              "symbol": "and"
-                                            }
-                                          ],
-                                          "symbol": "and"
-                                        }
+                                        "True"
                                       ],
                                       "symbol": "and"
                                     }
@@ -1070,13 +1157,132 @@
     }
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "Token": [
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                "amount"
+              ],
+              "symbol": "+"
+            }
+          }
+        },
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                "amount"
+              ],
+              "symbol": "-"
+            }
+          }
+        },
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "allowance",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "allowance",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                "amount"
+              ],
+              "symbol": "-"
+            }
+          }
+        }
+      ]
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transferFrom",
     "preConditions": {
       "arity": 2,
@@ -1084,20 +1290,6 @@
         {
           "arity": 2,
           "args": [
-            {
-              "arity": 1,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "src",
-                    "dst"
-                  ],
-                  "symbol": "=="
-                }
-              ],
-              "symbol": "not"
-            },
             {
               "arity": 2,
               "args": [
@@ -1112,13 +1304,51 @@
                 {
                   "arity": 2,
                   "args": [
-                    "True",
-                    "True"
+                    "Caller",
+                    "src"
                   ],
-                  "symbol": "and"
+                  "symbol": "=/="
                 }
               ],
               "symbol": "and"
+            },
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "allowance",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        2,
+                        256
+                      ],
+                      "symbol": "^"
+                    },
+                    1
+                  ],
+                  "symbol": "-"
+                }
+              ],
+              "symbol": "<"
             }
           ],
           "symbol": "and"
@@ -1471,15 +1701,33 @@
               "symbol": "-"
             }
           }
+        },
+        {
+          "Left": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "allowance",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
         }
       ]
     },
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transferFrom",
     "preConditions": {
       "arity": 2,
@@ -1490,10 +1738,24 @@
             {
               "arity": 2,
               "args": [
-                "Caller",
-                "src"
+                {
+                  "arity": 2,
+                  "args": [
+                    "src",
+                    "dst"
+                  ],
+                  "symbol": "=/="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    "Caller",
+                    "src"
+                  ],
+                  "symbol": "=/="
+                }
               ],
-              "symbol": "=/="
+              "symbol": "and"
             },
             {
               "arity": 2,
@@ -1542,73 +1804,72 @@
             {
               "arity": 2,
               "args": [
-                "src",
-                "dst"
+                "Callvalue",
+                0
               ],
-              "symbol": "=/="
+              "symbol": "=="
             },
             {
               "arity": 2,
               "args": [
-                "True",
                 {
                   "arity": 2,
                   "args": [
                     {
                       "arity": 2,
                       "args": [
-                        "Callvalue",
-                        0
+                        "Caller",
+                        "src"
                       ],
-                      "symbol": "=="
+                      "symbol": "=/="
                     },
                     {
                       "arity": 2,
                       "args": [
+                        0,
                         {
                           "arity": 2,
                           "args": [
                             {
                               "arity": 2,
                               "args": [
-                                "Caller",
-                                "src"
+                                "allowance",
+                                [
+                                  {
+                                    "expression": "Caller",
+                                    "sort": "int"
+                                  },
+                                  {
+                                    "expression": "src",
+                                    "sort": "int"
+                                  }
+                                ]
                               ],
-                              "symbol": "=/="
+                              "symbol": "lookup"
                             },
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        "allowance",
-                                        [
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          },
-                                          {
-                                            "expression": "src",
-                                            "sort": "int"
-                                          }
-                                        ]
-                                      ],
-                                      "symbol": "lookup"
-                                    },
-                                    "amount"
-                                  ],
-                                  "symbol": "-"
-                                }
-                              ],
-                              "symbol": "<="
-                            }
+                            "amount"
                           ],
-                          "symbol": "=>"
+                          "symbol": "-"
+                        }
+                      ],
+                      "symbol": "<="
+                    }
+                  ],
+                  "symbol": "=>"
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            "src",
+                            "dst"
+                          ],
+                          "symbol": "=/="
                         },
                         {
                           "arity": 2,
@@ -1619,47 +1880,81 @@
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "src",
-                                    "dst"
+                                    "balanceOf",
+                                    [
+                                      {
+                                        "expression": "dst",
+                                        "sort": "int"
+                                      }
+                                    ]
                                   ],
-                                  "symbol": "=/="
+                                  "symbol": "lookup"
+                                },
+                                "amount"
+                              ],
+                              "symbol": "+"
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                2,
+                                256
+                              ],
+                              "symbol": "^"
+                            }
+                          ],
+                          "symbol": "<"
+                        }
+                      ],
+                      "symbol": "=>"
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            "amount",
+                            {
+                              "arity": 2,
+                              "args": [
+                                "balanceOf",
+                                [
+                                  {
+                                    "expression": "Caller",
+                                    "sort": "int"
+                                  }
+                                ]
+                              ],
+                              "symbol": "lookup"
+                            }
+                          ],
+                          "symbol": "<="
+                        },
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    0,
+                                    "amount"
+                                  ],
+                                  "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            "balanceOf",
-                                            [
-                                              {
-                                                "expression": "dst",
-                                                "sort": "int"
-                                              }
-                                            ]
-                                          ],
-                                          "symbol": "lookup"
-                                        },
-                                        "amount"
-                                      ],
-                                      "symbol": "+"
-                                    },
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        2,
-                                        256
-                                      ],
-                                      "symbol": "^"
-                                    }
+                                    "amount",
+                                    1.157920892373162e+77
                                   ],
-                                  "symbol": "<"
+                                  "symbol": "<="
                                 }
                               ],
-                              "symbol": "=>"
+                              "symbol": "and"
                             },
                             {
                               "arity": 2,
@@ -1667,22 +1962,24 @@
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "amount",
                                     {
                                       "arity": 2,
                                       "args": [
-                                        "balanceOf",
-                                        [
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          }
-                                        ]
+                                        0,
+                                        "dst"
                                       ],
-                                      "symbol": "lookup"
+                                      "symbol": "<="
+                                    },
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        "dst",
+                                        1.461501637330903e+48
+                                      ],
+                                      "symbol": "<="
                                     }
                                   ],
-                                  "symbol": "<="
+                                  "symbol": "and"
                                 },
                                 {
                                   "arity": 2,
@@ -1694,15 +1991,15 @@
                                           "arity": 2,
                                           "args": [
                                             0,
-                                            "amount"
+                                            "src"
                                           ],
                                           "symbol": "<="
                                         },
                                         {
                                           "arity": 2,
                                           "args": [
-                                            "amount",
-                                            1.157920892373162e+77
+                                            "src",
+                                            1.461501637330903e+48
                                           ],
                                           "symbol": "<="
                                         }
@@ -1719,78 +2016,22 @@
                                               "arity": 2,
                                               "args": [
                                                 0,
-                                                "dst"
+                                                "totalSupply"
                                               ],
                                               "symbol": "<="
                                             },
                                             {
                                               "arity": 2,
                                               "args": [
-                                                "dst",
-                                                1.461501637330903e+48
+                                                "totalSupply",
+                                                1.157920892373162e+77
                                               ],
                                               "symbol": "<="
                                             }
                                           ],
                                           "symbol": "and"
                                         },
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            {
-                                              "arity": 2,
-                                              "args": [
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    0,
-                                                    "src"
-                                                  ],
-                                                  "symbol": "<="
-                                                },
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    "src",
-                                                    1.461501637330903e+48
-                                                  ],
-                                                  "symbol": "<="
-                                                }
-                                              ],
-                                              "symbol": "and"
-                                            },
-                                            {
-                                              "arity": 2,
-                                              "args": [
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    {
-                                                      "arity": 2,
-                                                      "args": [
-                                                        0,
-                                                        "totalSupply"
-                                                      ],
-                                                      "symbol": "<="
-                                                    },
-                                                    {
-                                                      "arity": 2,
-                                                      "args": [
-                                                        "totalSupply",
-                                                        1.157920892373162e+77
-                                                      ],
-                                                      "symbol": "<="
-                                                    }
-                                                  ],
-                                                  "symbol": "and"
-                                                },
-                                                "True"
-                                              ],
-                                              "symbol": "and"
-                                            }
-                                          ],
-                                          "symbol": "and"
-                                        }
+                                        "True"
                                       ],
                                       "symbol": "and"
                                     }
@@ -1827,13 +2068,108 @@
     }
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "Token": [
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                "amount"
+              ],
+              "symbol": "+"
+            }
+          }
+        },
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                "amount"
+              ],
+              "symbol": "-"
+            }
+          }
+        },
+        {
+          "Left": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "allowance",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        }
+      ]
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transferFrom",
     "preConditions": {
       "arity": 2,
@@ -1841,58 +2177,6 @@
         {
           "arity": 2,
           "args": [
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "Caller",
-                    "src"
-                  ],
-                  "symbol": "=/="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        "allowance",
-                        [
-                          {
-                            "expression": "Caller",
-                            "sort": "int"
-                          },
-                          {
-                            "expression": "src",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            2,
-                            256
-                          ],
-                          "symbol": "^"
-                        },
-                        1
-                      ],
-                      "symbol": "-"
-                    }
-                  ],
-                  "symbol": "=="
-                }
-              ],
-              "symbol": "and"
-            },
             {
               "arity": 2,
               "args": [
@@ -1907,13 +2191,51 @@
                 {
                   "arity": 2,
                   "args": [
-                    "True",
-                    "True"
+                    "Caller",
+                    "src"
                   ],
-                  "symbol": "and"
+                  "symbol": "=/="
                 }
               ],
               "symbol": "and"
+            },
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "allowance",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        2,
+                        256
+                      ],
+                      "symbol": "^"
+                    },
+                    1
+                  ],
+                  "symbol": "-"
+                }
+              ],
+              "symbol": "=="
             }
           ],
           "symbol": "and"
@@ -2266,27 +2588,37 @@
               "symbol": "-"
             }
           }
+        },
+        {
+          "Left": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "allowance",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
         }
       ]
     },
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transferFrom",
     "preConditions": {
       "arity": 2,
       "args": [
-        {
-          "arity": 2,
-          "args": [
-            "Caller",
-            "src"
-          ],
-          "symbol": "=="
-        },
         {
           "arity": 2,
           "args": [
@@ -2301,65 +2633,86 @@
             {
               "arity": 2,
               "args": [
-                "True",
+                "Caller",
+                "src"
+              ],
+              "symbol": "=="
+            }
+          ],
+          "symbol": "and"
+        },
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                "Callvalue",
+                0
+              ],
+              "symbol": "=="
+            },
+            {
+              "arity": 2,
+              "args": [
                 {
                   "arity": 2,
                   "args": [
                     {
                       "arity": 2,
                       "args": [
-                        "Callvalue",
-                        0
+                        "Caller",
+                        "src"
                       ],
-                      "symbol": "=="
+                      "symbol": "=/="
                     },
                     {
                       "arity": 2,
                       "args": [
+                        0,
                         {
                           "arity": 2,
                           "args": [
                             {
                               "arity": 2,
                               "args": [
-                                "Caller",
-                                "src"
+                                "allowance",
+                                [
+                                  {
+                                    "expression": "Caller",
+                                    "sort": "int"
+                                  },
+                                  {
+                                    "expression": "src",
+                                    "sort": "int"
+                                  }
+                                ]
                               ],
-                              "symbol": "=/="
+                              "symbol": "lookup"
                             },
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        "allowance",
-                                        [
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          },
-                                          {
-                                            "expression": "src",
-                                            "sort": "int"
-                                          }
-                                        ]
-                                      ],
-                                      "symbol": "lookup"
-                                    },
-                                    "amount"
-                                  ],
-                                  "symbol": "-"
-                                }
-                              ],
-                              "symbol": "<="
-                            }
+                            "amount"
                           ],
-                          "symbol": "=>"
+                          "symbol": "-"
+                        }
+                      ],
+                      "symbol": "<="
+                    }
+                  ],
+                  "symbol": "=>"
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            "src",
+                            "dst"
+                          ],
+                          "symbol": "=/="
                         },
                         {
                           "arity": 2,
@@ -2370,47 +2723,81 @@
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "src",
-                                    "dst"
+                                    "balanceOf",
+                                    [
+                                      {
+                                        "expression": "dst",
+                                        "sort": "int"
+                                      }
+                                    ]
                                   ],
-                                  "symbol": "=/="
+                                  "symbol": "lookup"
+                                },
+                                "amount"
+                              ],
+                              "symbol": "+"
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                2,
+                                256
+                              ],
+                              "symbol": "^"
+                            }
+                          ],
+                          "symbol": "<"
+                        }
+                      ],
+                      "symbol": "=>"
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            "amount",
+                            {
+                              "arity": 2,
+                              "args": [
+                                "balanceOf",
+                                [
+                                  {
+                                    "expression": "Caller",
+                                    "sort": "int"
+                                  }
+                                ]
+                              ],
+                              "symbol": "lookup"
+                            }
+                          ],
+                          "symbol": "<="
+                        },
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    0,
+                                    "amount"
+                                  ],
+                                  "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            "balanceOf",
-                                            [
-                                              {
-                                                "expression": "dst",
-                                                "sort": "int"
-                                              }
-                                            ]
-                                          ],
-                                          "symbol": "lookup"
-                                        },
-                                        "amount"
-                                      ],
-                                      "symbol": "+"
-                                    },
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        2,
-                                        256
-                                      ],
-                                      "symbol": "^"
-                                    }
+                                    "amount",
+                                    1.157920892373162e+77
                                   ],
-                                  "symbol": "<"
+                                  "symbol": "<="
                                 }
                               ],
-                              "symbol": "=>"
+                              "symbol": "and"
                             },
                             {
                               "arity": 2,
@@ -2418,22 +2805,24 @@
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "amount",
                                     {
                                       "arity": 2,
                                       "args": [
-                                        "balanceOf",
-                                        [
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          }
-                                        ]
+                                        0,
+                                        "dst"
                                       ],
-                                      "symbol": "lookup"
+                                      "symbol": "<="
+                                    },
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        "dst",
+                                        1.461501637330903e+48
+                                      ],
+                                      "symbol": "<="
                                     }
                                   ],
-                                  "symbol": "<="
+                                  "symbol": "and"
                                 },
                                 {
                                   "arity": 2,
@@ -2445,15 +2834,15 @@
                                           "arity": 2,
                                           "args": [
                                             0,
-                                            "amount"
+                                            "src"
                                           ],
                                           "symbol": "<="
                                         },
                                         {
                                           "arity": 2,
                                           "args": [
-                                            "amount",
-                                            1.157920892373162e+77
+                                            "src",
+                                            1.461501637330903e+48
                                           ],
                                           "symbol": "<="
                                         }
@@ -2470,78 +2859,22 @@
                                               "arity": 2,
                                               "args": [
                                                 0,
-                                                "dst"
+                                                "totalSupply"
                                               ],
                                               "symbol": "<="
                                             },
                                             {
                                               "arity": 2,
                                               "args": [
-                                                "dst",
-                                                1.461501637330903e+48
+                                                "totalSupply",
+                                                1.157920892373162e+77
                                               ],
                                               "symbol": "<="
                                             }
                                           ],
                                           "symbol": "and"
                                         },
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            {
-                                              "arity": 2,
-                                              "args": [
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    0,
-                                                    "src"
-                                                  ],
-                                                  "symbol": "<="
-                                                },
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    "src",
-                                                    1.461501637330903e+48
-                                                  ],
-                                                  "symbol": "<="
-                                                }
-                                              ],
-                                              "symbol": "and"
-                                            },
-                                            {
-                                              "arity": 2,
-                                              "args": [
-                                                {
-                                                  "arity": 2,
-                                                  "args": [
-                                                    {
-                                                      "arity": 2,
-                                                      "args": [
-                                                        0,
-                                                        "totalSupply"
-                                                      ],
-                                                      "symbol": "<="
-                                                    },
-                                                    {
-                                                      "arity": 2,
-                                                      "args": [
-                                                        "totalSupply",
-                                                        1.157920892373162e+77
-                                                      ],
-                                                      "symbol": "<="
-                                                    }
-                                                  ],
-                                                  "symbol": "and"
-                                                },
-                                                "True"
-                                              ],
-                                              "symbol": "and"
-                                            }
-                                          ],
-                                          "symbol": "and"
-                                        }
+                                        "True"
                                       ],
                                       "symbol": "and"
                                     }
@@ -2578,13 +2911,108 @@
     }
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "Token": [
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                "amount"
+              ],
+              "symbol": "+"
+            }
+          }
+        },
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                "amount"
+              ],
+              "symbol": "-"
+            }
+          }
+        },
+        {
+          "Left": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "allowance",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        }
+      ]
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transferFrom",
     "preConditions": {
       "arity": 2,
@@ -2595,32 +3023,18 @@
             {
               "arity": 2,
               "args": [
-                "Caller",
-                "src"
+                "src",
+                "dst"
               ],
-              "symbol": "=="
+              "symbol": "=/="
             },
             {
               "arity": 2,
               "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "src",
-                    "dst"
-                  ],
-                  "symbol": "=/="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    "True",
-                    "True"
-                  ],
-                  "symbol": "and"
-                }
+                "Caller",
+                "src"
               ],
-              "symbol": "and"
+              "symbol": "=="
             }
           ],
           "symbol": "and"
@@ -2904,9 +3318,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transfer",
     "preConditions": {
       "arity": 2,
@@ -2922,20 +3333,87 @@
         {
           "arity": 2,
           "args": [
-            "True",
             {
               "arity": 2,
               "args": [
                 {
                   "arity": 2,
                   "args": [
+                    "Caller",
+                    "to"
+                  ],
+                  "symbol": "=/="
+                },
+                {
+                  "arity": 2,
+                  "args": [
                     {
                       "arity": 2,
                       "args": [
-                        "Caller",
-                        "to"
+                        {
+                          "arity": 2,
+                          "args": [
+                            "balanceOf",
+                            [
+                              {
+                                "expression": "to",
+                                "sort": "int"
+                              }
+                            ]
+                          ],
+                          "symbol": "lookup"
+                        },
+                        "value"
                       ],
-                      "symbol": "=/="
+                      "symbol": "+"
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        2,
+                        256
+                      ],
+                      "symbol": "^"
+                    }
+                  ],
+                  "symbol": "<"
+                }
+              ],
+              "symbol": "=>"
+            },
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "value",
+                    {
+                      "arity": 2,
+                      "args": [
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "Caller",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
+                  ],
+                  "symbol": "<="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        "Callvalue",
+                        0
+                      ],
+                      "symbol": "=="
                     },
                     {
                       "arity": 2,
@@ -2946,67 +3424,21 @@
                             {
                               "arity": 2,
                               "args": [
-                                "balanceOf",
-                                [
-                                  {
-                                    "expression": "to",
-                                    "sort": "int"
-                                  }
-                                ]
+                                0,
+                                "to"
                               ],
-                              "symbol": "lookup"
+                              "symbol": "<="
                             },
-                            "value"
+                            {
+                              "arity": 2,
+                              "args": [
+                                "to",
+                                1.461501637330903e+48
+                              ],
+                              "symbol": "<="
+                            }
                           ],
-                          "symbol": "+"
-                        },
-                        {
-                          "arity": 2,
-                          "args": [
-                            2,
-                            256
-                          ],
-                          "symbol": "^"
-                        }
-                      ],
-                      "symbol": "<"
-                    }
-                  ],
-                  "symbol": "=>"
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        "value",
-                        {
-                          "arity": 2,
-                          "args": [
-                            "balanceOf",
-                            [
-                              {
-                                "expression": "Caller",
-                                "sort": "int"
-                              }
-                            ]
-                          ],
-                          "symbol": "lookup"
-                        }
-                      ],
-                      "symbol": "<="
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            "Callvalue",
-                            0
-                          ],
-                          "symbol": "=="
+                          "symbol": "and"
                         },
                         {
                           "arity": 2,
@@ -3018,15 +3450,15 @@
                                   "arity": 2,
                                   "args": [
                                     0,
-                                    "to"
+                                    "value"
                                   ],
                                   "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "to",
-                                    1.461501637330903e+48
+                                    "value",
+                                    1.157920892373162e+77
                                   ],
                                   "symbol": "<="
                                 }
@@ -3043,14 +3475,14 @@
                                       "arity": 2,
                                       "args": [
                                         0,
-                                        "value"
+                                        "totalSupply"
                                       ],
                                       "symbol": "<="
                                     },
                                     {
                                       "arity": 2,
                                       "args": [
-                                        "value",
+                                        "totalSupply",
                                         1.157920892373162e+77
                                       ],
                                       "symbol": "<="
@@ -3058,35 +3490,7 @@
                                   ],
                                   "symbol": "and"
                                 },
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            0,
-                                            "totalSupply"
-                                          ],
-                                          "symbol": "<="
-                                        },
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            "totalSupply",
-                                            1.157920892373162e+77
-                                          ],
-                                          "symbol": "<="
-                                        }
-                                      ],
-                                      "symbol": "and"
-                                    },
-                                    "True"
-                                  ],
-                                  "symbol": "and"
-                                }
+                                "True"
                               ],
                               "symbol": "and"
                             }
@@ -3117,13 +3521,12 @@
     }
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "Token": []
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transfer",
     "preConditions": {
       "arity": 2,
@@ -3131,24 +3534,10 @@
         {
           "arity": 2,
           "args": [
-            {
-              "arity": 2,
-              "args": [
-                "Caller",
-                "to"
-              ],
-              "symbol": "=="
-            },
-            {
-              "arity": 2,
-              "args": [
-                "True",
-                "True"
-              ],
-              "symbol": "and"
-            }
+            "Caller",
+            "to"
           ],
-          "symbol": "and"
+          "symbol": "=="
         },
         {
           "arity": 1,
@@ -3425,9 +3814,6 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transfer",
     "preConditions": {
       "arity": 2,
@@ -3443,20 +3829,87 @@
         {
           "arity": 2,
           "args": [
-            "True",
             {
               "arity": 2,
               "args": [
                 {
                   "arity": 2,
                   "args": [
+                    "Caller",
+                    "to"
+                  ],
+                  "symbol": "=/="
+                },
+                {
+                  "arity": 2,
+                  "args": [
                     {
                       "arity": 2,
                       "args": [
-                        "Caller",
-                        "to"
+                        {
+                          "arity": 2,
+                          "args": [
+                            "balanceOf",
+                            [
+                              {
+                                "expression": "to",
+                                "sort": "int"
+                              }
+                            ]
+                          ],
+                          "symbol": "lookup"
+                        },
+                        "value"
                       ],
-                      "symbol": "=/="
+                      "symbol": "+"
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        2,
+                        256
+                      ],
+                      "symbol": "^"
+                    }
+                  ],
+                  "symbol": "<"
+                }
+              ],
+              "symbol": "=>"
+            },
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "value",
+                    {
+                      "arity": 2,
+                      "args": [
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "Caller",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
+                  ],
+                  "symbol": "<="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        "Callvalue",
+                        0
+                      ],
+                      "symbol": "=="
                     },
                     {
                       "arity": 2,
@@ -3467,67 +3920,21 @@
                             {
                               "arity": 2,
                               "args": [
-                                "balanceOf",
-                                [
-                                  {
-                                    "expression": "to",
-                                    "sort": "int"
-                                  }
-                                ]
+                                0,
+                                "to"
                               ],
-                              "symbol": "lookup"
+                              "symbol": "<="
                             },
-                            "value"
+                            {
+                              "arity": 2,
+                              "args": [
+                                "to",
+                                1.461501637330903e+48
+                              ],
+                              "symbol": "<="
+                            }
                           ],
-                          "symbol": "+"
-                        },
-                        {
-                          "arity": 2,
-                          "args": [
-                            2,
-                            256
-                          ],
-                          "symbol": "^"
-                        }
-                      ],
-                      "symbol": "<"
-                    }
-                  ],
-                  "symbol": "=>"
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        "value",
-                        {
-                          "arity": 2,
-                          "args": [
-                            "balanceOf",
-                            [
-                              {
-                                "expression": "Caller",
-                                "sort": "int"
-                              }
-                            ]
-                          ],
-                          "symbol": "lookup"
-                        }
-                      ],
-                      "symbol": "<="
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            "Callvalue",
-                            0
-                          ],
-                          "symbol": "=="
+                          "symbol": "and"
                         },
                         {
                           "arity": 2,
@@ -3539,15 +3946,15 @@
                                   "arity": 2,
                                   "args": [
                                     0,
-                                    "to"
+                                    "value"
                                   ],
                                   "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "to",
-                                    1.461501637330903e+48
+                                    "value",
+                                    1.157920892373162e+77
                                   ],
                                   "symbol": "<="
                                 }
@@ -3564,14 +3971,14 @@
                                       "arity": 2,
                                       "args": [
                                         0,
-                                        "value"
+                                        "totalSupply"
                                       ],
                                       "symbol": "<="
                                     },
                                     {
                                       "arity": 2,
                                       "args": [
-                                        "value",
+                                        "totalSupply",
                                         1.157920892373162e+77
                                       ],
                                       "symbol": "<="
@@ -3579,35 +3986,7 @@
                                   ],
                                   "symbol": "and"
                                 },
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            0,
-                                            "totalSupply"
-                                          ],
-                                          "symbol": "<="
-                                        },
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            "totalSupply",
-                                            1.157920892373162e+77
-                                          ],
-                                          "symbol": "<="
-                                        }
-                                      ],
-                                      "symbol": "and"
-                                    },
-                                    "True"
-                                  ],
-                                  "symbol": "and"
-                                }
+                                "True"
                               ],
                               "symbol": "and"
                             }
@@ -3638,13 +4017,87 @@
     }
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "Token": [
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "to",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "to",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                "value"
+              ],
+              "symbol": "+"
+            }
+          }
+        },
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                },
+                "value"
+              ],
+              "symbol": "-"
+            }
+          }
+        }
+      ]
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
-    "contracts": [
-      "Token"
-    ],
     "name": "transfer",
     "preConditions": {
       "arity": 2,
@@ -3652,24 +4105,10 @@
         {
           "arity": 2,
           "args": [
-            {
-              "arity": 2,
-              "args": [
-                "Caller",
-                "to"
-              ],
-              "symbol": "=/="
-            },
-            {
-              "arity": 2,
-              "args": [
-                "True",
-                "True"
-              ],
-              "symbol": "and"
-            }
+            "Caller",
+            "to"
           ],
-          "symbol": "and"
+          "symbol": "=/="
         },
         {
           "arity": 1,
@@ -3908,36 +4347,40 @@
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
-    "contracts": [
-      "Token"
-    ],
     "name": "init",
     "preConditions": {
       "arity": 2,
       "args": [
+        "True",
         {
           "arity": 2,
           "args": [
             {
               "arity": 2,
               "args": [
-                0,
-                "_totalSupply"
+                {
+                  "arity": 2,
+                  "args": [
+                    0,
+                    "_totalSupply"
+                  ],
+                  "symbol": "<="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    "_totalSupply",
+                    1.157920892373162e+77
+                  ],
+                  "symbol": "<="
+                }
               ],
-              "symbol": "<="
+              "symbol": "and"
             },
-            {
-              "arity": 2,
-              "args": [
-                "_totalSupply",
-                1.157920892373162e+77
-              ],
-              "symbol": "<="
-            }
+            "True"
           ],
           "symbol": "and"
-        },
-        "True"
+        }
       ],
       "symbol": "and"
     },
@@ -3975,13 +4418,49 @@
     "returns": null
   },
   {
-    "stateUpdates": {},
+    "stateUpdates": {
+      "Token": [
+        {
+          "Right": {
+            "location": {
+              "arity": 2,
+              "args": [
+                "balanceOf",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            },
+            "value": "_totalSupply"
+          }
+        },
+        {
+          "Right": {
+            "location": "totalSupply",
+            "value": "_totalSupply"
+          }
+        },
+        {
+          "Right": {
+            "location": "symbol",
+            "value": "ByVar \"_symbol\""
+          }
+        },
+        {
+          "Right": {
+            "location": "name",
+            "value": "ByVar \"_name\""
+          }
+        }
+      ]
+    },
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": true,
-    "contracts": [
-      "Token"
-    ],
     "name": "init",
     "preConditions": {
       "arity": 2,
@@ -4027,7 +4506,35 @@
     },
     "contract": "Token",
     "interface": "constructor(uint256 _totalSupply, string _version, string _name, string _symbol)",
-    "postConditions": "True",
+    "postConditions": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                0,
+                "totalSupply"
+              ],
+              "symbol": "<="
+            },
+            {
+              "arity": 2,
+              "args": [
+                "totalSupply",
+                1.157920892373162e+77
+              ],
+              "symbol": "<="
+            }
+          ],
+          "symbol": "and"
+        },
+        "True"
+      ],
+      "symbol": "and"
+    },
     "returns": null
   }
 ]
