@@ -1,20 +1,25 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 
 module Prove where
 
+import Data.Either
 import Data.List
+import Data.Map.Strict as Map (Map)
 import Data.List.NonEmpty as NonEmpty (NonEmpty, toList)
 
+import Data.SBV
 import Data.SBV.Trans.Control
 
-import Syntax
 import RefinedAst
+import Syntax (Id, Interface)
+import Type (metaType)
+
+
+-- *** Interface *** --
+
 
 {-|
-   For each Invariant claim builds an SMT query consisting of:
+   For each Invariant claim build an SMT query consisting of:
 
    - constants for the pre and post versions of all storage variables used by the transition system
    - boolean predicates over the pre and post storage variables for each pass behaviour
@@ -28,6 +33,18 @@ import RefinedAst
 queries :: [Claim] -> [QueryT IO CheckSatResult]
 queries claims = fmap mkQuery $ gather claims
 
+
+-- *** Data *** --
+
+
+newtype Pre = Pre { unPre :: Map Id (SBV MType) }
+newtype Post = Post { unPost :: Map Id (SBV MType) }
+newtype Args = Args { unArgs :: Map Id (SBV MType) }
+
+
+-- *** Pipeline *** --
+
+
 gather :: [Claim] -> [(Invariant, [Behaviour])]
 gather claims = fmap (\i -> (i, getBehaviours i)) invariants
   where
@@ -35,29 +52,53 @@ gather claims = fmap (\i -> (i, getBehaviours i)) invariants
     getBehaviours (Invariant c _) = filter (\b -> c == (_contract b)) (catBehvs claims)
 
 mkQuery :: (Invariant, [Behaviour]) -> QueryT IO CheckSatResult
-mkQuery (inv, behvs) = do
-  --declareStorageVars behvs
-  --defineFunctionPredicates behvs
-  --assertInvariant inv behvs
+mkQuery (i, behvs) = do
+  constrain $
+        (init pre .&& (sNot $ inv (Left pre)))
+    .|| (inv (Left pre) .&& (sOr (methods pre post)) .&& (sNot $ inv (Right post)))
   checkSat
+    where
+      (init, methods) = defineFunctionPredicates behvs
+      (pre, post) = declareStorageVars behvs
+      inv = defineInvariant i
 
-declareStorageVars :: [Behaviour] -> Query ()
-declareStorageVars = undefined
+declareStorageVars :: [Behaviour] -> ((Pre, Post))
+declareStorageVars behvs = undefined
+  where
+    updates = fmap ((fmap rights) . _stateUpdates) behvs
 
-defineFunctionPredicates :: [Behaviour] -> Query ()
-defineFunctionPredicates = undefined
+defineFunctionPredicates :: [Behaviour] -> (Pre -> SBV Bool, Pre -> Post -> [SBV Bool])
+defineFunctionPredicates behvs = (init, methods)
+  where
+    init = mkInit $ head $ filter isInit behvs -- TODO: fail with multiple constructors
+    methods = mkMethods $ filter isMethod behvs
+    isInit b = isPass b && _creation b == True
+    isMethod b = isPass b && _creation b == False
+    isPass b = _mode b == Pass
 
-assertInvariant :: Invariant -> [Behaviour] -> Query ()
-assertInvariant = undefined
+defineInvariant :: Invariant -> ((Either Pre Post) -> SBV Bool)
+defineInvariant = undefined
 
-nameFromLoc :: Id -> Either StorageLocation StorageUpdate -> Id
-nameFromLoc contract entry = case entry of
-  (Left (IntLoc item)) -> contract <> "_" <> (nameFromItem item)
-  (Left (BoolLoc item)) -> contract <> "_" <> (nameFromItem item)
-  (Left (BytesLoc item)) -> contract <> "_" <> (nameFromItem item)
-  (Right (IntUpdate item _)) -> contract <> "_" <> (nameFromItem item)
-  (Right (BoolUpdate item _)) -> contract <> "_" <> (nameFromItem item)
-  (Right (BytesUpdate item _)) -> contract <> "_" <> (nameFromItem item)
+mkInit :: Behaviour -> Pre -> SBV Bool
+mkInit behv store = undefined
+
+mkMethods :: [Behaviour] -> Pre -> Post -> [SBV Bool]
+mkMethods pre post = undefined
+
+mkCalldata :: Interface -> Args
+mkCalldata iface = undefined
+
+symExp :: (Either Pre Post) -> Args -> Exp Bool -> SBV Bool
+symExp store args e = undefined
+
+sVarFromUpdate :: StorageUpdate -> SBV MType
+sVarFromUpdate update = undefined
+
+nameFromUpdate :: Id -> StorageUpdate -> Id
+nameFromUpdate contract update = case update of
+  (IntUpdate item _) -> contract <> "_" <> (nameFromItem item)
+  (BoolUpdate item _) -> contract <> "_" <> (nameFromItem item)
+  (BytesUpdate item _) -> contract <> "_" <> (nameFromItem item)
   where
     nameFromItem :: TStorageItem a -> Id
     nameFromItem (DirectInt name) = name
