@@ -1,4 +1,4 @@
-main: Lex.hs Parse.hs 
+main: Lex.hs Parse.hs
 
 Parse.hs: Parse.y
 	happy Parse.y

@@ -67,7 +67,7 @@ import ErrM
   'THIS'                      { L THIS _ }
   'NONCE'                     { L NONCE _ }
 
-  
+
   -- symbols
   break                       { L BREAK _ }
   ':='                        { L ASSIGN _ }
@@ -196,7 +196,7 @@ Precondition : 'iff' nonempty(Expr)                   { Iff (pos $1) $2 }
 
 Store : Entry '=>' Expr                               { Rewrite $1 $3 }
       | Entry                                         { Constant $1 }
-      
+
 Entry : id list(Zoom)                                 { Entry (pos $1) (arg $1) $2 }
       | '_'                                           { Wild }
 
@@ -215,7 +215,7 @@ StorageVar : SlotType id                            { StorageVar $1 (arg $2) }
 
 Type : 'uint'
        { case validsize $1 of
-              True  -> AbiUIntType $1 
+              True  -> AbiUIntType $1
               False -> error "invalid uint size"
        }
      | 'int'

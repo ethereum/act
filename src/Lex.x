@@ -25,8 +25,8 @@ tokens :-
   case                                  { mk CASE }
   returns                               { mk RETURNS }
   storage                               { mk STORAGE }
-  noop                                  { mk NOOP } 
-  
+  noop                                  { mk NOOP }
+
   iff $white+ in $white+ range          { mk IFFINRANGE }
   iff                                   { mk IFF }
   and                                   { mk AND }
@@ -66,10 +66,10 @@ tokens :-
   CHAINID                               { mk CHAINID }
   GASLIMIT                              { mk GASLIMIT }
   COINBASE                              { mk COINBASE }
-  TIMESTAMP                             { mk TIMESTAMP } 
+  TIMESTAMP                             { mk TIMESTAMP }
   THIS                                  { mk THIS }  -- normally called address, but that's taken
   NONCE                                 { mk NONCE } -- technically not an opcode
- 
+
   -- symbols
   ":="                                  { mk ASSIGN }
   "=>"                                  { mk ARROW }
@@ -112,7 +112,7 @@ data LEX =
 
   -- reserved words
   | BEHAVIOUR
-  | OF       
+  | OF
   | INTERFACE
   | CREATES
   | CASE
