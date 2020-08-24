@@ -123,8 +123,9 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
       pure . join $ ((\(ifcond, stateUpdates, ret) ->
          splitCase name False contract iface ifcond iff ret stateUpdates postc) <$> cases')
 
---TODO: check external storages here!
 splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvariants) = do
+  let _ = if (length extStorage > 0) then error "TODO: support extStorage in constructor" else String ""
+
   let env = mkEnv contract store decls
 
   rawUpdates <- mapM (checkAssign env) assigns
