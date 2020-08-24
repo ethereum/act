@@ -13,7 +13,6 @@
 module Type where
 
 import Data.List
-import Data.Aeson hiding (Bool, Number)
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import Data.Map.Strict    (Map)
@@ -90,7 +89,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
 
     -- translate wildcards into negation of other cases
     normalize :: [Case] -> [Case]
-    normalize cases = snd $ mapAccumL checkCase (BoolLit False) cases
+    normalize cases' = snd $ mapAccumL checkCase (BoolLit False) cases'
 
     checkCase :: Expr -> Case -> (Expr, Case)
     checkCase acc (Case p WildExp post) =
@@ -106,15 +105,16 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
       return $ splitCase name False contract iface (LitBool True) iff maybeReturn p postc
     flatten iff postc (Branches branches) = do
       let branches' = normalize branches
-      cases <- flip mapM branches $ \(Case pn cond post) -> do
+      cases' <- flip mapM branches' $ \(Case _ cond post) -> do
         if' <- checkBool env cond
         (post', ret) <- checkPost env contract post
         return (if', post', ret)
 
-      pure . join $ ((\(ifcond, ret, store) ->
-         splitCase name False contract iface ifcond iff store ret postc) <$> cases)
+      pure . join $ ((\(ifcond, stateUpdates, ret) ->
+         splitCase name False contract iface ifcond iff ret stateUpdates postc) <$> cases')
 
-splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs creates@(Creates assigns) extStorage maybeEnsures maybeInvariants) = do
+--TODO: check external storages here!
+splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvariants) = do
   let env = mkEnv contract store decls
 
   rawUpdates <- mapM (checkAssign env) assigns
