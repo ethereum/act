@@ -124,7 +124,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
          splitCase name False contract iface ifcond iff ret stateUpdates postc) <$> cases')
 
 splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvariants) = do
-  let _ = if (length extStorage > 0) then error "TODO: support extStorage in constructor" else String ""
+  when (length extStorage > 0) $ error "TODO: support extStorage in constructor"
 
   let env = mkEnv contract store decls
 
