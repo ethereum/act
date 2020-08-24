@@ -88,8 +88,18 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     env = mkEnv contract store decls
 
     -- translate wildcards into negation of other cases
-    normalize :: [Case] -> [Case]
-    normalize cases' = snd $ mapAccumL checkCase (BoolLit False) cases'
+    normalize :: [Case] -> Err [Case]
+    normalize cases' =
+      let wildcard (Case _ WildExp _) = True
+          wildcard _ = False
+      in case findIndex wildcard cases' of
+        Nothing -> return $ snd $ mapAccumL checkCase (BoolLit False) cases'
+        Just ind ->
+          -- wildcard must be last element
+          if ind < length cases' - 1
+          then case cases' !! ind of
+            (Case p _ _) -> Bad (p, "Wildcard pattern must be last case")
+          else return $ snd $ mapAccumL checkCase (BoolLit False) cases'
 
     checkCase :: Expr -> Case -> (Expr, Case)
     checkCase acc (Case p WildExp post) =
@@ -104,7 +114,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
       (p, maybeReturn) <- checkPost env contract post
       return $ splitCase name False contract iface (LitBool True) iff maybeReturn p postc
     flatten iff postc (Branches branches) = do
-      let branches' = normalize branches
+      branches' <- normalize branches
       cases' <- flip mapM branches' $ \(Case _ cond post) -> do
         if' <- checkBool env cond
         (post', ret) <- checkPost env contract post
