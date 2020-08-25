@@ -328,10 +328,8 @@ mkTerm this accounts Behaviour{..} invariant = (name, term)
                            (error $ show a ++ " not found in accounts: " ++ show accounts)
                            $ Map.lookup a accounts
                          )
-                         (fromMaybe
-                           (error $ "no stateUpdates for " ++ show a ++ " in " ++ show _stateUpdates)
-                           $ Map.lookup a _stateUpdates
-                         ))))
+                         (fromMaybe [] (Map.lookup a _stateUpdates))
+                         )))
                   <> "txOrder" |- "_"
                   <> "txPending" |- "_"
                   <> "messages" |- "_"
