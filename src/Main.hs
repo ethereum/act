@@ -89,12 +89,13 @@ main = do
         case parse (lexer contents) >>= typecheck of
           Bad e -> prettyErr contents e
           Ok claims -> do
-            let handleRes = \case
-                              Unk -> putStrLn "Timed out"
-                              Unsat -> putStrLn "Q.E.D"
-                              Sat -> putStrLn "Counterexample found"
-                              (DSat _) -> error "Unexpected dsat result!"
-            res <- mapM (runSMTWithTimeOut solver smttimeout) $ fmap query (queries claims)
+            let handleRes = \(SatResult res) -> case res of
+                              Unsatisfiable _ _ -> putStrLn "Q.E.D"
+                              Satisfiable _ model -> putStrLn $ "Counterexample found!\n" ++ show model
+                              SatExtField _ model -> putStrLn $ "Counterexample found!\n" ++ show model
+                              Unknown _ reason -> putStrLn $ "Could not solve query: " ++ show reason
+                              ProofError _ reasons _  -> putStrLn $ "Proof error: " ++ show reasons
+            res <- mapM (runSMTWithTimeOut solver smttimeout) $ queries claims
             mapM_ handleRes res
 
       (K spec soljson gas storage extractbin out) -> do
@@ -116,18 +117,18 @@ main = do
 
 
 -- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
-runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Symbolic a -> IO a
+runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Symbolic () -> IO SatResult
 runSMTWithTimeOut solver maybeTimeout sym
   | solver == Just "cvc4" = do
       setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --incremental --interactive --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
-      a <- runSMTWith cvc4 sym
+      res <- satWith cvc4 sym
       setEnv "SBV_CVC4_OPTIONS" ""
-      return a
+      return res
   | solver == Just "z3" = runwithz3
   | solver == Nothing = runwithz3
   | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
  where timeout = fromMaybe 20000 maybeTimeout
-       runwithz3 = runSMTWith z3 $ (setTimeOut timeout) >> sym
+       runwithz3 = satWith z3{verbose=True} $ (setTimeOut timeout) >> sym
 
 
 prettyErr :: String -> (Pn, String) -> IO ()

@@ -33,9 +33,8 @@ import Type (metaType)
 
    If this query returns `unsat` then the invariant must hold over the transition system
 -}
-queries :: [Claim] -> [QueryT IO CheckSatResult]
+queries :: [Claim] -> [Symbolic ()]
 queries claims = fmap mkQuery $ gather claims
-
 
 -- *** Data *** --
 
@@ -45,9 +44,9 @@ newtype Post = Post { unPost :: Map Id SMType }
 newtype Args = Args { unArgs :: Map Id SMType }
 
 data SMType
-  = SInteger (Query (SBV Integer))
-  | SBoolean (Query (SBV Bool))
-  | SByteStr (Query (SBV [(WordN 256)]))
+  = SInteger (Symbolic (SBV Integer))
+  | SBoolean (Symbolic (SBV Bool))
+  | SByteStr (Symbolic (SBV [(WordN 256)]))
 
 
 -- *** Pipeline *** --
@@ -59,14 +58,13 @@ gather claims = fmap (\i -> (i, getBehaviours i)) invariants
     invariants = catInvs claims
     getBehaviours (Invariant c _) = filter (\b -> c == (_contract b)) (catBehvs claims)
 
-mkQuery :: (Invariant, [Behaviour]) -> QueryT IO CheckSatResult
+mkQuery :: (Invariant, [Behaviour]) -> Symbolic ()
 mkQuery (i, behvs) = do
-  preInv <- pure $ defineInvariant i (Left pre)
-  postInv <- pure $ defineInvariant i (Right post)
+  preInv <- defineInvariant i (Left pre)
+  postInv <- defineInvariant i (Right post)
   constrain $
         (init pre .&& (sNot preInv))
     .|| (preInv .&& (sOr (methods pre post)) .&& (sNot postInv))
-  checkSat
     where
       (init, methods) = defineFunctionPredicates behvs
       (pre, post) = declareStorageVars behvs
@@ -86,7 +84,7 @@ defineFunctionPredicates behvs = (init, methods)
     isMethod b = isPass b && _creation b == False
     isPass b = _mode b == Pass
 
-defineInvariant :: Invariant -> (Either Pre Post) -> Query (SBV Bool)
+defineInvariant :: Invariant -> (Either Pre Post) -> Symbolic (SBV Bool)
 defineInvariant (Invariant contract e) store = symExpBool contract store e
 
 mkInit :: Behaviour -> Pre -> SBV Bool
@@ -98,12 +96,12 @@ mkMethods pre post = undefined
 mkCalldata :: Interface -> Args
 mkCalldata iface = undefined
 
-symExp :: Id -> (Either Pre Post) -> ReturnExp -> SMType
-symExp c store (ExpInt e) = SInteger $ symExpInt c store e
-symExp c store (ExpBool e) = SBoolean $ symExpBool c store e
-symExp c store (ExpBytes e) = SByteStr $ symExpBytes c store e
+symExp :: Id -> (Either Pre Post) -> ReturnExp -> Symbolic SMType
+symExp c store (ExpInt e) = return $ SInteger $ symExpInt c store e
+symExp c store (ExpBool e) = return $ SBoolean $ symExpBool c store e
+symExp c store (ExpBytes e) = return $ SByteStr $ symExpBytes c store e
 
-symExpInt :: Id -> (Either Pre Post) -> Exp Int -> Query (SBV Integer)
+symExpInt :: Id -> (Either Pre Post) -> Exp Int -> Symbolic (SBV Integer)
 symExpInt c s (Add a b) = (+) <$> (symExpInt c s a) <*> (symExpInt c s b)
 symExpInt c s (Sub a b) = (-) <$> (symExpInt c s a) <*> (symExpInt c s b)
 symExpInt c s (Mul a b) = (*) <$> (symExpInt c s a) <*> (symExpInt c s b)
@@ -111,13 +109,13 @@ symExpInt c s (Div a b) = sDiv <$> (symExpInt c s a) <*> (symExpInt c s b)
 symExpInt c s (Mod a b) = sMod <$> (symExpInt c s a) <*> (symExpInt c s b)
 symExpInt c s (Exp a b) = (.^) <$> (symExpInt c s a) <*> (symExpInt c s b)
 symExpInt _ _ (LitInt a) = return $ literal a
-symExpInt _ _ (IntVar a) = return $ sInteger a
+symExpInt _ _ (IntVar a) = sInteger a
 symExpInt c s (TEntry a) = case getItem s $ nameFromItem c a of
                              SInteger i -> i
                              _ -> (error "Internal error: found non integer storage variable when building integer expression")
 symExpInt _ _ (IntEnv _) = error "TODO: handle blockchain context in SMT expressions"
 
-symExpBool :: Id -> (Either Pre Post) -> Exp Bool -> Query (SBV Bool)
+symExpBool :: Id -> (Either Pre Post) -> Exp Bool -> Symbolic (SBV Bool)
 symExpBool c s (And a b) = (.&&) <$> (symExpBool c s a) <*> (symExpBool c s b)
 symExpBool c s (Or a b) = (.||) <$> (symExpBool c s a) <*> (symExpBool c s b)
 symExpBool c s (Impl a b) = (.=>) <$> (symExpBool c s a) <*> (symExpBool c s b)
