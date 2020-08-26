@@ -17,7 +17,6 @@ import RefinedAst
 import Syntax (Id, Interface)
 import Type (metaType)
 
-
 -- *** Interface *** --
 
 
@@ -36,66 +35,42 @@ import Type (metaType)
 queries :: [Claim] -> [Symbolic ()]
 queries claims = fmap mkQuery $ gather claims
 
--- *** Data *** --
+
+-- *** Internals *** --
 
 
-newtype Pre = Pre { unPre :: Map Id SMType }
-newtype Post = Post { unPost :: Map Id SMType }
-newtype Args = Args { unArgs :: Map Id SMType }
-
-data SMType
-  = SInteger (Symbolic (SBV Integer))
-  | SBoolean (Symbolic (SBV Bool))
-  | SByteStr (Symbolic (SBV [(WordN 256)]))
-
-
--- *** Pipeline *** --
-
-
-gather :: [Claim] -> [(Invariant, [Behaviour])]
-gather claims = fmap (\i -> (i, getBehaviours i)) invariants
+-- |Builds a mapping from Invariants to a list of the Behaviours for the
+-- contract referenced by that invariant.
+gather :: [Claim] -> [(Invariant, Store, [Behaviour])]
+gather claims = fmap (\i -> (i, getStore i, getBehaviours i)) invariants
   where
     invariants = catInvs claims
     getBehaviours (Invariant c _) = filter (\b -> c == (_contract b)) (catBehvs claims)
+    getStore (Invariant c _) = head $ filter (\(Store n _) -> c == n) (catStores claims)
 
-mkQuery :: (Invariant, [Behaviour]) -> Symbolic ()
-mkQuery (i, behvs) = do
-  preInv <- defineInvariant i (Left pre)
-  postInv <- defineInvariant i (Right post)
-  constrain $
-        (init pre .&& (sNot preInv))
-    .|| (preInv .&& (sOr (methods pre post)) .&& (sNot postInv))
-    where
-      (init, methods) = defineFunctionPredicates behvs
-      (pre, post) = declareStorageVars behvs
-
-declareStorageVars :: [Behaviour] -> ((Pre, Post))
-declareStorageVars behvs = (Pre (store updates), Post (store updates))
+-- |Builds a query asking for an example where the invariant does not hold.
+mkQuery :: (Invariant, Store, [Behaviour]) -> Symbolic ()
+mkQuery (inv, store, behvs) = do
+  inits' <- mapM (mkInit inv store) inits
+  methods' <- mapM (mkMethod inv store) methods
+  constrain $ sOr (inits' <> methods')
   where
-    updates = foldl (Map.unionWith (\l r -> r)) Map.empty $ fmap ((fmap rights) . _stateUpdates) behvs -- TODO: is it bad to merge like this?
-    store = Map.fromList . concat . fmap (\(c, us) -> fmap (sVarFromUpdate c) us) . Map.toList
+    inits = filter _creation behvs
+    methods = filter (not . _creation) behvs
 
-defineFunctionPredicates :: [Behaviour] -> (Pre -> SBV Bool, Pre -> Post -> [SBV Bool])
-defineFunctionPredicates behvs = (init, methods)
-  where
-    init = mkInit $ head $ filter isInit behvs -- TODO: fail with multiple constructors
-    methods = mkMethods $ filter isMethod behvs
-    isInit b = isPass b && _creation b == True
-    isMethod b = isPass b && _creation b == False
-    isPass b = _mode b == Pass
+-- |Given a creation behaviour return a predicate that holds if the invariant does not
+-- hold after the constructor has run
+mkInit :: Invariant -> Store -> Behaviour -> Symbolic (SBV Bool)
+mkInit inv behv = undefined
 
-defineInvariant :: Invariant -> (Either Pre Post) -> Symbolic (SBV Bool)
-defineInvariant (Invariant contract e) store = symExpBool contract store e
+-- |Given a non creation behaviour return a predicate that holds if:
+-- - the invariant holds over the prestate
+-- - the method has run
+-- - the invariant does not hold over the prestate
+mkMethod :: Invariant -> Store -> Behaviour -> Symbolic (SBV Bool)
+mkMethod inv behv = undefined
 
-mkInit :: Behaviour -> Pre -> SBV Bool
-mkInit behv store = undefined
-
-mkMethods :: [Behaviour] -> Pre -> Post -> [SBV Bool]
-mkMethods pre post = undefined
-
-mkCalldata :: Interface -> Args
-mkCalldata iface = undefined
-
+{-
 symExp :: Id -> (Either Pre Post) -> ReturnExp -> Symbolic SMType
 symExp c store (ExpInt e) = return $ SInteger $ symExpInt c store e
 symExp c store (ExpBool e) = return $ SBoolean $ symExpBool c store e
@@ -175,3 +150,4 @@ showIxs ixs = intercalate "_" (NonEmpty.toList $ go <$> ixs)
     go (ExpBytes (ByStr a)) = show a
     go (ExpBytes (ByLit a)) = show a
     go a = error $ "Internal Error: could not show: " ++ show a
+-}

@@ -36,7 +36,7 @@ typecheck behvs = let store = lookupVars behvs in
                      return $ join bs
 
 --- Finds storage declarations from constructors
-lookupVars :: [RawBehaviour] -> Store
+lookupVars :: [RawBehaviour] -> Type.Store
 lookupVars ((Transition _ _ _ _ _ _):bs) = lookupVars bs
 lookupVars ((Constructor _ contract _ _ (Creates assigns) _ _ _):bs) =
   Map.singleton contract (Map.fromList $ map fromAssign assigns)
@@ -68,7 +68,7 @@ defaultStore =
 type Store = Map Id (Map Id SlotType)
 
 -- typing of vars: this contract storage, other contract scopes, calldata args
-type Env = (Map Id SlotType, Store, Map Id MType)
+type Env = (Map Id SlotType, Type.Store, Map Id MType)
 
 andRaw :: [Expr] -> Expr
 andRaw [x] = x
@@ -76,7 +76,7 @@ andRaw (x:xs) = EAnd nowhere x (andRaw xs)
 andRaw [] = BoolLit True
 
 -- checks a transition given a typing of its storage variables
-splitBehaviour :: Store -> RawBehaviour -> Err [Claim]
+splitBehaviour :: Type.Store -> RawBehaviour -> Err [Claim]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
   -- constrain integer calldata variables (TODO: other types)
   let calldataBounds = getCallDataBounds decls
@@ -142,7 +142,7 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (
   return $ ((I . (Invariant contract)) <$> invariants)
            ++ (splitCase name True contract iface (LitBool True) iffs' Nothing stateUpdates postcs)
 
-mkEnv :: Id -> Store -> [Decl]-> Env
+mkEnv :: Id -> Type.Store -> [Decl]-> Env
 mkEnv contract store decls = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
  where
    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
