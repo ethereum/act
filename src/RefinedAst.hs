@@ -14,16 +14,16 @@ import Data.Map.Strict (Map)
 import Data.List.NonEmpty hiding (fromList)
 import Data.ByteString (ByteString)
 
-import Syntax
+import Syntax (Id, Interface, EthEnv)
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
 
 -- AST post typechecking
-data Claim = B Behaviour | I Invariant | S Store
+data Claim = B Behaviour | I Invariant | S Storage
 
-data Store = Store Id (Map Id StorageLocation)
-data Invariant = Invariant Id (Exp Bool)
+data Storage = Storage Id [StorageLocation] deriving (Show)
+data Invariant = Invariant Id (Exp Bool) deriving (Show)
 data Behaviour = Behaviour
   {_name :: Id,
    _mode :: Mode,
@@ -35,6 +35,7 @@ data Behaviour = Behaviour
    _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
    _returns :: Maybe ReturnExp
   }
+  deriving (Show)
 
 catInvs :: [Claim] -> [Invariant]
 catInvs [] = []
@@ -42,7 +43,7 @@ catInvs ((I i):claims) = i:(catInvs claims)
 catInvs ((S _):claims) = catInvs claims
 catInvs ((B _):claims) = catInvs claims
 
-catStores :: [Claim] -> [Store]
+catStores :: [Claim] -> [Storage]
 catStores [] = []
 catStores ((I _):claims) = catStores claims
 catStores ((S s):claims) = s:(catStores claims)
@@ -72,9 +73,6 @@ data MType
 --  | Mapping (Map MType MType)
   deriving (Eq, Ord, Show, Read)
 
---data T_List t
---data T_Tuple
-
 data StorageUpdate
   = IntUpdate (TStorageItem Int) (Exp Int)
   | BoolUpdate (TStorageItem Bool) (Exp Bool)
@@ -86,7 +84,6 @@ data StorageLocation
   | BoolLoc (TStorageItem Bool)
   | BytesLoc (TStorageItem ByteString)
   deriving (Show)
-
 
 data TStorageItem a where
   DirectInt    :: Id -> TStorageItem Int
@@ -152,9 +149,12 @@ data ReturnExp
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
+  toJSON (S (Storage contract store)) = object [ "kind" .= (String "Storage")
+                                               , "contract" .= show contract
+                                               , "store" .= toJSON store]
   toJSON (I (Invariant contract e)) = object [ "kind" .= (String "Invariant")
                                              , "expression" .= toJSON e
-                                             , "contract" .= toJSON contract ]
+                                             , "contract" .= show contract ]
   toJSON (B (Behaviour {..})) = object  [ "kind" .= (String "Behaviour")
                                         , "name" .= _name
                                         , "contract" .= _contract
@@ -177,9 +177,9 @@ instance ToJSON StorageUpdate where
   toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value"    .= toJSON b]
 
 instance ToJSON (TStorageItem b) where
-  toJSON (DirectInt a) = String $ pack a
-  toJSON (DirectBool a) = String $ pack a
-  toJSON (DirectBytes a) = String $ pack a
+  toJSON (DirectInt a) = object ["sort" .= (pack "int"), "name" .= (String $ pack a)]
+  toJSON (DirectBool a) = object ["sort" .= (pack "bool"), "name" .= (String $ pack a)]
+  toJSON (DirectBytes a) = object ["sort" .= (pack "bytestring"), "name" .= (String $ pack a)]
   toJSON (MappedInt a b) = symbol "lookup" a b
   toJSON (MappedBool a b) = symbol "lookup" a b
   toJSON (MappedBytes a b) = symbol "lookup" a b
@@ -191,9 +191,6 @@ instance ToJSON ReturnExp where
                                ,"expression" .= toJSON a]
    toJSON (ExpBytes a) = object ["sort" .= (String $ pack "bytestring")
                                ,"expression" .= toJSON a]
-   -- toJSON (ExpTuple a) = object ["sort" .= (String $ pack "tuple")
-   --                              ,"expression" .= toJSON a]
-
 
 instance ToJSON (Exp Int) where
   toJSON (Add a b) = symbol "+" a b

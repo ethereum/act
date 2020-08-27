@@ -3,6 +3,8 @@
 
 module Prove (queries) where
 
+import Debug.Trace
+
 import Data.ByteString (ByteString)
 import Data.Either
 import Data.List
@@ -41,15 +43,15 @@ queries claims = fmap mkQuery $ gather claims
 
 -- |Builds a mapping from Invariants to a list of the Behaviours for the
 -- contract referenced by that invariant.
-gather :: [Claim] -> [(Invariant, Store, [Behaviour])]
+gather :: [Claim] -> [(Invariant, Storage, [Behaviour])]
 gather claims = fmap (\i -> (i, getStore i, getBehaviours i)) invariants
   where
     invariants = catInvs claims
     getBehaviours (Invariant c _) = filter (\b -> c == (_contract b)) (catBehvs claims)
-    getStore (Invariant c _) = head $ filter (\(Store n _) -> c == n) (catStores claims)
+    getStore (Invariant c _) = head $ filter (\(Storage n _) -> c == n) (catStores claims)
 
 -- |Builds a query asking for an example where the invariant does not hold.
-mkQuery :: (Invariant, Store, [Behaviour]) -> Symbolic ()
+mkQuery :: (Invariant, Storage, [Behaviour]) -> Symbolic ()
 mkQuery (inv, store, behvs) = do
   inits' <- mapM (mkInit inv store) inits
   methods' <- mapM (mkMethod inv store) methods
@@ -60,14 +62,14 @@ mkQuery (inv, store, behvs) = do
 
 -- |Given a creation behaviour return a predicate that holds if the invariant does not
 -- hold after the constructor has run
-mkInit :: Invariant -> Store -> Behaviour -> Symbolic (SBV Bool)
-mkInit inv behv = undefined
+mkInit :: Invariant -> Storage -> Behaviour -> Symbolic (SBV Bool)
+mkInit inv store behv = trace (show store <> " | " <> show inv) undefined
 
 -- |Given a non creation behaviour return a predicate that holds if:
 -- - the invariant holds over the prestate
 -- - the method has run
 -- - the invariant does not hold over the prestate
-mkMethod :: Invariant -> Store -> Behaviour -> Symbolic (SBV Bool)
+mkMethod :: Invariant -> Storage -> Behaviour -> Symbolic (SBV Bool)
 mkMethod inv behv = undefined
 
 {-
