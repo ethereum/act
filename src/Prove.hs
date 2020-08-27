@@ -39,6 +39,7 @@ queries claims = fmap mkQuery $ gather claims
 
 -- *** Data *** --
 
+
 data When = Pre | Post
   deriving (Show)
 
@@ -66,7 +67,9 @@ catBytes ((name, SymBytes b):tail) = (name, b):(catBytes tail)
 catBytes (_:tail) = catBytes tail
 catBytes [] = []
 
+
 -- *** Pipeline *** --
+
 
 -- |Builds a mapping from Invariants to a list of the Pass Behaviours for the
 -- contract referenced by that invariant.
