@@ -20,7 +20,7 @@ import Data.Aeson.Types
 import Data.Vector (fromList)
 
 -- AST post typechecking
-data Claim = B Behaviour | I Invariant | S Storage
+data Claim = B Behaviour | I Invariant | S Storage deriving (Show)
 
 data Storage = Storage Id [StorageLocation] deriving (Show)
 data Invariant = Invariant Id (Exp Bool) deriving (Show)
@@ -40,20 +40,17 @@ data Behaviour = Behaviour
 catInvs :: [Claim] -> [Invariant]
 catInvs [] = []
 catInvs ((I i):claims) = i:(catInvs claims)
-catInvs ((S _):claims) = catInvs claims
-catInvs ((B _):claims) = catInvs claims
+catInvs (_:claims) = catInvs claims
 
 catStores :: [Claim] -> [Storage]
 catStores [] = []
-catStores ((I _):claims) = catStores claims
 catStores ((S s):claims) = s:(catStores claims)
-catStores ((B _):claims) = catStores claims
+catStores (_:claims) = catStores claims
 
 catBehvs :: [Claim] -> [Behaviour]
 catBehvs [] = []
-catBehvs ((I _):claims) = catBehvs claims
-catBehvs ((S _):claims) = catBehvs claims
 catBehvs ((B b):claims) = b:(catBehvs claims)
+catBehvs (_:claims) = catBehvs claims
 
 conjunction :: [Invariant] -> Exp Bool
 conjunction [] = LitBool True
