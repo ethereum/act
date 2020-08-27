@@ -103,6 +103,17 @@ mkInit (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 interfa
   state <- mapM (\(c, u) -> fromUpdate ctx u) (updates stateUpdates) -- state updates hold
   -- TODO: handle constructor args
   return $ (sAnd state) .&& (sNot inv)
+  where
+    fromUpdate :: Ctx -> StorageUpdate -> Symbolic (SBV Bool)
+    fromUpdate ctx@(Ctx _ _ _ store) update = case update of
+      IntUpdate item e -> do
+        let vars = Map.fromList $ catInts store
+            lhs = fromMaybe
+                    (error (show item <> " not found in " <> show store))
+                    $ Map.lookup (nameFromItem ctx item) vars
+        rhs <- symExpInt ctx e
+        return $ lhs .== rhs
+
 
 -- |Given a non creation behaviour return a predicate that holds if:
 -- - the invariant holds over the prestate
@@ -120,10 +131,22 @@ mkMethod (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 inter
 
   preInv <- symExpBool preCtx e
   postInv <- symExpBool postCtx e
+  state <- mapM (\(c, u) -> fromUpdate preCtx postCtx u) (updates stateUpdates)
 
-  let methods = [sTrue]
+  return $ preInv .&& (sAnd state) .&& (sNot postInv)
+  where
+    fromUpdate :: Ctx -> Ctx -> StorageUpdate -> Symbolic (SBV Bool)
+    fromUpdate pre@(Ctx _ _ _ prestate) post@(Ctx _ _ _ poststate) update = case update of
+      IntUpdate item e -> do
+        let preVars = Map.fromList $ catInts prestate
+            postVars = Map.fromList $ catInts poststate
+            lhs = fromMaybe
+                    (error (show item <> " not found in " <> show pre))
+                    $ Map.lookup (nameFromItem pre item) preVars
+        rhs <- symExpInt post e
+        return $ lhs .== rhs
 
-  return $ preInv .&& (sOr methods) .&& (sNot postInv)
+
 
 updates :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageUpdate)]
 -- TODO: handle storage reads as well as writes
@@ -131,17 +154,6 @@ updates stateUpdates = mkPairs $ fmap rights stateUpdates
 
 mkPairs :: Map Id [StorageUpdate] -> [(Id, StorageUpdate)]
 mkPairs updates = concat $ fmap (\(c, us) -> fmap (\u -> (c, u)) us) (Map.toList updates)
-
-fromUpdate :: Ctx -> StorageUpdate -> Symbolic (SBV Bool)
-fromUpdate ctx@(Ctx _ _ _ store) update = case update of
-  IntUpdate item e -> do
-    let vars = Map.fromList $ catInts store
-        lhs = fromMaybe
-                (error (show item <> " not found in " <> show store))
-                $ Map.lookup (nameFromItem ctx item) vars
-    rhs <- symExpInt ctx e
-    return $ lhs .== rhs
-
 
 makeSymbolic :: Ctx -> StorageLocation -> Symbolic (Id, SMType)
 makeSymbolic ctx loc = case loc of
@@ -180,7 +192,7 @@ symExpBool ctx@(Ctx _ _ _ store) e = case e of
   NEq a b   -> sNot  <$> (symExpBool ctx (Eq a b))
   Neg a     -> sNot  <$> (symExpBool ctx a)
   LitBool a -> return $ literal a
-  BoolVar a -> sBool a
+  BoolVar a -> sBool a -- TODO: handle calldata args properly
   TEntry a  -> do
     let vars = Map.fromList $ catBools store
     return
@@ -196,7 +208,7 @@ symExpInt ctx@(Ctx _ _ _ store) e = case e of
   Mod a b   -> sMod <$> (symExpInt ctx a) <*> (symExpInt ctx b)
   Exp a b   -> (.^) <$> (symExpInt ctx a) <*> (symExpInt ctx b)
   LitInt a  -> return $ literal a
-  IntVar a  -> sInteger a
+  IntVar a  -> sInteger a -- TODO: handle calldata args properly
   IntEnv _  -> error "TODO: handle blockchain context in SMT expressions"
   TEntry a  -> do
     let vars = Map.fromList $ catInts store
