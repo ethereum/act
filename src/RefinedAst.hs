@@ -74,22 +74,22 @@ data MType
   deriving (Eq, Ord, Show, Read)
 
 data StorageUpdate
-  = IntUpdate (TStorageItem Int) (Exp Int)
+  = IntUpdate (TStorageItem Integer) (Exp Integer)
   | BoolUpdate (TStorageItem Bool) (Exp Bool)
   | BytesUpdate (TStorageItem ByteString) (Exp ByteString)
   deriving (Show)
 
 data StorageLocation
-  = IntLoc (TStorageItem Int)
+  = IntLoc (TStorageItem Integer)
   | BoolLoc (TStorageItem Bool)
   | BytesLoc (TStorageItem ByteString)
   deriving (Show)
 
 data TStorageItem a where
-  DirectInt    :: Id -> TStorageItem Int
+  DirectInt    :: Id -> TStorageItem Integer
   DirectBool   :: Id -> TStorageItem Bool
   DirectBytes  :: Id -> TStorageItem ByteString
-  MappedInt    :: Id -> NonEmpty ReturnExp -> TStorageItem Int
+  MappedInt    :: Id -> NonEmpty ReturnExp -> TStorageItem Integer
   MappedBool   :: Id -> NonEmpty ReturnExp -> TStorageItem Bool
   MappedBytes  :: Id -> NonEmpty ReturnExp -> TStorageItem ByteString
 
@@ -100,34 +100,34 @@ data Exp t where
   And  :: Exp Bool -> Exp Bool -> Exp Bool
   Or   :: Exp Bool -> Exp Bool -> Exp Bool
   Impl :: Exp Bool -> Exp Bool -> Exp Bool
-  Eq  :: Exp Int -> Exp Int -> Exp Bool --TODO: make polymorphic (how to ToJSON.encode them?)
-  NEq  :: Exp Int -> Exp Int -> Exp Bool
+  Eq  :: Exp Integer -> Exp Integer -> Exp Bool --TODO: make polymorphic (how to ToJSON.encode them?)
+  NEq  :: Exp Integer -> Exp Integer -> Exp Bool
   Neg :: Exp Bool -> Exp Bool
-  LE :: Exp Int -> Exp Int -> Exp Bool
-  LEQ :: Exp Int -> Exp Int -> Exp Bool
-  GEQ :: Exp Int -> Exp Int -> Exp Bool
-  GE :: Exp Int -> Exp Int -> Exp Bool
+  LE :: Exp Integer -> Exp Integer -> Exp Bool
+  LEQ :: Exp Integer -> Exp Integer -> Exp Bool
+  GEQ :: Exp Integer -> Exp Integer -> Exp Bool
+  GE :: Exp Integer -> Exp Integer -> Exp Bool
   LitBool :: Bool -> Exp Bool
   BoolVar :: Id -> Exp Bool
   -- integers
-  Add :: Exp Int -> Exp Int -> Exp Int
-  Sub :: Exp Int -> Exp Int -> Exp Int
-  Mul :: Exp Int -> Exp Int -> Exp Int
-  Div :: Exp Int -> Exp Int -> Exp Int
-  Mod :: Exp Int -> Exp Int -> Exp Int
-  Exp :: Exp Int -> Exp Int -> Exp Int
-  LitInt :: Integer -> Exp Int
-  IntVar :: Id -> Exp Int
-  IntEnv :: EthEnv -> Exp Int
+  Add :: Exp Integer -> Exp Integer -> Exp Integer
+  Sub :: Exp Integer -> Exp Integer -> Exp Integer
+  Mul :: Exp Integer -> Exp Integer -> Exp Integer
+  Div :: Exp Integer -> Exp Integer -> Exp Integer
+  Mod :: Exp Integer -> Exp Integer -> Exp Integer
+  Exp :: Exp Integer -> Exp Integer -> Exp Integer
+  LitInt :: Integer -> Exp Integer
+  IntVar :: Id -> Exp Integer
+  IntEnv :: EthEnv -> Exp Integer
   -- bytestrings
   Cat :: Exp ByteString -> Exp ByteString -> Exp ByteString
-  Slice :: Exp ByteString -> Exp Int -> Exp Int -> Exp ByteString
+  Slice :: Exp ByteString -> Exp Integer -> Exp Integer -> Exp ByteString
   ByVar :: Id -> Exp ByteString
   ByStr :: String -> Exp ByteString
   ByLit :: ByteString -> Exp ByteString
   ByEnv :: EthEnv -> Exp ByteString
   -- builtins
-  NewAddr :: Exp Int -> Exp Int -> Exp Int
+  NewAddr :: Exp Integer -> Exp Integer -> Exp Integer
 
   --polymorphic
   ITE :: Exp Bool -> Exp t -> Exp t -> Exp t
@@ -142,7 +142,7 @@ instance Monoid (Exp Bool) where
   mempty = LitBool True
 
 data ReturnExp
-  = ExpInt    (Exp Int)
+  = ExpInt    (Exp Integer)
   | ExpBool   (Exp Bool)
   | ExpBytes  (Exp ByteString)
   deriving (Show)
@@ -192,7 +192,7 @@ instance ToJSON ReturnExp where
    toJSON (ExpBytes a) = object ["sort" .= (String $ pack "bytestring")
                                ,"expression" .= toJSON a]
 
-instance ToJSON (Exp Int) where
+instance ToJSON (Exp Integer) where
   toJSON (Add a b) = symbol "+" a b
   toJSON (Sub a b) = symbol "-" a b
   toJSON (Exp a b) = symbol "^" a b

@@ -119,7 +119,7 @@ kExpr (ExpBool a) = kExprBool a
 kExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
 
 
-kExprInt :: Exp Int -> String
+kExprInt :: Exp Integer -> String
 kExprInt (Add a b) = "(" <> kExprInt a <> " +Int " <> kExprInt b <> ")"
 kExprInt (Sub a b) = "(" <> kExprInt a <> " -Int " <> kExprInt b <> ")"
 kExprInt (Mul a b) = "(" <> kExprInt a <> " *Int " <> kExprInt b <> ")"

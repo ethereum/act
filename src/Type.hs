@@ -302,16 +302,16 @@ checkIffs env ((IffIn _ typ exps):xs) = do
   Ok $ map (bound typ) hd <> tl
 checkIffs _ [] = Ok []
 
-bound :: AbiType -> (Exp Int) -> Exp Bool
+bound :: AbiType -> (Exp Integer) -> Exp Bool
 bound typ e = And (LEQ (lowerBound typ) e) $ LEQ e (upperBound typ)
 
-lowerBound :: AbiType -> Exp Int
+lowerBound :: AbiType -> Exp Integer
 lowerBound (AbiIntType a) = LitInt $ 0 - 2 ^ (a - 1)
 -- todo: other negatives?
 lowerBound _ = LitInt 0
 
 --todo, the rest
-upperBound :: AbiType -> Exp Int
+upperBound :: AbiType -> Exp Integer
 upperBound (AbiUIntType n) = LitInt $ 2 ^ n - 1
 upperBound (AbiIntType n) = LitInt $ 2 ^ (n - 1) - 1
 upperBound AbiAddressType  = LitInt $ 2 ^ (160 :: Integer) - 1
@@ -430,7 +430,7 @@ checkBytes env e =
     Ok (ExpBool _) -> Bad (nowhere, "expected: bytes, got: bool")
     Bad err -> Bad err
 
-checkInt :: Env -> Expr -> Err (Exp Int)
+checkInt :: Env -> Expr -> Err (Exp Integer)
 checkInt env e =
   case inferExpr env e of
     Ok (ExpInt a) -> Ok a

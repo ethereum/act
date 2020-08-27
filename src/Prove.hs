@@ -41,14 +41,16 @@ queries claims = fmap mkQuery $ gather claims
 -- *** Internals *** --
 
 
--- |Builds a mapping from Invariants to a list of the Behaviours for the
+-- |Builds a mapping from Invariants to a list of the Pass Behaviours for the
 -- contract referenced by that invariant.
 gather :: [Claim] -> [(Invariant, Storage, [Behaviour])]
 gather claims = fmap (\i -> (i, getStore i, getBehaviours i)) invariants
   where
     invariants = catInvs claims
-    getBehaviours (Invariant c _) = filter (\b -> c == (_contract b)) (catBehvs claims)
+    getBehaviours (Invariant c _) = filter isPass $ filter (\b -> c == (_contract b)) (catBehvs claims)
+    -- TODO: this head is bad, should probably rework the AST to enforce one Storage per contract
     getStore (Invariant c _) = head $ filter (\(Storage n _) -> c == n) (catStores claims)
+    isPass b = (_mode b) == Pass
 
 -- |Builds a query asking for an example where the invariant does not hold.
 mkQuery :: (Invariant, Storage, [Behaviour]) -> Symbolic ()
@@ -63,14 +65,50 @@ mkQuery (inv, store, behvs) = do
 -- |Given a creation behaviour return a predicate that holds if the invariant does not
 -- hold after the constructor has run
 mkInit :: Invariant -> Storage -> Behaviour -> Symbolic (SBV Bool)
-mkInit inv store behv = trace (show store <> " | " <> show inv) undefined
-
+mkInit inv storage behv = trace (show storage <> "\n\n\n" <> show inv <> "\n\n\n" <> show behv) undefined
+  where
+    makeSymbolic :: TStorageItem a -> Symbolic (SBV a)
+    makeSymbolic (DirectInt name) = sInteger name
+    makeSymbolic (DirectBool name) = sBool name
+    makeSymbolic v = error ("TODO: handle " ++ show v ++ " in makeSymbolic")
+--
 -- |Given a non creation behaviour return a predicate that holds if:
 -- - the invariant holds over the prestate
 -- - the method has run
 -- - the invariant does not hold over the prestate
 mkMethod :: Invariant -> Storage -> Behaviour -> Symbolic (SBV Bool)
 mkMethod inv behv = undefined
+
+symExpBool :: Id -> Storage -> Exp Bool -> Symbolic (SBV Bool)
+symExpBool c s (And a b) = (.&&) <$> (symExpBool c s a) <*> (symExpBool c s b)
+symExpBool c s (Or a b) = (.||) <$> (symExpBool c s a) <*> (symExpBool c s b)
+symExpBool c s (Impl a b) = (.=>) <$> (symExpBool c s a) <*> (symExpBool c s b)
+symExpBool c s (Eq a b) = (.==) <$> (symExpInt c s a) <*> (symExpInt c s b)
+symExpBool c s (NEq a b) = sNot <$> (symExpBool c s (Eq a b))
+symExpBool c s (Neg a) = sNot <$> (symExpBool c s a)
+symExpBool c s (Neg a) = sNot <$> (symExpBool c s a)
+symExpBool c s (LE a b) = (.<) <$> (symExpInt c s a) <*> (symExpInt c s a)
+symExpBool c s (LEQ a b) = (.<=) <$> (symExpInt c s a) <*> (symExpInt c s a)
+symExpBool c s (GE a b) = (.>) <$> (symExpInt c s a) <*> (symExpInt c s a)
+symExpBool c s (GEQ a b) = (.>=) <$> (symExpInt c s a) <*> (symExpInt c s a)
+symExpBool c s (LitBool a) = return $ literal a
+symExpBool c s (BoolVar a) = sBool a
+symExpBool c s (TEntry a) = undefined
+
+symExpInt :: Id -> Storage -> Exp Integer -> Symbolic (SBV Integer)
+symExpInt c s (Add a b) = (+) <$> (symExpInt c s a) <*> (symExpInt c s b)
+symExpInt c s (Sub a b) = (-) <$> (symExpInt c s a) <*> (symExpInt c s b)
+symExpInt c s (Mul a b) = (*) <$> (symExpInt c s a) <*> (symExpInt c s b)
+symExpInt c s (Div a b) = sDiv <$> (symExpInt c s a) <*> (symExpInt c s b)
+symExpInt c s (Mod a b) = sMod <$> (symExpInt c s a) <*> (symExpInt c s b)
+symExpInt c s (Exp a b) = (.^) <$> (symExpInt c s a) <*> (symExpInt c s b)
+symExpInt _ _ (LitInt a) = return $ literal a
+symExpInt _ _ (IntVar a) = sInteger a
+symExpInt c s (TEntry a) = undefined
+symExpInt _ _ (IntEnv _) = error "TODO: handle blockchain context in SMT expressions"
+
+symExpBytes :: Id -> Storage -> Exp ByteString -> Symbolic ((SBV [(WordN 256)]))
+symExpBytes = error "TODO: handle bytestrings in SMT expressions"
 
 {-
 symExp :: Id -> (Either Pre Post) -> ReturnExp -> Symbolic SMType
