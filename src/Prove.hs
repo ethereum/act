@@ -6,16 +6,15 @@ module Prove (queries) where
 import Control.Monad (when)
 import Data.ByteString (ByteString)
 import Data.Either
-import Data.List
+import Data.List (intercalate)
 import Data.List.NonEmpty as NonEmpty (NonEmpty, toList)
-import Data.Map.Strict as Map (Map, lookup, fromList, toList, unionWith, empty, keys)
+import Data.Map.Strict as Map (Map, lookup, fromList, toList)
 import Data.Maybe
 
-import Data.SBV
-import Data.SBV.Trans.Control
+import Data.SBV hiding (name)
 
 import RefinedAst
-import Syntax (Id, Interface)
+import Syntax (Id)
 
 -- *** Interface *** --
 
@@ -61,18 +60,18 @@ data SMType
   deriving (Show)
 
 catInts :: [(Id, SMType)] -> [(Id, SBV Integer)]
-catInts ((name, SymInteger i):tail) = (name, i):(catInts tail)
-catInts (_:tail) = catInts tail
+catInts ((name, SymInteger i):tl) = (name, i):(catInts tl)
+catInts (_:tl) = catInts tl
 catInts [] = []
 
 catBools :: [(Id, SMType)] -> [(Id, SBV Bool)]
-catBools ((name, SymBool b):tail) = (name, b):(catBools tail)
-catBools (_:tail) = catBools tail
+catBools ((name, SymBool b):tl) = (name, b):(catBools tl)
+catBools (_:tl) = catBools tl
 catBools [] = []
 
 catBytes :: [(Id, SMType)] -> [(Id, SBV [WordN 8])]
-catBytes ((name, SymBytes b):tail) = (name, b):(catBytes tail)
-catBytes (_:tail) = catBytes tail
+catBytes ((name, SymBytes b):tl) = (name, b):(catBytes tl)
+catBytes (_:tl) = catBytes tl
 catBytes [] = []
 
 
@@ -103,26 +102,29 @@ mkQuery (inv, store, behvs) = do
 -- |Given a creation behaviour return a predicate that holds if the invariant does not
 -- hold after the constructor has run
 mkInit :: Invariant -> Storage -> Behaviour -> Symbolic (SBV Bool)
-mkInit (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 interface pre post stateUpdates _) = do
+mkInit (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 interface preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1 || contract /= c2 || c1 /= c2) $ error "Internal error: contract mismatch"
 
-  store <- mapM (makeSymbolic (Ctx (Contract contract) (Method method) Pre (Store []))) locs
-  let ctx = Ctx (Contract contract) (Method method) Pre (Store store)
+  store <- mapM (makeSymbolic (mkCtx contract [])) locs
 
-  inv <- symExpBool ctx e                             -- invariant holds
-  state <- mapM (\(c, u) -> fromUpdate ctx u) (updates stateUpdates) -- state updates hold
+  inv <- symExpBool (mkCtx contract store) e
+  state <- mapM (\(c, u) -> fromUpdate (mkCtx c store) u) (updates stateUpdates)
+
   -- TODO: handle constructor args
   return $ (sAnd state) .&& (sNot inv)
   where
+    mkCtx :: Id -> [(Id, SMType)] -> Ctx
+    mkCtx c s = Ctx (Contract c) (Method method) Pre (Store s)
+
     fromUpdate :: Ctx -> StorageUpdate -> Symbolic (SBV Bool)
     fromUpdate ctx@(Ctx _ _ _ (Store store)) update = case update of
-      IntUpdate item e -> do
+      IntUpdate item e' -> do
         let vars = Map.fromList $ catInts store
             lhs = fromMaybe
                     (error (show item <> " not found in " <> show store))
                     $ Map.lookup (nameFromItem ctx item) vars
-        rhs <- symExpInt ctx e
+        rhs <- symExpInt ctx e'
         return $ lhs .== rhs
 
 
@@ -131,33 +133,32 @@ mkInit (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 interfa
 -- - the method has run
 -- - the invariant does not hold over the prestate
 mkMethod :: Invariant -> Storage -> Behaviour -> Symbolic (SBV Bool)
-mkMethod (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 interface pre post stateUpdates _) = do
+mkMethod (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 interface preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1 || contract /= c2 || c1 /= c2) $ error "Internal error: contract mismatch"
-  let c = Contract contract
-      m = Method method
 
-  pre <- mapM (makeSymbolic (Ctx c m Pre (Store []))) locs
-  post <- mapM (makeSymbolic (Ctx c m Post (Store []))) locs
+  preStore <- mapM (makeSymbolic (preCtx contract [])) locs
+  postStore <- mapM (makeSymbolic (postCtx contract [])) locs
 
-  let preCtx = Ctx c m Pre (Store pre)
-      postCtx = Ctx c m Pre (Store pre)
+  preInv <- symExpBool (preCtx contract preStore) e
+  postInv <- symExpBool (postCtx contract postStore) e
 
-  preInv <- symExpBool preCtx e
-  postInv <- symExpBool postCtx e
-  state <- mapM (\(c, u) -> fromUpdate preCtx postCtx u) (updates stateUpdates)
+  state <- mapM (\(c, u) -> fromUpdate (preCtx c preStore) (postCtx c postStore) u) (updates stateUpdates)
 
   return $ preInv .&& (sAnd state) .&& (sNot postInv)
   where
+
+    preCtx c s = Ctx (Contract c) (Method method) Pre (Store s)
+    postCtx c s = Ctx (Contract c) (Method method) Post (Store s)
+
     fromUpdate :: Ctx -> Ctx -> StorageUpdate -> Symbolic (SBV Bool)
-    fromUpdate pre@(Ctx _ _ _ (Store prestate)) post@(Ctx _ _ _ (Store poststate)) update = case update of
-      IntUpdate item e -> do
+    fromUpdate pre@(Ctx _ _ _ (Store prestate)) post update = case update of
+      IntUpdate item e' -> do
         let preVars = Map.fromList $ catInts prestate
-            postVars = Map.fromList $ catInts poststate
             lhs = fromMaybe
-                    (error (show item <> " not found in " <> show pre))
+                    (error (show item <> " not found in " <> show preVars))
                     $ Map.lookup (nameFromItem pre item) preVars
-        rhs <- symExpInt post e
+        rhs <- symExpInt post e'
         return $ lhs .== rhs
 
 
@@ -165,9 +166,9 @@ mkMethod (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 inter
 updates :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageUpdate)]
 -- TODO: handle storage reads as well as writes
 updates stateUpdates = mkPairs $ fmap rights stateUpdates
-
-mkPairs :: Map Id [StorageUpdate] -> [(Id, StorageUpdate)]
-mkPairs updates = concat $ fmap (\(c, us) -> fmap (\u -> (c, u)) us) (Map.toList updates)
+  where
+    mkPairs :: Map Id [StorageUpdate] -> [(Id, StorageUpdate)]
+    mkPairs updates' = concat $ fmap (\(c, us) -> fmap (\u -> (c, u)) us) (Map.toList updates')
 
 makeSymbolic :: Ctx -> StorageLocation -> Symbolic (Id, SMType)
 makeSymbolic ctx loc = case loc of
@@ -181,28 +182,16 @@ makeSymbolic ctx loc = case loc of
       return $ (name, SymBool $ v)
     l -> error ("TODO: handle " ++ show l ++ " in makeSymbolic")
 
-symExp :: Ctx -> ReturnExp -> Symbolic (SMType)
-symExp ctx expression = case expression of
-  ExpInt e -> do
-    i <- symExpInt ctx e
-    return $ SymInteger i
-  ExpBool e -> do
-    b <- symExpBool ctx e
-    return $ SymBool b
-  ExpBytes e -> do
-    b <- symExpBytes ctx e
-    return $ SymBytes b
-
 symExpBool :: Ctx -> Exp Bool -> Symbolic (SBV Bool)
 symExpBool ctx@(Ctx _ _ _ (Store store)) e = case e of
   And a b   -> (.&&) <$> (symExpBool ctx a) <*> (symExpBool ctx b)
   Or a b    -> (.||) <$> (symExpBool ctx a) <*> (symExpBool ctx b)
   Impl a b  -> (.=>) <$> (symExpBool ctx a) <*> (symExpBool ctx b)
   Eq a b    -> (.==) <$> (symExpInt ctx a) <*> (symExpInt ctx b)
-  LE a b    -> (.<)  <$> (symExpInt ctx a) <*> (symExpInt ctx a)
-  LEQ a b   -> (.<=) <$> (symExpInt ctx a) <*> (symExpInt ctx a)
-  GE a b    -> (.>)  <$> (symExpInt ctx a) <*> (symExpInt ctx a)
-  GEQ a b   -> (.>=) <$> (symExpInt ctx a) <*> (symExpInt ctx a)
+  LE a b    -> (.<)  <$> (symExpInt ctx a) <*> (symExpInt ctx b)
+  LEQ a b   -> (.<=) <$> (symExpInt ctx a) <*> (symExpInt ctx b)
+  GE a b    -> (.>)  <$> (symExpInt ctx a) <*> (symExpInt ctx b)
+  GEQ a b   -> (.>=) <$> (symExpInt ctx a) <*> (symExpInt ctx b)
   NEq a b   -> sNot  <$> (symExpBool ctx (Eq a b))
   Neg a     -> sNot  <$> (symExpBool ctx a)
   LitBool a -> return $ literal a
@@ -234,14 +223,15 @@ symExpBytes :: Ctx -> Exp ByteString -> Symbolic ((SBV [(WordN 8)]))
 symExpBytes = error "TODO: handle bytestrings in SMT expressions"
 
 nameFromItem :: Ctx -> TStorageItem a -> Id
-nameFromItem (Ctx (Contract contract) (Method method) when _) item = case item of
-  DirectInt name -> contract @@ method @@ name @@ show when
-  DirectBool name -> contract @@ method @@ name @@ show when
-  DirectBytes name -> contract @@ method @@ name @@ show when
-  MappedInt name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show when
-  MappedBool name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show when
-  MappedBytes name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show when
+nameFromItem (Ctx (Contract contract) (Method method) prePost _) item = case item of
+  DirectInt name -> contract @@ method @@ name @@ show prePost
+  DirectBool name -> contract @@ method @@ name @@ show prePost
+  DirectBytes name -> contract @@ method @@ name @@ show prePost
+  MappedInt name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
+  MappedBool name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
+  MappedBytes name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
   where
+    (@@) :: String -> String -> String
     x @@ y = x <> "_" <> y
 
     -- TODO: handle nested mappings
