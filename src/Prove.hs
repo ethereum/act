@@ -16,7 +16,6 @@ import Data.SBV.Trans.Control
 
 import RefinedAst
 import Syntax (Id, Interface)
-import Type (metaType)
 
 -- *** Interface *** --
 
@@ -43,7 +42,16 @@ queries claims = fmap mkQuery $ gather claims
 data When = Pre | Post
   deriving (Show)
 
-data Ctx = Ctx Id Id When [(Id, SMType)]
+newtype Contract = Contract { unContract :: Id }
+  deriving (Show)
+
+newtype Method = Method { unMethod :: Id }
+  deriving (Show)
+
+newtype Store = Store { unStore :: [(Id, SMType)] }
+  deriving (Show)
+
+data Ctx = Ctx Contract Method When Store
   deriving (Show)
 
 data SMType
@@ -99,8 +107,8 @@ mkInit (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 interfa
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1 || contract /= c2 || c1 /= c2) $ error "Internal error: contract mismatch"
 
-  store <- mapM (makeSymbolic (Ctx contract method Pre [])) locs
-  let ctx = Ctx contract method Pre store
+  store <- mapM (makeSymbolic (Ctx (Contract contract) (Method method) Pre (Store []))) locs
+  let ctx = Ctx (Contract contract) (Method method) Pre (Store store)
 
   inv <- symExpBool ctx e                             -- invariant holds
   state <- mapM (\(c, u) -> fromUpdate ctx u) (updates stateUpdates) -- state updates hold
@@ -108,7 +116,7 @@ mkInit (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 interfa
   return $ (sAnd state) .&& (sNot inv)
   where
     fromUpdate :: Ctx -> StorageUpdate -> Symbolic (SBV Bool)
-    fromUpdate ctx@(Ctx _ _ _ store) update = case update of
+    fromUpdate ctx@(Ctx _ _ _ (Store store)) update = case update of
       IntUpdate item e -> do
         let vars = Map.fromList $ catInts store
             lhs = fromMaybe
@@ -126,11 +134,14 @@ mkMethod :: Invariant -> Storage -> Behaviour -> Symbolic (SBV Bool)
 mkMethod (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 interface pre post stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1 || contract /= c2 || c1 /= c2) $ error "Internal error: contract mismatch"
+  let c = Contract contract
+      m = Method method
 
-  pre <- mapM (makeSymbolic (Ctx contract method Pre [])) locs
-  post <- mapM (makeSymbolic (Ctx contract method Post [])) locs
-  let preCtx = Ctx contract method Pre pre
-      postCtx = Ctx contract method Pre pre
+  pre <- mapM (makeSymbolic (Ctx c m Pre (Store []))) locs
+  post <- mapM (makeSymbolic (Ctx c m Post (Store []))) locs
+
+  let preCtx = Ctx c m Pre (Store pre)
+      postCtx = Ctx c m Pre (Store pre)
 
   preInv <- symExpBool preCtx e
   postInv <- symExpBool postCtx e
@@ -139,7 +150,7 @@ mkMethod (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 inter
   return $ preInv .&& (sAnd state) .&& (sNot postInv)
   where
     fromUpdate :: Ctx -> Ctx -> StorageUpdate -> Symbolic (SBV Bool)
-    fromUpdate pre@(Ctx _ _ _ prestate) post@(Ctx _ _ _ poststate) update = case update of
+    fromUpdate pre@(Ctx _ _ _ (Store prestate)) post@(Ctx _ _ _ (Store poststate)) update = case update of
       IntUpdate item e -> do
         let preVars = Map.fromList $ catInts prestate
             postVars = Map.fromList $ catInts poststate
@@ -183,7 +194,7 @@ symExp ctx expression = case expression of
     return $ SymBytes b
 
 symExpBool :: Ctx -> Exp Bool -> Symbolic (SBV Bool)
-symExpBool ctx@(Ctx _ _ _ store) e = case e of
+symExpBool ctx@(Ctx _ _ _ (Store store)) e = case e of
   And a b   -> (.&&) <$> (symExpBool ctx a) <*> (symExpBool ctx b)
   Or a b    -> (.||) <$> (symExpBool ctx a) <*> (symExpBool ctx b)
   Impl a b  -> (.=>) <$> (symExpBool ctx a) <*> (symExpBool ctx b)
@@ -203,7 +214,7 @@ symExpBool ctx@(Ctx _ _ _ store) e = case e of
       $ Map.lookup (nameFromItem ctx a) vars
 
 symExpInt :: Ctx -> Exp Integer -> Symbolic (SBV Integer)
-symExpInt ctx@(Ctx _ _ _ store) e = case e of
+symExpInt ctx@(Ctx _ _ _ (Store store)) e = case e of
   Add a b   -> (+)  <$> (symExpInt ctx a) <*> (symExpInt ctx b)
   Sub a b   -> (-)  <$> (symExpInt ctx a) <*> (symExpInt ctx b)
   Mul a b   -> (*)  <$> (symExpInt ctx a) <*> (symExpInt ctx b)
@@ -223,7 +234,7 @@ symExpBytes :: Ctx -> Exp ByteString -> Symbolic ((SBV [(WordN 8)]))
 symExpBytes = error "TODO: handle bytestrings in SMT expressions"
 
 nameFromItem :: Ctx -> TStorageItem a -> Id
-nameFromItem (Ctx contract method when _) item = case item of
+nameFromItem (Ctx (Contract contract) (Method method) when _) item = case item of
   DirectInt name -> contract @@ method @@ name @@ show when
   DirectBool name -> contract @@ method @@ name @@ show when
   DirectBytes name -> contract @@ method @@ name @@ show when
