@@ -80,7 +80,7 @@ data StorageLocation
   = IntLoc (TStorageItem Integer)
   | BoolLoc (TStorageItem Bool)
   | BytesLoc (TStorageItem ByteString)
-  deriving (Show)
+  deriving (Show, Eq)
 
 data TStorageItem a where
   DirectInt    :: Id -> TStorageItem Integer
@@ -91,6 +91,16 @@ data TStorageItem a where
   MappedBytes  :: Id -> NonEmpty ReturnExp -> TStorageItem ByteString
 
 deriving instance Show (TStorageItem a)
+
+instance Eq (TStorageItem a) where
+  (DirectInt a) == (DirectInt b) = a == b
+  (DirectBool a) == (DirectBool b) = a == b
+  (DirectBytes a) == (DirectBytes b) = a == b
+  (MappedInt a b) == (MappedInt c d) = (a == c) && (b == d)
+  (MappedBool a b) == (MappedBool c d) = (a == c) && (b == d)
+  (MappedBytes a b) == (MappedBytes c d) = (a == c) && (b == d)
+  _ == _ = False
+
 -- typed expressions
 data Exp t where
   --booleans
@@ -131,6 +141,7 @@ data Exp t where
   TEntry :: (TStorageItem t) -> Exp t
 
 deriving instance Show (Exp t)
+deriving instance Eq (Exp t)
 
 instance Semigroup (Exp Bool) where
   a <> b = And a b
@@ -142,7 +153,7 @@ data ReturnExp
   = ExpInt    (Exp Integer)
   | ExpBool   (Exp Bool)
   | ExpBytes  (Exp ByteString)
-  deriving (Show)
+  deriving (Eq, Show)
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
