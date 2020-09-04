@@ -121,7 +121,7 @@ runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Symbolic () -> IO SatResult
 runSMTWithTimeOut solver maybeTimeout sym
   | solver == Just "cvc4" = do
       setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --incremental --interactive --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
-      res <- satWith cvc4 sym
+      res <- satWith cvc4{verbose=True} sym
       setEnv "SBV_CVC4_OPTIONS" ""
       return res
   | solver == Just "z3" = runwithz3

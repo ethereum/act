@@ -3,6 +3,8 @@
 
 module Prove (queries) where
 
+import Debug.Trace
+
 import Control.Monad (when)
 import Data.ByteString (ByteString)
 import Data.Either
@@ -106,25 +108,30 @@ mkQuery (inv, store, behvs) = do
 -- |Given a creation behaviour return a predicate that holds if the invariant does not
 -- hold after the constructor has run
 mkInit :: Invariant -> Storage -> Behaviour -> Symbolic (SBV Bool)
-mkInit (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 (Interface _ decls)  preCond postCond stateUpdates _) = do
+mkInit (Invariant contract e) (Storage c1 locs) behv@(Behaviour method _ _ c2 (Interface _ decls)  preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1 || contract /= c2 || c1 /= c2) $ error "Internal error: contract mismatch"
 
   let c = Contract contract
       m = Method method
 
+  traceM $ show behv
+
   calldata <- Args <$> mapM (mkArg (Contract contract) (Method method)) decls
   store <- Store <$> mapM (makeSymbolic c m Pre) locs
 
-  inv <- symExpBool (mkCtx contract calldata store) e
-  state <- mapM (\(c, u) -> fromUpdate (mkCtx c calldata store) u) (updates stateUpdates)
+  let ctx = \ctrct -> Ctx ctrct m calldata store Pre
 
-  -- TODO: handle constructor args
-  return $ (sAnd state) .&& (sNot inv)
+  inv <- symExpBool (ctx c) e
+  state <- mapM
+            (\(ctrct, u) -> fromUpdate (ctx (Contract ctrct)) u)
+            (updates stateUpdates)
+
+  preCond' <- symExpBool (ctx c) preCond
+  postCond' <- symExpBool (ctx c) postCond
+
+  return $ (sAnd state) .&& (sNot inv) .&& preCond' .&& postCond'
   where
-    mkCtx :: Id -> Args -> Store -> Ctx
-    mkCtx c cd s = Ctx (Contract c) (Method method) cd s Pre
-
     fromUpdate :: Ctx -> StorageUpdate -> Symbolic (SBV Bool)
     fromUpdate ctx@(Ctx c m _ (Store store) w) update = case update of
       IntUpdate item e' -> do
@@ -141,28 +148,38 @@ mkInit (Invariant contract e) (Storage c1 locs) (Behaviour method _ _ c2 (Interf
 -- - the method has run
 -- - the invariant does not hold over the prestate
 mkMethod :: Invariant -> Storage -> Behaviour -> Symbolic (SBV Bool)
-mkMethod (Invariant contract inv) (Storage c1 locs) (Behaviour method _ _ c2 (Interface _ decls) preCond postCond stateUpdates _) = do
+mkMethod (Invariant contract inv) (Storage c1 locs) behv@(Behaviour method _ _ c2 (Interface _ decls) preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1 || contract /= c2 || c1 /= c2) $ error "Internal error: contract mismatch"
 
   let c = Contract contract
       m = Method method
 
+  traceM $ show behv
+
   calldata <- Args <$> mapM (mkArg c m) decls
   preStore <- Store <$> mapM (makeSymbolic c m Pre) locs
   postStore <- Store <$> mapM (makeSymbolic c m Post) locs
 
-  preInv <- symExpBool (preCtx contract calldata preStore) inv
-  postInv <- symExpBool (postCtx contract calldata postStore) inv
+  let preCtx = Ctx c m calldata preStore Pre
+      postCtx = Ctx c m calldata postStore Post
 
-  state <- mapM (\(c, u) -> fromUpdate (preCtx c calldata preStore) (postCtx c calldata postStore) u) (updates stateUpdates)
+  preInv <- symExpBool preCtx inv
+  postInv <- symExpBool postCtx inv
 
-  return $ preInv .&& (sAnd state) .&& (sNot postInv)
+  preCond' <- symExpBool preCtx preCond
+  postCond' <- symExpBool postCtx postCond
+
+  stateUpdates' <- mapM
+            (\(ctrct, u) ->
+              fromUpdate
+                (Ctx (Contract ctrct) m calldata preStore Pre)
+                (Ctx (Contract ctrct) m calldata postStore Post)
+              u)
+            (updates stateUpdates)
+
+  return $ preInv .&& preCond' .&& (sAnd stateUpdates') .&& postCond' .&& (sNot postInv)
   where
-
-    preCtx c cd s = Ctx (Contract c) (Method method) cd s Pre
-    postCtx c cd s = Ctx (Contract c) (Method method) cd s Post
-
     fromUpdate :: Ctx -> Ctx -> StorageUpdate -> Symbolic (SBV Bool)
     fromUpdate (Ctx c m _ (Store prestate) pre) post update = case update of
       IntUpdate item e' -> do
