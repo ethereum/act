@@ -181,13 +181,13 @@ mkMethod (Invariant contract inv) (Storage c1 locs) behv@(Behaviour method _ _ c
   return $ preInv .&& preCond' .&& (sAnd stateUpdates') .&& postCond' .&& (sNot postInv)
   where
     fromUpdate :: Ctx -> Ctx -> StorageUpdate -> Symbolic (SBV Bool)
-    fromUpdate (Ctx c m _ (Store prestate) pre) post update = case update of
+    fromUpdate pre (Ctx c m _ (Store postStore) post) update = case update of
       IntUpdate item e' -> do
-        let preVars = Map.fromList $ catInts prestate
+        let postVars = Map.fromList $ catInts postStore
             lhs = fromMaybe
-                    (error (show item <> " not found in " <> show preVars))
-                    $ Map.lookup (nameFromItem c m pre item) preVars
-        rhs <- symExpInt post e'
+                    (error (show item <> " not found in " <> show postVars))
+                    $ Map.lookup (nameFromItem c m post item) postVars
+        rhs <- symExpInt pre e'
         return $ lhs .== rhs
 
 updates :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageUpdate)]

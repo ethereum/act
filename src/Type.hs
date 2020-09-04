@@ -107,7 +107,9 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     flatten :: [Exp Bool] -> [Exp Bool] -> Cases -> Err [Claim]
     flatten iff postc (Direct post) = do
       (p, maybeReturn) <- checkPost env contract post
-      return $ splitCase name False contract iface (LitBool True) iff maybeReturn p postc
+      let preBounds = fst $ mkBounds p
+          postBounds = snd $ mkBounds p
+      return $ splitCase name False contract iface (LitBool True) (iff <> preBounds) maybeReturn p (postc <> postBounds)
     flatten iff postc (Branches branches) = do
       branches' <- normalize branches
       cases' <- flip mapM branches' $ \(Case _ cond post) -> do
@@ -130,18 +132,18 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (
 
   rawUpdates <- concat <$> mapM (checkAssign env) assigns
   let stateUpdates = Map.fromList $ [(contract, Right <$> rawUpdates)]
-      (preBounds, postBounds) = mkStorageBounds env contract (Right <$> rawUpdates)
+      (_, postBounds) = mkStorageBounds env contract (Right <$> rawUpdates)
 
   let calldataBounds = getCallDataBounds decls
   iffs' <- checkIffs env (iffs <> calldataBounds)
 
   invariants <- mapM (checkBool env) $ fromMaybe [] maybeInvs
   ensures <- mapM (checkBool env) (fromMaybe [] maybeEnsures)
-  let postcs = postBounds <> invariants <> ensures
+  let postcs = postBounds <> ensures
 
   return $ [mkStorage contract rawUpdates]
            <> ((I . (Invariant contract)) <$> invariants)
-           <> (splitCase name True contract iface (LitBool True) (preBounds <> iffs') Nothing stateUpdates postcs)
+           <> (splitCase name True contract iface (LitBool True) iffs' Nothing stateUpdates postcs)
 
 mkStorage :: Id -> [StorageUpdate] -> Claim
 mkStorage contract updates = S $ Storage contract (fmap getItem updates)
