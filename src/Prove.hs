@@ -117,9 +117,9 @@ mkInit (Invariant contract e) (Storage c1 locs) behv@(Behaviour method _ _ c2 (I
 
   traceM $ show behv
 
-  calldata <- Args <$> mapM (mkArg c m) decls
-  preStore <- Store <$> mapM (makeSymbolic c m Pre) locs
-  postStore <- Store <$> mapM (makeSymbolic c m Post) locs
+  calldata <- Args <$> mapM (mkSymArg c m) decls
+  preStore <- Store <$> mapM (mkSymStorage c m Pre) locs
+  postStore <- Store <$> mapM (mkSymStorage c m Post) locs
 
   let preCtx ctrct = Ctx ctrct m calldata preStore Pre
       postCtx ctrct = Ctx ctrct m calldata postStore Post
@@ -127,9 +127,9 @@ mkInit (Invariant contract e) (Storage c1 locs) behv@(Behaviour method _ _ c2 (I
   inv <- symExpBool (postCtx c) e
   stateUpdates' <- mapM
             (\(ctrct, u) -> fromUpdate (preCtx (Contract ctrct)) (postCtx (Contract ctrct)) u)
-            (updates stateUpdates)
+            (updated stateUpdates)
 
-  unchanged' <- mapM (fromLocation (preCtx c) (postCtx c)) (unchanged locs (fmap snd $ updates stateUpdates))
+  unchanged' <- mapM (fromLocation (preCtx c) (postCtx c)) (unchanged locs (fmap snd $ updated stateUpdates))
 
   preCond' <- symExpBool (preCtx c) preCond
   postCond' <- symExpBool (postCtx c) postCond
@@ -150,9 +150,9 @@ mkMethod (Invariant contract inv) (Storage c1 locs) behv@(Behaviour method _ _ c
 
   traceM $ show behv
 
-  calldata <- Args <$> mapM (mkArg c m) decls
-  preStore <- Store <$> mapM (makeSymbolic c m Pre) locs
-  postStore <- Store <$> mapM (makeSymbolic c m Post) locs
+  calldata <- Args <$> mapM (mkSymArg c m) decls
+  preStore <- Store <$> mapM (mkSymStorage c m Pre) locs
+  postStore <- Store <$> mapM (mkSymStorage c m Post) locs
 
   let preCtx ctrct = Ctx ctrct m calldata preStore Pre
       postCtx ctrct = Ctx ctrct m calldata postStore Post
@@ -163,18 +163,27 @@ mkMethod (Invariant contract inv) (Storage c1 locs) behv@(Behaviour method _ _ c
   preCond' <- symExpBool (preCtx c) preCond
   postCond' <- symExpBool (postCtx c) postCond
 
-  unchanged' <- mapM (fromLocation (preCtx c) (postCtx c)) (unchanged locs (fmap snd $ updates stateUpdates))
+  unchanged' <- mapM
+    (fromLocation (preCtx c) (postCtx c))
+    (unchanged locs (rights $ fromMaybe [] $ Map.lookup contract stateUpdates))
 
   -- if a value is in the contracts store but is not mentioned in a state update, then post = pre
 
   stateUpdates' <- mapM
             (\(ctrct, u) -> fromUpdate (preCtx (Contract ctrct)) (postCtx (Contract ctrct)) u)
-            (updates stateUpdates)
+            (updated stateUpdates)
 
   return $ preInv .&& preCond' .&& (sAnd stateUpdates') .&& (sAnd unchanged') .&& postCond' .&& (sNot postInv)
 
+updated :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageUpdate)]
+-- TODO: handle storage reads as well as writes
+updated stateUpdates = mkPairs $ fmap rights stateUpdates
+  where
+    mkPairs :: Map Id [StorageUpdate] -> [(Id, StorageUpdate)]
+    mkPairs updates' = concat $ fmap (\(c, us) -> fmap (\u -> (c, u)) us) (Map.toList updates')
+
 unchanged :: [StorageLocation] -> [StorageUpdate] -> [StorageLocation]
-unchanged locations us = locations \\ (fmap loc us)
+unchanged locations updates = locations \\ (fmap loc updates)
   where
     loc :: StorageUpdate -> StorageLocation
     loc update = case update of
@@ -205,15 +214,8 @@ fromUpdate preCtx (Ctx c m _ (Store postStore) post) update = case update of
     rhs <- symExpInt preCtx e
     return $ lhs .== rhs
 
-updates :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageUpdate)]
--- TODO: handle storage reads as well as writes
-updates stateUpdates = mkPairs $ fmap rights stateUpdates
-  where
-    mkPairs :: Map Id [StorageUpdate] -> [(Id, StorageUpdate)]
-    mkPairs updates' = concat $ fmap (\(c, us) -> fmap (\u -> (c, u)) us) (Map.toList updates')
-
-mkArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
-mkArg contract method decl@(Decl typ _) = case metaType typ of
+mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
+mkSymArg contract method decl@(Decl typ _) = case metaType typ of
     Integer -> do
       let name = nameFromDecl contract method decl
       v <- sInteger name
@@ -224,16 +226,8 @@ mkArg contract method decl@(Decl typ _) = case metaType typ of
       return $ (name, SymBool v)
     Boolean -> error ("TODO: handle bytestrings in smt expressions")
 
-nameFromDecl :: Contract -> Method -> Decl -> Id
-nameFromDecl c m (Decl _ name) = nameFromArg c m name
-
-nameFromArg :: Contract -> Method -> Id -> Id
-nameFromArg (Contract c) (Method m) name = c @@ m @@ name
-  where
-    x @@ y = x <> "_" <> y
-
-makeSymbolic :: Contract -> Method -> When -> StorageLocation -> Symbolic (Id, SMType)
-makeSymbolic c m w loc = case loc of
+mkSymStorage :: Contract -> Method -> When -> StorageLocation -> Symbolic (Id, SMType)
+mkSymStorage c m w loc = case loc of
     IntLoc item -> do
       let name = nameFromItem c m w item
       v <- sInteger name
@@ -317,4 +311,12 @@ nameFromItem (Contract contract) (Method method) prePost item = case item of
         go (ExpBytes (ByStr a)) = show a
         go (ExpBytes (ByLit a)) = show a
         go a = error $ "Internal Error: could not show: " ++ show a
+
+nameFromDecl :: Contract -> Method -> Decl -> Id
+nameFromDecl c m (Decl _ name) = nameFromArg c m name
+
+nameFromArg :: Contract -> Method -> Id -> Id
+nameFromArg (Contract c) (Method m) name = c @@ m @@ name
+  where
+    x @@ y = x <> "_" <> y
 
