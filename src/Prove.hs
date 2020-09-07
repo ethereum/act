@@ -188,7 +188,7 @@ mkSymArg contract method decl@(Decl typ _) = case metaType typ of
       let name = nameFromDecl contract method decl
       v <- sBool name
       return $ (name, SymBool v)
-    Boolean -> error ("TODO: handle bytestrings in smt expressions")
+    ByteStr -> error ("TODO: handle bytestrings in smt expressions")
 
 mkSymStorage :: Contract -> Method -> When -> StorageLocation -> Symbolic (Id, SMType)
 mkSymStorage c m w loc = case loc of
@@ -200,7 +200,7 @@ mkSymStorage c m w loc = case loc of
       let name = nameFromItem c m w item
       v <- sBool name
       return $ (name, SymBool v)
-    l -> error ("TODO: handle " ++ show l ++ " in makeSymbolic")
+    BytesLoc _ -> error ("TODO: handle bytestrings")
 
 updated :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageUpdate)]
 -- TODO: handle storage reads as well as writes
@@ -230,6 +230,8 @@ fromLocation (Ctx _ _ _ (Store preStore) pre) (Ctx c m _ (Store postStore) post)
       rhs = fromMaybe
               (error (show item <> " not found in " <> show preVars))
               $ Map.lookup (nameFromItem c m pre item) preVars
+  BoolLoc _ -> error "TODO: handle bool storage locations"
+  BytesLoc _ -> error "TODO: handle bytestring storage locations"
 
 fromUpdate :: Ctx -> Ctx -> StorageUpdate -> SBV Bool
 fromUpdate preCtx (Ctx c m _ (Store postStore) post) update = case update of
@@ -240,6 +242,8 @@ fromUpdate preCtx (Ctx c m _ (Store postStore) post) update = case update of
              (error (show item <> " not found in " <> show postVars))
              $ Map.lookup (nameFromItem c m post item) postVars
       rhs = symExpInt preCtx e
+  BoolUpdate _ _ -> error "TODO: handle bool storage updates"
+  BytesUpdate _ _ -> error "TODO: handle bytestring storage updates"
 
 symExpBool :: Ctx -> Exp Bool -> SBV Bool
 symExpBool ctx@(Ctx c m (Args args) (Store store) w) e = case e of
@@ -254,8 +258,9 @@ symExpBool ctx@(Ctx c m (Args args) (Store store) w) e = case e of
   NEq a b   -> sNot (symExpBool ctx (Eq a b))
   Neg a     -> sNot (symExpBool ctx a)
   LitBool a -> literal a
-  BoolVar a -> get (nameFromArg c m) (Map.fromList $ catBools args) a
-  TEntry a  -> get (nameFromItem c m w) (Map.fromList $ catBools store) a
+  BoolVar a -> get (nameFromArg c m a) (Map.fromList $ catBools args)
+  TEntry a  -> get (nameFromItem c m w a) (Map.fromList $ catBools store)
+  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
 
 symExpInt :: Ctx -> Exp Integer -> SBV Integer
 symExpInt ctx@(Ctx c m (Args args) (Store store) w) e = case e of
@@ -266,12 +271,14 @@ symExpInt ctx@(Ctx c m (Args args) (Store store) w) e = case e of
   Mod a b   -> (symExpInt ctx a) `sMod` (symExpInt ctx b)
   Exp a b   -> (symExpInt ctx a) .^ (symExpInt ctx b)
   LitInt a  -> literal a
-  IntEnv _  -> error "TODO: handle blockchain context in SMT expressions"
-  IntVar a  -> get (nameFromArg c m) (Map.fromList $ catInts args) a
-  TEntry a  -> get (nameFromItem c m w) (Map.fromList $ catInts store) a
+  IntVar a  -> get (nameFromArg c m a) (Map.fromList $ catInts args)
+  TEntry a  -> get (nameFromItem c m w a) (Map.fromList $ catInts store)
+  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
+  IntEnv _ -> error "TODO: handle blockchain context in SMT expressions"
+  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
 
-get :: (Show a, Show b) => (a -> Id) -> Map Id b -> a -> b
-get nameFn vars a = fromMaybe (error (show a <> " not found in " <> show vars)) $ Map.lookup (nameFn a) vars
+get :: (Show a) => Id -> Map Id a -> a
+get name vars = fromMaybe (error (show name <> " not found in " <> show vars)) $ Map.lookup name vars
 
 symExpBytes :: Ctx -> Exp ByteString -> (SBV [(WordN 8)])
 symExpBytes = error "TODO: handle bytestrings in SMT expressions"
