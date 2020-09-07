@@ -88,15 +88,29 @@ main = do
         case parse (lexer contents) >>= typecheck of
           Bad e -> prettyErr contents e
           Ok claims -> do
-            let handleRes = \(SatResult res) -> case res of
-                              Unsatisfiable _ _ -> putStrLn "Q.E.D"
-                              Satisfiable _ model -> putStrLn $ "Counterexample found!\n" ++ show model
-                              SatExtField _ model -> putStrLn $ "Counterexample found!\n" ++ show model
-                              Unknown _ reason -> putStrLn $ "Could not solve query: " ++ show reason
-                              ProofError _ reasons _  -> putStrLn $ "Proof error: " ++ show reasons
-                              DeltaSat _ _ _ -> error "Unexpected DeltaSat"
-            res <- mapM (runSMTWithTimeOut solver smttimeout) $ queries claims
-            mapM_ handleRes res
+            let
+                handleResults ((Invariant c e), rs) = do
+                  let msg = "Invariant " <> show e <> " of " <> show c <> ": "
+                      results' = handleRes <$> rs
+                      ok = foldl (||) False $ fst <$> results'
+                  case ok of
+                    False -> putStrLn $ msg <> "Q.E.D"
+                    True -> putStrLn $ msg <> "\n" <> (concat $ snd <$> results')
+
+                handleRes (SatResult res) = case res of
+                  Unsatisfiable _ _ -> (False, "")
+                  Satisfiable _ model -> (True, "Counter example found! " <> show model)
+                  SatExtField _ model -> (True, "Counter example found! " <> show model)
+                  Unknown _ reason -> (True, "Unknown! " <> show reason)
+                  ProofError _ reasons _  -> (True, "Proof error! " <> show reasons)
+                  DeltaSat _ _ _ -> error "Unexpected DeltaSat"
+
+            results <- flip mapM (queries claims)
+                          (\(i, qs) -> do
+                            rs <- mapM (runSMTWithTimeOut solver smttimeout) qs
+                            pure $ (i, rs)
+                          )
+            mapM_ handleResults results
 
       (K spec soljson gas storage extractbin out) -> do
         specContents <- readFile spec

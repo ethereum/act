@@ -34,8 +34,8 @@ import Type (metaType)
 
    If this query returns `unsat` then the invariant must hold over the transition system
 -}
-queries :: [Claim] -> [Symbolic ()]
-queries claims = fmap mkQuery $ gather claims
+queries :: [Claim] -> [(Invariant, [Symbolic ()])]
+queries claims = fmap mkQueries $ gather claims
 
 
 -- *** Data *** --
@@ -96,18 +96,17 @@ gather claims = fmap (\i -> (i, getStore i, getBehaviours i)) invariants
     isPass b = (_mode b) == Pass
 
 -- |Builds a query asking for an example where the invariant does not hold.
-mkQuery :: (Invariant, Storage, [Behaviour]) -> Symbolic ()
-mkQuery (inv, store, behvs) = do
-  inits' <- mapM (mkInit inv store) inits
-  methods' <- mapM (mkMethod inv store) methods
-  constrain $ sOr (inits' <> methods')
+mkQueries :: (Invariant, Storage, [Behaviour]) -> (Invariant, [Symbolic ()])
+mkQueries (inv, store, behvs) = (inv, inits' <> methods')
   where
+    inits' = fmap (mkInit inv store) inits
+    methods' = fmap (mkMethod inv store) methods
     inits = filter _creation behvs
     methods = filter (not . _creation) behvs
 
 -- |Given a creation behaviour return a predicate that holds if the invariant does not
 -- hold after the constructor has run
-mkInit :: Invariant -> Storage -> Behaviour -> Symbolic (SBV Bool)
+mkInit :: Invariant -> Storage -> Behaviour -> Symbolic ()
 mkInit (Invariant contract e) (Storage c1 locs) behv@(Behaviour method _ _ c2 (Interface _ decls)  preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1 || contract /= c2 || c1 /= c2) $ error "Internal error: contract mismatch"
@@ -133,7 +132,7 @@ mkInit (Invariant contract e) (Storage c1 locs) behv@(Behaviour method _ _ c2 (I
                       (\(ctrct, u) -> fromUpdate (preCtx (Contract ctrct)) (postCtx (Contract ctrct)) u)
                       (updated stateUpdates)
 
-  return $ (sAnd stateUpdates') .&& (sAnd unchanged') .&& (sNot inv) .&& preCond' .&& postCond'
+  constrain $ (sAnd stateUpdates') .&& (sAnd unchanged') .&& (sNot inv) .&& preCond' .&& postCond'
   where
     c = Contract contract
     m = Method method
@@ -143,7 +142,7 @@ mkInit (Invariant contract e) (Storage c1 locs) behv@(Behaviour method _ _ c2 (I
 -- - the invariant holds over the prestate
 -- - the method has run
 -- - the invariant does not hold over the prestate
-mkMethod :: Invariant -> Storage -> Behaviour -> Symbolic (SBV Bool)
+mkMethod :: Invariant -> Storage -> Behaviour -> Symbolic ()
 mkMethod (Invariant contract inv) (Storage c1 locs) behv@(Behaviour method _ _ c2 (Interface _ decls) preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1 || contract /= c2 || c1 /= c2) $ error "Internal error: contract mismatch"
@@ -170,13 +169,12 @@ mkMethod (Invariant contract inv) (Storage c1 locs) behv@(Behaviour method _ _ c
                       (\(ctrct, u) -> fromUpdate (preCtx (Contract ctrct)) (postCtx (Contract ctrct)) u)
                       (updated stateUpdates)
 
-  return $ preInv .&& preCond'
+  constrain $ preInv .&& preCond'
            .&& (sAnd stateUpdates') .&& (sAnd unchanged')
            .&& postCond' .&& (sNot postInv)
   where
     c = Contract contract
     m = Method method
-
 
 mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
 mkSymArg contract method decl@(Decl typ _) = case metaType typ of
