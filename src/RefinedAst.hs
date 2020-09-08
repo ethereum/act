@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# Language DeriveAnyClass #-}
+{-# Language MultiParamTypeClasses #-}
 
 module RefinedAst where
 
@@ -14,15 +15,17 @@ import Data.Map.Strict (Map)
 import Data.List.NonEmpty hiding (fromList)
 import Data.ByteString (ByteString)
 
+import EVM.Solidity (SlotType(..))
+
 import Syntax (Id, Interface, EthEnv)
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
 
 -- AST post typechecking
-data Claim = B Behaviour | I Invariant | S Storage deriving (Show)
+data Claim = B Behaviour | I Invariant | S Storages deriving (Show)
 
-data Storage = Storage Id [StorageLocation] deriving (Show)
+newtype Storages = Storages { unStorages :: Map Id (Map Id SlotType) } deriving (Show)
 data Invariant = Invariant Id (Exp Bool) deriving (Show)
 data Behaviour = Behaviour
   {_name :: Id,
@@ -42,7 +45,7 @@ catInvs [] = []
 catInvs ((I i):claims) = i:(catInvs claims)
 catInvs (_:claims) = catInvs claims
 
-catStores :: [Claim] -> [Storage]
+catStores :: [Claim] -> [Storages]
 catStores [] = []
 catStores ((S s):claims) = s:(catStores claims)
 catStores (_:claims) = catStores claims
@@ -101,6 +104,28 @@ instance Eq (TStorageItem a) where
   (MappedBytes a b) == (MappedBytes c d) = (a == c) && (b == d)
   _ == _ = False
 
+-- Hetorogeneous Equality
+class HEq a b where
+    heq :: a -> b -> Bool
+
+instance HEq (TStorageItem typ) StorageLocation where
+  (DirectInt a) `heq` (IntLoc (DirectInt b)) = a == b
+  (DirectBool a) `heq` (BoolLoc (DirectBool b)) = a == b
+  (DirectBytes a) `heq` (BytesLoc (DirectBytes b)) = a == b
+  (MappedInt a b) `heq` (IntLoc (MappedInt c d)) = a == c && b == d
+  (MappedBool a b) `heq` (BoolLoc (MappedBool c d)) = a == c && b == d
+  (MappedBytes a b) `heq` (BytesLoc (MappedBytes c d)) = a == c && b == d
+  _ `heq` _ = False
+
+instance HEq StorageLocation (TStorageItem a) where
+  (IntLoc (DirectInt b)) `heq` (DirectInt a) = a == b
+  (BoolLoc (DirectBool b)) `heq` (DirectBool a) = a == b
+  (BytesLoc (DirectBytes b)) `heq` (DirectBytes a) = a == b
+  (IntLoc (MappedInt c d)) `heq` (MappedInt a b) = a == c && b == d
+  (BoolLoc (MappedBool c d)) `heq` (MappedBool a b) = a == c && b == d
+  (BytesLoc (MappedBytes c d)) `heq` (MappedBytes a b) = a == c && b == d
+  _ `heq` _ = False
+
 -- typed expressions
 data Exp t where
   --booleans
@@ -157,9 +182,8 @@ data ReturnExp
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
-  toJSON (S (Storage contract store)) = object [ "kind" .= (String "Storage")
-                                               , "contract" .= show contract
-                                               , "store" .= toJSON store]
+  toJSON (S (Storages storages)) = object [ "kind" .= (String "Storages")
+                                          , "storages" .= show storages]
   toJSON (I (Invariant contract e)) = object [ "kind" .= (String "Invariant")
                                              , "expression" .= toJSON e
                                              , "contract" .= show contract ]

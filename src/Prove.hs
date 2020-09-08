@@ -1,5 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Prove (queries) where
 
@@ -8,12 +9,13 @@ import Debug.Trace
 import Control.Monad (when)
 import Data.ByteString (ByteString)
 import Data.Either
-import Data.List (intercalate, (\\))
+import Data.List (intercalate, (\\), nub)
 import Data.List.NonEmpty as NonEmpty (NonEmpty, toList)
-import Data.Map.Strict as Map (Map, lookup, fromList, toList)
+import Data.Map.Strict as Map (Map, lookup, fromList, toList, keys)
 import Data.Maybe
 
 import Data.SBV hiding (name)
+import EVM.ABI (AbiType(..))
 
 import RefinedAst
 import Syntax (Id, Interface(..), Decl(..))
@@ -37,12 +39,11 @@ import Type (metaType)
 queries :: [Claim] -> [(Invariant, [Symbolic ()])]
 queries claims = fmap mkQueries $ gather claims
 
-
 -- *** Data *** --
 
 
 data When = Pre | Post
-  deriving (Show)
+  deriving (Eq, Show)
 
 newtype Contract = Contract { unContract :: Id }
   deriving (Show)
@@ -86,17 +87,17 @@ catBytes [] = []
 
 -- |Builds a mapping from Invariants to a list of the Pass Behaviours for the
 -- contract referenced by that invariant.
-gather :: [Claim] -> [(Invariant, Storage, [Behaviour])]
-gather claims = fmap (\i -> (i, getStore i, getBehaviours i)) invariants
+gather :: [Claim] -> [(Invariant, Storages, [Behaviour])]
+gather claims = fmap (\i -> (i, store, getBehaviours i)) invariants
   where
     invariants = catInvs claims
     getBehaviours (Invariant c _) = filter isPass $ filter (\b -> c == (_contract b)) (catBehvs claims)
     -- TODO: refine AST so we don't need this head anymore
-    getStore (Invariant c _) = head $ filter (\(Storage n _) -> c == n) (catStores claims)
+    store = head $ (catStores claims)
     isPass b = (_mode b) == Pass
 
 -- |Builds a query asking for an example where the invariant does not hold.
-mkQueries :: (Invariant, Storage, [Behaviour]) -> (Invariant, [Symbolic ()])
+mkQueries :: (Invariant, Storages, [Behaviour]) -> (Invariant, [Symbolic ()])
 mkQueries (inv, store, behvs) = (inv, inits' <> methods')
   where
     inits' = fmap (mkInit inv store) inits
@@ -106,10 +107,10 @@ mkQueries (inv, store, behvs) = (inv, inits' <> methods')
 
 -- |Given a creation behaviour return a predicate that holds if the invariant does not
 -- hold after the constructor has run
-mkInit :: Invariant -> Storage -> Behaviour -> Symbolic ()
-mkInit (Invariant contract e) (Storage c1 locs) behv@(Behaviour method _ _ c2 (Interface _ decls)  preCond postCond stateUpdates _) = do
+mkInit :: Invariant -> Storages -> Behaviour -> Symbolic ()
+mkInit inv@(Invariant contract e) store behv@(Behaviour method _ _ c1 (Interface _ decls)  preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
-  when (contract /= c1 || contract /= c2 || c1 /= c2) $ error "Internal error: contract mismatch"
+  when (contract /= c1) $ error "Internal error: contract mismatch"
 
   calldata <- Args <$> mapM (mkSymArg c m) decls
   preStore <- Store <$> mapM (mkSymStorage c m Pre) locs
@@ -119,7 +120,7 @@ mkInit (Invariant contract e) (Storage c1 locs) behv@(Behaviour method _ _ c2 (I
     preCtx ctrct = Ctx ctrct m calldata preStore Pre
     postCtx ctrct = Ctx ctrct m calldata postStore Post
 
-    inv = symExpBool (postCtx c) e
+    inv' = symExpBool (postCtx c) e
 
     preCond' = symExpBool (preCtx c) preCond
     postCond' = symExpBool (postCtx c) postCond
@@ -132,20 +133,22 @@ mkInit (Invariant contract e) (Storage c1 locs) behv@(Behaviour method _ _ c2 (I
                       (\(ctrct, u) -> fromUpdate (preCtx (Contract ctrct)) (postCtx (Contract ctrct)) u)
                       (updated stateUpdates)
 
-  constrain $ (sAnd stateUpdates') .&& (sAnd unchanged') .&& (sNot inv) .&& preCond' .&& postCond'
+  constrain $ (sAnd stateUpdates') .&& (sAnd unchanged') .&& (sNot inv') .&& preCond' .&& postCond'
   where
     c = Contract contract
     m = Method method
+    refs = referenced inv behv store
+    locs = fst <$> refs
 
 
 -- |Given a non creation behaviour return a predicate that holds if:
 -- - the invariant holds over the prestate
 -- - the method has run
 -- - the invariant does not hold over the prestate
-mkMethod :: Invariant -> Storage -> Behaviour -> Symbolic ()
-mkMethod (Invariant contract inv) (Storage c1 locs) behv@(Behaviour method _ _ c2 (Interface _ decls) preCond postCond stateUpdates _) = do
+mkMethod :: Invariant -> Storages -> Behaviour -> Symbolic ()
+mkMethod inv@(Invariant contract e) store behv@(Behaviour method _ _ c1 (Interface _ decls) preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
-  when (contract /= c1 || contract /= c2 || c1 /= c2) $ error "Internal error: contract mismatch"
+  when (contract /= c1) $ error "Internal error: contract mismatch"
 
   calldata <- Args <$> mapM (mkSymArg c m) decls
   preStore <- Store <$> mapM (mkSymStorage c m Pre) locs
@@ -155,8 +158,8 @@ mkMethod (Invariant contract inv) (Storage c1 locs) behv@(Behaviour method _ _ c
     preCtx ctrct = Ctx ctrct m calldata preStore Pre
     postCtx ctrct = Ctx ctrct m calldata postStore Post
 
-    preInv = symExpBool (preCtx c) inv
-    postInv = symExpBool (postCtx c) inv
+    preInv = symExpBool (preCtx c) e
+    postInv = symExpBool (postCtx c) e
 
     preCond' = symExpBool (preCtx c) preCond
     postCond' = symExpBool (postCtx c) postCond
@@ -175,6 +178,8 @@ mkMethod (Invariant contract inv) (Storage c1 locs) behv@(Behaviour method _ _ c
   where
     c = Contract contract
     m = Method method
+    refs = referenced inv behv store
+    locs = fst <$> refs
 
 mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
 mkSymArg contract method decl@(Decl typ _) = case metaType typ of
@@ -198,10 +203,53 @@ mkSymStorage c m w loc = case loc of
       let name = nameFromItem c m w item
       v <- sBool name
       return $ (name, SymBool v)
-    BytesLoc _ -> error ("TODO: handle bytestrings")
+    BytesLoc _ -> error ("TODO: handle bytestrings in smt expressions")
+
+-- |Returns all storage locations referenced by the invariant and behaviour
+referenced :: Invariant -> Behaviour -> Storages -> [(StorageLocation, AbiType)]
+referenced (Invariant contract inv) (Behaviour _ _ _ _ _ _ _ updates _) s@(Storages store)
+  = nub $ addType <$> (invLocs <> behvLocs)
+  where
+    invLocs = nub $ locsFromExp s (Contract contract) inv
+    behvLocs = snd <$> locsFromUpdates updates -- TODO: handle multi contract writes
+    addType loc = (loc, getType loc)
+
+    getType :: StorageLocation -> AbiType
+    getType loc = snd $ head $ filter (\(l, _) -> l == loc) $ Map.toList $ fromJust $ Map.lookup contract store
+
+locsFromUpdates :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageLocation)]
+locsFromUpdates updates = concat $ fmap merge $ Map.toList $ (fmap getLoc) <$> updates
+  where
+    merge :: (Id, [StorageLocation]) -> [(Id, StorageLocation)]
+    merge (c, locs) = fmap (\l -> (c, l)) locs
+
+    getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
+    getLoc ref = case ref of
+      Left loc -> loc
+      Right update -> case update of
+        IntUpdate item _ -> IntLoc item
+        BoolUpdate item _ -> BoolLoc item
+        BytesUpdate item _ -> BytesLoc item
+
+locsFromExp :: Storages -> Contract -> Exp a -> [StorageLocation]
+locsFromExp s@(Storages store) c@(Contract contract) e = case e of
+  And a b   -> (locsFromExp s c a) <> (locsFromExp s c b)
+  Or a b    -> (locsFromExp s c a) <> (locsFromExp s c b)
+  Impl a b  -> (locsFromExp s c a) <> (locsFromExp s c b)
+  Eq a b    -> (locsFromExp s c a) <> (locsFromExp s c b)
+  LE a b    -> (locsFromExp s c a) <> (locsFromExp s c b)
+  LEQ a b   -> (locsFromExp s c a) <> (locsFromExp s c b)
+  GE a b    -> (locsFromExp s c a) <> (locsFromExp s c b)
+  GEQ a b   -> (locsFromExp s c a) <> (locsFromExp s c b)
+  NEq a b   -> (locsFromExp s c a) <> (locsFromExp s c b)
+  Neg a     -> (locsFromExp s c a)
+  LitBool _ -> []
+  BoolVar _ -> []
+  TEntry a  -> filter (heq a) $ Map.keys $ fromJust (Map.lookup contract store)
+  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+
 
 updated :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageUpdate)]
--- TODO: handle storage reads as well as writes
 updated stateUpdates = mkPairs $ fmap rights stateUpdates
   where
     mkPairs :: Map Id [StorageUpdate] -> [(Id, StorageUpdate)]
@@ -314,4 +362,3 @@ nameFromArg :: Contract -> Method -> Id -> Id
 nameFromArg (Contract c) (Method m) name = c @@ m @@ name
   where
     x @@ y = x <> "_" <> y
-

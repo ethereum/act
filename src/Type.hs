@@ -33,7 +33,7 @@ import RefinedAst
 typecheck :: [RawBehaviour] -> Err [Claim]
 typecheck behvs = let store = lookupVars behvs in
                   do bs <- mapM (splitBehaviour store) behvs
-                     return $ join bs
+                     return $ (S $ Storages store):(join bs)
 
 --- Finds storage declarations from constructors
 lookupVars :: [RawBehaviour] -> Store
@@ -141,16 +141,8 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (
   ensures <- mapM (checkBool env) (fromMaybe [] maybeEnsures)
   let postcs = postBounds <> ensures
 
-  return $ [mkStorage contract rawUpdates]
-           <> ((I . (Invariant contract)) <$> invariants)
+  return $ ((I . (Invariant contract)) <$> invariants)
            <> (splitCase name True contract iface (LitBool True) iffs' Nothing stateUpdates postcs)
-
-mkStorage :: Id -> [StorageUpdate] -> Claim
-mkStorage contract updates = S $ Storage contract (fmap getItem updates)
-  where
-    getItem (IntUpdate i _) = IntLoc i
-    getItem (BoolUpdate i _) = BoolLoc i
-    getItem (BytesUpdate i _) = BytesLoc i
 
 mkEnv :: Id -> Store -> [Decl]-> Env
 mkEnv contract store decls = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
