@@ -104,28 +104,6 @@ instance Eq (TStorageItem a) where
   (MappedBytes a b) == (MappedBytes c d) = (a == c) && (b == d)
   _ == _ = False
 
--- Hetorogeneous Equality
-class HEq a b where
-    heq :: a -> b -> Bool
-
-instance HEq (TStorageItem typ) StorageLocation where
-  (DirectInt a) `heq` (IntLoc (DirectInt b)) = a == b
-  (DirectBool a) `heq` (BoolLoc (DirectBool b)) = a == b
-  (DirectBytes a) `heq` (BytesLoc (DirectBytes b)) = a == b
-  (MappedInt a b) `heq` (IntLoc (MappedInt c d)) = a == c && b == d
-  (MappedBool a b) `heq` (BoolLoc (MappedBool c d)) = a == c && b == d
-  (MappedBytes a b) `heq` (BytesLoc (MappedBytes c d)) = a == c && b == d
-  _ `heq` _ = False
-
-instance HEq StorageLocation (TStorageItem a) where
-  (IntLoc (DirectInt b)) `heq` (DirectInt a) = a == b
-  (BoolLoc (DirectBool b)) `heq` (DirectBool a) = a == b
-  (BytesLoc (DirectBytes b)) `heq` (DirectBytes a) = a == b
-  (IntLoc (MappedInt c d)) `heq` (MappedInt a b) = a == c && b == d
-  (BoolLoc (MappedBool c d)) `heq` (MappedBool a b) = a == c && b == d
-  (BytesLoc (MappedBytes c d)) `heq` (MappedBytes a b) = a == c && b == d
-  _ `heq` _ = False
-
 -- typed expressions
 data Exp t where
   --booleans

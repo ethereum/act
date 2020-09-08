@@ -4,18 +4,15 @@
 
 module Prove (queries) where
 
-import Debug.Trace
-
 import Control.Monad (when)
 import Data.ByteString (ByteString)
 import Data.Either
-import Data.List (intercalate, (\\), nub)
+import Data.List (intercalate, (\\))
 import Data.List.NonEmpty as NonEmpty (NonEmpty, toList)
 import Data.Map.Strict as Map (Map, lookup, fromList, toList, keys)
 import Data.Maybe
 
 import Data.SBV hiding (name)
-import EVM.ABI (AbiType(..))
 
 import RefinedAst
 import Syntax (Id, Interface(..), Decl(..))
@@ -46,6 +43,9 @@ data When = Pre | Post
   deriving (Eq, Show)
 
 newtype Contract = Contract { unContract :: Id }
+  deriving (Show)
+
+newtype Slot = Slot { unSlot :: Id }
   deriving (Show)
 
 newtype Method = Method { unMethod :: Id }
@@ -108,7 +108,7 @@ mkQueries (inv, store, behvs) = (inv, inits' <> methods')
 -- |Given a creation behaviour return a predicate that holds if the invariant does not
 -- hold after the constructor has run
 mkInit :: Invariant -> Storages -> Behaviour -> Symbolic ()
-mkInit inv@(Invariant contract e) store behv@(Behaviour method _ _ c1 (Interface _ decls)  preCond postCond stateUpdates _) = do
+mkInit (Invariant contract e) store (Behaviour method _ _ c1 (Interface _ decls)  preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1) $ error "Internal error: contract mismatch"
 
@@ -137,9 +137,7 @@ mkInit inv@(Invariant contract e) store behv@(Behaviour method _ _ c1 (Interface
   where
     c = Contract contract
     m = Method method
-    refs = referenced inv behv store
-    locs = fst <$> refs
-
+    locs = (snd <$> locsFromUpdates stateUpdates) <> locsFromExp e
 
 -- |Given a non creation behaviour return a predicate that holds if:
 -- - the invariant holds over the prestate
@@ -178,8 +176,8 @@ mkMethod inv@(Invariant contract e) store behv@(Behaviour method _ _ c1 (Interfa
   where
     c = Contract contract
     m = Method method
-    refs = referenced inv behv store
-    locs = fst <$> refs
+    refs = referenced inv behv
+    locs = (snd <$> locsFromUpdates stateUpdates) <> locsFromExp e
 
 mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
 mkSymArg contract method decl@(Decl typ _) = case metaType typ of
@@ -206,48 +204,8 @@ mkSymStorage c m w loc = case loc of
     BytesLoc _ -> error ("TODO: handle bytestrings in smt expressions")
 
 -- |Returns all storage locations referenced by the invariant and behaviour
-referenced :: Invariant -> Behaviour -> Storages -> [(StorageLocation, AbiType)]
-referenced (Invariant contract inv) (Behaviour _ _ _ _ _ _ _ updates _) s@(Storages store)
-  = nub $ addType <$> (invLocs <> behvLocs)
-  where
-    invLocs = nub $ locsFromExp s (Contract contract) inv
-    behvLocs = snd <$> locsFromUpdates updates -- TODO: handle multi contract writes
-    addType loc = (loc, getType loc)
-
-    getType :: StorageLocation -> AbiType
-    getType loc = snd $ head $ filter (\(l, _) -> l == loc) $ Map.toList $ fromJust $ Map.lookup contract store
-
-locsFromUpdates :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageLocation)]
-locsFromUpdates updates = concat $ fmap merge $ Map.toList $ (fmap getLoc) <$> updates
-  where
-    merge :: (Id, [StorageLocation]) -> [(Id, StorageLocation)]
-    merge (c, locs) = fmap (\l -> (c, l)) locs
-
-    getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
-    getLoc ref = case ref of
-      Left loc -> loc
-      Right update -> case update of
-        IntUpdate item _ -> IntLoc item
-        BoolUpdate item _ -> BoolLoc item
-        BytesUpdate item _ -> BytesLoc item
-
-locsFromExp :: Storages -> Contract -> Exp a -> [StorageLocation]
-locsFromExp s@(Storages store) c@(Contract contract) e = case e of
-  And a b   -> (locsFromExp s c a) <> (locsFromExp s c b)
-  Or a b    -> (locsFromExp s c a) <> (locsFromExp s c b)
-  Impl a b  -> (locsFromExp s c a) <> (locsFromExp s c b)
-  Eq a b    -> (locsFromExp s c a) <> (locsFromExp s c b)
-  LE a b    -> (locsFromExp s c a) <> (locsFromExp s c b)
-  LEQ a b   -> (locsFromExp s c a) <> (locsFromExp s c b)
-  GE a b    -> (locsFromExp s c a) <> (locsFromExp s c b)
-  GEQ a b   -> (locsFromExp s c a) <> (locsFromExp s c b)
-  NEq a b   -> (locsFromExp s c a) <> (locsFromExp s c b)
-  Neg a     -> (locsFromExp s c a)
-  LitBool _ -> []
-  BoolVar _ -> []
-  TEntry a  -> filter (heq a) $ Map.keys $ fromJust (Map.lookup contract store)
-  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
-
+referenced :: Invariant -> Behaviour -> [(Contract, Slot)]
+referenced (Invariant contract inv) (Behaviour _ _ _ _ _ _ _ updates _) = undefined
 
 updated :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageUpdate)]
 updated stateUpdates = mkPairs $ fmap rights stateUpdates
@@ -362,3 +320,50 @@ nameFromArg :: Contract -> Method -> Id -> Id
 nameFromArg (Contract c) (Method m) name = c @@ m @@ name
   where
     x @@ y = x <> "_" <> y
+
+locsFromUpdates :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageLocation)]
+locsFromUpdates updates = concat $ fmap merge $ Map.toList $ (fmap getLoc) <$> updates
+  where
+    merge :: (Id, [StorageLocation]) -> [(Id, StorageLocation)]
+    merge (c, locs) = fmap (\l -> (c, l)) locs
+
+    getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
+    getLoc ref = case ref of
+      Left loc -> loc
+      Right update -> case update of
+        IntUpdate item _ -> IntLoc item
+        BoolUpdate item _ -> BoolLoc item
+        BytesUpdate item _ -> BytesLoc item
+
+locsFromExp :: Exp a -> [StorageLocation]
+locsFromExp e = case e of
+  And a b   -> (locsFromExp a) <> (locsFromExp b)
+  Or a b    -> (locsFromExp a) <> (locsFromExp b)
+  Impl a b  -> (locsFromExp a) <> (locsFromExp b)
+  Eq a b    -> (locsFromExp a) <> (locsFromExp b)
+  LE a b    -> (locsFromExp a) <> (locsFromExp b)
+  LEQ a b   -> (locsFromExp a) <> (locsFromExp b)
+  GE a b    -> (locsFromExp a) <> (locsFromExp b)
+  GEQ a b   -> (locsFromExp a) <> (locsFromExp b)
+  NEq a b   -> (locsFromExp a) <> (locsFromExp b)
+  Neg a     -> (locsFromExp a)
+  Add a b   -> (locsFromExp a) <> (locsFromExp b)
+  Sub a b   -> (locsFromExp a) <> (locsFromExp b)
+  Mul a b   -> (locsFromExp a) <> (locsFromExp b)
+  Div a b   -> (locsFromExp a) <> (locsFromExp b)
+  Mod a b   -> (locsFromExp a) <> (locsFromExp b)
+  Exp a b   -> (locsFromExp a) <> (locsFromExp b)
+  LitInt _  -> []
+  IntVar _  -> []
+  LitBool _ -> []
+  BoolVar _ -> []
+  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
+  IntEnv _ -> error "TODO: handle blockchain context in SMT expressions"
+  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+  TEntry a  -> case a of
+    DirectInt slot -> [IntLoc $ DirectInt slot]
+    DirectBool slot -> [BoolLoc $ DirectBool slot]
+    DirectBytes slot -> [BytesLoc $ DirectBytes slot]
+    MappedInt m ixs -> [IntLoc $ MappedInt m ixs]
+    MappedBool m ixs -> [BoolLoc $ MappedBool m ixs]
+    MappedBytes m ixs -> [BytesLoc $ MappedBytes m ixs]
