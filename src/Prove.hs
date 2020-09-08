@@ -100,15 +100,15 @@ gather claims = fmap (\i -> (i, store, getBehaviours i)) invariants
 mkQueries :: (Invariant, Storages, [Behaviour]) -> (Invariant, [Symbolic ()])
 mkQueries (inv, store, behvs) = (inv, inits' <> methods')
   where
-    inits' = fmap (mkInit inv store) inits
+    inits' = fmap (mkInit inv) inits
     methods' = fmap (mkMethod inv store) methods
     inits = filter _creation behvs
     methods = filter (not . _creation) behvs
 
 -- |Given a creation behaviour return a predicate that holds if the invariant does not
 -- hold after the constructor has run
-mkInit :: Invariant -> Storages -> Behaviour -> Symbolic ()
-mkInit inv@(Invariant contract e) (Storages store) behv@(Behaviour method _ _ c1 (Interface _ decls)  preCond postCond stateUpdates _) = do
+mkInit :: Invariant -> Behaviour -> Symbolic ()
+mkInit inv@(Invariant contract e) behv@(Behaviour method _ _ c1 (Interface _ decls) preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1) $ error "Internal error: contract mismatch"
 
@@ -121,8 +121,6 @@ mkInit inv@(Invariant contract e) (Storages store) behv@(Behaviour method _ _ c1
     postCtx ctrct = Ctx ctrct m calldata postStore Post
 
     postInv' = symExpBool (postCtx c) e
-
-    storageBounds = symExpBool (postCtx c) $ mconcat <$> mkStorageBounds store contract $ Left <$> locs
 
     preCond' = symExpBool (preCtx c) preCond
     postCond' = symExpBool (postCtx c) postCond
@@ -137,7 +135,7 @@ mkInit inv@(Invariant contract e) (Storages store) behv@(Behaviour method _ _ c1
 
   constrain $ preCond'
             .&& (sAnd stateUpdates') .&& (sAnd unchanged')
-            .&& postCond' .&& storageBounds
+            .&& postCond'
             .&& (sNot postInv')
   where
     c = Contract contract
@@ -371,7 +369,7 @@ locsFromExp e = case e of
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   IntEnv _ -> error "TODO: handle blockchain context in SMT expressions"
   ByEnv _ -> error "TODO: handle blockchain context in SMT expressions"
-  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+  ITE _ _ _ -> error "TODO: hande ITE in SMT expresssions"
   TEntry a  -> case a of
     DirectInt slot -> [IntLoc $ DirectInt slot]
     DirectBool slot -> [BoolLoc $ DirectBool slot]
