@@ -7,16 +7,16 @@ module Prove (queries) where
 import Control.Monad (when)
 import Data.ByteString (ByteString)
 import Data.Either
-import Data.List (intercalate, (\\))
+import Data.List (intercalate, (\\), nub)
 import Data.List.NonEmpty as NonEmpty (NonEmpty, toList)
-import Data.Map.Strict as Map (Map, lookup, fromList, toList, keys)
+import Data.Map.Strict as Map (Map, lookup, fromList, toList)
 import Data.Maybe
 
 import Data.SBV hiding (name)
 
 import RefinedAst
 import Syntax (Id, Interface(..), Decl(..))
-import Type (metaType)
+import Type (metaType, mkStorageBounds)
 
 -- *** Interface *** --
 
@@ -108,7 +108,7 @@ mkQueries (inv, store, behvs) = (inv, inits' <> methods')
 -- |Given a creation behaviour return a predicate that holds if the invariant does not
 -- hold after the constructor has run
 mkInit :: Invariant -> Storages -> Behaviour -> Symbolic ()
-mkInit (Invariant contract e) store (Behaviour method _ _ c1 (Interface _ decls)  preCond postCond stateUpdates _) = do
+mkInit inv@(Invariant contract e) (Storages store) behv@(Behaviour method _ _ c1 (Interface _ decls)  preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1) $ error "Internal error: contract mismatch"
 
@@ -120,7 +120,9 @@ mkInit (Invariant contract e) store (Behaviour method _ _ c1 (Interface _ decls)
     preCtx ctrct = Ctx ctrct m calldata preStore Pre
     postCtx ctrct = Ctx ctrct m calldata postStore Post
 
-    inv' = symExpBool (postCtx c) e
+    postInv' = symExpBool (postCtx c) e
+
+    storageBounds = symExpBool (postCtx c) $ mconcat <$> mkStorageBounds store contract $ Left <$> locs
 
     preCond' = symExpBool (preCtx c) preCond
     postCond' = symExpBool (postCtx c) postCond
@@ -133,18 +135,21 @@ mkInit (Invariant contract e) store (Behaviour method _ _ c1 (Interface _ decls)
                       (\(ctrct, u) -> fromUpdate (preCtx (Contract ctrct)) (postCtx (Contract ctrct)) u)
                       (updated stateUpdates)
 
-  constrain $ (sAnd stateUpdates') .&& (sAnd unchanged') .&& (sNot inv') .&& preCond' .&& postCond'
+  constrain $ preCond'
+            .&& (sAnd stateUpdates') .&& (sAnd unchanged')
+            .&& postCond' .&& storageBounds
+            .&& (sNot postInv')
   where
     c = Contract contract
     m = Method method
-    locs = (snd <$> locsFromUpdates stateUpdates) <> locsFromExp e
+    locs = references inv behv
 
 -- |Given a non creation behaviour return a predicate that holds if:
 -- - the invariant holds over the prestate
 -- - the method has run
 -- - the invariant does not hold over the prestate
 mkMethod :: Invariant -> Storages -> Behaviour -> Symbolic ()
-mkMethod inv@(Invariant contract e) store behv@(Behaviour method _ _ c1 (Interface _ decls) preCond postCond stateUpdates _) = do
+mkMethod inv@(Invariant contract e) (Storages store) behv@(Behaviour method _ _ c1 (Interface _ decls) preCond postCond stateUpdates _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1) $ error "Internal error: contract mismatch"
 
@@ -155,6 +160,8 @@ mkMethod inv@(Invariant contract e) store behv@(Behaviour method _ _ c1 (Interfa
   let
     preCtx ctrct = Ctx ctrct m calldata preStore Pre
     postCtx ctrct = Ctx ctrct m calldata postStore Post
+
+    storageBounds = symExpBool (preCtx c) $ mconcat <$> mkStorageBounds store contract $ Left <$> locs
 
     preInv = symExpBool (preCtx c) e
     postInv = symExpBool (postCtx c) e
@@ -170,14 +177,17 @@ mkMethod inv@(Invariant contract e) store behv@(Behaviour method _ _ c1 (Interfa
                       (\(ctrct, u) -> fromUpdate (preCtx (Contract ctrct)) (postCtx (Contract ctrct)) u)
                       (updated stateUpdates)
 
-  constrain $ preInv .&& preCond'
+  constrain $ preInv .&& preCond' .&& storageBounds
            .&& (sAnd stateUpdates') .&& (sAnd unchanged')
            .&& postCond' .&& (sNot postInv)
   where
     c = Contract contract
     m = Method method
-    refs = referenced inv behv
-    locs = (snd <$> locsFromUpdates stateUpdates) <> locsFromExp e
+    locs = references inv behv
+
+references :: Invariant -> Behaviour -> [StorageLocation]
+references (Invariant _ inv) (Behaviour _ _ _ _ _ _ _ updates _)
+  = nub $ (snd <$> locsFromUpdates updates) <> locsFromExp inv
 
 mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
 mkSymArg contract method decl@(Decl typ _) = case metaType typ of
@@ -202,10 +212,6 @@ mkSymStorage c m w loc = case loc of
       v <- sBool name
       return $ (name, SymBool v)
     BytesLoc _ -> error ("TODO: handle bytestrings in smt expressions")
-
--- |Returns all storage locations referenced by the invariant and behaviour
-referenced :: Invariant -> Behaviour -> [(Contract, Slot)]
-referenced (Invariant contract inv) (Behaviour _ _ _ _ _ _ _ updates _) = undefined
 
 updated :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageUpdate)]
 updated stateUpdates = mkPairs $ fmap rights stateUpdates
@@ -353,12 +359,18 @@ locsFromExp e = case e of
   Div a b   -> (locsFromExp a) <> (locsFromExp b)
   Mod a b   -> (locsFromExp a) <> (locsFromExp b)
   Exp a b   -> (locsFromExp a) <> (locsFromExp b)
+  Cat a b   -> (locsFromExp a) <> (locsFromExp b)
+  Slice a b c -> (locsFromExp a) <> (locsFromExp b) <> (locsFromExp c)
+  ByVar _ -> []
+  ByStr _ -> []
+  ByLit _ -> []
   LitInt _  -> []
   IntVar _  -> []
   LitBool _ -> []
   BoolVar _ -> []
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   IntEnv _ -> error "TODO: handle blockchain context in SMT expressions"
+  ByEnv _ -> error "TODO: handle blockchain context in SMT expressions"
   ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
   TEntry a  -> case a of
     DirectInt slot -> [IntLoc $ DirectInt slot]

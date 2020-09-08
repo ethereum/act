@@ -10,7 +10,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Type (typecheck, metaType) where
+module Type (typecheck, metaType, mkStorageBounds) where
 
 import Data.List
 import EVM.ABI
@@ -107,9 +107,8 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     flatten :: [Exp Bool] -> [Exp Bool] -> Cases -> Err [Claim]
     flatten iff postc (Direct post) = do
       (p, maybeReturn) <- checkPost env contract post
-      let preBounds = fst $ mkBounds p
-          postBounds = snd $ mkBounds p
-      return $ splitCase name False contract iface (LitBool True) (iff <> preBounds) maybeReturn p (postc <> postBounds)
+      let preBounds = mkBounds p
+      return $ splitCase name False contract iface (LitBool True) (iff <> preBounds) maybeReturn p postc
     flatten iff postc (Branches branches) = do
       branches' <- normalize branches
       cases' <- flip mapM branches' $ \(Case _ cond post) -> do
@@ -118,12 +117,11 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
         return (if', post', ret)
 
       pure . join $ ((\(ifcond, stateUpdates, ret) -> let
-          preBounds = fst $ mkBounds stateUpdates
-          postBounds = snd $ mkBounds stateUpdates
-        in splitCase name False contract iface ifcond (iff <> preBounds) ret stateUpdates (postc <> postBounds)) <$> cases')
+          preBounds = mkBounds stateUpdates
+        in splitCase name False contract iface ifcond (iff <> preBounds) ret stateUpdates postc) <$> cases')
 
-    mkBounds :: Map Id [Either StorageLocation StorageUpdate] -> ([Exp Bool], [Exp Bool])
-    mkBounds updates = both concat $ unzip $ fmap (uncurry $ mkStorageBounds env) (Map.toList updates)
+    mkBounds :: Map Id [Either StorageLocation StorageUpdate] -> [Exp Bool]
+    mkBounds updates = concat $ fmap (uncurry $ mkStorageBounds store) (Map.toList updates)
 
 splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvs) = do
   when (length extStorage > 0) $ error "TODO: support extStorage in constructor"
@@ -132,14 +130,13 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (
 
   rawUpdates <- concat <$> mapM (checkAssign env) assigns
   let stateUpdates = Map.fromList $ [(contract, Right <$> rawUpdates)]
-      (_, postBounds) = mkStorageBounds env contract (Right <$> rawUpdates)
 
   let calldataBounds = getCallDataBounds decls
   iffs' <- checkIffs env (iffs <> calldataBounds)
 
   invariants <- mapM (checkBool env) $ fromMaybe [] maybeInvs
   ensures <- mapM (checkBool env) (fromMaybe [] maybeEnsures)
-  let postcs = postBounds <> ensures
+  let postcs = ensures
 
   return $ ((I . (Invariant contract)) <$> invariants)
            <> (splitCase name True contract iface (LitBool True) iffs' Nothing stateUpdates postcs)
@@ -158,31 +155,19 @@ splitCase name creates contract iface if' iffs ret storage postcs =
   [ B $ Behaviour name Pass creates contract iface (mconcat (if':iffs)) (mconcat postcs) storage ret,
     B $ Behaviour name Fail creates contract iface (And if' (Neg (mconcat iffs))) (mconcat postcs) storage Nothing ]
 
--- | extracts bounds from the AbiTypes of Integer values in storage, returns a pre and post condition
-mkStorageBounds :: Env -> Id -> [Either StorageLocation StorageUpdate] -> ([Exp Bool], [Exp Bool])
-mkStorageBounds (_, store, _) contract refs
-  = both catMaybes $ unzip $ fmap (\r -> (mkPre r, mkPost r)) refs
+-- | extracts bounds from the AbiTypes of Integer values in storage
+mkStorageBounds :: Store -> Id -> [Either StorageLocation StorageUpdate] -> [Exp Bool]
+mkStorageBounds store contract refs
+  = catMaybes $ mkBound <$> refs
   where
-    mkPre :: Either StorageLocation StorageUpdate -> Maybe (Exp Bool)
-    mkPre ref = case ref of
+    mkBound :: Either StorageLocation StorageUpdate -> Maybe (Exp Bool)
+    mkBound ref = case ref of
       Left loc -> case loc of
         IntLoc item -> Just $ fromItem item
         _ -> Nothing
       Right update -> case update of
         IntUpdate item _ -> Just $ fromItem item
         _ -> Nothing
-
-    mkPost :: Either StorageLocation StorageUpdate -> Maybe (Exp Bool)
-    mkPost ref = case ref of
-      Left _ -> Nothing
-      Right update -> case update of
-        IntUpdate item e -> fromExp item e
-        _ -> Nothing
-
-    fromExp :: TStorageItem Integer -> Exp Integer -> Maybe (Exp Bool)
-    fromExp item e = case item of
-      MappedInt name _ -> Just $ bound (abiType $ slotType name) e
-      _ -> Nothing
 
     fromItem :: TStorageItem Integer -> Exp Bool
     fromItem item = case item of
@@ -210,7 +195,7 @@ getCallDataBounds decls =
       )
       decls
 
--- ensures that key types match value types in an assign
+-- ensures that key types ma-locsFromUpdates :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageLocation)]
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
 checkAssign env (AssignVal (StorageVar (StorageValue typ) name) expr)
   = case metaType typ of
@@ -460,7 +445,4 @@ checkInt env e =
     Ok (ExpBytes _) -> Bad (nowhere, "expected: int, got: bytes")
     Ok (ExpBool _) -> Bad (nowhere, "expected: int, got: bool")
     Bad err -> Bad err
-
-both :: (a -> b) -> (a, a) -> (b, b)
-both f t = (f $ fst t, f $ snd t)
 
