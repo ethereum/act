@@ -19,6 +19,7 @@ import System.IO (hPutStrLn, stderr)
 import Data.SBV
 import Data.Text (pack, unpack)
 import Data.Maybe
+import Data.List
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Map.Strict      as Map -- abandon in favor of [(a,b)]?
@@ -62,7 +63,6 @@ data Command w
  deriving (Generic)
 
 deriving instance ParseField [(Id, String)]
-
 instance ParseRecord (Command Wrapped)
 deriving instance Show (Command Unwrapped)
 
@@ -90,19 +90,20 @@ main = do
           Ok claims -> do
             let
                 handleResults ((Invariant c e), rs) = do
-                  let msg = "Invariant " <> show e <> " of " <> show c <> ": "
+                  let msg = "\n============\n\nInvariant " <> show e <> " of " <> show c <> ": "
+                      sep = "\n\n---\n\n"
                       results' = handleRes <$> rs
                       ok = foldl (||) False $ fst <$> results'
                   case ok of
                     False -> putStrLn $ msg <> "Q.E.D"
-                    True -> putStrLn $ msg <> "\n" <> (concat $ snd <$> results')
+                    True -> putStrLn $ msg <> sep <> (intercalate sep $ snd <$> results')
 
                 handleRes (SatResult res) = case res of
                   Unsatisfiable _ _ -> (False, "")
-                  Satisfiable _ model -> (True, "Counter example found! " <> show model)
-                  SatExtField _ model -> (True, "Counter example found! " <> show model)
+                  Satisfiable _ model -> (True, "Counter example found!\n\n" <> show model)
                   Unknown _ reason -> (True, "Unknown! " <> show reason)
                   ProofError _ reasons _  -> (True, "Proof error! " <> show reasons)
+                  SatExtField _ _ -> error "Extension field containing Infinite/epsilon"
                   DeltaSat _ _ _ -> error "Unexpected DeltaSat"
 
             results <- flip mapM (queries claims)
