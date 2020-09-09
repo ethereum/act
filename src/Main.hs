@@ -47,10 +47,10 @@ data Command w
 
   | Type            { file       :: w ::: String               <?> "Path to file"}
 
-  | Prove           { file  :: w ::: String <?> "Path to file"
-                    , solver :: w ::: Maybe Text <?> "Used SMT solver: z3 (default) or cvc4"
-                    , smttimeout :: w ::: Maybe Integer
-                        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
+  | Prove           { file       :: w ::: String               <?> "Path to file"
+                    , solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
+                    , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
+                    , debug      :: w ::: Maybe Bool           <?> "Print verbose smt output (default: False)"
                     }
 
   | K               { spec       :: w ::: String               <?> "Path to spec"
@@ -83,20 +83,20 @@ main = do
                        Ok a  -> B.putStrLn $ encode a
                        Bad e -> prettyErr contents e
 
-      (Prove file solver smttimeout) -> do
+      (Prove file solver smttimeout debug) -> do
         contents <- readFile file
         case parse (lexer contents) >>= typecheck of
           Bad e -> prettyErr contents e
           Ok claims -> do
             let
                 handleResults ((Invariant c e), rs) = do
-                  let msg = "\n============\n\nInvariant " <> show e <> " of " <> show c <> ": "
+                  let msg = "\n============\n\nInvariant " <> show e <> " of " <> show c <> ": \n\n"
                       sep = "\n\n---\n\n"
                       results' = handleRes <$> rs
                       ok = foldl (||) False $ fst <$> results'
                   case ok of
                     False -> putStrLn $ msg <> "Q.E.D"
-                    True -> putStrLn $ msg <> sep <> (intercalate sep $ snd <$> results')
+                    True -> putStrLn $ msg <> (intercalate sep $ snd <$> results')
 
                 handleRes (SatResult res) = case res of
                   Unsatisfiable _ _ -> (False, "")
@@ -108,7 +108,7 @@ main = do
 
             results <- flip mapM (queries claims)
                           (\(i, qs) -> do
-                            rs <- mapM (runSMTWithTimeOut solver smttimeout) qs
+                            rs <- mapM (runSMTWithTimeOut solver smttimeout debug) qs
                             pure $ (i, rs)
                           )
             mapM_ handleResults results
@@ -130,21 +130,20 @@ main = do
                      Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
                forM_ kSpecs printFile
 
-
 -- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
-runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Symbolic () -> IO SatResult
-runSMTWithTimeOut solver maybeTimeout sym
+runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Maybe Bool -> Symbolic () -> IO SatResult
+runSMTWithTimeOut solver maybeTimeout maybeDebug sym
   | solver == Just "cvc4" = do
       setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --incremental --interactive --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
-      res <- satWith cvc4{verbose=True} sym
+      res <- satWith cvc4{verbose=debug} sym
       setEnv "SBV_CVC4_OPTIONS" ""
       return res
   | solver == Just "z3" = runwithz3
   | solver == Nothing = runwithz3
   | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
- where timeout = fromMaybe 20000 maybeTimeout
-       runwithz3 = satWith z3{verbose=True} $ (setTimeOut timeout) >> sym
-
+ where debug = fromMaybe False maybeDebug
+       timeout = fromMaybe 20000 maybeTimeout
+       runwithz3 = satWith z3{verbose=debug} $ (setTimeOut timeout) >> sym
 
 prettyErr :: String -> (Pn, String) -> IO ()
 prettyErr contents pn@(AlexPn _ line col,msg) =
