@@ -90,13 +90,13 @@ main = do
           Ok claims -> do
             let
                 handleResults ((Invariant c e), rs) = do
-                  let msg = "\n============\n\nInvariant " <> show e <> " of " <> show c <> ": \n\n"
+                  let msg = "\n============\n\nInvariant " <> show e <> " of " <> show c <> ": "
                       sep = "\n\n---\n\n"
                       results' = handleRes <$> rs
                       ok = foldl (||) False $ fst <$> results'
                   case ok of
-                    False -> putStrLn $ msg <> "Q.E.D"
-                    True -> putStrLn $ msg <> (intercalate sep $ snd <$> results')
+                    False -> putStrLn $ msg <> "Q.E.D ✨"
+                    True -> putStrLn $ msg <> "\n\n" <> (intercalate sep $ snd <$> results')
 
                 handleRes (SatResult res) = case res of
                   Unsatisfiable _ _ -> (False, "")
