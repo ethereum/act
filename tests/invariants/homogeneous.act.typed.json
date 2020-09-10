@@ -1,35 +1,61 @@
 [
   {
-    "stateUpdates": {
-      "Homogeneous": [
-        {
-          "Right": {
-            "location": "z",
-            "value": {
-              "arity": 2,
-              "args": [
-                "z",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
-          }
+    "storages": {
+      "Homogeneous": {
+        "z": {
+          "type": "uint256"
         },
-        {
-          "Right": {
-            "location": "y",
-            "value": {
-              "arity": 2,
-              "args": [
-                "y",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
+        "x": {
+          "type": "uint256"
+        },
+        "y": {
+          "type": "uint256"
+        }
+      }
+    },
+    "kind": "Storages"
+  },
+  {
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "Homogeneous.z",
+            "sort": "int"
+          },
+          "value": {
+            "arity": 2,
+            "args": [
+              {
+                "name": "Homogeneous.z",
+                "sort": "int"
+              },
+              "scalar"
+            ],
+            "symbol": "*"
           }
         }
-      ]
-    },
+      },
+      {
+        "Right": {
+          "location": {
+            "name": "Homogeneous.y",
+            "sort": "int"
+          },
+          "value": {
+            "arity": 2,
+            "args": [
+              {
+                "name": "Homogeneous.y",
+                "sort": "int"
+              },
+              "scalar"
+            ],
+            "symbol": "*"
+          }
+        }
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
@@ -47,12 +73,18 @@
                 {
                   "arity": 2,
                   "args": [
-                    "z",
+                    {
+                      "name": "Homogeneous.z",
+                      "sort": "int"
+                    },
                     "scalar"
                   ],
                   "symbol": "*"
                 },
-                "z"
+                {
+                  "name": "Homogeneous.z",
+                  "sort": "int"
+                }
               ],
               "symbol": ">"
             },
@@ -65,12 +97,18 @@
                     {
                       "arity": 2,
                       "args": [
-                        "y",
+                        {
+                          "name": "Homogeneous.y",
+                          "sort": "int"
+                        },
                         "scalar"
                       ],
                       "symbol": "*"
                     },
-                    "y"
+                    {
+                      "name": "Homogeneous.y",
+                      "sort": "int"
+                    }
                   ],
                   "symbol": ">"
                 },
@@ -109,14 +147,20 @@
                               "arity": 2,
                               "args": [
                                 0,
-                                "x"
+                                {
+                                  "name": "Homogeneous.z",
+                                  "sort": "int"
+                                }
                               ],
                               "symbol": "<="
                             },
                             {
                               "arity": 2,
                               "args": [
-                                "x",
+                                {
+                                  "name": "Homogeneous.z",
+                                  "sort": "int"
+                                },
                                 1.157920892373162e+77
                               ],
                               "symbol": "<="
@@ -134,14 +178,20 @@
                                   "arity": 2,
                                   "args": [
                                     0,
-                                    "y"
+                                    {
+                                      "name": "Homogeneous.y",
+                                      "sort": "int"
+                                    }
                                   ],
                                   "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "y",
+                                    {
+                                      "name": "Homogeneous.y",
+                                      "sort": "int"
+                                    },
                                     1.157920892373162e+77
                                   ],
                                   "symbol": "<="
@@ -149,35 +199,7 @@
                               ],
                               "symbol": "and"
                             },
-                            {
-                              "arity": 2,
-                              "args": [
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        0,
-                                        "z"
-                                      ],
-                                      "symbol": "<="
-                                    },
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        "z",
-                                        1.157920892373162e+77
-                                      ],
-                                      "symbol": "<="
-                                    }
-                                  ],
-                                  "symbol": "and"
-                                },
-                                "True"
-                              ],
-                              "symbol": "and"
-                            }
+                            "True"
                           ],
                           "symbol": "and"
                         }
@@ -202,36 +224,46 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "Homogeneous": [
-        {
-          "Right": {
-            "location": "z",
-            "value": {
-              "arity": 2,
-              "args": [
-                "z",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
-          }
-        },
-        {
-          "Right": {
-            "location": "y",
-            "value": {
-              "arity": 2,
-              "args": [
-                "y",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "Homogeneous.z",
+            "sort": "int"
+          },
+          "value": {
+            "arity": 2,
+            "args": [
+              {
+                "name": "Homogeneous.z",
+                "sort": "int"
+              },
+              "scalar"
+            ],
+            "symbol": "*"
           }
         }
-      ]
-    },
+      },
+      {
+        "Right": {
+          "location": {
+            "name": "Homogeneous.y",
+            "sort": "int"
+          },
+          "value": {
+            "arity": 2,
+            "args": [
+              {
+                "name": "Homogeneous.y",
+                "sort": "int"
+              },
+              "scalar"
+            ],
+            "symbol": "*"
+          }
+        }
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
@@ -252,12 +284,18 @@
                     {
                       "arity": 2,
                       "args": [
-                        "z",
+                        {
+                          "name": "Homogeneous.z",
+                          "sort": "int"
+                        },
                         "scalar"
                       ],
                       "symbol": "*"
                     },
-                    "z"
+                    {
+                      "name": "Homogeneous.z",
+                      "sort": "int"
+                    }
                   ],
                   "symbol": ">"
                 },
@@ -270,12 +308,18 @@
                         {
                           "arity": 2,
                           "args": [
-                            "y",
+                            {
+                              "name": "Homogeneous.y",
+                              "sort": "int"
+                            },
                             "scalar"
                           ],
                           "symbol": "*"
                         },
-                        "y"
+                        {
+                          "name": "Homogeneous.y",
+                          "sort": "int"
+                        }
                       ],
                       "symbol": ">"
                     },
@@ -314,14 +358,20 @@
                                   "arity": 2,
                                   "args": [
                                     0,
-                                    "x"
+                                    {
+                                      "name": "Homogeneous.z",
+                                      "sort": "int"
+                                    }
                                   ],
                                   "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "x",
+                                    {
+                                      "name": "Homogeneous.z",
+                                      "sort": "int"
+                                    },
                                     1.157920892373162e+77
                                   ],
                                   "symbol": "<="
@@ -339,14 +389,20 @@
                                       "arity": 2,
                                       "args": [
                                         0,
-                                        "y"
+                                        {
+                                          "name": "Homogeneous.y",
+                                          "sort": "int"
+                                        }
                                       ],
                                       "symbol": "<="
                                     },
                                     {
                                       "arity": 2,
                                       "args": [
-                                        "y",
+                                        {
+                                          "name": "Homogeneous.y",
+                                          "sort": "int"
+                                        },
                                         1.157920892373162e+77
                                       ],
                                       "symbol": "<="
@@ -354,35 +410,7 @@
                                   ],
                                   "symbol": "and"
                                 },
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            0,
-                                            "z"
-                                          ],
-                                          "symbol": "<="
-                                        },
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            "z",
-                                            1.157920892373162e+77
-                                          ],
-                                          "symbol": "<="
-                                        }
-                                      ],
-                                      "symbol": "and"
-                                    },
-                                    "True"
-                                  ],
-                                  "symbol": "and"
-                                }
+                                "True"
                               ],
                               "symbol": "and"
                             }
@@ -410,36 +438,46 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "Homogeneous": [
-        {
-          "Right": {
-            "location": "z",
-            "value": {
-              "arity": 2,
-              "args": [
-                "z",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
-          }
-        },
-        {
-          "Right": {
-            "location": "x",
-            "value": {
-              "arity": 2,
-              "args": [
-                "x",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "Homogeneous.z",
+            "sort": "int"
+          },
+          "value": {
+            "arity": 2,
+            "args": [
+              {
+                "name": "Homogeneous.z",
+                "sort": "int"
+              },
+              "scalar"
+            ],
+            "symbol": "*"
           }
         }
-      ]
-    },
+      },
+      {
+        "Right": {
+          "location": {
+            "name": "Homogeneous.x",
+            "sort": "int"
+          },
+          "value": {
+            "arity": 2,
+            "args": [
+              {
+                "name": "Homogeneous.x",
+                "sort": "int"
+              },
+              "scalar"
+            ],
+            "symbol": "*"
+          }
+        }
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
@@ -457,12 +495,18 @@
                 {
                   "arity": 2,
                   "args": [
-                    "z",
+                    {
+                      "name": "Homogeneous.z",
+                      "sort": "int"
+                    },
                     "scalar"
                   ],
                   "symbol": "*"
                 },
-                "z"
+                {
+                  "name": "Homogeneous.z",
+                  "sort": "int"
+                }
               ],
               "symbol": ">"
             },
@@ -475,12 +519,18 @@
                     {
                       "arity": 2,
                       "args": [
-                        "x",
+                        {
+                          "name": "Homogeneous.x",
+                          "sort": "int"
+                        },
                         "scalar"
                       ],
                       "symbol": "*"
                     },
-                    "x"
+                    {
+                      "name": "Homogeneous.x",
+                      "sort": "int"
+                    }
                   ],
                   "symbol": ">"
                 },
@@ -519,14 +569,20 @@
                               "arity": 2,
                               "args": [
                                 0,
-                                "x"
+                                {
+                                  "name": "Homogeneous.z",
+                                  "sort": "int"
+                                }
                               ],
                               "symbol": "<="
                             },
                             {
                               "arity": 2,
                               "args": [
-                                "x",
+                                {
+                                  "name": "Homogeneous.z",
+                                  "sort": "int"
+                                },
                                 1.157920892373162e+77
                               ],
                               "symbol": "<="
@@ -544,14 +600,20 @@
                                   "arity": 2,
                                   "args": [
                                     0,
-                                    "y"
+                                    {
+                                      "name": "Homogeneous.x",
+                                      "sort": "int"
+                                    }
                                   ],
                                   "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "y",
+                                    {
+                                      "name": "Homogeneous.x",
+                                      "sort": "int"
+                                    },
                                     1.157920892373162e+77
                                   ],
                                   "symbol": "<="
@@ -559,35 +621,7 @@
                               ],
                               "symbol": "and"
                             },
-                            {
-                              "arity": 2,
-                              "args": [
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        0,
-                                        "z"
-                                      ],
-                                      "symbol": "<="
-                                    },
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        "z",
-                                        1.157920892373162e+77
-                                      ],
-                                      "symbol": "<="
-                                    }
-                                  ],
-                                  "symbol": "and"
-                                },
-                                "True"
-                              ],
-                              "symbol": "and"
-                            }
+                            "True"
                           ],
                           "symbol": "and"
                         }
@@ -612,36 +646,46 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "Homogeneous": [
-        {
-          "Right": {
-            "location": "z",
-            "value": {
-              "arity": 2,
-              "args": [
-                "z",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
-          }
-        },
-        {
-          "Right": {
-            "location": "x",
-            "value": {
-              "arity": 2,
-              "args": [
-                "x",
-                "scalar"
-              ],
-              "symbol": "*"
-            }
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "Homogeneous.z",
+            "sort": "int"
+          },
+          "value": {
+            "arity": 2,
+            "args": [
+              {
+                "name": "Homogeneous.z",
+                "sort": "int"
+              },
+              "scalar"
+            ],
+            "symbol": "*"
           }
         }
-      ]
-    },
+      },
+      {
+        "Right": {
+          "location": {
+            "name": "Homogeneous.x",
+            "sort": "int"
+          },
+          "value": {
+            "arity": 2,
+            "args": [
+              {
+                "name": "Homogeneous.x",
+                "sort": "int"
+              },
+              "scalar"
+            ],
+            "symbol": "*"
+          }
+        }
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
@@ -662,12 +706,18 @@
                     {
                       "arity": 2,
                       "args": [
-                        "z",
+                        {
+                          "name": "Homogeneous.z",
+                          "sort": "int"
+                        },
                         "scalar"
                       ],
                       "symbol": "*"
                     },
-                    "z"
+                    {
+                      "name": "Homogeneous.z",
+                      "sort": "int"
+                    }
                   ],
                   "symbol": ">"
                 },
@@ -680,12 +730,18 @@
                         {
                           "arity": 2,
                           "args": [
-                            "x",
+                            {
+                              "name": "Homogeneous.x",
+                              "sort": "int"
+                            },
                             "scalar"
                           ],
                           "symbol": "*"
                         },
-                        "x"
+                        {
+                          "name": "Homogeneous.x",
+                          "sort": "int"
+                        }
                       ],
                       "symbol": ">"
                     },
@@ -724,14 +780,20 @@
                                   "arity": 2,
                                   "args": [
                                     0,
-                                    "x"
+                                    {
+                                      "name": "Homogeneous.z",
+                                      "sort": "int"
+                                    }
                                   ],
                                   "symbol": "<="
                                 },
                                 {
                                   "arity": 2,
                                   "args": [
-                                    "x",
+                                    {
+                                      "name": "Homogeneous.z",
+                                      "sort": "int"
+                                    },
                                     1.157920892373162e+77
                                   ],
                                   "symbol": "<="
@@ -749,14 +811,20 @@
                                       "arity": 2,
                                       "args": [
                                         0,
-                                        "y"
+                                        {
+                                          "name": "Homogeneous.x",
+                                          "sort": "int"
+                                        }
                                       ],
                                       "symbol": "<="
                                     },
                                     {
                                       "arity": 2,
                                       "args": [
-                                        "y",
+                                        {
+                                          "name": "Homogeneous.x",
+                                          "sort": "int"
+                                        },
                                         1.157920892373162e+77
                                       ],
                                       "symbol": "<="
@@ -764,35 +832,7 @@
                                   ],
                                   "symbol": "and"
                                 },
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "arity": 2,
-                                      "args": [
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            0,
-                                            "z"
-                                          ],
-                                          "symbol": "<="
-                                        },
-                                        {
-                                          "arity": 2,
-                                          "args": [
-                                            "z",
-                                            1.157920892373162e+77
-                                          ],
-                                          "symbol": "<="
-                                        }
-                                      ],
-                                      "symbol": "and"
-                                    },
-                                    "True"
-                                  ],
-                                  "symbol": "and"
-                                }
+                                "True"
                               ],
                               "symbol": "and"
                             }
@@ -821,46 +861,62 @@
   },
   {
     "kind": "Invariant",
-    "contract": "Homogeneous",
+    "contract": "\"Homogeneous\"",
     "expression": {
       "arity": 2,
       "args": [
         {
           "arity": 2,
           "args": [
-            "x",
-            "y"
+            {
+              "name": "Homogeneous.x",
+              "sort": "int"
+            },
+            {
+              "name": "Homogeneous.y",
+              "sort": "int"
+            }
           ],
           "symbol": "*"
         },
-        "z"
+        {
+          "name": "Homogeneous.z",
+          "sort": "int"
+        }
       ],
       "symbol": "=="
     }
   },
   {
-    "stateUpdates": {
-      "Homogeneous": [
-        {
-          "Right": {
-            "location": "z",
-            "value": 15
-          }
-        },
-        {
-          "Right": {
-            "location": "y",
-            "value": 5
-          }
-        },
-        {
-          "Right": {
-            "location": "x",
-            "value": 3
-          }
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "Homogeneous.z",
+            "sort": "int"
+          },
+          "value": 15
         }
-      ]
-    },
+      },
+      {
+        "Right": {
+          "location": {
+            "name": "Homogeneous.y",
+            "sort": "int"
+          },
+          "value": 5
+        }
+      },
+      {
+        "Right": {
+          "location": {
+            "name": "Homogeneous.x",
+            "sort": "int"
+          },
+          "value": 3
+        }
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
@@ -878,14 +934,20 @@
               "arity": 2,
               "args": [
                 0,
-                "x"
+                {
+                  "name": "Homogeneous.z",
+                  "sort": "int"
+                }
               ],
               "symbol": "<="
             },
             {
               "arity": 2,
               "args": [
-                "x",
+                {
+                  "name": "Homogeneous.z",
+                  "sort": "int"
+                },
                 1.157920892373162e+77
               ],
               "symbol": "<="
@@ -903,14 +965,20 @@
                   "arity": 2,
                   "args": [
                     0,
-                    "y"
+                    {
+                      "name": "Homogeneous.y",
+                      "sort": "int"
+                    }
                   ],
                   "symbol": "<="
                 },
                 {
                   "arity": 2,
                   "args": [
-                    "y",
+                    {
+                      "name": "Homogeneous.y",
+                      "sort": "int"
+                    },
                     1.157920892373162e+77
                   ],
                   "symbol": "<="
@@ -928,14 +996,20 @@
                       "arity": 2,
                       "args": [
                         0,
-                        "z"
+                        {
+                          "name": "Homogeneous.x",
+                          "sort": "int"
+                        }
                       ],
                       "symbol": "<="
                     },
                     {
                       "arity": 2,
                       "args": [
-                        "z",
+                        {
+                          "name": "Homogeneous.x",
+                          "sort": "int"
+                        },
                         1.157920892373162e+77
                       ],
                       "symbol": "<="
@@ -943,28 +1017,7 @@
                   ],
                   "symbol": "and"
                 },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            "x",
-                            "y"
-                          ],
-                          "symbol": "*"
-                        },
-                        "z"
-                      ],
-                      "symbol": "=="
-                    },
-                    "True"
-                  ],
-                  "symbol": "and"
-                }
+                "True"
               ],
               "symbol": "and"
             }

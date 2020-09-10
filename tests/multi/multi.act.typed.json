@@ -1,23 +1,40 @@
 [
   {
-    "stateUpdates": {
-      "a": [
-        {
-          "Right": {
-            "location": "x",
-            "value": "z"
-          }
+    "storages": {
+      "a": {
+        "x": {
+          "type": "uint256"
         }
-      ],
-      "B": [
-        {
-          "Right": {
-            "location": "y",
-            "value": 1
-          }
+      },
+      "B": {
+        "y": {
+          "type": "uint256"
         }
-      ]
+      }
     },
+    "kind": "Storages"
+  },
+  {
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "B.y",
+            "sort": "int"
+          },
+          "value": 1
+        }
+      },
+      {
+        "Right": {
+          "location": {
+            "name": "a.x",
+            "sort": "int"
+          },
+          "value": "z"
+        }
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
@@ -72,14 +89,20 @@
                           "arity": 2,
                           "args": [
                             0,
-                            "y"
+                            {
+                              "name": "B.y",
+                              "sort": "int"
+                            }
                           ],
                           "symbol": "<="
                         },
                         {
                           "arity": 2,
                           "args": [
-                            "y",
+                            {
+                              "name": "B.y",
+                              "sort": "int"
+                            },
                             1.157920892373162e+77
                           ],
                           "symbol": "<="
@@ -87,7 +110,41 @@
                       ],
                       "symbol": "and"
                     },
-                    "True"
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                0,
+                                {
+                                  "name": "a.x",
+                                  "sort": "int"
+                                }
+                              ],
+                              "symbol": "<="
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                {
+                                  "name": "a.x",
+                                  "sort": "int"
+                                },
+                                1.157920892373162e+77
+                              ],
+                              "symbol": "<="
+                            }
+                          ],
+                          "symbol": "and"
+                        },
+                        "True"
+                      ],
+                      "symbol": "and"
+                    }
                   ],
                   "symbol": "and"
                 }
@@ -106,24 +163,26 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "a": [
-        {
-          "Right": {
-            "location": "x",
-            "value": "z"
-          }
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "B.y",
+            "sort": "int"
+          },
+          "value": 1
         }
-      ],
-      "B": [
-        {
-          "Right": {
-            "location": "y",
-            "value": 1
-          }
+      },
+      {
+        "Right": {
+          "location": {
+            "name": "a.x",
+            "sort": "int"
+          },
+          "value": "z"
         }
-      ]
-    },
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
@@ -181,14 +240,20 @@
                               "arity": 2,
                               "args": [
                                 0,
-                                "y"
+                                {
+                                  "name": "B.y",
+                                  "sort": "int"
+                                }
                               ],
                               "symbol": "<="
                             },
                             {
                               "arity": 2,
                               "args": [
-                                "y",
+                                {
+                                  "name": "B.y",
+                                  "sort": "int"
+                                },
                                 1.157920892373162e+77
                               ],
                               "symbol": "<="
@@ -196,7 +261,41 @@
                           ],
                           "symbol": "and"
                         },
-                        "True"
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    0,
+                                    {
+                                      "name": "a.x",
+                                      "sort": "int"
+                                    }
+                                  ],
+                                  "symbol": "<="
+                                },
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    {
+                                      "name": "a.x",
+                                      "sort": "int"
+                                    },
+                                    1.157920892373162e+77
+                                  ],
+                                  "symbol": "<="
+                                }
+                              ],
+                              "symbol": "and"
+                            },
+                            "True"
+                          ],
+                          "symbol": "and"
+                        }
                       ],
                       "symbol": "and"
                     }
@@ -218,17 +317,17 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "a": [
-        {
-          "Right": {
-            "location": "x",
-            "value": "z"
-          }
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "a.x",
+            "sort": "int"
+          },
+          "value": "z"
         }
-      ],
-      "B": []
-    },
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
@@ -283,14 +382,20 @@
                           "arity": 2,
                           "args": [
                             0,
-                            "y"
+                            {
+                              "name": "a.x",
+                              "sort": "int"
+                            }
                           ],
                           "symbol": "<="
                         },
                         {
                           "arity": 2,
                           "args": [
-                            "y",
+                            {
+                              "name": "a.x",
+                              "sort": "int"
+                            },
                             1.157920892373162e+77
                           ],
                           "symbol": "<="
@@ -317,17 +422,17 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "a": [
-        {
-          "Right": {
-            "location": "x",
-            "value": "z"
-          }
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "a.x",
+            "sort": "int"
+          },
+          "value": "z"
         }
-      ],
-      "B": []
-    },
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
@@ -385,14 +490,20 @@
                               "arity": 2,
                               "args": [
                                 0,
-                                "y"
+                                {
+                                  "name": "a.x",
+                                  "sort": "int"
+                                }
                               ],
                               "symbol": "<="
                             },
                             {
                               "arity": 2,
                               "args": [
-                                "y",
+                                {
+                                  "name": "a.x",
+                                  "sort": "int"
+                                },
                                 1.157920892373162e+77
                               ],
                               "symbol": "<="
@@ -422,16 +533,17 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "B": [
-        {
-          "Right": {
-            "location": "y",
-            "value": 0
-          }
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "B.y",
+            "sort": "int"
+          },
+          "value": 0
         }
-      ]
-    },
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
@@ -449,14 +561,20 @@
               "arity": 2,
               "args": [
                 0,
-                "y"
+                {
+                  "name": "B.y",
+                  "sort": "int"
+                }
               ],
               "symbol": "<="
             },
             {
               "arity": 2,
               "args": [
-                "y",
+                {
+                  "name": "B.y",
+                  "sort": "int"
+                },
                 1.157920892373162e+77
               ],
               "symbol": "<="
@@ -471,16 +589,17 @@
     "returns": null
   },
   {
-    "stateUpdates": {
-      "a": [
-        {
-          "Right": {
-            "location": "x",
-            "value": 0
-          }
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "a.x",
+            "sort": "int"
+          },
+          "value": 0
         }
-      ]
-    },
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
@@ -498,14 +617,20 @@
               "arity": 2,
               "args": [
                 0,
-                "x"
+                {
+                  "name": "a.x",
+                  "sort": "int"
+                }
               ],
               "symbol": "<="
             },
             {
               "arity": 2,
               "args": [
-                "x",
+                {
+                  "name": "a.x",
+                  "sort": "int"
+                },
                 1.157920892373162e+77
               ],
               "symbol": "<="
