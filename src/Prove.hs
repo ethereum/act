@@ -122,8 +122,8 @@ mkContexts inv@(Invariant contract _) behv@(Behaviour method _ _ c1 (Interface _
     locs = references inv behv
 
   calldata <- Args <$> mapM (mkSymArg c m) decls
-  preStore <- Store <$> mapM (mkSymStorage c m Pre) locs
-  postStore <- Store <$> mapM (mkSymStorage c m Post) locs
+  preStore <- Store <$> mapM (mkSymStorage m Pre) locs
+  postStore <- Store <$> mapM (mkSymStorage m Post) locs
 
   let
     preCtx = Ctx c m calldata preStore Pre
@@ -149,8 +149,8 @@ mkSymArg contract method decl@(Decl typ _) = case metaType typ of
   where
     name = nameFromDecl contract method decl
 
-mkSymStorage :: Contract -> Method -> When -> StorageLocation -> Symbolic (Id, SMType)
-mkSymStorage contract method whn loc = case loc of
+mkSymStorage :: Method -> When -> StorageLocation -> Symbolic (Id, SMType)
+mkSymStorage method whn loc = case loc of
   IntLoc item -> do
     v <- sInteger (name item)
     return $ ((name item), SymInteger v)
@@ -162,10 +162,10 @@ mkSymStorage contract method whn loc = case loc of
     return $ (name item, SymBytes v)
   where
     name :: TStorageItem a -> Id
-    name i = nameFromItem contract method whn i
+    name i = nameFromItem method whn i
 
 mkStorageConstraints :: Ctx -> Ctx -> Map Id [Either StorageLocation StorageUpdate] -> [StorageLocation] -> [SBV Bool]
-mkStorageConstraints preCtx@(Ctx c m _ (Store preStore) pre) (Ctx _ _ _ (Store postStore) post) updates locs
+mkStorageConstraints preCtx@(Ctx _ m _ (Store preStore) pre) (Ctx _ _ _ (Store postStore) post) updates locs
   = fmap mkConstraint $ (unchanged <> updated)
   where
     updated = concat $ snd <$> Map.toList updates
@@ -189,9 +189,9 @@ mkStorageConstraints preCtx@(Ctx c m _ (Store preStore) pre) (Ctx _ _ _ (Store p
       BytesLoc item -> (lhs item catBytes) .== (rhs item catBytes)
       where
         lhs :: (Show b) => TStorageItem a -> ([(Id, SMType)] -> [(Id, b)]) -> b
-        lhs i f = get (nameFromItem c m post i) (Map.fromList $ f postStore)
+        lhs i f = get (nameFromItem m post i) (Map.fromList $ f postStore)
         rhs :: (Show b) => TStorageItem a -> ([(Id, SMType)] -> [(Id, b)]) -> b
-        rhs i f = get (nameFromItem c m pre i) (Map.fromList $ f preStore)
+        rhs i f = get (nameFromItem m pre i) (Map.fromList $ f preStore)
 
     fromUpdate :: StorageUpdate -> SBV Bool
     fromUpdate update = case update of
@@ -200,7 +200,7 @@ mkStorageConstraints preCtx@(Ctx c m _ (Store preStore) pre) (Ctx _ _ _ (Store p
       BytesUpdate item e -> (lhs item catBytes) .== (symExpBytes preCtx e)
       where
         lhs :: (Show b) => TStorageItem a -> ([(Id, SMType)] -> [(Id, b)]) -> b
-        lhs i f = get (nameFromItem c m post i) (Map.fromList $ f postStore)
+        lhs i f = get (nameFromItem m post i) (Map.fromList $ f postStore)
 
 
 -- *** Symbolic Expression Construction *** ---
@@ -220,7 +220,7 @@ symExpBool ctx@(Ctx c m (Args args) (Store store) w) e = case e of
   Neg a     -> sNot (symExpBool ctx a)
   LitBool a -> literal a
   BoolVar a -> get (nameFromArg c m a) (Map.fromList $ catBools args)
-  TEntry a  -> get (nameFromItem c m w a) (Map.fromList $ catBools store)
+  TEntry a  -> get (nameFromItem m w a) (Map.fromList $ catBools store)
   ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
 
 symExpInt :: Ctx -> Exp Integer -> SBV Integer
@@ -233,7 +233,7 @@ symExpInt ctx@(Ctx c m (Args args) (Store store) w) e = case e of
   Exp a b   -> (symExpInt ctx a) .^ (symExpInt ctx b)
   LitInt a  -> literal a
   IntVar a  -> get (nameFromArg c m a) (Map.fromList $ catInts args)
-  TEntry a  -> get (nameFromItem c m w a) (Map.fromList $ catInts store)
+  TEntry a  -> get (nameFromItem m w a) (Map.fromList $ catInts store)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   IntEnv _ -> error "TODO: handle blockchain context in SMT expressions"
   ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
@@ -245,14 +245,14 @@ symExpBytes = error "TODO: handle bytestrings in SMT expressions"
 -- *** SMT Variable Names *** --
 
 
-nameFromItem :: Contract -> Method -> When -> TStorageItem a -> Id
-nameFromItem (Contract contract) (Method method) prePost item = case item of
-  DirectInt name -> contract @@ method @@ name @@ show prePost
-  DirectBool name -> contract @@ method @@ name @@ show prePost
-  DirectBytes name -> contract @@ method @@ name @@ show prePost
-  MappedInt name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
-  MappedBool name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
-  MappedBytes name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
+nameFromItem :: Method -> When -> TStorageItem a -> Id
+nameFromItem (Method method) prePost item = case item of
+  DirectInt contract name -> contract @@ method @@ name @@ show prePost
+  DirectBool contract name -> contract @@ method @@ name @@ show prePost
+  DirectBytes contract name -> contract @@ method @@ name @@ show prePost
+  MappedInt contract name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
+  MappedBool contract name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
+  MappedBytes contract name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
   where
     x @@ y = x <> "_" <> y
     showIxs ixs = intercalate "_" (NonEmpty.toList $ show <$> ixs)
@@ -315,12 +315,12 @@ locsFromExp e = case e of
   ByEnv _ -> error "TODO: handle blockchain context in SMT expressions"
   ITE _ _ _ -> error "TODO: hande ITE in SMT expresssions"
   TEntry a  -> case a of
-    DirectInt slot -> [IntLoc $ DirectInt slot]
-    DirectBool slot -> [BoolLoc $ DirectBool slot]
-    DirectBytes slot -> [BytesLoc $ DirectBytes slot]
-    MappedInt m ixs -> [IntLoc $ MappedInt m ixs]
-    MappedBool m ixs -> [BoolLoc $ MappedBool m ixs]
-    MappedBytes m ixs -> [BytesLoc $ MappedBytes m ixs]
+    DirectInt contract name -> [IntLoc $ DirectInt contract name]
+    DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
+    DirectBytes contract slot -> [BytesLoc $ DirectBytes contract slot]
+    MappedInt contract name ixs -> [IntLoc $ MappedInt contract name ixs]
+    MappedBool contract name ixs -> [BoolLoc $ MappedBool contract name ixs]
+    MappedBytes contract name ixs -> [BytesLoc $ MappedBytes contract name ixs]
 
 
 -- *** Utils *** --

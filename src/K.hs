@@ -87,21 +87,21 @@ getId (Left (BoolLoc a)) = getId' a
 getId (Left (BytesLoc a)) = getId' a
 
 getId' :: TStorageItem a -> Id
-getId' (DirectInt name) = name
-getId' (DirectBool name) = name
-getId' (DirectBytes name) = name
-getId' (MappedInt name _) = name
-getId' (MappedBool name _) = name
-getId' (MappedBytes name _) = name
+getId' (DirectInt _ name) = name
+getId' (DirectBool _ name) = name
+getId' (DirectBytes _ name) = name
+getId' (MappedInt _ name _) = name
+getId' (MappedBool _ name _) = name
+getId' (MappedBytes _ name _) = name
 
 
 kstorageName :: TStorageItem a -> String
-kstorageName (DirectInt name)    = kVar name
-kstorageName (DirectBool name)   = kVar name
-kstorageName (DirectBytes name)  = kVar name
-kstorageName (MappedInt name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kstorageName (MappedBool name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kstorageName (MappedBytes name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kstorageName (DirectInt _ name)    = kVar name
+kstorageName (DirectBool _ name)   = kVar name
+kstorageName (DirectBytes _ name)  = kVar name
+kstorageName (MappedInt _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kstorageName (MappedBool _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kstorageName (MappedBytes _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> (tail a)
@@ -211,9 +211,9 @@ kSlot :: Either StorageLocation StorageUpdate -> StorageItem -> (String, Int)
 kSlot update StorageItem{..} = case _type of
   (StorageValue _) -> (show _slot, _offset)
   (StorageMapping _ _) -> case update of
-      Right (IntUpdate (MappedInt _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
-      Right (BoolUpdate (MappedBool _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
-      Right (BytesUpdate (MappedBytes _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
+      Right (IntUpdate (MappedInt _ _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
+      Right (BoolUpdate (MappedBool _ _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
+      Right (BytesUpdate (MappedBytes _ _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
       _ -> error "internal error: kSlot. Please report"
 
 

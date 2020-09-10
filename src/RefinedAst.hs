@@ -86,22 +86,22 @@ data StorageLocation
   deriving (Show, Eq)
 
 data TStorageItem a where
-  DirectInt    :: Id -> TStorageItem Integer
-  DirectBool   :: Id -> TStorageItem Bool
-  DirectBytes  :: Id -> TStorageItem ByteString
-  MappedInt    :: Id -> NonEmpty ReturnExp -> TStorageItem Integer
-  MappedBool   :: Id -> NonEmpty ReturnExp -> TStorageItem Bool
-  MappedBytes  :: Id -> NonEmpty ReturnExp -> TStorageItem ByteString
+  DirectInt    :: Id -> Id -> TStorageItem Integer
+  DirectBool   :: Id -> Id -> TStorageItem Bool
+  DirectBytes  :: Id -> Id -> TStorageItem ByteString
+  MappedInt    :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem Integer
+  MappedBool   :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem Bool
+  MappedBytes  :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem ByteString
 
 deriving instance Show (TStorageItem a)
 
 instance Eq (TStorageItem a) where
-  (DirectInt a) == (DirectInt b) = a == b
-  (DirectBool a) == (DirectBool b) = a == b
-  (DirectBytes a) == (DirectBytes b) = a == b
-  (MappedInt a b) == (MappedInt c d) = (a == c) && (b == d)
-  (MappedBool a b) == (MappedBool c d) = (a == c) && (b == d)
-  (MappedBytes a b) == (MappedBytes c d) = (a == c) && (b == d)
+  (DirectInt a b) == (DirectInt c d) = (a == c) && (b == d)
+  (DirectBool a b) == (DirectBool c d) = (a == c) && (b == d)
+  (DirectBytes a b) == (DirectBytes c d) = (a == c) && (b == d)
+  (MappedInt a b c) == (MappedInt d e f) = (a == d) && (b == e) && (c == f)
+  (MappedBool a b c) == (MappedBool d e f) = (a == d) && (b == e) && (c == f)
+  (MappedBytes a b c) == (MappedBytes d e f) = (a == d) && (b == e) && (c == f)
   _ == _ = False
 
 -- typed expressions
@@ -187,12 +187,15 @@ instance ToJSON StorageUpdate where
   toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value"    .= toJSON b]
 
 instance ToJSON (TStorageItem b) where
-  toJSON (DirectInt a) = object ["sort" .= (pack "int"), "name" .= (String $ pack a)]
-  toJSON (DirectBool a) = object ["sort" .= (pack "bool"), "name" .= (String $ pack a)]
-  toJSON (DirectBytes a) = object ["sort" .= (pack "bytestring"), "name" .= (String $ pack a)]
-  toJSON (MappedInt a b) = symbol "lookup" a b
-  toJSON (MappedBool a b) = symbol "lookup" a b
-  toJSON (MappedBytes a b) = symbol "lookup" a b
+  toJSON (DirectInt a b) = object ["sort" .= (pack "int")
+                                  , "name" .= (String $ pack a <> "." <> pack b)]
+  toJSON (DirectBool a b) = object ["sort" .= (pack "bool")
+                                   , "name" .= (String $ pack a <> "." <> pack b)]
+  toJSON (DirectBytes a b) = object ["sort" .= (pack "bytes")
+                                    , "name" .= (String $ pack a <> "." <> pack b)]
+  toJSON (MappedInt a b c) = mapping a b c
+  toJSON (MappedBool a b c) = mapping a b c
+  toJSON (MappedBytes a b c) = mapping a b c
 
 instance ToJSON ReturnExp where
    toJSON (ExpInt a) = object ["sort" .= (pack "int")
@@ -224,10 +227,15 @@ instance ToJSON (Exp Bool) where
   toJSON (LEQ a b)  = symbol "<=" a b
   toJSON (GEQ a b)  = symbol ">=" a b
   toJSON (LitBool a) = String $ pack $ show a
-  toJSON (Neg a) = object [   "symbol"   .= pack "not"
+  toJSON (Neg a) = object [  "symbol"   .= pack "not"
                           ,  "arity"    .= (Data.Aeson.Types.Number 1)
                           ,  "args"     .= (Array $ fromList [toJSON a])]
   toJSON v = error $ "todo: json ast for: " <> show v
+
+mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
+mapping c a b = object [  "symbol"   .= pack "lookup"
+                       ,  "arity"    .= (Data.Aeson.Types.Number 3)
+                       ,  "args"     .= (Array $ fromList [toJSON c, toJSON a, toJSON b])]
 
 symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
 symbol s a b = object [  "symbol"   .= pack s
