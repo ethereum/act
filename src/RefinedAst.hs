@@ -35,7 +35,7 @@ data Behaviour = Behaviour
    _interface :: Interface,
    _preconditions :: Exp Bool,
    _postconditions :: Exp Bool,
-   _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
+   _stateUpdates :: [Either StorageLocation StorageUpdate],
    _returns :: Maybe ReturnExp
   }
   deriving (Show)
@@ -54,10 +54,6 @@ catBehvs :: [Claim] -> [Behaviour]
 catBehvs [] = []
 catBehvs ((B b):claims) = b:(catBehvs claims)
 catBehvs (_:claims) = catBehvs claims
-
-conjunction :: [Invariant] -> Exp Bool
-conjunction [] = LitBool True
-conjunction ((Invariant _ e):tl) = And e (conjunction tl)
 
 data Mode
   = Pass

@@ -107,7 +107,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     flatten :: [Exp Bool] -> [Exp Bool] -> Cases -> Err [Claim]
     flatten iff postc (Direct post) = do
       (p, maybeReturn) <- checkPost env post
-      let preBounds = mkBounds p
+      let preBounds = mkStorageBounds store p
       return $ splitCase name False contract iface (LitBool True) (iff <> preBounds) maybeReturn p postc
     flatten iff postc (Branches branches) = do
       branches' <- normalize branches
@@ -117,11 +117,8 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
         return (if', post', ret)
 
       pure . join $ ((\(ifcond, stateUpdates, ret) -> let
-          preBounds = mkBounds stateUpdates
+          preBounds = mkStorageBounds store stateUpdates
         in splitCase name False contract iface ifcond (iff <> preBounds) ret stateUpdates postc) <$> cases')
-
-    mkBounds :: Map Id [Either StorageLocation StorageUpdate] -> [Exp Bool]
-    mkBounds updates = concat $ fmap (uncurry $ mkStorageBounds store) (Map.toList updates)
 
 splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvs) = do
   when (length extStorage > 0) $ error "TODO: support extStorage in constructor"
@@ -129,7 +126,7 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (
   let env = mkEnv contract store decls
 
   rawUpdates <- concat <$> mapM (checkAssign env) assigns
-  let stateUpdates = Map.fromList $ [(contract, Right <$> rawUpdates)]
+  let stateUpdates = Right <$> rawUpdates
 
   let calldataBounds = getCallDataBounds decls
   iffs' <- checkIffs env (iffs <> calldataBounds)
@@ -148,7 +145,7 @@ mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract st
 
 -- | split case into pass and fail case
 splitCase :: Id -> Bool -> Id -> Interface -> Exp Bool -> [Exp Bool] -> Maybe ReturnExp
-          -> Map Id [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [Claim]
+          -> [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [Claim]
 splitCase name creates contract iface if' [] ret storage postcs =
   [ B $ Behaviour name Pass creates contract iface if' (mconcat postcs) storage ret ]
 splitCase name creates contract iface if' iffs ret storage postcs =
@@ -156,8 +153,8 @@ splitCase name creates contract iface if' iffs ret storage postcs =
     B $ Behaviour name Fail creates contract iface (And if' (Neg (mconcat iffs))) (mconcat postcs) storage Nothing ]
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
-mkStorageBounds :: Store -> Id -> [Either StorageLocation StorageUpdate] -> [Exp Bool]
-mkStorageBounds store contract refs
+mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Bool]
+mkStorageBounds store refs
   = catMaybes $ mkBound <$> refs
   where
     mkBound :: Either StorageLocation StorageUpdate -> Maybe (Exp Bool)
@@ -171,14 +168,14 @@ mkStorageBounds store contract refs
 
     fromItem :: TStorageItem Integer -> Exp Bool
     fromItem item = case item of
-      DirectInt _ name -> bound (abiType $ slotType name) (TEntry item)
-      MappedInt _ name _ -> bound (abiType $ slotType name) (TEntry item)
+      DirectInt contract name -> bound (abiType $ slotType contract name) (TEntry item)
+      MappedInt contract name _ -> bound (abiType $ slotType contract name) (TEntry item)
 
-    vars :: Map Id SlotType
-    vars = fromMaybe (error $ contract <> " not found in " <> show store) $ Map.lookup contract store
+    slotType :: Id -> Id -> SlotType
+    slotType contract name = let
+        vars = fromMaybe (error $ contract <> " not found in " <> show store) $ Map.lookup contract store
+      in fromMaybe (error $ name <> " not found in " <> show vars) $ Map.lookup name vars
 
-    slotType :: Id -> SlotType
-    slotType name = fromMaybe (error $ name <> " not found in " <> show vars) $ Map.lookup name vars
 
     abiType :: SlotType -> AbiType
     abiType (StorageMapping _ typ) = typ
@@ -242,25 +239,24 @@ checkDefn env@(contract, _, _, _) keyType valType name (Defn k v) = case metaTyp
             val <- checkBytes env v
             return $ BytesUpdate (MappedBytes contract name (key :| [])) val
 
-checkPost :: Env -> Post -> Err (Map Id [Either StorageLocation StorageUpdate], Maybe ReturnExp)
+checkPost :: Env -> Post -> Err ([Either StorageLocation StorageUpdate], Maybe ReturnExp)
 checkPost env@(contract, _, theirs, localVars) (Post maybeStorage extStorage maybeReturn) =
   do  returnexp <- mapM (inferExpr env) maybeReturn
       ourStorage <- case maybeStorage of
         Just entries -> checkEntries contract entries
         Nothing -> Ok []
       otherStorage <- checkStorages extStorage
-      return $ ((Map.fromList $ (contract, ourStorage):otherStorage),
-                 returnexp)
+      return $ (ourStorage <> otherStorage, returnexp)
   where checkEntries name entries =
           mapM (\a -> case a of
                    Rewrite loc val -> Right <$> checkStorageExpr (contract, fromMaybe mempty (Map.lookup name theirs), theirs, localVars) loc val
                    Constant loc -> Left <$> checkEntry env loc
                ) entries
-        checkStorages :: [ExtStorage] -> Err [(Id, [Either StorageLocation StorageUpdate])]
+        checkStorages :: [ExtStorage] -> Err [Either StorageLocation StorageUpdate]
         checkStorages [] = Ok []
         checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries
                                                           ps <- checkStorages xs
-                                                          Ok $ (name, p):ps
+                                                          Ok $ p <> ps
         checkStorages _ = error "TODO: check other storages"
 
 checkStorageExpr :: Env -> Entry -> Expr -> Err StorageUpdate

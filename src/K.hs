@@ -12,7 +12,7 @@ import Data.Text (Text, pack, unpack)
 import Data.List hiding (group)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe
-import Data.ByteString hiding (group, pack, unpack, intercalate, foldr, concat, head, tail)
+import Data.ByteString hiding (group, pack, unpack, intercalate, filter, foldr, concat, head, tail)
 import qualified Data.Text as Text
 import Parse
 import EVM.Types
@@ -94,6 +94,25 @@ getId' (MappedInt _ name _) = name
 getId' (MappedBool _ name _) = name
 getId' (MappedBytes _ name _) = name
 
+getContract :: Either StorageLocation StorageUpdate -> Id
+getContract (Left (IntLoc item)) = getContract' item
+getContract (Left (BoolLoc item)) = getContract' item
+getContract (Left (BytesLoc item)) = getContract' item
+getContract (Right (IntUpdate item _)) = getContract' item
+getContract (Right (BoolUpdate item _)) = getContract' item
+getContract (Right (BytesUpdate item _)) = getContract' item
+
+getContract' :: TStorageItem a -> Id
+getContract' (DirectInt c _) = c
+getContract' (DirectBool c _) = c
+getContract' (DirectBytes c _) = c
+getContract' (MappedInt c _ _) = c
+getContract' (MappedBool c _ _) = c
+getContract' (MappedBytes c _ _) = c
+
+conjunction :: [Invariant] -> Exp Bool
+conjunction [] = LitBool True
+conjunction ((Invariant _ e):tl) = And e (conjunction tl)
 
 kstorageName :: TStorageItem a -> String
 kstorageName (DirectInt _ name)    = kVar name
@@ -251,8 +270,6 @@ defaultConditions acct_id =
     "andBool #rangeUInt(256, " <> show Callvalue <> ")\n" <>
     "andBool #rangeUInt(256, " <> show Chainid <>  " )\n"
 
-
-
 mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> Exp Bool -> (String, String)
 mkTerm this accounts Behaviour{..} invariant = (name, term)
   where code = if _creation then _creationCode this
@@ -321,14 +338,14 @@ mkTerm this accounts Behaviour{..} invariant = (name, term)
                 <> "network" |- ("\n"
                   <> "activeAccounts" |- "_"
                   <> "accounts" |- ("\n" <> (unpack $
-                    Text.intercalate "\n" (flip fmap (Map.keys _stateUpdates) $ \a ->
+                    Text.intercalate "\n" (flip fmap (getContract <$> _stateUpdates) $ \a ->
                       pack $
                         kAccount pass a
                          (fromMaybe
                            (error $ show a ++ " not found in accounts: " ++ show accounts)
                            $ Map.lookup a accounts
                          )
-                         (fromMaybe [] (Map.lookup a _stateUpdates))
+                         (filter (\u -> getContract u == a) _stateUpdates)
                          )))
                   <> "txOrder" |- "_"
                   <> "txPending" |- "_"

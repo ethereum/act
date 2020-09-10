@@ -8,7 +8,7 @@ import Control.Monad (when)
 import Data.ByteString (ByteString)
 import Data.List (intercalate, (\\), nub)
 import Data.List.NonEmpty as NonEmpty (toList)
-import Data.Map.Strict as Map (Map, lookup, fromList, toList)
+import Data.Map.Strict as Map (Map, lookup, fromList)
 import Data.Maybe
 
 import Data.SBV hiding (name)
@@ -95,7 +95,7 @@ mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preCond postCond stateUpdat
   constrain $ preCond' .&& (sAnd stateUpdates') .&& postCond' .&& (sNot postInv')
 
 mkMethod :: Invariant -> Storages -> Behaviour -> Symbolic ()
-mkMethod inv@(Invariant contract e) (Storages store) behv@(Behaviour _ _ _ _ _ preCond postCond stateUpdates _) = do
+mkMethod inv@(Invariant _ e) (Storages store) behv@(Behaviour _ _ _ _ _ preCond postCond stateUpdates _) = do
   (preCtx, postCtx) <- mkContexts inv behv
 
   let
@@ -105,7 +105,7 @@ mkMethod inv@(Invariant contract e) (Storages store) behv@(Behaviour _ _ _ _ _ p
     preCond' = symExpBool preCtx preCond
     postCond' = symExpBool postCtx postCond
     stateUpdates' = mkStorageConstraints preCtx postCtx stateUpdates locs
-    storageBounds = symExpBool preCtx $ mconcat <$> mkStorageBounds store contract $ Left <$> locs
+    storageBounds = symExpBool preCtx $ mconcat <$> mkStorageBounds store $ Left <$> locs
 
   constrain $ preInv .&& preCond' .&& storageBounds
            .&& (sAnd stateUpdates')
@@ -133,7 +133,7 @@ mkContexts inv@(Invariant contract _) behv@(Behaviour method _ _ c1 (Interface _
 
 references :: Invariant -> Behaviour -> [StorageLocation]
 references (Invariant _ inv) (Behaviour _ _ _ _ _ _ _ updates _)
-  = nub $ (snd <$> locsFromUpdates updates) <> locsFromExp inv
+  = nub $ (getLoc <$> updates) <> locsFromExp inv
 
 mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
 mkSymArg contract method decl@(Decl typ _) = case metaType typ of
@@ -164,19 +164,11 @@ mkSymStorage method whn loc = case loc of
     name :: TStorageItem a -> Id
     name i = nameFromItem method whn i
 
-mkStorageConstraints :: Ctx -> Ctx -> Map Id [Either StorageLocation StorageUpdate] -> [StorageLocation] -> [SBV Bool]
+mkStorageConstraints :: Ctx -> Ctx -> [Either StorageLocation StorageUpdate] -> [StorageLocation] -> [SBV Bool]
 mkStorageConstraints preCtx@(Ctx _ m _ (Store preStore) pre) (Ctx _ _ _ (Store postStore) post) updates locs
-  = fmap mkConstraint $ (unchanged <> updated)
+  = fmap mkConstraint $ (unchanged <> updates)
   where
-    updated = concat $ snd <$> Map.toList updates
-    unchanged = Left <$> locs \\ (fmap getLoc updated)
-
-    getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
-    getLoc (Left l) = l
-    getLoc (Right update) = case update of
-      IntUpdate l _ -> IntLoc l
-      BoolUpdate l _ -> BoolLoc l
-      BytesUpdate l _ -> BytesLoc l
+    unchanged = Left <$> locs \\ (fmap getLoc updates)
 
     mkConstraint :: (Either StorageLocation StorageUpdate) -> SBV Bool
     mkConstraint (Left loc) = fromLocation loc
@@ -269,19 +261,13 @@ nameFromArg (Contract c) (Method m) name = c @@ m @@ name
 -- *** Storage Location Extraction *** --
 
 
-locsFromUpdates :: Map Id [Either StorageLocation StorageUpdate] -> [(Id, StorageLocation)]
-locsFromUpdates updates = concat $ fmap merge $ Map.toList $ (fmap getLoc) <$> updates
-  where
-    merge :: (Id, [StorageLocation]) -> [(Id, StorageLocation)]
-    merge (c, locs) = fmap (\l -> (c, l)) locs
-
-    getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
-    getLoc ref = case ref of
-      Left loc -> loc
-      Right update -> case update of
-        IntUpdate item _ -> IntLoc item
-        BoolUpdate item _ -> BoolLoc item
-        BytesUpdate item _ -> BytesLoc item
+getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
+getLoc ref = case ref of
+  Left loc -> loc
+  Right update -> case update of
+    IntUpdate item _ -> IntLoc item
+    BoolUpdate item _ -> BoolLoc item
+    BytesUpdate item _ -> BytesLoc item
 
 locsFromExp :: Exp a -> [StorageLocation]
 locsFromExp e = case e of
