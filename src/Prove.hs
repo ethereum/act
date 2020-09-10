@@ -6,12 +6,14 @@ module Prove (queries) where
 
 import Control.Monad (when)
 import Data.ByteString (ByteString)
+import Data.ByteString.UTF8 (toString)
 import Data.List (intercalate, (\\), nub)
 import Data.List.NonEmpty as NonEmpty (toList)
 import Data.Map.Strict as Map (Map, lookup, fromList)
 import Data.Maybe
 
 import Data.SBV hiding (name)
+import Data.SBV.String ((.++), subStr)
 
 import RefinedAst
 import Syntax (Id, Interface(..), Decl(..))
@@ -64,11 +66,10 @@ newtype Args = Args { unArgs :: [(Id, SMType)] }
 data Ctx = Ctx Contract Method Args Store When
   deriving (Show)
 
-type SBytes = SArray Integer (WordN 8)
 data SMType
   = SymInteger (SBV Integer)
   | SymBool (SBV Bool)
-  | SymBytes SBytes
+  | SymBytes (SBV String)
   deriving (Show)
 
 
@@ -144,7 +145,7 @@ mkSymArg contract method decl@(Decl typ _) = case metaType typ of
     v <- sBool name
     return $ (name, SymBool v)
   ByteStr -> do
-    v <- newArray name Nothing
+    v <- sString name
     return $ (name, SymBytes v)
   where
     name = nameFromDecl contract method decl
@@ -158,7 +159,7 @@ mkSymStorage method whn loc = case loc of
     v <- sBool (name item)
     return $ (name item, SymBool v)
   BytesLoc item -> do
-    v <- newArray (name item) Nothing
+    v <- sString (name item)
     return $ (name item, SymBytes v)
   where
     name :: TStorageItem a -> Id
@@ -230,8 +231,16 @@ symExpInt ctx@(Ctx c m (Args args) (Store store) w) e = case e of
   IntEnv _ -> error "TODO: handle blockchain context in SMT expressions"
   ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
 
-symExpBytes :: Ctx -> Exp ByteString -> SBytes
-symExpBytes = error "TODO: handle bytestrings in SMT expressions"
+symExpBytes :: Ctx -> Exp ByteString -> SBV String
+symExpBytes ctx@(Ctx c m (Args args) (Store store) w) e = case e of
+  Cat a b -> (symExpBytes ctx a) .++ (symExpBytes ctx b)
+  ByVar a  -> get (nameFromArg c m a) (Map.fromList $ catBytes args)
+  ByStr a -> literal a
+  ByLit a -> literal $ toString a
+  TEntry a  -> get (nameFromItem m w a) (Map.fromList $ catBytes store)
+  Slice a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
+  ByEnv _ -> error "TODO: handle blockchain context in SMT expressions"
+  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
 
 
 -- *** SMT Variable Names *** --
@@ -325,7 +334,7 @@ catBools ((name, SymBool b):tl) = (name, b):(catBools tl)
 catBools (_:tl) = catBools tl
 catBools [] = []
 
-catBytes :: [(Id, SMType)] -> [(Id, SBytes)]
+catBytes :: [(Id, SMType)] -> [(Id, SBV String)]
 catBytes ((name, SymBytes b):tl) = (name, b):(catBytes tl)
 catBytes (_:tl) = catBytes tl
 catBytes [] = []
