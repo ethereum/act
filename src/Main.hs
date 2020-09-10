@@ -96,7 +96,9 @@ main = do
                       ok = foldl (||) False $ fst <$> results'
                   case ok of
                     False -> putStrLn $ msg <> "Q.E.D ✨"
-                    True -> putStrLn $ msg <> "\n\n" <> (intercalate sep $ snd <$> results')
+                    True -> do
+                      putStrLn $ msg <> "\n\n" <> (intercalate sep $ snd <$> results')
+                      exitFailure
 
                 handleRes (SatResult res) = case res of
                   Unsatisfiable _ _ -> (False, "")
