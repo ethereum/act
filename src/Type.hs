@@ -133,7 +133,7 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (
 
   invariants <- mapM (checkBool env) $ fromMaybe [] maybeInvs
   ensures <- mapM (checkBool env) (fromMaybe [] maybeEnsures)
-  let postcs = ensures
+  let postcs = ensures <> mkStorageBounds store stateUpdates
 
   return $ ((I . (Invariant contract)) <$> invariants)
            <> (splitCase name True contract iface (LitBool True) iffs' Nothing stateUpdates postcs)
