@@ -1,0 +1,35 @@
+behaviour init of Amm
+interface constructor()
+
+creates
+
+    uint256 reserve0 := 1000
+    uint256 reserve1 := 1000
+
+invariants
+
+	1000 * 1000 <= reserve0 * reserve1
+
+behaviour swap0 of Amm
+interface swap0(uint256 amt)
+
+iff in range uint256
+
+    reserve0 + amt
+
+storage
+
+    reserve0 => reserve0 + amt
+    reserve1 => (reserve0 * reserve1) / (reserve0 + amt) + 1
+
+behaviour swap1 of Amm
+interface swap1(uint256 amt)
+
+iff in range uint256
+
+    reserve1 + amt
+
+storage
+
+    reserve0 => (reserve0 * reserve1) / (reserve1 + amt) + 1
+    reserve1 => reserve1 + amt
