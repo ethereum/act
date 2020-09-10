@@ -157,7 +157,7 @@ data ReturnExp
 -- intermediate json output helpers ---
 instance ToJSON Claim where
   toJSON (S (Storages storages)) = object [ "kind" .= (String "Storages")
-                                          , "storages" .= show storages]
+                                          , "storages" .= toJSON storages]
   toJSON (I (Invariant contract e)) = object [ "kind" .= (String "Invariant")
                                              , "expression" .= toJSON e
                                              , "contract" .= show contract ]
@@ -172,15 +172,21 @@ instance ToJSON Claim where
                                         , "stateUpdates" .= toJSON _stateUpdates
                                         , "returns" .= toJSON _returns]
 
+instance ToJSON SlotType where
+  toJSON (StorageValue t) = object ["type" .= show t]
+  toJSON (StorageMapping ixTypes valType) = object [ "type" .= (String "mapping")
+                                                   , "ixTypes" .= show (toList ixTypes)
+                                                   , "valType" .= show valType]
+
 instance ToJSON StorageLocation where
   toJSON (IntLoc a) = object ["location" .= toJSON a]
   toJSON (BoolLoc a) = object ["location" .= toJSON a]
   toJSON (BytesLoc a) = object ["location" .= toJSON a]
 
 instance ToJSON StorageUpdate where
-  toJSON (IntUpdate a b) = object ["location" .= toJSON a ,"value"    .= toJSON b]
-  toJSON (BoolUpdate a b) = object ["location" .= toJSON a ,"value"    .= toJSON b]
-  toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value"    .= toJSON b]
+  toJSON (IntUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
+  toJSON (BoolUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
+  toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
 instance ToJSON (TStorageItem b) where
   toJSON (DirectInt a b) = object ["sort" .= (pack "int")

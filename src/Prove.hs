@@ -168,7 +168,7 @@ mkStorageConstraints :: Ctx -> Ctx -> [Either StorageLocation StorageUpdate] -> 
 mkStorageConstraints preCtx@(Ctx _ m _ (Store preStore) pre) (Ctx _ _ _ (Store postStore) post) updates locs
   = fmap mkConstraint $ (unchanged <> updates)
   where
-    unchanged = Left <$> locs \\ (fmap getLoc updates)
+    unchanged = Left <$> (locs \\ (fmap getLoc updates))
 
     mkConstraint :: (Either StorageLocation StorageUpdate) -> SBV Bool
     mkConstraint (Left loc) = fromLocation loc
