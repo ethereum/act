@@ -249,7 +249,7 @@ checkPost env@(contract, _, theirs, localVars) (Post maybeStorage extStorage may
       return $ (ourStorage <> otherStorage, returnexp)
   where checkEntries name entries =
           mapM (\a -> case a of
-                   Rewrite loc val -> Right <$> checkStorageExpr (contract, fromMaybe mempty (Map.lookup name theirs), theirs, localVars) loc val
+                   Rewrite loc val -> Right <$> checkStorageExpr (name, fromMaybe mempty (Map.lookup name theirs), theirs, localVars) loc val
                    Constant loc -> Left <$> checkEntry env loc
                ) entries
         checkStorages :: [ExtStorage] -> Err [Either StorageLocation StorageUpdate]
