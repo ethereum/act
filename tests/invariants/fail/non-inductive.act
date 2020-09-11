@@ -1,0 +1,45 @@
+// The invariant x < 9 is true, but cannot be proved as it is not inductive.
+
+// If we assume that the invariant holds at the start of the call to j, then
+// there is an execution path (x == 7) where the invariant does not hold over
+// the post state.
+
+// A stronger invariant (e.g. x < 3) will be succesfully proven
+
+behaviour init of C
+interface constructor()
+
+creates
+
+    uint x := 0
+
+invariants
+
+    x < 9
+
+behaviour f of C
+interface f()
+
+case x == 0:
+
+    storage
+
+        x => 1
+
+behaviour g of C
+interface g()
+
+case x == 1:
+
+    storage
+
+        x => 2
+
+behaviour j of C
+interface j()
+
+case x == 7:
+
+    storage
+
+        x => 100

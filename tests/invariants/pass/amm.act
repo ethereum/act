@@ -8,7 +8,7 @@ creates
 
 invariants
 
-	1000 * 1000 <= reserve0 * reserve1
+    1000 * 1000 <= reserve0 * reserve1
 
 behaviour swap0 of Amm
 interface swap0(uint256 amt)
