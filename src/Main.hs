@@ -85,9 +85,7 @@ main = do
 
       (Prove file solver smttimeout debug) -> do
         contents <- readFile file
-        case parse (lexer contents) >>= typecheck of
-          Bad e -> prettyErr contents e
-          Ok claims -> do
+        proceed contents (parse (lexer contents) >>= typecheck) $ \claims -> do
             let
                 handleResults ((Invariant c e), rs) = do
                   let msg = "\n============\n\nInvariant " <> show e <> " of " <> show c <> ": "
@@ -119,18 +117,16 @@ main = do
         specContents <- readFile spec
         solContents  <- readFile soljson
         let kOpts = KOptions (maybe mempty Map.fromList gas) storage extractbin
-        errKSpecs <- pure $ do refinedSpecs  <- parse (lexer specContents) >>= typecheck
-                               (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
-                                 $ Solidity.readJSON $ pack solContents
-                               forM (catBehvs refinedSpecs)
-                                 $ makekSpec sources kOpts (catInvs refinedSpecs)
-        case errKSpecs of
-             Bad e -> prettyErr specContents e
-             Ok kSpecs -> do
-               let printFile (filename, content) = case out of
-                     Nothing -> putStrLn (filename <> ".k") >> putStrLn content
-                     Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
-               forM_ kSpecs printFile
+            errKSpecs = do refinedSpecs  <- parse (lexer specContents) >>= typecheck
+                           (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
+                             $ Solidity.readJSON $ pack solContents
+                           forM (catBehvs refinedSpecs)
+                             $ makekSpec sources kOpts (catInvs refinedSpecs)
+        proceed specContents errKSpecs $ \kSpecs -> do
+          let printFile (filename, content) = case out of
+                Nothing -> putStrLn (filename <> ".k") >> putStrLn content
+                Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
+          forM_ kSpecs printFile
 
 -- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
 runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Maybe Bool -> Symbolic () -> IO SatResult
@@ -146,6 +142,11 @@ runSMTWithTimeOut solver maybeTimeout maybeDebug sym
  where debug = fromMaybe False maybeDebug
        timeout = fromMaybe 20000 maybeTimeout
        runwithz3 = satWith z3{verbose=debug} $ (setTimeOut timeout) >> sym
+
+-- | Fail on error, or proceed to the continuation
+proceed :: String -> Err a -> (a -> IO ()) -> IO ()
+proceed contents (Bad e) _ = prettyErr contents e
+proceed _ (Ok a) continue = continue a
 
 prettyErr :: String -> (Pn, String) -> IO ()
 prettyErr contents pn@(AlexPn _ line col,msg) =
