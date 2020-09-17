@@ -15,6 +15,7 @@ import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
 import Data.SBV
+import Data.SBV.Control hiding (timeout)
 import Data.Text (pack, unpack)
 import Data.Maybe
 import Data.List
@@ -27,6 +28,7 @@ import System.Environment (setEnv)
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import Control.Monad
+import EVM.SymExec
 
 import ErrM
 import Lex (lexer, AlexPosn(..))
@@ -39,6 +41,7 @@ import Syntax
 import Type
 import Prove
 import Coq
+import HEVM
 
 --command line options
 data Command w
@@ -62,6 +65,13 @@ data Command w
                     , storage    :: w ::: Maybe String         <?> "Path to storage definitions"
                     , extractbin :: w ::: Bool                 <?> "Put EVM bytecode in separate file"
                     , out        :: w ::: Maybe String         <?> "output directory"
+                    }
+
+  | HEVM            { spec       :: w ::: String               <?> "Path to spec"
+                    , soljson    :: w ::: String               <?> "Path to .sol.json"
+                    , solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
+                    , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
+                    , debug      :: w ::: Maybe Bool           <?> "Print verbose smt output (default: False)"
                     }
  deriving (Generic)
 
@@ -137,6 +147,27 @@ main = do
                 Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
           forM_ kSpecs printFile
 
+      (HEVM spec soljson solver smttimeout debug) -> do
+        specContents <- readFile spec
+        solContents  <- readFile soljson
+        let preprocess = do refinedSpecs  <- compile specContents
+                            (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
+                              $ Solidity.readJSON $ pack solContents
+                            return (catBehvs refinedSpecs, sources)
+        proceed specContents preprocess $ \(specs, sources) ->
+          runSMTWithTimeOut solver smttimeout debug $ query $ do
+            results <- forM specs $ \behv -> proveBehaviour sources behv >>= \case
+                Left (_, posts) -> do
+                  io $ putStrLn $ "Successfully proved " <> show (_name behv)
+                     <> ", " <> show (length posts) <> " cases."
+                  return True
+                Right vm -> do
+                  io $ putStrLn $ "Failed to prove " <> show (_name behv)
+                  io $ putStrLn $ "Counterexample: "
+                  showCounterexample vm Nothing -- TODO: provide signature
+                  return False
+            unless (and results) (io exitFailure)
+
 -- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
 satWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic () -> IO SatResult
 satWithTimeOut solver' maybeTimeout debug' sym = case solver' of
@@ -150,6 +181,20 @@ satWithTimeOut solver' maybeTimeout debug' sym = case solver' of
   _ -> error "Unknown solver. Currently supported solvers; z3, cvc4"
   where timeout = fromMaybe 20000 maybeTimeout
         runwithz3 = satWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
+
+-- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
+runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic a -> IO a
+runSMTWithTimeOut solver maybeTimeout debug' sym
+  | solver == Just "cvc4" = do
+      setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --incremental --interactive --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
+      res <- runSMTWith cvc4{verbose=debug'} sym
+      setEnv "SBV_CVC4_OPTIONS" ""
+      return res
+  | solver == Just "z3" = runwithz3
+  | solver == Nothing = runwithz3
+  | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
+ where timeout = fromMaybe 20000 maybeTimeout
+       runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
 
 -- | Fail on error, or proceed to the continuation
 proceed :: String -> Err a -> (a -> IO ()) -> IO ()
