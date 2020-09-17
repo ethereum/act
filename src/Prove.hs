@@ -262,14 +262,65 @@ symExpBytes ctx@(Ctx c m (Args args) (Store store) (Env env) w) e = case e of
 
 
 nameFromItem :: Method -> When -> TStorageItem a -> Id
-nameFromItem (Method method) prePost item = case item of
-  DirectInt contract name -> contract @@ method @@ name @@ show prePost
-  DirectBool contract name -> contract @@ method @@ name @@ show prePost
-  DirectBytes contract name -> contract @@ method @@ name @@ show prePost
-  MappedInt contract name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
-  MappedBool contract name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
-  MappedBytes contract name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
+nameFromItem m@(Method method) prePost item = case item of
+  DirectInt c name -> c @@ method @@ name @@ show prePost
+  DirectBool c name -> c @@ method @@ name @@ show prePost
+  DirectBytes c name -> c @@ method @@ name @@ show prePost
+  MappedInt c name ixs -> c @@ method @@ name >< showIxs c ixs >< show prePost
+  MappedBool c name ixs -> c @@ method @@ name >< showIxs c ixs >< show prePost
+  MappedBytes c name ixs -> c @@ method @@ name >< showIxs c ixs >< show prePost
   where
+    x >< y = x <> "-" <> y
+    showIxs c ixs = intercalate "-" (NonEmpty.toList $ nameFromExp (Contract c) m prePost <$> ixs)
+
+nameFromExp :: Contract -> Method -> When -> ReturnExp -> Id
+nameFromExp contract method prePost e = case e of
+  ExpInt e' -> nameFromExpInt contract method prePost e'
+  ExpBool e' -> nameFromExpBool contract method prePost e'
+  ExpBytes e' -> nameFromExpBytes contract method prePost e'
+
+nameFromExpInt :: Contract -> Method -> When -> Exp Integer -> Id
+nameFromExpInt c m w e = case e of
+  Add a b   -> (nameFromExpInt c m w a) <> "+" <> (nameFromExpInt c m w b)
+  Sub a b   -> (nameFromExpInt c m w a) <> "-" <> (nameFromExpInt c m w b)
+  Mul a b   -> (nameFromExpInt c m w a) <> "*" <> (nameFromExpInt c m w b)
+  Div a b   -> (nameFromExpInt c m w a) <> "/" <> (nameFromExpInt c m w b)
+  Mod a b   -> (nameFromExpInt c m w a) <> "%" <> (nameFromExpInt c m w b)
+  Exp a b   -> (nameFromExpInt c m w a) <> "^" <> (nameFromExpInt c m w b)
+  LitInt a  -> show a
+  IntVar a  -> a
+  TEntry a  -> nameFromItem m w a
+  IntEnv a -> nameFromEnv c m a
+  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
+  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+
+nameFromExpBool :: Contract -> Method -> When -> Exp Bool -> Id
+nameFromExpBool c m w e = case e of
+  And a b   -> (nameFromExpBool c m w a) <> "&&" <> (nameFromExpBool c m w b)
+  Or a b    -> (nameFromExpBool c m w a) <> "|" <> (nameFromExpBool c m w b)
+  Impl a b  -> (nameFromExpBool c m w a) <> "=>" <> (nameFromExpBool c m w b)
+  Eq a b    -> (nameFromExpInt c m w a) <> "==" <> (nameFromExpInt c m w b)
+  LE a b    -> (nameFromExpInt c m w a) <> "<" <> (nameFromExpInt c m w b)
+  LEQ a b   -> (nameFromExpInt c m w a) <> "<=" <> (nameFromExpInt c m w b)
+  GE a b    -> (nameFromExpInt c m w a) <> ">" <> (nameFromExpInt c m w b)
+  GEQ a b   -> (nameFromExpInt c m w a) <> ">=" <> (nameFromExpInt c m w b)
+  NEq a b   -> (nameFromExpInt c m w a) <> "=/=" <> (nameFromExpInt c m w b)
+  Neg a     -> "~" <> (nameFromExpBool c m w a)
+  LitBool a -> show a
+  BoolVar a -> nameFromArg c m a
+  TEntry a  -> nameFromItem m w a
+  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+
+nameFromExpBytes :: Contract -> Method -> When -> Exp ByteString -> Id
+nameFromExpBytes c m w e = case e of
+  Cat a b -> (nameFromExpBytes c m w a) <> "++" <> (nameFromExpBytes c m w b)
+  ByVar a  -> nameFromArg c m a
+  ByStr a -> show a
+  ByLit a -> show a
+  TEntry a  -> nameFromItem m w a
+  Slice a x y -> (nameFromExpBytes c m w a) <> "[" <> show x <> ":" <> show y <> "]"
+  ByEnv a -> nameFromEnv c m a
+  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
 
 nameFromDecl :: Contract -> Method -> Decl -> Id
 nameFromDecl c m (Decl _ name) = nameFromArg c m name
