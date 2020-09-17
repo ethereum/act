@@ -16,8 +16,8 @@ import Data.SBV hiding (name)
 import Data.SBV.String ((.++), subStr)
 
 import RefinedAst
-import Syntax (Id, Interface(..), Decl(..))
-import Type (metaType, mkStorageBounds)
+import Syntax (Id, Interface(..), Decl(..), EthEnv(..))
+import Type (metaType, mkStorageBounds, locsFromExp)
 
 -- *** Interface *** --
 
@@ -63,7 +63,10 @@ newtype Store = Store { unStore :: [(Id, SMType)] }
 newtype Args = Args { unArgs :: [(Id, SMType)] }
   deriving (Show)
 
-data Ctx = Ctx Contract Method Args Store When
+newtype Env = Env { unEnv :: [(Id, SMType)] }
+  deriving (Show)
+
+data Ctx = Ctx Contract Method Args Store Env When
   deriving (Show)
 
 data SMType
@@ -125,10 +128,11 @@ mkContexts inv@(Invariant contract _) behv@(Behaviour method _ _ c1 (Interface _
   calldata <- Args <$> mapM (mkSymArg c m) decls
   preStore <- Store <$> mapM (mkSymStorage m Pre) locs
   postStore <- Store <$> mapM (mkSymStorage m Post) locs
+  env <- mkEnv c m
 
   let
-    preCtx = Ctx c m calldata preStore Pre
-    postCtx = Ctx c m calldata postStore Post
+    preCtx = Ctx c m calldata preStore env Pre
+    postCtx = Ctx c m calldata postStore env Post
 
   return $ (preCtx, postCtx)
 
@@ -165,8 +169,19 @@ mkSymStorage method whn loc = case loc of
     name :: TStorageItem a -> Id
     name i = nameFromItem method whn i
 
+mkEnv :: Contract -> Method -> Symbolic Env
+mkEnv contract method = Env <$> mapM mkInt
+  [ Caller, Callvalue, Calldepth, Origin, Blockhash, Blocknumber
+  , Difficulty, Chainid, Gaslimit, Coinbase, Timestamp, Address, Nonce ]
+  where
+    mkInt :: EthEnv -> Symbolic (Id, SMType)
+    mkInt env = do
+      let k = nameFromEnv contract method env
+      v <- SymInteger <$> sInteger k
+      return (k, v)
+
 mkStorageConstraints :: Ctx -> Ctx -> [Either StorageLocation StorageUpdate] -> [StorageLocation] -> [SBV Bool]
-mkStorageConstraints preCtx@(Ctx _ m _ (Store preStore) pre) (Ctx _ _ _ (Store postStore) post) updates locs
+mkStorageConstraints preCtx@(Ctx _ m _ (Store preStore) _ pre) (Ctx _ _ _ (Store postStore) _ post) updates locs
   = fmap mkConstraint $ (unchanged <> updates)
   where
     unchanged = Left <$> (locs \\ (fmap getLoc updates))
@@ -200,7 +215,7 @@ mkStorageConstraints preCtx@(Ctx _ m _ (Store preStore) pre) (Ctx _ _ _ (Store p
 
 
 symExpBool :: Ctx -> Exp Bool -> SBV Bool
-symExpBool ctx@(Ctx c m (Args args) (Store store) w) e = case e of
+symExpBool ctx@(Ctx c m (Args args) (Store store) _ w) e = case e of
   And a b   -> (symExpBool ctx a) .&& (symExpBool ctx b)
   Or a b    -> (symExpBool ctx a) .|| (symExpBool ctx b)
   Impl a b  -> (symExpBool ctx a) .=> (symExpBool ctx b)
@@ -217,7 +232,7 @@ symExpBool ctx@(Ctx c m (Args args) (Store store) w) e = case e of
   ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
 
 symExpInt :: Ctx -> Exp Integer -> SBV Integer
-symExpInt ctx@(Ctx c m (Args args) (Store store) w) e = case e of
+symExpInt ctx@(Ctx c m (Args args) (Store store) (Env env) w) e = case e of
   Add a b   -> (symExpInt ctx a) + (symExpInt ctx b)
   Sub a b   -> (symExpInt ctx a) - (symExpInt ctx b)
   Mul a b   -> (symExpInt ctx a) * (symExpInt ctx b)
@@ -227,19 +242,19 @@ symExpInt ctx@(Ctx c m (Args args) (Store store) w) e = case e of
   LitInt a  -> literal a
   IntVar a  -> get (nameFromArg c m a) (Map.fromList $ catInts args)
   TEntry a  -> get (nameFromItem m w a) (Map.fromList $ catInts store)
+  IntEnv a -> get (nameFromEnv c m a) (Map.fromList $ catInts env)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  IntEnv _ -> error "TODO: handle blockchain context in SMT expressions"
   ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
 
 symExpBytes :: Ctx -> Exp ByteString -> SBV String
-symExpBytes ctx@(Ctx c m (Args args) (Store store) w) e = case e of
+symExpBytes ctx@(Ctx c m (Args args) (Store store) (Env env) w) e = case e of
   Cat a b -> (symExpBytes ctx a) .++ (symExpBytes ctx b)
   ByVar a  -> get (nameFromArg c m a) (Map.fromList $ catBytes args)
   ByStr a -> literal a
   ByLit a -> literal $ toString a
   TEntry a  -> get (nameFromItem m w a) (Map.fromList $ catBytes store)
   Slice a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
-  ByEnv _ -> error "TODO: handle blockchain context in SMT expressions"
+  ByEnv a -> get (nameFromEnv c m a) (Map.fromList $ catBytes env)
   ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
 
 
@@ -255,17 +270,33 @@ nameFromItem (Method method) prePost item = case item of
   MappedBool contract name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
   MappedBytes contract name ixs -> contract @@ method @@ name @@ showIxs ixs @@ show prePost
   where
-    x @@ y = x <> "_" <> y
-    showIxs ixs = intercalate "_" (NonEmpty.toList $ show <$> ixs)
 
 nameFromDecl :: Contract -> Method -> Decl -> Id
 nameFromDecl c m (Decl _ name) = nameFromArg c m name
 
 nameFromArg :: Contract -> Method -> Id -> Id
 nameFromArg (Contract c) (Method m) name = c @@ m @@ name
-  where
-    x @@ y = x <> "_" <> y
 
+nameFromEnv :: Contract -> Method -> EthEnv -> Id
+nameFromEnv (Contract c) (Method m) e = c @@ m @@ name
+  where
+    name = case e of
+      Caller -> "CALLER"
+      Callvalue -> "CALLVALUE"
+      Calldepth -> "CALLDEPTH"
+      Origin -> "ORIGIN"
+      Blockhash -> "BLOCKHASH"
+      Blocknumber -> "BLOCKNUMBER"
+      Difficulty -> "DIFFICULTY"
+      Chainid -> "CHAINID"
+      Gaslimit -> "GASLIMIT"
+      Coinbase -> "COINBASE"
+      Timestamp -> "TIMESTAMP"
+      Address -> "ADDRESS"
+      Nonce -> "NONCE"
+
+(@@) :: Id -> Id -> Id
+x @@ y = x <> "_" <> y
 
 -- *** Storage Location Extraction *** --
 
@@ -322,7 +353,7 @@ locsFromExp e = case e of
 
 
 get :: (Show a) => Id -> Map Id a -> a
-get name vars = fromMaybe (error (show name <> " not found in " <> show vars)) $ Map.lookup name vars
+get name vars = fromMaybe (error (name <> " not found in " <> show vars)) $ Map.lookup name vars
 
 catInts :: [(Id, SMType)] -> [(Id, SBV Integer)]
 catInts ((name, SymInteger i):tl) = (name, i):(catInts tl)
