@@ -43,7 +43,7 @@ queries claims = fmap mkQueries gathered
     gathered = fmap (\inv -> (inv, store, getBehaviours inv)) invariants
     invariants = catInvs claims
     store = head (catStores claims) -- TODO: refine AST so we don't need this head anymore
-    getBehaviours (Invariant c _) = filter (isPass && contractMatches c) (catBehvs claims)
+    getBehaviours (Invariant c _) = filter (\b -> isPass b && contractMatches c b) (catBehvs claims)
     contractMatches c b = c == (_contract b)
     isPass b = (_mode b) == Pass
 

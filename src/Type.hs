@@ -159,12 +159,12 @@ mkStorageBounds store refs
   where
     mkBound :: Either StorageLocation StorageUpdate -> Maybe (Exp Bool)
     mkBound (Left (IntLoc item)) = Just $ fromItem item
-    mkBound (Right (IntUpdate item)) = Just $ fromItem item
+    mkBound (Right (IntUpdate item _)) = Just $ fromItem item
     mkBound _ = Nothing
 
     fromItem :: TStorageItem Integer -> Exp Bool
-    fromItem (DirectInt contract name) = bound (abiType $ slotType contract name) (TEntry item)
-    fromItem (MappedInt contract name _) = bound (abiType $ slotType contract name) (TEntry item)
+    fromItem item@(DirectInt contract name) = bound (abiType $ slotType contract name) (TEntry item)
+    fromItem item@(MappedInt contract name _) = bound (abiType $ slotType contract name) (TEntry item)
 
     slotType :: Id -> Id -> SlotType
     slotType contract name = let
