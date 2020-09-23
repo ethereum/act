@@ -93,7 +93,7 @@ main = do
                   let msg = "\n============\n\nInvariant " <> show e <> " of " <> show c <> ": "
                       sep = "\n\n---\n\n"
                       results' = handleRes <$> rs
-                      ok = or $ fst <$> results'
+                      ok = not $ or $ fst <$> results'
                   if ok
                   then putStrLn $ msg <> "Q.E.D ✨"
                   else do

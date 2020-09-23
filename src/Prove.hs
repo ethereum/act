@@ -17,7 +17,7 @@ import Data.SBV.String ((.++), subStr)
 
 import RefinedAst
 import Syntax (Id, Interface(..), Decl(..), EthEnv(..))
-import Type (metaType, mkStorageBounds, locsFromExp)
+import Type (metaType, mkStorageBounds)
 
 -- *** Interface *** --
 
