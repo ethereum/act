@@ -48,7 +48,8 @@ initialVm sources b@Behaviour{..} = do
              (cd, literal $ fromIntegral $ len cd)
   return $ over pathConditions (<> (preConditions sources b vm)) vm
 
-storageSlot :: 
+storageSlot :: StorageItem -> StorageLocation -> SymWord
+storageSlot StorageItem{..} _ = error "TODO: storage locations"
 
 
 preConditions :: SolcJson -> Behaviour -> VM -> [SBool]
