@@ -23,16 +23,19 @@ import Type (metaType, mkStorageBounds, locsFromExp)
 
 
 {-|
-   For each Invariant claim build an SMT query consisting of:
+   For each invariant claim, we build an SMT query for that claim for each pass behaviour in the transtion system.
 
-   - constants for the pre and post versions of all storage variables used by the transition system
-   - boolean predicates over the pre and post storage variables for each pass behaviour
-   - a boolean predicate for the invariant
-   - an assertion that the invariant does not hold if either of the following is true:
-      1. The constructor predicate holds
-      2. The invariant holds over the prestate and one of the method level predicates holds
+   If the behaviour is a constructor (creation == True), the query asks the
+   solver to find instances where the invariant predicate does not hold over
+   the post state once the constructor has run.
 
-   If this query returns `unsat` then the invariant must hold over the transition system
+   If the behaviour is a method (creation == False), the query asks the solver to find instances where the follwing is true:
+
+   - the invariant holds over the pre state
+   - a predicate relating the pre and post state holds
+   - the invariant does not hold over the post state
+
+   If all of the queries for an invariant claim return `unsat`, then the invariant must hold over the entire transtion system
 -}
 queries :: [Claim] -> [(Invariant, [Symbolic ()])]
 queries claims = fmap mkQueries gathered
