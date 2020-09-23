@@ -1,8 +1,10 @@
 [
   {
-    "stateUpdates": {
-      "A": []
-    },
+    "storages": {},
+    "kind": "Storages"
+  },
+  {
+    "stateUpdates": [],
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
@@ -52,9 +54,7 @@
     }
   },
   {
-    "stateUpdates": {
-      "A": []
-    },
+    "stateUpdates": [],
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,

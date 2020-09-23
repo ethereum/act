@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# Language DeriveAnyClass #-}
+{-# Language MultiParamTypeClasses #-}
 
 module RefinedAst where
 
@@ -14,15 +15,18 @@ import Data.Map.Strict (Map)
 import Data.List.NonEmpty hiding (fromList)
 import Data.ByteString (ByteString)
 
-import Syntax
+import EVM.Solidity (SlotType(..))
+
+import Syntax (Id, Interface, EthEnv)
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
 
 -- AST post typechecking
-data Claim = B Behaviour | I Invariant
+data Claim = B Behaviour | I Invariant | S Storages deriving (Show)
 
-data Invariant = Invariant Id (Exp Bool)
+newtype Storages = Storages { unStorages :: Map Id (Map Id SlotType) } deriving (Show)
+data Invariant = Invariant Id (Exp Bool) deriving (Show)
 data Behaviour = Behaviour
   {_name :: Id,
    _mode :: Mode,
@@ -31,23 +35,25 @@ data Behaviour = Behaviour
    _interface :: Interface,
    _preconditions :: Exp Bool,
    _postconditions :: Exp Bool,
-   _stateUpdates :: Map Id [Either StorageLocation StorageUpdate],
+   _stateUpdates :: [Either StorageLocation StorageUpdate],
    _returns :: Maybe ReturnExp
   }
+  deriving (Show)
 
 catInvs :: [Claim] -> [Invariant]
 catInvs [] = []
 catInvs ((I i):claims) = i:(catInvs claims)
-catInvs ((B _):claims) = catInvs claims
+catInvs (_:claims) = catInvs claims
+
+catStores :: [Claim] -> [Storages]
+catStores [] = []
+catStores ((S s):claims) = s:(catStores claims)
+catStores (_:claims) = catStores claims
 
 catBehvs :: [Claim] -> [Behaviour]
 catBehvs [] = []
-catBehvs ((I _):claims) = catBehvs claims
-catBehvs ((B b):claims) = (b:catBehvs claims)
-
-conjunction :: [Invariant] -> Exp Bool
-conjunction [] = LitBool True
-conjunction ((Invariant _ e):tl) = And e (conjunction tl)
+catBehvs ((B b):claims) = b:(catBehvs claims)
+catBehvs (_:claims) = catBehvs claims
 
 data Mode
   = Pass
@@ -63,71 +69,70 @@ data MType
 --  | Mapping (Map MType MType)
   deriving (Eq, Ord, Show, Read)
 
---data T_List t
---data T_Tuple
-
 data StorageUpdate
-  = IntUpdate (TStorageItem Int) (Exp Int)
+  = IntUpdate (TStorageItem Integer) (Exp Integer)
   | BoolUpdate (TStorageItem Bool) (Exp Bool)
   | BytesUpdate (TStorageItem ByteString) (Exp ByteString)
   deriving (Show)
 
 data StorageLocation
-  = IntLoc (TStorageItem Int)
+  = IntLoc (TStorageItem Integer)
   | BoolLoc (TStorageItem Bool)
   | BytesLoc (TStorageItem ByteString)
-  deriving (Show)
-
+  deriving (Show, Eq)
 
 data TStorageItem a where
-  DirectInt    :: Id -> TStorageItem Int
-  DirectBool   :: Id -> TStorageItem Bool
-  DirectBytes  :: Id -> TStorageItem ByteString
-  MappedInt    :: Id -> NonEmpty ReturnExp -> TStorageItem Int
-  MappedBool   :: Id -> NonEmpty ReturnExp -> TStorageItem Bool
-  MappedBytes  :: Id -> NonEmpty ReturnExp -> TStorageItem ByteString
+  DirectInt    :: Id -> Id -> TStorageItem Integer
+  DirectBool   :: Id -> Id -> TStorageItem Bool
+  DirectBytes  :: Id -> Id -> TStorageItem ByteString
+  MappedInt    :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem Integer
+  MappedBool   :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem Bool
+  MappedBytes  :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem ByteString
 
 deriving instance Show (TStorageItem a)
+deriving instance Eq (TStorageItem a)
+
 -- typed expressions
 data Exp t where
   --booleans
   And  :: Exp Bool -> Exp Bool -> Exp Bool
   Or   :: Exp Bool -> Exp Bool -> Exp Bool
   Impl :: Exp Bool -> Exp Bool -> Exp Bool
-  Eq  :: Exp Int -> Exp Int -> Exp Bool --TODO: make polymorphic (how to ToJSON.encode them?)
-  NEq  :: Exp Int -> Exp Int -> Exp Bool
+  Eq  :: Exp Integer -> Exp Integer -> Exp Bool --TODO: make polymorphic (how to ToJSON.encode them?)
+  NEq  :: Exp Integer -> Exp Integer -> Exp Bool
   Neg :: Exp Bool -> Exp Bool
-  LE :: Exp Int -> Exp Int -> Exp Bool
-  LEQ :: Exp Int -> Exp Int -> Exp Bool
-  GEQ :: Exp Int -> Exp Int -> Exp Bool
-  GE :: Exp Int -> Exp Int -> Exp Bool
+  LE :: Exp Integer -> Exp Integer -> Exp Bool
+  LEQ :: Exp Integer -> Exp Integer -> Exp Bool
+  GEQ :: Exp Integer -> Exp Integer -> Exp Bool
+  GE :: Exp Integer -> Exp Integer -> Exp Bool
   LitBool :: Bool -> Exp Bool
   BoolVar :: Id -> Exp Bool
   -- integers
-  Add :: Exp Int -> Exp Int -> Exp Int
-  Sub :: Exp Int -> Exp Int -> Exp Int
-  Mul :: Exp Int -> Exp Int -> Exp Int
-  Div :: Exp Int -> Exp Int -> Exp Int
-  Mod :: Exp Int -> Exp Int -> Exp Int
-  Exp :: Exp Int -> Exp Int -> Exp Int
-  LitInt :: Integer -> Exp Int
-  IntVar :: Id -> Exp Int
-  IntEnv :: EthEnv -> Exp Int
+  Add :: Exp Integer -> Exp Integer -> Exp Integer
+  Sub :: Exp Integer -> Exp Integer -> Exp Integer
+  Mul :: Exp Integer -> Exp Integer -> Exp Integer
+  Div :: Exp Integer -> Exp Integer -> Exp Integer
+  Mod :: Exp Integer -> Exp Integer -> Exp Integer
+  Exp :: Exp Integer -> Exp Integer -> Exp Integer
+  LitInt :: Integer -> Exp Integer
+  IntVar :: Id -> Exp Integer
+  IntEnv :: EthEnv -> Exp Integer
   -- bytestrings
   Cat :: Exp ByteString -> Exp ByteString -> Exp ByteString
-  Slice :: Exp ByteString -> Exp Int -> Exp Int -> Exp ByteString
+  Slice :: Exp ByteString -> Exp Integer -> Exp Integer -> Exp ByteString
   ByVar :: Id -> Exp ByteString
   ByStr :: String -> Exp ByteString
   ByLit :: ByteString -> Exp ByteString
   ByEnv :: EthEnv -> Exp ByteString
   -- builtins
-  NewAddr :: Exp Int -> Exp Int -> Exp Int
+  NewAddr :: Exp Integer -> Exp Integer -> Exp Integer
 
   --polymorphic
   ITE :: Exp Bool -> Exp t -> Exp t -> Exp t
   TEntry :: (TStorageItem t) -> Exp t
 
 deriving instance Show (Exp t)
+deriving instance Eq (Exp t)
 
 instance Semigroup (Exp Bool) where
   a <> b = And a b
@@ -136,16 +141,18 @@ instance Monoid (Exp Bool) where
   mempty = LitBool True
 
 data ReturnExp
-  = ExpInt    (Exp Int)
+  = ExpInt    (Exp Integer)
   | ExpBool   (Exp Bool)
   | ExpBytes  (Exp ByteString)
-  deriving (Show)
+  deriving (Eq, Show)
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
+  toJSON (S (Storages storages)) = object [ "kind" .= (String "Storages")
+                                          , "storages" .= toJSON storages]
   toJSON (I (Invariant contract e)) = object [ "kind" .= (String "Invariant")
                                              , "expression" .= toJSON e
-                                             , "contract" .= toJSON contract ]
+                                             , "contract" .= show contract ]
   toJSON (B (Behaviour {..})) = object  [ "kind" .= (String "Behaviour")
                                         , "name" .= _name
                                         , "contract" .= _contract
@@ -157,23 +164,32 @@ instance ToJSON Claim where
                                         , "stateUpdates" .= toJSON _stateUpdates
                                         , "returns" .= toJSON _returns]
 
+instance ToJSON SlotType where
+  toJSON (StorageValue t) = object ["type" .= show t]
+  toJSON (StorageMapping ixTypes valType) = object [ "type" .= (String "mapping")
+                                                   , "ixTypes" .= show (toList ixTypes)
+                                                   , "valType" .= show valType]
+
 instance ToJSON StorageLocation where
   toJSON (IntLoc a) = object ["location" .= toJSON a]
   toJSON (BoolLoc a) = object ["location" .= toJSON a]
   toJSON (BytesLoc a) = object ["location" .= toJSON a]
 
 instance ToJSON StorageUpdate where
-  toJSON (IntUpdate a b) = object ["location" .= toJSON a ,"value"    .= toJSON b]
-  toJSON (BoolUpdate a b) = object ["location" .= toJSON a ,"value"    .= toJSON b]
-  toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value"    .= toJSON b]
+  toJSON (IntUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
+  toJSON (BoolUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
+  toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
 instance ToJSON (TStorageItem b) where
-  toJSON (DirectInt a) = String $ pack a
-  toJSON (DirectBool a) = String $ pack a
-  toJSON (DirectBytes a) = String $ pack a
-  toJSON (MappedInt a b) = symbol "lookup" a b
-  toJSON (MappedBool a b) = symbol "lookup" a b
-  toJSON (MappedBytes a b) = symbol "lookup" a b
+  toJSON (DirectInt a b) = object ["sort" .= (pack "int")
+                                  , "name" .= (String $ pack a <> "." <> pack b)]
+  toJSON (DirectBool a b) = object ["sort" .= (pack "bool")
+                                   , "name" .= (String $ pack a <> "." <> pack b)]
+  toJSON (DirectBytes a b) = object ["sort" .= (pack "bytes")
+                                    , "name" .= (String $ pack a <> "." <> pack b)]
+  toJSON (MappedInt a b c) = mapping a b c
+  toJSON (MappedBool a b c) = mapping a b c
+  toJSON (MappedBytes a b c) = mapping a b c
 
 instance ToJSON ReturnExp where
    toJSON (ExpInt a) = object ["sort" .= (pack "int")
@@ -182,11 +198,8 @@ instance ToJSON ReturnExp where
                                ,"expression" .= toJSON a]
    toJSON (ExpBytes a) = object ["sort" .= (String $ pack "bytestring")
                                ,"expression" .= toJSON a]
-   -- toJSON (ExpTuple a) = object ["sort" .= (String $ pack "tuple")
-   --                              ,"expression" .= toJSON a]
 
-
-instance ToJSON (Exp Int) where
+instance ToJSON (Exp Integer) where
   toJSON (Add a b) = symbol "+" a b
   toJSON (Sub a b) = symbol "-" a b
   toJSON (Exp a b) = symbol "^" a b
@@ -208,10 +221,15 @@ instance ToJSON (Exp Bool) where
   toJSON (LEQ a b)  = symbol "<=" a b
   toJSON (GEQ a b)  = symbol ">=" a b
   toJSON (LitBool a) = String $ pack $ show a
-  toJSON (Neg a) = object [   "symbol"   .= pack "not"
+  toJSON (Neg a) = object [  "symbol"   .= pack "not"
                           ,  "arity"    .= (Data.Aeson.Types.Number 1)
                           ,  "args"     .= (Array $ fromList [toJSON a])]
   toJSON v = error $ "todo: json ast for: " <> show v
+
+mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
+mapping c a b = object [  "symbol"   .= pack "lookup"
+                       ,  "arity"    .= (Data.Aeson.Types.Number 3)
+                       ,  "args"     .= (Array $ fromList [toJSON c, toJSON a, toJSON b])]
 
 symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
 symbol s a b = object [  "symbol"   .= pack s

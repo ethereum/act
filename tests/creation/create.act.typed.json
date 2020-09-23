@@ -1,21 +1,38 @@
 [
   {
-    "stateUpdates": {
-      "Modest": [
-        {
-          "Right": {
-            "location": "y",
-            "value": "Caller"
-          }
+    "storages": {
+      "Modest": {
+        "x": {
+          "type": "uint256"
         },
-        {
-          "Right": {
-            "location": "x",
-            "value": 1
-          }
+        "y": {
+          "type": "address"
         }
-      ]
+      }
     },
+    "kind": "Storages"
+  },
+  {
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "Modest.y",
+            "sort": "int"
+          },
+          "value": "Caller"
+        }
+      },
+      {
+        "Right": {
+          "location": {
+            "name": "Modest.x",
+            "sort": "int"
+          },
+          "value": 1
+        }
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": true,
@@ -33,15 +50,21 @@
               "arity": 2,
               "args": [
                 0,
-                "x"
+                {
+                  "name": "Modest.y",
+                  "sort": "int"
+                }
               ],
               "symbol": "<="
             },
             {
               "arity": 2,
               "args": [
-                "x",
-                1.157920892373162e+77
+                {
+                  "name": "Modest.y",
+                  "sort": "int"
+                },
+                1.461501637330903e+48
               ],
               "symbol": "<="
             }
@@ -58,15 +81,21 @@
                   "arity": 2,
                   "args": [
                     0,
-                    "y"
+                    {
+                      "name": "Modest.x",
+                      "sort": "int"
+                    }
                   ],
                   "symbol": "<="
                 },
                 {
                   "arity": 2,
                   "args": [
-                    "y",
-                    1.461501637330903e+48
+                    {
+                      "name": "Modest.x",
+                      "sort": "int"
+                    },
+                    1.157920892373162e+77
                   ],
                   "symbol": "<="
                 }

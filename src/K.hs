@@ -12,7 +12,7 @@ import Data.Text (Text, pack, unpack)
 import Data.List hiding (group)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe
-import Data.ByteString hiding (group, pack, unpack, intercalate, foldr, concat, head, tail)
+import Data.ByteString hiding (group, pack, unpack, intercalate, filter, foldr, concat, head, tail)
 import qualified Data.Text as Text
 import Parse
 import EVM.Types
@@ -87,21 +87,40 @@ getId (Left (BoolLoc a)) = getId' a
 getId (Left (BytesLoc a)) = getId' a
 
 getId' :: TStorageItem a -> Id
-getId' (DirectInt name) = name
-getId' (DirectBool name) = name
-getId' (DirectBytes name) = name
-getId' (MappedInt name _) = name
-getId' (MappedBool name _) = name
-getId' (MappedBytes name _) = name
+getId' (DirectInt _ name) = name
+getId' (DirectBool _ name) = name
+getId' (DirectBytes _ name) = name
+getId' (MappedInt _ name _) = name
+getId' (MappedBool _ name _) = name
+getId' (MappedBytes _ name _) = name
 
+getContract :: Either StorageLocation StorageUpdate -> Id
+getContract (Left (IntLoc item)) = getContract' item
+getContract (Left (BoolLoc item)) = getContract' item
+getContract (Left (BytesLoc item)) = getContract' item
+getContract (Right (IntUpdate item _)) = getContract' item
+getContract (Right (BoolUpdate item _)) = getContract' item
+getContract (Right (BytesUpdate item _)) = getContract' item
+
+getContract' :: TStorageItem a -> Id
+getContract' (DirectInt c _) = c
+getContract' (DirectBool c _) = c
+getContract' (DirectBytes c _) = c
+getContract' (MappedInt c _ _) = c
+getContract' (MappedBool c _ _) = c
+getContract' (MappedBytes c _ _) = c
+
+conjunction :: [Invariant] -> Exp Bool
+conjunction [] = LitBool True
+conjunction ((Invariant _ e):tl) = And e (conjunction tl)
 
 kstorageName :: TStorageItem a -> String
-kstorageName (DirectInt name)    = kVar name
-kstorageName (DirectBool name)   = kVar name
-kstorageName (DirectBytes name)  = kVar name
-kstorageName (MappedInt name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kstorageName (MappedBool name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kstorageName (MappedBytes name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kstorageName (DirectInt _ name)    = kVar name
+kstorageName (DirectBool _ name)   = kVar name
+kstorageName (DirectBytes _ name)  = kVar name
+kstorageName (MappedInt _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kstorageName (MappedBool _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kstorageName (MappedBytes _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> (tail a)
@@ -119,7 +138,7 @@ kExpr (ExpBool a) = kExprBool a
 kExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
 
 
-kExprInt :: Exp Int -> String
+kExprInt :: Exp Integer -> String
 kExprInt (Add a b) = "(" <> kExprInt a <> " +Int " <> kExprInt b <> ")"
 kExprInt (Sub a b) = "(" <> kExprInt a <> " -Int " <> kExprInt b <> ")"
 kExprInt (Mul a b) = "(" <> kExprInt a <> " *Int " <> kExprInt b <> ")"
@@ -211,9 +230,9 @@ kSlot :: Either StorageLocation StorageUpdate -> StorageItem -> (String, Int)
 kSlot update StorageItem{..} = case _type of
   (StorageValue _) -> (show _slot, _offset)
   (StorageMapping _ _) -> case update of
-      Right (IntUpdate (MappedInt _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
-      Right (BoolUpdate (MappedBool _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
-      Right (BytesUpdate (MappedBytes _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
+      Right (IntUpdate (MappedInt _ _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
+      Right (BoolUpdate (MappedBool _ _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
+      Right (BytesUpdate (MappedBytes _ _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
       _ -> error "internal error: kSlot. Please report"
 
 
@@ -250,8 +269,6 @@ defaultConditions acct_id =
     "andBool " <> show Calldepth <> " <=Int 1024\n" <>
     "andBool #rangeUInt(256, " <> show Callvalue <> ")\n" <>
     "andBool #rangeUInt(256, " <> show Chainid <>  " )\n"
-
-
 
 mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> Exp Bool -> (String, String)
 mkTerm this accounts Behaviour{..} invariant = (name, term)
@@ -321,14 +338,14 @@ mkTerm this accounts Behaviour{..} invariant = (name, term)
                 <> "network" |- ("\n"
                   <> "activeAccounts" |- "_"
                   <> "accounts" |- ("\n" <> (unpack $
-                    Text.intercalate "\n" (flip fmap (Map.keys _stateUpdates) $ \a ->
+                    Text.intercalate "\n" (flip fmap (getContract <$> _stateUpdates) $ \a ->
                       pack $
                         kAccount pass a
                          (fromMaybe
                            (error $ show a ++ " not found in accounts: " ++ show accounts)
                            $ Map.lookup a accounts
                          )
-                         (fromMaybe [] (Map.lookup a _stateUpdates))
+                         (filter (\u -> getContract u == a) _stateUpdates)
                          )))
                   <> "txOrder" |- "_"
                   <> "txPending" |- "_"

@@ -10,7 +10,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Type where
+module Type (typecheck, metaType, mkStorageBounds) where
 
 import Data.List
 import EVM.ABI
@@ -25,7 +25,7 @@ import Data.ByteString (ByteString)
 
 import Control.Monad
 
-import Syntax
+import Syntax hiding (Storage)
 import ErrM
 import Parse
 import RefinedAst
@@ -33,7 +33,7 @@ import RefinedAst
 typecheck :: [RawBehaviour] -> Err [Claim]
 typecheck behvs = let store = lookupVars behvs in
                   do bs <- mapM (splitBehaviour store) behvs
-                     return $ join bs
+                     return $ (S $ Storages store):(join bs)
 
 --- Finds storage declarations from constructors
 lookupVars :: [RawBehaviour] -> Store
@@ -67,24 +67,19 @@ defaultStore =
 
 type Store = Map Id (Map Id SlotType)
 
--- typing of vars: this contract storage, other contract scopes, calldata args
-type Env = (Map Id SlotType, Store, Map Id MType)
-
-andRaw :: [Expr] -> Expr
-andRaw [x] = x
-andRaw (x:xs) = EAnd nowhere x (andRaw xs)
-andRaw [] = BoolLit True
+-- typing of vars: this contract name, this contract storage, other contract scopes, calldata args
+type Env = (Id, Map Id SlotType, Store, Map Id MType)
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> RawBehaviour -> Err [Claim]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
   -- constrain integer calldata variables (TODO: other types)
   let calldataBounds = getCallDataBounds decls
-      storageBounds = snd $ getStorageBounds env
-  iff <- checkIffs env (iffs' <> calldataBounds <> storageBounds)
+  iff <- checkIffs env (iffs' <> calldataBounds)
   postcondition <- mapM (checkBool env) (fromMaybe [] maybePost)
   flatten iff postcondition cases
   where
+    env :: Env
     env = mkEnv contract store decls
 
     -- translate wildcards into negation of other cases
@@ -111,64 +106,77 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     -- flatten case list
     flatten :: [Exp Bool] -> [Exp Bool] -> Cases -> Err [Claim]
     flatten iff postc (Direct post) = do
-      (p, maybeReturn) <- checkPost env contract post
-      return $ splitCase name False contract iface (LitBool True) iff maybeReturn p postc
+      (p, maybeReturn) <- checkPost env post
+      let preBounds = mkStorageBounds store p
+      return $ splitCase name False contract iface (LitBool True) (iff <> preBounds) maybeReturn p postc
     flatten iff postc (Branches branches) = do
       branches' <- normalize branches
       cases' <- flip mapM branches' $ \(Case _ cond post) -> do
         if' <- checkBool env cond
-        (post', ret) <- checkPost env contract post
+        (post', ret) <- checkPost env post
         return (if', post', ret)
 
-      pure . join $ ((\(ifcond, stateUpdates, ret) ->
-         splitCase name False contract iface ifcond iff ret stateUpdates postc) <$> cases')
+      pure . join $ ((\(ifcond, stateUpdates, ret) -> let
+          preBounds = mkStorageBounds store stateUpdates
+        in splitCase name False contract iface ifcond (iff <> preBounds) ret stateUpdates postc) <$> cases')
 
-splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvariants) = do
+splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvs) = do
   when (length extStorage > 0) $ error "TODO: support extStorage in constructor"
 
   let env = mkEnv contract store decls
 
-  rawUpdates <- mapM (checkAssign env) assigns
-  let stateUpdates = Map.fromList $ [(contract, Right <$> concat rawUpdates)]
+  rawUpdates <- concat <$> mapM (checkAssign env) assigns
+  let stateUpdates = Right <$> rawUpdates
 
   let calldataBounds = getCallDataBounds decls
   iffs' <- checkIffs env (iffs <> calldataBounds)
 
-  invariants <- mapM (checkBool env) $ fromMaybe [] maybeInvariants
+  invariants <- mapM (checkBool env) $ fromMaybe [] maybeInvs
   ensures <- mapM (checkBool env) (fromMaybe [] maybeEnsures)
-  let storageBounds = fst $ getStorageBounds env
-      postcs = storageBounds <> invariants <> ensures
+  let postcs = ensures <> mkStorageBounds store stateUpdates
 
   return $ ((I . (Invariant contract)) <$> invariants)
-           ++ (splitCase name True contract iface (LitBool True) iffs' Nothing stateUpdates postcs)
+           <> (splitCase name True contract iface (LitBool True) iffs' Nothing stateUpdates postcs)
 
 mkEnv :: Id -> Store -> [Decl]-> Env
-mkEnv contract store decls = (fromMaybe mempty (Map.lookup contract store), store, abiVars)
+mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract store), store, abiVars)
  where
    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
 
--- split case into pass and fail case
+-- | split case into pass and fail case
 splitCase :: Id -> Bool -> Id -> Interface -> Exp Bool -> [Exp Bool] -> Maybe ReturnExp
-          -> Map Id [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [Claim]
+          -> [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [Claim]
 splitCase name creates contract iface if' [] ret storage postcs =
   [ B $ Behaviour name Pass creates contract iface if' (mconcat postcs) storage ret ]
 splitCase name creates contract iface if' iffs ret storage postcs =
   [ B $ Behaviour name Pass creates contract iface (mconcat (if':iffs)) (mconcat postcs) storage ret,
     B $ Behaviour name Fail creates contract iface (And if' (Neg (mconcat iffs))) (mconcat postcs) storage Nothing ]
 
--- extracts bounds on Integer values in storage, returns Iff or Exp Bool
--- representations for use in either pre or post conditions
-getStorageBounds :: Env -> ([Exp Bool], [IffH])
-getStorageBounds (ours, _, _) =
-  unzip $ catMaybes $ fmap getBound $ Map.toList ours
+-- | extracts bounds from the AbiTypes of Integer values in storage
+mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Bool]
+mkStorageBounds store refs
+  = catMaybes $ mkBound <$> refs
   where
-    getBound :: (Id, SlotType) -> Maybe (Exp Bool, IffH)
-    getBound (name, (StorageValue typ)) = case metaType typ of
-      Integer -> Just $ (bound typ (IntVar name), IffIn nowhere typ [EntryExp nowhere name []])
-      _ -> Nothing
-    getBound (_, _) = Nothing
+    mkBound :: Either StorageLocation StorageUpdate -> Maybe (Exp Bool)
+    mkBound (Left (IntLoc item)) = Just $ fromItem item
+    mkBound (Right (IntUpdate item _)) = Just $ fromItem item
+    mkBound _ = Nothing
 
--- extract a list of iff headers from the size of the types in a list of calldata declarations
+    fromItem :: TStorageItem Integer -> Exp Bool
+    fromItem item@(DirectInt contract name) = bound (abiType $ slotType contract name) (TEntry item)
+    fromItem item@(MappedInt contract name _) = bound (abiType $ slotType contract name) (TEntry item)
+
+    slotType :: Id -> Id -> SlotType
+    slotType contract name = let
+        vars = fromMaybe (error $ contract <> " not found in " <> show store) $ Map.lookup contract store
+      in fromMaybe (error $ name <> " not found in " <> show vars) $ Map.lookup name vars
+
+
+    abiType :: SlotType -> AbiType
+    abiType (StorageMapping _ typ) = typ
+    abiType (StorageValue typ) = typ
+
+-- | extract a list of iff headers from the size of the types in a list of calldata declarations
 getCallDataBounds :: [Decl] -> [IffH]
 getCallDataBounds decls =
   join $
@@ -179,19 +187,19 @@ getCallDataBounds decls =
       )
       decls
 
--- ensures that key types match value types in an assign
+-- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
-checkAssign env (AssignVal (StorageVar (StorageValue typ) name) expr)
+checkAssign env@(contract, _, _, _) (AssignVal (StorageVar (StorageValue typ) name) expr)
   = case metaType typ of
     Integer -> do
       val <- checkInt env expr
-      return [IntUpdate (DirectInt name) val]
+      return [IntUpdate (DirectInt contract name) val]
     Boolean -> do
       val <- checkBool env expr
-      return [BoolUpdate (DirectBool name) val]
+      return [BoolUpdate (DirectBool contract name) val]
     ByteStr -> do
       val <- checkBytes env expr
-      return [BytesUpdate (DirectBytes name) val]
+      return [BytesUpdate (DirectBytes contract name) val]
 checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
   = mapM (checkDefn env keyType valType name) defns
 checkAssign _ (AssignVal (StorageVar (StorageMapping _ _) _) _)
@@ -203,7 +211,7 @@ checkAssign _ _ = error $ "todo: support struct assignment in constructors"
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
 checkDefn :: Env -> AbiType -> AbiType -> Id -> Defn -> Err StorageUpdate
-checkDefn env keyType valType name (Defn k v) = case metaType keyType of
+checkDefn env@(contract, _, _, _) keyType valType name (Defn k v) = case metaType keyType of
     Integer -> do
       key <- checkInt env k
       checkVal (ExpInt key)
@@ -218,68 +226,67 @@ checkDefn env keyType valType name (Defn k v) = case metaType keyType of
         case metaType valType of
           Integer -> do
             val <- checkInt env v
-            return $ IntUpdate (MappedInt name (key :| [])) val
+            return $ IntUpdate (MappedInt contract name (key :| [])) val
           Boolean -> do
             val <- checkBool env v
-            return $ BoolUpdate (MappedBool name (key :| [])) val
+            return $ BoolUpdate (MappedBool contract name (key :| [])) val
           ByteStr -> do
             val <- checkBytes env v
-            return $ BytesUpdate (MappedBytes name (key :| [])) val
+            return $ BytesUpdate (MappedBytes contract name (key :| [])) val
 
-checkPost :: Env -> Id -> Post -> Err (Map Id [Either StorageLocation StorageUpdate], Maybe ReturnExp)
-checkPost env@(_, theirs, localVars) contract (Post maybeStorage extStorage maybeReturn) =
+checkPost :: Env -> Post -> Err ([Either StorageLocation StorageUpdate], Maybe ReturnExp)
+checkPost env@(contract, _, theirs, localVars) (Post maybeStorage extStorage maybeReturn) =
   do  returnexp <- mapM (inferExpr env) maybeReturn
       ourStorage <- case maybeStorage of
         Just entries -> checkEntries contract entries
         Nothing -> Ok []
       otherStorage <- checkStorages extStorage
-      return $ ((Map.fromList $ (contract, ourStorage):otherStorage),
-                 returnexp)
+      return $ (ourStorage <> otherStorage, returnexp)
   where checkEntries name entries =
           mapM (\a -> case a of
-                   Rewrite loc val -> Right <$> checkStorageExpr (fromMaybe mempty (Map.lookup name theirs), theirs, localVars) loc val
+                   Rewrite loc val -> Right <$> checkStorageExpr (name, fromMaybe mempty (Map.lookup name theirs), theirs, localVars) loc val
                    Constant loc -> Left <$> checkEntry env loc
                ) entries
-        checkStorages :: [ExtStorage] -> Err [(Id, [Either StorageLocation StorageUpdate])]
+        checkStorages :: [ExtStorage] -> Err [Either StorageLocation StorageUpdate]
         checkStorages [] = Ok []
         checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries
                                                           ps <- checkStorages xs
-                                                          Ok $ (name, p):ps
+                                                          Ok $ p <> ps
         checkStorages _ = error "TODO: check other storages"
 
 checkStorageExpr :: Env -> Entry -> Expr -> Err StorageUpdate
-checkStorageExpr env@(ours, _, _) (Entry p name ixs) expr =
+checkStorageExpr env@(contract, ours, _, _) (Entry p name ixs) expr =
     case Map.lookup name ours of
       Just (StorageValue t)  -> case metaType t of
-          Integer -> IntUpdate (DirectInt name) <$> checkInt env expr
-          Boolean -> BoolUpdate (DirectBool name) <$> checkBool env expr
-          ByteStr -> BytesUpdate (DirectBytes name) <$> checkBytes env expr
+          Integer -> IntUpdate (DirectInt contract name) <$> checkInt env expr
+          Boolean -> BoolUpdate (DirectBool contract name) <$> checkBool env expr
+          ByteStr -> BytesUpdate (DirectBytes contract name) <$> checkBytes env expr
       Just (StorageMapping argtyps  t) ->
         if length argtyps /= length ixs
         then Bad $ (p, "Argument mismatch for storageitem: " <> name)
         else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
              in case metaType t of
-                  Integer -> liftM2 (IntUpdate . MappedInt name) indexExprs (checkInt env expr)
-                  Boolean -> liftM2 (BoolUpdate . MappedBool name) indexExprs (checkBool env expr)
-                  ByteStr -> liftM2 (BytesUpdate . MappedBytes name) indexExprs (checkBytes env expr)
+                  Integer -> liftM2 (IntUpdate . MappedInt contract name) indexExprs (checkInt env expr)
+                  Boolean -> liftM2 (BoolUpdate . MappedBool contract name) indexExprs (checkBool env expr)
+                  ByteStr -> liftM2 (BytesUpdate . MappedBytes contract name) indexExprs (checkBytes env expr)
       Nothing -> Bad $ (p, "Unknown storage variable: " <> show name)
 checkStorageExpr _ Wild _ = error "TODO: add support for wild storage to checkStorageExpr"
 
 checkEntry :: Env -> Entry -> Err StorageLocation
-checkEntry env@(ours, _, _) (Entry p name ixs) =
+checkEntry env@(contract, ours, _, _) (Entry p name ixs) =
   case Map.lookup name ours of
     Just (StorageValue t) -> case metaType t of
-          Integer -> Ok $ IntLoc (DirectInt name)
-          Boolean -> Ok $ BoolLoc (DirectBool name)
-          ByteStr -> Ok $ BytesLoc (DirectBytes name)
+          Integer -> Ok $ IntLoc (DirectInt contract name)
+          Boolean -> Ok $ BoolLoc (DirectBool contract name)
+          ByteStr -> Ok $ BytesLoc (DirectBytes contract name)
     Just (StorageMapping argtyps t) ->
       if length argtyps /= length ixs
       then Bad $ (p, "Argument mismatch for storageitem: " <> name)
       else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
            in case metaType t of
-                  Integer -> (IntLoc . MappedInt name) <$> indexExprs
-                  Boolean -> (BoolLoc . MappedBool name) <$> indexExprs
-                  ByteStr -> (BytesLoc . MappedBytes name) <$> indexExprs
+                  Integer -> (IntLoc . MappedInt contract name) <$> indexExprs
+                  Boolean -> (BoolLoc . MappedBool contract name) <$> indexExprs
+                  ByteStr -> (BytesLoc . MappedBytes contract name) <$> indexExprs
     Nothing -> Bad $ (p, "Unknown storage variable: " <> show name)
 checkEntry _ Wild = error "TODO: checkEntry for Wild storage"
 
@@ -294,16 +301,16 @@ checkIffs env ((IffIn _ typ exps):xs) = do
   Ok $ map (bound typ) hd <> tl
 checkIffs _ [] = Ok []
 
-bound :: AbiType -> (Exp Int) -> Exp Bool
+bound :: AbiType -> (Exp Integer) -> Exp Bool
 bound typ e = And (LEQ (lowerBound typ) e) $ LEQ e (upperBound typ)
 
-lowerBound :: AbiType -> Exp Int
+lowerBound :: AbiType -> Exp Integer
 lowerBound (AbiIntType a) = LitInt $ 0 - 2 ^ (a - 1)
 -- todo: other negatives?
 lowerBound _ = LitInt 0
 
 --todo, the rest
-upperBound :: AbiType -> Exp Int
+upperBound :: AbiType -> Exp Integer
 upperBound (AbiUIntType n) = LitInt $ 2 ^ n - 1
 upperBound (AbiIntType n) = LitInt $ 2 ^ (n - 1) - 1
 upperBound AbiAddressType  = LitInt $ 2 ^ (160 :: Integer) - 1
@@ -330,7 +337,7 @@ checkExpr env e typ = case metaType typ of
   ByteStr -> ExpBytes <$> checkBytes env e
 
 inferExpr :: Env -> Expr -> Err ReturnExp
-inferExpr env@(ours, _,thisContext) expr =
+inferExpr env@(contract, ours, _,thisContext) expr =
   let intintint op v1 v2 = do w1 <- checkInt env v1
                               w2 <- checkInt env v2
                               Ok $ ExpInt $ op w1 w2
@@ -373,16 +380,16 @@ inferExpr env@(ours, _,thisContext) expr =
             ByteStr -> Ok . ExpBytes $ ByVar name
         (Just (StorageValue a), Nothing) ->
           case metaType a of
-             Integer -> Ok . ExpInt $ TEntry (DirectInt name)
-             Boolean -> Ok . ExpBool $ TEntry (DirectBool name)
-             ByteStr -> Ok . ExpBytes $ TEntry (DirectBytes name)
+             Integer -> Ok . ExpInt $ TEntry (DirectInt contract name)
+             Boolean -> Ok . ExpBool $ TEntry (DirectBool contract name)
+             ByteStr -> Ok . ExpBytes $ TEntry (DirectBytes contract name)
         (Just (StorageMapping ts a), Nothing) ->
            let indexExprs = forM (NonEmpty.zip (head e :| tail e) ts)
                                      (uncurry (checkExpr env))
            in case metaType a of
-             Integer -> ExpInt . TEntry . (MappedInt name) <$> indexExprs
-             Boolean -> ExpBool . TEntry . (MappedBool name) <$> indexExprs
-             ByteStr -> ExpBytes . TEntry . (MappedBytes name) <$> indexExprs
+             Integer -> ExpInt . TEntry . (MappedInt contract name) <$> indexExprs
+             Boolean -> ExpBool . TEntry . (MappedBool contract name) <$> indexExprs
+             ByteStr -> ExpBytes . TEntry . (MappedBytes contract name) <$> indexExprs
         (Just _, Just _) -> Bad (p, "Ambiguous variable: " <> show name)
     EnvExp p v1 -> case lookup v1 defaultStore of
       Just Integer -> Ok . ExpInt $ IntEnv v1
@@ -422,7 +429,7 @@ checkBytes env e =
     Ok (ExpBool _) -> Bad (nowhere, "expected: bytes, got: bool")
     Bad err -> Bad err
 
-checkInt :: Env -> Expr -> Err (Exp Int)
+checkInt :: Env -> Expr -> Err (Exp Integer)
 checkInt env e =
   case inferExpr env e of
     Ok (ExpInt a) -> Ok a

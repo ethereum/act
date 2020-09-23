@@ -16,10 +16,14 @@ import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
+import Data.SBV
 import Data.Text (pack, unpack)
+import Data.Maybe
+import Data.List
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Map.Strict      as Map -- abandon in favor of [(a,b)]?
+import System.Environment (setEnv)
 
 import qualified Data.ByteString.Lazy.Char8 as B
 
@@ -33,6 +37,7 @@ import RefinedAst
 import K hiding (normalize)
 import Syntax
 import Type
+import Prove
 
 --command line options
 data Command w
@@ -41,6 +46,12 @@ data Command w
   | Parse           { file       :: w ::: String               <?> "Path to file"}
 
   | Type            { file       :: w ::: String               <?> "Path to file"}
+
+  | Prove           { file       :: w ::: String               <?> "Path to file"
+                    , solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
+                    , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
+                    , debug      :: w ::: Maybe Bool           <?> "Print verbose smt output (default: False)"
+                    }
 
   | K               { spec       :: w ::: String               <?> "Path to spec"
                     , soljson    :: w ::: String               <?> "Path to .sol.json"
@@ -52,28 +63,8 @@ data Command w
  deriving (Generic)
 
 deriving instance ParseField [(Id, String)]
-
 instance ParseRecord (Command Wrapped)
 deriving instance Show (Command Unwrapped)
-
-safeDrop :: Int -> [a] -> [a]
-safeDrop 0 a = a
-safeDrop _ [] = []
-safeDrop _ [a] = [a]
-safeDrop n (_:xs) = safeDrop (n-1) xs
-
-prettyErr :: String -> (Pn, String) -> IO ()
-prettyErr contents pn@(AlexPn _ line col,msg) =
-  if fst pn == nowhere then
-    do hPutStrLn stderr "Internal error"
-       hPutStrLn stderr msg
-       exitFailure
-  else
-    do let cxt = safeDrop (line - 1) (lines contents)
-       hPutStrLn stderr $ show line <> " | " <> head cxt
-       hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
-       hPutStrLn stderr $ msg
-       exitFailure
 
 main :: IO ()
 main = do
@@ -92,6 +83,38 @@ main = do
                        Ok a  -> B.putStrLn $ encode a
                        Bad e -> prettyErr contents e
 
+      (Prove file solver smttimeout debug) -> do
+        contents <- readFile file
+        case parse (lexer contents) >>= typecheck of
+          Bad e -> prettyErr contents e
+          Ok claims -> do
+            let
+                handleResults ((Invariant c e), rs) = do
+                  let msg = "\n============\n\nInvariant " <> show e <> " of " <> show c <> ": "
+                      sep = "\n\n---\n\n"
+                      results' = handleRes <$> rs
+                      ok = not $ or $ fst <$> results'
+                  if ok
+                  then putStrLn $ msg <> "Q.E.D ✨"
+                  else do
+                      putStrLn $ msg <> "\n\n" <> (intercalate sep $ snd <$> results')
+                      exitFailure
+
+                handleRes (SatResult res) = case res of
+                  Unsatisfiable _ _ -> (False, "")
+                  Satisfiable _ model -> (True, "Counter example found!\n\n" <> show model)
+                  Unknown _ reason -> (True, "Unknown! " <> show reason)
+                  ProofError _ reasons _  -> (True, "Proof error! " <> show reasons)
+                  SatExtField _ _ -> error "Extension field containing Infinite/epsilon"
+                  DeltaSat _ _ _ -> error "Unexpected DeltaSat"
+
+            results <- flip mapM (queries claims)
+                          (\(i, qs) -> do
+                            rs <- mapM (runSMTWithTimeOut solver smttimeout debug) qs
+                            pure (i, rs)
+                          )
+            mapM_ handleResults results
+
       (K spec soljson gas storage extractbin out) -> do
         specContents <- readFile spec
         solContents  <- readFile soljson
@@ -99,7 +122,8 @@ main = do
         errKSpecs <- pure $ do refinedSpecs  <- parse (lexer specContents) >>= typecheck
                                (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
                                  $ Solidity.readJSON $ pack solContents
-                               forM (catBehvs refinedSpecs) $ makekSpec sources kOpts (catInvs refinedSpecs)
+                               forM (catBehvs refinedSpecs)
+                                 $ makekSpec sources kOpts (catInvs refinedSpecs)
         case errKSpecs of
              Bad e -> prettyErr specContents e
              Ok kSpecs -> do
@@ -108,3 +132,36 @@ main = do
                      Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
                forM_ kSpecs printFile
 
+-- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
+runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Maybe Bool -> Symbolic () -> IO SatResult
+runSMTWithTimeOut solver maybeTimeout maybeDebug sym
+  | solver == Just "cvc4" = do
+      setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --incremental --interactive --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
+      res <- satWith cvc4{verbose=debug} sym
+      setEnv "SBV_CVC4_OPTIONS" ""
+      return res
+  | solver == Just "z3" = runwithz3
+  | solver == Nothing = runwithz3
+  | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
+ where debug = fromMaybe False maybeDebug
+       timeout = fromMaybe 20000 maybeTimeout
+       runwithz3 = satWith z3{verbose=debug} $ (setTimeOut timeout) >> sym
+
+prettyErr :: String -> (Pn, String) -> IO ()
+prettyErr contents pn@(AlexPn _ line col,msg) =
+  if fst pn == nowhere then
+    do hPutStrLn stderr "Internal error"
+       hPutStrLn stderr msg
+       exitFailure
+  else
+    do let cxt = safeDrop (line - 1) (lines contents)
+       hPutStrLn stderr $ show line <> " | " <> head cxt
+       hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
+       hPutStrLn stderr $ msg
+       exitFailure
+  where
+    safeDrop :: Int -> [a] -> [a]
+    safeDrop 0 a = a
+    safeDrop _ [] = []
+    safeDrop _ [a] = [a]
+    safeDrop n (_:xs) = safeDrop (n-1) xs

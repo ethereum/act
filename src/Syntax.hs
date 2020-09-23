@@ -36,7 +36,7 @@ data Cases =
   Direct Post
   | Branches [Case]
   deriving (Eq, Show)
-  
+
 data Case = Case Pn Expr Post
   deriving (Eq, Show)
 
@@ -110,11 +110,6 @@ data Expr
     | IntLit Integer
     | BoolLit Bool
   deriving (Eq, Show)
-
--- instance Uniplate Expr where
---   uniplate (Wild) =    (Zero                    , \Zero                   -> Wild)
---   uniplate (EAdd p a b) = (Two (One a) (One b)  , \(Two (One a) (One b))  -> EAdd p a b)
---  uniplate _ = _ --error "TODO"
 
 data EthEnv
    = Caller

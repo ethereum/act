@@ -21,13 +21,18 @@ compiler: bin/act
 
 test_specs=$(wildcard tests/*/*.act)
 
+parser_specs=$(filter-out $(invariant_specs), $(test_specs))
+typing_specs=$(filter-out $(failing_typing), $(parser_specs))
+
+invariant_specs=$(wildcard tests/invariants/*/*.act)
+invariant_pass=$(wildcard tests/invariants/pass/*.act)
+invariant_fail=$(wildcard tests/invariants/fail/*.act)
+
 failing_typing=tests/array/array.act tests/dss/vat.act tests/creation/createMultiple.act
 
-typing_specs=$(filter-out $(failing_typing), $(test_specs))
-
-test-parse: parser compiler $(test_specs:=.parse)
-
+test-parse: parser compiler $(parser_specs:=.parse)
 test-type: parser compiler $(typing_specs:=.type)
+test-invariant: parser compiler $(invariant_pass:=.invariant.pass) $(invariant_fail:=.invariant.fail)
 
 # Just checks parsing
 tests/%.parse:
@@ -40,6 +45,10 @@ tests/%.type:
 	diff tests/$*.typed.json.out tests/$*.typed.json
 	rm tests/$*.typed.json.out
 
-test-compiler: compiler $(test_specs:=.compile)
+tests/%.invariant.pass:
+	./bin/act prove --file tests/$*
 
-test: test-parse test-type
+tests/%.invariant.fail:
+	./bin/act prove --file tests/$* && exit 1 || echo 0
+
+test: test-parse test-type test-invariant
