@@ -93,10 +93,10 @@ main = do
                   let msg = "\n============\n\nInvariant " <> show e <> " of " <> show c <> ": "
                       sep = "\n\n---\n\n"
                       results' = handleRes <$> rs
-                      ok = foldl (||) False $ fst <$> results'
-                  case ok of
-                    False -> putStrLn $ msg <> "Q.E.D ✨"
-                    True -> do
+                      ok = or $ fst <$> results'
+                  if ok
+                  then putStrLn $ msg <> "Q.E.D ✨"
+                  else do
                       putStrLn $ msg <> "\n\n" <> (intercalate sep $ snd <$> results')
                       exitFailure
 
@@ -111,7 +111,7 @@ main = do
             results <- flip mapM (queries claims)
                           (\(i, qs) -> do
                             rs <- mapM (runSMTWithTimeOut solver smttimeout debug) qs
-                            pure $ (i, rs)
+                            pure (i, rs)
                           )
             mapM_ handleResults results
 

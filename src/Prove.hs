@@ -39,8 +39,8 @@ queries claims = fmap mkQueries gathered
   where
     gathered = fmap (\inv -> (inv, store, getBehaviours inv)) invariants
     invariants = catInvs claims
-    store = head $ (catStores claims) -- TODO: refine AST so we don't need this head anymore
-    getBehaviours (Invariant c _) = filter isPass $ filter (contractMatches c) (catBehvs claims)
+    store = head (catStores claims) -- TODO: refine AST so we don't need this head anymore
+    getBehaviours (Invariant c _) = filter (isPass && contractMatches c) (catBehvs claims)
     contractMatches c b = c == (_contract b)
     isPass b = (_mode b) == Pass
 
@@ -134,7 +134,7 @@ mkContexts inv@(Invariant contract _) behv@(Behaviour method _ _ c1 (Interface _
     preCtx = Ctx c m calldata preStore env Pre
     postCtx = Ctx c m calldata postStore env Post
 
-  return $ (preCtx, postCtx)
+  return (preCtx, postCtx)
 
 references :: Invariant -> Behaviour -> [StorageLocation]
 references (Invariant _ inv) (Behaviour _ _ _ _ _ _ _ updates _)
@@ -144,7 +144,7 @@ mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
 mkSymArg contract method decl@(Decl typ _) = case metaType typ of
   Integer -> do
     v <- sInteger name
-    return $ (name, SymInteger v)
+    return (name, SymInteger v)
   Boolean -> do
     v <- sBool name
     return $ (name, SymBool v)

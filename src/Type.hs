@@ -158,18 +158,13 @@ mkStorageBounds store refs
   = catMaybes $ mkBound <$> refs
   where
     mkBound :: Either StorageLocation StorageUpdate -> Maybe (Exp Bool)
-    mkBound ref = case ref of
-      Left loc -> case loc of
-        IntLoc item -> Just $ fromItem item
-        _ -> Nothing
-      Right update -> case update of
-        IntUpdate item _ -> Just $ fromItem item
-        _ -> Nothing
+    mkBound (Left (IntLoc item)) = Just $ fromItem item
+    mkBound (Right (IntUpdate item)) = Just $ fromItem item
+    mkBound _ = Nothing
 
     fromItem :: TStorageItem Integer -> Exp Bool
-    fromItem item = case item of
-      DirectInt contract name -> bound (abiType $ slotType contract name) (TEntry item)
-      MappedInt contract name _ -> bound (abiType $ slotType contract name) (TEntry item)
+    fromItem (DirectInt contract name) = bound (abiType $ slotType contract name) (TEntry item)
+    fromItem (MappedInt contract name _) = bound (abiType $ slotType contract name) (TEntry item)
 
     slotType :: Id -> Id -> SlotType
     slotType contract name = let
@@ -441,4 +436,3 @@ checkInt env e =
     Ok (ExpBytes _) -> Bad (nowhere, "expected: int, got: bytes")
     Ok (ExpBool _) -> Bad (nowhere, "expected: int, got: bool")
     Bad err -> Bad err
-
