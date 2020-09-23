@@ -90,15 +90,7 @@ data TStorageItem a where
   MappedBytes  :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem ByteString
 
 deriving instance Show (TStorageItem a)
-
-instance Eq (TStorageItem a) where
-  (DirectInt a b) == (DirectInt c d) = (a == c) && (b == d)
-  (DirectBool a b) == (DirectBool c d) = (a == c) && (b == d)
-  (DirectBytes a b) == (DirectBytes c d) = (a == c) && (b == d)
-  (MappedInt a b c) == (MappedInt d e f) = (a == d) && (b == e) && (c == f)
-  (MappedBool a b c) == (MappedBool d e f) = (a == d) && (b == e) && (c == f)
-  (MappedBytes a b c) == (MappedBytes d e f) = (a == d) && (b == e) && (c == f)
-  _ == _ = False
+deriving instance Eq (TStorageItem a)
 
 -- typed expressions
 data Exp t where
