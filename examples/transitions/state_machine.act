@@ -1,39 +1,32 @@
 behaviour init of StateMachine
+interface constructor()
+
 creates
-	uint256 x := 0
+  uint256 x := 0
 
 invariants
-	x <= 2
-
+    x <= 2
 
 behaviour f of StateMachine
 interface f()
 
 case x == 0:
-	storage
-		x => 1
 
-case _:
-	noop
-
+  storage
+    x => 1
 
 behaviour g of StateMachine
 interface g()
 
 case x == 1:
-	storage
-		x => 2
 
-case _:
-	noop
-
+  storage
+    x => 2
 
 behaviour h of StateMachine
 interface h()
 
 case x == 2:
-	storage
-		x => 0
 
-case _:
-	noop
+  storage
+    x => 0

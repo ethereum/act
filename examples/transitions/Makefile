@@ -1,0 +1,13 @@
+StateMachine.vo Theory.vo: CoqMakefile StateMachine.v Theory.v
+	make -f CoqMakefile
+
+StateMachine.v: state_machine.act
+	act coq --file state_machine.act > StateMachine.v
+
+CoqMakefile: _CoqProject
+	coq_makefile -f _CoqProject -o CoqMakefile
+
+.PHONY: clean
+clean:
+	make -f CoqMakefile clean
+	rm -f CoqMakefile CoqMakefile.conf
