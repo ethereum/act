@@ -1,0 +1,22 @@
+behaviour init of Log
+interface constructor(uint256 _n)
+
+iff
+	_n > 1
+
+creates
+	uint256 n := _n
+	uint256 count := 0
+
+invariants
+	n > 1 or count > 0
+
+behaviour f of Log
+interface f()
+
+iff
+	n > 1
+
+storage
+	n => n / 2
+	count => count + 1

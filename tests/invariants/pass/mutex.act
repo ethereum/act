@@ -1,0 +1,22 @@
+behaviour init of Mutex
+interface constructor()
+
+creates
+
+	bool lock := false
+	uint256 x := 0
+
+invariants
+
+	// Ideally this would be `not lock`
+	lock => false
+
+behaviour f of Mutex
+interface setX(uint256 _x)
+
+iff
+	// Ideally this would be `not lock`
+	lock => false
+
+storage
+	x => _x
