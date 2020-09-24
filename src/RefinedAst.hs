@@ -117,6 +117,11 @@ data Exp t where
   LitInt :: Integer -> Exp Integer
   IntVar :: Id -> Exp Integer
   IntEnv :: EthEnv -> Exp Integer
+  -- bounds
+  IntMin :: Int -> Exp Integer
+  IntMax :: Int -> Exp Integer
+  UIntMin :: Int -> Exp Integer
+  UIntMax :: Int -> Exp Integer
   -- bytestrings
   Cat :: Exp ByteString -> Exp ByteString -> Exp ByteString
   Slice :: Exp ByteString -> Exp Integer -> Exp Integer -> Exp ByteString
