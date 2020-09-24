@@ -337,15 +337,15 @@ bound :: AbiType -> (Exp Integer) -> Exp Bool
 bound typ e = And (LEQ (lowerBound typ) e) $ LEQ e (upperBound typ)
 
 lowerBound :: AbiType -> Exp Integer
-lowerBound (AbiIntType a) = LitInt $ negate $ 2 ^ (a - 1)
+lowerBound (AbiIntType a) = IntMin a
 -- todo: other negatives?
 lowerBound _ = LitInt 0
 
---todo, the rest
+-- todo, the rest
 upperBound :: AbiType -> Exp Integer
-upperBound (AbiUIntType n) = LitInt $ 2 ^ n - 1
-upperBound (AbiIntType n) = LitInt $ 2 ^ (n - 1) - 1
-upperBound AbiAddressType  = LitInt $ 2 ^ (160 :: Integer) - 1
+upperBound (AbiUIntType n) = UIntMax n
+upperBound (AbiIntType n) = IntMax n
+upperBound AbiAddressType = UIntMax 160
 upperBound typ  = error $ "upperBound not implemented for " ++ show typ
 
 metaType :: AbiType -> MType

@@ -25,7 +25,11 @@ header =
   \Require Coq.Strings.String.\n\
   \Module Str := Coq.Strings.String.\n\
   \Open Scope Z_scope.\n\n\
-  \Definition address := Z.\n\n"
+  \Definition address := Z.\n\
+  \Definition UINT_MIN (n : Z) := 0.\n\
+  \Definition UINT_MAX (n : Z) := (2 ^ n) - 1.\n\
+  \Definition INT_MIN  (n : Z) := 0 - 2 ^ (n - 1).\n\
+  \Definition INT_MAX  (n : Z) := 2 ^ (n - 1) - 1.\n\n"
 baseName = "BASE"
 
 parens :: T.Text -> T.Text
@@ -57,17 +61,17 @@ reachable :: [Claim] -> T.Text
 reachable claims =
   "Inductive reachable : State -> Prop :=\n"
     <> "| base : reachable BASE\n"
-    <> T.intercalate "\n" (map reachableStep claims)
+    <> T.intercalate "\n" (mapMaybe reachableStep claims)
     <> "\n.\n"
   where
-    reachableStep (B b) | _mode b == Pass && not (_creation b) =
+    reachableStep (B b) | _mode b == Pass && not (_creation b) = Just $
       "| " <> T.pack (_name b)
       <> "_step : forall (s : State) "
       <> cInterface (_interface b)
       <> ", reachable s -> reachable ("
       <> T.pack (_name b)
       <> " s " <> arguments (_interface b) <> ")"
-    reachableStep _ = ""
+    reachableStep _ = Nothing
     arguments (Interface _ decls) =
       T.intercalate " " (map (\(Decl _ name) -> T.pack name) decls)
 
@@ -89,7 +93,7 @@ cBody store (Behaviour _ _ _ _ _ preconditions _ updates returns) =
     <> parens (cBoolExp preconditions)
     <> " with\n| true => "
     <> cUpdates store (\n t -> T.pack n <> " s") updates
-    <> "\n| false => s\nend.\n"
+    <> "\n| false => s\nend."
 
 cUpdates
   :: Store
@@ -175,6 +179,10 @@ cIntExp :: Exp Integer -> T.Text
 cIntExp (LitInt i) = T.pack $ show i
 cIntExp (IntVar name) = T.pack name -- TODO
 cIntExp (Add e1 e2) = parens $ cIntExp e1 <> " + " <> cIntExp e2
+cIntExp (IntMin n)  = parens $ "INT_MIN "  <> T.pack (show n)
+cIntExp (IntMax n)  = parens $ "INT_MAX "  <> T.pack (show n)
+cIntExp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
+cIntExp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
 cIntExp (TEntry (DirectInt _ name)) = parens $ T.pack name <> " s"
 cIntExp a = error $ show a
 
