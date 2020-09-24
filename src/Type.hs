@@ -1,12 +1,7 @@
-{-# LANGUAGE DeriveGeneric  #-}
 {-# Language DataKinds #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# Language TypeOperators #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
@@ -33,11 +28,11 @@ import RefinedAst
 typecheck :: [RawBehaviour] -> Err [Claim]
 typecheck behvs = let store = lookupVars behvs in
                   do bs <- mapM (splitBehaviour store) behvs
-                     return $ (S $ Storages store):(join bs)
+                     return $ S (Storages store):(join bs)
 
 --- Finds storage declarations from constructors
 lookupVars :: [RawBehaviour] -> Store
-lookupVars ((Transition _ _ _ _ _ _):bs) = lookupVars bs
+lookupVars ((Transition {}):bs) = lookupVars bs
 lookupVars ((Constructor _ contract _ _ (Creates assigns) _ _ _):bs) =
   Map.singleton contract (Map.fromList $ map fromAssign assigns)
   <> lookupVars bs -- TODO: deal with variable overriding
@@ -111,7 +106,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
       return $ splitCase name False contract iface (LitBool True) (iff <> preBounds) maybeReturn p postc
     flatten iff postc (Branches branches) = do
       branches' <- normalize branches
-      cases' <- flip mapM branches' $ \(Case _ cond post) -> do
+      cases' <- forM branches' $ \(Case _ cond post) -> do
         if' <- checkBool env cond
         (post', ret) <- checkPost env post
         return (if', post', ret)
@@ -121,7 +116,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
         in splitCase name False contract iface ifcond (iff <> preBounds) ret stateUpdates postc) <$> cases')
 
 splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvs) = do
-  when (length extStorage > 0) $ error "TODO: support extStorage in constructor"
+  unless (null extStorage) $ error "TODO: support extStorage in constructor"
 
   let env = mkEnv contract store decls
 
@@ -205,7 +200,7 @@ checkAssign _ (AssignVal (StorageVar (StorageMapping _ _) _) _)
   = Bad (nowhere, "Cannot assign a single expression to a composite type")
 checkAssign _ (AssignMany (StorageVar (StorageValue _) _) _)
   = Bad (nowhere, "Cannot assign multiple values to an atomic type")
-checkAssign _ _ = error $ "todo: support struct assignment in constructors"
+checkAssign _ _ = error "todo: support struct assignment in constructors"
 
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
@@ -240,9 +235,9 @@ checkPost env@(contract, _, theirs, localVars) (Post maybeStorage extStorage may
         Just entries -> checkEntries contract entries
         Nothing -> Ok []
       otherStorage <- checkStorages extStorage
-      return $ (ourStorage <> otherStorage, returnexp)
+      return (ourStorage <> otherStorage, returnexp)
   where checkEntries name entries =
-          mapM (\a -> case a of
+          mapM (\case
                    Rewrite loc val -> Right <$> checkStorageExpr (name, fromMaybe mempty (Map.lookup name theirs), theirs, localVars) loc val
                    Constant loc -> Left <$> checkEntry env loc
                ) entries
@@ -262,13 +257,13 @@ checkStorageExpr env@(contract, ours, _, _) (Entry p name ixs) expr =
           ByteStr -> BytesUpdate (DirectBytes contract name) <$> checkBytes env expr
       Just (StorageMapping argtyps  t) ->
         if length argtyps /= length ixs
-        then Bad $ (p, "Argument mismatch for storageitem: " <> name)
+        then Bad (p, "Argument mismatch for storageitem: " <> name)
         else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
              in case metaType t of
                   Integer -> liftM2 (IntUpdate . MappedInt contract name) indexExprs (checkInt env expr)
                   Boolean -> liftM2 (BoolUpdate . MappedBool contract name) indexExprs (checkBool env expr)
                   ByteStr -> liftM2 (BytesUpdate . MappedBytes contract name) indexExprs (checkBytes env expr)
-      Nothing -> Bad $ (p, "Unknown storage variable: " <> show name)
+      Nothing -> Bad (p, "Unknown storage variable: " <> show name)
 checkStorageExpr _ Wild _ = error "TODO: add support for wild storage to checkStorageExpr"
 
 checkEntry :: Env -> Entry -> Err StorageLocation
@@ -280,13 +275,13 @@ checkEntry env@(contract, ours, _, _) (Entry p name ixs) =
           ByteStr -> Ok $ BytesLoc (DirectBytes contract name)
     Just (StorageMapping argtyps t) ->
       if length argtyps /= length ixs
-      then Bad $ (p, "Argument mismatch for storageitem: " <> name)
+      then Bad (p, "Argument mismatch for storageitem: " <> name)
       else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
            in case metaType t of
                   Integer -> (IntLoc . MappedInt contract name) <$> indexExprs
                   Boolean -> (BoolLoc . MappedBool contract name) <$> indexExprs
                   ByteStr -> (BytesLoc . MappedBytes contract name) <$> indexExprs
-    Nothing -> Bad $ (p, "Unknown storage variable: " <> show name)
+    Nothing -> Bad (p, "Unknown storage variable: " <> show name)
 checkEntry _ Wild = error "TODO: checkEntry for Wild storage"
 
 checkIffs :: Env -> [IffH] -> Err [Exp Bool]
