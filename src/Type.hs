@@ -348,7 +348,7 @@ inferExpr env@(contract, ours, _,thisContext) expr =
                                  w2 <- checkBool env v2
                                  Ok $ ExpBool $ op w1 w2
   in case expr of
-    ENot _  v1     -> ExpBool . Neg <$> checkBool env v1
+    ENot _  v1    -> ExpBool . Neg <$> checkBool env v1
     EAnd _  v1 v2 -> boolboolbool And  v1 v2
     EOr _   v1 v2 -> boolboolbool Or   v1 v2
     EImpl _ v1 v2 -> boolboolbool Impl v1 v2
@@ -356,6 +356,7 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     ENeq _  v1 v2 -> boolintint  NEq v1 v2
     ELT _   v1 v2 -> boolintint  LE   v1 v2
     ELEQ _  v1 v2 -> boolintint  LEQ  v1 v2
+    EGEQ _  v1 v2 -> boolintint  GEQ  v1 v2
     EGT _   v1 v2 -> boolintint  GE   v1 v2
     ETrue _ ->  Ok . ExpBool $ LitBool True
     EFalse _ -> Ok . ExpBool $ LitBool False

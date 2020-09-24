@@ -254,6 +254,7 @@ Expr : '(' Expr ')'                                    { $2 }
   | Expr 'and' Expr                                     { EAnd  (posn $2) $1 $3 }
   | Expr 'or'  Expr                                     { EOr   (posn $2) $1 $3 }
   | Expr '=>'  Expr                                     { EImpl (posn $2) $1 $3 }
+  | 'not'      Expr                                     { ENot  (posn $1) $2 }
   | Expr '=='  Expr                                     { EEq   (posn $2) $1 $3 }
   | Expr '=/=' Expr                                     { ENeq  (posn $2) $1 $3 }
   | Expr '<='  Expr                                     { ELEQ  (posn $2) $1 $3 }
