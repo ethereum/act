@@ -22,6 +22,7 @@ import Data.Maybe
 import Data.List
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
+import qualified Data.Text.IO as TIO
 import qualified Data.Map.Strict      as Map -- abandon in favor of [(a,b)]?
 import System.Environment (setEnv)
 
@@ -38,6 +39,7 @@ import K hiding (normalize)
 import Syntax
 import Type
 import Prove
+import Coq
 
 --command line options
 data Command w
@@ -52,6 +54,8 @@ data Command w
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
                     , debug      :: w ::: Bool                 <?> "Print verbose smt output (default: False)"
                     }
+
+  | Coq             { file       :: w ::: String               <?> "Path to file"}
 
   | K               { spec       :: w ::: String               <?> "Path to spec"
                     , soljson    :: w ::: String               <?> "Path to .sol.json"
@@ -112,6 +116,14 @@ main = do
                             pure (i, rs)
                           )
             mapM_ handleResults results
+
+      (Coq f) -> do
+        contents <- readFile f
+        case parse (lexer contents) of
+          Ok a -> case typecheck a of
+            Ok claims -> TIO.putStr $ coq (lookupVars a) claims
+            Bad e -> prettyErr contents e
+          Bad e -> prettyErr contents e
 
       (K spec soljson gas storage extractbin out) -> do
         specContents <- readFile spec
