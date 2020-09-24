@@ -28,6 +28,9 @@ let
       pkgs.jq
     ];
     withHoogle = true;
+    shellHook = ''
+      export PATH=$PWD/bin:$PATH
+    '';
   };
 
   exe = pkgs.haskell.lib.justStaticExecutables (myHaskellPackages.act);
