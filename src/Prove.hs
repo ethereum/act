@@ -397,19 +397,6 @@ locsFromExp e = case e of
 get :: (Show a) => Id -> Map Id a -> a
 get name vars = fromMaybe (error (name <> " not found in " <> show vars)) $ Map.lookup name vars
 
-getWhen :: (Show a) => When -> Id -> Map Id (a,a) ->  a
-getWhen Pre name vars = get name (fst <$> vars)
-getWhen Post name vars = get name (snd <$> vars)
-
-
-toInt :: SMType -> Maybe (SBV Integer)
-toInt (SymInteger i) = Just i
-toInt _ = Nothing
-
-toBool :: SMType -> Maybe (SBV Integer)
-toBool (SymInteger i) = Just i
-toBool _ = Nothing
-
 catInts :: Map Id SMType -> Map Id (SBV Integer)
 catInts m = Map.fromList $ go $ Map.toList m
   where
