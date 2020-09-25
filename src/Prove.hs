@@ -75,8 +75,8 @@ data SMType
 mkQueries :: (Invariant, Storages, [Behaviour]) -> (Invariant, [Symbolic ()])
 mkQueries (inv, store, behvs) = (inv, inits <> methods)
   where
-    inits = fmap (mkInit inv) $ filter _creation behvs
-    methods = fmap (mkMethod inv store) $ filter (not . _creation) behvs
+    inits = (mkInit inv) <$> filter _creation behvs
+    methods = (mkMethod inv store) <$> filter (not . _creation) behvs
 
 mkInit :: Invariant -> Behaviour -> Symbolic ()
 mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preCond postCond stateUpdates _) = do
@@ -131,10 +131,10 @@ mkSymArg contract method decl@(Decl typ _) = case metaType typ of
     return (name, SymInteger v)
   Boolean -> do
     v <- sBool name
-    return $ (name, SymBool v)
+    return (name, SymBool v)
   ByteStr -> do
     v <- sString name
-    return $ (name, SymBytes v)
+    return (name, SymBytes v)
   where
     name = nameFromDecl contract method decl
 
@@ -157,19 +157,29 @@ mkSymStorage method loc = case loc of
     name i = nameFromItem method i
 
 mkEnv :: Contract -> Method -> Symbolic Env
-mkEnv contract method = Map.fromList <$> mapM mkInt
+mkEnv contract method = Map.fromList <$> mapM makeSymbolic
   [ Caller, Callvalue, Calldepth, Origin, Blockhash, Blocknumber
   , Difficulty, Chainid, Gaslimit, Coinbase, Timestamp, Address, Nonce ]
   where
+    makeSymbolic :: EthEnv -> Symbolic (Id, SMType)
+    makeSymbolic Blockhash = mkBytes Blockhash
+    makeSymbolic env = mkInt env
+
     mkInt :: EthEnv -> Symbolic (Id, SMType)
     mkInt env = do
       let k = nameFromEnv contract method env
       v <- SymInteger <$> sInteger k
       return (k, v)
 
+    mkBytes :: EthEnv -> Symbolic (Id, SMType)
+    mkBytes env = do
+      let k = nameFromEnv contract method env
+      v <- SymBytes <$> sString k
+      return (k, v)
+
 mkStorageConstraints :: Ctx -> [Either StorageLocation StorageUpdate] -> [StorageLocation] -> [SBV Bool]
 mkStorageConstraints ctx@(Ctx _ m _ store _) updates locs
-  = fmap mkConstraint $ (unchanged <> updates)
+  = mkConstraint <$> (unchanged <> updates)
   where
     unchanged = Left <$> (locs \\ (fmap getLoc updates))
 
@@ -179,7 +189,7 @@ mkStorageConstraints ctx@(Ctx _ m _ store _) updates locs
 
     getVar :: (Show b) => TStorageItem a -> (Map Id (SMType, SMType) -> Map Id b) -> b
     getVar i f = get (nameFromItem m i) (f store)
-    
+
     fromLocation :: StorageLocation -> SBV Bool
     fromLocation loc = case loc of
       IntLoc item -> (getVar item (catInts . (fst <$>))) .== (getVar item (catInts . (snd <$>)))
@@ -211,7 +221,7 @@ symExpBool ctx@(Ctx c m args store _) w e = case e of
   LitBool a -> literal a
   BoolVar a -> get (nameFromArg c m a) (catBools args)
   TEntry a  -> get (nameFromItem m a) (catBools store')
-  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+  ITE {} -> error "TODO: hande ITE in smt expresssions"
  where store' = case w of
          Pre -> fst <$> store
          Post -> snd <$> store
@@ -229,7 +239,7 @@ symExpInt ctx@(Ctx c m args store env) w e = case e of
   TEntry a  -> get (nameFromItem m a) (catInts store')
   IntEnv a -> get (nameFromEnv c m a) (catInts env)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+  ITE {} -> error "TODO: hande ITE in smt expresssions"
  where store' = case w of
          Pre -> fst <$> store
          Post -> snd <$> store
@@ -243,7 +253,7 @@ symExpBytes ctx@(Ctx c m args store env) w e = case e of
   TEntry a  -> get (nameFromItem m a) (catBytes store')
   Slice a x y -> subStr (symExpBytes ctx w a) (symExpInt ctx w x) (symExpInt ctx w y)
   ByEnv a -> get (nameFromEnv c m a) (catBytes env)
-  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+  ITE {} -> error "TODO: hande ITE in smt expresssions"
  where store' = case w of
          Pre -> fst <$> store
          Post -> snd <$> store
@@ -284,7 +294,7 @@ nameFromExpInt c m e = case e of
   TEntry a  -> nameFromItem m a
   IntEnv a -> nameFromEnv c m a
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+  ITE {} -> error "TODO: hande ITE in smt expresssions"
 
 nameFromExpBool :: Contract -> Method ->Exp Bool -> Id
 nameFromExpBool c m e = case e of
@@ -301,7 +311,7 @@ nameFromExpBool c m e = case e of
   LitBool a -> show a
   BoolVar a -> nameFromArg c m a
   TEntry a  -> nameFromItem m a
-  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+  ITE {} -> error "TODO: hande ITE in smt expresssions"
 
 nameFromExpBytes :: Contract -> Method -> Exp ByteString -> Id
 nameFromExpBytes c m e = case e of
@@ -312,7 +322,7 @@ nameFromExpBytes c m e = case e of
   TEntry a  -> nameFromItem m a
   Slice a x y -> (nameFromExpBytes c m a) <> "[" <> show x <> ":" <> show y <> "]"
   ByEnv a -> nameFromEnv c m a
-  ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+  ITE {} -> error "TODO: hande ITE in smt expresssions"
 
 nameFromDecl :: Contract -> Method -> Decl -> Id
 nameFromDecl c m (Decl _ name) = nameFromArg c m name
@@ -382,7 +392,7 @@ locsFromExp e = case e of
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   IntEnv _ -> error "TODO: handle blockchain context in SMT expressions"
   ByEnv _ -> error "TODO: handle blockchain context in SMT expressions"
-  ITE _ _ _ -> error "TODO: hande ITE in SMT expresssions"
+  ITE {} -> error "TODO: hande ITE in SMT expresssions"
   TEntry a  -> case a of
     DirectInt contract name -> [IntLoc $ DirectInt contract name]
     DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]

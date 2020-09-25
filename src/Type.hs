@@ -12,6 +12,7 @@ import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import Data.Map.Strict    (Map)
 import Data.Maybe
+import Data.Either
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict    as Map -- abandon in favor of [(a,b)]?
@@ -103,7 +104,11 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     flatten iff postc (Direct post) = do
       (p, maybeReturn) <- checkPost env post
       let preBounds = mkStorageBounds store p
-      return $ splitCase name False contract iface (LitBool True) (iff <> preBounds) maybeReturn p postc
+          ethEnvs' = concat $ ethEnvFromExp <$> (iff <> postc)
+          ethEnvs'' = ethEnvFromReturnExp $ fromMaybe (ExpBool $ LitBool True) maybeReturn
+          ethEnvs''' = concat $ ethEnvFromStorageUpdate <$> (rights p)
+          ethEnvBounds = mkEthEnvBounds $ ethEnvs' <> ethEnvs'' <> ethEnvs'''
+      return $ splitCase name False contract iface ethEnvBounds (iff <> preBounds) maybeReturn p postc
     flatten iff postc (Branches branches) = do
       branches' <- normalize branches
       cases' <- forM branches' $ \(Case _ cond post) -> do
@@ -113,12 +118,17 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
 
       pure . join $ ((\(ifcond, stateUpdates, ret) -> let
           preBounds = mkStorageBounds store stateUpdates
-        in splitCase name False contract iface ifcond (iff <> preBounds) ret stateUpdates postc) <$> cases')
+          ethEnvs' = concat $ ethEnvFromExp <$> ([ifcond] <> iff <> postc)
+          ethEnvs'' = ethEnvFromReturnExp $ fromMaybe (ExpBool $ LitBool True) ret
+          ethEnvs''' = concat $ ethEnvFromStorageUpdate <$> (rights stateUpdates)
+          ethEnvBounds = mkEthEnvBounds $ ethEnvs' <> ethEnvs'' <> ethEnvs'''
+        in splitCase name False contract iface ([ifcond] <> ethEnvBounds) (iff <> preBounds) ret stateUpdates postc) <$> cases')
 
 splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvs) = do
   unless (null extStorage) $ error "TODO: support extStorage in constructor"
 
   let env = mkEnv contract store decls
+
 
   rawUpdates <- concat <$> mapM (checkAssign env) assigns
   let stateUpdates = Right <$> rawUpdates
@@ -129,8 +139,12 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (
   invariants <- mapM (checkBool env) $ fromMaybe [] maybeInvs
   ensures <- mapM (checkBool env) (fromMaybe [] maybeEnsures)
 
+  let ethEnvs' = concat $ ethEnvFromExp <$> concat [iffs', invariants, ensures]
+      ethEnvs'' = concat $ ethEnvFromStorageUpdate <$> (rights stateUpdates)
+      ethEnvBounds = mkEthEnvBounds $ ethEnvs' <> ethEnvs''
+
   return $ ((I . (Invariant contract)) <$> invariants)
-           <> (splitCase name True contract iface (LitBool True) iffs' Nothing stateUpdates ensures)
+           <> (splitCase name True contract iface ethEnvBounds iffs' Nothing stateUpdates ensures)
 
 mkEnv :: Id -> Store -> [Decl]-> Env
 mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract store), store, abiVars)
@@ -138,13 +152,37 @@ mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract st
    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
 
 -- | split case into pass and fail case
-splitCase :: Id -> Bool -> Id -> Interface -> Exp Bool -> [Exp Bool] -> Maybe ReturnExp
+splitCase :: Id -> Bool -> Id -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
           -> [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [Claim]
 splitCase name creates contract iface if' [] ret storage postcs =
-  [ B $ Behaviour name Pass creates contract iface if' (mconcat postcs) storage ret ]
+  [ B $ Behaviour name Pass creates contract iface (mconcat if') (mconcat postcs) storage ret ]
 splitCase name creates contract iface if' iffs ret storage postcs =
-  [ B $ Behaviour name Pass creates contract iface (mconcat (if':iffs)) (mconcat postcs) storage ret,
-    B $ Behaviour name Fail creates contract iface (And if' (Neg (mconcat iffs))) (mconcat postcs) storage Nothing ]
+  [ B $ Behaviour name Pass creates contract iface (mconcat (if' <> iffs)) (mconcat postcs) storage ret,
+    B $ Behaviour name Fail creates contract iface (And (mconcat if') (Neg (mconcat iffs))) (mconcat postcs) storage Nothing ]
+
+mkEthEnvBounds :: [EthEnv] -> [Exp Bool]
+mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
+  where
+    mkBound :: EthEnv -> Maybe (Exp Bool)
+    mkBound e = case lookup e defaultStore of
+      Just (Integer) -> Just $ bound (toAbiType e) (IntEnv e)
+      _ -> Nothing
+
+    toAbiType :: EthEnv -> AbiType
+    toAbiType env = case env of
+      Caller -> AbiAddressType
+      Callvalue -> AbiUIntType 256
+      Calldepth -> AbiUIntType 10
+      Origin -> AbiAddressType
+      Blockhash -> AbiBytesType 32
+      Blocknumber -> AbiUIntType 256
+      Difficulty -> AbiUIntType 256
+      Chainid -> AbiUIntType 256
+      Gaslimit -> AbiUIntType 256
+      Coinbase -> AbiAddressType
+      Timestamp -> AbiUIntType 256
+      Address -> AbiAddressType
+      Nonce -> AbiUIntType 256
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
 mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Bool]
@@ -299,7 +337,7 @@ bound :: AbiType -> (Exp Integer) -> Exp Bool
 bound typ e = And (LEQ (lowerBound typ) e) $ LEQ e (upperBound typ)
 
 lowerBound :: AbiType -> Exp Integer
-lowerBound (AbiIntType a) = LitInt $ 0 - 2 ^ (a - 1)
+lowerBound (AbiIntType a) = LitInt $ negate $ 2 ^ (a - 1)
 -- todo: other negatives?
 lowerBound _ = LitInt 0
 
@@ -431,3 +469,50 @@ checkInt env e =
     Ok (ExpBytes _) -> Bad (nowhere, "expected: int, got: bytes")
     Ok (ExpBool _) -> Bad (nowhere, "expected: int, got: bool")
     Bad err -> Bad err
+
+ethEnvFromStorageUpdate :: StorageUpdate -> [EthEnv]
+ethEnvFromStorageUpdate (IntUpdate _ e)  = ethEnvFromExp e
+ethEnvFromStorageUpdate (BoolUpdate _ e) = ethEnvFromExp e
+ethEnvFromStorageUpdate (BytesUpdate _ e) = ethEnvFromExp e
+
+ethEnvFromReturnExp :: ReturnExp -> [EthEnv]
+ethEnvFromReturnExp (ExpInt e) = ethEnvFromExp e
+ethEnvFromReturnExp (ExpBool e) = ethEnvFromExp e
+ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
+
+ethEnvFromExp :: Exp a -> [EthEnv]
+ethEnvFromExp e = case e of
+  And a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  Or a b    -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  Impl a b  -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  Eq a b    -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  LE a b    -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  LEQ a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  GE a b    -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  GEQ a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  NEq a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  Neg a     -> (ethEnvFromExp a)
+  Add a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  Sub a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  Mul a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  Div a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  Mod a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  Exp a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  Cat a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
+  Slice a b c -> (ethEnvFromExp a) <> (ethEnvFromExp b) <> (ethEnvFromExp c)
+  ITE a b c -> (ethEnvFromExp a) <> (ethEnvFromExp b) <> (ethEnvFromExp c)
+  ByVar _ -> []
+  ByStr _ -> []
+  ByLit _ -> []
+  LitInt _  -> []
+  IntVar _  -> []
+  LitBool _ -> []
+  BoolVar _ -> []
+  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
+  IntEnv a -> [a]
+  ByEnv a -> [a]
+  TEntry a  -> case a of
+    MappedInt _ _ ixs -> concat $ ethEnvFromReturnExp <$> NonEmpty.toList ixs
+    MappedBool _ _ ixs -> concat $ ethEnvFromReturnExp <$> NonEmpty.toList ixs
+    MappedBytes _ _ ixs -> concat $ ethEnvFromReturnExp <$> NonEmpty.toList ixs
+    _ -> []

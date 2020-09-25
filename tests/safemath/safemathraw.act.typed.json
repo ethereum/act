@@ -12,7 +12,28 @@
     "preConditions": {
       "arity": 2,
       "args": [
-        "True",
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                0,
+                "Callvalue"
+              ],
+              "symbol": "<="
+            },
+            {
+              "arity": 2,
+              "args": [
+                "Callvalue",
+                1.157920892373162e+77
+              ],
+              "symbol": "<="
+            }
+          ],
+          "symbol": "and"
+        },
         {
           "arity": 2,
           "args": [
@@ -153,7 +174,35 @@
     "preConditions": {
       "arity": 2,
       "args": [
-        "True",
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    0,
+                    "Callvalue"
+                  ],
+                  "symbol": "<="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    "Callvalue",
+                    1.157920892373162e+77
+                  ],
+                  "symbol": "<="
+                }
+              ],
+              "symbol": "and"
+            },
+            "True"
+          ],
+          "symbol": "and"
+        },
         {
           "arity": 1,
           "args": [
