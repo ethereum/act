@@ -59,7 +59,7 @@ type Env = Map Id SMType
 data When = Pre | Post
  deriving (Eq, Show)
 
-data Ctx = Ctx Contract Method Args Store Env --When
+data Ctx = Ctx Contract Method Args Store Env
   deriving (Show)
 
 data SMType
@@ -84,12 +84,12 @@ mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preCond postCond stateUpdat
 
   let
     locs = references inv behv
-    postInv' = symExpBool ctx e
-    preCond' = symExpBool ctx preCond
-    postCond' = symExpBool ctx postCond
+    postInv' = symExpBool ctx Post e
+    preCond' = symExpBool ctx Pre preCond
+    postCond' = symExpBool ctx Pre postCond
     stateUpdates' = mkStorageConstraints ctx stateUpdates locs
 
-  constrain $ preCond' .&& (sAnd stateUpdates') .&& (sNot postCond' .|| sNot postInv')
+  constrain $ preCond' .&& sAnd stateUpdates' .&& (sNot postCond' .|| sNot postInv')
 
 mkMethod :: Invariant -> Storages -> Behaviour -> Symbolic ()
 mkMethod inv@(Invariant _ e) (Storages store) behv@(Behaviour _ _ _ _ _ preCond postCond stateUpdates _) = do
@@ -97,16 +97,16 @@ mkMethod inv@(Invariant _ e) (Storages store) behv@(Behaviour _ _ _ _ _ preCond 
 
   let
     locs = references inv behv
-    preInv = symExpBool ctx e
-    postInv = symExpBool ctx e
-    preCond' = symExpBool ctx preCond
-    postCond' = symExpBool ctx postCond
+    preInv = symExpBool ctx Pre e
+    postInv = symExpBool ctx Post e
+    preCond' = symExpBool ctx Pre preCond
+    postCond' = symExpBool ctx Pre postCond
     stateUpdates' = mkStorageConstraints ctx stateUpdates locs
-    storageBounds = symExpBool ctx $ mconcat <$> mkStorageBounds store $ Left <$> locs
+    storageBounds = symExpBool ctx Pre $ mconcat <$> mkStorageBounds store $ Left <$> locs
 
   constrain $ preInv .&& preCond' .&& storageBounds
-           .&& (sAnd stateUpdates')
-           .&& postCond' .&& (sNot postInv)
+           .&& sAnd stateUpdates'
+           .&& (sNot postCond' .|| sNot postInv)
 
 mkContexts :: Invariant -> Behaviour -> Symbolic Ctx
 mkContexts inv@(Invariant contract _) behv@(Behaviour method _ _ c1 (Interface _ decls) _ _ _ _) = do
@@ -116,14 +116,9 @@ mkContexts inv@(Invariant contract _) behv@(Behaviour method _ _ c1 (Interface _
   let locs = references inv behv
   calldata <- Map.fromList <$> mapM (mkSymArg contract method) decls
   store <- Map.fromList <$> mapM (mkSymStorage method) locs
---  postStore <- Map.fromList <$> mapM (mkSymStorage method Post) locs
   env <- mkEnv contract method
 
-  let
-    preCtx = Ctx contract method calldata store env -- Pre
---    postCtx = Ctx contract method calldata postStore env Post
-
-  return preCtx
+  return $ Ctx contract method calldata store env
 
 references :: Invariant -> Behaviour -> [StorageLocation]
 references (Invariant _ inv) (Behaviour _ _ _ _ _ _ _ updates _)
@@ -151,11 +146,11 @@ mkSymStorage method loc = case loc of
     return (name item, (v, w))
   BoolLoc item -> do
     v <- SymBool <$> sBool (name item)
-    w <- SymBool <$> sBool (name item)
+    w <- SymBool <$> sBool ((name item) ++ "_post")
     return (name item, (v, w))
   BytesLoc item -> do
     v <- SymBytes <$> sString (name item)
-    w <- SymBytes <$> sString (name item)
+    w <- SymBytes <$> sString ((name item) ++ "_post")
     return (name item, (v, w))
   where
     name :: TStorageItem a -> Id
@@ -182,67 +177,76 @@ mkStorageConstraints ctx@(Ctx _ m _ store _) updates locs
     mkConstraint (Left loc) = fromLocation loc
     mkConstraint (Right update) = fromUpdate update
 
-    -- these are all trivial?
-    lhs :: (Show b) => TStorageItem a -> (Map Id (SMType, SMType) -> Map Id b) -> b
-    lhs i f = get (nameFromItem m i) (f store)
+    getVar :: (Show b) => TStorageItem a -> (Map Id (SMType, SMType) -> Map Id b) -> b
+    getVar i f = get (nameFromItem m i) (f store)
     fromLocation :: StorageLocation -> SBV Bool
     fromLocation loc = case loc of
-      IntLoc item -> (lhs item (catInts . (fst <$>))) .== (lhs item (catInts . (snd <$>)))
-      BoolLoc item -> (lhs item (catBools . (fst <$>))) .== (lhs item (catBools . (snd <$> )))
-      BytesLoc item -> (lhs item (catBytes . (fst <$>))) .== (lhs item (catBytes . (snd <$>)))
+      IntLoc item -> (getVar item (catInts . (fst <$>))) .== (getVar item (catInts . (snd <$>)))
+      BoolLoc item -> (getVar item (catBools . (fst <$>))) .== (getVar item (catBools . (snd <$> )))
+      BytesLoc item -> (getVar item (catBytes . (fst <$>))) .== (getVar item (catBytes . (snd <$>)))
 
     fromUpdate :: StorageUpdate -> SBV Bool
     fromUpdate update = case update of
-      IntUpdate item e -> (lhs item (catInts . (snd <$>))) .== (symExpInt ctx e)
-      BoolUpdate item e -> (lhs item (catBools . (snd <$>))) .== (symExpBool ctx e)
-      BytesUpdate item e -> (lhs item (catBytes . (snd <$>))) .== (symExpBytes ctx e)
+      IntUpdate item e -> (getVar item (catInts . (snd <$>))) .== (symExpInt ctx Pre e)
+      BoolUpdate item e -> (getVar item (catBools . (snd <$>))) .== (symExpBool ctx Pre e)
+      BytesUpdate item e -> (getVar item (catBytes . (snd <$>))) .== (symExpBytes ctx Pre e)
 
 
 -- *** Symbolic Expression Construction *** ---
 
 
-symExpBool :: Ctx -> Exp Bool -> SBV Bool
-symExpBool ctx@(Ctx c m args store _) e = case e of
-  And a b   -> (symExpBool ctx a) .&& (symExpBool ctx b)
-  Or a b    -> (symExpBool ctx a) .|| (symExpBool ctx b)
-  Impl a b  -> (symExpBool ctx a) .=> (symExpBool ctx b)
-  Eq a b    -> (symExpInt ctx a) .== (symExpInt ctx b)
-  LE a b    -> (symExpInt ctx a) .< (symExpInt ctx b)
-  LEQ a b   -> (symExpInt ctx a) .<= (symExpInt ctx b)
-  GE a b    -> (symExpInt ctx a) .> (symExpInt ctx b)
-  GEQ a b   -> (symExpInt ctx a) .>= (symExpInt ctx b)
-  NEq a b   -> sNot (symExpBool ctx (Eq a b))
-  Neg a     -> sNot (symExpBool ctx a)
+symExpBool :: Ctx -> When -> Exp Bool -> SBV Bool
+symExpBool ctx@(Ctx c m args store _) w e = case e of
+  And a b   -> (symExpBool ctx w a) .&& (symExpBool ctx w b)
+  Or a b    -> (symExpBool ctx w a) .|| (symExpBool ctx w b)
+  Impl a b  -> (symExpBool ctx w a) .=> (symExpBool ctx w b)
+  Eq a b    -> (symExpInt ctx w a) .== (symExpInt ctx w b)
+  LE a b    -> (symExpInt ctx w a) .< (symExpInt ctx w b)
+  LEQ a b   -> (symExpInt ctx w a) .<= (symExpInt ctx w b)
+  GE a b    -> (symExpInt ctx w a) .> (symExpInt ctx w b)
+  GEQ a b   -> (symExpInt ctx w a) .>= (symExpInt ctx w b)
+  NEq a b   -> sNot (symExpBool ctx w (Eq a b))
+  Neg a     -> sNot (symExpBool ctx w a)
   LitBool a -> literal a
   BoolVar a -> get (nameFromArg c m a) (catBools args)
-  TEntry a  -> get (nameFromItem m a) (catBools store)
+  TEntry a  -> get (nameFromItem m a) (catBools store')
   ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+ where store' = case w of
+         Pre -> fst <$> store
+         Post -> snd <$> store
 
-symExpInt :: Ctx -> Exp Integer -> SBV Integer
-symExpInt ctx@(Ctx c m args store env) e = case e of
-  Add a b   -> (symExpInt ctx a) + (symExpInt ctx b)
-  Sub a b   -> (symExpInt ctx a) - (symExpInt ctx b)
-  Mul a b   -> (symExpInt ctx a) * (symExpInt ctx b)
-  Div a b   -> (symExpInt ctx a) `sDiv` (symExpInt ctx b)
-  Mod a b   -> (symExpInt ctx a) `sMod` (symExpInt ctx b)
-  Exp a b   -> (symExpInt ctx a) .^ (symExpInt ctx b)
+symExpInt :: Ctx -> When -> Exp Integer -> SBV Integer
+symExpInt ctx@(Ctx c m args store env) w e = case e of
+  Add a b   -> (symExpInt ctx w a) + (symExpInt ctx w b)
+  Sub a b   -> (symExpInt ctx w a) - (symExpInt ctx w b)
+  Mul a b   -> (symExpInt ctx w a) * (symExpInt ctx w b)
+  Div a b   -> (symExpInt ctx w a) `sDiv` (symExpInt ctx w b)
+  Mod a b   -> (symExpInt ctx w a) `sMod` (symExpInt ctx w b)
+  Exp a b   -> (symExpInt ctx w a) .^ (symExpInt ctx w b)
   LitInt a  -> literal a
   IntVar a  -> get (nameFromArg c m a) (catInts args)
-  TEntry a  -> get (nameFromItem m a) (catInts store)
+  TEntry a  -> get (nameFromItem m a) (catInts store')
   IntEnv a -> get (nameFromEnv c m a) (catInts env)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+ where store' = case w of
+         Pre -> fst <$> store
+         Post -> snd <$> store
 
-symExpBytes :: Ctx -> Exp ByteString -> SBV String
-symExpBytes ctx@(Ctx c m args store env) e = case e of
-  Cat a b -> (symExpBytes ctx a) .++ (symExpBytes ctx b)
+symExpBytes :: Ctx -> When -> Exp ByteString -> SBV String
+symExpBytes ctx@(Ctx c m args store env) w e = case e of
+  Cat a b -> (symExpBytes ctx w a) .++ (symExpBytes ctx w b)
   ByVar a  -> get (nameFromArg c m a) (catBytes args)
   ByStr a -> literal a
   ByLit a -> literal $ toString a
-  TEntry a  -> get (nameFromItem m a) (catBytes store)
-  Slice a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
+  TEntry a  -> get (nameFromItem m a) (catBytes store')
+  Slice a x y -> subStr (symExpBytes ctx w a) (symExpInt ctx w x) (symExpInt ctx w y)
   ByEnv a -> get (nameFromEnv c m a) (catBytes env)
   ITE _ _ _ -> error "TODO: hande ITE in smt expresssions"
+ where store' = case w of
+         Pre -> fst <$> store
+         Post -> snd <$> store
+
 
 
 -- *** SMT Variable Names *** --
@@ -391,12 +395,25 @@ locsFromExp e = case e of
 
 
 get :: (Show a) => Id -> Map Id a -> a
-get = fromMaybe (error (name <> " not found in " <> show vars)) . Map.lookup
+get name vars = fromMaybe (error (name <> " not found in " <> show vars)) $ Map.lookup name vars
 
-catInts :: Map Id (SMType,a) -> Map Id (SBV Integer)
+getWhen :: (Show a) => When -> Id -> Map Id (a,a) ->  a
+getWhen Pre name vars = get name (fst <$> vars)
+getWhen Post name vars = get name (snd <$> vars)
+
+
+toInt :: SMType -> Maybe (SBV Integer)
+toInt (SymInteger i) = Just i
+toInt _ = Nothing
+
+toBool :: SMType -> Maybe (SBV Integer)
+toBool (SymInteger i) = Just i
+toBool _ = Nothing
+
+catInts :: Map Id SMType -> Map Id (SBV Integer)
 catInts m = Map.fromList $ go $ Map.toList m
   where
-    go ((name, (SymInteger i, a)):tl) = (name, i):(go tl)
+    go ((name, (SymInteger i)):tl) = (name, i):(go tl)
     go (_:tl) = go tl
     go [] = []
 
