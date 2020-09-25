@@ -400,7 +400,7 @@ get name vars = fromMaybe (error (name <> " not found in " <> show vars)) $ Map.
 catInts :: Map Id SMType -> Map Id (SBV Integer)
 catInts m = Map.fromList $ go $ Map.toList m
   where
-    go ((name, (SymInteger i)):tl) = (name, i):(go tl)
+    go ((name, SymInteger i):tl) = (name, i):(go tl)
     go (_:tl) = go tl
     go [] = []
 
