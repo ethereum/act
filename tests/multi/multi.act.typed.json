@@ -551,41 +551,7 @@
     "preConditions": "True",
     "contract": "B",
     "interface": "constructor()",
-    "postConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                0,
-                {
-                  "name": "B.y",
-                  "sort": "int"
-                }
-              ],
-              "symbol": "<="
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "name": "B.y",
-                  "sort": "int"
-                },
-                1.157920892373162e+77
-              ],
-              "symbol": "<="
-            }
-          ],
-          "symbol": "and"
-        },
-        "True"
-      ],
-      "symbol": "and"
-    },
+    "postConditions": "True",
     "returns": null
   },
   {
@@ -607,41 +573,7 @@
     "preConditions": "True",
     "contract": "a",
     "interface": "constructor()",
-    "postConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                0,
-                {
-                  "name": "a.x",
-                  "sort": "int"
-                }
-              ],
-              "symbol": "<="
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "name": "a.x",
-                  "sort": "int"
-                },
-                1.157920892373162e+77
-              ],
-              "symbol": "<="
-            }
-          ],
-          "symbol": "and"
-        },
-        "True"
-      ],
-      "symbol": "and"
-    },
+    "postConditions": "True",
     "returns": null
   }
 ]

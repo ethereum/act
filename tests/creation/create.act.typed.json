@@ -40,75 +40,7 @@
     "preConditions": "True",
     "contract": "Modest",
     "interface": "constructor()",
-    "postConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                0,
-                {
-                  "name": "Modest.y",
-                  "sort": "int"
-                }
-              ],
-              "symbol": "<="
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "name": "Modest.y",
-                  "sort": "int"
-                },
-                1.461501637330903e+48
-              ],
-              "symbol": "<="
-            }
-          ],
-          "symbol": "and"
-        },
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    0,
-                    {
-                      "name": "Modest.x",
-                      "sort": "int"
-                    }
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "name": "Modest.x",
-                      "sort": "int"
-                    },
-                    1.157920892373162e+77
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            },
-            "True"
-          ],
-          "symbol": "and"
-        }
-      ],
-      "symbol": "and"
-    },
+    "postConditions": "True",
     "returns": null
   }
 ]
