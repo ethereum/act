@@ -130,12 +130,10 @@ kAbiEncode (Just (ExpInt a)) = "#enc(#uint256" <> kExprInt a <> ")"
 kAbiEncode (Just (ExpBool _)) = ".ByteArray"
 kAbiEncode (Just (ExpBytes _)) = ".ByteArray"
 
-
 kExpr :: ReturnExp -> String
 kExpr (ExpInt a) = kExprInt a
 kExpr (ExpBool a) = kExprBool a
 kExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
-
 
 kExprInt :: Exp Integer -> String
 kExprInt (Add a b) = "(" <> kExprInt a <> " +Int " <> kExprInt b <> ")"
