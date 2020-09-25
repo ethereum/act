@@ -50,7 +50,7 @@ data Command w
   | Prove           { file       :: w ::: String               <?> "Path to file"
                     , solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
-                    , debug      :: w ::: Maybe Bool           <?> "Print verbose smt output (default: False)"
+                    , debug      :: w ::: Bool                 <?> "Print verbose smt output (default: False)"
                     }
 
   | K               { spec       :: w ::: String               <?> "Path to spec"
@@ -108,7 +108,7 @@ main = do
 
             results <- flip mapM (queries claims)
                           (\(i, qs) -> do
-                            rs <- mapM (runSMTWithTimeOut solver smttimeout debug) qs
+                            rs <- mapM (satWithTimeOut solver smttimeout debug) qs
                             pure (i, rs)
                           )
             mapM_ handleResults results
@@ -129,19 +129,18 @@ main = do
           forM_ kSpecs printFile
 
 -- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
-runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Maybe Bool -> Symbolic () -> IO SatResult
-runSMTWithTimeOut solver maybeTimeout maybeDebug sym
+satWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic () -> IO SatResult
+satWithTimeOut solver maybeTimeout debug' sym
   | solver == Just "cvc4" = do
       setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --incremental --interactive --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
-      res <- satWith cvc4{verbose=debug} sym
+      res <- satWith cvc4{verbose=debug'} sym
       setEnv "SBV_CVC4_OPTIONS" ""
       return res
   | solver == Just "z3" = runwithz3
   | solver == Nothing = runwithz3
   | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
- where debug = fromMaybe False maybeDebug
-       timeout = fromMaybe 20000 maybeTimeout
-       runwithz3 = satWith z3{verbose=debug} $ (setTimeOut timeout) >> sym
+ where timeout = fromMaybe 20000 maybeTimeout
+       runwithz3 = satWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
 
 -- | Fail on error, or proceed to the continuation
 proceed :: String -> Err a -> (a -> IO ()) -> IO ()
