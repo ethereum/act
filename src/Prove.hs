@@ -2,7 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Prove (queries) where
+module Prove (queries, Ctx(..)) where
 
 import Control.Monad (when)
 import Data.ByteString (ByteString)
@@ -179,29 +179,23 @@ mkStorageConstraints ctx@(Ctx _ m _ store _) updates locs
     unchanged = Left <$> (locs \\ (fmap getLoc updates))
 
     mkConstraint :: (Either StorageLocation StorageUpdate) -> SBV Bool
-    mkConstraint (Left loc) = sTrue --fromLocation loc
+    mkConstraint (Left loc) = fromLocation loc
     mkConstraint (Right update) = fromUpdate update
 
     -- these are all trivial?
-    -- fromLocation :: StorageLocation -> SBV Bool
-    -- fromLocation loc = case loc of
-    --   IntLoc item -> (lhs item catInts) .== (rhs item catInts)
-    --   BoolLoc item -> (lhs item catBools) .== (rhs item catBools)
-    --   BytesLoc item -> (lhs item catBytes) .== (rhs item catBytes)
-    --   where
-    --     lhs :: (Show b) => TStorageItem a -> (Map Id (SMType, SMType) -> Map Id b) -> b
-    --     lhs i f = get (nameFromItem m Post i) (f _)
-    --     rhs :: (Show b) => TStorageItem a -> (Map Id (SMType, SMType) -> Map Id b) -> b
-    --     rhs i f = get (nameFromItem m Pre i) (f _)
+    lhs :: (Show b) => TStorageItem a -> (Map Id (SMType, SMType) -> Map Id b) -> b
+    lhs i f = get (nameFromItem m i) (f store)
+    fromLocation :: StorageLocation -> SBV Bool
+    fromLocation loc = case loc of
+      IntLoc item -> (lhs item (catInts . (fst <$>))) .== (lhs item (catInts . (snd <$>)))
+      BoolLoc item -> (lhs item (catBools . (fst <$>))) .== (lhs item (catBools . (snd <$> )))
+      BytesLoc item -> (lhs item (catBytes . (fst <$>))) .== (lhs item (catBytes . (snd <$>)))
 
     fromUpdate :: StorageUpdate -> SBV Bool
     fromUpdate update = case update of
-      IntUpdate item e -> (lhs item catInts) .== (symExpInt ctx e)
-      BoolUpdate item e -> (lhs item catBools) .== (symExpBool ctx e)
-      BytesUpdate item e -> (lhs item catBytes) .== (symExpBytes ctx e)
-      where
-        lhs :: (Show b) => TStorageItem a -> (Map Id SMType -> Map Id b) -> b
-        lhs i f = get (nameFromItem m i) (snd $ f store)
+      IntUpdate item e -> (lhs item (catInts . (snd <$>))) .== (symExpInt ctx e)
+      BoolUpdate item e -> (lhs item (catBools . (snd <$>))) .== (symExpBool ctx e)
+      BytesUpdate item e -> (lhs item (catBytes . (snd <$>))) .== (symExpBytes ctx e)
 
 
 -- *** Symbolic Expression Construction *** ---
