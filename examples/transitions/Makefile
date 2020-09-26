@@ -4,9 +4,6 @@ StateMachine.vo Theory.vo: CoqMakefile StateMachine.v Theory.v
 StateMachine.v: state_machine.act
 	act coq --file state_machine.act > StateMachine.v
 
-ActLib.v: ../../lib/ActLib.v
-	cp ../../lib/ActLib.v ./
-
 CoqMakefile: _CoqProject
 	coq_makefile -f _CoqProject -o CoqMakefile
 
