@@ -57,7 +57,7 @@ type Args = Map Id SMType
 type Store = Map Id (SMType, SMType)
 type Env = Map Id SMType
 data When = Pre | Post
- deriving (Eq, Show)
+  deriving (Eq, Show)
 
 data Ctx = Ctx Contract Method Args Store Env
   deriving (Show)
