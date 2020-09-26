@@ -29,7 +29,7 @@ let
     ];
     withHoogle = true;
     shellHook = ''
-      export PATH=$PWD/bin:$PATH
+      export PATH=${toString ./bin}:$PATH
     '';
   };
 
