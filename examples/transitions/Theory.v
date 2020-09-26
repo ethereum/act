@@ -1,6 +1,7 @@
 (* depends on StateMachine.v *)
 
 Require Import StateMachine.StateMachine.
+Require Import ActLib.ActLib.
 Require Import Coq.ZArith.ZArith.
 Open Scope Z_scope.
 

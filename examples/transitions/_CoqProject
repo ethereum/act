@@ -1,3 +1,6 @@
 -Q . StateMachine
+-Q ../../lib ActLib
+
+../../lib/ActLib.v
 StateMachine.v
 Theory.v
