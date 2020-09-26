@@ -212,6 +212,10 @@ instance ToJSON (Exp Integer) where
   toJSON (NewAddr a b) = symbol "newAddr" a b
   toJSON (IntVar a) = String $ pack a
   toJSON (LitInt a) = toJSON a
+  toJSON (IntMin a) = toJSON $ intmin a
+  toJSON (IntMax a) = toJSON $ intmax a
+  toJSON (UIntMin a) = toJSON $ uintmin a
+  toJSON (UIntMax a) = toJSON $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
   toJSON (TEntry a) = toJSON a
   toJSON v = error $ "todo: json ast for: " <> show v
@@ -231,6 +235,10 @@ instance ToJSON (Exp Bool) where
                           ,  "args"     .= (Array $ fromList [toJSON a])]
   toJSON v = error $ "todo: json ast for: " <> show v
 
+instance ToJSON (Exp ByteString) where
+  toJSON a = String $ pack $ show a
+
+
 mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
 mapping c a b = object [  "symbol"   .= pack "lookup"
                        ,  "arity"    .= (Data.Aeson.Types.Number 3)
@@ -241,6 +249,14 @@ symbol s a b = object [  "symbol"   .= pack s
                       ,  "arity"    .= (Data.Aeson.Types.Number 2)
                       ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
 
+intmin :: Int -> Integer
+intmin a = negate $ 2 ^ (a - 1)
 
-instance ToJSON (Exp ByteString) where
-  toJSON a = String $ pack $ show a
+intmax :: Int -> Integer
+intmax a = 2 ^ (a - 1) - 1
+
+uintmin :: Int -> Integer
+uintmin _ = 0
+
+uintmax :: Int -> Integer
+uintmax a = 2 ^ a - 1

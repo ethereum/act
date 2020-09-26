@@ -456,14 +456,3 @@ catBytes m = Map.fromList $ go $ Map.toList m
     go (_:tl) = go tl
     go [] = []
 
-intmin :: Int -> Integer
-intmin a = negate $ 2 ^ (a - 1)
-
-intmax :: Int -> Integer
-intmax a = 2 ^ (a - 1) - 1
-
-uintmin :: Int -> Integer
-uintmin _ = 0
-
-uintmax :: Int -> Integer
-uintmax a = 2 ^ a - 1
