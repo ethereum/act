@@ -5,3 +5,7 @@ src/dist-newstyle
 result*
 **/*.cabal.local
 tests/**/*.out
+*.vo
+*.vok
+*.vos
+*.glob
