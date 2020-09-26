@@ -14,3 +14,4 @@ CoqMakefile: _CoqProject
 clean:
 	if [[ -f CoqMakefile ]]; then make -f CoqMakefile clean; fi
 	rm -f StateMachine.v CoqMakefile CoqMakefile.conf
+	rm -f *.glob *.vo *.vok *.vos
