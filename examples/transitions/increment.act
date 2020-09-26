@@ -1,9 +1,0 @@
-//Increments variable x
-
-behaviour incr of A
-interface incr()
-iff in range uint256
-    x + 1
-
-case _:
-	x := x + 1
