@@ -251,6 +251,10 @@ symExpInt ctx@(Ctx c m args store env) w e = case e of
   Mod a b   -> (symExpInt ctx w a) `sMod` (symExpInt ctx w b)
   Exp a b   -> (symExpInt ctx w a) .^ (symExpInt ctx w b)
   LitInt a  -> literal a
+  IntMin a  -> literal $ intmin a
+  IntMax a  -> literal $ intmax a
+  UIntMin a -> literal $ uintmin a
+  UIntMax a -> literal $ uintmax a
   IntVar a  -> get (nameFromArg c m a) (catInts args)
   TEntry a  -> get (nameFromItem m a) (catInts store')
   IntEnv a -> get (nameFromEnv c m a) (catInts env)
@@ -305,6 +309,10 @@ nameFromExpInt c m e = case e of
   Mod a b   -> (nameFromExpInt c m a) <> "%" <> (nameFromExpInt c m b)
   Exp a b   -> (nameFromExpInt c m a) <> "^" <> (nameFromExpInt c m b)
   LitInt a  -> show a
+  IntMin a  -> show $ intmin a
+  IntMax a  -> show $ intmax a
+  UIntMin a -> show $ uintmin a
+  UIntMax a -> show $ uintmax a
   IntVar a  -> a
   TEntry a  -> nameFromItem m a
   IntEnv a -> nameFromEnv c m a
@@ -401,6 +409,10 @@ locsFromExp e = case e of
   ByStr _ -> []
   ByLit _ -> []
   LitInt _  -> []
+  IntMin _  -> []
+  IntMax _  -> []
+  UIntMin _ -> []
+  UIntMax _ -> []
   IntVar _  -> []
   LitBool _ -> []
   BoolVar _ -> []
@@ -443,3 +455,8 @@ catBytes m = Map.fromList $ go $ Map.toList m
     go ((name, SymBytes b):tl) = (name, b):(go tl)
     go (_:tl) = go tl
     go [] = []
+
+intmin a = 0 - 2 ^ (a - 1)
+intmax a = 2 ^ (a - 1) - 1
+uintmin a = 0
+uintmax a = 2 ^ a - 1
