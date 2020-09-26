@@ -113,7 +113,7 @@ claim store (B b@(Behaviour n m c _ i _ _ _ _)) =
 
   body store' (Behaviour _ _ _ _ _ preconditions _ updates _) =
     "match "
-      <> parens (coqexp preconditions)
+      <> coqexp preconditions
       <> " with\n| true => "
       <> stateval store' (\n' _ -> T.pack n' <> " s") updates
       <> "\n| false => s\nend."
@@ -129,16 +129,22 @@ stateval
   -> T.Text
 stateval store handler updates =
 
-  "state " <> T.intercalate " " (map (valuefor (rights updates)) pairs) where
+  "state " <> T.intercalate " "
+    (map (valuefor (rights updates)) (M.toList (headval store)))
+
+  where
 
   valuefor :: [StorageUpdate] -> (Id, SlotType) -> T.Text
   valuefor updates' (name, t) =
     case listToMaybe (filter (f name) updates') of
       Nothing -> parens $ handler name t
-      Just (IntUpdate _ e)   -> parens $ coqexp e
-      Just (BoolUpdate _ e)  -> parens $ coqexp e
+      Just (IntUpdate (DirectInt _ _) e) -> parens $ coqexp e
+      Just (IntUpdate (MappedInt _ name' args) e) -> lambda (NE.toList args) 0 e name'
+      Just (BoolUpdate (DirectBool _ _) e)  -> parens $ coqexp e
+      Just (BoolUpdate (MappedBool _ name' args) e) -> lambda (NE.toList args) 0 e name'
       Just (BytesUpdate _ _) -> error "bytestrings not supported"
 
+  -- filter by name
   f n (IntUpdate (DirectInt _ n') _)
     | n == n' = True
   f n (IntUpdate (MappedInt _ n' _) _)
@@ -149,7 +155,20 @@ stateval store handler updates =
     | n == n' = True
   f _ _ = False
 
-  pairs = M.toList (headval store)
+  -- represent mapping update with anonymous function
+  lambda :: [ReturnExp] -> Int -> Exp a -> Id -> T.Text
+  lambda [] _ e _ = parens $ coqexp e
+  lambda (x:xs) n e m = let name = "debruijn" <> T.pack (show n) in parens $ "fun "
+    <> name
+    <> " => if "
+    <> name <> eqsym x <> retexp x <> " then " <> lambda xs (n + 1) e m <> " else "
+    <> T.pack m <> " s " <> lambdaArgs n
+
+  lambdaArgs n = T.intercalate " " $ map (\x -> "debruijn" <> T.pack (show x)) [0..n]
+
+  eqsym (ExpInt _) = " =? "
+  eqsym (ExpBool _) = " =?? "
+  eqsym (ExpBytes _) = error "bytestrings not supported"
 
 -- | produce a block of declarations from an interface
 interface :: Interface -> T.Text
@@ -247,13 +266,16 @@ coqexp (TEntry (DirectBytes _ _)) = error "bytestrings not supported"
 coqexp (TEntry (MappedBytes _ _ _)) = error "bytestrings not supported"
 coqexp (NewAddr _ _) = error "newaddr not supported"
 
+-- | coq syntax for a return expression
+retexp :: ReturnExp -> T.Text
+retexp (ExpInt e) = coqexp e
+retexp (ExpBool e) = coqexp e
+retexp (ExpBytes _) = error "bytestrings not supported"
+
 -- | coq syntax for a list of arguments
 coqargs :: NE.NonEmpty ReturnExp -> T.Text
 coqargs (e NE.:| es) =
-  cexp e <> " " <> T.intercalate " " (map cexp es) where
-  cexp (ExpInt e')  = coqexp e'
-  cexp (ExpBool e') = coqexp e'
-  cexp (ExpBytes _) = error "bytestrings not supported"
+  retexp e <> " " <> T.intercalate " " (map retexp es) where
 
 -- | wrap text in parentheses
 parens :: T.Text -> T.Text
