@@ -179,6 +179,7 @@ mkStorageConstraints ctx@(Ctx _ m _ store _) updates locs
 
     getVar :: (Show b) => TStorageItem a -> (Map Id (SMType, SMType) -> Map Id b) -> b
     getVar i f = get (nameFromItem m i) (f store)
+    
     fromLocation :: StorageLocation -> SBV Bool
     fromLocation loc = case loc of
       IntLoc item -> (getVar item (catInts . (fst <$>))) .== (getVar item (catInts . (snd <$>)))
