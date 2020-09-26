@@ -18,7 +18,8 @@ import qualified Data.Map.Strict    as M
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
 import Data.Either (rights)
-import Data.Maybe (mapMaybe, listToMaybe)
+import Data.Maybe (mapMaybe)
+import Data.List (find)
 
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
@@ -136,7 +137,7 @@ stateval store handler updates =
 
   valuefor :: [StorageUpdate] -> (Id, SlotType) -> T.Text
   valuefor updates' (name, t) =
-    case listToMaybe (filter (f name) updates') of
+    case find (f name) updates' of
       Nothing -> parens $ handler name t
       Just (IntUpdate (DirectInt _ _) e) -> parens $ coqexp e
       Just (IntUpdate (MappedInt _ name' args) e) -> lambda (NE.toList args) 0 e name'
@@ -275,7 +276,7 @@ retexp (ExpBytes _) = error "bytestrings not supported"
 -- | coq syntax for a list of arguments
 coqargs :: NE.NonEmpty ReturnExp -> T.Text
 coqargs (e NE.:| es) =
-  retexp e <> " " <> T.intercalate " " (map retexp es) where
+  retexp e <> " " <> T.intercalate " " (map retexp es)
 
 -- | wrap text in parentheses
 parens :: T.Text -> T.Text
