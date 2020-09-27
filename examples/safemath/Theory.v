@@ -11,6 +11,7 @@ Proof.
   reflexivity.
 Qed.
 
+
 Theorem mul_correct : forall s y x, reachable s ->
   range256 x /\ range256 y /\ range256 (x * y) <-> mul_ret s y x = Some (x * y).
 
@@ -59,14 +60,17 @@ Proof.
     }
     rewrite assertion. clear assertion.
 
-    simpl. reflexivity.
+    simpl.
+    assert ((x * y) mod (MOD 256) = x * y) as Hmod.
+    apply range_mod. assumption.
+    rewrite Hmod. reflexivity.
 
   } {
 
     intros.
     unfold mul_ret in H0.
     simpl in H0.
-    apply (ite_true _ (Some (x * y)) None) in H0.
+    apply ite_true in H0.
     apply andb_prop in H0.
     destruct H0.
     apply andb_prop in H0.
@@ -80,7 +84,6 @@ Proof.
     apply andb_prop in H3.
     destruct H3.
     clear H5.
-    unfold range256.
     split. split.
     apply Zle_bool_imp_le. assumption.
     apply Zle_bool_imp_le. assumption.
@@ -93,5 +96,4 @@ Proof.
     unfold not. intros. discriminate.
 
   }
-Qed.
-
+Qed. Check mul_correct.

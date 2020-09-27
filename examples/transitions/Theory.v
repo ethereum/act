@@ -33,5 +33,5 @@ Proof.
     - split. discriminate. discriminate.
     - split. assumption. assumption.
   }
-Qed.
+Qed. Check invariant.
 
