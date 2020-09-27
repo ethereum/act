@@ -53,7 +53,7 @@ coq :: Store -> [Claim] -> T.Text
 coq store claims = header
   <> layout store <> "\n\n"
   <> T.intercalate "\n\n" (mapMaybe (claim store) claims) <> "\n\n"
-  <> T.intercalate "\n\n" (mapMaybe (retClaim store) claims) <> "\n\n"
+  <> T.intercalate "\n\n" (mapMaybe retClaim claims) <> "\n\n"
   <> baseval
   <> reachable claims
 
@@ -126,8 +126,8 @@ claim _ _ = Nothing
 -- ignores claims that do not specify a return value
 -- ignores OOG and Fail claims
 -- ignores constructors (claims that include creation)
-retClaim :: Store -> Claim -> Maybe T.Text
-retClaim store (B (Behaviour n Pass False _ i conditions _ _ (Just r))) =
+retClaim :: Claim -> Maybe T.Text
+retClaim (B (Behaviour n Pass False _ i conditions _ _ (Just r))) =
   Just $ "Definition "
     <> T.pack n <> returnSuffix
     <> " (s : State) "
@@ -136,7 +136,7 @@ retClaim store (B (Behaviour n Pass False _ i conditions _ _ (Just r))) =
     <> "match " <> coqexp conditions <> " with\n| true => Some "
     <> retexp r
     <> "\n| false => None\nend."
-retClaim _ _ = Nothing
+retClaim _ = Nothing
 
 -- | produce a state value from a list of storage updates
 -- 'handler' defines what to do in cases where a given name isn't updated
