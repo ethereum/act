@@ -1,13 +1,15 @@
-# Add of SafeMath
-
-behaviour add of SafeAdd
+behaviour add of SafeMath
 interface add(uint256 x, uint256 y)
 
 iff in range uint256
     x + y
 
-iff
-    CALLVALUE == 0
+returns x + y
 
-case _:
-	returns x + y
+behaviour mul of SafeMath
+interface mul(uint256 x, uint256 y)
+
+iff in range uint256
+    x * y
+
+returns x * y
