@@ -127,13 +127,13 @@ claim _ _ = Nothing
 -- ignores OOG and Fail claims
 -- ignores constructors (claims that include creation)
 retClaim :: Claim -> Maybe T.Text
-retClaim (B (Behaviour n Pass False _ i conditions _ _ (Just r))) =
+retClaim (B (Behaviour n Pass False _ i preconditions _ _ (Just r))) =
   Just $ "Definition "
     <> T.pack n <> returnSuffix
     <> " (s : State) "
     <> interface i
     <> " :=\n"
-    <> "match " <> coqexp conditions <> " with\n| true => Some "
+    <> "match " <> coqexp preconditions <> " with\n| true => Some "
     <> retexp r
     <> "\n| false => None\nend."
 retClaim _ = Nothing
@@ -156,9 +156,9 @@ stateval store handler updates =
   valuefor updates' (name, t) =
     case find (f name) updates' of
       Nothing -> parens $ handler name t
-      Just (IntUpdate (DirectInt _ _) e) -> parens $ coqexp e
+      Just (IntUpdate (DirectInt _ _) e) -> parens $ coqexp' e
       Just (IntUpdate (MappedInt _ name' args) e) -> lambda (NE.toList args) 0 e name'
-      Just (BoolUpdate (DirectBool _ _) e)  -> parens $ coqexp e
+      Just (BoolUpdate (DirectBool _ _) e)  -> parens $ coqexp' e
       Just (BoolUpdate (MappedBool _ name' args) e) -> lambda (NE.toList args) 0 e name'
       Just (BytesUpdate _ _) -> error "bytestrings not supported"
 
@@ -175,7 +175,7 @@ stateval store handler updates =
 
   -- represent mapping update with anonymous function
   lambda :: [ReturnExp] -> Int -> Exp a -> Id -> T.Text
-  lambda [] _ e _ = parens $ coqexp e
+  lambda [] _ e _ = parens $ coqexp' e
   lambda (x:xs) n e m = let name = "debruijn" <> T.pack (show n) in parens $ "fun "
     <> name
     <> " => if "
@@ -246,7 +246,8 @@ coqexp (LEQ e1 e2)  = parens $ coqexp e1 <> " <=? " <> coqexp e2
 coqexp (GE e1 e2)   = parens $ coqexp e2 <> " <? "  <> coqexp e1
 coqexp (GEQ e1 e2)  = parens $ coqexp e2 <> " <?= " <> coqexp e1
 coqexp (TEntry (DirectBool _ name)) = parens $ T.pack name <> " s"
-coqexp (TEntry (MappedBool _ name args)) = parens $ T.pack name <> " s " <> coqargs args
+coqexp (TEntry (MappedBool _ name args)) = parens $
+  T.pack name <> " s " <> coqargs args
 
 -- integers
 coqexp (LitInt i) = T.pack $ show i
@@ -262,7 +263,8 @@ coqexp (IntMax n)  = parens $ "INT_MAX "  <> T.pack (show n)
 coqexp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
 coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
 coqexp (TEntry (DirectInt _ name)) = parens $ T.pack name <> " s"
-coqexp (TEntry (MappedInt _ name args)) = parens $ T.pack name <> " s " <> coqargs args
+coqexp (TEntry (MappedInt _ name args)) = parens $
+  T.pack name <> " s " <> coqargs args
 
 -- polymorphic
 coqexp (ITE b e1 e2) = parens $ "if "
@@ -284,10 +286,28 @@ coqexp (TEntry (DirectBytes _ _)) = error "bytestrings not supported"
 coqexp (TEntry (MappedBytes _ _ _)) = error "bytestrings not supported"
 coqexp (NewAddr _ _) = error "newaddr not supported"
 
+-- | word semantics
+coqexp' :: Exp a -> T.Text
+coqexp' e@(LitInt _)  = mod256 $ coqexp e
+coqexp' e@(IntVar _)  = mod256 $ coqexp e
+coqexp' e@(Add _ _)   = mod256 $ coqexp e
+coqexp' e@(Sub _ _)   = mod256 $ coqexp e
+coqexp' e@(Mul _ _)   = mod256 $ coqexp e
+coqexp' e@(Div _ _)   = mod256 $ coqexp e
+coqexp' e@(Mod _ _)   = mod256 $ coqexp e
+coqexp' e@(Exp _ _)   = mod256 $ coqexp e
+coqexp' e@(IntMin _)  = mod256 $ coqexp e
+coqexp' e@(IntMax _)  = mod256 $ coqexp e
+coqexp' e@(UIntMin _) = mod256 $ coqexp e
+coqexp' e@(UIntMax _) = mod256 $ coqexp e
+coqexp' e@(TEntry (DirectInt _ _))   = mod256 $ coqexp e
+coqexp' e@(TEntry (MappedInt _ _ _)) = mod256 $ coqexp e
+coqexp' a = coqexp a
+
 -- | coq syntax for a return expression
 retexp :: ReturnExp -> T.Text
-retexp (ExpInt e) = coqexp e
-retexp (ExpBool e) = coqexp e
+retexp (ExpInt e)   = coqexp' e
+retexp (ExpBool e)  = coqexp' e
 retexp (ExpBytes _) = error "bytestrings not supported"
 
 -- | coq syntax for a list of arguments
@@ -298,3 +318,6 @@ coqargs (e NE.:| es) =
 -- | wrap text in parentheses
 parens :: T.Text -> T.Text
 parens s = "(" <> s <> ")"
+
+mod256 :: T.Text -> T.Text
+mod256 e = parens $ e <> " mod (MOD 256)"
