@@ -26,7 +26,7 @@ import EVM.Solidity (SlotType(..))
 import Syntax
 import RefinedAst
 
-type Store = M.Map Id (M.Map Id SlotType)
+type Store = M.Map Id SlotType
 
 -- | string module name
 strName :: T.Text
@@ -35,6 +35,9 @@ strName  = "Str"
 -- | base state name
 baseName :: T.Text
 baseName = "BASE"
+
+returnSuffix :: T.Text
+returnSuffix = "_ret"
 
 header :: T.Text
 header =
@@ -47,17 +50,19 @@ header =
 
 -- | produce a coq representation of a specification
 coq :: Store -> [Claim] -> T.Text
-coq store claims =
-
-  case mapMaybe isConstructor claims of
-    [c] -> header
-      <> layout store <> "\n\n"
-      <> T.intercalate "\n\n" (mapMaybe (claim store) claims) <> "\n\n"
-      <> base store c <> "\n\n"
-      <> reachable claims
-    _ -> error "multiple constructors not supported"
+coq store claims = header
+  <> layout store <> "\n\n"
+  <> T.intercalate "\n\n" (mapMaybe (claim store) claims) <> "\n\n"
+  <> T.intercalate "\n\n" (mapMaybe (retClaim store) claims) <> "\n\n"
+  <> baseval
+  <> reachable claims
 
   where
+
+  baseval = case mapMaybe isConstructor claims of
+    [] -> base store [] <> "\n\n"
+    [c] -> base store (rights (_stateUpdates c)) <> "\n\n"
+    _ -> error "multiple constructors not supported"
 
   isConstructor (B b) | (_creation b) && (_mode b == Pass) = Just b
   isConstructor _ = Nothing
@@ -65,15 +70,15 @@ coq store claims =
   layout store' = "Record State : Set := state\n" <> "{ "
     <> T.intercalate ("\n" <> "; ") (map decl pairs)
     <> "\n" <> "}." where
-    pairs = M.toList (headval store')
+    pairs = M.toList store'
 
   decl (n, s) = (T.pack n) <> " : " <> slotType s
 
 -- | definition of the base state
-base :: Store -> Behaviour -> T.Text
-base store constructor =
+base :: Store -> [StorageUpdate] -> T.Text
+base store updates =
   "Definition " <> baseName <> " :=\n"
-    <> stateval store (\_ t -> defaultValue t) (_stateUpdates constructor)
+    <> stateval store (\_ t -> defaultValue t) updates
     <> "\n."
 
 -- | inductive definition of reachable states
@@ -95,20 +100,16 @@ reachable claims =
     arguments (Interface _ decls) =
       T.intercalate " " (map (\(Decl _ name) -> T.pack name) decls)
 
--- | definition of a contract function
+-- | definition of a storage transition
 -- ignores OOG and Fail claims
 -- ignores constructors (claims that include creation)
 claim :: Store -> Claim -> Maybe T.Text
-claim store (B b@(Behaviour n m c _ i _ _ _ _)) =
-
-  case (m, c) of
-    (Pass, False) -> Just $ "Definition "
-      <> T.pack n
-      <> " (s : State) "
-      <> interface i
-      <> " :=\n"
-      <> body store b
-    (_, _) -> Nothing
+claim store (B b@(Behaviour n Pass False _ i _ _ _ _)) = Just $ "Definition "
+  <> T.pack n
+  <> " (s : State) "
+  <> interface i
+  <> " :=\n"
+  <> body store b
 
   where
 
@@ -116,22 +117,38 @@ claim store (B b@(Behaviour n m c _ i _ _ _ _)) =
     "match "
       <> coqexp preconditions
       <> " with\n| true => "
-      <> stateval store' (\n' _ -> T.pack n' <> " s") updates
+      <> stateval store' (\n' _ -> T.pack n' <> " s") (rights updates)
       <> "\n| false => s\nend."
 
 claim _ _ = Nothing
+
+-- | definition of a return value
+-- ignores claims that do not specify a return value
+-- ignores OOG and Fail claims
+-- ignores constructors (claims that include creation)
+retClaim :: Store -> Claim -> Maybe T.Text
+retClaim store (B (Behaviour n Pass False _ i conditions _ _ (Just r))) =
+  Just $ "Definition "
+    <> T.pack n <> returnSuffix
+    <> " (s : State) "
+    <> interface i
+    <> " :=\n"
+    <> "match " <> coqexp conditions <> " with\n| true => Some "
+    <> retexp r
+    <> "\n| false => None\nend."
+retClaim _ _ = Nothing
 
 -- | produce a state value from a list of storage updates
 -- 'handler' defines what to do in cases where a given name isn't updated
 stateval
   :: Store
   -> (Id -> SlotType -> T.Text)
-  -> [Either StorageLocation StorageUpdate]
+  -> [StorageUpdate]
   -> T.Text
 stateval store handler updates =
 
   "state " <> T.intercalate " "
-    (map (valuefor (rights updates)) (M.toList (headval store)))
+    (map (valuefor updates) (M.toList store))
 
   where
 
@@ -281,6 +298,3 @@ coqargs (e NE.:| es) =
 -- | wrap text in parentheses
 parens :: T.Text -> T.Text
 parens s = "(" <> s <> ")"
-
-headval :: M.Map k a -> a
-headval = snd . head . M.toList
