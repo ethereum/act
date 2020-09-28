@@ -11,7 +11,6 @@ Definition UINT_MIN (n : Z) := 0.
 Definition UINT_MAX (n : Z) := 2^n - 1.
 Definition INT_MIN  (n : Z) := 0 - 2^(n - 1).
 Definition INT_MAX  (n : Z) := 2^(n - 1) - 1.
-Definition MOD (n : Z) := UINT_MAX n + 1.
 
 (** * notations *)
 Notation "a =?? b" := (bool_eq a b) (at level 70, no associativity).
@@ -53,15 +52,5 @@ Proof.
   destruct b.
   - left. reflexivity.
   - right. reflexivity.
-Qed.
-
-Lemma range_mod : forall a, range256 a -> a mod (MOD 256) = a.
-Proof.
-  intros.
-  apply Z.mod_small.
-  destruct H.
-  split.
-  + assumption.
-  + apply (Zle_lt_succ a (UINT_MAX 256)). assumption.
 Qed.
 
