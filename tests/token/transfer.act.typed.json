@@ -84,6 +84,24 @@
             "symbol": "lookup"
           }
         }
+      },
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "Caller",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          }
+        }
       }
     ],
     "kind": "Behaviour",
@@ -430,7 +448,11 @@
                                                                 "balanceOf",
                                                                 [
                                                                   {
+<<<<<<< HEAD
                                                                     "expression": "src",
+=======
+                                                                    "expression": "Caller",
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                                                                     "sort": "int"
                                                                   }
                                                                 ]
@@ -450,7 +472,11 @@
                                                                 "balanceOf",
                                                                 [
                                                                   {
+<<<<<<< HEAD
                                                                     "expression": "src",
+=======
+                                                                    "expression": "Caller",
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                                                                     "sort": "int"
                                                                   }
                                                                 ]
@@ -464,6 +490,7 @@
                                                       ],
                                                       "symbol": "and"
                                                     },
+<<<<<<< HEAD
                                                     {
                                                       "arity": 2,
                                                       "args": [
@@ -527,6 +554,9 @@
                                                       ],
                                                       "symbol": "and"
                                                     }
+=======
+                                                    "True"
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                                                   ],
                                                   "symbol": "and"
                                                 }
@@ -623,6 +653,24 @@
                 },
                 {
                   "expression": "src",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          }
+        }
+      },
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "Caller",
                   "sort": "int"
                 }
               ]
@@ -1085,7 +1133,61 @@
                                                       ],
                                                       "symbol": "and"
                                                     },
-                                                    "True"
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        {
+                                                          "arity": 2,
+                                                          "args": [
+                                                            {
+                                                              "arity": 2,
+                                                              "args": [
+                                                                0,
+                                                                {
+                                                                  "arity": 3,
+                                                                  "args": [
+                                                                    "Token",
+                                                                    "balanceOf",
+                                                                    [
+                                                                      {
+                                                                        "expression": "Caller",
+                                                                        "sort": "int"
+                                                                      }
+                                                                    ]
+                                                                  ],
+                                                                  "symbol": "lookup"
+                                                                }
+                                                              ],
+                                                              "symbol": "<="
+                                                            },
+                                                            {
+                                                              "arity": 2,
+                                                              "args": [
+                                                                {
+                                                                  "arity": 3,
+                                                                  "args": [
+                                                                    "Token",
+                                                                    "balanceOf",
+                                                                    [
+                                                                      {
+                                                                        "expression": "Caller",
+                                                                        "sort": "int"
+                                                                      }
+                                                                    ]
+                                                                  ],
+                                                                  "symbol": "lookup"
+                                                                },
+                                                                1.157920892373162e+77
+                                                              ],
+                                                              "symbol": "<="
+                                                            }
+                                                          ],
+                                                          "symbol": "and"
+                                                        },
+                                                        "True"
+                                                      ],
+                                                      "symbol": "and"
+                                                    }
                                                   ],
                                                   "symbol": "and"
                                                 }
@@ -1251,6 +1353,24 @@
               "amount"
             ],
             "symbol": "-"
+          }
+        }
+      },
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "Caller",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
           }
         }
       }
@@ -1757,6 +1877,64 @@
                                                     }
                                                   ],
                                                   "symbol": "and"
+<<<<<<< HEAD
+=======
+                                                },
+                                                {
+                                                  "arity": 2,
+                                                  "args": [
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        {
+                                                          "arity": 2,
+                                                          "args": [
+                                                            0,
+                                                            {
+                                                              "arity": 3,
+                                                              "args": [
+                                                                "Token",
+                                                                "balanceOf",
+                                                                [
+                                                                  {
+                                                                    "expression": "Caller",
+                                                                    "sort": "int"
+                                                                  }
+                                                                ]
+                                                              ],
+                                                              "symbol": "lookup"
+                                                            }
+                                                          ],
+                                                          "symbol": "<="
+                                                        },
+                                                        {
+                                                          "arity": 2,
+                                                          "args": [
+                                                            {
+                                                              "arity": 3,
+                                                              "args": [
+                                                                "Token",
+                                                                "balanceOf",
+                                                                [
+                                                                  {
+                                                                    "expression": "Caller",
+                                                                    "sort": "int"
+                                                                  }
+                                                                ]
+                                                              ],
+                                                              "symbol": "lookup"
+                                                            },
+                                                            1.157920892373162e+77
+                                                          ],
+                                                          "symbol": "<="
+                                                        }
+                                                      ],
+                                                      "symbol": "and"
+                                                    },
+                                                    "True"
+                                                  ],
+                                                  "symbol": "and"
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                                                 }
                                               ],
                                               "symbol": "and"
@@ -1923,6 +2101,24 @@
               "amount"
             ],
             "symbol": "-"
+          }
+        }
+      },
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "Caller",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
           }
         }
       }
@@ -2439,7 +2635,61 @@
                                                       ],
                                                       "symbol": "and"
                                                     },
-                                                    "True"
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        {
+                                                          "arity": 2,
+                                                          "args": [
+                                                            {
+                                                              "arity": 2,
+                                                              "args": [
+                                                                0,
+                                                                {
+                                                                  "arity": 3,
+                                                                  "args": [
+                                                                    "Token",
+                                                                    "balanceOf",
+                                                                    [
+                                                                      {
+                                                                        "expression": "Caller",
+                                                                        "sort": "int"
+                                                                      }
+                                                                    ]
+                                                                  ],
+                                                                  "symbol": "lookup"
+                                                                }
+                                                              ],
+                                                              "symbol": "<="
+                                                            },
+                                                            {
+                                                              "arity": 2,
+                                                              "args": [
+                                                                {
+                                                                  "arity": 3,
+                                                                  "args": [
+                                                                    "Token",
+                                                                    "balanceOf",
+                                                                    [
+                                                                      {
+                                                                        "expression": "Caller",
+                                                                        "sort": "int"
+                                                                      }
+                                                                    ]
+                                                                  ],
+                                                                  "symbol": "lookup"
+                                                                },
+                                                                1.157920892373162e+77
+                                                              ],
+                                                              "symbol": "<="
+                                                            }
+                                                          ],
+                                                          "symbol": "and"
+                                                        },
+                                                        "True"
+                                                      ],
+                                                      "symbol": "and"
+                                                    }
                                                   ],
                                                   "symbol": "and"
                                                 }
@@ -2575,6 +2825,24 @@
                 },
                 {
                   "expression": "src",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          }
+        }
+      },
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "Caller",
                   "sort": "int"
                 }
               ]
@@ -2987,7 +3255,11 @@
                                                                 "balanceOf",
                                                                 [
                                                                   {
+<<<<<<< HEAD
                                                                     "expression": "src",
+=======
+                                                                    "expression": "Caller",
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                                                                     "sort": "int"
                                                                   }
                                                                 ]
@@ -3007,7 +3279,11 @@
                                                                 "balanceOf",
                                                                 [
                                                                   {
+<<<<<<< HEAD
                                                                     "expression": "src",
+=======
+                                                                    "expression": "Caller",
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                                                                     "sort": "int"
                                                                   }
                                                                 ]
@@ -3021,6 +3297,7 @@
                                                       ],
                                                       "symbol": "and"
                                                     },
+<<<<<<< HEAD
                                                     {
                                                       "arity": 2,
                                                       "args": [
@@ -3084,6 +3361,9 @@
                                                       ],
                                                       "symbol": "and"
                                                     }
+=======
+                                                    "True"
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                                                   ],
                                                   "symbol": "and"
                                                 }
@@ -3222,6 +3502,24 @@
                 },
                 {
                   "expression": "src",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          }
+        }
+      },
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "Caller",
                   "sort": "int"
                 }
               ]
@@ -3743,7 +4041,61 @@
                                                       ],
                                                       "symbol": "and"
                                                     },
-                                                    "True"
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        {
+                                                          "arity": 2,
+                                                          "args": [
+                                                            {
+                                                              "arity": 2,
+                                                              "args": [
+                                                                0,
+                                                                {
+                                                                  "arity": 3,
+                                                                  "args": [
+                                                                    "Token",
+                                                                    "balanceOf",
+                                                                    [
+                                                                      {
+                                                                        "expression": "Caller",
+                                                                        "sort": "int"
+                                                                      }
+                                                                    ]
+                                                                  ],
+                                                                  "symbol": "lookup"
+                                                                }
+                                                              ],
+                                                              "symbol": "<="
+                                                            },
+                                                            {
+                                                              "arity": 2,
+                                                              "args": [
+                                                                {
+                                                                  "arity": 3,
+                                                                  "args": [
+                                                                    "Token",
+                                                                    "balanceOf",
+                                                                    [
+                                                                      {
+                                                                        "expression": "Caller",
+                                                                        "sort": "int"
+                                                                      }
+                                                                    ]
+                                                                  ],
+                                                                  "symbol": "lookup"
+                                                                },
+                                                                1.157920892373162e+77
+                                                              ],
+                                                              "symbol": "<="
+                                                            }
+                                                          ],
+                                                          "symbol": "and"
+                                                        },
+                                                        "True"
+                                                      ],
+                                                      "symbol": "and"
+                                                    }
                                                   ],
                                                   "symbol": "and"
                                                 }
@@ -3879,6 +4231,24 @@
                 },
                 {
                   "expression": "src",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          }
+        }
+      },
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "Caller",
                   "sort": "int"
                 }
               ]
@@ -4246,7 +4616,11 @@
                                                                 "balanceOf",
                                                                 [
                                                                   {
+<<<<<<< HEAD
                                                                     "expression": "src",
+=======
+                                                                    "expression": "Caller",
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                                                                     "sort": "int"
                                                                   }
                                                                 ]
@@ -4266,7 +4640,11 @@
                                                                 "balanceOf",
                                                                 [
                                                                   {
+<<<<<<< HEAD
                                                                     "expression": "src",
+=======
+                                                                    "expression": "Caller",
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                                                                     "sort": "int"
                                                                   }
                                                                 ]
@@ -4280,6 +4658,7 @@
                                                       ],
                                                       "symbol": "and"
                                                     },
+<<<<<<< HEAD
                                                     {
                                                       "arity": 2,
                                                       "args": [
@@ -4343,6 +4722,9 @@
                                                       ],
                                                       "symbol": "and"
                                                     }
+=======
+                                                    "True"
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                                                   ],
                                                   "symbol": "and"
                                                 }
@@ -4481,6 +4863,24 @@
                 },
                 {
                   "expression": "src",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          }
+        }
+      },
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "Caller",
                   "sort": "int"
                 }
               ]
@@ -4957,7 +5357,61 @@
                                                       ],
                                                       "symbol": "and"
                                                     },
-                                                    "True"
+                                                    {
+                                                      "arity": 2,
+                                                      "args": [
+                                                        {
+                                                          "arity": 2,
+                                                          "args": [
+                                                            {
+                                                              "arity": 2,
+                                                              "args": [
+                                                                0,
+                                                                {
+                                                                  "arity": 3,
+                                                                  "args": [
+                                                                    "Token",
+                                                                    "balanceOf",
+                                                                    [
+                                                                      {
+                                                                        "expression": "Caller",
+                                                                        "sort": "int"
+                                                                      }
+                                                                    ]
+                                                                  ],
+                                                                  "symbol": "lookup"
+                                                                }
+                                                              ],
+                                                              "symbol": "<="
+                                                            },
+                                                            {
+                                                              "arity": 2,
+                                                              "args": [
+                                                                {
+                                                                  "arity": 3,
+                                                                  "args": [
+                                                                    "Token",
+                                                                    "balanceOf",
+                                                                    [
+                                                                      {
+                                                                        "expression": "Caller",
+                                                                        "sort": "int"
+                                                                      }
+                                                                    ]
+                                                                  ],
+                                                                  "symbol": "lookup"
+                                                                },
+                                                                1.157920892373162e+77
+                                                              ],
+                                                              "symbol": "<="
+                                                            }
+                                                          ],
+                                                          "symbol": "and"
+                                                        },
+                                                        "True"
+                                                      ],
+                                                      "symbol": "and"
+                                                    }
                                                   ],
                                                   "symbol": "and"
                                                 }
@@ -5000,7 +5454,52 @@
     "returns": null
   },
   {
-    "stateUpdates": [],
+    "stateUpdates": [
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+<<<<<<< HEAD
+                  "arity": 2,
+                  "args": [
+                    0,
+                    "Caller"
+                  ],
+                  "symbol": "<="
+=======
+                  "expression": "to",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          }
+        }
+      },
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "Caller",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          }
+        }
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Pass",
     "creation": false,
@@ -5025,10 +5524,11 @@
                 {
                   "arity": 2,
                   "args": [
-                    0,
-                    "Caller"
+                    "Caller",
+                    "to"
                   ],
-                  "symbol": "<="
+                  "symbol": "=/="
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                 },
                 {
                   "arity": 2,
@@ -5209,6 +5709,118 @@
                                 }
                               ],
                               "symbol": "and"
+<<<<<<< HEAD
+=======
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        0,
+                                        {
+                                          "arity": 3,
+                                          "args": [
+                                            "Token",
+                                            "balanceOf",
+                                            [
+                                              {
+                                                "expression": "to",
+                                                "sort": "int"
+                                              }
+                                            ]
+                                          ],
+                                          "symbol": "lookup"
+                                        }
+                                      ],
+                                      "symbol": "<="
+                                    },
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        {
+                                          "arity": 3,
+                                          "args": [
+                                            "Token",
+                                            "balanceOf",
+                                            [
+                                              {
+                                                "expression": "to",
+                                                "sort": "int"
+                                              }
+                                            ]
+                                          ],
+                                          "symbol": "lookup"
+                                        },
+                                        1.157920892373162e+77
+                                      ],
+                                      "symbol": "<="
+                                    }
+                                  ],
+                                  "symbol": "and"
+                                },
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            0,
+                                            {
+                                              "arity": 3,
+                                              "args": [
+                                                "Token",
+                                                "balanceOf",
+                                                [
+                                                  {
+                                                    "expression": "Caller",
+                                                    "sort": "int"
+                                                  }
+                                                ]
+                                              ],
+                                              "symbol": "lookup"
+                                            }
+                                          ],
+                                          "symbol": "<="
+                                        },
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            {
+                                              "arity": 3,
+                                              "args": [
+                                                "Token",
+                                                "balanceOf",
+                                                [
+                                                  {
+                                                    "expression": "Caller",
+                                                    "sort": "int"
+                                                  }
+                                                ]
+                                              ],
+                                              "symbol": "lookup"
+                                            },
+                                            1.157920892373162e+77
+                                          ],
+                                          "symbol": "<="
+                                        }
+                                      ],
+                                      "symbol": "and"
+                                    },
+                                    "True"
+                                  ],
+                                  "symbol": "and"
+                                }
+                              ],
+                              "symbol": "and"
+>>>>>>> 50d2b40... Prove: handle constructor args in invariants
                             }
                           ],
                           "symbol": "and"
@@ -5237,7 +5849,44 @@
     }
   },
   {
-    "stateUpdates": [],
+    "stateUpdates": [
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "to",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          }
+        }
+      },
+      {
+        "Left": {
+          "location": {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "Caller",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          }
+        }
+      }
+    ],
     "kind": "Behaviour",
     "mode": "Fail",
     "creation": false,
@@ -5456,7 +6105,115 @@
                                   ],
                                   "symbol": "and"
                                 },
-                                "True"
+                                {
+                                  "arity": 2,
+                                  "args": [
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            0,
+                                            {
+                                              "arity": 3,
+                                              "args": [
+                                                "Token",
+                                                "balanceOf",
+                                                [
+                                                  {
+                                                    "expression": "to",
+                                                    "sort": "int"
+                                                  }
+                                                ]
+                                              ],
+                                              "symbol": "lookup"
+                                            }
+                                          ],
+                                          "symbol": "<="
+                                        },
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            {
+                                              "arity": 3,
+                                              "args": [
+                                                "Token",
+                                                "balanceOf",
+                                                [
+                                                  {
+                                                    "expression": "to",
+                                                    "sort": "int"
+                                                  }
+                                                ]
+                                              ],
+                                              "symbol": "lookup"
+                                            },
+                                            1.157920892373162e+77
+                                          ],
+                                          "symbol": "<="
+                                        }
+                                      ],
+                                      "symbol": "and"
+                                    },
+                                    {
+                                      "arity": 2,
+                                      "args": [
+                                        {
+                                          "arity": 2,
+                                          "args": [
+                                            {
+                                              "arity": 2,
+                                              "args": [
+                                                0,
+                                                {
+                                                  "arity": 3,
+                                                  "args": [
+                                                    "Token",
+                                                    "balanceOf",
+                                                    [
+                                                      {
+                                                        "expression": "Caller",
+                                                        "sort": "int"
+                                                      }
+                                                    ]
+                                                  ],
+                                                  "symbol": "lookup"
+                                                }
+                                              ],
+                                              "symbol": "<="
+                                            },
+                                            {
+                                              "arity": 2,
+                                              "args": [
+                                                {
+                                                  "arity": 3,
+                                                  "args": [
+                                                    "Token",
+                                                    "balanceOf",
+                                                    [
+                                                      {
+                                                        "expression": "Caller",
+                                                        "sort": "int"
+                                                      }
+                                                    ]
+                                                  ],
+                                                  "symbol": "lookup"
+                                                },
+                                                1.157920892373162e+77
+                                              ],
+                                              "symbol": "<="
+                                            }
+                                          ],
+                                          "symbol": "and"
+                                        },
+                                        "True"
+                                      ],
+                                      "symbol": "and"
+                                    }
+                                  ],
+                                  "symbol": "and"
+                                }
                               ],
                               "symbol": "and"
                             }
@@ -6340,6 +7097,21 @@
     "interface": "transfer(address to, uint256 value)",
     "postConditions": "True",
     "returns": null
+  },
+  {
+    "kind": "Invariant",
+    "contract": "\"Token\"",
+    "expression": {
+      "arity": 2,
+      "args": [
+        {
+          "name": "Token.totalSupply",
+          "sort": "int"
+        },
+        "_totalSupply"
+      ],
+      "symbol": "=="
+    }
   },
   {
     "stateUpdates": [

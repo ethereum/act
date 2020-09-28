@@ -75,30 +75,32 @@ data SMType
 mkQueries :: (Invariant, Storages, [Behaviour]) -> (Invariant, [Symbolic ()])
 mkQueries (inv, store, behvs) = (inv, inits <> methods)
   where
-    inits = (mkInit inv) <$> filter _creation behvs
-    methods = (mkMethod inv store) <$> filter (not . _creation) behvs
+    initBehvs = filter _creation behvs
+    inits = (mkInit inv) <$> initBehvs
+    methods = (mkMethod inv store (head initBehvs)) <$> filter (not . _creation) behvs
 
 mkInit :: Invariant -> Behaviour -> Symbolic ()
 mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preCond postCond stateUpdates _) = do
-  ctx <- mkContexts inv behv
+  (ctx, _) <- mkContexts inv Nothing behv
 
   let
-    locs = references inv behv
-    postInv' = symExpBool ctx Post e
-    preCond' = symExpBool ctx Pre preCond
-    postCond' = symExpBool ctx Pre postCond
-    stateUpdates' = mkStorageConstraints ctx stateUpdates locs
+    mkBool = symExpBool ctx
+    postInv' = mkBool Post e
+    preCond' = mkBool Pre preCond
+    postCond' = mkBool Pre postCond
+    stateUpdates' = mkStorageConstraints ctx stateUpdates (references inv behv)
 
   constrain $ preCond' .&& sAnd stateUpdates' .&& (sNot postCond' .|| sNot postInv')
 
-mkMethod :: Invariant -> Storages -> Behaviour -> Symbolic ()
-mkMethod inv@(Invariant _ e) (Storages store) behv@(Behaviour _ _ _ _ _ preCond postCond stateUpdates _) = do
-  ctx <- mkContexts inv behv
+mkMethod :: Invariant -> Storages -> Behaviour -> Behaviour -> Symbolic ()
+mkMethod inv@(Invariant _ e) (Storages store) initBehv behv@(Behaviour _ _ _ _ _ preCond postCond stateUpdates _) = do
+  (ctx, invCtx) <- mkContexts inv (Just initBehv) behv
 
   let
     locs = references inv behv
-    preInv = symExpBool ctx Pre e
-    postInv = symExpBool ctx Post e
+    invCtx' = fromMaybe (error "Internal error: missing invCtx") invCtx
+    preInv = symExpBool invCtx' Pre e
+    postInv = symExpBool invCtx' Post e
     preCond' = symExpBool ctx Pre preCond
     postCond' = symExpBool ctx Pre postCond
     stateUpdates' = mkStorageConstraints ctx stateUpdates locs
@@ -108,17 +110,25 @@ mkMethod inv@(Invariant _ e) (Storages store) behv@(Behaviour _ _ _ _ _ preCond 
            .&& sAnd stateUpdates'
            .&& (sNot postCond' .|| sNot postInv)
 
-mkContexts :: Invariant -> Behaviour -> Symbolic Ctx
-mkContexts inv@(Invariant contract _) behv@(Behaviour method _ _ c1 (Interface _ decls) _ _ _ _) = do
+mkContexts :: Invariant -> Maybe (Behaviour) -> Behaviour -> Symbolic (Ctx, Maybe Ctx)
+mkContexts inv@(Invariant contract _) initBehv behv@(Behaviour method _ _ c1 (Interface _ decls) _ _ _ _) = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1) $ error "Internal error: contract mismatch"
 
   let locs = references inv behv
-  calldata <- Map.fromList <$> mapM (mkSymArg contract method) decls
+      mkArgs ds = Map.fromList <$> mapM (mkSymArg contract method) ds
+
   store <- Map.fromList <$> mapM (mkSymStorage method) locs
   env <- mkEnv contract method
 
-  return $ Ctx contract method calldata store env
+  args <- mkArgs decls
+  initArgs <- case initBehv of
+    Just (Behaviour _ _ _ _ (Interface _ initDecls) _ _ _ _) -> Just <$> mkArgs initDecls
+    Nothing -> pure Nothing
+
+  return $ case initArgs of
+    Just cd -> (Ctx contract method args store env, Just $ Ctx contract method cd store env)
+    Nothing -> (Ctx contract method args store env, Nothing)
 
 references :: Invariant -> Behaviour -> [StorageLocation]
 references (Invariant _ inv) (Behaviour _ _ _ _ _ _ _ updates _)

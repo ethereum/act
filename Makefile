@@ -25,7 +25,7 @@ parser_specs=$(filter-out $(invariant_specs), $(test_specs))
 typing_specs=$(filter-out $(failing_typing), $(parser_specs))
 
 invariant_specs=$(wildcard tests/invariants/*/*.act)
-invariant_pass=$(wildcard tests/invariants/pass/*.act)
+invariant_pass=$(wildcard tests/invariants/pass/*.act) $(typing_specs)
 invariant_fail=$(wildcard tests/invariants/fail/*.act)
 
 failing_typing=tests/array/array.act tests/dss/vat.act tests/creation/createMultiple.act
