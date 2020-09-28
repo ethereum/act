@@ -61,9 +61,7 @@ Proof.
     rewrite assertion. clear assertion.
 
     simpl.
-    assert ((x * y) mod (MOD 256) = x * y) as Hmod.
-    apply range_mod. assumption.
-    rewrite Hmod. reflexivity.
+    reflexivity.
 
   } {
 
