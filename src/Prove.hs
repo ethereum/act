@@ -23,19 +23,26 @@ import Type (metaType, mkStorageBounds)
 
 
 {-|
-   For each invariant claim, we build an SMT query for that claim for each pass behaviour in the transtion system.
+   For each invariant claim, we build an SMT query for each pass behaviour in the transtion system.
 
-   If the behaviour is a constructor (creation == True), the query asks the
-   solver to find instances where the invariant predicate does not hold over
-   the post state once the constructor has run.
+   If the behaviour is a constructor (creation == True), the query asks the solver to find instances where:
 
-   If the behaviour is a method (creation == False), the query asks the solver to find instances where the follwing is true:
+   - the preconditions hold
+   - the storage values in the poststate match those specified by the `creates` block of the constructor holds
+   - the invariant does not hold over the post state or the postconditions do not hold over the poststate
+
+   If the behaviour is a method (creation == False), the query asks the solver to find instances where:
 
    - the invariant holds over the pre state
-   - a predicate relating the pre and post state holds
-   - the invariant does not hold over the post state
+   - the preconditions hold
+   - all storage variables are within the range specified by their type
+   - a predicate relating the pre and post state according to the specification in the `storage` block holds
+   - the invariant does not hold over the post state or the postconditions do not hold over the poststate
 
-   If all of the queries for an invariant claim return `unsat`, then the invariant must hold over the entire transtion system
+   If all of the queries for an invariant claim return `unsat`, then we have proved two things:
+
+   1. The invariant holds over the post state
+   2. The postconditions hold for every method level behaviour
 -}
 queries :: [Claim] -> [(Invariant, [Symbolic ()])]
 queries claims = fmap mkQueries gathered
