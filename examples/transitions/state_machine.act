@@ -6,7 +6,7 @@ invariants
 	x <= 2
 
 
-behavior f of StateMachine
+behaviour f of StateMachine
 interface f()
 
 case x == 0:
@@ -17,7 +17,7 @@ case _:
 	noop
 
 
-behavior g of StateMachine
+behaviour g of StateMachine
 interface g()
 
 case x == 1:
@@ -28,7 +28,7 @@ case _:
 	noop
 
 
-behavior h of StateMachine
+behaviour h of StateMachine
 interface h()
 
 case x == 2:

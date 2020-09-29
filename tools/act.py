@@ -16,7 +16,7 @@ class Act:
 		self._name = path + "." + contractName
 		self._stateVariables = []
 		self._properties = []
-		self._behaviors = []
+		self._behaviours = []
 
 		if "storageLayout" in contract:
 			for var in contract["storageLayout"]["storage"]:
@@ -31,7 +31,7 @@ class Act:
 		self._stateVariables.append(varDecl)
 
 	def buildFunction(self, function):
-		"""Builds the specification of a function, including property and behavior."
+		"""Builds the specification of a function, including property and behaviour."
 
 		Parameters
 		----------
@@ -40,17 +40,17 @@ class Act:
 		"""
 		name = function["name"]
 		fProperty = "property " + name + ".post of " + name + "\n"
-		fBehavior = "behavior " + name + ".behavior of " + self._name + "\n"
+		fBehaviour = "behaviour " + name + ".behaviour of " + self._name + "\n"
 		fInterface = "interface " + name + "("
 		fInterface += ",".join([inParam["type"] + " " + inParam["name"] for inParam in function["inputs"]])
 		fInterface += ")"
-		fBehavior += fInterface + "\n"
+		fBehaviour += fInterface + "\n"
 		if len(function["outputs"]) > 0:
-			fBehavior + "returns\n\n"
+			fBehaviour + "returns\n\n"
 
 		self._properties.append(fProperty)
-		self._behaviors.append(fBehavior)
+		self._behaviours.append(fBehaviour)
 
 	def spec(self):
 		"""Builds the specification string"""
-		return "contract " + self._name + "\n\n" + "\n".join(self._stateVariables) + "\n\ninvariants\n\n" + "\n".join(self._properties) + "\n\n" + "\n".join(self._behaviors) + "\nend\n"
+		return "contract " + self._name + "\n\n" + "\n".join(self._stateVariables) + "\n\ninvariants\n\n" + "\n".join(self._properties) + "\n\n" + "\n".join(self._behaviours) + "\nend\n"
