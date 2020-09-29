@@ -1,0 +1,25 @@
+behaviour init of ITE
+interface constructor(uint256 y)
+
+creates
+
+    uint256 x := if y == 2 then 1 else 4
+
+invariants
+
+    x < 5
+
+behaviour f of ITE
+interface f(int56 z)
+
+case z < 10:
+
+    storage
+
+        x => if z == 5 then 4 else 1
+
+case 10 <= z and z < 100:
+
+    storage
+
+        x => if z == 50 then 3 else 2
