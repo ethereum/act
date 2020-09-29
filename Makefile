@@ -12,7 +12,7 @@ src/Lex.hs: src/Lex.x
 
 # builds the rest of the haskell files (compiler)
 bin/act: src/*.hs
-	cd src && cabal new-update && cabal v2-install --installdir=../bin --overwrite-policy=always && cd ..
+	cd src && cabal v2-install --installdir=../bin --overwrite-policy=always && cd ..
 
 repl: src/Lex.hs src/Parse.hs
 	cd src && cabal v2-repl
