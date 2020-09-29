@@ -75,8 +75,8 @@ data SMType
 mkQueries :: (Invariant, Storages, [Behaviour]) -> (Invariant, [Symbolic ()])
 mkQueries (inv, store, behvs) = (inv, inits <> methods)
   where
-    inits = fmap (mkInit inv) $ filter _creation behvs
-    methods = fmap (mkMethod inv store) $ filter (not . _creation) behvs
+    inits = (mkInit inv) <$> filter _creation behvs
+    methods = (mkMethod inv store) <$> filter (not . _creation) behvs
 
 mkInit :: Invariant -> Behaviour -> Symbolic ()
 mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preCond postCond stateUpdates _) = do
@@ -131,10 +131,10 @@ mkSymArg contract method decl@(Decl typ _) = case metaType typ of
     return (name, SymInteger v)
   Boolean -> do
     v <- sBool name
-    return $ (name, SymBool v)
+    return (name, SymBool v)
   ByteStr -> do
     v <- sString name
-    return $ (name, SymBytes v)
+    return (name, SymBytes v)
   where
     name = nameFromDecl contract method decl
 
@@ -157,19 +157,29 @@ mkSymStorage method loc = case loc of
     name i = nameFromItem method i
 
 mkEnv :: Contract -> Method -> Symbolic Env
-mkEnv contract method = Map.fromList <$> mapM mkInt
+mkEnv contract method = Map.fromList <$> mapM makeSymbolic
   [ Caller, Callvalue, Calldepth, Origin, Blockhash, Blocknumber
   , Difficulty, Chainid, Gaslimit, Coinbase, Timestamp, Address, Nonce ]
   where
+    makeSymbolic :: EthEnv -> Symbolic (Id, SMType)
+    makeSymbolic Blockhash = mkBytes Blockhash
+    makeSymbolic env = mkInt env
+
     mkInt :: EthEnv -> Symbolic (Id, SMType)
     mkInt env = do
       let k = nameFromEnv contract method env
       v <- SymInteger <$> sInteger k
       return (k, v)
 
+    mkBytes :: EthEnv -> Symbolic (Id, SMType)
+    mkBytes env = do
+      let k = nameFromEnv contract method env
+      v <- SymBytes <$> sString k
+      return (k, v)
+
 mkStorageConstraints :: Ctx -> [Either StorageLocation StorageUpdate] -> [StorageLocation] -> [SBV Bool]
 mkStorageConstraints ctx@(Ctx _ m _ store _) updates locs
-  = fmap mkConstraint $ (unchanged <> updates)
+  = mkConstraint <$> (unchanged <> updates)
   where
     unchanged = Left <$> (locs \\ (fmap getLoc updates))
 
