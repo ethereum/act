@@ -26,7 +26,6 @@ tokens :-
 
   -- reserved words
   behaviour                             { mk BEHAVIOUR }
-  behavior                              { mk BEHAVIOUR }
   of                                    { mk OF }
   interface                             { mk INTERFACE }
   creates                               { mk CREATES }
