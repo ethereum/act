@@ -221,7 +221,7 @@ symExpBool ctx@(Ctx c m args store _) w e = case e of
   LitBool a -> literal a
   BoolVar a -> get (nameFromArg c m a) (catBools args)
   TEntry a  -> get (nameFromItem m a) (catBools store')
-  ITE {} -> error "TODO: hande ITE in smt expresssions"
+  ITE x y z -> ite (symExpBool ctx w x) (symExpBool ctx w y) (symExpBool ctx w z)
  where store' = case w of
          Pre -> fst <$> store
          Post -> snd <$> store
@@ -239,7 +239,7 @@ symExpInt ctx@(Ctx c m args store env) w e = case e of
   TEntry a  -> get (nameFromItem m a) (catInts store')
   IntEnv a -> get (nameFromEnv c m a) (catInts env)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  ITE {} -> error "TODO: hande ITE in smt expresssions"
+  ITE x y z -> ite (symExpBool ctx w x) (symExpInt ctx w y) (symExpInt ctx w z)
  where store' = case w of
          Pre -> fst <$> store
          Post -> snd <$> store
@@ -253,11 +253,10 @@ symExpBytes ctx@(Ctx c m args store env) w e = case e of
   TEntry a  -> get (nameFromItem m a) (catBytes store')
   Slice a x y -> subStr (symExpBytes ctx w a) (symExpInt ctx w x) (symExpInt ctx w y)
   ByEnv a -> get (nameFromEnv c m a) (catBytes env)
-  ITE {} -> error "TODO: hande ITE in smt expresssions"
+  ITE x y z -> ite (symExpBool ctx w x) (symExpBytes ctx w y) (symExpBytes ctx w z)
  where store' = case w of
          Pre -> fst <$> store
          Post -> snd <$> store
-
 
 
 -- *** SMT Variable Names *** --
@@ -294,7 +293,7 @@ nameFromExpInt c m e = case e of
   TEntry a  -> nameFromItem m a
   IntEnv a -> nameFromEnv c m a
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  ITE {} -> error "TODO: hande ITE in smt expresssions"
+  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpInt c m y <> "-else-" <> nameFromExpInt c m z
 
 nameFromExpBool :: Contract -> Method ->Exp Bool -> Id
 nameFromExpBool c m e = case e of
@@ -311,7 +310,7 @@ nameFromExpBool c m e = case e of
   LitBool a -> show a
   BoolVar a -> nameFromArg c m a
   TEntry a  -> nameFromItem m a
-  ITE {} -> error "TODO: hande ITE in smt expresssions"
+  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBool c m y <> "-else-" <> nameFromExpBool c m z
 
 nameFromExpBytes :: Contract -> Method -> Exp ByteString -> Id
 nameFromExpBytes c m e = case e of
@@ -322,7 +321,7 @@ nameFromExpBytes c m e = case e of
   TEntry a  -> nameFromItem m a
   Slice a x y -> (nameFromExpBytes c m a) <> "[" <> show x <> ":" <> show y <> "]"
   ByEnv a -> nameFromEnv c m a
-  ITE {} -> error "TODO: hande ITE in smt expresssions"
+  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBytes c m y <> "-else-" <> nameFromExpBytes c m z
 
 nameFromDecl :: Contract -> Method -> Decl -> Id
 nameFromDecl c m (Decl _ name) = nameFromArg c m name
@@ -392,7 +391,7 @@ locsFromExp e = case e of
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   IntEnv _ -> error "TODO: handle blockchain context in SMT expressions"
   ByEnv _ -> error "TODO: handle blockchain context in SMT expressions"
-  ITE {} -> error "TODO: hande ITE in SMT expresssions"
+  ITE x y z -> (locsFromExp x) <> (locsFromExp y) <> (locsFromExp z)
   TEntry a  -> case a of
     DirectInt contract name -> [IntLoc $ DirectInt contract name]
     DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
