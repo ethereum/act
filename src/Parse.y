@@ -139,13 +139,13 @@ pair(a,b) : a b                                       { ($1,$2) }
 
 seplist(x, sep) : {- empty -}                         { []      }
                 | x                                   { [$1]    }
-                | seplist(x, sep) sep x               { $3 : $1 }
+                | x sep seplist(x, sep)               { $1 : $3 }
 
 nonempty(x) : x                                       { [$1]    }
-            | nonempty(x) x                           { $2 : $1 }
+            | x nonempty(x)                           { $1 : $2 }
 
 list(x) : {- empty -}                                 { []      }
-        | list(x) x                                   { $2 : $1 }
+        | x list(x)                                   { $1 : $2 }
 
 opt(x) : x                                            { Just $1 }
        | {- empty -}                                  { Nothing }
