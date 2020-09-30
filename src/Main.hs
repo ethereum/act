@@ -155,18 +155,18 @@ main = do
                               $ Solidity.readJSON $ pack solContents
                             return (catBehvs refinedSpecs, sources)
         proceed specContents preprocess $ \(specs, sources) ->
-          runSMTWithTimeOut solver smttimeout debug $ query $ do
-            results <- forM specs $ \behv -> proveBehaviour sources behv >>= \case
-                Left (_, posts) -> do
+          runSMTWithTimeOut solver smttimeout debug $ do
+            results <- forM specs $ \behv -> proveBehaviour sources behv >>= \case 
+                Left (_, posts) -> query $ do
                   io $ putStrLn $ "Successfully proved " <> show (_name behv)
                      <> ", " <> show (length posts) <> " cases."
                   return True
-                Right vm -> do
+                Right vm -> query $ do
                   io $ putStrLn $ "Failed to prove " <> show (_name behv)
                   io $ putStrLn $ "Counterexample: "
                   showCounterexample vm Nothing -- TODO: provide signature
                   return False
-            unless (and results) (io exitFailure)
+            query $ unless (and results) (io exitFailure)
 
 -- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
 satWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic () -> IO SatResult
