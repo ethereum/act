@@ -123,7 +123,7 @@ data EthEnv
    | Gaslimit
    | Coinbase
    | Timestamp
-   | Address
+   | This
    | Nonce
   deriving (Show, Eq)
 

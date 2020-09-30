@@ -202,8 +202,8 @@ Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
 
 Store : Entry '=>' Expr                               { Rewrite $1 $3 }
       | Entry                                         { Constant $1 }
-      
-Entry : id list(Zoom)                                 { Entry (posn $1) (arg $1) $2 } 
+
+Entry : id list(Zoom)                                 { Entry (posn $1) (arg $1) $2 }
       | '_'                                           { Wild }
 
 Zoom : '[' Expr ']'                                   { $2 }
@@ -291,7 +291,7 @@ Expr : '(' Expr ')'                                    { $2 }
   | 'COINBASE'                                          { EnvExp (posn $1) Coinbase }
   | 'TIMESTAMP'                                         { EnvExp (posn $1) Timestamp }
   | 'CALLVALUE'                                         { EnvExp (posn $1) Callvalue }
-  | 'THIS'                                              { EnvExp (posn $1) Address }
+  | 'THIS'                                              { EnvExp (posn $1) This }
   | 'NONCE'                                             { EnvExp (posn $1) Nonce }
   -- missing builtins
   | 'newAddr' '(' Expr ',' Expr ')'                     { ENewaddr (posn $1) $3 $5 }
