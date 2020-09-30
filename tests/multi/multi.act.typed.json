@@ -19,6 +19,315 @@
       {
         "Right": {
           "location": {
+            "name": "a.x",
+            "sort": "int"
+          },
+          "value": 0
+        }
+      }
+    ],
+    "kind": "Behaviour",
+    "mode": "Pass",
+    "creation": true,
+    "name": "init",
+    "preConditions": "True",
+    "contract": "a",
+    "interface": "constructor()",
+    "postConditions": "True",
+    "returns": null
+  },
+  {
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "B.y",
+            "sort": "int"
+          },
+          "value": 0
+        }
+      }
+    ],
+    "kind": "Behaviour",
+    "mode": "Pass",
+    "creation": true,
+    "name": "init",
+    "preConditions": "True",
+    "contract": "B",
+    "interface": "constructor()",
+    "postConditions": "True",
+    "returns": null
+  },
+  {
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "a.x",
+            "sort": "int"
+          },
+          "value": "z"
+        }
+      }
+    ],
+    "kind": "Behaviour",
+    "mode": "Pass",
+    "creation": false,
+    "name": "remote",
+    "preConditions": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                0,
+                "Callvalue"
+              ],
+              "symbol": "<="
+            },
+            {
+              "arity": 2,
+              "args": [
+                "Callvalue",
+                1.157920892373162e+77
+              ],
+              "symbol": "<="
+            }
+          ],
+          "symbol": "and"
+        },
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                "Callvalue",
+                0
+              ],
+              "symbol": "=="
+            },
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        0,
+                        "z"
+                      ],
+                      "symbol": "<="
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        "z",
+                        1.157920892373162e+77
+                      ],
+                      "symbol": "<="
+                    }
+                  ],
+                  "symbol": "and"
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            0,
+                            {
+                              "name": "a.x",
+                              "sort": "int"
+                            }
+                          ],
+                          "symbol": "<="
+                        },
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "name": "a.x",
+                              "sort": "int"
+                            },
+                            1.157920892373162e+77
+                          ],
+                          "symbol": "<="
+                        }
+                      ],
+                      "symbol": "and"
+                    },
+                    "True"
+                  ],
+                  "symbol": "and"
+                }
+              ],
+              "symbol": "and"
+            }
+          ],
+          "symbol": "and"
+        }
+      ],
+      "symbol": "and"
+    },
+    "contract": "B",
+    "interface": "set_remote(uint256 z)",
+    "postConditions": "True",
+    "returns": null
+  },
+  {
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
+            "name": "a.x",
+            "sort": "int"
+          },
+          "value": "z"
+        }
+      }
+    ],
+    "kind": "Behaviour",
+    "mode": "Fail",
+    "creation": false,
+    "name": "remote",
+    "preConditions": {
+      "arity": 2,
+      "args": [
+        {
+          "arity": 2,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    0,
+                    "Callvalue"
+                  ],
+                  "symbol": "<="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    "Callvalue",
+                    1.157920892373162e+77
+                  ],
+                  "symbol": "<="
+                }
+              ],
+              "symbol": "and"
+            },
+            "True"
+          ],
+          "symbol": "and"
+        },
+        {
+          "arity": 1,
+          "args": [
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "Callvalue",
+                    0
+                  ],
+                  "symbol": "=="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            0,
+                            "z"
+                          ],
+                          "symbol": "<="
+                        },
+                        {
+                          "arity": 2,
+                          "args": [
+                            "z",
+                            1.157920892373162e+77
+                          ],
+                          "symbol": "<="
+                        }
+                      ],
+                      "symbol": "and"
+                    },
+                    {
+                      "arity": 2,
+                      "args": [
+                        {
+                          "arity": 2,
+                          "args": [
+                            {
+                              "arity": 2,
+                              "args": [
+                                0,
+                                {
+                                  "name": "a.x",
+                                  "sort": "int"
+                                }
+                              ],
+                              "symbol": "<="
+                            },
+                            {
+                              "arity": 2,
+                              "args": [
+                                {
+                                  "name": "a.x",
+                                  "sort": "int"
+                                },
+                                1.157920892373162e+77
+                              ],
+                              "symbol": "<="
+                            }
+                          ],
+                          "symbol": "and"
+                        },
+                        "True"
+                      ],
+                      "symbol": "and"
+                    }
+                  ],
+                  "symbol": "and"
+                }
+              ],
+              "symbol": "and"
+            }
+          ],
+          "symbol": "not"
+        }
+      ],
+      "symbol": "and"
+    },
+    "contract": "B",
+    "interface": "set_remote(uint256 z)",
+    "postConditions": "True",
+    "returns": null
+  },
+  {
+    "stateUpdates": [
+      {
+        "Right": {
+          "location": {
             "name": "B.y",
             "sort": "int"
           },
@@ -362,315 +671,6 @@
     },
     "contract": "B",
     "interface": "set_remote(uint256 z)",
-    "postConditions": "True",
-    "returns": null
-  },
-  {
-    "stateUpdates": [
-      {
-        "Right": {
-          "location": {
-            "name": "a.x",
-            "sort": "int"
-          },
-          "value": "z"
-        }
-      }
-    ],
-    "kind": "Behaviour",
-    "mode": "Pass",
-    "creation": false,
-    "name": "remote",
-    "preConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                0,
-                "Callvalue"
-              ],
-              "symbol": "<="
-            },
-            {
-              "arity": 2,
-              "args": [
-                "Callvalue",
-                1.157920892373162e+77
-              ],
-              "symbol": "<="
-            }
-          ],
-          "symbol": "and"
-        },
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                "Callvalue",
-                0
-              ],
-              "symbol": "=="
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        0,
-                        "z"
-                      ],
-                      "symbol": "<="
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        "z",
-                        1.157920892373162e+77
-                      ],
-                      "symbol": "<="
-                    }
-                  ],
-                  "symbol": "and"
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            0,
-                            {
-                              "name": "a.x",
-                              "sort": "int"
-                            }
-                          ],
-                          "symbol": "<="
-                        },
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "name": "a.x",
-                              "sort": "int"
-                            },
-                            1.157920892373162e+77
-                          ],
-                          "symbol": "<="
-                        }
-                      ],
-                      "symbol": "and"
-                    },
-                    "True"
-                  ],
-                  "symbol": "and"
-                }
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "and"
-        }
-      ],
-      "symbol": "and"
-    },
-    "contract": "B",
-    "interface": "set_remote(uint256 z)",
-    "postConditions": "True",
-    "returns": null
-  },
-  {
-    "stateUpdates": [
-      {
-        "Right": {
-          "location": {
-            "name": "a.x",
-            "sort": "int"
-          },
-          "value": "z"
-        }
-      }
-    ],
-    "kind": "Behaviour",
-    "mode": "Fail",
-    "creation": false,
-    "name": "remote",
-    "preConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    0,
-                    "Callvalue"
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    "Callvalue",
-                    1.157920892373162e+77
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            },
-            "True"
-          ],
-          "symbol": "and"
-        },
-        {
-          "arity": 1,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "Callvalue",
-                    0
-                  ],
-                  "symbol": "=="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            0,
-                            "z"
-                          ],
-                          "symbol": "<="
-                        },
-                        {
-                          "arity": 2,
-                          "args": [
-                            "z",
-                            1.157920892373162e+77
-                          ],
-                          "symbol": "<="
-                        }
-                      ],
-                      "symbol": "and"
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                {
-                                  "name": "a.x",
-                                  "sort": "int"
-                                }
-                              ],
-                              "symbol": "<="
-                            },
-                            {
-                              "arity": 2,
-                              "args": [
-                                {
-                                  "name": "a.x",
-                                  "sort": "int"
-                                },
-                                1.157920892373162e+77
-                              ],
-                              "symbol": "<="
-                            }
-                          ],
-                          "symbol": "and"
-                        },
-                        "True"
-                      ],
-                      "symbol": "and"
-                    }
-                  ],
-                  "symbol": "and"
-                }
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "not"
-        }
-      ],
-      "symbol": "and"
-    },
-    "contract": "B",
-    "interface": "set_remote(uint256 z)",
-    "postConditions": "True",
-    "returns": null
-  },
-  {
-    "stateUpdates": [
-      {
-        "Right": {
-          "location": {
-            "name": "B.y",
-            "sort": "int"
-          },
-          "value": 0
-        }
-      }
-    ],
-    "kind": "Behaviour",
-    "mode": "Pass",
-    "creation": true,
-    "name": "init",
-    "preConditions": "True",
-    "contract": "B",
-    "interface": "constructor()",
-    "postConditions": "True",
-    "returns": null
-  },
-  {
-    "stateUpdates": [
-      {
-        "Right": {
-          "location": {
-            "name": "a.x",
-            "sort": "int"
-          },
-          "value": 0
-        }
-      }
-    ],
-    "kind": "Behaviour",
-    "mode": "Pass",
-    "creation": true,
-    "name": "init",
-    "preConditions": "True",
-    "contract": "a",
-    "interface": "constructor()",
     "postConditions": "True",
     "returns": null
   }

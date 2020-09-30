@@ -17,19 +17,19 @@
       {
         "Right": {
           "location": {
-            "name": "Modest.y",
+            "name": "Modest.x",
             "sort": "int"
           },
-          "value": "Caller"
+          "value": 1
         }
       },
       {
         "Right": {
           "location": {
-            "name": "Modest.x",
+            "name": "Modest.y",
             "sort": "int"
           },
-          "value": 1
+          "value": "Caller"
         }
       }
     ],
