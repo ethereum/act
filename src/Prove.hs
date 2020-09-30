@@ -1,8 +1,19 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
-module Prove (queries, Ctx(..)) where
+module Prove
+  ( queries
+  , Ctx(..)
+  , When(..)
+  , SMType(..)
+  , mkContext
+  , mkConstraint
+  , symExpBool
+  , symExp
+  ) where
 
 import Control.Monad (when)
 import Data.ByteString (ByteString)
@@ -66,6 +77,7 @@ type Args = Map Id SMType
 type Store = Map Id (SMType, SMType)
 type Env = Map Id SMType
 data When = Pre | Post
+
   deriving (Eq, Show)
 
 data Ctx = Ctx Contract Method Args Store Env
@@ -76,6 +88,8 @@ data SMType
   | SymBool (SBV Bool)
   | SymBytes (SBV String)
   deriving (Show)
+
+deriving instance EqSymbolic SMType
 
 
 -- *** Query Construction *** --
@@ -121,6 +135,7 @@ mkMethod inv@(Invariant _ e) storages initBehv behv = do
   constrain $ preInv .&& preCond .&& storageBounds
            .&& sAnd stateUpdates
            .&& (sNot postCond .|| sNot postInv)
+
 
 mkContext :: Invariant -> Behaviour -> Symbolic Ctx
 mkContext inv@(Invariant contract _) behv@(Behaviour method _ _ c1 (Interface _ decls) _ _ _ _) = do
@@ -196,33 +211,38 @@ mkEnv contract method = Map.fromList <$> mapM makeSymbolic
       return (k, v)
 
 mkStorageConstraints :: Ctx -> [Either StorageLocation StorageUpdate] -> [StorageLocation] -> [SBV Bool]
-mkStorageConstraints ctx@(Ctx _ m _ store _) updates locs
-  = mkConstraint <$> (unchanged <> updates)
+mkStorageConstraints ctx updates locs
+  = mkConstraint ctx <$> (unchanged <> updates)
   where
     unchanged = Left <$> (locs \\ (fmap getLoc updates))
 
-    mkConstraint :: (Either StorageLocation StorageUpdate) -> SBV Bool
-    mkConstraint (Left loc) = fromLocation loc
-    mkConstraint (Right update) = fromUpdate update
+mkConstraint :: Ctx -> (Either StorageLocation StorageUpdate) -> SBV Bool
+mkConstraint ctx (Left loc) = fromLocation ctx loc
+mkConstraint ctx (Right update) = fromUpdate ctx update
 
-    getVar :: (Show b) => TStorageItem a -> (Map Id (SMType, SMType) -> Map Id b) -> b
-    getVar i f = get (nameFromItem m i) (f store)
+getVar :: (Show b) => Ctx -> TStorageItem a -> (Map Id (SMType, SMType) -> Map Id b) -> b
+getVar (Ctx _ m _ store _) i f = get (nameFromItem m i) (f store)
 
-    fromLocation :: StorageLocation -> SBV Bool
-    fromLocation loc = case loc of
-      IntLoc item -> (getVar item (catInts . (fst <$>))) .== (getVar item (catInts . (snd <$>)))
-      BoolLoc item -> (getVar item (catBools . (fst <$>))) .== (getVar item (catBools . (snd <$> )))
-      BytesLoc item -> (getVar item (catBytes . (fst <$>))) .== (getVar item (catBytes . (snd <$>)))
+fromLocation :: Ctx -> StorageLocation -> SBV Bool
+fromLocation ctx loc = case loc of
+  IntLoc item -> (getVar ctx item (catInts . (fst <$>))) .== (getVar ctx item (catInts . (snd <$>)))
+  BoolLoc item -> (getVar ctx item (catBools . (fst <$>))) .== (getVar ctx item (catBools . (snd <$> )))
+  BytesLoc item -> (getVar ctx item (catBytes . (fst <$>))) .== (getVar ctx item (catBytes . (snd <$>)))
 
-    fromUpdate :: StorageUpdate -> SBV Bool
-    fromUpdate update = case update of
-      IntUpdate item e -> (getVar item (catInts . (snd <$>))) .== (symExpInt ctx Pre e)
-      BoolUpdate item e -> (getVar item (catBools . (snd <$>))) .== (symExpBool ctx Pre e)
-      BytesUpdate item e -> (getVar item (catBytes . (snd <$>))) .== (symExpBytes ctx Pre e)
+fromUpdate :: Ctx -> StorageUpdate -> SBV Bool
+fromUpdate ctx update = case update of
+  IntUpdate item e -> (getVar ctx item (catInts . (snd <$>))) .== (symExpInt ctx Pre e)
+  BoolUpdate item e -> (getVar ctx item (catBools . (snd <$>))) .== (symExpBool ctx Pre e)
+  BytesUpdate item e -> (getVar ctx item (catBytes . (snd <$>))) .== (symExpBytes ctx Pre e)
 
 
 -- *** Symbolic Expression Construction *** ---
 
+symExp :: Ctx -> When -> ReturnExp -> SMType
+symExp ctx whn ret = case ret of
+  ExpInt e -> SymInteger $ symExpInt ctx whn e
+  ExpBool e -> SymBool $ symExpBool ctx whn e
+  ExpBytes e -> SymBytes $ symExpBytes ctx whn e
 
 symExpBool :: Ctx -> When -> Exp Bool -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) w e = case e of
