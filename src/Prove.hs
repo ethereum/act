@@ -405,8 +405,8 @@ locsFromExp e = case e of
   LitBool _ -> []
   BoolVar _ -> []
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  IntEnv _ -> error "TODO: handle blockchain context in SMT expressions"
-  ByEnv _ -> error "TODO: handle blockchain context in SMT expressions"
+  IntEnv _ -> []
+  ByEnv _ -> []
   ITE x y z -> (locsFromExp x) <> (locsFromExp y) <> (locsFromExp z)
   TEntry a  -> case a of
     DirectInt contract name -> [IntLoc $ DirectInt contract name]

@@ -57,8 +57,8 @@ defaultStore =
    (Chainid, Integer),
    (Address, Integer),
    (Origin, Integer),
-   (Nonce, Integer)
-   --others TODO
+   (Nonce, Integer),
+   (Calldepth, Integer)
   ]
 
 type Store = Map Id (Map Id SlotType)
