@@ -139,11 +139,15 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (
   invariants <- mapM (checkBool env) $ fromMaybe [] maybeInvs
   ensures <- mapM (checkBool env) (fromMaybe [] maybeEnsures)
 
-  let ethEnvs' = concat $ ethEnvFromExp <$> concat [iffs', invariants, ensures]
+  -- this forces the smt backend to be run on every spec, ensuring postconditions are checked for every behaviour
+  -- TODO: seperate the smt backend into seperate passes so we only run the invariant analysis if required
+  let invariants' = if (null invariants) then [LitBool True] else invariants
+
+  let ethEnvs' = concat $ ethEnvFromExp <$> concat [iffs', invariants', ensures]
       ethEnvs'' = concat $ ethEnvFromStorageUpdate <$> (rights stateUpdates)
       ethEnvBounds = mkEthEnvBounds $ ethEnvs' <> ethEnvs''
 
-  return $ ((I . (Invariant contract)) <$> invariants)
+  return $ ((I . (Invariant contract)) <$> invariants')
            <> (splitCase name True contract iface ethEnvBounds iffs' Nothing stateUpdates ensures)
 
 mkEnv :: Id -> Store -> [Decl]-> Env

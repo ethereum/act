@@ -13,6 +13,11 @@
     "kind": "Storages"
   },
   {
+    "kind": "Invariant",
+    "contract": "\"Modest\"",
+    "expression": "True"
+  },
+  {
     "stateUpdates": [
       {
         "Right": {

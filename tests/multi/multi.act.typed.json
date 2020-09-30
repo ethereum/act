@@ -15,6 +15,11 @@
     "kind": "Storages"
   },
   {
+    "kind": "Invariant",
+    "contract": "\"a\"",
+    "expression": "True"
+  },
+  {
     "stateUpdates": [
       {
         "Right": {
@@ -35,6 +40,11 @@
     "interface": "constructor()",
     "postConditions": "True",
     "returns": null
+  },
+  {
+    "kind": "Invariant",
+    "contract": "\"B\"",
+    "expression": "True"
   },
   {
     "stateUpdates": [
