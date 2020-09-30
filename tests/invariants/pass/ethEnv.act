@@ -1,0 +1,31 @@
+behaviour init of This
+interface constructor()
+
+creates
+
+    address this := THIS
+    uint value := CALLVALUE
+    uint depth := CALLDEPTH
+    address origin := ORIGIN
+    bytes32 hash := BLOCKHASH
+    uint number := BLOCKNUMBER
+    uint difficulty := DIFFICULTY
+    uint chainid := CHAINID
+    uint gaslimit := GASLIMIT
+    address coinbase := COINBASE
+    uint timestamp := TIMESTAMP
+    uint nonce := NONCE
+
+invariants
+
+    this == THIS
+    value == CALLVALUE
+    depth == CALLDEPTH
+    // hash == BLOCKHASH
+    number == BLOCKNUMBER
+    difficulty == DIFFICULTY
+    chainid == CHAINID
+    gaslimit == GASLIMIT
+    coinbase == COINBASE
+    timestamp == TIMESTAMP
+    nonce == NONCE
