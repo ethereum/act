@@ -175,7 +175,7 @@ mkSymStorage method loc = case loc of
 mkEnv :: Contract -> Method -> Symbolic Env
 mkEnv contract method = Map.fromList <$> mapM makeSymbolic
   [ Caller, Callvalue, Calldepth, Origin, Blockhash, Blocknumber
-  , Difficulty, Chainid, Gaslimit, Coinbase, Timestamp, Address, Nonce ]
+  , Difficulty, Chainid, Gaslimit, Coinbase, Timestamp, This, Nonce ]
   where
     makeSymbolic :: EthEnv -> Symbolic (Id, SMType)
     makeSymbolic Blockhash = mkBytes Blockhash
@@ -360,7 +360,7 @@ nameFromEnv contract method e = contract @@ method @@ name
       Gaslimit -> "GASLIMIT"
       Coinbase -> "COINBASE"
       Timestamp -> "TIMESTAMP"
-      Address -> "ADDRESS"
+      This -> "THIS"
       Nonce -> "NONCE"
 
 (@@) :: Id -> Id -> Id

@@ -55,7 +55,7 @@ defaultStore =
    (Gaslimit, Integer),
    (Coinbase, Integer),
    (Chainid, Integer),
-   (Address, Integer),
+   (This, Integer),
    (Origin, Integer),
    (Nonce, Integer),
    (Calldepth, Integer)
@@ -181,7 +181,7 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
       Gaslimit -> AbiUIntType 256
       Coinbase -> AbiAddressType
       Timestamp -> AbiUIntType 256
-      Address -> AbiAddressType
+      This -> AbiAddressType
       Nonce -> AbiUIntType 256
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
