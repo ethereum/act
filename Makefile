@@ -47,8 +47,10 @@ tests/%.type:
 
 tests/%.invariant.pass:
 	./bin/act prove --file tests/$*
+	./bin/act prove --solver cvc4 --file tests/$*
 
 tests/%.invariant.fail:
 	./bin/act prove --file tests/$* && exit 1 || echo 0
+	./bin/act prove --solver cvc4 --file tests/$* && exit 1 || echo 0
 
 test: test-parse test-type test-invariant
