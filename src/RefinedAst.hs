@@ -5,7 +5,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# Language DeriveAnyClass #-}
 {-# Language MultiParamTypeClasses #-}
 
 module RefinedAst where

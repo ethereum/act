@@ -18,6 +18,7 @@ import Data.SBV.String ((.++), subStr)
 import RefinedAst
 import Syntax (Id, Interface(..), Decl(..), EthEnv(..))
 import Type (metaType, mkStorageBounds)
+import Print (prettyEnv)
 
 -- *** Interface *** --
 
@@ -346,22 +347,7 @@ nameFromArg :: Contract -> Method -> Id -> Id
 nameFromArg contract method name = contract @@ method @@ name
 
 nameFromEnv :: Contract -> Method -> EthEnv -> Id
-nameFromEnv contract method e = contract @@ method @@ name
-  where
-    name = case e of
-      Caller -> "CALLER"
-      Callvalue -> "CALLVALUE"
-      Calldepth -> "CALLDEPTH"
-      Origin -> "ORIGIN"
-      Blockhash -> "BLOCKHASH"
-      Blocknumber -> "BLOCKNUMBER"
-      Difficulty -> "DIFFICULTY"
-      Chainid -> "CHAINID"
-      Gaslimit -> "GASLIMIT"
-      Coinbase -> "COINBASE"
-      Timestamp -> "TIMESTAMP"
-      Address -> "ADDRESS"
-      Nonce -> "NONCE"
+nameFromEnv contract method e = contract @@ method @@ (prettyEnv e)
 
 (@@) :: Id -> Id -> Id
 x @@ y = x <> "_" <> y
