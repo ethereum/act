@@ -1,11 +1,12 @@
 import Test.Tasty
 import Test.Tasty.HUnit
 
-foo x = (x, x)
+import RefinedAst
+import Print
 
 main :: IO ()
 main = defaultMain $ testGroup "act"
   [ testGroup "print"
-    [ testCase "printExp" $ 2 + 2 @?= 5 ]
+    [ testCase "printExp" $ prettyExp (LitInt 1) @?= "1" ]
   ]
 
