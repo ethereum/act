@@ -9,10 +9,13 @@ module Prove
   , Ctx(..)
   , When(..)
   , SMType(..)
+  , Method
+  , Store
   , mkContext
   , mkConstraint
   , symExpBool
   , symExp
+  , nameFromItem
   ) where
 
 import Control.Monad (when)
@@ -443,22 +446,10 @@ get :: (Show a) => Id -> Map Id a -> a
 get name vars = fromMaybe (error (name <> " not found in " <> show vars)) $ Map.lookup name vars
 
 catInts :: Map Id SMType -> Map Id (SBV Integer)
-catInts m = Map.fromList $ go $ Map.toList m
-  where
-    go ((name, SymInteger i):tl) = (name, i):(go tl)
-    go (_:tl) = go tl
-    go [] = []
+catInts m = Map.fromList [(name, i) | (name, SymInteger i) <- Map.toList m]
 
 catBools :: Map Id SMType -> Map Id (SBV Bool)
-catBools m = Map.fromList $ go $ Map.toList m
-  where
-    go ((name, SymBool b):tl) = (name, b):(go tl)
-    go (_:tl) = go tl
-    go [] = []
+catBools m = Map.fromList [(name, i) | (name, SymBool i) <- Map.toList m]
 
 catBytes :: Map Id SMType -> Map Id (SBV String)
-catBytes m = Map.fromList $ go $ Map.toList m
-  where
-    go ((name, SymBytes b):tl) = (name, b):(go tl)
-    go (_:tl) = go tl
-    go [] = []
+catBytes m = Map.fromList [(name, i) | (name, SymBytes i) <- Map.toList m]
