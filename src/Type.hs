@@ -59,6 +59,7 @@ defaultStore =
    (Origin, Integer),
    (Nonce, Integer),
    (Calldepth, Integer)
+   --others TODO
   ]
 
 type Store = Map Id (Map Id SlotType)
@@ -72,7 +73,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
   -- constrain integer calldata variables (TODO: other types)
   let calldataBounds = getCallDataBounds decls
   iff <- checkIffs env (iffs' <> calldataBounds)
-  postcondition <- mapM (checkBool env) (fromMaybe [] maybePost)
+  postcondition <- mapM (checkBool nowhere env) (fromMaybe [] maybePost)
   flatten iff postcondition cases
   where
     env :: Env
@@ -106,13 +107,13 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
       let preBounds = mkStorageBounds store p
           ethEnvs' = concat $ ethEnvFromExp <$> (iff <> postc)
           ethEnvs'' = ethEnvFromReturnExp $ fromMaybe (ExpBool $ LitBool True) maybeReturn
-          ethEnvs''' = concat $ ethEnvFromStorageUpdate <$> (rights p)
+          ethEnvs''' = concat $ ethEnvFromStateUpdate <$> p
           ethEnvBounds = mkEthEnvBounds $ ethEnvs' <> ethEnvs'' <> ethEnvs'''
       return $ splitCase name False contract iface ethEnvBounds (iff <> preBounds) maybeReturn p postc
     flatten iff postc (Branches branches) = do
       branches' <- normalize branches
       cases' <- forM branches' $ \(Case _ cond post) -> do
-        if' <- checkBool env cond
+        if' <- checkBool nowhere env cond
         (post', ret) <- checkPost env post
         return (if', post', ret)
 
@@ -120,7 +121,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
           preBounds = mkStorageBounds store stateUpdates
           ethEnvs' = concat $ ethEnvFromExp <$> ([ifcond] <> iff <> postc)
           ethEnvs'' = ethEnvFromReturnExp $ fromMaybe (ExpBool $ LitBool True) ret
-          ethEnvs''' = concat $ ethEnvFromStorageUpdate <$> (rights stateUpdates)
+          ethEnvs''' = concat $ ethEnvFromStateUpdate <$> stateUpdates
           ethEnvBounds = mkEthEnvBounds $ ethEnvs' <> ethEnvs'' <> ethEnvs'''
         in splitCase name False contract iface ([ifcond] <> ethEnvBounds) (iff <> preBounds) ret stateUpdates postc) <$> cases')
 
@@ -136,15 +137,15 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (
   let calldataBounds = getCallDataBounds decls
   iffs' <- checkIffs env (iffs <> calldataBounds)
 
-  invariants <- mapM (checkBool env) $ fromMaybe [] maybeInvs
-  ensures <- mapM (checkBool env) (fromMaybe [] maybeEnsures)
+  invariants <- mapM (checkBool nowhere env) $ fromMaybe [] maybeInvs
+  ensures <- mapM (checkBool nowhere env) (fromMaybe [] maybeEnsures)
 
   -- this forces the smt backend to be run on every spec, ensuring postconditions are checked for every behaviour
   -- TODO: seperate the smt backend into seperate passes so we only run the invariant analysis if required
   let invariants' = if (null invariants) then [LitBool True] else invariants
 
   let ethEnvs' = concat $ ethEnvFromExp <$> concat [iffs', invariants', ensures]
-      ethEnvs'' = concat $ ethEnvFromStorageUpdate <$> (rights stateUpdates)
+      ethEnvs'' = concat $ ethEnvFromStateUpdate <$> stateUpdates
       ethEnvBounds = mkEthEnvBounds $ ethEnvs' <> ethEnvs''
 
   return $ ((I . (Invariant contract)) <$> invariants')
@@ -159,10 +160,10 @@ mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract st
 splitCase :: Id -> Bool -> Id -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
           -> [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [Claim]
 splitCase name creates contract iface if' [] ret storage postcs =
-  [ B $ Behaviour name Pass creates contract iface if' (mconcat postcs) storage ret ]
+  [ B $ Behaviour name Pass creates contract iface (nub if') (nub postcs) storage ret ]
 splitCase name creates contract iface if' iffs ret storage postcs =
-  [ B $ Behaviour name Pass creates contract iface (if' <> iffs) (mconcat postcs) storage ret,
-    B $ Behaviour name Fail creates contract iface (if' <> (Neg <$> iffs)) (mconcat postcs) storage Nothing ]
+  [ B $ Behaviour name Pass creates contract iface (nub $ if' <> iffs) postcs storage ret,
+    B $ Behaviour name Fail creates contract iface (nub $ if' <> (Neg <$> (nub iffs))) [] storage Nothing ]
 
 mkEthEnvBounds :: [EthEnv] -> [Exp Bool]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
@@ -228,13 +229,13 @@ checkAssign :: Env -> Assign -> Err [StorageUpdate]
 checkAssign env@(contract, _, _, _) (AssignVal (StorageVar (StorageValue typ) name) expr)
   = case metaType typ of
     Integer -> do
-      val <- checkInt env expr
+      val <- checkInt nowhere env expr
       return [IntUpdate (DirectInt contract name) val]
     Boolean -> do
-      val <- checkBool env expr
+      val <- checkBool nowhere env expr
       return [BoolUpdate (DirectBool contract name) val]
     ByteStr -> do
-      val <- checkBytes env expr
+      val <- checkBytes nowhere env expr
       return [BytesUpdate (DirectBytes contract name) val]
 checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
   = mapM (checkDefn env keyType valType name) defns
@@ -249,25 +250,25 @@ checkAssign _ _ = error "todo: support struct assignment in constructors"
 checkDefn :: Env -> AbiType -> AbiType -> Id -> Defn -> Err StorageUpdate
 checkDefn env@(contract, _, _, _) keyType valType name (Defn k v) = case metaType keyType of
     Integer -> do
-      key <- checkInt env k
+      key <- checkInt nowhere env k
       checkVal (ExpInt key)
     Boolean -> do
-      key <- checkBool env k
+      key <- checkBool nowhere env k
       checkVal (ExpBool key)
     ByteStr -> do
-      key <- checkBytes env k
+      key <- checkBytes nowhere env k
       checkVal (ExpBytes key)
     where
       checkVal key = do
         case metaType valType of
           Integer -> do
-            val <- checkInt env v
+            val <- checkInt nowhere env v
             return $ IntUpdate (MappedInt contract name (key :| [])) val
           Boolean -> do
-            val <- checkBool env v
+            val <- checkBool nowhere env v
             return $ BoolUpdate (MappedBool contract name (key :| [])) val
           ByteStr -> do
-            val <- checkBytes env v
+            val <- checkBytes nowhere env v
             return $ BytesUpdate (MappedBytes contract name (key :| [])) val
 
 checkPost :: Env -> Post -> Err ([Either StorageLocation StorageUpdate], Maybe ReturnExp)
@@ -294,17 +295,17 @@ checkStorageExpr :: Env -> Entry -> Expr -> Err StorageUpdate
 checkStorageExpr env@(contract, ours, _, _) (Entry p name ixs) expr =
     case Map.lookup name ours of
       Just (StorageValue t)  -> case metaType t of
-          Integer -> IntUpdate (DirectInt contract name) <$> checkInt env expr
-          Boolean -> BoolUpdate (DirectBool contract name) <$> checkBool env expr
-          ByteStr -> BytesUpdate (DirectBytes contract name) <$> checkBytes env expr
+          Integer -> IntUpdate (DirectInt contract name) <$> checkInt p env expr
+          Boolean -> BoolUpdate (DirectBool contract name) <$> checkBool p env expr
+          ByteStr -> BytesUpdate (DirectBytes contract name) <$> checkBytes p env expr
       Just (StorageMapping argtyps  t) ->
         if length argtyps /= length ixs
         then Bad (p, "Argument mismatch for storageitem: " <> name)
-        else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
+        else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr p env))
              in case metaType t of
-                  Integer -> liftM2 (IntUpdate . MappedInt contract name) indexExprs (checkInt env expr)
-                  Boolean -> liftM2 (BoolUpdate . MappedBool contract name) indexExprs (checkBool env expr)
-                  ByteStr -> liftM2 (BytesUpdate . MappedBytes contract name) indexExprs (checkBytes env expr)
+                  Integer -> liftM2 (IntUpdate . MappedInt contract name) indexExprs (checkInt p env expr)
+                  Boolean -> liftM2 (BoolUpdate . MappedBool contract name) indexExprs (checkBool p env expr)
+                  ByteStr -> liftM2 (BytesUpdate . MappedBytes contract name) indexExprs (checkBytes p env expr)
       Nothing -> Bad (p, "Unknown storage variable: " <> show name)
 checkStorageExpr _ Wild _ = error "TODO: add support for wild storage to checkStorageExpr"
 
@@ -318,7 +319,7 @@ checkEntry env@(contract, ours, _, _) (Entry p name ixs) =
     Just (StorageMapping argtyps t) ->
       if length argtyps /= length ixs
       then Bad (p, "Argument mismatch for storageitem: " <> name)
-      else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
+      else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr p env))
            in case metaType t of
                   Integer -> (IntLoc . MappedInt contract name) <$> indexExprs
                   Boolean -> (BoolLoc . MappedBool contract name) <$> indexExprs
@@ -327,12 +328,12 @@ checkEntry env@(contract, ours, _, _) (Entry p name ixs) =
 checkEntry _ Wild = error "TODO: checkEntry for Wild storage"
 
 checkIffs :: Env -> [IffH] -> Err [Exp Bool]
-checkIffs env ((Iff _ exps):xs) = do
-  hd <- mapM (checkBool env) exps
+checkIffs env ((Iff p exps):xs) = do
+  hd <- mapM (checkBool p env) exps
   tl <- checkIffs env xs
   Ok $ hd <> tl
-checkIffs env ((IffIn _ typ exps):xs) = do
-  hd <- mapM (checkInt env) exps
+checkIffs env ((IffIn p typ exps):xs) = do
+  hd <- mapM (checkInt p env) exps
   tl <- checkIffs env xs
   Ok $ map (bound typ) hd <> tl
 checkIffs _ [] = Ok []
@@ -366,47 +367,47 @@ metaType AbiStringType       = ByteStr
 metaType _ = error "TODO"
 
 
-checkExpr :: Env -> Expr -> AbiType -> Err ReturnExp
-checkExpr env e typ = case metaType typ of
-  Integer -> ExpInt <$> checkInt env e
-  Boolean -> ExpBool <$> checkBool env e
-  ByteStr -> ExpBytes <$> checkBytes env e
+checkExpr :: Pn -> Env -> Expr -> AbiType -> Err ReturnExp
+checkExpr p env e typ = case metaType typ of
+  Integer -> ExpInt <$> checkInt p env e
+  Boolean -> ExpBool <$> checkBool p env e
+  ByteStr -> ExpBytes <$> checkBytes p env e
 
 inferExpr :: Env -> Expr -> Err ReturnExp
 inferExpr env@(contract, ours, _,thisContext) expr =
-  let intintint op v1 v2 = do w1 <- checkInt env v1
-                              w2 <- checkInt env v2
-                              Ok $ ExpInt $ op w1 w2
-      boolintint op v1 v2 = do w1 <- checkInt env v1
-                               w2 <- checkInt env v2
-                               Ok $ ExpBool $ op w1 w2
-      boolboolbool op v1 v2 = do w1 <- checkBool env v1
-                                 w2 <- checkBool env v2
+  let intintint p op v1 v2 = do w1 <- checkInt p env v1
+                                w2 <- checkInt p env v2
+                                Ok $ ExpInt $ op w1 w2
+      boolintint p op v1 v2 = do w1 <- checkInt p env v1
+                                 w2 <- checkInt p env v2
                                  Ok $ ExpBool $ op w1 w2
+      boolboolbool p op v1 v2 = do w1 <- checkBool p env v1
+                                   w2 <- checkBool p env v2
+                                   Ok $ ExpBool $ op w1 w2
   in case expr of
-    ENot _  v1    -> ExpBool . Neg <$> checkBool env v1
-    EAnd _  v1 v2 -> boolboolbool And  v1 v2
-    EOr _   v1 v2 -> boolboolbool Or   v1 v2
-    EImpl _ v1 v2 -> boolboolbool Impl v1 v2
-    EEq _   v1 v2 -> boolintint  Eq  v1 v2
-    ENeq _  v1 v2 -> boolintint  NEq v1 v2
-    ELT _   v1 v2 -> boolintint  LE   v1 v2
-    ELEQ _  v1 v2 -> boolintint  LEQ  v1 v2
-    EGEQ _  v1 v2 -> boolintint  GEQ  v1 v2
-    EGT _   v1 v2 -> boolintint  GE   v1 v2
+    ENot p  v1    -> ExpBool . Neg <$> checkBool p env v1
+    EAnd p  v1 v2 -> boolboolbool p And  v1 v2
+    EOr p   v1 v2 -> boolboolbool p Or   v1 v2
+    EImpl p v1 v2 -> boolboolbool p Impl v1 v2
+    EEq p   v1 v2 -> boolintint  p Eq  v1 v2
+    ENeq p  v1 v2 -> boolintint  p NEq v1 v2
+    ELT p   v1 v2 -> boolintint  p LE   v1 v2
+    ELEQ p  v1 v2 -> boolintint  p LEQ  v1 v2
+    EGEQ p  v1 v2 -> boolintint  p GEQ  v1 v2
+    EGT p   v1 v2 -> boolintint  p GE   v1 v2
     ETrue _ ->  Ok . ExpBool $ LitBool True
     EFalse _ -> Ok . ExpBool $ LitBool False
     -- TODO: make ITE polymorphic
-    EITE _ v1 v2 v3 -> do w1 <- checkBool env v1
-                          w2 <- checkInt env v2
-                          w3 <- checkInt env v3
+    EITE p v1 v2 v3 -> do w1 <- checkBool p env v1
+                          w2 <- checkInt p env v2
+                          w3 <- checkInt p env v3
                           Ok . ExpInt $ ITE w1 w2 w3
-    EAdd _ v1 v2 -> intintint Add v1 v2
-    ESub _ v1 v2 -> intintint Sub v1 v2
-    EMul _ v1 v2 -> intintint Mul v1 v2
-    EDiv _ v1 v2 -> intintint Div v1 v2
-    EMod _ v1 v2 -> intintint Mod v1 v2
-    EExp _ v1 v2 -> intintint Exp v1 v2
+    EAdd p v1 v2 -> intintint p Add v1 v2
+    ESub p v1 v2 -> intintint p Sub v1 v2
+    EMul p v1 v2 -> intintint p Mul v1 v2
+    EDiv p v1 v2 -> intintint p Div v1 v2
+    EMod p v1 v2 -> intintint p Mod v1 v2
+    EExp p v1 v2 -> intintint p Exp v1 v2
     IntLit n -> Ok $ ExpInt $ LitInt n
     BoolLit n -> Ok $ ExpBool $ LitBool n
     EntryExp p name e -> case (Map.lookup name ours, Map.lookup name thisContext) of
@@ -422,7 +423,7 @@ inferExpr env@(contract, ours, _,thisContext) expr =
              ByteStr -> Ok . ExpBytes $ TEntry (DirectBytes contract name)
         (Just (StorageMapping ts a), Nothing) ->
            let indexExprs = forM (NonEmpty.zip (head e :| tail e) ts)
-                                     (uncurry (checkExpr env))
+                                     (uncurry (checkExpr p env))
            in case metaType a of
              Integer -> ExpInt . TEntry . (MappedInt contract name) <$> indexExprs
              Boolean -> ExpBool . TEntry . (MappedBool contract name) <$> indexExprs
@@ -449,35 +450,46 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     -- BYAbiE Expr
     -- StringLit String
 
-checkBool :: Env -> Expr -> Err (Exp Bool)
-checkBool env e =
+checkBool :: Pn -> Env -> Expr -> Err (Exp Bool)
+checkBool p env e =
   case inferExpr env e of
-    Ok (ExpInt _) -> Bad (nowhere, "expected: bool, got: int")
-    Ok (ExpBytes _) -> Bad (nowhere, "expected: bool, got: bytes")
+    Ok (ExpInt _) -> Bad (p, "expected: bool, got: int")
+    Ok (ExpBytes _) -> Bad (p, "expected: bool, got: bytes")
     Ok (ExpBool a) -> Ok a
     Bad err -> Bad err
 
 
-checkBytes :: Env -> Expr -> Err (Exp ByteString)
-checkBytes env e =
+checkBytes :: Pn -> Env -> Expr -> Err (Exp ByteString)
+checkBytes p env e =
   case inferExpr env e of
-    Ok (ExpInt _) -> Bad (nowhere, "expected: bytes, got: int")
+    Ok (ExpInt _) -> Bad (p, "expected: bytes, got: int")
     Ok (ExpBytes a) -> Ok a
-    Ok (ExpBool _) -> Bad (nowhere, "expected: bytes, got: bool")
+    Ok (ExpBool _) -> Bad (p, "expected: bytes, got: bool")
     Bad err -> Bad err
 
-checkInt :: Env -> Expr -> Err (Exp Integer)
-checkInt env e =
+checkInt :: Pn -> Env -> Expr -> Err (Exp Integer)
+checkInt p env e =
   case inferExpr env e of
     Ok (ExpInt a) -> Ok a
-    Ok (ExpBytes _) -> Bad (nowhere, "expected: int, got: bytes")
-    Ok (ExpBool _) -> Bad (nowhere, "expected: int, got: bool")
+    Ok (ExpBytes _) -> Bad (p, "expected: int, got: bytes")
+    Ok (ExpBool _) -> Bad (p, "expected: int, got: bool")
     Bad err -> Bad err
 
-ethEnvFromStorageUpdate :: StorageUpdate -> [EthEnv]
-ethEnvFromStorageUpdate (IntUpdate _ e)  = ethEnvFromExp e
-ethEnvFromStorageUpdate (BoolUpdate _ e) = ethEnvFromExp e
-ethEnvFromStorageUpdate (BytesUpdate _ e) = ethEnvFromExp e
+ethEnvFromStateUpdate :: Either StorageLocation StorageUpdate -> [EthEnv]
+ethEnvFromStateUpdate update = case update of
+  Left (IntLoc item) -> ethEnvFromItem item
+  Left (BoolLoc item) -> ethEnvFromItem item
+  Left (BytesLoc item) -> ethEnvFromItem item
+  Right (IntUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
+  Right (BoolUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
+  Right (BytesUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
+
+ethEnvFromItem :: TStorageItem a -> [EthEnv]
+ethEnvFromItem item = case item of
+  MappedInt _ _ ixs -> concat $ ethEnvFromReturnExp <$> ixs
+  MappedBool _ _ ixs -> concat $ ethEnvFromReturnExp <$> ixs
+  MappedBytes _ _ ixs -> concat $ ethEnvFromReturnExp <$> ixs
+  _ -> []
 
 ethEnvFromReturnExp :: ReturnExp -> [EthEnv]
 ethEnvFromReturnExp (ExpInt e) = ethEnvFromExp e
@@ -486,25 +498,25 @@ ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
 
 ethEnvFromExp :: Exp a -> [EthEnv]
 ethEnvFromExp e = case e of
-  And a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  Or a b    -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  Impl a b  -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  Eq a b    -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  LE a b    -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  LEQ a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  GE a b    -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  GEQ a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  NEq a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  Neg a     -> (ethEnvFromExp a)
-  Add a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  Sub a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  Mul a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  Div a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  Mod a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  Exp a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  Cat a b   -> (ethEnvFromExp a) <> (ethEnvFromExp b)
-  Slice a b c -> (ethEnvFromExp a) <> (ethEnvFromExp b) <> (ethEnvFromExp c)
-  ITE a b c -> (ethEnvFromExp a) <> (ethEnvFromExp b) <> (ethEnvFromExp c)
+  And a b   -> ethEnvFromExp a <> ethEnvFromExp b
+  Or a b    -> ethEnvFromExp a <> ethEnvFromExp b
+  Impl a b  -> ethEnvFromExp a <> ethEnvFromExp b
+  Eq a b    -> ethEnvFromExp a <> ethEnvFromExp b
+  LE a b    -> ethEnvFromExp a <> ethEnvFromExp b
+  LEQ a b   -> ethEnvFromExp a <> ethEnvFromExp b
+  GE a b    -> ethEnvFromExp a <> ethEnvFromExp b
+  GEQ a b   -> ethEnvFromExp a <> ethEnvFromExp b
+  NEq a b   -> ethEnvFromExp a <> ethEnvFromExp b
+  Neg a     -> ethEnvFromExp a
+  Add a b   -> ethEnvFromExp a <> ethEnvFromExp b
+  Sub a b   -> ethEnvFromExp a <> ethEnvFromExp b
+  Mul a b   -> ethEnvFromExp a <> ethEnvFromExp b
+  Div a b   -> ethEnvFromExp a <> ethEnvFromExp b
+  Mod a b   -> ethEnvFromExp a <> ethEnvFromExp b
+  Exp a b   -> ethEnvFromExp a <> ethEnvFromExp b
+  Cat a b   -> ethEnvFromExp a <> ethEnvFromExp b
+  Slice a b c -> ethEnvFromExp a <> ethEnvFromExp b <> ethEnvFromExp c
+  ITE a b c -> ethEnvFromExp a <> ethEnvFromExp b <> ethEnvFromExp c
   ByVar _ -> []
   ByStr _ -> []
   ByLit _ -> []
@@ -516,11 +528,7 @@ ethEnvFromExp e = case e of
   IntMax _ -> []
   UIntMin _ -> []
   UIntMax _ -> []
-  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
+  NewAddr a b -> ethEnvFromExp a <> ethEnvFromExp b
   IntEnv a -> [a]
   ByEnv a -> [a]
-  TEntry a  -> case a of
-    MappedInt _ _ ixs -> concat $ ethEnvFromReturnExp <$> NonEmpty.toList ixs
-    MappedBool _ _ ixs -> concat $ ethEnvFromReturnExp <$> NonEmpty.toList ixs
-    MappedBytes _ _ ixs -> concat $ ethEnvFromReturnExp <$> NonEmpty.toList ixs
-    _ -> []
+  TEntry a  -> ethEnvFromItem a

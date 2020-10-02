@@ -1,3 +1,6 @@
 cradle:
   cabal:
-    component: "exe:act"
+    - path: "."
+      component: "exe:act"
+    - path: "./test"
+      component: "test:test"

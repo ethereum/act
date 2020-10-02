@@ -1,1 +1,3 @@
 - ignore: {name: Redundant bracket}
+- ignore: {name: Use head}
+- ignore: {name: Move brackets to avoid $}

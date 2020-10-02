@@ -1,8 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
-{-# Language QuasiQuotes #-}
 {-# Language GADTs #-}
 {-# Language OverloadedStrings #-}
-{-# Language LambdaCase #-}
+
 module K where
 
 import Syntax
@@ -359,4 +358,4 @@ mkTerm this accounts Behaviour{..} invariant = (name, term)
                <> defaultConditions (kVar _contract) <> "\n andBool\n"
                <> kExprBool (mconcat _preconditions)
                <> "\nensures "
-               <> kExprBool (And _postconditions invariant)
+               <> kExprBool (And (mconcat _postconditions) invariant)
