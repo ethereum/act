@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+for f in `find tests/ -name "*.typed.json"`; do
+    ff="${f%.*.*}"
+    act type --file $ff | jq . > "$ff.typed.json"
+    echo "wrote $ff.typed.json"
+done
