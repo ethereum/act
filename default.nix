@@ -26,7 +26,7 @@ let
     buildInputs = with pkgs.haskellPackages; [
       cabal-install
       pkgs.jq
-      pkgs.coq
+      pkgs.coq_8_10
     ];
     withHoogle = true;
     shellHook = ''
