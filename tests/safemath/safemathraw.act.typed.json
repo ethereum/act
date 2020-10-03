@@ -9,147 +9,118 @@
     "mode": "Pass",
     "creation": false,
     "name": "add",
-    "preConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                0,
-                "Callvalue"
-              ],
-              "symbol": "<="
-            },
-            {
-              "arity": 2,
-              "args": [
-                "Callvalue",
-                1.157920892373162e+77
-              ],
-              "symbol": "<="
-            }
-          ],
-          "symbol": "and"
-        },
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    0,
-                    {
-                      "arity": 2,
-                      "args": [
-                        "x",
-                        "y"
-                      ],
-                      "symbol": "+"
-                    }
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        "x",
-                        "y"
-                      ],
-                      "symbol": "+"
-                    },
-                    1.157920892373162e+77
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "Callvalue",
-                    0
-                  ],
-                  "symbol": "=="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            0,
-                            "x"
-                          ],
-                          "symbol": "<="
-                        },
-                        {
-                          "arity": 2,
-                          "args": [
-                            "x",
-                            1.157920892373162e+77
-                          ],
-                          "symbol": "<="
-                        }
-                      ],
-                      "symbol": "and"
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                "y"
-                              ],
-                              "symbol": "<="
-                            },
-                            {
-                              "arity": 2,
-                              "args": [
-                                "y",
-                                1.157920892373162e+77
-                              ],
-                              "symbol": "<="
-                            }
-                          ],
-                          "symbol": "and"
-                        },
-                        "True"
-                      ],
-                      "symbol": "and"
-                    }
-                  ],
-                  "symbol": "and"
-                }
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "and"
-        }
-      ],
-      "symbol": "and"
-    },
+    "preConditions": [
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              {
+                "arity": 2,
+                "args": [
+                  "x",
+                  "y"
+                ],
+                "symbol": "+"
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 2,
+                "args": [
+                  "x",
+                  "y"
+                ],
+                "symbol": "+"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          "Callvalue",
+          0
+        ],
+        "symbol": "=="
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              "x"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "x",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              "y"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "y",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      }
+    ],
     "contract": "SafeAdd",
     "interface": "add(uint256 x, uint256 y)",
     "postConditions": "True",
@@ -171,160 +142,142 @@
     "mode": "Fail",
     "creation": false,
     "name": "add",
-    "preConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    0,
-                    "Callvalue"
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    "Callvalue",
-                    1.157920892373162e+77
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            },
-            "True"
-          ],
-          "symbol": "and"
-        },
-        {
-          "arity": 1,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        0,
-                        {
-                          "arity": 2,
-                          "args": [
-                            "x",
-                            "y"
-                          ],
-                          "symbol": "+"
-                        }
-                      ],
-                      "symbol": "<="
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            "x",
-                            "y"
-                          ],
-                          "symbol": "+"
-                        },
-                        1.157920892373162e+77
-                      ],
-                      "symbol": "<="
-                    }
-                  ],
-                  "symbol": "and"
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        "Callvalue",
-                        0
-                      ],
-                      "symbol": "=="
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                "x"
-                              ],
-                              "symbol": "<="
-                            },
-                            {
-                              "arity": 2,
-                              "args": [
-                                "x",
-                                1.157920892373162e+77
-                              ],
-                              "symbol": "<="
-                            }
-                          ],
-                          "symbol": "and"
-                        },
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    0,
-                                    "y"
-                                  ],
-                                  "symbol": "<="
-                                },
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    "y",
-                                    1.157920892373162e+77
-                                  ],
-                                  "symbol": "<="
-                                }
-                              ],
-                              "symbol": "and"
-                            },
-                            "True"
-                          ],
-                          "symbol": "and"
-                        }
-                      ],
-                      "symbol": "and"
-                    }
-                  ],
-                  "symbol": "and"
-                }
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "not"
-        }
-      ],
-      "symbol": "and"
-    },
+    "preConditions": [
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 1,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 2,
+                "args": [
+                  0,
+                  {
+                    "arity": 2,
+                    "args": [
+                      "x",
+                      "y"
+                    ],
+                    "symbol": "+"
+                  }
+                ],
+                "symbol": "<="
+              },
+              {
+                "arity": 2,
+                "args": [
+                  {
+                    "arity": 2,
+                    "args": [
+                      "x",
+                      "y"
+                    ],
+                    "symbol": "+"
+                  },
+                  1.157920892373162e+77
+                ],
+                "symbol": "<="
+              }
+            ],
+            "symbol": "and"
+          }
+        ],
+        "symbol": "not"
+      },
+      {
+        "arity": 1,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              0
+            ],
+            "symbol": "=="
+          }
+        ],
+        "symbol": "not"
+      },
+      {
+        "arity": 1,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 2,
+                "args": [
+                  0,
+                  "x"
+                ],
+                "symbol": "<="
+              },
+              {
+                "arity": 2,
+                "args": [
+                  "x",
+                  1.157920892373162e+77
+                ],
+                "symbol": "<="
+              }
+            ],
+            "symbol": "and"
+          }
+        ],
+        "symbol": "not"
+      },
+      {
+        "arity": 1,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 2,
+                "args": [
+                  0,
+                  "y"
+                ],
+                "symbol": "<="
+              },
+              {
+                "arity": 2,
+                "args": [
+                  "y",
+                  1.157920892373162e+77
+                ],
+                "symbol": "<="
+              }
+            ],
+            "symbol": "and"
+          }
+        ],
+        "symbol": "not"
+      }
+    ],
     "contract": "SafeAdd",
     "interface": "add(uint256 x, uint256 y)",
     "postConditions": "True",
