@@ -9,3 +9,7 @@ tests/**/*.out
 *.vok
 *.vos
 *.glob
+**/CoqMakefile
+**/CoqMakefile.conf
+*.aux
+**/.coqdeps.d
