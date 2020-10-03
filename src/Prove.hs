@@ -87,17 +87,17 @@ mkQueries (inv, store, behvs) = (inv, inits <> methods)
     methods = (mkMethod inv store (head initBehvs)) <$> filter (not . _creation) behvs
 
 mkInit :: Invariant -> Behaviour -> Symbolic ()
-mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preCond postCond stateUpdates _) = do
+mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preConds postCond stateUpdates _) = do
   ctx <- mkContext inv behv
 
   let
     mkBool = symExpBool ctx
     postInv' = mkBool Post e
-    preCond' = mkBool Pre preCond
+    preConds' = mkBool Pre (foldr (\a b -> And a b) (LitBool True) preConds)
     postCond' = mkBool Pre postCond
     stateUpdates' = mkStorageConstraints ctx stateUpdates (references inv behv)
 
-  constrain $ preCond' .&& sAnd stateUpdates' .&& (sNot postCond' .|| sNot postInv')
+  constrain $ preConds' .&& sAnd stateUpdates' .&& (sNot postCond' .|| sNot postInv')
 
 mkMethod :: Invariant -> Storages -> Behaviour -> Behaviour -> Symbolic ()
 mkMethod inv@(Invariant _ e) (Storages rawStorage) initBehv behv = do
@@ -111,12 +111,13 @@ mkMethod inv@(Invariant _ e) (Storages rawStorage) initBehv behv = do
     locs = references inv behv
     preInv = symExpBool invCtx Pre e
     postInv = symExpBool invCtx Post e
-    preCond = symExpBool ctx Pre (_preconditions behv)
+    preConds = symExpBool ctx Pre $
+      foldr (\a b -> And a b) (LitBool True) (_preconditions behv)
     postCond = symExpBool ctx Pre (_postconditions behv)
     stateUpdates = mkStorageConstraints ctx (_stateUpdates behv) locs
     storageBounds = symExpBool ctx Pre $ mconcat <$> mkStorageBounds rawStorage $ Left <$> locs
 
-  constrain $ preInv .&& preCond .&& storageBounds
+  constrain $ preInv .&& preConds .&& storageBounds
            .&& sAnd stateUpdates
            .&& (sNot postCond .|| sNot postInv)
 

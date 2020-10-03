@@ -357,6 +357,6 @@ mkTerm this accounts Behaviour{..} invariant = (name, term)
                   )
                <> "\nrequires "
                <> defaultConditions (kVar _contract) <> "\n andBool\n"
-               <> kExprBool _preconditions
+               <> kExprBool (foldr (\a b -> And a b) (LitBool True) _preconditions)
                <> "\nensures "
                <> kExprBool (And _postconditions invariant)
