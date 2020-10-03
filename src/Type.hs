@@ -508,6 +508,10 @@ ethEnvFromExp e = case e of
   IntVar _  -> []
   LitBool _ -> []
   BoolVar _ -> []
+  IntMin _ -> []
+  IntMax _ -> []
+  UIntMin _ -> []
+  UIntMax _ -> []
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   IntEnv a -> [a]
   ByEnv a -> [a]
