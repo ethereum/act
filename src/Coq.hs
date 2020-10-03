@@ -245,7 +245,7 @@ coqexp (Neg e)      = parens $ "negb " <> coqexp e
 coqexp (LE e1 e2)   = parens $ coqexp e1 <> " <? "  <> coqexp e2
 coqexp (LEQ e1 e2)  = parens $ coqexp e1 <> " <=? " <> coqexp e2
 coqexp (GE e1 e2)   = parens $ coqexp e2 <> " <? "  <> coqexp e1
-coqexp (GEQ e1 e2)  = parens $ coqexp e2 <> " <?= " <> coqexp e1
+coqexp (GEQ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
 coqexp (TEntry (DirectBool _ name)) = parens $ T.pack name <> " s"
 coqexp (TEntry (MappedBool _ name args)) = parens $
   T.pack name <> " s " <> coqargs args
