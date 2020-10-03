@@ -33,7 +33,7 @@ data Behaviour = Behaviour
    _creation :: Bool,
    _contract :: Id,
    _interface :: Interface,
-   _preconditions :: Exp Bool,
+   _preconditions :: [Exp Bool],
    _postconditions :: Exp Bool,
    _stateUpdates :: [Either StorageLocation StorageUpdate],
    _returns :: Maybe ReturnExp

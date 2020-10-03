@@ -155,10 +155,10 @@ mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract st
 splitCase :: Id -> Bool -> Id -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
           -> [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [Claim]
 splitCase name creates contract iface if' [] ret storage postcs =
-  [ B $ Behaviour name Pass creates contract iface (mconcat if') (mconcat postcs) storage ret ]
+  [ B $ Behaviour name Pass creates contract iface if' (mconcat postcs) storage ret ]
 splitCase name creates contract iface if' iffs ret storage postcs =
-  [ B $ Behaviour name Pass creates contract iface (mconcat (if' <> iffs)) (mconcat postcs) storage ret,
-    B $ Behaviour name Fail creates contract iface (And (mconcat if') (Neg (mconcat iffs))) (mconcat postcs) storage Nothing ]
+  [ B $ Behaviour name Pass creates contract iface (if' <> iffs) (mconcat postcs) storage ret,
+    B $ Behaviour name Fail creates contract iface (if' <> (Neg <$> iffs)) (mconcat postcs) storage Nothing ]
 
 mkEthEnvBounds :: [EthEnv] -> [Exp Bool]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars

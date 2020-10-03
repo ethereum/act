@@ -115,7 +115,7 @@ claim store (B b@(Behaviour n Pass False _ i _ _ _ _)) = Just $ "Definition "
 
   body store' (Behaviour _ _ _ _ _ preconditions _ updates _) =
     "match "
-      <> coqexp preconditions
+      <> coqexp (head preconditions) -- TODO: preconditions
       <> " with\n| true => "
       <> stateval store' (\n' _ -> T.pack n' <> " s") (rights updates)
       <> "\n| false => s\nend."
@@ -133,7 +133,8 @@ retClaim (B (Behaviour n Pass False _ i preconditions _ _ (Just r))) =
     <> " (s : State) "
     <> interface i
     <> " :=\n"
-    <> "match " <> coqexp preconditions <> " with\n| true => Some "
+    <> "match " <> coqexp (head preconditions) -- TODO: preconditions
+    <> " with\n| true => Some "
     <> retexp r
     <> "\n| false => None\nend."
 retClaim _ = Nothing
