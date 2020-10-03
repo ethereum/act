@@ -30,7 +30,7 @@
     "mode": "Pass",
     "creation": true,
     "name": "init",
-    "preConditions": "True",
+    "preConditions": [],
     "contract": "a",
     "interface": "constructor()",
     "postConditions": "True",
@@ -52,7 +52,7 @@
     "mode": "Pass",
     "creation": true,
     "name": "init",
-    "preConditions": "True",
+    "preConditions": [],
     "contract": "B",
     "interface": "constructor()",
     "postConditions": "True",
@@ -74,111 +74,88 @@
     "mode": "Pass",
     "creation": false,
     "name": "remote",
-    "preConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                0,
-                "Callvalue"
-              ],
-              "symbol": "<="
-            },
-            {
-              "arity": 2,
-              "args": [
-                "Callvalue",
-                1.157920892373162e+77
-              ],
-              "symbol": "<="
-            }
-          ],
-          "symbol": "and"
-        },
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                "Callvalue",
-                0
-              ],
-              "symbol": "=="
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        0,
-                        "z"
-                      ],
-                      "symbol": "<="
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        "z",
-                        1.157920892373162e+77
-                      ],
-                      "symbol": "<="
-                    }
-                  ],
-                  "symbol": "and"
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            0,
-                            {
-                              "name": "a.x",
-                              "sort": "int"
-                            }
-                          ],
-                          "symbol": "<="
-                        },
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "name": "a.x",
-                              "sort": "int"
-                            },
-                            1.157920892373162e+77
-                          ],
-                          "symbol": "<="
-                        }
-                      ],
-                      "symbol": "and"
-                    },
-                    "True"
-                  ],
-                  "symbol": "and"
-                }
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "and"
-        }
-      ],
-      "symbol": "and"
-    },
+    "preConditions": [
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          "Callvalue",
+          0
+        ],
+        "symbol": "=="
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              "z"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "z",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              {
+                "name": "a.x",
+                "sort": "int"
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "name": "a.x",
+                "sort": "int"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      }
+    ],
     "contract": "B",
     "interface": "set_remote(uint256 z)",
     "postConditions": "True",
@@ -200,124 +177,106 @@
     "mode": "Fail",
     "creation": false,
     "name": "remote",
-    "preConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    0,
-                    "Callvalue"
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    "Callvalue",
-                    1.157920892373162e+77
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            },
-            "True"
-          ],
-          "symbol": "and"
-        },
-        {
-          "arity": 1,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "Callvalue",
-                    0
-                  ],
-                  "symbol": "=="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            0,
-                            "z"
-                          ],
-                          "symbol": "<="
-                        },
-                        {
-                          "arity": 2,
-                          "args": [
-                            "z",
-                            1.157920892373162e+77
-                          ],
-                          "symbol": "<="
-                        }
-                      ],
-                      "symbol": "and"
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                {
-                                  "name": "a.x",
-                                  "sort": "int"
-                                }
-                              ],
-                              "symbol": "<="
-                            },
-                            {
-                              "arity": 2,
-                              "args": [
-                                {
-                                  "name": "a.x",
-                                  "sort": "int"
-                                },
-                                1.157920892373162e+77
-                              ],
-                              "symbol": "<="
-                            }
-                          ],
-                          "symbol": "and"
-                        },
-                        "True"
-                      ],
-                      "symbol": "and"
-                    }
-                  ],
-                  "symbol": "and"
-                }
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "not"
-        }
-      ],
-      "symbol": "and"
-    },
+    "preConditions": [
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 1,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              0
+            ],
+            "symbol": "=="
+          }
+        ],
+        "symbol": "not"
+      },
+      {
+        "arity": 1,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 2,
+                "args": [
+                  0,
+                  "z"
+                ],
+                "symbol": "<="
+              },
+              {
+                "arity": 2,
+                "args": [
+                  "z",
+                  1.157920892373162e+77
+                ],
+                "symbol": "<="
+              }
+            ],
+            "symbol": "and"
+          }
+        ],
+        "symbol": "not"
+      },
+      {
+        "arity": 1,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 2,
+                "args": [
+                  0,
+                  {
+                    "name": "a.x",
+                    "sort": "int"
+                  }
+                ],
+                "symbol": "<="
+              },
+              {
+                "arity": 2,
+                "args": [
+                  {
+                    "name": "a.x",
+                    "sort": "int"
+                  },
+                  1.157920892373162e+77
+                ],
+                "symbol": "<="
+              }
+            ],
+            "symbol": "and"
+          }
+        ],
+        "symbol": "not"
+      }
+    ],
     "contract": "B",
     "interface": "set_remote(uint256 z)",
     "postConditions": "True",
@@ -348,145 +307,116 @@
     "mode": "Pass",
     "creation": false,
     "name": "multi",
-    "preConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                0,
-                "Callvalue"
-              ],
-              "symbol": "<="
-            },
-            {
-              "arity": 2,
-              "args": [
-                "Callvalue",
-                1.157920892373162e+77
-              ],
-              "symbol": "<="
-            }
-          ],
-          "symbol": "and"
-        },
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                "Callvalue",
-                0
-              ],
-              "symbol": "=="
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        0,
-                        "z"
-                      ],
-                      "symbol": "<="
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        "z",
-                        1.157920892373162e+77
-                      ],
-                      "symbol": "<="
-                    }
-                  ],
-                  "symbol": "and"
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            0,
-                            {
-                              "name": "B.y",
-                              "sort": "int"
-                            }
-                          ],
-                          "symbol": "<="
-                        },
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "name": "B.y",
-                              "sort": "int"
-                            },
-                            1.157920892373162e+77
-                          ],
-                          "symbol": "<="
-                        }
-                      ],
-                      "symbol": "and"
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                {
-                                  "name": "a.x",
-                                  "sort": "int"
-                                }
-                              ],
-                              "symbol": "<="
-                            },
-                            {
-                              "arity": 2,
-                              "args": [
-                                {
-                                  "name": "a.x",
-                                  "sort": "int"
-                                },
-                                1.157920892373162e+77
-                              ],
-                              "symbol": "<="
-                            }
-                          ],
-                          "symbol": "and"
-                        },
-                        "True"
-                      ],
-                      "symbol": "and"
-                    }
-                  ],
-                  "symbol": "and"
-                }
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "and"
-        }
-      ],
-      "symbol": "and"
-    },
+    "preConditions": [
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          "Callvalue",
+          0
+        ],
+        "symbol": "=="
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              "z"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "z",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              {
+                "name": "B.y",
+                "sort": "int"
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "name": "B.y",
+                "sort": "int"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              {
+                "name": "a.x",
+                "sort": "int"
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "name": "a.x",
+                "sort": "int"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      }
+    ],
     "contract": "B",
     "interface": "set_remote(uint256 z)",
     "postConditions": "True",
@@ -517,158 +447,140 @@
     "mode": "Fail",
     "creation": false,
     "name": "multi",
-    "preConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    0,
-                    "Callvalue"
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    "Callvalue",
-                    1.157920892373162e+77
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            },
-            "True"
-          ],
-          "symbol": "and"
-        },
-        {
-          "arity": 1,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "Callvalue",
-                    0
-                  ],
-                  "symbol": "=="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            0,
-                            "z"
-                          ],
-                          "symbol": "<="
-                        },
-                        {
-                          "arity": 2,
-                          "args": [
-                            "z",
-                            1.157920892373162e+77
-                          ],
-                          "symbol": "<="
-                        }
-                      ],
-                      "symbol": "and"
-                    },
-                    {
-                      "arity": 2,
-                      "args": [
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                0,
-                                {
-                                  "name": "B.y",
-                                  "sort": "int"
-                                }
-                              ],
-                              "symbol": "<="
-                            },
-                            {
-                              "arity": 2,
-                              "args": [
-                                {
-                                  "name": "B.y",
-                                  "sort": "int"
-                                },
-                                1.157920892373162e+77
-                              ],
-                              "symbol": "<="
-                            }
-                          ],
-                          "symbol": "and"
-                        },
-                        {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "arity": 2,
-                              "args": [
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    0,
-                                    {
-                                      "name": "a.x",
-                                      "sort": "int"
-                                    }
-                                  ],
-                                  "symbol": "<="
-                                },
-                                {
-                                  "arity": 2,
-                                  "args": [
-                                    {
-                                      "name": "a.x",
-                                      "sort": "int"
-                                    },
-                                    1.157920892373162e+77
-                                  ],
-                                  "symbol": "<="
-                                }
-                              ],
-                              "symbol": "and"
-                            },
-                            "True"
-                          ],
-                          "symbol": "and"
-                        }
-                      ],
-                      "symbol": "and"
-                    }
-                  ],
-                  "symbol": "and"
-                }
-              ],
-              "symbol": "and"
-            }
-          ],
-          "symbol": "not"
-        }
-      ],
-      "symbol": "and"
-    },
+    "preConditions": [
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 1,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              0
+            ],
+            "symbol": "=="
+          }
+        ],
+        "symbol": "not"
+      },
+      {
+        "arity": 1,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 2,
+                "args": [
+                  0,
+                  "z"
+                ],
+                "symbol": "<="
+              },
+              {
+                "arity": 2,
+                "args": [
+                  "z",
+                  1.157920892373162e+77
+                ],
+                "symbol": "<="
+              }
+            ],
+            "symbol": "and"
+          }
+        ],
+        "symbol": "not"
+      },
+      {
+        "arity": 1,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 2,
+                "args": [
+                  0,
+                  {
+                    "name": "B.y",
+                    "sort": "int"
+                  }
+                ],
+                "symbol": "<="
+              },
+              {
+                "arity": 2,
+                "args": [
+                  {
+                    "name": "B.y",
+                    "sort": "int"
+                  },
+                  1.157920892373162e+77
+                ],
+                "symbol": "<="
+              }
+            ],
+            "symbol": "and"
+          }
+        ],
+        "symbol": "not"
+      },
+      {
+        "arity": 1,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 2,
+                "args": [
+                  0,
+                  {
+                    "name": "a.x",
+                    "sort": "int"
+                  }
+                ],
+                "symbol": "<="
+              },
+              {
+                "arity": 2,
+                "args": [
+                  {
+                    "name": "a.x",
+                    "sort": "int"
+                  },
+                  1.157920892373162e+77
+                ],
+                "symbol": "<="
+              }
+            ],
+            "symbol": "and"
+          }
+        ],
+        "symbol": "not"
+      }
+    ],
     "contract": "B",
     "interface": "set_remote(uint256 z)",
     "postConditions": "True",

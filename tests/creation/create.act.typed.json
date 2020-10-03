@@ -37,35 +37,30 @@
     "mode": "Pass",
     "creation": true,
     "name": "creation",
-    "preConditions": {
-      "arity": 2,
-      "args": [
-        {
-          "arity": 2,
-          "args": [
-            {
-              "arity": 2,
-              "args": [
-                0,
-                "Caller"
-              ],
-              "symbol": "<="
-            },
-            {
-              "arity": 2,
-              "args": [
-                "Caller",
-                1.461501637330903e+48
-              ],
-              "symbol": "<="
-            }
-          ],
-          "symbol": "and"
-        },
-        "True"
-      ],
-      "symbol": "and"
-    },
+    "preConditions": [
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              0,
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      }
+    ],
     "contract": "Modest",
     "interface": "constructor()",
     "postConditions": "True",
