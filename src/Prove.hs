@@ -11,6 +11,7 @@ module Prove
   , SMType(..)
   , Method
   , Store
+  , getLoc
   , mkContext
   , mkConstraint
   , symExpBool
