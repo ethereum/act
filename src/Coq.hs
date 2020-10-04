@@ -47,16 +47,10 @@ coq store claims =
   <> layout store <> "\n\n"
   <> T.intercalate "\n\n" (claimGroup <$> groups) <> "\n\n"
   <> T.intercalate "\n\n" (retGroup   <$> groups) <> "\n\n"
-  <> baseval <> "\n\n"
-  <> reachable groups
+  <> T.intercalate "\n\n" (constructorGroup <$> constructorGroups) <> "\n\n"
+  <> reachable constructorGroups groups
 
   where
-
-  claimGroup bs = T.intercalate "\n\n" $
-    evalState (sequence ((claim store) <$> bs)) 0
-
-  retGroup bs = T.intercalate "\n\n" $
-    evalState (sequence (mapMaybe retVal bs)) 0
 
   behaviours = [a | B a <- claims]
 
@@ -68,12 +62,18 @@ coq store claims =
     f (Behaviour _ Pass True  _ _ _ _ _ _) = True
     f _ = False
 
+  claimGroup bs = T.intercalate "\n\n" $
+    evalState (sequence ((claim store) <$> bs)) 0
+
+  retGroup bs = T.intercalate "\n\n" $
+    evalState (sequence (mapMaybe retVal bs)) 0
+
+  constructorGroup cs = T.intercalate "\n\n" $
+    evalState (sequence ((base store) <$> cs)) 0
+
   groups = groupBy (\b b' -> _name b == _name b') transitions
 
-  baseval = case constructors of
-    [] -> base store []
-    [c] -> base store (rights (_stateUpdates c))
-    _ -> error "multiple constructors not supported"
+  constructorGroups = groupBy (\b b' -> _name b == _name b') constructors
 
   layout store' = "Record State : Set := state\n" <> "{ "
     <> T.intercalate ("\n" <> "; ") (map decl pairs)
@@ -82,30 +82,22 @@ coq store claims =
 
   decl (n, s) = (T.pack n) <> " : " <> slotType s
 
--- | definition of the base state
-base :: Store -> [StorageUpdate] -> T.Text
-base store updates =
-  "Definition " <> baseName <> " :=\n"
-    <> stateval store (\_ t -> defaultValue t) updates
-    <> "\n."
-
 -- | inductive definition of reachable states
-reachable :: [[Behaviour]] -> T.Text
-reachable groups =
+reachable :: [[Behaviour]] -> [[Behaviour]] -> T.Text
+reachable constructors groups =
 
-  "Inductive reachable : State -> Prop :=\n"
-    <> "| base : reachable BASE\n| "
-    -- <> T.intercalate "\n| " (mapMaybe reachableStep claims)
-    <> T.intercalate "\n| " (reachableGroup <$> groups)
+  "Inductive reachable : State -> Prop :=\n| "
+    <> T.intercalate "\n| " (constructorGroup <$> constructors) <> "\n| "
+    <> T.intercalate "\n| " (reachableGroup  <$> groups)
     <> "\n."
 
   where
 
-  reachableGroup claims = T.intercalate "\n| " $
-    evalState (sequence (reachableStep <$> (filter f claims))) 0
+  constructorGroup cs = T.intercalate "\n| " $
+    evalState (sequence (constructorStep <$> cs)) 0
 
-  f (Behaviour _ Pass False _ _ _ _ _ _) = True
-  f _ = False
+  reachableGroup claims = T.intercalate "\n| " $
+    evalState (sequence (reachableStep <$> claims)) 0
 
   reachableStep :: Behaviour -> Fresh T.Text
   reachableStep b = do
@@ -119,10 +111,30 @@ reachable groups =
       <> T.pack name
       <> " s " <> arguments (_interface b) <> ")"
 
+  constructorStep :: Behaviour -> Fresh T.Text
+  constructorStep c = do
+    name <- fresh (_name c)
+    return $ (T.pack name)
+      <> "_base : forall (s : State) "
+      <> interface (_interface c) <> ",\n     "
+      <> T.intercalate "\n  -> " (coqprop <$> _preconditions c)
+      <> "\n  -> reachable ("
+      <> T.pack name <> " " <> arguments (_interface c) <> ")"
+
   arguments (Interface _ decls) =
     T.intercalate " " (map (\(Decl _ name) -> T.pack name) decls)
 
--- | definition of a storage transition
+-- -- | definition of a base state
+base :: Store -> Behaviour -> Fresh T.Text
+base store (Behaviour name _ _ _ i _ _ updates _) = do
+  name' <- fresh name
+  return $ "Definition "
+    <> T.pack name' <> " "
+    <> interface i
+    <> " :=\n"
+    <> stateval store (\_ t -> defaultValue t) (rights updates)
+    <> "\n."
+
 claim :: Store -> Behaviour -> Fresh T.Text
 claim store (Behaviour name _ _ _ i _ _ updates _) = do
   name' <- fresh name
@@ -131,12 +143,8 @@ claim store (Behaviour name _ _ _ i _ _ updates _) = do
     <> " (s : State) "
     <> interface i
     <> " :=\n"
-    <> body store updates
-
-  where
-
-  body store' updates =
-    stateval store' (\n _ -> T.pack n <> " s") (rights updates) <> "\n."
+    <> stateval store (\n _ -> T.pack n <> " s") (rights updates)
+    <> "\n."
 
 -- | definition of a return value
 -- ignores claims that do not specify a return value
