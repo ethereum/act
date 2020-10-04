@@ -19,7 +19,8 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
 import Data.Either (rights)
 import Data.Maybe (mapMaybe)
-import Data.List (find)
+import Data.List (find, groupBy)
+import Control.Monad.State
 
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
@@ -27,17 +28,7 @@ import Syntax
 import RefinedAst
 
 type Store = M.Map Id SlotType
-
--- | string module name
-strName :: T.Text
-strName  = "Str"
-
--- | base state name
-baseName :: T.Text
-baseName = "BASE"
-
-returnSuffix :: T.Text
-returnSuffix = "_ret"
+type Fresh = State Int
 
 header :: T.Text
 header =
@@ -50,22 +41,39 @@ header =
 
 -- | produce a coq representation of a specification
 coq :: Store -> [Claim] -> T.Text
-coq store claims = header
+coq store claims =
+
+  header
   <> layout store <> "\n\n"
-  <> T.intercalate "\n\n" (mapMaybe (claim store) claims) <> "\n\n"
-  <> T.intercalate "\n\n" (mapMaybe retClaim claims) <> "\n\n"
-  <> baseval
-  <> reachable claims
+  <> T.intercalate "\n\n" (claimGroup <$> groups) <> "\n\n"
+  <> T.intercalate "\n\n" (retGroup   <$> groups) <> "\n\n"
+  <> baseval <> "\n\n"
+  <> reachable groups
 
   where
 
-  baseval = case mapMaybe isConstructor claims of
-    [] -> base store [] <> "\n\n"
-    [c] -> base store (rights (_stateUpdates c)) <> "\n\n"
-    _ -> error "multiple constructors not supported"
+  claimGroup bs = T.intercalate "\n\n" $
+    evalState (sequence ((claim store) <$> bs)) 0
 
-  isConstructor (B b) | (_creation b) && (_mode b == Pass) = Just b
-  isConstructor _ = Nothing
+  retGroup bs = T.intercalate "\n\n" $
+    evalState (sequence (mapMaybe retVal bs)) 0
+
+  behaviours = [a | B a <- claims]
+
+  transitions = filter f behaviours where
+    f (Behaviour _ Pass False _ _ _ _ _ _) = True
+    f _ = False
+
+  constructors = filter f behaviours where
+    f (Behaviour _ Pass True  _ _ _ _ _ _) = True
+    f _ = False
+
+  groups = groupBy (\b b' -> _name b == _name b') transitions
+
+  baseval = case constructors of
+    [] -> base store []
+    [c] -> base store (rights (_stateUpdates c))
+    _ -> error "multiple constructors not supported"
 
   layout store' = "Record State : Set := state\n" <> "{ "
     <> T.intercalate ("\n" <> "; ") (map decl pairs)
@@ -82,62 +90,67 @@ base store updates =
     <> "\n."
 
 -- | inductive definition of reachable states
-reachable :: [Claim] -> T.Text
-reachable claims =
+reachable :: [[Behaviour]] -> T.Text
+reachable groups =
+
   "Inductive reachable : State -> Prop :=\n"
-    <> "| base : reachable BASE\n"
-    <> T.intercalate "\n" (mapMaybe reachableStep claims)
+    <> "| base : reachable BASE\n| "
+    -- <> T.intercalate "\n| " (mapMaybe reachableStep claims)
+    <> T.intercalate "\n| " (reachableGroup <$> groups)
     <> "\n."
+
   where
-    reachableStep (B b) | _mode b == Pass && not (_creation b) = Just $
-      "| " <> T.pack (_name b)
+
+  reachableGroup claims = T.intercalate "\n| " $
+    evalState (sequence (reachableStep <$> (filter f claims))) 0
+
+  f (Behaviour _ Pass False _ _ _ _ _ _) = True
+  f _ = False
+
+  reachableStep :: Behaviour -> Fresh T.Text
+  reachableStep b = do
+    name <- fresh (_name b)
+    return $ (T.pack name)
       <> "_step : forall (s : State) "
       <> interface (_interface b)
-      <> ", reachable s -> reachable ("
-      <> T.pack (_name b)
+      <> ", reachable s\n  -> "
+      <> T.intercalate "\n  -> " (coqprop <$> _preconditions b)
+      <> "\n  -> reachable ("
+      <> T.pack name
       <> " s " <> arguments (_interface b) <> ")"
-    reachableStep _ = Nothing
-    arguments (Interface _ decls) =
-      T.intercalate " " (map (\(Decl _ name) -> T.pack name) decls)
+
+  arguments (Interface _ decls) =
+    T.intercalate " " (map (\(Decl _ name) -> T.pack name) decls)
 
 -- | definition of a storage transition
--- ignores OOG and Fail claims
--- ignores constructors (claims that include creation)
-claim :: Store -> Claim -> Maybe T.Text
-claim store (B b@(Behaviour n Pass False _ i _ _ _ _)) = Just $ "Definition "
-  <> T.pack n
-  <> " (s : State) "
-  <> interface i
-  <> " :=\n"
-  <> body store b
-
-  where
-
-  body store' (Behaviour _ _ _ _ _ preconditions _ updates _) =
-    "match "
-      <> coqexp (head preconditions) -- TODO: preconditions
-      <> " with\n| true => "
-      <> stateval store' (\n' _ -> T.pack n' <> " s") (rights updates)
-      <> "\n| false => s\nend."
-
-claim _ _ = Nothing
-
--- | definition of a return value
--- ignores claims that do not specify a return value
--- ignores OOG and Fail claims
--- ignores constructors (claims that include creation)
-retClaim :: Claim -> Maybe T.Text
-retClaim (B (Behaviour n Pass False _ i preconditions _ _ (Just r))) =
-  Just $ "Definition "
-    <> T.pack n <> returnSuffix
+claim :: Store -> Behaviour -> Fresh T.Text
+claim store (Behaviour name _ _ _ i _ _ updates _) = do
+  name' <- fresh name
+  return $ "Definition "
+    <> T.pack name'
     <> " (s : State) "
     <> interface i
     <> " :=\n"
-    <> "match " <> coqexp (head preconditions) -- TODO: preconditions
-    <> " with\n| true => Some "
+    <> body store updates
+
+  where
+
+  body store' updates =
+    stateval store' (\n _ -> T.pack n <> " s") (rights updates) <> "\n."
+
+-- | definition of a return value
+-- ignores claims that do not specify a return value
+retVal :: Behaviour -> Maybe (Fresh T.Text)
+retVal (Behaviour name _ _ _ i _ _ _ (Just r)) = Just $ do
+  name' <- fresh name
+  return $ "Definition "
+    <> T.pack name' <> returnSuffix
+    <> " (s : State) "
+    <> interface i
+    <> " :=\n"
     <> retexp r
-    <> "\n| false => None\nend."
-retClaim _ = Nothing
+    <> "\n."
+retVal _ = Nothing
 
 -- | produce a state value from a list of storage updates
 -- 'handler' defines what to do in cases where a given name isn't updated
@@ -287,6 +300,22 @@ coqexp (TEntry (DirectBytes _ _)) = error "bytestrings not supported"
 coqexp (TEntry (MappedBytes _ _ _)) = error "bytestrings not supported"
 coqexp (NewAddr _ _) = error "newaddr not supported"
 
+-- | coq syntax for a proposition
+coqprop :: Exp a -> T.Text
+coqprop (LitBool True)  = "True"
+coqprop (LitBool False) = "False"
+coqprop (And e1 e2)  = parens $ coqprop e1 <> " /\\ " <> coqprop e2
+coqprop (Or e1 e2)   = parens $ coqprop e1 <> " \\/ " <> coqprop e2
+coqprop (Impl e1 e2) = parens $ coqprop e1 <> " -> " <> coqprop e2
+coqprop (Neg e)      = parens $ "not " <> coqprop e
+coqprop (Eq e1 e2)   = parens $ coqexp e1 <> " = "  <> coqexp e2
+coqprop (NEq e1 e2)  = parens $ coqexp e1 <> " <> " <> coqexp e2
+coqprop (LE e1 e2)   = parens $ coqexp e1 <> " < "  <> coqexp e2
+coqprop (LEQ e1 e2)  = parens $ coqexp e1 <> " <= " <> coqexp e2
+coqprop (GE e1 e2)   = parens $ coqexp e2 <> " > "  <> coqexp e1
+coqprop (GEQ e1 e2)  = parens $ coqexp e2 <> " >= " <> coqexp e1
+coqprop _ = error "ill formed proposition"
+
 -- | coq syntax for a return expression
 retexp :: ReturnExp -> T.Text
 retexp (ExpInt e)   = coqexp e
@@ -304,3 +333,17 @@ parens s = "(" <> s <> ")"
 
 mod256 :: T.Text -> T.Text
 mod256 e = parens $ e <> " mod (MOD 256)"
+
+-- | string module name
+strName :: T.Text
+strName  = "Str"
+
+-- | base state name
+baseName :: T.Text
+baseName = "BASE"
+
+returnSuffix :: T.Text
+returnSuffix = "_ret"
+
+fresh :: Id -> Fresh Id
+fresh name = state $ \s -> (name ++ (show s), s + 1)
