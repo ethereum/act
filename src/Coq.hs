@@ -100,41 +100,45 @@ reachable constructors groups =
     ("| " <>) <$> evalState (sequence (reachableStep <$> claims)) 0
 
   reachableStep :: Behaviour -> Fresh T.Text
-  reachableStep b = do
-    name <- fresh (_name b)
-    return $ (T.pack name)
+  reachableStep (Behaviour name _ _ _ i conds _ _ _) = do
+    name' <- fresh name
+    let
+      body = implication . concat $
+        [ ["reachable base s"]
+        , coqprop <$> conds
+        , ["reachable base " <> parens (name' <> " s " <> arguments i)]
+        ]
+    return $ name'
       <> "_step : forall (base s : State) "
-      <> interface (_interface b)
-      <> ", reachable base s\n  -> "
-      <> T.intercalate "\n  -> " (coqprop <$> _preconditions b)
-      <> "\n  -> reachable base "
-      <> parens (T.pack name <> " s " <> arguments (_interface b))
+      <> interface i <> ",\n"
+      <> body
 
   baseCase :: Behaviour -> Fresh T.Text
   baseCase (Behaviour name _ _ _ i@(Interface _ decls) conds _ _ _) = do
     name' <- fresh name
-    let baseval = parens $ T.pack name' <> " " <> arguments i
-    return $ (T.pack name')
+    let
+      baseval = parens $ name' <> " " <> arguments i
+      body = implication . concat $
+        [ coqprop <$> conds
+        , ["reachable " <> baseval <> " " <> baseval]
+        ]
+    return $ name'
       <> "_base : "
-      <> universal 
-      <> T.concat ((<> "\n  -> ") <$> (coqprop <$> conds))
-      <> "reachable " <> baseval <> " " <> baseval
+      <> universal <> "\n"
+      <> body
     where
     universal =
       case length decls of
         0 -> ""
-        _ -> "forall " <> interface i <> ",\n     "
+        _ -> "forall " <> interface i <> ","
 
-
-  arguments (Interface _ decls) =
-    T.intercalate " " (map (\(Decl _ name) -> T.pack name) decls)
 
 -- | definition of a base state
 base :: Store -> Behaviour -> Fresh T.Text
 base store (Behaviour name _ _ _ i _ _ updates _) = do
   name' <- fresh name
   return $ "Definition "
-    <> T.pack name' <> " "
+    <> name' <> " "
     <> interface i
     <> " :=\n"
     <> stateval store (\_ t -> defaultValue t) (rights updates)
@@ -144,25 +148,29 @@ claim :: Store -> Behaviour -> Fresh T.Text
 claim store (Behaviour name _ _ _ i _ _ updates _) = do
   name' <- fresh name
   return $ "Definition "
-    <> T.pack name'
+    <> name'
     <> " (s : State) "
     <> interface i
     <> " :=\n"
     <> stateval store (\n _ -> T.pack n <> " s") (rights updates)
     <> "\n."
 
--- | definition of a return value
+-- | inductive definition of a return claim
 -- ignores claims that do not specify a return value
 retVal :: Behaviour -> Maybe (Fresh T.Text)
-retVal (Behaviour name _ _ _ i _ _ _ (Just r)) = Just $ do
+retVal (Behaviour name _ _ _ i conds _ _ (Just r)) = Just $ do
   name' <- fresh name
-  return $ "Definition "
-    <> T.pack name' <> returnSuffix
-    <> " (s : State) "
-    <> interface i
-    <> " :=\n"
-    <> retexp r
-    <> "\n."
+  let
+    retname = name' <> returnSuffix
+    body = implication . concat $
+      [ coqprop <$> conds
+      , [retname <> " s " <> arguments i <> " " <> retexp r]
+      ]
+  return $ "Inductive "
+    <> name' <> returnSuffix <> " (s : State) " <> interface i
+    <> " : " <> returnType r <> " -> Prop :=\n| "
+    <> retname <> "_intro :\n"
+    <> body <> "\n."
 retVal _ = Nothing
 
 -- | produce a state value from a list of storage updates
@@ -221,6 +229,10 @@ interface (Interface _ decls) =
   T.intercalate " " (map decl decls) where
   decl (Decl t name) = parens $ T.pack name <> " : " <> abiType t
 
+arguments :: Interface -> T.Text
+arguments (Interface _ decls) =
+  T.intercalate " " (map (\(Decl _ name) -> T.pack name) decls)
+
 -- | coq syntax for a slot type
 slotType :: SlotType -> T.Text
 slotType (StorageMapping xs t) =
@@ -234,6 +246,12 @@ abiType (AbiIntType _) = "Z"
 abiType AbiAddressType = "address"
 abiType AbiStringType = strName <> ".string"
 abiType a = error $ show a
+
+-- | coq syntax for a return type
+returnType :: ReturnExp -> T.Text
+returnType (ExpInt _) = "Z"
+returnType (ExpBool _) = "bool"
+returnType (ExpBytes _) = "bytestrings not supported"
 
 -- | default value for a given type
 -- this is used in cases where a value is not set in the constructor
@@ -340,6 +358,10 @@ coqargs :: NE.NonEmpty ReturnExp -> T.Text
 coqargs (e NE.:| es) =
   retexp e <> " " <> T.intercalate " " (map retexp es)
 
+-- | multiline implication
+implication :: [T.Text] -> T.Text
+implication = T.intercalate "\n-> "
+
 -- | wrap text in parentheses
 parens :: T.Text -> T.Text
 parens s = "(" <> s <> ")"
@@ -358,5 +380,5 @@ baseName = "BASE"
 returnSuffix :: T.Text
 returnSuffix = "_ret"
 
-fresh :: Id -> Fresh Id
-fresh name = state $ \s -> (name ++ (show s), s + 1)
+fresh :: Id -> Fresh T.Text
+fresh name = state $ \s -> (T.pack (name <> show s), s + 1)
