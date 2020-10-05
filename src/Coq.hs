@@ -18,7 +18,6 @@ import qualified Data.Map.Strict    as M
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
 import Data.Either (rights)
-import Data.Maybe (mapMaybe)
 import Data.List (find, groupBy)
 import Control.Monad.State
 
@@ -36,7 +35,7 @@ header =
   \Require Import Coq.ZArith.ZArith.\n\
   \Require Import ActLib.ActLib.\n\
   \Require Coq.Strings.String.\n\n\
-  \Module " <> strName <> " := Coq.Strings.String.\n\
+  \Module " <> strMod <> " := Coq.Strings.String.\n\
   \Open Scope Z_scope.\n\n"
 
 -- | produce a coq representation of a specification
@@ -45,10 +44,10 @@ coq store claims =
 
   header
   <> layout store <> "\n\n"
-  <> T.intercalate "\n\n" (claimGroup <$> groups) <> "\n\n"
-  <> T.intercalate "\n\n" (retGroup   <$> groups) <> "\n\n"
-  <> T.intercalate "\n\n" (constructorGroup <$> constructorGroups) <> "\n\n"
-  <> reachable constructorGroups groups
+  <> block (evalSeq (claim store) <$> groups transitions)
+  <> block (evalSeq retVal        <$> groups transitions)
+  <> block (evalSeq (base store)  <$> groups constructors)
+  <> reachable (groups constructors) (groups transitions)
 
   where
 
@@ -62,116 +61,96 @@ coq store claims =
     f (Behaviour _ Pass True  _ _ _ _ _ _) = True
     f _ = False
 
-  claimGroup bs = T.intercalate "\n\n" $
-    evalState (sequence ((claim store) <$> bs)) 0
+  groups = groupBy (\b b' -> _name b == _name b')
 
-  retGroup bs = T.intercalate "\n\n" $
-    evalState (sequence (mapMaybe retVal bs)) 0
+  block xs = T.intercalate "\n\n" (concat xs) <> "\n\n"
 
-  constructorGroup cs = T.intercalate "\n\n" $
-    evalState (sequence ((base store) <$> cs)) 0
-
-  groups = groupBy (\b b' -> _name b == _name b') transitions
-
-  constructorGroups = groupBy (\b b' -> _name b == _name b') constructors
-
-  layout store' = "Record State : Set := state\n" <> "{ "
+  layout store' =
+    "Record " <> stateType <> " : Set := " <> stateConstructor <> "\n{ "
     <> T.intercalate ("\n" <> "; ") (map decl pairs)
     <> "\n" <> "}." where
     pairs = M.toList store'
+    decl (n, s) = (T.pack n) <> " : " <> slotType s
 
-  decl (n, s) = (T.pack n) <> " : " <> slotType s
 
 -- | inductive definition of reachable states
 reachable :: [[Behaviour]] -> [[Behaviour]] -> T.Text
-reachable constructors groups =
+reachable constructors groups = inductive
 
-  "Inductive reachable : State -> State -> Prop :=\n"
-    <> T.intercalate "\n" (constructorGroup <$> constructors) <> "\n"
-    <> T.intercalate "\n" (reachableGroup  <$> groups)
-    <> "\n."
+  reachableType "" (stateType <> " -> " <> stateType <> " -> Prop") body
 
   where
 
-  constructorGroup cs = T.intercalate "\n" $
-    ("| " <>) <$> evalState (sequence (baseCase <$> cs)) 0
-
-  reachableGroup claims = T.intercalate "\n" $
-    ("| " <>) <$> evalState (sequence (reachableStep <$> claims)) 0
+  body = concat $
+    (evalSeq baseCase <$> constructors)
+    <>
+    (evalSeq reachableStep <$> groups)
 
   reachableStep :: Behaviour -> Fresh T.Text
-  reachableStep (Behaviour name _ _ _ i conds _ _ _) = do
-    name' <- fresh name
-    let
-      body = implication . concat $
-        [ ["reachable base s"]
+  reachableStep (Behaviour name _ _ _ i conds _ _ _) =
+    fresh name >>= continuation where
+    continuation name' =
+      return $ name'
+        <> stepSuffix <> " : forall "
+        <> parens (baseVar <> " " <> stateVar <> " : " <> stateType)
+        <> interface i <> ",\n"
+        <> constructorBody where
+      constructorBody = (indent 2) . implication . concat $
+        [ [reachableType <> " " <> baseVar <> " " <> stateVar]
         , coqprop <$> conds
-        , ["reachable base " <> parens (name' <> " s " <> arguments i)]
+        , [ reachableType <> " " <> baseVar <> " "
+            <> parens (name' <> " " <> stateVar <> " " <> arguments i)
+          ]
         ]
-    return $ name'
-      <> "_step : forall (base s : State) "
-      <> interface i <> ",\n"
-      <> body
 
   baseCase :: Behaviour -> Fresh T.Text
-  baseCase (Behaviour name _ _ _ i@(Interface _ decls) conds _ _ _) = do
-    name' <- fresh name
-    let
+  baseCase (Behaviour name _ _ _ i@(Interface _ decls) conds _ _ _) =
+    fresh name >>= continuation where
+    continuation name' =
+      return $ name'
+        <> baseSuffix <> " : "
+        <> universal <> "\n"
+        <> constructorBody where
       baseval = parens $ name' <> " " <> arguments i
-      body = implication . concat $
+      constructorBody = (indent 2) . implication . concat $
         [ coqprop <$> conds
-        , ["reachable " <> baseval <> " " <> baseval]
+        , [reachableType <> " " <> baseval <> " " <> baseval]
         ]
-    return $ name'
-      <> "_base : "
-      <> universal <> "\n"
-      <> body
-    where
-    universal =
-      case length decls of
+      universal = case length decls of
         0 -> ""
         _ -> "forall " <> interface i <> ","
-
 
 -- | definition of a base state
 base :: Store -> Behaviour -> Fresh T.Text
 base store (Behaviour name _ _ _ i _ _ updates _) = do
   name' <- fresh name
-  return $ "Definition "
-    <> name' <> " "
-    <> interface i
-    <> " :=\n"
-    <> stateval store (\_ t -> defaultValue t) (rights updates)
-    <> "\n."
+  return $ definition name' (interface i) $
+    stateval store (\_ t -> defaultValue t) (rights updates)
 
 claim :: Store -> Behaviour -> Fresh T.Text
 claim store (Behaviour name _ _ _ i _ _ updates _) = do
   name' <- fresh name
-  return $ "Definition "
-    <> name'
-    <> " (s : State) "
-    <> interface i
-    <> " :=\n"
-    <> stateval store (\n _ -> T.pack n <> " s") (rights updates)
-    <> "\n."
+  return $ definition name' (stateDecl <> " " <> interface i) $
+    stateval store (\n _ -> T.pack n <> " " <> stateVar) (rights updates)
 
 -- | inductive definition of a return claim
 -- ignores claims that do not specify a return value
-retVal :: Behaviour -> Maybe (Fresh T.Text)
-retVal (Behaviour name _ _ _ i conds _ _ (Just r)) = Just $ do
-  name' <- fresh name
-  let
+retVal :: Behaviour -> Fresh T.Text
+retVal (Behaviour name _ _ _ i conds _ _ (Just r)) =
+  fresh name >>= continuation where
+  continuation name' = return $ inductive
+    (name' <> returnSuffix)
+    (stateDecl <> " " <> interface i)
+    (returnType r <> " -> Prop")
+    [retname <> introSuffix <> " :\n" <> body] where
+
     retname = name' <> returnSuffix
-    body = implication . concat $
+    body = (indent 2) . implication . concat $
       [ coqprop <$> conds
-      , [retname <> " s " <> arguments i <> " " <> retexp r]
+      , [retname <> " " <> stateVar <> " " <> arguments i <> " " <> retexp r]
       ]
-  return $ "Inductive "
-    <> name' <> returnSuffix <> " (s : State) " <> interface i
-    <> " : " <> returnType r <> " -> Prop :=\n| "
-    <> retname <> "_intro :\n"
-    <> body <> "\n."
-retVal _ = Nothing
+
+retVal _ = return ""
 
 -- | produce a state value from a list of storage updates
 -- 'handler' defines what to do in cases where a given name isn't updated
@@ -182,7 +161,7 @@ stateval
   -> T.Text
 stateval store handler updates =
 
-  "state " <> T.intercalate " "
+  stateConstructor <> " " <> T.intercalate " "
     (map (valuefor updates) (M.toList store))
 
   where
@@ -211,13 +190,13 @@ stateval store handler updates =
   -- represent mapping update with anonymous function
   lambda :: [ReturnExp] -> Int -> Exp a -> Id -> T.Text
   lambda [] _ e _ = parens $ coqexp e
-  lambda (x:xs) n e m = let name = "debruijn" <> T.pack (show n) in parens $ "fun "
+  lambda (x:xs) n e m = let name = anon <> T.pack (show n) in parens $ "fun "
     <> name
     <> " => if "
     <> name <> eqsym x <> retexp x <> " then " <> lambda xs (n + 1) e m <> " else "
-    <> T.pack m <> " s " <> lambdaArgs n
+    <> T.pack m <> " " <> stateVar <> " " <> lambdaArgs n
 
-  lambdaArgs n = T.intercalate " " $ map (\x -> "debruijn" <> T.pack (show x)) [0..n]
+  lambdaArgs n = T.intercalate " " $ map (\x -> anon <> T.pack (show x)) [0..n]
 
   eqsym (ExpInt _) = " =? "
   eqsym (ExpBool _) = " =?? "
@@ -244,7 +223,7 @@ abiType :: AbiType -> T.Text
 abiType (AbiUIntType _) = "Z"
 abiType (AbiIntType _) = "Z"
 abiType AbiAddressType = "address"
-abiType AbiStringType = strName <> ".string"
+abiType AbiStringType = strMod <> ".string"
 abiType a = error $ show a
 
 -- | coq syntax for a return type
@@ -270,7 +249,7 @@ defaultValue t =
   abiVal (AbiUIntType _) = "0"
   abiVal (AbiIntType _) = "0"
   abiVal AbiAddressType = "0"
-  abiVal AbiStringType = strName <> ".EmptyString"
+  abiVal AbiStringType = strMod <> ".EmptyString"
   abiVal _ = error "TODO: missing default values"
 
 -- | coq syntax for an expression
@@ -290,7 +269,7 @@ coqexp (LE e1 e2)   = parens $ coqexp e1 <> " <? "  <> coqexp e2
 coqexp (LEQ e1 e2)  = parens $ coqexp e1 <> " <=? " <> coqexp e2
 coqexp (GE e1 e2)   = parens $ coqexp e2 <> " <? "  <> coqexp e1
 coqexp (GEQ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
-coqexp (TEntry (DirectBool _ name)) = parens $ T.pack name <> " s"
+coqexp (TEntry (DirectBool _ name)) = parens $ T.pack name <> " " <> stateVar
 coqexp (TEntry (MappedBool _ name args)) = parens $
   T.pack name <> " s " <> coqargs args
 
@@ -307,7 +286,7 @@ coqexp (IntMin n)  = parens $ "INT_MIN "  <> T.pack (show n)
 coqexp (IntMax n)  = parens $ "INT_MAX "  <> T.pack (show n)
 coqexp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
 coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
-coqexp (TEntry (DirectInt _ name)) = parens $ T.pack name <> " s"
+coqexp (TEntry (DirectInt _ name)) = parens $ T.pack name <> " " <> stateVar
 coqexp (TEntry (MappedInt _ name args)) = parens $
   T.pack name <> " s " <> coqargs args
 
@@ -358,9 +337,26 @@ coqargs :: NE.NonEmpty ReturnExp -> T.Text
 coqargs (e NE.:| es) =
   retexp e <> " " <> T.intercalate " " (map retexp es)
 
+fresh :: Id -> Fresh T.Text
+fresh name = state $ \s -> (T.pack (name <> show s), s + 1)
+
+evalSeq :: Traversable t => (a -> Fresh b) -> t a -> t b
+evalSeq f xs = evalState (sequence (f <$> xs)) 0
+
+--- text manipulation ---
+
+definition :: T.Text -> T.Text -> T.Text -> T.Text
+definition name args value =
+  "Definition " <> name <> " " <> args <> " :=\n" <> value <> "\n."
+
+inductive :: T.Text -> T.Text -> T.Text -> [T.Text] -> T.Text
+inductive name args indices constructors =
+  "Inductive " <> name <> " " <> args <> " : " <> indices <> " :=\n"
+  <> T.intercalate "\n" (("| " <>) <$> constructors) <> "\n."
+
 -- | multiline implication
 implication :: [T.Text] -> T.Text
-implication = T.intercalate "\n-> "
+implication xs = "   " <> T.intercalate "\n-> " xs
 
 -- | wrap text in parentheses
 parens :: T.Text -> T.Text
@@ -369,16 +365,46 @@ parens s = "(" <> s <> ")"
 mod256 :: T.Text -> T.Text
 mod256 e = parens $ e <> " mod (MOD 256)"
 
+indent :: Int -> T.Text -> T.Text
+indent n text = T.unlines $ ((T.replicate n " ") <>) <$> (T.lines text)
+
+
+--- constants ---
+
 -- | string module name
-strName :: T.Text
-strName  = "Str"
+strMod :: T.Text
+strMod  = "Str"
 
 -- | base state name
-baseName :: T.Text
-baseName = "BASE"
+baseVar :: T.Text
+baseVar = "BASE"
+
+stateType :: T.Text
+stateType = "State"
+
+stateVar :: T.Text
+stateVar = "STATE"
+
+stateDecl :: T.Text
+stateDecl = parens $ stateVar <> " : " <> stateType
+
+stateConstructor :: T.Text
+stateConstructor = "state"
 
 returnSuffix :: T.Text
 returnSuffix = "_ret"
 
-fresh :: Id -> Fresh T.Text
-fresh name = state $ \s -> (T.pack (name <> show s), s + 1)
+baseSuffix :: T.Text
+baseSuffix = "_base"
+
+stepSuffix :: T.Text
+stepSuffix = "_step"
+
+introSuffix :: T.Text
+introSuffix = "_intro"
+
+reachableType :: T.Text
+reachableType = "reachable"
+
+anon :: T.Text
+anon = "_binding_"
