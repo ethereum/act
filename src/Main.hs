@@ -15,7 +15,6 @@ import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
 import Data.SBV
-import Data.SBV.Control hiding (timeout)
 import Data.Text (pack, unpack)
 import Data.Maybe
 import Data.List
@@ -28,7 +27,6 @@ import System.Environment (setEnv)
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import Control.Monad
-import EVM.SymExec
 
 import ErrM
 import Lex (lexer, AlexPosn(..))
@@ -160,11 +158,11 @@ main = do
             res <- runSMTWithTimeOut solver smttimeout debug $ proveBehaviour sources behv
             case res of
               Left (_, posts) -> do
-                 putStrLn $ "Successfully proved " <> show (_name behv)
+                 putStrLn $ "Successfully proved " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
                    <> ", " <> show (length posts) <> " cases."
                  return True
-              Right vm -> do
-                 putStrLn $ "Failed to prove " <> show (_name behv)
+              Right _ -> do
+                 putStrLn $ "Failed to prove " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
 --                 putStrLn $ "Counterexample: (TODO)"
 --                 showCounterexample vm Nothing -- TODO: provide signature
                  return False

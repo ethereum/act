@@ -229,15 +229,15 @@ getVar (Ctx _ m _ store _) i f = get (nameFromItem m i) (f store)
 
 fromLocation :: Ctx -> StorageLocation -> SBV Bool
 fromLocation ctx loc = case loc of
-  IntLoc item -> (getVar ctx item (catInts . (fst <$>))) .== (getVar ctx item (catInts . (snd <$>)))
-  BoolLoc item -> (getVar ctx item (catBools . (fst <$>))) .== (getVar ctx item (catBools . (snd <$> )))
-  BytesLoc item -> (getVar ctx item (catBytes . (fst <$>))) .== (getVar ctx item (catBytes . (snd <$>)))
+  IntLoc item -> getVar ctx item (catInts . (fst <$>)) .== getVar ctx item (catInts . (snd <$>))
+  BoolLoc item -> getVar ctx item (catBools . (fst <$>)) .== getVar ctx item (catBools . (snd <$>))
+  BytesLoc item -> getVar ctx item (catBytes . (fst <$>)) .== getVar ctx item (catBytes . (snd <$>))
 
 fromUpdate :: Ctx -> StorageUpdate -> SBV Bool
 fromUpdate ctx update = case update of
-  IntUpdate item e -> (getVar ctx item (catInts . (snd <$>))) .== (symExpInt ctx Pre e)
-  BoolUpdate item e -> (getVar ctx item (catBools . (snd <$>))) .== (symExpBool ctx Pre e)
-  BytesUpdate item e -> (getVar ctx item (catBytes . (snd <$>))) .== (symExpBytes ctx Pre e)
+  IntUpdate item e -> getVar ctx item (catInts . (snd <$>)) .== symExpInt ctx Pre e
+  BoolUpdate item e -> getVar ctx item (catBools . (snd <$>)) .== symExpBool ctx Pre e
+  BytesUpdate item e -> getVar ctx item (catBytes . (snd <$>)) .== symExpBytes ctx Pre e
 
 
 -- *** Symbolic Expression Construction *** ---
