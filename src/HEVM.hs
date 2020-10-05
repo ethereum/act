@@ -1,4 +1,6 @@
 {-# Language RecordWildCards #-}
+{-# Language LambdaCase #-}
+{-# Language TypeApplications #-}
 {-# Language OverloadedStrings #-}
 {-# Language DataKinds #-}
 {-# Language GADTs #-}
@@ -18,11 +20,9 @@ import Data.SBV.Control
 import Data.SBV
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
-import Control.Lens
+import Control.Lens hiding (pre)
 import Control.Monad
 import qualified Data.Vector as Vec
-
-import Debug.Trace
 
 import K hiding (storage)
 import Prove
@@ -51,9 +51,12 @@ proveBehaviour sources behaviour = do
   -- make context for trivial invariant
   let ctx = mkVmContext sources' behaviour contractMap
 
---      preC vm = 
-      postC (pre,post) = mkPostCondition behaviour (ctx pre post)
-  query $ verify vm Nothing Nothing (Just postC)
+      postC (pre, post) = mkPostCondition behaviour (ctx pre post)
+  query $ do res <- verify vm Nothing Nothing (Just postC)
+             case res of
+               Right vm -> do showCounterexample vm Nothing
+                              return res
+               _ -> return res
 
 contractsInvolved :: Behaviour -> [Id]
 contractsInvolved beh =
@@ -69,10 +72,12 @@ getContractId (BytesLoc (MappedBytes a _ _)) = a
 
     
 interfaceCalldata :: Interface -> Symbolic Buffer
-interfaceCalldata (Interface methodName vars) =
+interfaceCalldata (Interface methodname vars) =
   let types = fmap (\(Decl typ name) -> typ) vars
-      textsig = pack $ methodName ++ "(" ++ intercalate "," (show <$> types) ++ ")"
-  in return $ SymbolicBuffer [] -- <$> fst <$> symCalldata textsig types []
+      textsig = pack $ methodname ++ "(" ++ intercalate "," (show <$> types) ++ ")"
+      sig' = litBytes $ selector textsig
+  
+  in SymbolicBuffer <$> (sig' <>) <$> concat <$> forM types mkabiArg
 
 initialVm :: SolcJson -> Behaviour -> Map Id Addr -> Symbolic VM
 initialVm sources b@Behaviour{..} contractMap = do
@@ -83,14 +88,13 @@ initialVm sources b@Behaviour{..} contractMap = do
   cd <- interfaceCalldata _interface
   caller' <- SAddr <$> sWord_
   value' <- sw256 <$> sWord_
-  store <- Symbolic <$> newArray_ (if _creation then Just 0 else Nothing)
+  store <- return $ Concrete mempty --this can be removed if we use something else than loadSymVM
   contracts' <- forM (toList contractMap) $
     \(contractId, addr) -> do
-        store <- Symbolic <$> newArray_ Nothing
         let code' = RuntimeCode $ view runtimeCode $
               fromMaybe (error "bytecode not found")
               (lookup (pack contractId) sources)
-            c = contractWithStore code' store
+        c <- contractWithStore code' <$> Symbolic <$> newArray_ Nothing
         return (addr, c)
 
   let vm = loadSymVM
@@ -108,15 +112,17 @@ initialVm sources b@Behaviour{..} contractMap = do
 mkPostCondition :: Behaviour -> (Ctx, Maybe SMType) -> SBool
 mkPostCondition
   (Behaviour name mode creation contract interface preCond postCond updates returns)
-  (ctx@(Ctx c m args store' env), actualReturn) =
-  let storageConstraints = sAnd $ mkConstraint ctx <$> updates
-      preCond' = symExpBool ctx Pre preCond
-      postCond' = symExpBool ctx Pre postCond
-      ret = symExp ctx Pre <$> returns
-  in preCond' .=>
-      (postCond' .&&
-      storageConstraints .&&
-       ret .== actualReturn)
+  (ctx, actualReturn) =
+  if creation then error "todo: constructor"
+  else 
+    let storageConstraints = sAnd $ mkConstraint ctx <$> updates
+        preCond' = symExpBool ctx Pre preCond
+        postCond' = symExpBool ctx Pre postCond
+        ret = symExp ctx Pre <$> returns
+    in preCond' .=>
+       (postCond' .&&
+        storageConstraints .&&
+        ret .== actualReturn)
 --  let preCond = _
 
 --  storageConstraints = mkStorageConstraints ctx (_stateUpdates behv) locs
@@ -124,57 +130,74 @@ mkPostCondition
 mkVmContext :: SolcJson -> Behaviour -> Map Id Addr -> VM -> VM -> (Ctx, Maybe SMType)
 mkVmContext solcjson (Behaviour method _ _ c1 (Interface _ decls) _ _ updates returns) contractMap pre post =
   let args = fromList $ flip fmap decls $
-        \d@(Decl _ id) -> (id, locateCalldata d decls (fst $ view (state . calldata) pre))
-      env = error "TODO: make environment"
+        \d@(Decl _ name) -> (name, locateCalldata d decls (fst $ view (state . calldata) pre))
+      env' = error "TODO: make environment"
       ret = Nothing --error "TODO: make return expression" -- returnexp
       -- add storage entries to the 'store' map as we go along
       ctx = foldl
-       (\ctx@(Ctx c1 method args store env) update' ->
+       (\ctx'@(Ctx c m a s e) update' ->
          let
-           (id, entry) = locateStorage ctx solcjson contractMap method (pre, post) update'
-         in Ctx c1 method args (Map.insert id entry store) env) (Ctx c1 method args mempty env) updates
+           (name, entry) = locateStorage ctx' solcjson contractMap method (pre, post) update'
+         in Ctx c m a (Map.insert name entry s) e) (Ctx c1 method args mempty env') updates
   in (ctx, ret)
 
 locateStorage :: Ctx -> SolcJson -> Map Id Addr -> Method -> (VM,VM) -> Either StorageLocation StorageUpdate -> (Id, (SMType, SMType))
-locateStorage ctx solcjson contractMap method (pre, post) (Right update) = case update of
-  (IntUpdate item@(MappedInt contractId _ _) exp) ->
-    let addr = fromMaybe (error "internal error: could not find contract") (lookup contractId contractMap)
-        
-        Just preContract = view (env . contracts . at addr) pre
-        Just postContract = view (env . contracts . at addr) post
-        
-        Just (S _ preValue) = readStorage (view storage preContract) (calculateSlot ctx solcjson item)
-        Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item)
-    in (nameFromItem method item,  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
-  _ -> error "TODO"
-locateStorage ctx solcjson contractMap method (pre, post) (Left _) = error ""
+locateStorage ctx solcjson contractMap method (pre, post) item =
+  let item' = getLoc item
+      contractId = getContractId $ item'
+      addr = fromMaybe (error "internal error: could not find contract")
+        (lookup contractId contractMap)
+
+      Just preContract = view (env . contracts . at addr) pre
+      Just postContract = view (env . contracts . at addr) post
 
 
-calculateSlot :: Ctx -> SolcJson -> TStorageItem Integer -> SymWord
-calculateSlot ctx solcjson (MappedInt contractId containerId ixs) =
-  let source = fromMaybe (error "internal error: could not find contract") (lookup (pack contractId) solcjson)
-      layout = fromMaybe (error "internal error: no storageLayout") $ _storageLayout source
-      StorageItem typ offset slot = fromMaybe (error "containerId not found in storageLayout") $ lookup (pack containerId) layout
-      indexers :: NonEmpty SMType
-      indexers = symExp ctx Pre <$> ixs
-      start = setMemoryWord' 0 (w256lit (fromIntegral slot)) []
-  in sw256 $ symkeccak' $ foldl (\a b -> toBytes $ symkeccak' (a <> (toSymBytes b))) start indexers
+      Just (S _ preValue) = readStorage (view storage preContract) (calculateSlot ctx solcjson item')
+      Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item')
+
+      name :: StorageLocation -> Id
+      name (IntLoc i) = nameFromItem method i
+      name (BoolLoc i) = nameFromItem method i
+      name (BytesLoc i) = nameFromItem method i
+
+  in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
+
+
+calculateSlot :: Ctx -> SolcJson -> StorageLocation -> SymWord
+calculateSlot ctx solcjson loc =
+  -- TODO: packing
+  let
+    source = fromMaybe (error "internal error: could not find contract") (lookup (pack (getContractId loc)) solcjson)
+    layout = fromMaybe (error "internal error: no storageLayout") $ _storageLayout source
+  in case loc of
+ IntLoc (MappedInt contractId containerId ixs) ->
+  let
+     StorageItem _ offset slot = fromMaybe (error (show containerId ++ " not found in " ++ show contractId)) $ lookup (pack containerId) layout
+     indexers = symExp ctx Pre <$> ixs
+     start = sFromIntegral (literal (fromIntegral slot :: Integer))
+  in sw256 $ foldl (\a b -> keccak' (SymbolicBuffer (toBytes a <> (toSymBytes b)))) start indexers
+
+ IntLoc (DirectInt contractId containerId) ->
+  let
+     StorageItem _ offset slot = fromMaybe (error (show containerId ++ " not found in " ++ show contractId)) $ lookup (pack containerId) layout
+  in sw256 (sFromIntegral (literal ((fromIntegral slot) :: Integer)))
+
 
 toSymBytes :: SMType -> [SWord 8]
 toSymBytes (SymInteger i) = toBytes (sFromIntegral i :: SWord 256)
 toSymBytes (SymBool i) = ite i (toBytes (1 :: SWord 256)) (toBytes (0 :: SWord 256))
-toSymBytes (SymBytes i) = error "unsupported"
+toSymBytes (SymBytes _) = error "unsupported"
 
 locateCalldata :: Decl -> [Decl] -> Buffer -> SMType
-locateCalldata d@(Decl typ id) decls calldata' =
-  if any (\(Decl typ _) -> abiKind typ /= Static) decls
+locateCalldata d@(Decl typ name) decls calldata' =
+  if any (\(Decl typ' _) -> abiKind typ' /= Static) decls
   then error "dynamic calldata args currently unsupported"
   else
     let
       -- every argument is static right now; length is always 32
       offset = w256 $ fromIntegral $ 4 + 32 * (fromMaybe
                                 (error ("internal error: could not find calldata var: " ++
-                                 id ++ " in interface declaration"))
+                                 name ++ " in interface declaration"))
                                 (findIndex (== d) decls))
     in case metaType typ of
       -- all integers are 32 bytes
@@ -183,3 +206,43 @@ locateCalldata d@(Decl typ id) decls calldata' =
       -- interpret all nonzero values as boolean true
       Boolean -> SymBool $ readSWord offset calldata' ./= 0
       _ -> error "TODO: support bytes"
+
+
+-- | Convenience functions for generating symbolic byte strings
+freshbytes32 :: Symbolic [SWord 8]
+freshbytes32 = toBytes <$> free_ @ (WordN 256)
+
+-- | Adapted from SymExec.symAbiArg to fit into the `Symbolic` monad instead of
+-- `Query`.
+mkabiArg :: AbiType -> Symbolic [SWord 8]
+mkabiArg (AbiUIntType n) | n `mod` 8 == 0 && n <= 256 = freshbytes32
+                         | otherwise = error "bad type"
+
+mkabiArg (AbiIntType n)  | n `mod` 8 == 0 && n <= 256 = freshbytes32
+                         | otherwise = error "bad type"
+
+mkabiArg AbiBoolType = freshbytes32
+
+mkabiArg AbiAddressType = freshbytes32
+
+mkabiArg (AbiBytesType n) | n <= 32 = freshbytes32
+                          | otherwise = error "bad type"
+
+-- TODO: is this encoding correct?
+mkabiArg (AbiArrayType leng typ) =
+  do args <- concat <$> mapM mkabiArg (replicate leng typ)
+     return (litBytes (encodeAbiValue (AbiUInt 256 (fromIntegral leng))) <> args)
+
+mkabiArg (AbiTupleType tuple) = concat <$> mapM mkabiArg (Vec.toList tuple)
+
+mkabiArg n =
+  error $ "Unsupported symbolic abiencoding for"
+    <> show n
+    <> ". Please file an issue at https://github.com/dapphub/dapptools if you really need this."
+
+
+keccak' :: Buffer -> SWord 256
+keccak' (SymbolicBuffer bytes) = case maybeLitBytes bytes of
+  Nothing -> symkeccak' bytes
+  Just bs -> keccak' (ConcreteBuffer bs)
+keccak' (ConcreteBuffer bytes) = literal $ toSizzle $ wordValue $ keccakBlob bytes
