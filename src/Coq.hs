@@ -86,45 +86,50 @@ coq store claims =
 reachable :: [[Behaviour]] -> [[Behaviour]] -> T.Text
 reachable constructors groups =
 
-  "Inductive reachable : State -> Prop :=\n| "
-    <> T.intercalate "\n| " (constructorGroup <$> constructors) <> "\n| "
-    <> T.intercalate "\n| " (reachableGroup  <$> groups)
+  "Inductive reachable : State -> State -> Prop :=\n"
+    <> T.intercalate "\n" (constructorGroup <$> constructors) <> "\n"
+    <> T.intercalate "\n" (reachableGroup  <$> groups)
     <> "\n."
 
   where
 
-  constructorGroup cs = T.intercalate "\n| " $
-    evalState (sequence (constructorStep <$> cs)) 0
+  constructorGroup cs = T.intercalate "\n" $
+    ("| " <>) <$> evalState (sequence (baseCase <$> cs)) 0
 
-  reachableGroup claims = T.intercalate "\n| " $
-    evalState (sequence (reachableStep <$> claims)) 0
+  reachableGroup claims = T.intercalate "\n" $
+    ("| " <>) <$> evalState (sequence (reachableStep <$> claims)) 0
 
   reachableStep :: Behaviour -> Fresh T.Text
   reachableStep b = do
     name <- fresh (_name b)
     return $ (T.pack name)
-      <> "_step : forall (s : State) "
+      <> "_step : forall (base s : State) "
       <> interface (_interface b)
-      <> ", reachable s\n  -> "
+      <> ", reachable base s\n  -> "
       <> T.intercalate "\n  -> " (coqprop <$> _preconditions b)
-      <> "\n  -> reachable ("
-      <> T.pack name
-      <> " s " <> arguments (_interface b) <> ")"
+      <> "\n  -> reachable base "
+      <> parens (T.pack name <> " s " <> arguments (_interface b))
 
-  constructorStep :: Behaviour -> Fresh T.Text
-  constructorStep c = do
-    name <- fresh (_name c)
-    return $ (T.pack name)
-      <> "_base : forall (s : State) "
-      <> interface (_interface c) <> ",\n     "
-      <> T.intercalate "\n  -> " (coqprop <$> _preconditions c)
-      <> "\n  -> reachable ("
-      <> T.pack name <> " " <> arguments (_interface c) <> ")"
+  baseCase :: Behaviour -> Fresh T.Text
+  baseCase (Behaviour name _ _ _ i@(Interface _ decls) conds _ _ _) = do
+    name' <- fresh name
+    let baseval = parens $ T.pack name' <> " " <> arguments i
+    return $ (T.pack name')
+      <> "_base : "
+      <> universal 
+      <> T.concat ((<> "\n  -> ") <$> (coqprop <$> conds))
+      <> "reachable " <> baseval <> " " <> baseval
+    where
+    universal =
+      case length decls of
+        0 -> ""
+        _ -> "forall " <> interface i <> ",\n     "
+
 
   arguments (Interface _ decls) =
     T.intercalate " " (map (\(Decl _ name) -> T.pack name) decls)
 
--- -- | definition of a base state
+-- | definition of a base state
 base :: Store -> Behaviour -> Fresh T.Text
 base store (Behaviour name _ _ _ i _ _ updates _) = do
   name' <- fresh name
