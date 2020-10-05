@@ -1,0 +1,30 @@
+behaviour init of Exponent
+interface constructor(uint _b, uint _e)
+
+iff
+
+    _e > 0
+
+creates
+
+    uint b := _b
+    uint e := _e
+    uint r := _b
+
+
+behaviour exp of Exponent
+interface exp()
+
+iff
+
+    e > 1
+
+iff in range uint
+
+    r * b
+    e - 1
+
+storage
+
+    r => r * b
+    e => e - 1
