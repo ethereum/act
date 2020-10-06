@@ -12,11 +12,15 @@ module Prove
   , Method
   , Store
   , getLoc
+  , get
   , mkContext
   , mkConstraint
   , symExpBool
   , symExp
   , nameFromItem
+  , getContractId
+  , contractsInvolved
+  , concatMapM
   ) where
 
 import Control.Monad (when)
@@ -93,7 +97,11 @@ data SMType
   | SymBytes (SBV String)
   deriving (Show)
 
-deriving instance EqSymbolic SMType
+instance EqSymbolic SMType where
+  SymInteger a .== SymInteger b = a .== b
+  SymBool a .== SymBool b = a .== b
+  SymBytes a .== SymBytes b = a .== b
+  _ .== _ = literal False
 
 
 -- *** Query Construction *** --
@@ -345,18 +353,18 @@ nameFromExpInt c m e = case e of
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpInt c m y <> "-else-" <> nameFromExpInt c m z
 
-nameFromExpBool :: Contract -> Method ->Exp Bool -> Id
+nameFromExpBool :: Contract -> Method -> Exp Bool -> Id
 nameFromExpBool c m e = case e of
-  And a b   -> (nameFromExpBool c m a) <> "&&" <> (nameFromExpBool c m b)
-  Or a b    -> (nameFromExpBool c m a) <> "|" <> (nameFromExpBool c m b)
-  Impl a b  -> (nameFromExpBool c m a) <> "=>" <> (nameFromExpBool c m b)
-  Eq a b    -> (nameFromExpInt c m a) <> "==" <> (nameFromExpInt c m b)
-  LE a b    -> (nameFromExpInt c m a) <> "<" <> (nameFromExpInt c m b)
-  LEQ a b   -> (nameFromExpInt c m a) <> "<=" <> (nameFromExpInt c m b)
-  GE a b    -> (nameFromExpInt c m a) <> ">" <> (nameFromExpInt c m b)
-  GEQ a b   -> (nameFromExpInt c m a) <> ">=" <> (nameFromExpInt c m b)
-  NEq a b   -> (nameFromExpInt c m a) <> "=/=" <> (nameFromExpInt c m b)
-  Neg a     -> "~" <> (nameFromExpBool c m a)
+  And a b   -> nameFromExpBool c m a <> "&&" <> nameFromExpBool c m b
+  Or a b    -> nameFromExpBool c m a <> "|" <> nameFromExpBool c m b
+  Impl a b  -> nameFromExpBool c m a <> "=>" <> nameFromExpBool c m b
+  Eq a b    -> nameFromExpInt c m a <> "==" <> nameFromExpInt c m b
+  LE a b    -> nameFromExpInt c m a <> "<" <> nameFromExpInt c m b
+  LEQ a b   -> nameFromExpInt c m a <> "<=" <> nameFromExpInt c m b
+  GE a b    -> nameFromExpInt c m a <> ">" <> nameFromExpInt c m b
+  GEQ a b   -> nameFromExpInt c m a <> ">=" <> nameFromExpInt c m b
+  NEq a b   -> nameFromExpInt c m a <> "=/=" <> nameFromExpInt c m b
+  Neg a     -> "~" <> nameFromExpBool c m a
   LitBool a -> show a
   BoolVar a -> nameFromArg c m a
   TEntry a  -> nameFromItem m a
@@ -364,12 +372,12 @@ nameFromExpBool c m e = case e of
 
 nameFromExpBytes :: Contract -> Method -> Exp ByteString -> Id
 nameFromExpBytes c m e = case e of
-  Cat a b -> (nameFromExpBytes c m a) <> "++" <> (nameFromExpBytes c m b)
+  Cat a b -> nameFromExpBytes c m a <> "++" <> nameFromExpBytes c m b
   ByVar a  -> nameFromArg c m a
   ByStr a -> show a
   ByLit a -> show a
   TEntry a  -> nameFromItem m a
-  Slice a x y -> (nameFromExpBytes c m a) <> "[" <> show x <> ":" <> show y <> "]"
+  Slice a x y -> nameFromExpBytes c m a <> "[" <> show x <> ":" <> show y <> "]"
   ByEnv a -> nameFromEnv c m a
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBytes c m y <> "-else-" <> nameFromExpBytes c m z
 
@@ -443,8 +451,8 @@ locsFromExp e = case e of
 -- *** Utils *** --
 
 
-get :: (Show a) => Id -> Map Id a -> a
-get name vars = fromMaybe (error (name <> " not found in " <> show vars)) $ Map.lookup name vars
+get :: (Show a, Ord a, Show b) => a -> Map a b -> b
+get name vars = fromMaybe (error (show name <> " not found in " <> show vars)) $ Map.lookup name vars
 
 catInts :: Map Id SMType -> Map Id (SBV Integer)
 catInts m = Map.fromList [(name, i) | (name, SymInteger i) <- Map.toList m]
@@ -454,3 +462,19 @@ catBools m = Map.fromList [(name, i) | (name, SymBool i) <- Map.toList m]
 
 catBytes :: Map Id SMType -> Map Id (SBV String)
 catBytes m = Map.fromList [(name, i) | (name, SymBytes i) <- Map.toList m]
+
+contractsInvolved :: Behaviour -> [Id]
+contractsInvolved beh =
+  getContractId . getLoc <$> _stateUpdates beh
+
+getContractId :: StorageLocation -> Id
+getContractId (IntLoc (DirectInt a _)) = a
+getContractId (BoolLoc (DirectBool a _)) = a
+getContractId (BytesLoc (DirectBytes a _)) = a
+getContractId (IntLoc (MappedInt a _ _)) = a
+getContractId (BoolLoc (MappedBool a _ _)) = a
+getContractId (BytesLoc (MappedBytes a _ _)) = a
+
+concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
+concatMapM op' = foldr f (pure [])
+    where f x xs = do x' <- op' x; if null x' then xs else do xs' <- xs; pure $ x'++xs'
