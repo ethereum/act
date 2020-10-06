@@ -18,7 +18,10 @@ module Prove
   , symExpBool
   , symExp
   , nameFromItem
+  , nameFromEnv
   , getContractId
+  , getContainerId
+  , getContainerIxs
   , contractsInvolved
   , concatMapM
   ) where
@@ -467,6 +470,7 @@ contractsInvolved :: Behaviour -> [Id]
 contractsInvolved beh =
   getContractId . getLoc <$> _stateUpdates beh
 
+-- TODO: write these with fancy patterns or generics?
 getContractId :: StorageLocation -> Id
 getContractId (IntLoc (DirectInt a _)) = a
 getContractId (BoolLoc (DirectBool a _)) = a
@@ -474,6 +478,22 @@ getContractId (BytesLoc (DirectBytes a _)) = a
 getContractId (IntLoc (MappedInt a _ _)) = a
 getContractId (BoolLoc (MappedBool a _ _)) = a
 getContractId (BytesLoc (MappedBytes a _ _)) = a
+
+getContainerId :: StorageLocation -> Id
+getContainerId (IntLoc (DirectInt _ a)) = a
+getContainerId (BoolLoc (DirectBool _ a)) = a
+getContainerId (BytesLoc (DirectBytes _ a)) = a
+getContainerId (IntLoc (MappedInt _ a _)) = a
+getContainerId (BoolLoc (MappedBool _ a _)) = a
+getContainerId (BytesLoc (MappedBytes _ a _)) = a
+
+getContainerIxs :: StorageLocation -> [ReturnExp]
+getContainerIxs (IntLoc (DirectInt _ _)) = []
+getContainerIxs (BoolLoc (DirectBool _ _)) = []
+getContainerIxs (BytesLoc (DirectBytes _ _)) = []
+getContainerIxs (IntLoc (MappedInt _ _ ixs)) = NonEmpty.toList ixs
+getContainerIxs (BoolLoc (MappedBool _ _ ixs)) = NonEmpty.toList ixs
+getContainerIxs (BytesLoc (MappedBytes _ _ ixs)) = NonEmpty.toList ixs
 
 concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
 concatMapM op' = foldr f (pure [])
