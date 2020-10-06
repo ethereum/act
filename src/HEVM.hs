@@ -14,6 +14,7 @@ import Data.Text (Text, pack, splitOn) -- hiding (length, drop, splitOn, null, b
 import Data.Maybe
 import Data.List hiding (lookup)
 import Data.Map hiding (drop, null, findIndex, splitAt, foldl)
+import qualified Data.ByteString as BS
 import qualified Data.Map as Map
 import Control.Monad.State.Strict (execState)
 import Data.SBV.Control
@@ -132,7 +133,17 @@ mkVmContext solcjson (Behaviour method _ _ c1 (Interface _ decls) _ _ updates re
   let args = fromList $ flip fmap decls $
         \d@(Decl _ name) -> (name, locateCalldata d decls (fst $ view (state . calldata) pre))
       env' = error "TODO: make environment"
-      ret = Nothing --error "TODO: make return expression" -- returnexp
+      construct = case returns of
+        Just (ExpInt i) -> SymInteger
+        Just (ExpBool b) -> SymBool
+        Just (ExpBytes b) -> SymBytes
+      ret = case view result post of
+        Just (EVM.VMSuccess (ConcreteBuffer msg)) ->
+          if BS.null msg
+          then Nothing
+          else Just (construct (fromIntegral (wordAt 0 msg)))
+        Just _ -> _
+        Nothing -> error "vm did not finish" --error "TODO: make return expression" -- returnexp
       -- add storage entries to the 'store' map as we go along
       ctx = foldl
        (\ctx'@(Ctx c m a s e) update' ->
