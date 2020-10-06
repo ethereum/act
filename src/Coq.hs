@@ -358,9 +358,6 @@ implication xs = "   " <> T.intercalate "\n-> " xs
 parens :: T.Text -> T.Text
 parens s = "(" <> s <> ")"
 
-mod256 :: T.Text -> T.Text
-mod256 e = parens $ e <> " mod (MOD 256)"
-
 indent :: Int -> T.Text -> T.Text
 indent n text = T.unlines $ ((T.replicate n " ") <>) <$> (T.lines text)
 
