@@ -51,15 +51,11 @@ coq store claims =
 
   where
 
-  behaviours = [a | B a <- claims]
+  behaviours = filter ((== Pass) . _mode) [a | B a <- claims]
 
-  transitions = filter f behaviours where
-    f (Behaviour _ Pass False _ _ _ _ _ _) = True
-    f _ = False
+  transitions = filter (not . _creation) behaviours
 
-  constructors = filter f behaviours where
-    f (Behaviour _ Pass True  _ _ _ _ _ _) = True
-    f _ = False
+  constructors = filter _creation behaviours
 
   groups = groupBy (\b b' -> _name b == _name b')
 
