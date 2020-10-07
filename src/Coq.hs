@@ -44,7 +44,7 @@ coq :: Store -> [Claim] -> T.Text
 coq store claims =
 
   header
-  <> layout store <> "\n\n"
+  <> stateRecord <> "\n\n"
   <> block (evalSeq (claim store) <$> groups transitions)
   <> block (evalSeq retVal        <$> groups transitions)
   <> block (evalSeq (base store)  <$> groups constructors)
@@ -62,9 +62,9 @@ coq store claims =
 
   block xs = T.intercalate "\n\n" (concat xs) <> "\n\n"
 
-  layout store' = T.unlines $
+  stateRecord = T.unlines $
     [ "Record " <> stateType <> " : Set := " <> stateConstructor
-    , "{ " <> T.intercalate ("\n" <> "; ") (map decl (M.toList store'))
+    , "{ " <> T.intercalate ("\n" <> "; ") (map decl (M.toList store))
     , "}."
     ] where
     decl (n, s) = (T.pack n) <> " : " <> slotType s
@@ -73,49 +73,47 @@ coq store claims =
 -- | inductive definition of reachable states
 reachable :: [[Behaviour]] -> [[Behaviour]] -> T.Text
 reachable constructors groups = inductive
-
-  reachableType "" (stateType <> " -> " <> stateType <> " -> Prop") body
-
-  where
-
+  reachableType "" (stateType <> " -> " <> stateType <> " -> Prop") body where
   body = concat $
     (evalSeq baseCase <$> constructors)
     <>
     (evalSeq reachableStep <$> groups)
 
-  reachableStep :: Behaviour -> Fresh T.Text
-  reachableStep (Behaviour name _ _ _ i conds _ _ _) =
-    fresh name >>= continuation where
-    continuation name' =
-      return $ name'
-        <> stepSuffix <> " : forall "
-        <> parens (baseVar <> " " <> stateVar <> " : " <> stateType)
-        <> interface i <> ",\n"
-        <> constructorBody where
-      constructorBody = (indent 2) . implication . concat $
-        [ [reachableType <> " " <> baseVar <> " " <> stateVar]
-        , coqprop <$> conds
-        , [ reachableType <> " " <> baseVar <> " "
-            <> parens (name' <> " " <> stateVar <> " " <> arguments i)
-          ]
-        ]
+-- | non-recursive constructor for the reachable relation
+baseCase :: Behaviour -> Fresh T.Text
+baseCase (Behaviour name _ _ _ i@(Interface _ decls) conds _ _ _) =
+  fresh name >>= continuation where
+  continuation name' =
+    return $ name'
+      <> baseSuffix <> " : "
+      <> universal <> "\n"
+      <> constructorBody where
+    baseval = parens $ name' <> " " <> arguments i
+    constructorBody = (indent 2) . implication . concat $
+      [ coqprop <$> conds
+      , [reachableType <> " " <> baseval <> " " <> baseval]
+      ]
+    universal = if null decls
+      then ""
+      else "forall " <> interface i <> ","
 
-  baseCase :: Behaviour -> Fresh T.Text
-  baseCase (Behaviour name _ _ _ i@(Interface _ decls) conds _ _ _) =
-    fresh name >>= continuation where
-    continuation name' =
-      return $ name'
-        <> baseSuffix <> " : "
-        <> universal <> "\n"
-        <> constructorBody where
-      baseval = parens $ name' <> " " <> arguments i
-      constructorBody = (indent 2) . implication . concat $
-        [ coqprop <$> conds
-        , [reachableType <> " " <> baseval <> " " <> baseval]
+-- | recursive constructor for the reachable relation
+reachableStep :: Behaviour -> Fresh T.Text
+reachableStep (Behaviour name _ _ _ i conds _ _ _) =
+  fresh name >>= continuation where
+  continuation name' =
+    return $ name'
+      <> stepSuffix <> " : forall "
+      <> parens (baseVar <> " " <> stateVar <> " : " <> stateType)
+      <> interface i <> ",\n"
+      <> constructorBody where
+    constructorBody = (indent 2) . implication . concat $
+      [ [reachableType <> " " <> baseVar <> " " <> stateVar]
+      , coqprop <$> conds
+      , [ reachableType <> " " <> baseVar <> " "
+          <> parens (name' <> " " <> stateVar <> " " <> arguments i)
         ]
-      universal = if null decls
-        then ""
-        else "forall " <> interface i <> ","
+      ]
 
 -- | definition of a base state
 base :: Store -> Behaviour -> Fresh T.Text
@@ -165,7 +163,7 @@ stateval store handler updates =
 
   valuefor :: [StorageUpdate] -> (Id, SlotType) -> T.Text
   valuefor updates' (name, t) =
-    case find (f name) updates' of
+    case find (eqName name) updates' of
       Nothing -> parens $ handler name t
       Just (IntUpdate (DirectInt _ _) e) -> parens $ coqexp e
       Just (IntUpdate (MappedInt _ name' args) e) -> lambda (NE.toList args) 0 e name'
@@ -173,28 +171,28 @@ stateval store handler updates =
       Just (BoolUpdate (MappedBool _ name' args) e) -> lambda (NE.toList args) 0 e name'
       Just (BytesUpdate _ _) -> error "bytestrings not supported"
 
-  -- filter by name
-  f n (IntUpdate (DirectInt _ n') _)
-    | n == n' = True
-  f n (IntUpdate (MappedInt _ n' _) _)
-    | n == n' = True
-  f n (BoolUpdate (DirectBool _ n') _)
-    | n == n' = True
-  f n (BoolUpdate (MappedBool _ n' _) _)
-    | n == n' = True
-  f _ _ = False
+-- | filter by name
+eqName :: Id -> StorageUpdate -> Bool
+eqName n (IntUpdate (DirectInt _ n') _)
+  | n == n' = True
+eqName n (IntUpdate (MappedInt _ n' _) _)
+  | n == n' = True
+eqName n (BoolUpdate (DirectBool _ n') _)
+  | n == n' = True
+eqName n (BoolUpdate (MappedBool _ n' _) _)
+  | n == n' = True
+eqName _ _ = False
 
-  -- represent mapping update with anonymous function
-  lambda :: [ReturnExp] -> Int -> Exp a -> Id -> T.Text
-  lambda [] _ e _ = parens $ coqexp e
-  lambda (x:xs) n e m = let name = anon <> T.pack (show n) in parens $ "fun "
-    <> name
-    <> " => if "
-    <> name <> eqsym x <> retexp x <> " then " <> lambda xs (n + 1) e m <> " else "
-    <> T.pack m <> " " <> stateVar <> " " <> lambdaArgs n
-
-  lambdaArgs n = T.intercalate " " $ map (\x -> anon <> T.pack (show x)) [0..n]
-
+-- represent mapping update with anonymous function
+lambda :: [ReturnExp] -> Int -> Exp a -> Id -> T.Text
+lambda [] _ e _ = parens $ coqexp e
+lambda (x:xs) n e m = parens $
+  "fun " <> name <> " =>"
+  <> " if " <> name <> eqsym x <> retexp x
+  <> " then " <> lambda xs (n + 1) e m
+  <> " else " <> T.pack m <> " " <> stateVar <> " " <> lambdaArgs n where
+  name = anon <> T.pack (show n)
+  lambdaArgs i = T.intercalate " " $ map (\a -> anon <> T.pack (show a)) [0..i]
   eqsym (ExpInt _) = " =? "
   eqsym (ExpBool _) = " =?? "
   eqsym (ExpBytes _) = error "bytestrings not supported"
