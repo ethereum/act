@@ -230,22 +230,19 @@ returnType (ExpBytes _) = "bytestrings not supported"
 -- | default value for a given type
 -- this is used in cases where a value is not set in the constructor
 defaultValue :: SlotType -> T.Text
-defaultValue t =
+defaultValue (StorageMapping xs t) =
+  "fun "
+  <> T.intercalate " " (replicate (length (NE.toList xs)) "_")
+  <> " => "
+  <> abiVal t
+defaultValue (StorageValue t) = abiVal t
 
-  case t of
-    (StorageMapping xs t') -> "fun "
-      <> T.intercalate " " (replicate (length (NE.toList xs)) "_")
-      <> " => "
-      <> abiVal t'
-    (StorageValue t') -> abiVal t'
-
-  where
-
-  abiVal (AbiUIntType _) = "0"
-  abiVal (AbiIntType _) = "0"
-  abiVal AbiAddressType = "0"
-  abiVal AbiStringType = strMod <> ".EmptyString"
-  abiVal _ = error "TODO: missing default values"
+abiVal :: AbiType -> T.Text
+abiVal (AbiUIntType _) = "0"
+abiVal (AbiIntType _) = "0"
+abiVal AbiAddressType = "0"
+abiVal AbiStringType = strMod <> ".EmptyString"
+abiVal _ = error "TODO: missing default values"
 
 -- | coq syntax for an expression
 coqexp :: Exp a -> T.Text
