@@ -93,7 +93,7 @@ mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preConds postCond stateUpda
   let
     mkBool = symExpBool ctx
     postInv' = mkBool Post e
-    preConds' = mkBool Pre (foldr (\a b -> And a b) (LitBool True) preConds)
+    preConds' = mkBool Pre (mconcat preConds)
     postCond' = mkBool Pre postCond
     stateUpdates' = mkStorageConstraints ctx stateUpdates (references inv behv)
 
@@ -112,7 +112,7 @@ mkMethod inv@(Invariant _ e) (Storages rawStorage) initBehv behv = do
     preInv = symExpBool invCtx Pre e
     postInv = symExpBool invCtx Post e
     preConds = symExpBool ctx Pre $
-      foldr (\a b -> And a b) (LitBool True) (_preconditions behv)
+      mconcat (_preconditions behv)
     postCond = symExpBool ctx Pre (_postconditions behv)
     stateUpdates = mkStorageConstraints ctx (_stateUpdates behv) locs
     storageBounds = symExpBool ctx Pre $ mconcat <$> mkStorageBounds rawStorage $ Left <$> locs
@@ -456,4 +456,3 @@ catBytes m = Map.fromList $ go $ Map.toList m
     go ((name, SymBytes b):tl) = (name, b):(go tl)
     go (_:tl) = go tl
     go [] = []
-
