@@ -112,9 +112,9 @@ reachable constructors groups = inductive
         [ coqprop <$> conds
         , [reachableType <> " " <> baseval <> " " <> baseval]
         ]
-      universal = case length decls of
-        0 -> ""
-        _ -> "forall " <> interface i <> ","
+      universal = if null decls
+        then ""
+        else "forall " <> interface i <> ","
 
 -- | definition of a base state
 base :: Store -> Behaviour -> Fresh T.Text
