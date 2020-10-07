@@ -2,17 +2,17 @@ contract StateMachine {
     uint x;
   
     function f() public {      
-        if (x == 0)
-            x = 1;             
+        require(x == 0);
+        x = 1;             
     }
 
     function g() public {
-        if (x == 1)
-            x = 2;
+        require(x == 1);
+        x = 2;
     }
 
     function h() public {
-        if (x == 2)
-            x = 0;
+        require(x == 2);
+        x = 0;
     }
 }
