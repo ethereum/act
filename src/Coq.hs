@@ -25,6 +25,7 @@ import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import Syntax
 import RefinedAst
+import qualified Type
 
 type Store = M.Map Id SlotType
 type Fresh = State Int
@@ -40,17 +41,21 @@ header = T.unlines $
   ]
 
 -- | produce a coq representation of a specification
-coq :: Store -> [Claim] -> T.Text
+coq :: Type.Store -> [Claim] -> T.Text
 coq store claims =
 
   header
   <> stateRecord <> "\n\n"
-  <> block (evalSeq (claim store) <$> groups transitions)
+  <> block (evalSeq (claim store') <$> groups transitions)
   <> block (evalSeq retVal        <$> groups transitions)
-  <> block (evalSeq (base store)  <$> groups constructors)
+  <> block (evalSeq (base store')  <$> groups constructors)
   <> reachable (groups constructors) (groups transitions)
 
   where
+
+  store' = if null store
+    then M.empty
+    else snd $ head $ M.toList store
 
   behaviours = filter ((== Pass) . _mode) [a | B a <- claims]
 
@@ -64,7 +69,7 @@ coq store claims =
 
   stateRecord = T.unlines $
     [ "Record " <> stateType <> " : Set := " <> stateConstructor
-    , "{ " <> T.intercalate ("\n" <> "; ") (map decl (M.toList store))
+    , "{ " <> T.intercalate ("\n" <> "; ") (map decl (M.toList store'))
     , "}."
     ] where
     decl (n, s) = (T.pack n) <> " : " <> slotType s

@@ -119,15 +119,9 @@ main = do
 
       (Coq f) -> do
         contents <- readFile f
-        case parse (lexer contents) of
-          Ok a -> case typecheck a of
-            Ok claims -> TIO.putStr $ coq store claims where
-              -- temporary: ignore external storage
-              store = case length (lookupVars a) of
-                0 -> Map.empty
-                _ -> snd $ head $ Map.toList $ lookupVars a
-            Bad e -> prettyErr contents e
-          Bad e -> prettyErr contents e
+        proceed "" (parse (lexer contents)) $ \untyped ->
+          proceed "" (typecheck untyped) $ \typed ->
+            TIO.putStr $ coq (lookupVars untyped) typed
 
       (K spec soljson gas storage extractbin out) -> do
         specContents <- readFile spec
