@@ -27,6 +27,7 @@ let
       cabal-install
       pkgs.jq
       pkgs.coq_8_10
+      dapptools.solc
     ];
     withHoogle = true;
     shellHook = ''

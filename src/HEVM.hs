@@ -55,7 +55,7 @@ proveBehaviour sources behaviour = do
      -- create new addresses for each contract involved
      -- in the future addresses could be passed through the cli
      contractMap = fromList $ zipWith
-       (\id' i -> (id', createAddress (Addr 0) i)) (contractsInvolved behaviour) [0..]
+       (\id' i -> (id', createAddress (Addr 0) i)) (nub $ (RefinedAst._contract behaviour):(contractsInvolved behaviour)) [0..]
 
      ctx = mkVmContext sources' behaviour contractMap
 
@@ -126,7 +126,7 @@ mkPostCondition
 -- | Locate the variables refered to in the act-spec in the vm
 mkVmContext :: SolcJson -> Behaviour -> Map Id Addr -> VM -> VM -> (Ctx, VMResult)
 mkVmContext solcjson b@(Behaviour method _ _ c1 (Interface _ decls) _ _ updates _) contractMap pre post =
-  let args = fromList $ locateCalldata decls (fst $ view (state . calldata) pre) <$> decls
+  let args = fromList $ locateCalldata b decls (fst $ view (state . calldata) pre) <$> decls
       env' = makeVmEnv b pre
       -- we should always have a result after executing the vm fully.
       Just res = view result post
@@ -151,12 +151,13 @@ makeVmEnv (Behaviour method _ _ c1 _ _ _ _ _) vm =
     , Origin    |- SymInteger (num $ addressWord160 (view (tx . origin) vm))
     , Difficulty |- SymInteger (num $ (view (block . difficulty) vm))
     , Chainid |- SymInteger (num $ (view (env . chainId) vm))
-    , Timestamp |- SymInteger (num $ (view (block . timestamp) vm))
-    , Address |- SymInteger (num $ addressWord160 (view (state . contract) vm))
+    , Timestamp |- let S _ w = view (block . timestamp) vm
+                   in SymInteger (sFromIntegral w)
+    , This |- SymInteger (num $ addressWord160 (view (state . contract) vm))
     , Nonce |- SymInteger (num $ view (env . contracts . at (view (state . contract) vm)
                                        . non (initialContract (RuntimeCode mempty)) . nonce) vm)
       -- and this one does not even give a reasonable result
-    , Blockhash |- error "blockhash not available in hevm right now"
+--    , Blockhash |- error "blockhash not available in hevm right now"
     ]
   where
     (|-) a b = (nameFromEnv c1 method a, b)
@@ -199,11 +200,11 @@ calculateSlot ctx solcjson loc =
      else foldl (\a b -> keccak' (SymbolicBuffer (toBytes a <> (toSymBytes b)))) slotword indexers
 
 
-locateCalldata :: [Decl] -> Buffer -> Decl -> (Id, SMType)
-locateCalldata decls calldata' d@(Decl typ name) =
+locateCalldata :: Behaviour -> [Decl] -> Buffer -> Decl -> (Id, SMType)
+locateCalldata b decls calldata' d@(Decl typ name) =
   if any (\(Decl typ' _) -> abiKind typ' /= Static) decls
   then error "dynamic calldata args currently unsupported"
-  else (name, val)
+  else (nameFromDecl (RefinedAst._contract b) (_name b) d, val)
 
   where
     -- every argument is static right now; length is always 32
