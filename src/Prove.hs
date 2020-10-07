@@ -19,6 +19,7 @@ module Prove
   , symExp
   , nameFromItem
   , nameFromEnv
+  , nameFromDecl
   , getContractId
   , getContainerId
   , getContainerIxs
