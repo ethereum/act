@@ -30,9 +30,17 @@ invariant_fail=$(wildcard tests/invariants/fail/*.act)
 
 failing_typing=tests/array/array.act tests/dss/vat.act tests/creation/createMultiple.act
 
+coq-examples = examples/transitions examples/safemath examples/exponent
+
+.PHONY: test-coq $(coq-examples)
+test-coq: compiler $(coq-examples)
+$(coq-examples):
+	make -C $@
+
 test-parse: parser compiler $(parser_specs:=.parse)
 test-type: parser compiler $(typing_specs:=.type)
 test-invariant: parser compiler $(invariant_pass:=.invariant.pass) $(invariant_fail:=.invariant.fail)
+
 
 # Just checks parsing
 tests/%.parse:
@@ -51,4 +59,4 @@ tests/%.invariant.pass:
 tests/%.invariant.fail:
 	./bin/act prove --file tests/$* && exit 1 || echo 0
 
-test: test-parse test-type test-invariant
+test: test-parse test-type test-invariant test-coq

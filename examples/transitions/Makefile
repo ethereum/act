@@ -1,4 +1,5 @@
-StateMachine.vo Theory.vo: CoqMakefile StateMachine.v Theory.v
+.PHONY: verify
+verify: CoqMakefile StateMachine.v
 	make -f CoqMakefile
 
 StateMachine.v: state_machine.act
