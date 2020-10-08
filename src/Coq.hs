@@ -319,8 +319,8 @@ coqprop (Eq e1 e2)   = parens $ coqexp e1 <> " = "  <> coqexp e2
 coqprop (NEq e1 e2)  = parens $ coqexp e1 <> " <> " <> coqexp e2
 coqprop (LE e1 e2)   = parens $ coqexp e1 <> " < "  <> coqexp e2
 coqprop (LEQ e1 e2)  = parens $ coqexp e1 <> " <= " <> coqexp e2
-coqprop (GE e1 e2)   = parens $ coqexp e2 <> " > "  <> coqexp e1
-coqprop (GEQ e1 e2)  = parens $ coqexp e2 <> " >= " <> coqexp e1
+coqprop (GE e1 e2)   = parens $ coqexp e1 <> " > "  <> coqexp e2
+coqprop (GEQ e1 e2)  = parens $ coqexp e1 <> " >= " <> coqexp e2
 coqprop _ = error "ill formed proposition"
 
 -- | coq syntax for a return expression
