@@ -1,0 +1,38 @@
+behaviour init of Homogeneous
+interface constructor() of Homogeneous
+
+creates Homogeneous
+
+   uint256 x := 3
+   uint256 y := 5
+   uint256 z := 15
+
+behaviour f of Homogeneous
+interface f(uint256 scalar)
+
+iff in range uint256
+
+  x * scalar
+  z * scalar
+
+storage
+
+  x => x * scalar
+  z => z * scalar
+
+behaviour g of Homogeneous
+interface g(uint256 scalar)
+
+iff in range uint256
+
+  y * scalar
+  z * scalar
+
+storage
+
+  y => y * scalar
+  z => z * scalar
+
+invariant of Homogeneous
+
+   x * y == zo
