@@ -42,4 +42,4 @@ Proof.
   rewrite He in H. simpl in H.
   rewrite (Z.mul_1_r (r s)) in H.
   assumption.
-Qed.
+Qed. Check exp_correct.

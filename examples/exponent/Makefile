@@ -1,4 +1,5 @@
-Exponent.vo Theory.vo: CoqMakefile Exponent.v Theory.v
+.PHONY: verify
+verify: CoqMakefile Exponent.v
 	make -f CoqMakefile
 
 Exponent.v: exponent.act

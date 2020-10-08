@@ -1,4 +1,5 @@
-SafeMath.vo Theory.vo: CoqMakefile SafeMath.v Theory.v
+.PHONY: verify
+verify: CoqMakefile SafeMath.v
 	make -f CoqMakefile
 
 SafeMath.v: safemath.act
