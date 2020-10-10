@@ -139,10 +139,10 @@ mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract st
 splitCase :: Id -> Bool -> Id -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
           -> [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [Claim]
 splitCase name creates contract iface if' [] ret storage postcs =
-  [ B $ Behaviour name Pass creates contract iface (nub if') (nub postcs) storage ret ]
+  [ B $ Behaviour name Pass creates contract iface if' postcs storage ret ]
 splitCase name creates contract iface if' iffs ret storage postcs =
-  [ B $ Behaviour name Pass creates contract iface (nub $ if' <> iffs) postcs storage ret,
-    B $ Behaviour name Fail creates contract iface (nub $ if' <> (Neg <$> (nub iffs))) [] storage Nothing ]
+  [ B $ Behaviour name Pass creates contract iface (if' <> iffs) postcs storage ret,
+    B $ Behaviour name Fail creates contract iface (if' <> (Neg <$> (iffs))) [] storage Nothing ]
 
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
