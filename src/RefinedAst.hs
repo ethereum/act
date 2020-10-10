@@ -212,10 +212,10 @@ instance ToJSON (Exp Integer) where
   toJSON (NewAddr a b) = symbol "newAddr" a b
   toJSON (IntVar a) = String $ pack a
   toJSON (LitInt a) = toJSON $ show a
-  toJSON (IntMin a) = toJSON $ intmin a
-  toJSON (IntMax a) = toJSON $ intmax a
-  toJSON (UIntMin a) = toJSON $ uintmin a
-  toJSON (UIntMax a) = toJSON $ uintmax a
+  toJSON (IntMin a) = toJSON $ show $ intmin a
+  toJSON (IntMax a) = toJSON $ show $ intmax a
+  toJSON (UIntMin a) = toJSON $ show $ uintmin a
+  toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
   toJSON (TEntry a) = toJSON a
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
