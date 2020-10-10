@@ -106,7 +106,7 @@ mkDecls (Names ints bools bytes) = mapM mkDecl names
 genType :: MType -> Gen AbiType
 genType typ = case typ of
   Integer -> oneof [ AbiUIntType <$> validIntSize
-                   --, AbiIntType <$> validIntSize -- TODO: needs negative integer literals
+                   , AbiIntType <$> validIntSize
                    , return AbiAddressType ]
   Boolean -> return AbiBoolType
   ByteStr -> oneof [ AbiBytesType <$> validBytesSize
