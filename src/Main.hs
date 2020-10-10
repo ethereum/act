@@ -82,13 +82,13 @@ main = do
                         Ok x -> print x
 
       (Type f) -> do contents <- readFile f
-                     case parse (lexer contents) >>= typecheck of
+                     case compile contents of
                        Ok a  -> B.putStrLn $ encode a
                        Bad e -> prettyErr contents e
 
       (Prove file' solver' smttimeout' debug') -> do
         contents <- readFile file'
-        proceed contents (parse (lexer contents) >>= typecheck) $ \claims -> do
+        proceed contents (compile contents) $ \claims -> do
             let
                 handleResults ((Invariant c e), rs) = do
                   let msg = "\n============\n\nInvariant " <> show e <> " of " <> show c <> ": "
@@ -119,14 +119,14 @@ main = do
       (Coq f) -> do
         contents <- readFile f
         proceed "" (parse (lexer contents)) $ \untyped ->
-          proceed "" (typecheck untyped) $ \typed ->
+          proceed "" (enrich <$> (typecheck untyped)) $ \typed ->
             TIO.putStr $ coq (lookupVars untyped) typed
 
       (K spec' soljson' gas' storage' extractbin' out') -> do
         specContents <- readFile spec'
         solContents  <- readFile soljson'
         let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
-            errKSpecs = do refinedSpecs  <- parse (lexer specContents) >>= typecheck
+            errKSpecs = do refinedSpecs <- compile specContents
                            (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
                              $ Solidity.readJSON $ pack solContents
                            forM (catBehvs refinedSpecs)
@@ -155,6 +155,9 @@ satWithTimeOut solver' maybeTimeout debug' sym = case solver' of
 proceed :: String -> Err a -> (a -> IO ()) -> IO ()
 proceed contents (Bad e) _ = prettyErr contents e
 proceed _ (Ok a) continue = continue a
+
+compile :: String -> Err [Claim]
+compile contents = enrich <$> ((parse (lexer contents)) >>= typecheck)
 
 prettyErr :: String -> (Pn, String) -> IO ()
 prettyErr contents pn@(AlexPn _ line col,msg) =
