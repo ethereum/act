@@ -42,7 +42,7 @@ main = defaultMain $ testGroup "act"
        fail spec is also checked.
     -}
     [ testProperty "single roundtrip" $ do
-        behv@(Behaviour name _ creation contract iface preconds _ _ _) <- sized $ genBehv Concrete
+        behv@(Behaviour name _ creation contract iface preconds _ _ _) <- sized genBehv
         let actual = parse (lexer $ prettyBehaviour behv) >>= typecheck
             expected = if null preconds then
                 [ S $ Storages Map.empty, B behv ]
@@ -52,26 +52,6 @@ main = defaultMain $ testGroup "act"
         return $ case actual of
           Ok a -> a == expected
           Bad _ -> False
-
-    {-
-       Generates a symbolic behaviour, prints it, runs it through the frontend,
-       prints the result again, and runs that output through the frontend.
-       Finally asserts that the output from the first and second type checking passes are identical.
-
-       Typechecking inserts various extra precondtions for behaviours containing symbolic variables,
-       so we can't use the simple single roundtrip approach as above.
-    -}
-    , testProperty "double roundtrip" $ do
-        behv <- sized $ genBehv Symbolic
-        let
-          first = parse (lexer $ prettyBehaviour behv) >>= typecheck
-          firstPassingBehv claims = head $ filter (\b -> _mode b == Pass) $ catBehvs claims
-          second = case first of
-            Ok f -> parse (lexer (prettyBehaviour $ firstPassingBehv f)) >>= typecheck
-            Bad e -> error (show e)
-        return $ case (first, second) of
-            (Ok f, Ok s) -> f == s
-            _ -> False
     ]
   ]
 
@@ -93,17 +73,16 @@ data Names = Names { _ints :: [String]
 
    Storage conditions are currently not generated.
 -}
-genBehv :: Mode -> Int -> Gen Behaviour
-genBehv mode n = do
+genBehv :: Int -> Gen Behaviour
+genBehv n = do
   name <- ident
   contract <- ident
   ifname <- ident
-  abiNames <- if mode == Concrete then pure $ Names [] [] [] else genNames
-  preconditions <- listOf $ genExpBool abiNames mode n
-  returns <- Just <$> genReturnExp abiNames mode n
-  postconditions <- listOf $ genExpBool abiNames mode n
-  decls <- mkDecls abiNames
-  let iface = if mode == Concrete then Interface ifname [] else Interface ifname decls
+  abiNames <- genNames
+  preconditions <- listOf $ genExpBool abiNames n
+  returns <- Just <$> genReturnExp abiNames n
+  postconditions <- listOf $ genExpBool abiNames n
+  iface <- Interface ifname <$> mkDecls abiNames
   return Behaviour { _name = name
                    , _mode = Pass
                    , _creation = False
@@ -138,33 +117,29 @@ genType typ = case typ of
     validBytesSize = elements [1..32]
 
 
-genReturnExp :: Names -> Mode -> Int -> Gen ReturnExp
-genReturnExp names mode n = oneof $
-  [ ExpInt <$> genExpInt names mode n
-  , ExpBool <$> genExpBool names mode n
-  ] ++ case mode of
-         Concrete -> []
-         Symbolic -> [ExpBytes <$> genExpBytes names mode n]
+genReturnExp :: Names -> Int -> Gen ReturnExp
+genReturnExp names n = oneof
+  [ ExpInt <$> genExpInt names n
+  , ExpBool <$> genExpBool names n
+  , ExpBytes <$> genExpBytes names n
+  ]
 
 
--- TODO: literals, cat slice, ITE, storage
-genExpBytes :: Names -> Mode -> Int -> Gen (Exp ByteString)
-genExpBytes _ Concrete _ = error "concrete bytes unsupported"
-genExpBytes names Symbolic _ = oneof
-  [ ByStr <$> (selectName ByteStr names)
-  , ByVar <$> (selectName ByteStr names)
+-- TODO: literals, cat slice, ITE, storage, ByStr
+genExpBytes :: Names -> Int -> Gen (Exp ByteString)
+genExpBytes names _ = oneof
+  [ ByVar <$> (selectName ByteStr names)
   , return $ ByEnv Blockhash
   ]
 
 
 -- TODO: ITE, storage
-genExpBool :: Names -> Mode -> Int -> Gen (Exp Bool)
-genExpBool _ Concrete 0 = LitBool <$> arbitrary
-genExpBool names Symbolic 0 = oneof
-  [ genExpBool names Concrete 0
-  , BoolVar <$> (selectName Boolean names)
+genExpBool :: Names -> Int -> Gen (Exp Bool)
+genExpBool names 0 = oneof
+  [ BoolVar <$> (selectName Boolean names)
+  , LitBool <$> arbitrary
   ]
-genExpBool names mode n = oneof
+genExpBool names n = oneof
   [ liftM2 And subExpBool subExpBool
   , liftM2 Or subExpBool subExpBool
   , liftM2 Impl subExpBool subExpBool
@@ -176,17 +151,29 @@ genExpBool names mode n = oneof
   , liftM2 GE subExpInt subExpInt
   , Neg <$> subExpBool
   ]
-  where subExpBool = genExpBool names mode (n `div` 2)
-        subExpInt = genExpInt names mode (n `div` 2)
+  where subExpBool = genExpBool names (n `div` 2)
+        subExpInt = genExpInt names (n `div` 2)
 
--- TODO: storage, negative literals, IntEnv
-genExpInt :: Names -> Mode -> Int -> Gen (Exp Integer)
-genExpInt _ Concrete 0 = LitInt . abs <$> arbitrary
-genExpInt names Symbolic 0 = oneof
-  [ genExpInt names Concrete 0
+
+-- TODO: storage, negative literals
+genExpInt :: Names -> Int -> Gen (Exp Integer)
+genExpInt names 0 = oneof
+  [ LitInt . abs <$> arbitrary
   , IntVar <$> (selectName Integer names)
+  , return $ IntEnv Caller
+  , return $ IntEnv Callvalue
+  , return $ IntEnv Calldepth
+  , return $ IntEnv Origin
+  , return $ IntEnv Blocknumber
+  , return $ IntEnv Difficulty
+  , return $ IntEnv Chainid
+  , return $ IntEnv Gaslimit
+  , return $ IntEnv Coinbase
+  , return $ IntEnv Timestamp
+  , return $ IntEnv This
+  , return $ IntEnv Nonce
   ]
-genExpInt names mode n = oneof
+genExpInt names n = oneof
   [ liftM2 Add subExpInt subExpInt
   , liftM2 Sub subExpInt subExpInt
   , liftM2 Mul subExpInt subExpInt
@@ -195,8 +182,8 @@ genExpInt names mode n = oneof
   , liftM2 Exp subExpInt subExpInt
   , liftM3 ITE subExpBool subExpInt subExpInt
   ]
-  where subExpInt = genExpInt names mode (n `div` 2)
-        subExpBool = genExpBool names mode (n `div` 2)
+  where subExpInt = genExpInt names (n `div` 2)
+        subExpBool = genExpBool names (n `div` 2)
 
 
 selectName :: MType -> Names -> Gen String

@@ -17,7 +17,8 @@ import Data.SBV.String ((.++), subStr)
 
 import RefinedAst
 import Syntax (Id, Interface(..), Decl(..), EthEnv(..))
-import Type (metaType, mkStorageBounds)
+import Type (metaType)
+import Enrich (mkStorageBounds)
 import Print (prettyEnv)
 
 -- *** Interface *** --
@@ -101,7 +102,7 @@ mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preConds postConds stateUpd
   constrain $ preCond' .&& sAnd stateUpdates' .&& (sNot postCond' .|| sNot postInv')
 
 mkMethod :: Invariant -> Storages -> Behaviour -> Behaviour -> Symbolic ()
-mkMethod inv@(Invariant _ e) (Storages rawStorage) initBehv behv = do
+mkMethod inv@(Invariant _ e) storages initBehv behv = do
   ctx@(Ctx c m _ store' env) <- mkContext inv behv
 
   let (Interface _ initdecls) = _interface initBehv
@@ -115,7 +116,7 @@ mkMethod inv@(Invariant _ e) (Storages rawStorage) initBehv behv = do
     preCond = symExpBool ctx Pre (mconcat $ _preconditions behv)
     postCond = symExpBool ctx Pre (mconcat $ _postconditions behv)
     stateUpdates = mkStorageConstraints ctx (_stateUpdates behv) locs
-    storageBounds = symExpBool ctx Pre $ mconcat <$> mkStorageBounds rawStorage $ Left <$> locs
+    storageBounds = symExpBool ctx Pre $ mconcat <$> mkStorageBounds storages $ Left <$> locs
 
   constrain $ preInv .&& preCond .&& storageBounds
            .&& sAnd stateUpdates

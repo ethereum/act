@@ -5,14 +5,13 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Type (typecheck, metaType, mkStorageBounds, lookupVars, Store) where
+module Type (typecheck, metaType, bound, lookupVars, defaultStore, Store) where
 
 import Data.List
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import Data.Map.Strict    (Map)
 import Data.Maybe
-import Data.Either
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict    as Map -- abandon in favor of [(a,b)]?
@@ -42,6 +41,10 @@ lookupVars ((Constructor _ contract _ _ (Creates assigns) _ _ _):bs) =
         fromAssign (AssignStruct _ _) = error "TODO: assignstruct"
 lookupVars [] = mempty
 
+type Store = Map Id (Map Id SlotType)
+
+-- typing of vars: this contract name, this contract storage, other contract scopes, calldata args
+type Env = (Id, Map Id SlotType, Store, Map Id MType)
 
 -- typing of eth env variables
 defaultStore :: [(EthEnv, MType)]
@@ -62,17 +65,11 @@ defaultStore =
    --others TODO
   ]
 
-type Store = Map Id (Map Id SlotType)
-
--- typing of vars: this contract name, this contract storage, other contract scopes, calldata args
-type Env = (Id, Map Id SlotType, Store, Map Id MType)
-
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> RawBehaviour -> Err [Claim]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
   -- constrain integer calldata variables (TODO: other types)
-  let calldataBounds = getCallDataBounds decls
-  iff <- checkIffs env (iffs' <> calldataBounds)
+  iff <- checkIffs env iffs'
   postcondition <- mapM (checkBool nowhere env) (fromMaybe [] maybePost)
   flatten iff postcondition cases
   where
@@ -104,12 +101,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     flatten :: [Exp Bool] -> [Exp Bool] -> Cases -> Err [Claim]
     flatten iff postc (Direct post) = do
       (p, maybeReturn) <- checkPost env post
-      let preBounds = mkStorageBounds store p
-          ethEnvs' = concat $ ethEnvFromExp <$> (iff <> postc)
-          ethEnvs'' = ethEnvFromReturnExp $ fromMaybe (ExpBool $ LitBool True) maybeReturn
-          ethEnvs''' = concat $ ethEnvFromStateUpdate <$> p
-          ethEnvBounds = mkEthEnvBounds $ ethEnvs' <> ethEnvs'' <> ethEnvs'''
-      return $ splitCase name False contract iface ethEnvBounds (iff <> preBounds) maybeReturn p postc
+      return $ splitCase name False contract iface [] iff maybeReturn p postc
     flatten iff postc (Branches branches) = do
       branches' <- normalize branches
       cases' <- forM branches' $ \(Case _ cond post) -> do
@@ -117,25 +109,16 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
         (post', ret) <- checkPost env post
         return (if', post', ret)
 
-      pure . join $ ((\(ifcond, stateUpdates, ret) -> let
-          preBounds = mkStorageBounds store stateUpdates
-          ethEnvs' = concat $ ethEnvFromExp <$> ([ifcond] <> iff <> postc)
-          ethEnvs'' = ethEnvFromReturnExp $ fromMaybe (ExpBool $ LitBool True) ret
-          ethEnvs''' = concat $ ethEnvFromStateUpdate <$> stateUpdates
-          ethEnvBounds = mkEthEnvBounds $ ethEnvs' <> ethEnvs'' <> ethEnvs'''
-        in splitCase name False contract iface ([ifcond] <> ethEnvBounds) (iff <> preBounds) ret stateUpdates postc) <$> cases')
+      pure . join $ ((\(ifcond, stateUpdates, ret) ->
+        splitCase name False contract iface [ifcond] iff ret stateUpdates postc) <$> cases')
 
 splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvs) = do
   unless (null extStorage) $ error "TODO: support extStorage in constructor"
 
   let env = mkEnv contract store decls
-
-
-  rawUpdates <- concat <$> mapM (checkAssign env) assigns
-  let stateUpdates = Right <$> rawUpdates
-
-  let calldataBounds = getCallDataBounds decls
-  iffs' <- checkIffs env (iffs <> calldataBounds)
+  stateUpdates <- concat <$> mapM (checkAssign env) assigns
+  let stateUpdates' = Right <$> stateUpdates
+  iffs' <- checkIffs env iffs
 
   invariants <- mapM (checkBool nowhere env) $ fromMaybe [] maybeInvs
   ensures <- mapM (checkBool nowhere env) (fromMaybe [] maybeEnsures)
@@ -144,12 +127,8 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (
   -- TODO: seperate the smt backend into seperate passes so we only run the invariant analysis if required
   let invariants' = if (null invariants) then [LitBool True] else invariants
 
-  let ethEnvs' = concat $ ethEnvFromExp <$> concat [iffs', invariants', ensures]
-      ethEnvs'' = concat $ ethEnvFromStateUpdate <$> stateUpdates
-      ethEnvBounds = mkEthEnvBounds $ ethEnvs' <> ethEnvs''
-
   return $ ((I . (Invariant contract)) <$> invariants')
-           <> (splitCase name True contract iface ethEnvBounds iffs' Nothing stateUpdates ensures)
+           <> (splitCase name True contract iface [] iffs' Nothing stateUpdates' ensures)
 
 mkEnv :: Id -> Store -> [Decl]-> Env
 mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract store), store, abiVars)
@@ -164,65 +143,6 @@ splitCase name creates contract iface if' [] ret storage postcs =
 splitCase name creates contract iface if' iffs ret storage postcs =
   [ B $ Behaviour name Pass creates contract iface (nub $ if' <> iffs) postcs storage ret,
     B $ Behaviour name Fail creates contract iface (nub $ if' <> (Neg <$> (nub iffs))) [] storage Nothing ]
-
-mkEthEnvBounds :: [EthEnv] -> [Exp Bool]
-mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
-  where
-    mkBound :: EthEnv -> Maybe (Exp Bool)
-    mkBound e = case lookup e defaultStore of
-      Just (Integer) -> Just $ bound (toAbiType e) (IntEnv e)
-      _ -> Nothing
-
-    toAbiType :: EthEnv -> AbiType
-    toAbiType env = case env of
-      Caller -> AbiAddressType
-      Callvalue -> AbiUIntType 256
-      Calldepth -> AbiUIntType 10
-      Origin -> AbiAddressType
-      Blockhash -> AbiBytesType 32
-      Blocknumber -> AbiUIntType 256
-      Difficulty -> AbiUIntType 256
-      Chainid -> AbiUIntType 256
-      Gaslimit -> AbiUIntType 256
-      Coinbase -> AbiAddressType
-      Timestamp -> AbiUIntType 256
-      This -> AbiAddressType
-      Nonce -> AbiUIntType 256
-
--- | extracts bounds from the AbiTypes of Integer values in storage
-mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Bool]
-mkStorageBounds store refs
-  = catMaybes $ mkBound <$> refs
-  where
-    mkBound :: Either StorageLocation StorageUpdate -> Maybe (Exp Bool)
-    mkBound (Left (IntLoc item)) = Just $ fromItem item
-    mkBound (Right (IntUpdate item _)) = Just $ fromItem item
-    mkBound _ = Nothing
-
-    fromItem :: TStorageItem Integer -> Exp Bool
-    fromItem item@(DirectInt contract name) = bound (abiType $ slotType contract name) (TEntry item)
-    fromItem item@(MappedInt contract name _) = bound (abiType $ slotType contract name) (TEntry item)
-
-    slotType :: Id -> Id -> SlotType
-    slotType contract name = let
-        vars = fromMaybe (error $ contract <> " not found in " <> show store) $ Map.lookup contract store
-      in fromMaybe (error $ name <> " not found in " <> show vars) $ Map.lookup name vars
-
-
-    abiType :: SlotType -> AbiType
-    abiType (StorageMapping _ typ) = typ
-    abiType (StorageValue typ) = typ
-
--- | extract a list of iff headers from the size of the types in a list of calldata declarations
-getCallDataBounds :: [Decl] -> [IffH]
-getCallDataBounds decls =
-  join $
-    fmap
-      ( \(Decl typ name) -> case metaType typ of
-          Integer -> [IffIn nowhere typ [EntryExp nowhere name []]]
-          _ -> []
-      )
-      decls
 
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
@@ -474,61 +394,3 @@ checkInt p env e =
     Ok (ExpBytes _) -> Bad (p, "expected: int, got: bytes")
     Ok (ExpBool _) -> Bad (p, "expected: int, got: bool")
     Bad err -> Bad err
-
-ethEnvFromStateUpdate :: Either StorageLocation StorageUpdate -> [EthEnv]
-ethEnvFromStateUpdate update = case update of
-  Left (IntLoc item) -> ethEnvFromItem item
-  Left (BoolLoc item) -> ethEnvFromItem item
-  Left (BytesLoc item) -> ethEnvFromItem item
-  Right (IntUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
-  Right (BoolUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
-  Right (BytesUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
-
-ethEnvFromItem :: TStorageItem a -> [EthEnv]
-ethEnvFromItem item = case item of
-  MappedInt _ _ ixs -> concat $ ethEnvFromReturnExp <$> ixs
-  MappedBool _ _ ixs -> concat $ ethEnvFromReturnExp <$> ixs
-  MappedBytes _ _ ixs -> concat $ ethEnvFromReturnExp <$> ixs
-  _ -> []
-
-ethEnvFromReturnExp :: ReturnExp -> [EthEnv]
-ethEnvFromReturnExp (ExpInt e) = ethEnvFromExp e
-ethEnvFromReturnExp (ExpBool e) = ethEnvFromExp e
-ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
-
-ethEnvFromExp :: Exp a -> [EthEnv]
-ethEnvFromExp e = case e of
-  And a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Or a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  Impl a b  -> ethEnvFromExp a <> ethEnvFromExp b
-  Eq a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  LE a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  LEQ a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  GE a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  GEQ a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  NEq a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Neg a     -> ethEnvFromExp a
-  Add a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Sub a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Mul a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Div a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Mod a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Exp a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Cat a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Slice a b c -> ethEnvFromExp a <> ethEnvFromExp b <> ethEnvFromExp c
-  ITE a b c -> ethEnvFromExp a <> ethEnvFromExp b <> ethEnvFromExp c
-  ByVar _ -> []
-  ByStr _ -> []
-  ByLit _ -> []
-  LitInt _  -> []
-  IntVar _  -> []
-  LitBool _ -> []
-  BoolVar _ -> []
-  IntMin _ -> []
-  IntMax _ -> []
-  UIntMin _ -> []
-  UIntMax _ -> []
-  NewAddr a b -> ethEnvFromExp a <> ethEnvFromExp b
-  IntEnv a -> [a]
-  ByEnv a -> [a]
-  TEntry a  -> ethEnvFromItem a
