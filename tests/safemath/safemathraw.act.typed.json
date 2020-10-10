@@ -16,29 +16,7 @@
           {
             "arity": 2,
             "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
+              "0",
               {
                 "arity": 2,
                 "args": [
@@ -72,7 +50,7 @@
         "arity": 2,
         "args": [
           "Callvalue",
-          0
+          "0"
         ],
         "symbol": "=="
       },
@@ -82,7 +60,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "x"
             ],
             "symbol": "<="
@@ -104,7 +82,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "y"
             ],
             "symbol": "<="
@@ -119,11 +97,33 @@
           }
         ],
         "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
       }
     ],
     "contract": "SafeAdd",
     "interface": "add(uint256 x, uint256 y)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": {
       "expression": {
         "arity": 2,
@@ -144,28 +144,6 @@
     "name": "add",
     "preConditions": [
       {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
         "arity": 1,
         "args": [
           {
@@ -174,7 +152,7 @@
               {
                 "arity": 2,
                 "args": [
-                  0,
+                  "0",
                   {
                     "arity": 2,
                     "args": [
@@ -214,7 +192,7 @@
             "arity": 2,
             "args": [
               "Callvalue",
-              0
+              "0"
             ],
             "symbol": "=="
           }
@@ -222,65 +200,75 @@
         "symbol": "not"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "x"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "x",
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "x"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "x",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "y"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "y",
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "y"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "y",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
       }
     ],
     "contract": "SafeAdd",
     "interface": "add(uint256 x, uint256 y)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": null
   }
 ]

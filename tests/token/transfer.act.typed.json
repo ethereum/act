@@ -100,7 +100,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "_totalSupply"
             ],
             "symbol": "<="
@@ -115,99 +115,109 @@
           }
         ],
         "symbol": "and"
-      }
-    ],
-    "contract": "Token",
-    "interface": "constructor(string _symbol, string _name, string _version, uint256 _totalSupply)",
-    "postConditions": "True",
-    "returns": null
-  },
-  {
-    "stateUpdates": [
-      {
-        "Right": {
-          "location": {
-            "name": "Token.name",
-            "sort": "bytes"
-          },
-          "value": "ByVar \"_name\""
-        }
       },
       {
-        "Right": {
-          "location": {
-            "name": "Token.symbol",
-            "sort": "bytes"
-          },
-          "value": "ByVar \"_symbol\""
-        }
-      },
-      {
-        "Right": {
-          "location": {
-            "name": "Token.totalSupply",
-            "sort": "int"
-          },
-          "value": "_totalSupply"
-        }
-      },
-      {
-        "Right": {
-          "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
-          },
-          "value": "_totalSupply"
-        }
-      }
-    ],
-    "kind": "Behaviour",
-    "mode": "Fail",
-    "creation": true,
-    "name": "init",
-    "preConditions": [
-      {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
-                "args": [
-                  0,
-                  "_totalSupply"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "_totalSupply",
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "name": "Token.totalSupply",
+                "sort": "int"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "name": "Token.totalSupply",
+                "sort": "int"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
       }
     ],
     "contract": "Token",
     "interface": "constructor(string _symbol, string _name, string _version, uint256 _totalSupply)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": null
   },
   {
@@ -307,52 +317,8 @@
       {
         "arity": 2,
         "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
           "Callvalue",
-          0
+          "0"
         ],
         "symbol": "=="
       },
@@ -415,8 +381,8 @@
               {
                 "arity": 2,
                 "args": [
-                  2,
-                  256
+                  "2",
+                  "256"
                 ],
                 "symbol": "^"
               }
@@ -432,7 +398,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "value"
             ],
             "symbol": "<="
@@ -454,7 +420,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "to"
             ],
             "symbol": "<="
@@ -476,7 +442,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -524,7 +490,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -565,13 +531,57 @@
           }
         ],
         "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
       }
     ],
     "contract": "Token",
     "interface": "transfer(uint256 value, address to)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": {
-      "expression": 1,
+      "expression": "1",
       "sort": "int"
     }
   },
@@ -670,57 +680,13 @@
         "symbol": "=/="
       },
       {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
         "arity": 1,
         "args": [
           {
             "arity": 2,
             "args": [
               "Callvalue",
-              0
+              "0"
             ],
             "symbol": "=="
           }
@@ -795,8 +761,8 @@
                   {
                     "arity": 2,
                     "args": [
-                      2,
-                      256
+                      "2",
+                      "256"
                     ],
                     "symbol": "^"
                   }
@@ -810,173 +776,193 @@
         "symbol": "not"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "value"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "value",
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "value"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "value",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "to"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "to",
-                  1.461501637330903e+48
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "to"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "to",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "to",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "to",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "to",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "to",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
       }
     ],
     "contract": "Token",
     "interface": "transfer(uint256 value, address to)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": null
   },
   {
@@ -1034,52 +1020,8 @@
       {
         "arity": 2,
         "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
           "Callvalue",
-          0
+          "0"
         ],
         "symbol": "=="
       },
@@ -1142,8 +1084,8 @@
               {
                 "arity": 2,
                 "args": [
-                  2,
-                  256
+                  "2",
+                  "256"
                 ],
                 "symbol": "^"
               }
@@ -1159,7 +1101,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "value"
             ],
             "symbol": "<="
@@ -1181,7 +1123,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "to"
             ],
             "symbol": "<="
@@ -1203,7 +1145,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -1251,7 +1193,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -1292,13 +1234,57 @@
           }
         ],
         "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
       }
     ],
     "contract": "Token",
     "interface": "transfer(uint256 value, address to)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": {
-      "expression": 1,
+      "expression": "1",
       "sort": "int"
     }
   },
@@ -1355,57 +1341,13 @@
         "symbol": "=="
       },
       {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
         "arity": 1,
         "args": [
           {
             "arity": 2,
             "args": [
               "Callvalue",
-              0
+              "0"
             ],
             "symbol": "=="
           }
@@ -1480,8 +1422,8 @@
                   {
                     "arity": 2,
                     "args": [
-                      2,
-                      256
+                      "2",
+                      "256"
                     ],
                     "symbol": "^"
                   }
@@ -1495,173 +1437,193 @@
         "symbol": "not"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "value"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "value",
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "value"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "value",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "to"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "to",
-                  1.461501637330903e+48
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "to"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "to",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "to",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "to",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "to",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "to",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
       }
     ],
     "contract": "Token",
     "interface": "transfer(uint256 value, address to)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": null
   },
   {
@@ -1815,50 +1777,6 @@
       {
         "arity": 2,
         "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
           "amount",
           {
             "arity": 3,
@@ -1915,8 +1833,8 @@
               {
                 "arity": 2,
                 "args": [
-                  2,
-                  256
+                  "2",
+                  "256"
                 ],
                 "symbol": "^"
               }
@@ -1940,7 +1858,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 2,
                 "args": [
@@ -1976,7 +1894,7 @@
         "arity": 2,
         "args": [
           "Callvalue",
-          0
+          "0"
         ],
         "symbol": "=="
       },
@@ -1986,7 +1904,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "src"
             ],
             "symbol": "<="
@@ -2008,7 +1926,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "dst"
             ],
             "symbol": "<="
@@ -2030,7 +1948,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "amount"
             ],
             "symbol": "<="
@@ -2052,7 +1970,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -2100,7 +2018,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -2156,7 +2074,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -2204,7 +2122,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -2239,6 +2157,50 @@
                 ],
                 "symbol": "lookup"
               },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
               1.157920892373162e+77
             ],
             "symbol": "<="
@@ -2249,9 +2211,9 @@
     ],
     "contract": "Token",
     "interface": "transferFrom(address src, address dst, uint256 amount)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": {
-      "expression": 1,
+      "expression": "1",
       "sort": "int"
     }
   },
@@ -2404,50 +2366,6 @@
         "symbol": "and"
       },
       {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
         "arity": 1,
         "args": [
           {
@@ -2515,8 +2433,8 @@
                   {
                     "arity": 2,
                     "args": [
-                      2,
-                      256
+                      "2",
+                      "256"
                     ],
                     "symbol": "^"
                   }
@@ -2546,7 +2464,7 @@
               {
                 "arity": 2,
                 "args": [
-                  0,
+                  "0",
                   {
                     "arity": 2,
                     "args": [
@@ -2588,7 +2506,7 @@
             "arity": 2,
             "args": [
               "Callvalue",
-              0
+              "0"
             ],
             "symbol": "=="
           }
@@ -2596,317 +2514,319 @@
         "symbol": "not"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "src"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "src",
-                  1.461501637330903e+48
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "src"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "src",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "dst"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "dst",
-                  1.461501637330903e+48
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "dst"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "dst",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "amount"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "amount",
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "amount"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "amount",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "allowance",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    },
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "allowance",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    },
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "dst",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "dst",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
       }
     ],
     "contract": "Token",
     "interface": "transferFrom(address src, address dst, uint256 amount)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": null
   },
   {
@@ -3087,61 +3007,17 @@
                   {
                     "arity": 2,
                     "args": [
-                      2,
-                      256
+                      "2",
+                      "256"
                     ],
                     "symbol": "^"
                   },
-                  1
+                  "1"
                 ],
                 "symbol": "-"
               }
             ],
             "symbol": "=="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
           }
         ],
         "symbol": "and"
@@ -3205,8 +3081,8 @@
               {
                 "arity": 2,
                 "args": [
-                  2,
-                  256
+                  "2",
+                  "256"
                 ],
                 "symbol": "^"
               }
@@ -3230,7 +3106,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 2,
                 "args": [
@@ -3266,7 +3142,7 @@
         "arity": 2,
         "args": [
           "Callvalue",
-          0
+          "0"
         ],
         "symbol": "=="
       },
@@ -3276,7 +3152,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "src"
             ],
             "symbol": "<="
@@ -3298,7 +3174,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "dst"
             ],
             "symbol": "<="
@@ -3320,7 +3196,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "amount"
             ],
             "symbol": "<="
@@ -3342,7 +3218,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -3390,7 +3266,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -3446,7 +3322,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -3494,7 +3370,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -3529,6 +3405,50 @@
                 ],
                 "symbol": "lookup"
               },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
               1.157920892373162e+77
             ],
             "symbol": "<="
@@ -3539,9 +3459,9 @@
     ],
     "contract": "Token",
     "interface": "transferFrom(address src, address dst, uint256 amount)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": {
-      "expression": 1,
+      "expression": "1",
       "sort": "int"
     }
   },
@@ -3723,61 +3643,17 @@
                   {
                     "arity": 2,
                     "args": [
-                      2,
-                      256
+                      "2",
+                      "256"
                     ],
                     "symbol": "^"
                   },
-                  1
+                  "1"
                 ],
                 "symbol": "-"
               }
             ],
             "symbol": "=="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
           }
         ],
         "symbol": "and"
@@ -3850,8 +3726,8 @@
                   {
                     "arity": 2,
                     "args": [
-                      2,
-                      256
+                      "2",
+                      "256"
                     ],
                     "symbol": "^"
                   }
@@ -3881,7 +3757,7 @@
               {
                 "arity": 2,
                 "args": [
-                  0,
+                  "0",
                   {
                     "arity": 2,
                     "args": [
@@ -3923,7 +3799,7 @@
             "arity": 2,
             "args": [
               "Callvalue",
-              0
+              "0"
             ],
             "symbol": "=="
           }
@@ -3931,317 +3807,319 @@
         "symbol": "not"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "src"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "src",
-                  1.461501637330903e+48
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "src"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "src",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "dst"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "dst",
-                  1.461501637330903e+48
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "dst"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "dst",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "amount"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "amount",
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "amount"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "amount",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "allowance",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    },
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "allowance",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    },
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "dst",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "dst",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
       }
     ],
     "contract": "Token",
     "interface": "transferFrom(address src, address dst, uint256 amount)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": null
   },
   {
@@ -4447,61 +4325,17 @@
                   {
                     "arity": 2,
                     "args": [
-                      2,
-                      256
+                      "2",
+                      "256"
                     ],
                     "symbol": "^"
                   },
-                  1
+                  "1"
                 ],
                 "symbol": "-"
               }
             ],
             "symbol": "<"
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
           }
         ],
         "symbol": "and"
@@ -4565,8 +4399,8 @@
               {
                 "arity": 2,
                 "args": [
-                  2,
-                  256
+                  "2",
+                  "256"
                 ],
                 "symbol": "^"
               }
@@ -4590,7 +4424,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 2,
                 "args": [
@@ -4626,7 +4460,7 @@
         "arity": 2,
         "args": [
           "Callvalue",
-          0
+          "0"
         ],
         "symbol": "=="
       },
@@ -4636,7 +4470,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "src"
             ],
             "symbol": "<="
@@ -4658,7 +4492,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "dst"
             ],
             "symbol": "<="
@@ -4680,7 +4514,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "amount"
             ],
             "symbol": "<="
@@ -4702,7 +4536,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -4750,7 +4584,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -4806,7 +4640,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -4854,7 +4688,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -4889,6 +4723,50 @@
                 ],
                 "symbol": "lookup"
               },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
               1.157920892373162e+77
             ],
             "symbol": "<="
@@ -4899,9 +4777,9 @@
     ],
     "contract": "Token",
     "interface": "transferFrom(address src, address dst, uint256 amount)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": {
-      "expression": 1,
+      "expression": "1",
       "sort": "int"
     }
   },
@@ -5108,61 +4986,17 @@
                   {
                     "arity": 2,
                     "args": [
-                      2,
-                      256
+                      "2",
+                      "256"
                     ],
                     "symbol": "^"
                   },
-                  1
+                  "1"
                 ],
                 "symbol": "-"
               }
             ],
             "symbol": "<"
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
           }
         ],
         "symbol": "and"
@@ -5235,8 +5069,8 @@
                   {
                     "arity": 2,
                     "args": [
-                      2,
-                      256
+                      "2",
+                      "256"
                     ],
                     "symbol": "^"
                   }
@@ -5266,7 +5100,7 @@
               {
                 "arity": 2,
                 "args": [
-                  0,
+                  "0",
                   {
                     "arity": 2,
                     "args": [
@@ -5308,7 +5142,7 @@
             "arity": 2,
             "args": [
               "Callvalue",
-              0
+              "0"
             ],
             "symbol": "=="
           }
@@ -5316,317 +5150,319 @@
         "symbol": "not"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "src"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "src",
-                  1.461501637330903e+48
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "src"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "src",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "dst"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "dst",
-                  1.461501637330903e+48
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "dst"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "dst",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "amount"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "amount",
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "amount"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "amount",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "allowance",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    },
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "allowance",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    },
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "dst",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "dst",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
       }
     ],
     "contract": "Token",
     "interface": "transferFrom(address src, address dst, uint256 amount)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": null
   },
   {
@@ -5724,50 +5560,6 @@
       {
         "arity": 2,
         "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
           "amount",
           {
             "arity": 3,
@@ -5824,8 +5616,8 @@
               {
                 "arity": 2,
                 "args": [
-                  2,
-                  256
+                  "2",
+                  "256"
                 ],
                 "symbol": "^"
               }
@@ -5849,7 +5641,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 2,
                 "args": [
@@ -5885,7 +5677,7 @@
         "arity": 2,
         "args": [
           "Callvalue",
-          0
+          "0"
         ],
         "symbol": "=="
       },
@@ -5895,7 +5687,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "src"
             ],
             "symbol": "<="
@@ -5917,7 +5709,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "dst"
             ],
             "symbol": "<="
@@ -5939,7 +5731,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               "amount"
             ],
             "symbol": "<="
@@ -5961,7 +5753,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -6009,7 +5801,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -6065,7 +5857,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -6113,7 +5905,7 @@
           {
             "arity": 2,
             "args": [
-              0,
+              "0",
               {
                 "arity": 3,
                 "args": [
@@ -6148,6 +5940,50 @@
                 ],
                 "symbol": "lookup"
               },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
               1.157920892373162e+77
             ],
             "symbol": "<="
@@ -6158,9 +5994,9 @@
     ],
     "contract": "Token",
     "interface": "transferFrom(address src, address dst, uint256 amount)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": {
-      "expression": 1,
+      "expression": "1",
       "sort": "int"
     }
   },
@@ -6257,50 +6093,6 @@
         "symbol": "=="
       },
       {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              1.461501637330903e+48
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              0,
-              "Callvalue"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              1.157920892373162e+77
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
         "arity": 1,
         "args": [
           {
@@ -6368,8 +6160,8 @@
                   {
                     "arity": 2,
                     "args": [
-                      2,
-                      256
+                      "2",
+                      "256"
                     ],
                     "symbol": "^"
                   }
@@ -6399,7 +6191,7 @@
               {
                 "arity": 2,
                 "args": [
-                  0,
+                  "0",
                   {
                     "arity": 2,
                     "args": [
@@ -6441,7 +6233,7 @@
             "arity": 2,
             "args": [
               "Callvalue",
-              0
+              "0"
             ],
             "symbol": "=="
           }
@@ -6449,317 +6241,319 @@
         "symbol": "not"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "src"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "src",
-                  1.461501637330903e+48
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "src"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "src",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "dst"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "dst",
-                  1.461501637330903e+48
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "dst"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "dst",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
-              {
-                "arity": 2,
-                "args": [
-                  0,
-                  "amount"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "amount",
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
-              }
+              "0",
+              "amount"
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "amount",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "allowance",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    },
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "allowance",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    },
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "src",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
       },
       {
-        "arity": 1,
+        "arity": 2,
         "args": [
           {
             "arity": 2,
             "args": [
+              "0",
               {
-                "arity": 2,
+                "arity": 3,
                 "args": [
-                  0,
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  }
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "dst",
+                      "sort": "int"
+                    }
+                  ]
                 ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup"
-                  },
-                  1.157920892373162e+77
-                ],
-                "symbol": "<="
+                "symbol": "lookup"
               }
             ],
-            "symbol": "and"
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "arity": 3,
+                "args": [
+                  "Token",
+                  "balanceOf",
+                  [
+                    {
+                      "expression": "dst",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              },
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
           }
         ],
-        "symbol": "not"
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              1.461501637330903e+48
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Callvalue"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Callvalue",
+              1.157920892373162e+77
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
       }
     ],
     "contract": "Token",
     "interface": "transferFrom(address src, address dst, uint256 amount)",
-    "postConditions": "True",
+    "postConditions": [],
     "returns": null
   }
 ]
