@@ -13,13 +13,18 @@ import RefinedAst
 import Type (bound, defaultStore, metaType)
 import Syntax (EthEnv(..), Id, Decl(..), Interface(..))
 
--- |Adds extra condtions to all behaviours based on the typing of their variables
+-- |Adds extra preconditions to non constructor behaviours based on the types of their variables
 enrich :: [Claim] -> [Claim]
-enrich claims = [S store] <> (I <$> invs) <> (B <$> behvs)
+enrich claims = [S store]
+                <> (I <$> invariants)
+                <> (B <$> constructors)
+                <> (B <$> (enrichBehaviour store <$> transitions))
   where
     store = head $ catStores claims
-    behvs = enrichBehaviour store <$> catBehvs claims
-    invs = catInvs claims
+    behvaviours = catBehvs claims
+    invariants = catInvs claims
+    constructors = filter _creation behvaviours
+    transitions = filter (not . _creation) behvaviours
 
 enrichBehaviour :: Storages -> Behaviour -> Behaviour
 enrichBehaviour store behv@(Behaviour name mode creation contract iface@(Interface _ decls) pre post stateUpdates ret) =

@@ -40,36 +40,7 @@
     "mode": "Pass",
     "creation": true,
     "name": "init",
-    "preConditions": [
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "0",
-              {
-                "name": "a.x",
-                "sort": "int"
-              }
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              {
-                "name": "a.x",
-                "sort": "int"
-              },
-              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      }
-    ],
+    "preConditions": [],
     "contract": "a",
     "interface": "constructor()",
     "postConditions": [],
@@ -91,36 +62,7 @@
     "mode": "Pass",
     "creation": true,
     "name": "init",
-    "preConditions": [
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "0",
-              {
-                "name": "B.y",
-                "sort": "int"
-              }
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              {
-                "name": "B.y",
-                "sort": "int"
-              },
-              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      }
-    ],
+    "preConditions": [],
     "contract": "B",
     "interface": "constructor()",
     "postConditions": [],
