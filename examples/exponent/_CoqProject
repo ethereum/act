@@ -1,6 +1,0 @@
--Q . Exponent
--Q ../../lib ActLib
-
-../../lib/ActLib.v
-Exponent.v
-Theory.v
