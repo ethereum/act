@@ -141,7 +141,7 @@ main = do
 satWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic () -> IO SatResult
 satWithTimeOut solver' maybeTimeout debug' sym = case solver' of
   Just "cvc4" -> do
-    setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
+    setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --interactive --incremental --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
     res <- satWith cvc4{verbose=debug'} sym
     setEnv "SBV_CVC4_OPTIONS" ""
     return res
