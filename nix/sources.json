@@ -5,10 +5,10 @@
         "homepage": "https://dapp.tools",
         "owner": "dapphub",
         "repo": "dapptools",
-        "rev": "3efe39b9faaeb500116c285cce6368670a1a7589",
-        "sha256": "0m5wrr2jmgr2g527mi2p1f0dgj6g1c4js2rx3mj1ldswgzyl457g",
+        "rev": "932e20da95d0c470ec97795e2e461f56a9234866",
+        "sha256": "0qnasq9wb28qdnypr2v3bbdm0p0j4bkl3llyw5xkvljscq2hcpp8",
         "type": "tarball",
-        "url": "https://github.com/dapphub/dapptools/archive/3efe39b9faaeb500116c285cce6368670a1a7589.tar.gz",
+        "url": "https://github.com/dapphub/dapptools/archive/932e20da95d0c470ec97795e2e461f56a9234866.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
@@ -17,10 +17,10 @@
         "homepage": "https://github.com/NixOS/nixpkgs",
         "owner": "nixos",
         "repo": "nixpkgs-channels",
-        "rev": "977000f149bd4ddb65bf1af09552898a0f305c72",
-        "sha256": "1ad3bviywxd64g4vwk4ppjkkajd3rfqjhnp6xcz3w0ih0sbn0rh5",
+        "rev": "eba1d0126b4e6c386d529911bbeadbea99b933d6",
+        "sha256": "0qxcsfq6x67rdk5wasafb6acag9n36cfwm7z2n24va53raddfsfz",
         "type": "tarball",
-        "url": "https://github.com/nixos/nixpkgs-channels/archive/977000f149bd4ddb65bf1af09552898a0f305c72.tar.gz",
+        "url": "https://github.com/nixos/nixpkgs-channels/archive/eba1d0126b4e6c386d529911bbeadbea99b933d6.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

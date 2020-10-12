@@ -34,9 +34,8 @@ Test-Suite test
   default-language: Haskell2010
   main-is:          Test.hs
   hs-source-dirs:   test, .
-  build-depends:    HUnit                >= 1.6,
-                    tasty                >= 1.3,
+  build-depends:    pretty-simple        >= 2.2,
+                    quickcheck-instances >= 0.3,
                     tasty-hunit          >= 0.10,
                     tasty-quickcheck     >= 0.10,
-                    pretty-simple        >= 4.0.0.0,
-                    quickcheck-instances >= 0.3.23
+                    tasty                >= 1.2
