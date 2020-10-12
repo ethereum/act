@@ -222,12 +222,12 @@ StorageVar : SlotType id                            { StorageVar $1 (arg $2) }
 Type : 'uint'
        { case validsize $1 of
               True  -> AbiUIntType $1
-              False -> error "invalid uint size"
+              False -> error $ "invalid uint size: uint" <> (show $1)
        }
      | 'int'
        { case validsize $1 of
               True  -> AbiIntType $1
-              False -> error "invalid int size"
+              False -> error $ "invalid int size: int" <> (show $1)
        }
      | 'bytes'                                        { AbiBytesType $1 }
      | Type '[' ilit ']'                              { AbiArrayType (fromIntegral $3) $1 }

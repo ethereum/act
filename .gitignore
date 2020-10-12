@@ -4,6 +4,7 @@ src/Parse.hs
 src/dist-newstyle
 result*
 **/*.cabal.local
+**/cabal.project.local*
 tests/**/*.out
 *.vo
 *.vok

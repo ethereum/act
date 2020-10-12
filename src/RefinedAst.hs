@@ -5,7 +5,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# Language DeriveAnyClass #-}
 {-# Language MultiParamTypeClasses #-}
 
 module RefinedAst where
@@ -23,10 +22,10 @@ import Data.Aeson.Types
 import Data.Vector (fromList)
 
 -- AST post typechecking
-data Claim = B Behaviour | I Invariant | S Storages deriving (Show)
+data Claim = B Behaviour | I Invariant | S Storages deriving (Show, Eq)
 
-newtype Storages = Storages { unStorages :: Map Id (Map Id SlotType) } deriving (Show)
-data Invariant = Invariant Id (Exp Bool) deriving (Show)
+newtype Storages = Storages { unStorages :: Map Id (Map Id SlotType) } deriving (Show, Eq)
+data Invariant = Invariant Id (Exp Bool) deriving (Show, Eq)
 data Behaviour = Behaviour
   {_name :: Id,
    _mode :: Mode,
@@ -34,11 +33,11 @@ data Behaviour = Behaviour
    _contract :: Id,
    _interface :: Interface,
    _preconditions :: [Exp Bool],
-   _postconditions :: Exp Bool,
+   _postconditions :: [Exp Bool],
    _stateUpdates :: [Either StorageLocation StorageUpdate],
    _returns :: Maybe ReturnExp
   }
-  deriving (Show)
+  deriving (Show, Eq)
 
 catInvs :: [Claim] -> [Invariant]
 catInvs [] = []
@@ -73,7 +72,7 @@ data StorageUpdate
   = IntUpdate (TStorageItem Integer) (Exp Integer)
   | BoolUpdate (TStorageItem Bool) (Exp Bool)
   | BytesUpdate (TStorageItem ByteString) (Exp ByteString)
-  deriving (Show)
+  deriving (Show, Eq)
 
 data StorageLocation
   = IntLoc (TStorageItem Integer)
@@ -209,19 +208,24 @@ instance ToJSON (Exp Integer) where
   toJSON (Sub a b) = symbol "-" a b
   toJSON (Exp a b) = symbol "^" a b
   toJSON (Mul a b) = symbol "*" a b
+  toJSON (Div a b) = symbol "/" a b
   toJSON (NewAddr a b) = symbol "newAddr" a b
   toJSON (IntVar a) = String $ pack a
-  toJSON (LitInt a) = toJSON a
-  toJSON (IntMin a) = toJSON $ intmin a
-  toJSON (IntMax a) = toJSON $ intmax a
-  toJSON (UIntMin a) = toJSON $ uintmin a
-  toJSON (UIntMax a) = toJSON $ uintmax a
+  toJSON (LitInt a) = toJSON $ show a
+  toJSON (IntMin a) = toJSON $ show $ intmin a
+  toJSON (IntMax a) = toJSON $ show $ intmax a
+  toJSON (UIntMin a) = toJSON $ show $ uintmin a
+  toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
   toJSON (TEntry a) = toJSON a
+  toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
+                              ,  "arity"    .= (Data.Aeson.Types.Number 3)
+                              ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
   toJSON v = error $ "todo: json ast for: " <> show v
 
 instance ToJSON (Exp Bool) where
   toJSON (And a b)  = symbol "and" a b
+  toJSON (Or a b)   = symbol "or" a b
   toJSON (LE a b)   = symbol "<" a b
   toJSON (GE a b)   = symbol ">" a b
   toJSON (Impl a b) = symbol "=>" a b
@@ -230,6 +234,7 @@ instance ToJSON (Exp Bool) where
   toJSON (LEQ a b)  = symbol "<=" a b
   toJSON (GEQ a b)  = symbol ">=" a b
   toJSON (LitBool a) = String $ pack $ show a
+  toJSON (BoolVar a) = toJSON a
   toJSON (Neg a) = object [  "symbol"   .= pack "not"
                           ,  "arity"    .= (Data.Aeson.Types.Number 1)
                           ,  "args"     .= (Array $ fromList [toJSON a])]

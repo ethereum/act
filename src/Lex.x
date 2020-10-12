@@ -50,18 +50,18 @@ tokens :-
   at                                    { mk AT }
 
   -- builtin types
-  uint $digit+                   { \ p s -> L (UINT (read (drop 4 s))) p }
-  int  $digit+                   { \ p s -> L (INT  (read (drop 3 s))) p }
-  uint                           { mk (UINT 256) }
-  int                            { mk (INT 256) }
-  bytes $digit+                  { \ p s -> L (BYTES (read (drop 5 s))) p }
-  bytes                          { error "TODO" }
-  address                        { mk ADDRESS }
-  bool                           { mk BOOL }
-  string                         { mk STRING }
+  uint $digit+                          { \ p s -> L (UINT (read (drop 4 s))) p }
+  int  $digit+                          { \ p s -> L (INT  (read (drop 3 s))) p }
+  uint                                  { mk (UINT 256) }
+  int                                   { mk (INT 256) }
+  bytes $digit+                         { \ p s -> L (BYTES (read (drop 5 s))) p }
+  bytes                                 { error "TODO" }
+  address                               { mk ADDRESS }
+  bool                                  { mk BOOL }
+  string                                { mk STRING }
 
   -- builtin functions
-  newAddr                        { mk NEWADDR }
+  newAddr                               { mk NEWADDR }
 
   -- environment vars
   CALLER                                { mk CALLER }
@@ -106,10 +106,10 @@ tokens :-
   ","                                   { mk COMMA }
   "//"                                  [.]* ; -- Toss single line comments
   -- identifiers
-  $ident ($ident | $digit)*   { \ p s -> L (ID s) p }
+  $ident ($ident | $digit)*             { \ p s -> L (ID s) p }
 
   -- literals
-  $digit+                     { \ p s -> L (ILIT (read s)) p }
+  $digit+                               { \ p s -> L (ILIT (read s)) p }
 {
 
 data LEX =

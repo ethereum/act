@@ -17,7 +17,9 @@ import Data.SBV.String ((.++), subStr)
 
 import RefinedAst
 import Syntax (Id, Interface(..), Decl(..), EthEnv(..))
-import Type (metaType, mkStorageBounds)
+import Type (metaType)
+import Enrich (mkStorageBounds)
+import Print (prettyEnv)
 
 -- *** Interface *** --
 
@@ -87,20 +89,20 @@ mkQueries (inv, store, behvs) = (inv, inits <> methods)
     methods = (mkMethod inv store (head initBehvs)) <$> filter (not . _creation) behvs
 
 mkInit :: Invariant -> Behaviour -> Symbolic ()
-mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preConds postCond stateUpdates _) = do
+mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preConds postConds stateUpdates _) = do
   ctx <- mkContext inv behv
 
   let
     mkBool = symExpBool ctx
     postInv' = mkBool Post e
-    preConds' = mkBool Pre (mconcat preConds)
-    postCond' = mkBool Pre postCond
+    preCond' = mkBool Pre (mconcat preConds)
+    postCond' = mkBool Pre (mconcat postConds)
     stateUpdates' = mkStorageConstraints ctx stateUpdates (references inv behv)
 
-  constrain $ preConds' .&& sAnd stateUpdates' .&& (sNot postCond' .|| sNot postInv')
+  constrain $ preCond' .&& sAnd stateUpdates' .&& (sNot postCond' .|| sNot postInv')
 
 mkMethod :: Invariant -> Storages -> Behaviour -> Behaviour -> Symbolic ()
-mkMethod inv@(Invariant _ e) (Storages rawStorage) initBehv behv = do
+mkMethod inv@(Invariant _ e) storages initBehv behv = do
   ctx@(Ctx c m _ store' env) <- mkContext inv behv
 
   let (Interface _ initdecls) = _interface initBehv
@@ -111,13 +113,12 @@ mkMethod inv@(Invariant _ e) (Storages rawStorage) initBehv behv = do
     locs = references inv behv
     preInv = symExpBool invCtx Pre e
     postInv = symExpBool invCtx Post e
-    preConds = symExpBool ctx Pre $
-      mconcat (_preconditions behv)
-    postCond = symExpBool ctx Pre (_postconditions behv)
+    preCond = symExpBool ctx Pre (mconcat $ _preconditions behv)
+    postCond = symExpBool ctx Pre (mconcat $ _postconditions behv)
     stateUpdates = mkStorageConstraints ctx (_stateUpdates behv) locs
-    storageBounds = symExpBool ctx Pre $ mconcat <$> mkStorageBounds rawStorage $ Left <$> locs
+    storageBounds = symExpBool ctx Pre $ mconcat <$> mkStorageBounds storages $ Left <$> locs
 
-  constrain $ preInv .&& preConds .&& storageBounds
+  constrain $ preInv .&& preCond .&& storageBounds
            .&& sAnd stateUpdates
            .&& (sNot postCond .|| sNot postInv)
 
@@ -355,22 +356,7 @@ nameFromArg :: Contract -> Method -> Id -> Id
 nameFromArg contract method name = contract @@ method @@ name
 
 nameFromEnv :: Contract -> Method -> EthEnv -> Id
-nameFromEnv contract method e = contract @@ method @@ name
-  where
-    name = case e of
-      Caller -> "CALLER"
-      Callvalue -> "CALLVALUE"
-      Calldepth -> "CALLDEPTH"
-      Origin -> "ORIGIN"
-      Blockhash -> "BLOCKHASH"
-      Blocknumber -> "BLOCKNUMBER"
-      Difficulty -> "DIFFICULTY"
-      Chainid -> "CHAINID"
-      Gaslimit -> "GASLIMIT"
-      Coinbase -> "COINBASE"
-      Timestamp -> "TIMESTAMP"
-      This -> "THIS"
-      Nonce -> "NONCE"
+nameFromEnv contract method e = contract @@ method @@ (prettyEnv e)
 
 (@@) :: Id -> Id -> Id
 x @@ y = x <> "_" <> y
