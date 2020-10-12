@@ -13,7 +13,7 @@ import RefinedAst
 import Type (bound, defaultStore, metaType)
 import Syntax (EthEnv(..), Id, Decl(..), Interface(..))
 
--- |Adds extra preconditions to non constructor behaviours based on the types of their variables
+-- | Adds extra preconditions to non constructor behaviours based on the types of their variables
 enrich :: [Claim] -> [Claim]
 enrich claims = [S store]
                 <> (I <$> invariants)
@@ -37,9 +37,9 @@ enrichBehaviour store behv@(Behaviour name mode creation contract iface@(Interfa
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ _ preconds postconds stateUpdates returns) =
-  (concat $ ethEnvFromExp <$> preconds)
-  <> (concat $ ethEnvFromExp <$> postconds)
-  <> (concat $ ethEnvFromStateUpdate <$> stateUpdates)
+  (concatMap ethEnvFromExp preconds)
+  <> (concatMap ethEnvFromExp postconds)
+  <> (concatMap ethEnvFromStateUpdate stateUpdates)
   <> (maybe [] ethEnvFromReturnExp returns)
 
 ethEnvFromStateUpdate :: Either StorageLocation StorageUpdate -> [EthEnv]
@@ -53,9 +53,9 @@ ethEnvFromStateUpdate update = case update of
 
 ethEnvFromItem :: TStorageItem a -> [EthEnv]
 ethEnvFromItem item = case item of
-  MappedInt _ _ ixs -> concat $ ethEnvFromReturnExp <$> ixs
-  MappedBool _ _ ixs -> concat $ ethEnvFromReturnExp <$> ixs
-  MappedBytes _ _ ixs -> concat $ ethEnvFromReturnExp <$> ixs
+  MappedInt _ _ ixs -> concatMap ethEnvFromReturnExp ixs
+  MappedBool _ _ ixs -> concatMap ethEnvFromReturnExp ixs
+  MappedBytes _ _ ixs -> concatMap ethEnvFromReturnExp ixs
   _ -> []
 
 ethEnvFromReturnExp :: ReturnExp -> [EthEnv]
@@ -155,4 +155,3 @@ mkCallDataBounds =
           Integer -> [bound typ (IntVar name)]
           _ -> []
       )
-
