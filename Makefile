@@ -28,9 +28,9 @@ invariant_specs=$(wildcard tests/invariants/*/*.act)
 invariant_pass=$(wildcard tests/invariants/pass/*.act) $(typing_specs)
 invariant_fail=$(wildcard tests/invariants/fail/*.act)
 
-failing_typing=tests/array/array.act tests/dss/vat.act tests/creation/createMultiple.act
+failing_typing=tests/frontend/array/array.act tests/frontend/dss/vat.act tests/frontend/creation/createMultiple.act
 
-coq-examples = examples/transitions examples/safemath examples/exponent
+coq-examples = tests/coq/transitions tests/coq/safemath tests/coq/exponent
 
 .PHONY: test-coq $(coq-examples)
 test-coq: compiler $(coq-examples)

@@ -1,6 +1,0 @@
--Q . SafeMath
--Q ../../lib ActLib
-
-../../lib/ActLib.v
-SafeMath.v
-Theory.v
