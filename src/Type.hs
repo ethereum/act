@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Type (typecheck, metaType, bound, lookupVars, defaultStore, Store) where
+module Type (typecheck, metaType, bound, getLoc, mkLoc, lookupVars, defaultStore, Store) where
 
 import Data.List
 import EVM.ABI
@@ -142,7 +142,7 @@ splitCase name creates contract iface if' [] ret storage postcs =
   [ B $ Behaviour name Pass creates contract iface if' postcs storage ret ]
 splitCase name creates contract iface if' iffs ret storage postcs =
   [ B $ Behaviour name Pass creates contract iface (if' <> iffs) postcs storage ret,
-    B $ Behaviour name Fail creates contract iface (if' <> (Neg <$> (iffs))) [] storage Nothing ]
+    B $ Behaviour name Fail creates contract iface (if' <> (Neg <$> (iffs))) [] (Left . getLoc <$> storage) Nothing ]
 
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
@@ -394,3 +394,11 @@ checkInt p env e =
     Ok (ExpBytes _) -> Bad (p, "expected: int, got: bytes")
     Ok (ExpBool _) -> Bad (p, "expected: int, got: bool")
     Bad err -> Bad err
+
+getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
+getLoc ref = either id mkLoc ref
+
+mkLoc :: StorageUpdate -> StorageLocation
+mkLoc (IntUpdate item _) = IntLoc item
+mkLoc (BoolUpdate item _) = BoolLoc item
+mkLoc (BytesUpdate item _) = BytesLoc item

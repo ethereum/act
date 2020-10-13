@@ -12,8 +12,9 @@ import RefinedAst hiding (S)
 
 import Data.Text (Text, pack, splitOn)
 import Data.Maybe
+import Data.Either
 import Data.List hiding (lookup)
-import Data.Map hiding (drop, null, findIndex, splitAt, foldl)
+import Data.Map hiding (drop, null, findIndex, splitAt, foldl, filter)
 import qualified Data.Map as Map
 import Control.Monad.State.Strict (execState)
 import Data.SBV.Control
@@ -59,7 +60,7 @@ proveBehaviour sources behaviour = do
 
      ctx = mkVmContext sources' behaviour contractMap
 
-     postC (pre, post) = mkPostCondition behaviour (ctx pre post)
+     postC (pre, post) = mkPostCondition pre post sources' behaviour contractMap (ctx pre post)
 
     
 interfaceCalldata :: Interface -> Symbolic Buffer
@@ -98,14 +99,41 @@ initialVm sources Behaviour{..} contractMap = do
 
   return $ initTx $ execState (loadContract addr) vm
 
+checkPostStorage :: Ctx -> Behaviour -> VM -> VM -> Map Id Addr -> SolcJson -> SBV Bool
+checkPostStorage ctx b@(Behaviour _ _ _ _ _ _ _ updates _) pre post contractMap solcjson =
+  sAnd $ flip fmap (keys (view (EVM.env . EVM.contracts) post)) $
+    \addr ->
+      case view (EVM.env . EVM.contracts . at addr) pre of
+        Nothing -> sFalse -- TODO: deal with creations
+        Just precontract ->
+          let
+            Just postcontract = view (EVM.env . EVM.contracts . at addr) post
+            prestorage = view EVM.storage precontract
+            poststorage = view EVM.storage postcontract
+          in case (prestorage, poststorage) of
+              (Concrete pre, Concrete post) -> literal $ pre == post
+              (Symbolic pre, Symbolic post) ->
+               let
+                 insertions = rights $ filter (\a -> addr == get (getContractId (getLoc a)) contractMap) updates
+                 slot update = let S _ w = calculateSlot ctx solcjson (mkLoc update)
+                               in w
+                 insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
+                 insertUpdate store u@(IntUpdate item e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx Pre e
+                 insertUpdate store u@(BoolUpdate item e) = writeArray store (slot u) $ (ite (symExpBool ctx Pre e) 1 0)
+                 insertUpdate store _ = error "bytes unsupported"
+               in post .== foldl insertUpdate pre insertions
+              _ -> sFalse
+
+
 -- assumes preconditions as well
-mkPostCondition :: Behaviour -> (Ctx, VMResult) -> SBool
-mkPostCondition
-  (Behaviour _ mode creation _ _ preCond postCond updates returns)
+mkPostCondition :: VM -> VM -> SolcJson -> Behaviour -> Map Id Addr -> (Ctx, VMResult) -> SBool
+mkPostCondition preVm postVm solcjson
+  b@(Behaviour _ mode creation _ _ preCond postCond updates returns)
+  contractMap
   (ctx, vmResult) =
   if creation then error "todo: constructor"
   else 
-    let storageConstraints = sAnd $ mkConstraint ctx <$> updates
+    let storageConstraints = checkPostStorage ctx b preVm postVm contractMap solcjson
         preCond' = symExpBool ctx Pre (mconcat preCond)
         postCond' = symExpBool ctx Pre (mconcat postCond)
         (actual, reverted) = case vmResult of
@@ -167,8 +195,7 @@ locateStorage :: Ctx -> SolcJson -> Map Id Addr -> Method -> (VM,VM) -> Either S
 locateStorage ctx solcjson contractMap method (pre, post) item =
   let item' = getLoc item
       contractId = getContractId $ item'
-      addr = fromMaybe (error "internal error: could not find contract")
-        (lookup contractId contractMap)
+      addr = get contractId contractMap
 
       Just preContract = view (env . contracts . at addr) pre
       Just postContract = view (env . contracts . at addr) post
@@ -189,7 +216,7 @@ calculateSlot :: Ctx -> SolcJson -> StorageLocation -> SymWord
 calculateSlot ctx solcjson loc =
   -- TODO: packing with offset
   let
-    source = fromMaybe (error "internal error: could not find contract") (lookup (pack (getContractId loc)) solcjson)
+    source = get (pack (getContractId loc)) solcjson
     layout = fromMaybe (error "internal error: no storageLayout") $ _storageLayout source
     StorageItem _ offset slot = get (pack (getContainerId loc)) layout
     slotword = sFromIntegral (literal (fromIntegral slot :: Integer))
