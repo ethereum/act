@@ -28,6 +28,13 @@ invariant_specs=$(wildcard tests/invariants/*/*.act)
 invariant_pass=$(wildcard tests/invariants/pass/*.act) $(typing_specs)
 invariant_fail=$(wildcard tests/invariants/fail/*.act)
 
+# supposed to pass, but don't
+hevm_buggy=tests/hevm/pass/safemath/safemath.act tests/hevm/pass/transfer/transfer.act
+# supposed to pass
+hevm_pass=$(filter-out $(hevm_buggy), $(wildcard tests/hevm/pass/*/*.act))
+# supposed to fail
+hevm_fail=$(wildcard tests/hevm/fail/*/*.act)
+
 failing_typing=tests/frontend/array/array.act tests/frontend/dss/vat.act tests/frontend/creation/createMultiple.act
 
 coq-examples = tests/coq/transitions tests/coq/safemath tests/coq/exponent
@@ -40,6 +47,7 @@ $(coq-examples):
 test-parse: parser compiler $(parser_specs:=.parse)
 test-type: parser compiler $(typing_specs:=.type)
 test-invariant: parser compiler $(invariant_pass:=.invariant.pass) $(invariant_fail:=.invariant.fail)
+test-hevm: parser compiler $(hevm_pass:=.hevm.pass) $(hevm_fail:=.hevm.fail)
 
 
 # Just checks parsing
@@ -61,4 +69,14 @@ tests/%.invariant.fail:
 	./bin/act prove --file tests/$* && exit 1 || echo 0
 	./bin/act prove --solver cvc4 --file tests/$* && exit 1 || echo 0
 
-test: test-parse test-type test-invariant test-coq
+tests/hevm/pass/%.act.hevm.pass:
+	solc --combined-json=bin,bin-runtime,ast,metadata,abi,srcmap,srcmap-runtime,storage-layout tests/hevm/pass/$*.sol > tests/hevm/pass/$*.sol.json
+	./bin/act hevm --spec tests/hevm/pass/$*.act --soljson tests/hevm/pass/$*.sol.json
+	rm tests/hevm/pass/$*.sol.json
+
+tests/hevm/fail/%.act.hevm.fail:
+	solc --combined-json=bin,bin-runtime,ast,metadata,abi,srcmap,srcmap-runtime,storage-layout tests/hevm/fail/$*.sol > tests/hevm/fail/$*.sol.json
+	./bin/act hevm --spec tests/hevm/fail/$*.act --soljson tests/hevm/fail/$*.sol.json && exit 1 || echo 0
+	rm tests/hevm/fail/$*.sol.json
+
+test: test-parse test-type test-invariant test-coq test-hevm
