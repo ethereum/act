@@ -74,11 +74,11 @@ initialVm sources Behaviour{..} contractMap = do
   let
     -- todo; ensure no duplicates
     this = fromMaybe (error ("Bytecode not found for: " <> show _contract <> ".\nSources available: " <> show (keys sources))) (lookup (pack _contract) sources)
-    c = fromMaybe (error ("Address not found for: " ++ show _contract ++ ".\nAvailable: " ++ show (keys contractMap))) (lookup _contract contractMap)
+    addr = fromMaybe (error ("Address not found for: " ++ show _contract ++ ".\nAvailable: " ++ show (keys contractMap))) (lookup _contract contractMap)
+    store = Concrete mempty
   cd <- interfaceCalldata _interface
   caller' <- SAddr <$> sWord_
   value' <- sw256 <$> sWord_
-  store <- return $ Concrete mempty --this can be removed if we use something else than loadSymVM
   contracts' <- forM (toList contractMap) $
     \(contractId, addr) -> do
         let code' = RuntimeCode $ view runtimeCode $
@@ -96,7 +96,7 @@ initialVm sources Behaviour{..} contractMap = do
         (cd, literal $ fromIntegral $ len cd)
         & over (env . contracts) (\a -> a <> (fromList contracts'))
 
-  return $ initTx $ execState (loadContract c) vm
+  return $ initTx $ execState (loadContract addr) vm
 
 -- assumes preconditions as well
 mkPostCondition :: Behaviour -> (Ctx, VMResult) -> SBool
