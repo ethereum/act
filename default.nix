@@ -25,8 +25,6 @@ let
     ];
     buildInputs = with pkgs.haskellPackages; [
       cabal-install
-      myHaskellPackages.happy
-      myHaskellPackages.alex
       pkgs.jq
       pkgs.coq_8_10
       dapptools.solc

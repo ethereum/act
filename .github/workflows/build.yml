@@ -27,7 +27,7 @@ jobs:
           skipPush: true
           signingKey: ''
       - name: test
-        run: nix-shell --pure --command "make test"
+        run: nix-shell --pure --command "cabal new-update && make test"
       - name: build
         run: nix-build -A exe
 
