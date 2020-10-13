@@ -20,12 +20,11 @@ common deps
                  mtl              >= 2.2.2,
                  utf8-string      >= 1.0.1.1
   ghc-options:   -Wall -Wno-deprecations
-  other-modules: Lex ErrM Parse RefinedAst K Coq Syntax Type Prove Print Enrich
+  other-modules: Lex ErrM Parse RefinedAst HEVM K Coq Syntax Type Prove Print Enrich
 
 executable act
   import:             deps
   main-is:            Main.hs
-  build-tool-depends: happy:happy, alex:alex
   hs-source-dirs:     .
   default-language:   Haskell2010
 
