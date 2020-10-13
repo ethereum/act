@@ -16,6 +16,8 @@ module Prove
   , mkContext
   , mkConstraint
   , symExpBool
+  , symExpInt
+  , symExpBytes
   , symExp
   , nameFromItem
   , nameFromEnv
@@ -40,7 +42,7 @@ import Data.SBV.String ((.++), subStr)
 
 import RefinedAst
 import Syntax (Id, Interface(..), Decl(..), EthEnv(..))
-import Type (metaType)
+import Type (metaType, getLoc)
 import Enrich (mkStorageBounds)
 import Print (prettyEnv)
 
@@ -398,15 +400,6 @@ nameFromEnv contract method e = contract @@ method @@ (prettyEnv e)
 x @@ y = x <> "_" <> y
 
 -- *** Storage Location Extraction *** --
-
-
-getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
-getLoc ref = case ref of
-  Left loc -> loc
-  Right update -> case update of
-    IntUpdate item _ -> IntLoc item
-    BoolUpdate item _ -> BoolLoc item
-    BytesUpdate item _ -> BytesLoc item
 
 locsFromExp :: Exp a -> [StorageLocation]
 locsFromExp e = case e of
