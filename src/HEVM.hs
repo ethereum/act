@@ -106,8 +106,8 @@ mkPostCondition
   if creation then error "todo: constructor"
   else 
     let storageConstraints = sAnd $ mkConstraint ctx <$> updates
-        preCond' = symExpBool ctx Pre preCond
-        postCond' = symExpBool ctx Pre postCond
+        preCond' = symExpBool ctx Pre (mconcat preCond)
+        postCond' = symExpBool ctx Pre (mconcat postCond)
         (actual, reverted) = case vmResult of
           VMSuccess (ConcreteBuffer msg) -> (litBytes msg, sFalse)
           VMSuccess (SymbolicBuffer msg) -> (msg, sFalse)
