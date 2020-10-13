@@ -113,7 +113,7 @@ mkPostCondition
           VMSuccess (SymbolicBuffer msg) -> (msg, sFalse)
           VMFailure (Revert _) -> ([], sTrue)
           _ -> ([], sFalse)
-        expected = fromMaybe [] (toSymBytes <$> symExp ctx Pre <$> returns)
+        expected = maybe [] (toSymBytes . symExp ctx Pre) returns
 
     in preCond' .=>
        (postCond' .&&
