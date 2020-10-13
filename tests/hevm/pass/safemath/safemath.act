@@ -1,0 +1,12 @@
+behaviour add of SafeAdd
+interface add(uint256 x, uint256 y)
+
+iff in range uint256
+
+    x + y
+
+iff
+
+    CALLVALUE == 0
+
+returns x + y

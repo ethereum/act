@@ -1,0 +1,15 @@
+behaviour constructor of A
+interface constructor()
+
+creates
+
+  mapping (uint=>uint) x := []
+
+behaviour f of A
+interface f()
+
+// fails to mention the state update
+
+returns
+
+  1

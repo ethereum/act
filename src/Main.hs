@@ -69,7 +69,7 @@ data Command w
                     , soljson    :: w ::: String               <?> "Path to .sol.json"
                     , solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
-                    , debug      :: w ::: Bool           <?> "Print verbose smt output (default: False)"
+                    , debug      :: w ::: Bool                 <?> "Print verbose smt output (default: False)"
                     }
  deriving (Generic)
 
