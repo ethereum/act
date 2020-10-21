@@ -40,6 +40,7 @@ import Type
 import Prove
 import Coq
 import HEVM
+import Print
 
 --command line options
 data Command w
@@ -99,7 +100,7 @@ main = do
         proceed contents (compile contents) $ \claims -> do
             let
                 handleResults ((Invariant c e), rs) = do
-                  let msg = "\n============\n\nInvariant " <> show e <> " of " <> show c <> ": "
+                  let msg = "\n============\n\nInvariant " <> show (prettyExp e) <> " of " <> show c <> ": "
                       sep = "\n\n---\n\n"
                       results' = handleRes <$> rs
                       ok = not $ or $ fst <$> results'
