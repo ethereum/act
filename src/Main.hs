@@ -14,7 +14,7 @@ import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
-import Data.SBV
+import Data.SBV hiding (preprocess)
 import Data.Text (pack, unpack)
 import Data.Maybe
 import Data.List
@@ -126,9 +126,8 @@ main = do
 
       (Coq f) -> do
         contents <- readFile f
-        proceed "" (parse (lexer contents)) $ \untyped ->
-          proceed "" (enrich <$> (typecheck untyped)) $ \typed ->
-            TIO.putStr $ coq (lookupVars untyped) typed
+        proceed contents (compile contents) $ \claims ->
+          TIO.putStr $ coq claims
 
       (K spec' soljson' gas' storage' extractbin' out') -> do
         specContents <- readFile spec'
@@ -137,25 +136,25 @@ main = do
             errKSpecs = do refinedSpecs <- compile specContents
                            (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
                              $ Solidity.readJSON $ pack solContents
-                           forM (catBehvs refinedSpecs)
-                             $ makekSpec sources kOpts (catInvs refinedSpecs)
+                           forM [b | B b <- refinedSpecs]
+                             $ makekSpec sources kOpts [i | I i <- refinedSpecs]
         proceed specContents errKSpecs $ \kSpecs -> do
           let printFile (filename, content) = case out' of
                 Nothing -> putStrLn (filename <> ".k") >> putStrLn content
                 Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
           forM_ kSpecs printFile
 
-      (HEVM spec soljson solver smttimeout debug) -> do
-        specContents <- readFile spec
-        solContents  <- readFile soljson
+      (HEVM spec' soljson' solver' smttimeout' debug') -> do
+        specContents <- readFile spec'
+        solContents  <- readFile soljson'
         let preprocess = do refinedSpecs  <- compile specContents
                             (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
                               $ Solidity.readJSON $ pack solContents
-                            return (catBehvs refinedSpecs, sources)
+                            return ([b | B b <- refinedSpecs], sources)
         proceed specContents preprocess $ \(specs, sources) -> do
           -- TODO: prove constructor too
-          passes <- forM (filter (not . _creation) specs) $ \behv -> do
-            res <- runSMTWithTimeOut solver smttimeout debug $ proveBehaviour sources behv
+          passes <- forM specs $ \behv -> do
+            res <- runSMTWithTimeOut solver' smttimeout' debug' $ proveBehaviour sources behv
             case res of
               Left (_, posts) -> do
                  putStrLn $ "Successfully proved " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
@@ -184,14 +183,14 @@ satWithTimeOut solver' maybeTimeout debug' sym = case solver' of
 
 -- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
 runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic a -> IO a
-runSMTWithTimeOut solver maybeTimeout debug' sym
-  | solver == Just "cvc4" = do
+runSMTWithTimeOut solver' maybeTimeout debug' sym
+  | solver' == Just "cvc4" = do
       setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --incremental --interactive --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
       res <- runSMTWith cvc4{verbose=debug'} sym
       setEnv "SBV_CVC4_OPTIONS" ""
       return res
-  | solver == Just "z3" = runwithz3
-  | solver == Nothing = runwithz3
+  | solver' == Just "z3" = runwithz3
+  | solver' == Nothing = runwithz3
   | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
  where timeout = fromMaybe 20000 maybeTimeout
        runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym

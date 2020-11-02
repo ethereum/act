@@ -22,14 +22,25 @@ import Data.Aeson.Types
 import Data.Vector (fromList)
 
 -- AST post typechecking
-data Claim = B Behaviour | I Invariant | S Storages deriving (Show, Eq)
+data Claim = C Constructor | B Behaviour | I Invariant | S Store deriving (Show, Eq)
 
-newtype Storages = Storages { unStorages :: Map Id (Map Id SlotType) } deriving (Show, Eq)
+type Store = Map Id (Map Id SlotType)
+
 data Invariant = Invariant Id (Exp Bool) deriving (Show, Eq)
+
+data Constructor = Constructor
+  { _cname :: Id,
+    _cmode :: Mode,
+    _cinterface :: Interface,
+    _cpreconditions :: [Exp Bool],
+    _cpostconditions :: [Exp Bool],
+    _initialStorage :: [StorageUpdate],
+    _cstateUpdates :: [Either StorageLocation StorageUpdate]
+  } deriving (Show, Eq)
+
 data Behaviour = Behaviour
   {_name :: Id,
    _mode :: Mode,
-   _creation :: Bool,
    _contract :: Id,
    _interface :: Interface,
    _preconditions :: [Exp Bool],
@@ -38,21 +49,6 @@ data Behaviour = Behaviour
    _returns :: Maybe ReturnExp
   }
   deriving (Show, Eq)
-
-catInvs :: [Claim] -> [Invariant]
-catInvs [] = []
-catInvs ((I i):claims) = i:(catInvs claims)
-catInvs (_:claims) = catInvs claims
-
-catStores :: [Claim] -> [Storages]
-catStores [] = []
-catStores ((S s):claims) = s:(catStores claims)
-catStores (_:claims) = catStores claims
-
-catBehvs :: [Claim] -> [Behaviour]
-catBehvs [] = []
-catBehvs ((B b):claims) = b:(catBehvs claims)
-catBehvs (_:claims) = catBehvs claims
 
 data Mode
   = Pass
@@ -152,16 +148,23 @@ data ReturnExp
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
-  toJSON (S (Storages storages)) = object [ "kind" .= (String "Storages")
+  toJSON (S storages) = object [ "kind" .= (String "Storages")
                                           , "storages" .= toJSON storages]
   toJSON (I (Invariant contract e)) = object [ "kind" .= (String "Invariant")
                                              , "expression" .= toJSON e
                                              , "contract" .= show contract ]
+  toJSON (C (Constructor {..})) = object  [ "kind" .= (String "Constructor")
+                                          , "contract" .= _cname
+                                          , "mode" .= (String . pack $ show _cmode)
+                                          , "interface" .= (String . pack $ show _cinterface)
+                                          , "preConditions" .= (toJSON _cpreconditions)
+                                          , "postConditions" .= (toJSON _cpostconditions)
+                                          , "storage" .= toJSON _initialStorage
+                                          ]
   toJSON (B (Behaviour {..})) = object  [ "kind" .= (String "Behaviour")
                                         , "name" .= _name
                                         , "contract" .= _contract
                                         , "mode" .= (String . pack $ show _mode)
-                                        , "creation" .= _creation
                                         , "interface" .= (String . pack $ show _interface)
                                         , "preConditions" .= (toJSON _preconditions)
                                         , "postConditions" .= (toJSON _postconditions)

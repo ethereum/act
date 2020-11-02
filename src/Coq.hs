@@ -24,8 +24,7 @@ import Control.Monad.State
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import Syntax
-import RefinedAst
-import qualified Type
+import RefinedAst hiding (Store)
 
 type Store = M.Map Id SlotType
 type Fresh = State Int
@@ -41,29 +40,27 @@ header = T.unlines $
   ]
 
 -- | produce a coq representation of a specification
-coq :: Type.Store -> [Claim] -> T.Text
-coq store claims =
+coq :: [Claim] -> T.Text
+coq claims =
 
   header
   <> stateRecord <> "\n\n"
-  <> block (evalSeq (claim store') <$> groups transitions)
-  <> block (evalSeq retVal        <$> groups transitions)
-  <> block (evalSeq (base store')  <$> groups constructors)
-  <> reachable (groups constructors) (groups transitions)
+  <> block (evalSeq (claim store') <$> groups behaviours)
+  <> block (evalSeq retVal        <$> groups behaviours)
+  <> block (evalSeq (base store')  <$> cgroups constructors)
+  <> reachable (cgroups constructors) (groups behaviours)
 
   where
 
-  store' = if null store
-    then M.empty
-    else snd $ head $ M.toList store
+  -- currently only supports one contract
+  store' = snd $ head $ M.toList $ head [s | S s <- claims]
 
   behaviours = filter ((== Pass) . _mode) [a | B a <- claims]
 
-  transitions = filter (not . _creation) behaviours
-
-  constructors = filter _creation behaviours
+  constructors = filter ((== Pass) . _cmode) [c | C c <- claims]
 
   groups = groupBy (\b b' -> _name b == _name b')
+  cgroups = groupBy (\b b' -> _cname b == _cname b')
 
   block xs = T.intercalate "\n\n" (concat xs) <> "\n\n"
 
@@ -76,7 +73,7 @@ coq store claims =
 
 
 -- | inductive definition of reachable states
-reachable :: [[Behaviour]] -> [[Behaviour]] -> T.Text
+reachable :: [[Constructor]] -> [[Behaviour]] -> T.Text
 reachable constructors groups = inductive
   reachableType "" (stateType <> " -> " <> stateType <> " -> Prop") body where
   body = concat $
@@ -85,8 +82,8 @@ reachable constructors groups = inductive
     (evalSeq reachableStep <$> groups)
 
 -- | non-recursive constructor for the reachable relation
-baseCase :: Behaviour -> Fresh T.Text
-baseCase (Behaviour name _ _ _ i@(Interface _ decls) conds _ _ _) =
+baseCase :: Constructor -> Fresh T.Text
+baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _) =
   fresh name >>= continuation where
   continuation name' =
     return $ name'
@@ -104,7 +101,7 @@ baseCase (Behaviour name _ _ _ i@(Interface _ decls) conds _ _ _) =
 
 -- | recursive constructor for the reachable relation
 reachableStep :: Behaviour -> Fresh T.Text
-reachableStep (Behaviour name _ _ _ i conds _ _ _) =
+reachableStep (Behaviour name _ _ i conds _ _ _) =
   fresh name >>= continuation where
   continuation name' =
     return $ name'
@@ -121,14 +118,14 @@ reachableStep (Behaviour name _ _ _ i conds _ _ _) =
       ]
 
 -- | definition of a base state
-base :: Store -> Behaviour -> Fresh T.Text
-base store (Behaviour name _ _ _ i _ _ updates _) = do
+base :: Store -> Constructor -> Fresh T.Text
+base store (Constructor name _ i _ _ updates _) = do
   name' <- fresh name
   return $ definition name' (interface i) $
-    stateval store (\_ t -> defaultValue t) (rights updates)
+    stateval store (\_ t -> defaultValue t) updates
 
 claim :: Store -> Behaviour -> Fresh T.Text
-claim store (Behaviour name _ _ _ i _ _ updates _) = do
+claim store (Behaviour name _ _ i _ _ updates _) = do
   name' <- fresh name
   return $ definition name' (stateDecl <> " " <> interface i) $
     stateval store (\n _ -> T.pack n <> " " <> stateVar) (rights updates)
@@ -136,7 +133,7 @@ claim store (Behaviour name _ _ _ i _ _ updates _) = do
 -- | inductive definition of a return claim
 -- ignores claims that do not specify a return value
 retVal :: Behaviour -> Fresh T.Text
-retVal (Behaviour name _ _ _ i conds _ _ (Just r)) =
+retVal (Behaviour name _ _ i conds _ _ (Just r)) =
   fresh name >>= continuation where
   continuation name' = return $ inductive
     (name' <> returnSuffix)

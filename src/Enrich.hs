@@ -17,18 +17,17 @@ import Syntax (EthEnv(..), Id, Decl(..), Interface(..))
 enrich :: [Claim] -> [Claim]
 enrich claims = [S store]
                 <> (I <$> invariants)
-                <> (B <$> constructors)
-                <> (B <$> (enrichBehaviour store <$> transitions))
+                <> (C <$> constructors)
+                <> (B <$> (enrichBehaviour store <$> behaviours))
   where
-    store = head $ catStores claims
-    behvaviours = catBehvs claims
-    invariants = catInvs claims
-    constructors = filter _creation behvaviours
-    transitions = filter (not . _creation) behvaviours
+    store = head $ [s | S s <- claims]
+    behaviours = [b | B b <- claims]
+    invariants = [i | I i <- claims]
+    constructors = [c | C c <- claims]
 
-enrichBehaviour :: Storages -> Behaviour -> Behaviour
-enrichBehaviour store behv@(Behaviour name mode creation contract iface@(Interface _ decls) pre post stateUpdates ret) =
-  Behaviour name mode creation contract iface pre' post stateUpdates ret
+enrichBehaviour :: Store -> Behaviour -> Behaviour
+enrichBehaviour store behv@(Behaviour name mode contract iface@(Interface _ decls) pre post stateUpdates ret) =
+  Behaviour name mode contract iface pre' post stateUpdates ret
     where
       pre' = pre
              <> (mkCallDataBounds decls)
@@ -36,7 +35,7 @@ enrichBehaviour store behv@(Behaviour name mode creation contract iface@(Interfa
              <> (mkEthEnvBounds $ ethEnvFromBehaviour behv)
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
-ethEnvFromBehaviour (Behaviour _ _ _ _ _ preconds postconds stateUpdates returns) =
+ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
   (concatMap ethEnvFromExp preconds)
   <> (concatMap ethEnvFromExp postconds)
   <> (concatMap ethEnvFromStateUpdate stateUpdates)
@@ -125,8 +124,8 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
       Nonce -> AbiUIntType 256
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
-mkStorageBounds :: Storages -> [Either StorageLocation StorageUpdate] -> [Exp Bool]
-mkStorageBounds (Storages store) refs
+mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Bool]
+mkStorageBounds store refs
   = catMaybes $ mkBound <$> refs
   where
     mkBound :: Either StorageLocation StorageUpdate -> Maybe (Exp Bool)
