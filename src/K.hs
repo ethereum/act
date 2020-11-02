@@ -273,8 +273,7 @@ defaultConditions acct_id =
 
 mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> Exp Bool -> (String, String)
 mkTerm this accounts Behaviour{..} invariant = (name, term)
-  where code = if _creation then _creationCode this
-               else _runtimeCode this
+  where code = _runtimeCode this
         pass = _mode == Pass
         repl '_' = '.'
         repl  c  = c

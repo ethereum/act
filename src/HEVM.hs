@@ -91,7 +91,7 @@ initialVm sources Behaviour{..} contractMap = do
   let vm = loadSymVM
         (RuntimeCode $ view runtimeCode this)
         store
-        (if _creation then InitialS else SymbolicS)
+        SymbolicS
         caller'
         value'
         (cd, literal $ fromIntegral $ len cd)
@@ -100,7 +100,7 @@ initialVm sources Behaviour{..} contractMap = do
   return $ initTx $ execState (loadContract addr) vm
 
 checkPostStorage :: Ctx -> Behaviour -> VM -> VM -> Map Id Addr -> SolcJson -> SBV Bool
-checkPostStorage ctx b@(Behaviour _ _ _ _ _ _ _ updates _) pre post contractMap solcjson =
+checkPostStorage ctx b@(Behaviour _ _ _ _ _ _ updates _) pre post contractMap solcjson =
   sAnd $ flip fmap (keys (view (EVM.env . EVM.contracts) post)) $
     \addr ->
       case view (EVM.env . EVM.contracts . at addr) pre of
@@ -128,11 +128,9 @@ checkPostStorage ctx b@(Behaviour _ _ _ _ _ _ _ updates _) pre post contractMap 
 -- assumes preconditions as well
 mkPostCondition :: VM -> VM -> SolcJson -> Behaviour -> Map Id Addr -> (Ctx, VMResult) -> SBool
 mkPostCondition preVm postVm solcjson
-  b@(Behaviour _ mode creation _ _ preCond postCond updates returns)
+  b@(Behaviour _ mode _ _ preCond postCond updates returns)
   contractMap
   (ctx, vmResult) =
-  if creation then error "todo: constructor"
-  else 
     let storageConstraints = checkPostStorage ctx b preVm postVm contractMap solcjson
         preCond' = symExpBool ctx Pre (mconcat preCond)
         postCond' = symExpBool ctx Pre (mconcat postCond)
@@ -153,7 +151,7 @@ mkPostCondition preVm postVm solcjson
 
 -- | Locate the variables refered to in the act-spec in the vm
 mkVmContext :: SolcJson -> Behaviour -> Map Id Addr -> VM -> VM -> (Ctx, VMResult)
-mkVmContext solcjson b@(Behaviour method _ _ c1 (Interface _ decls) _ _ updates _) contractMap pre post =
+mkVmContext solcjson b@(Behaviour method _ c1 (Interface _ decls) _ _ updates _) contractMap pre post =
   let args = fromList $ locateCalldata b decls (fst $ view (state . calldata) pre) <$> decls
       env' = makeVmEnv b pre
       -- we should always have a result after executing the vm fully.
@@ -169,7 +167,7 @@ mkVmContext solcjson b@(Behaviour method _ _ c1 (Interface _ decls) _ _ updates 
 
 
 makeVmEnv :: Behaviour -> VM -> Map Id SMType
-makeVmEnv (Behaviour method _ _ c1 _ _ _ _ _) vm =
+makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
   fromList $
     [ Caller    |- SymInteger (sFromIntegral $ saddressWord160 (view (state . caller) vm))
     , Callvalue |- let S _ w = view (state . callvalue) vm

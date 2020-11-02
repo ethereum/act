@@ -10,7 +10,6 @@ module Prove
   , When(..)
   , SMType(..)
   , Method
-  , Store
   , getLoc
   , get
   , mkContext
@@ -74,10 +73,11 @@ import Print (prettyEnv)
 queries :: [Claim] -> [(Invariant, [Symbolic ()])]
 queries claims = fmap mkQueries gathered
   where
-    gathered = fmap (\inv -> (inv, store, getBehaviours inv)) invariants
-    invariants = catInvs claims
-    store = head (catStores claims) -- TODO: refine AST so we don't need this head anymore
-    getBehaviours (Invariant c _) = filter (\b -> isPass b && contractMatches c b) (catBehvs claims)
+    gathered = fmap (\inv -> (inv, store, constructor, getBehaviours inv)) invariants
+    constructor = head [c | C c <- claims]
+    invariants = [i | I i <- claims]
+    store = head [s | S s <- claims] -- TODO: refine AST so we don't need this head anymore
+    getBehaviours (Invariant c _) = filter (\b -> isPass b && contractMatches c b) [b | B b <- claims]
     contractMatches c b = c == (_contract b)
     isPass b = (_mode b) == Pass
 
@@ -88,13 +88,13 @@ queries claims = fmap mkQueries gathered
 type Contract = Id
 type Method = Id
 type Args = Map Id SMType
-type Store = Map Id (SMType, SMType)
+type Storage = Map Id (SMType, SMType)
 type Env = Map Id SMType
 data When = Pre | Post
 
   deriving (Eq, Show)
 
-data Ctx = Ctx Contract Method Args Store Env
+data Ctx = Ctx Contract Method Args Storage Env
   deriving (Show)
 
 data SMType
@@ -113,31 +113,32 @@ instance EqSymbolic SMType where
 -- *** Query Construction *** --
 
 
-mkQueries :: (Invariant, Storages, [Behaviour]) -> (Invariant, [Symbolic ()])
-mkQueries (inv, store, behvs) = (inv, inits <> methods)
+mkQueries :: (Invariant, Store, Constructor, [Behaviour]) -> (Invariant, [Symbolic ()])
+mkQueries (inv, store, constr, behvs) = (inv, inits:methods)
   where
-    initBehvs = filter _creation behvs
-    inits = (mkInit inv) <$> initBehvs
-    methods = (mkMethod inv store (head initBehvs)) <$> filter (not . _creation) behvs
+    inits = mkInit inv constr
+    methods = mkMethod inv store constr <$> behvs
 
-mkInit :: Invariant -> Behaviour -> Symbolic ()
-mkInit inv@(Invariant _ e) behv@(Behaviour _ _ _ _ _ preConds postConds stateUpdates _) = do
-  ctx <- mkContext inv behv
+mkInit :: Invariant -> Constructor -> Symbolic ()
+mkInit inv@(Invariant _ e) constr@(Constructor _ _ _ preConds postConds statedef otherstorages) = do
+  ctx <- mkContext inv (Right constr)
 
   let
     mkBool = symExpBool ctx
+    storages = (Right <$> statedef) <> otherstorages
     postInv' = mkBool Post e
     preCond' = mkBool Pre (mconcat preConds)
     postCond' = mkBool Pre (mconcat postConds)
-    stateUpdates' = mkStorageConstraints ctx stateUpdates (references inv behv)
+    
+    stateUpdates' = mkStorageConstraints ctx storages (nub $ (getLoc <$> storages) <> locsFromExp e)
 
   constrain $ preCond' .&& sAnd stateUpdates' .&& (sNot postCond' .|| sNot postInv')
 
-mkMethod :: Invariant -> Storages -> Behaviour -> Behaviour -> Symbolic ()
-mkMethod inv@(Invariant _ e) storages initBehv behv = do
-  ctx@(Ctx c m _ store' env) <- mkContext inv behv
+mkMethod :: Invariant -> Store -> Constructor -> Behaviour -> Symbolic ()
+mkMethod inv@(Invariant _ e) store initBehv behv = do
+  ctx@(Ctx c m _ store' env) <- mkContext inv (Left behv)
 
-  let (Interface _ initdecls) = _interface initBehv
+  let (Interface _ initdecls) = _cinterface initBehv
   initArgs <- mkArgs c m initdecls
   let invCtx = Ctx c m initArgs store' env
 
@@ -148,19 +149,23 @@ mkMethod inv@(Invariant _ e) storages initBehv behv = do
     preCond = symExpBool ctx Pre (mconcat $ _preconditions behv)
     postCond = symExpBool ctx Pre (mconcat $ _postconditions behv)
     stateUpdates = mkStorageConstraints ctx (_stateUpdates behv) locs
-    storageBounds = symExpBool ctx Pre $ mconcat <$> mkStorageBounds storages $ Left <$> locs
+    storageBounds = symExpBool ctx Pre $ mconcat <$> mkStorageBounds store $ Left <$> locs
 
   constrain $ preInv .&& preCond .&& storageBounds
            .&& sAnd stateUpdates
            .&& (sNot postCond .|| sNot postInv)
 
 
-mkContext :: Invariant -> Behaviour -> Symbolic Ctx
-mkContext inv@(Invariant contract _) behv@(Behaviour method _ _ c1 (Interface _ decls) _ _ _ _) = do
+mkContext :: Invariant -> Either Behaviour Constructor -> Symbolic Ctx
+mkContext (Invariant contract e) spec = do
+  let (c1, decls, updates, method) = either
+        (\(Behaviour m _ c (Interface _ ds) _ _ u _) -> (c,ds, u, m))
+        (\(Constructor c _ (Interface _ ds) _ _ init' cs) -> (c, ds, ((Right <$> init') <> cs), "init"))
+        spec
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1) $ error "Internal error: contract mismatch"
 
-  let locs = references inv behv
+  let locs = nub $ (getLoc <$> updates) <> locsFromExp e
 
   store <- Map.fromList <$> mapM (mkSymStorage method) locs
   env <- mkEnv contract method
@@ -172,7 +177,7 @@ mkArgs :: Contract -> Method -> [Decl] -> Symbolic (Map Id SMType)
 mkArgs c m ds = Map.fromList <$> mapM (mkSymArg c m) ds
 
 references :: Invariant -> Behaviour -> [StorageLocation]
-references (Invariant _ inv) (Behaviour _ _ _ _ _ _ _ updates _)
+references (Invariant _ inv) (Behaviour _ _ _ _ _ _ updates _)
   = nub $ (getLoc <$> updates) <> locsFromExp inv
 
 mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)

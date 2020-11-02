@@ -19,7 +19,7 @@ data Act = Main [RawBehaviour]
 
 data RawBehaviour
     = Transition Id Id Interface [IffH] Cases (Maybe Ensures)
-    | Constructor Id Id Interface [IffH] Creates [ExtStorage] (Maybe Ensures) (Maybe Invariants)
+    | Definition Id Interface [IffH] Creates [ExtStorage] (Maybe Ensures) (Maybe Invariants)
   deriving (Eq, Show)
 
 type Ensures = [Expr]

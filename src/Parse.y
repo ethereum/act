@@ -16,7 +16,8 @@ import ErrM
 
 %token
 
-  -- reserved words
+  -- reserved word
+  'definition'                { L DEFINITION _ }
   'behaviour'                 { L BEHAVIOUR _ }
   'of'                        { L OF _ }
   'interface'                 { L INTERFACE _ }
@@ -163,14 +164,14 @@ Transition : 'behaviour' id 'of' id
              opt(Ensures)                             { Transition (arg $2) (arg $4)
                                                         $5 $6 $7 $8 }
 
-Constructor : 'behaviour' id 'of' id
+Constructor : 'definition' id
               Interface
               list(Precondition)
               Creation
               list(ExtStorage)
               opt(Ensures)
-              opt(Invariants)                          { Constructor (arg $2) (arg $4)
-                                                         $5 $6 $7 $8 $9 $10 }
+              opt(Invariants)                          { Definition (arg $2)
+                                                         $3 $4 $5 $6 $7 $8 }
 
 Ensures : 'ensures' nonempty(Expr)                    { $2 }
 
@@ -209,7 +210,7 @@ Entry : id list(Zoom)                                 { Entry (posn $1) (arg $1)
 Zoom : '[' Expr ']'                                   { $2 }
      | '.' Expr                                       { $2 }
 
-Creation : 'creates' nonempty(Assign)                 { Creates $2 }
+Creation : 'creates' list(Assign)                     { Creates $2 }
 
 Assign : StorageVar ':=' Expr                        { AssignVal $1 $3 }
        | StorageVar ':=' '[' seplist(Defn, ',') ']'  { AssignMany $1 $4 }

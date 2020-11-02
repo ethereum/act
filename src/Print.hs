@@ -11,7 +11,7 @@ import Syntax
 import RefinedAst
 
 prettyBehaviour :: Behaviour -> String
-prettyBehaviour (Behaviour name _ _ contract interface preconditions postconditions stateUpdates returns)
+prettyBehaviour (Behaviour name _ contract interface preconditions postconditions stateUpdates returns)
   =   "behaviour " <> name <> " of " <> contract
   >-< "interface " <> (show interface)
   <> prettyPre preconditions

@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Type (typecheck, metaType, bound, getLoc, mkLoc, lookupVars, defaultStore, Store) where
+module Type (typecheck, metaType, bound, getLoc, mkLoc, lookupVars, defaultStore) where
 
 import Data.List
 import EVM.ABI
@@ -26,22 +26,23 @@ import Parse
 import RefinedAst
 
 typecheck :: [RawBehaviour] -> Err [Claim]
-typecheck behvs = let store = lookupVars behvs in
-                  do bs <- mapM (splitBehaviour store) behvs
-                     return $ S (Storages store):(join bs)
+typecheck behvs = do store <- lookupVars behvs
+                     bs <- mapM (splitBehaviour store) behvs
+                     return $ (S store):(join bs)
 
 --- Finds storage declarations from constructors
-lookupVars :: [RawBehaviour] -> Store
+lookupVars :: [RawBehaviour] -> Err Store
 lookupVars ((Transition {}):bs) = lookupVars bs
-lookupVars ((Constructor _ contract _ _ (Creates assigns) _ _ _):bs) =
-  Map.singleton contract (Map.fromList $ map fromAssign assigns)
-  <> lookupVars bs -- TODO: deal with variable overriding
+lookupVars ((Definition contract _ _ (Creates assigns) _ _ _):bs) =
+  let new' = Map.singleton contract (Map.fromList $ map fromAssign assigns)
+  in do old <- lookupVars bs
+        if null (Map.intersection new' old)
+          then pure $ new' <> old
+          else Bad (nowhere, "Multiple definitions given of: " <> contract)
   where fromAssign (AssignVal (StorageVar typ var) _) = (var, typ)
         fromAssign (AssignMany (StorageVar typ var) _) = (var, typ)
         fromAssign (AssignStruct _ _) = error "TODO: assignstruct"
-lookupVars [] = mempty
-
-type Store = Map Id (Map Id SlotType)
+lookupVars [] = pure mempty
 
 -- typing of vars: this contract name, this contract storage, other contract scopes, calldata args
 type Env = (Id, Map Id SlotType, Store, Map Id MType)
@@ -101,7 +102,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     flatten :: [Exp Bool] -> [Exp Bool] -> Cases -> Err [Claim]
     flatten iff postc (Direct post) = do
       (p, maybeReturn) <- checkPost env post
-      return $ splitCase name False contract iface [] iff maybeReturn p postc
+      return $ splitCase name contract iface [] iff maybeReturn p postc
     flatten iff postc (Branches branches) = do
       branches' <- normalize branches
       cases' <- forM branches' $ \(Case _ cond post) -> do
@@ -110,14 +111,13 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
         return (if', post', ret)
 
       pure . join $ ((\(ifcond, stateUpdates, ret) ->
-        splitCase name False contract iface [ifcond] iff ret stateUpdates postc) <$> cases')
+        splitCase name contract iface [ifcond] iff ret stateUpdates postc) <$> cases')
 
-splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvs) = do
+splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvs) = do
   unless (null extStorage) $ error "TODO: support extStorage in constructor"
 
   let env = mkEnv contract store decls
   stateUpdates <- concat <$> mapM (checkAssign env) assigns
-  let stateUpdates' = Right <$> stateUpdates
   iffs' <- checkIffs env iffs
 
   invariants <- mapM (checkBool nowhere env) $ fromMaybe [] maybeInvs
@@ -126,9 +126,11 @@ splitBehaviour store (Constructor name contract iface@(Interface _ decls) iffs (
   -- this forces the smt backend to be run on every spec, ensuring postconditions are checked for every behaviour
   -- TODO: seperate the smt backend into seperate passes so we only run the invariant analysis if required
   let invariants' = if (null invariants) then [LitBool True] else invariants
+      cases' = if null iffs' then [C $ Constructor contract Pass iface iffs' ensures stateUpdates []]
+               else [C $ Constructor contract Pass iface iffs' ensures stateUpdates [], C $ Constructor contract Fail iface [Neg (mconcat iffs')] ensures [] []]
 
   return $ ((I . (Invariant contract)) <$> invariants')
-           <> (splitCase name True contract iface [] iffs' Nothing stateUpdates' ensures)
+           <> cases'
 
 mkEnv :: Id -> Store -> [Decl]-> Env
 mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract store), store, abiVars)
@@ -136,13 +138,13 @@ mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract st
    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
 
 -- | split case into pass and fail case
-splitCase :: Id -> Bool -> Id -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
+splitCase :: Id -> Id -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
           -> [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [Claim]
-splitCase name creates contract iface if' [] ret storage postcs =
-  [ B $ Behaviour name Pass creates contract iface if' postcs storage ret ]
-splitCase name creates contract iface if' iffs ret storage postcs =
-  [ B $ Behaviour name Pass creates contract iface (if' <> iffs) postcs storage ret,
-    B $ Behaviour name Fail creates contract iface (if' <> (Neg <$> (iffs))) [] (Left . getLoc <$> storage) Nothing ]
+splitCase name contract iface if' [] ret storage postcs =
+  [ B $ Behaviour name Pass contract iface if' postcs storage ret ]
+splitCase name contract iface if' iffs ret storage postcs =
+  [ B $ Behaviour name Pass contract iface (if' <> iffs) postcs storage ret,
+    B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs)]) [] (Left . getLoc <$> storage) Nothing ]
 
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
@@ -377,7 +379,6 @@ checkBool p env e =
     Ok (ExpBytes _) -> Bad (p, "expected: bool, got: bytes")
     Ok (ExpBool a) -> Ok a
     Bad err -> Bad err
-
 
 checkBytes :: Pn -> Env -> Expr -> Err (Exp ByteString)
 checkBytes p env e =
