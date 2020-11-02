@@ -1,4 +1,4 @@
-behaviour init of Amm
+definition Amm
 interface constructor()
 
 creates

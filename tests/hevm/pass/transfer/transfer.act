@@ -1,4 +1,4 @@
-behaviour init of Token
+definition Token
 interface constructor(string _symbol, string _name, string _version, uint _totalSupply)
 
 creates

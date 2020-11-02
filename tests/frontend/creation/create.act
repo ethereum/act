@@ -6,7 +6,7 @@
 // perspective, it defines the storage layout of the contract, by explicit
 // typing of storage variables.
 
-behaviour creation of Modest
+definition Modest
 interface constructor()
 
 creates

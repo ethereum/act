@@ -18,34 +18,27 @@
     "expression": "True"
   },
   {
-    "stateUpdates": [
+    "kind": "Constructor",
+    "mode": "Pass",
+    "storage": [
       {
-        "Right": {
-          "location": {
-            "name": "Modest.x",
-            "sort": "int"
-          },
-          "value": "1"
-        }
+        "location": {
+          "name": "Modest.x",
+          "sort": "int"
+        },
+        "value": "1"
       },
       {
-        "Right": {
-          "location": {
-            "name": "Modest.y",
-            "sort": "int"
-          },
-          "value": "Caller"
-        }
+        "location": {
+          "name": "Modest.y",
+          "sort": "int"
+        },
+        "value": "Caller"
       }
     ],
-    "kind": "Behaviour",
-    "mode": "Pass",
-    "creation": true,
-    "name": "creation",
     "preConditions": [],
     "contract": "Modest",
     "interface": "constructor()",
-    "postConditions": [],
-    "returns": null
+    "postConditions": []
   }
 ]

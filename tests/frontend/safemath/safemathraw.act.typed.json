@@ -7,7 +7,6 @@
     "stateUpdates": [],
     "kind": "Behaviour",
     "mode": "Pass",
-    "creation": false,
     "name": "add",
     "preConditions": [
       {
@@ -140,7 +139,6 @@
     "stateUpdates": [],
     "kind": "Behaviour",
     "mode": "Fail",
-    "creation": false,
     "name": "add",
     "preConditions": [
       {
@@ -152,17 +150,38 @@
               {
                 "arity": 2,
                 "args": [
-                  "0",
                   {
                     "arity": 2,
                     "args": [
-                      "x",
-                      "y"
+                      "0",
+                      {
+                        "arity": 2,
+                        "args": [
+                          "x",
+                          "y"
+                        ],
+                        "symbol": "+"
+                      }
                     ],
-                    "symbol": "+"
+                    "symbol": "<="
+                  },
+                  {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "arity": 2,
+                        "args": [
+                          "x",
+                          "y"
+                        ],
+                        "symbol": "+"
+                      },
+                      "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    ],
+                    "symbol": "<="
                   }
                 ],
-                "symbol": "<="
+                "symbol": "and"
               },
               {
                 "arity": 2,
@@ -170,31 +189,17 @@
                   {
                     "arity": 2,
                     "args": [
-                      "x",
-                      "y"
+                      "Callvalue",
+                      "0"
                     ],
-                    "symbol": "+"
+                    "symbol": "=="
                   },
-                  "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                  "True"
                 ],
-                "symbol": "<="
+                "symbol": "and"
               }
             ],
             "symbol": "and"
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              "0"
-            ],
-            "symbol": "=="
           }
         ],
         "symbol": "not"

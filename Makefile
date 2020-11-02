@@ -19,7 +19,7 @@ repl: src/Lex.hs src/Parse.hs
 
 compiler: bin/act
 
-test_specs=$(wildcard tests/*/*.act)
+test_specs=$(wildcard tests/frontend/*/*.act)
 
 parser_specs=$(filter-out $(invariant_specs), $(test_specs))
 typing_specs=$(filter-out $(failing_typing), $(parser_specs))

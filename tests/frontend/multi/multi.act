@@ -1,10 +1,10 @@
-behaviour init of a
+definition a
 interface constructor()
 
 creates
    uint x := 0
 
-behaviour init of B
+definition B
 interface constructor()
 
 creates

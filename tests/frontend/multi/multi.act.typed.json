@@ -25,48 +25,38 @@
     "expression": "True"
   },
   {
-    "stateUpdates": [
+    "kind": "Constructor",
+    "mode": "Pass",
+    "storage": [
       {
-        "Right": {
-          "location": {
-            "name": "a.x",
-            "sort": "int"
-          },
-          "value": "0"
-        }
+        "location": {
+          "name": "a.x",
+          "sort": "int"
+        },
+        "value": "0"
       }
     ],
-    "kind": "Behaviour",
-    "mode": "Pass",
-    "creation": true,
-    "name": "init",
     "preConditions": [],
     "contract": "a",
     "interface": "constructor()",
-    "postConditions": [],
-    "returns": null
+    "postConditions": []
   },
   {
-    "stateUpdates": [
+    "kind": "Constructor",
+    "mode": "Pass",
+    "storage": [
       {
-        "Right": {
-          "location": {
-            "name": "B.y",
-            "sort": "int"
-          },
-          "value": "0"
-        }
+        "location": {
+          "name": "B.y",
+          "sort": "int"
+        },
+        "value": "0"
       }
     ],
-    "kind": "Behaviour",
-    "mode": "Pass",
-    "creation": true,
-    "name": "init",
     "preConditions": [],
     "contract": "B",
     "interface": "constructor()",
-    "postConditions": [],
-    "returns": null
+    "postConditions": []
   },
   {
     "stateUpdates": [
@@ -82,7 +72,6 @@
     ],
     "kind": "Behaviour",
     "mode": "Pass",
-    "creation": false,
     "name": "remote",
     "preConditions": [
       {
@@ -174,18 +163,16 @@
   {
     "stateUpdates": [
       {
-        "Right": {
+        "Left": {
           "location": {
             "name": "a.x",
             "sort": "int"
-          },
-          "value": "z"
+          }
         }
       }
     ],
     "kind": "Behaviour",
     "mode": "Fail",
-    "creation": false,
     "name": "remote",
     "preConditions": [
       {
@@ -194,10 +181,17 @@
           {
             "arity": 2,
             "args": [
-              "Callvalue",
-              "0"
+              {
+                "arity": 2,
+                "args": [
+                  "Callvalue",
+                  "0"
+                ],
+                "symbol": "=="
+              },
+              "True"
             ],
-            "symbol": "=="
+            "symbol": "and"
           }
         ],
         "symbol": "not"
@@ -303,7 +297,6 @@
     ],
     "kind": "Behaviour",
     "mode": "Pass",
-    "creation": false,
     "name": "multi",
     "preConditions": [
       {
@@ -423,27 +416,24 @@
   {
     "stateUpdates": [
       {
-        "Right": {
+        "Left": {
           "location": {
             "name": "B.y",
             "sort": "int"
-          },
-          "value": "1"
+          }
         }
       },
       {
-        "Right": {
+        "Left": {
           "location": {
             "name": "a.x",
             "sort": "int"
-          },
-          "value": "z"
+          }
         }
       }
     ],
     "kind": "Behaviour",
     "mode": "Fail",
-    "creation": false,
     "name": "multi",
     "preConditions": [
       {
@@ -452,10 +442,17 @@
           {
             "arity": 2,
             "args": [
-              "Callvalue",
-              "0"
+              {
+                "arity": 2,
+                "args": [
+                  "Callvalue",
+                  "0"
+                ],
+                "symbol": "=="
+              },
+              "True"
             ],
-            "symbol": "=="
+            "symbol": "and"
           }
         ],
         "symbol": "not"
