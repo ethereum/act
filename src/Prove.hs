@@ -73,11 +73,11 @@ import Print (prettyEnv)
 queries :: [Claim] -> [(Invariant, [Symbolic ()])]
 queries claims = fmap mkQueries gathered
   where
-    gathered = fmap (\inv -> (inv, store, constructor, getBehaviours inv)) invariants
-    constructor = head [c | C c <- claims]
+    gathered = fmap (\inv -> (inv, store, definition inv, getBehaviours inv)) invariants
     invariants = [i | I i <- claims]
     store = head [s | S s <- claims] -- TODO: refine AST so we don't need this head anymore
     getBehaviours (Invariant c _) = filter (\b -> isPass b && contractMatches c b) [b | B b <- claims]
+    definition (Invariant c _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
     contractMatches c b = c == (_contract b)
     isPass b = (_mode b) == Pass
 
