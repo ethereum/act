@@ -1,4 +1,4 @@
-behaviour constructor of A
+definition A
 interface constructor()
 
 creates

@@ -1,4 +1,4 @@
-behaviour init of StateMachine
+definition StateMachine
 interface constructor()
 
 creates

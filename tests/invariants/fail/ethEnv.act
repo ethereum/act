@@ -1,4 +1,4 @@
-behaviour init of This
+definition This
 interface constructor()
 
 creates

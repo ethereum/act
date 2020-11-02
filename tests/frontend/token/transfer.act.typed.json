@@ -41,63 +41,52 @@
     }
   },
   {
-    "stateUpdates": [
+    "kind": "Constructor",
+    "mode": "Pass",
+    "storage": [
       {
-        "Right": {
-          "location": {
-            "name": "Token.name",
-            "sort": "bytes"
-          },
-          "value": "ByVar \"_name\""
-        }
+        "location": {
+          "name": "Token.name",
+          "sort": "bytes"
+        },
+        "value": "ByVar \"_name\""
       },
       {
-        "Right": {
-          "location": {
-            "name": "Token.symbol",
-            "sort": "bytes"
-          },
-          "value": "ByVar \"_symbol\""
-        }
+        "location": {
+          "name": "Token.symbol",
+          "sort": "bytes"
+        },
+        "value": "ByVar \"_symbol\""
       },
       {
-        "Right": {
-          "location": {
-            "name": "Token.totalSupply",
-            "sort": "int"
-          },
-          "value": "_totalSupply"
-        }
+        "location": {
+          "name": "Token.totalSupply",
+          "sort": "int"
+        },
+        "value": "_totalSupply"
       },
       {
-        "Right": {
-          "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
-          },
-          "value": "_totalSupply"
-        }
+        "location": {
+          "arity": 3,
+          "args": [
+            "Token",
+            "balanceOf",
+            [
+              {
+                "expression": "Caller",
+                "sort": "int"
+              }
+            ]
+          ],
+          "symbol": "lookup"
+        },
+        "value": "_totalSupply"
       }
     ],
-    "kind": "Behaviour",
-    "mode": "Pass",
-    "creation": true,
-    "name": "init",
     "preConditions": [],
     "contract": "Token",
     "interface": "constructor(string _symbol, string _name, string _version, uint256 _totalSupply)",
-    "postConditions": [],
-    "returns": null
+    "postConditions": []
   },
   {
     "stateUpdates": [
@@ -182,7 +171,6 @@
     ],
     "kind": "Behaviour",
     "mode": "Pass",
-    "creation": false,
     "name": "transfer",
     "preConditions": [
       {
@@ -467,7 +455,7 @@
   {
     "stateUpdates": [
       {
-        "Right": {
+        "Left": {
           "location": {
             "arity": 3,
             "args": [
@@ -481,32 +469,11 @@
               ]
             ],
             "symbol": "lookup"
-          },
-          "value": {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              },
-              "value"
-            ],
-            "symbol": "-"
           }
         }
       },
       {
-        "Right": {
+        "Left": {
           "location": {
             "arity": 3,
             "args": [
@@ -520,34 +487,12 @@
               ]
             ],
             "symbol": "lookup"
-          },
-          "value": {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "to",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              },
-              "value"
-            ],
-            "symbol": "+"
           }
         }
       }
     ],
     "kind": "Behaviour",
     "mode": "Fail",
-    "creation": false,
     "name": "transfer",
     "preConditions": [
       {
@@ -564,54 +509,13 @@
           {
             "arity": 2,
             "args": [
-              "Callvalue",
-              "0"
-            ],
-            "symbol": "=="
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "value",
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              }
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
               {
                 "arity": 2,
                 "args": [
-                  "Caller",
-                  "to"
+                  "Callvalue",
+                  "0"
                 ],
-                "symbol": "=/="
+                "symbol": "=="
               },
               {
                 "arity": 2,
@@ -619,6 +523,7 @@
                   {
                     "arity": 2,
                     "args": [
+                      "value",
                       {
                         "arity": 3,
                         "args": [
@@ -626,30 +531,77 @@
                           "balanceOf",
                           [
                             {
-                              "expression": "to",
+                              "expression": "Caller",
                               "sort": "int"
                             }
                           ]
                         ],
                         "symbol": "lookup"
-                      },
-                      "value"
+                      }
                     ],
-                    "symbol": "+"
+                    "symbol": "<="
                   },
                   {
                     "arity": 2,
                     "args": [
-                      "2",
-                      "256"
+                      {
+                        "arity": 2,
+                        "args": [
+                          {
+                            "arity": 2,
+                            "args": [
+                              "Caller",
+                              "to"
+                            ],
+                            "symbol": "=/="
+                          },
+                          {
+                            "arity": 2,
+                            "args": [
+                              {
+                                "arity": 2,
+                                "args": [
+                                  {
+                                    "arity": 3,
+                                    "args": [
+                                      "Token",
+                                      "balanceOf",
+                                      [
+                                        {
+                                          "expression": "to",
+                                          "sort": "int"
+                                        }
+                                      ]
+                                    ],
+                                    "symbol": "lookup"
+                                  },
+                                  "value"
+                                ],
+                                "symbol": "+"
+                              },
+                              {
+                                "arity": 2,
+                                "args": [
+                                  "2",
+                                  "256"
+                                ],
+                                "symbol": "^"
+                              }
+                            ],
+                            "symbol": "<"
+                          }
+                        ],
+                        "symbol": "=>"
+                      },
+                      "True"
                     ],
-                    "symbol": "^"
+                    "symbol": "and"
                   }
                 ],
-                "symbol": "<"
+                "symbol": "and"
               }
             ],
-            "symbol": "=>"
+            "symbol": "and"
           }
         ],
         "symbol": "not"
@@ -885,7 +837,6 @@
     ],
     "kind": "Behaviour",
     "mode": "Pass",
-    "creation": false,
     "name": "transfer",
     "preConditions": [
       {
@@ -1208,7 +1159,6 @@
     ],
     "kind": "Behaviour",
     "mode": "Fail",
-    "creation": false,
     "name": "transfer",
     "preConditions": [
       {
@@ -1225,54 +1175,13 @@
           {
             "arity": 2,
             "args": [
-              "Callvalue",
-              "0"
-            ],
-            "symbol": "=="
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "value",
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              }
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
               {
                 "arity": 2,
                 "args": [
-                  "Caller",
-                  "to"
+                  "Callvalue",
+                  "0"
                 ],
-                "symbol": "=/="
+                "symbol": "=="
               },
               {
                 "arity": 2,
@@ -1280,6 +1189,7 @@
                   {
                     "arity": 2,
                     "args": [
+                      "value",
                       {
                         "arity": 3,
                         "args": [
@@ -1287,30 +1197,77 @@
                           "balanceOf",
                           [
                             {
-                              "expression": "to",
+                              "expression": "Caller",
                               "sort": "int"
                             }
                           ]
                         ],
                         "symbol": "lookup"
-                      },
-                      "value"
+                      }
                     ],
-                    "symbol": "+"
+                    "symbol": "<="
                   },
                   {
                     "arity": 2,
                     "args": [
-                      "2",
-                      "256"
+                      {
+                        "arity": 2,
+                        "args": [
+                          {
+                            "arity": 2,
+                            "args": [
+                              "Caller",
+                              "to"
+                            ],
+                            "symbol": "=/="
+                          },
+                          {
+                            "arity": 2,
+                            "args": [
+                              {
+                                "arity": 2,
+                                "args": [
+                                  {
+                                    "arity": 3,
+                                    "args": [
+                                      "Token",
+                                      "balanceOf",
+                                      [
+                                        {
+                                          "expression": "to",
+                                          "sort": "int"
+                                        }
+                                      ]
+                                    ],
+                                    "symbol": "lookup"
+                                  },
+                                  "value"
+                                ],
+                                "symbol": "+"
+                              },
+                              {
+                                "arity": 2,
+                                "args": [
+                                  "2",
+                                  "256"
+                                ],
+                                "symbol": "^"
+                              }
+                            ],
+                            "symbol": "<"
+                          }
+                        ],
+                        "symbol": "=>"
+                      },
+                      "True"
                     ],
-                    "symbol": "^"
+                    "symbol": "and"
                   }
                 ],
-                "symbol": "<"
+                "symbol": "and"
               }
             ],
-            "symbol": "=>"
+            "symbol": "and"
           }
         ],
         "symbol": "not"
@@ -1628,7 +1585,6 @@
     ],
     "kind": "Behaviour",
     "mode": "Pass",
-    "creation": false,
     "name": "transferFrom",
     "preConditions": [
       {
@@ -2139,7 +2095,7 @@
         }
       },
       {
-        "Right": {
+        "Left": {
           "location": {
             "arity": 3,
             "args": [
@@ -2153,32 +2109,11 @@
               ]
             ],
             "symbol": "lookup"
-          },
-          "value": {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              },
-              "amount"
-            ],
-            "symbol": "-"
           }
         }
       },
       {
-        "Right": {
+        "Left": {
           "location": {
             "arity": 3,
             "args": [
@@ -2192,34 +2127,12 @@
               ]
             ],
             "symbol": "lookup"
-          },
-          "value": {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              },
-              "amount"
-            ],
-            "symbol": "+"
           }
         }
       }
     ],
     "kind": "Behaviour",
     "mode": "Fail",
-    "creation": false,
     "name": "transferFrom",
     "preConditions": [
       {
@@ -2250,40 +2163,26 @@
           {
             "arity": 2,
             "args": [
-              "amount",
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              }
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
               {
                 "arity": 2,
                 "args": [
-                  "src",
-                  "dst"
+                  "amount",
+                  {
+                    "arity": 3,
+                    "args": [
+                      "Token",
+                      "balanceOf",
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 ],
-                "symbol": "=/="
+                "symbol": "<="
               },
               {
                 "arity": 2,
@@ -2292,102 +2191,123 @@
                     "arity": 2,
                     "args": [
                       {
-                        "arity": 3,
+                        "arity": 2,
                         "args": [
-                          "Token",
-                          "balanceOf",
-                          [
-                            {
-                              "expression": "dst",
-                              "sort": "int"
-                            }
-                          ]
+                          "src",
+                          "dst"
                         ],
-                        "symbol": "lookup"
+                        "symbol": "=/="
                       },
-                      "amount"
+                      {
+                        "arity": 2,
+                        "args": [
+                          {
+                            "arity": 2,
+                            "args": [
+                              {
+                                "arity": 3,
+                                "args": [
+                                  "Token",
+                                  "balanceOf",
+                                  [
+                                    {
+                                      "expression": "dst",
+                                      "sort": "int"
+                                    }
+                                  ]
+                                ],
+                                "symbol": "lookup"
+                              },
+                              "amount"
+                            ],
+                            "symbol": "+"
+                          },
+                          {
+                            "arity": 2,
+                            "args": [
+                              "2",
+                              "256"
+                            ],
+                            "symbol": "^"
+                          }
+                        ],
+                        "symbol": "<"
+                      }
                     ],
-                    "symbol": "+"
+                    "symbol": "=>"
                   },
                   {
                     "arity": 2,
                     "args": [
-                      "2",
-                      "256"
-                    ],
-                    "symbol": "^"
-                  }
-                ],
-                "symbol": "<"
-              }
-            ],
-            "symbol": "=>"
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 2,
-                "args": [
-                  "Caller",
-                  "src"
-                ],
-                "symbol": "=/="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "0",
-                  {
-                    "arity": 2,
-                    "args": [
                       {
-                        "arity": 3,
+                        "arity": 2,
                         "args": [
-                          "Token",
-                          "allowance",
-                          [
-                            {
-                              "expression": "src",
-                              "sort": "int"
-                            },
-                            {
-                              "expression": "Caller",
-                              "sort": "int"
-                            }
-                          ]
+                          {
+                            "arity": 2,
+                            "args": [
+                              "Caller",
+                              "src"
+                            ],
+                            "symbol": "=/="
+                          },
+                          {
+                            "arity": 2,
+                            "args": [
+                              "0",
+                              {
+                                "arity": 2,
+                                "args": [
+                                  {
+                                    "arity": 3,
+                                    "args": [
+                                      "Token",
+                                      "allowance",
+                                      [
+                                        {
+                                          "expression": "src",
+                                          "sort": "int"
+                                        },
+                                        {
+                                          "expression": "Caller",
+                                          "sort": "int"
+                                        }
+                                      ]
+                                    ],
+                                    "symbol": "lookup"
+                                  },
+                                  "amount"
+                                ],
+                                "symbol": "-"
+                              }
+                            ],
+                            "symbol": "<="
+                          }
                         ],
-                        "symbol": "lookup"
+                        "symbol": "=>"
                       },
-                      "amount"
+                      {
+                        "arity": 2,
+                        "args": [
+                          {
+                            "arity": 2,
+                            "args": [
+                              "Callvalue",
+                              "0"
+                            ],
+                            "symbol": "=="
+                          },
+                          "True"
+                        ],
+                        "symbol": "and"
+                      }
                     ],
-                    "symbol": "-"
+                    "symbol": "and"
                   }
                 ],
-                "symbol": "<="
+                "symbol": "and"
               }
             ],
-            "symbol": "=>"
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              "0"
-            ],
-            "symbol": "=="
+            "symbol": "and"
           }
         ],
         "symbol": "not"
@@ -2831,7 +2751,6 @@
     ],
     "kind": "Behaviour",
     "mode": "Pass",
-    "creation": false,
     "name": "transferFrom",
     "preConditions": [
       {
@@ -3387,7 +3306,7 @@
         }
       },
       {
-        "Right": {
+        "Left": {
           "location": {
             "arity": 3,
             "args": [
@@ -3401,32 +3320,11 @@
               ]
             ],
             "symbol": "lookup"
-          },
-          "value": {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              },
-              "amount"
-            ],
-            "symbol": "-"
           }
         }
       },
       {
-        "Right": {
+        "Left": {
           "location": {
             "arity": 3,
             "args": [
@@ -3440,34 +3338,12 @@
               ]
             ],
             "symbol": "lookup"
-          },
-          "value": {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              },
-              "amount"
-            ],
-            "symbol": "+"
           }
         }
       }
     ],
     "kind": "Behaviour",
     "mode": "Fail",
-    "creation": false,
     "name": "transferFrom",
     "preConditions": [
       {
@@ -3543,40 +3419,26 @@
           {
             "arity": 2,
             "args": [
-              "amount",
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              }
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
               {
                 "arity": 2,
                 "args": [
-                  "src",
-                  "dst"
+                  "amount",
+                  {
+                    "arity": 3,
+                    "args": [
+                      "Token",
+                      "balanceOf",
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 ],
-                "symbol": "=/="
+                "symbol": "<="
               },
               {
                 "arity": 2,
@@ -3585,102 +3447,123 @@
                     "arity": 2,
                     "args": [
                       {
-                        "arity": 3,
+                        "arity": 2,
                         "args": [
-                          "Token",
-                          "balanceOf",
-                          [
-                            {
-                              "expression": "dst",
-                              "sort": "int"
-                            }
-                          ]
+                          "src",
+                          "dst"
                         ],
-                        "symbol": "lookup"
+                        "symbol": "=/="
                       },
-                      "amount"
+                      {
+                        "arity": 2,
+                        "args": [
+                          {
+                            "arity": 2,
+                            "args": [
+                              {
+                                "arity": 3,
+                                "args": [
+                                  "Token",
+                                  "balanceOf",
+                                  [
+                                    {
+                                      "expression": "dst",
+                                      "sort": "int"
+                                    }
+                                  ]
+                                ],
+                                "symbol": "lookup"
+                              },
+                              "amount"
+                            ],
+                            "symbol": "+"
+                          },
+                          {
+                            "arity": 2,
+                            "args": [
+                              "2",
+                              "256"
+                            ],
+                            "symbol": "^"
+                          }
+                        ],
+                        "symbol": "<"
+                      }
                     ],
-                    "symbol": "+"
+                    "symbol": "=>"
                   },
                   {
                     "arity": 2,
                     "args": [
-                      "2",
-                      "256"
-                    ],
-                    "symbol": "^"
-                  }
-                ],
-                "symbol": "<"
-              }
-            ],
-            "symbol": "=>"
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 2,
-                "args": [
-                  "Caller",
-                  "src"
-                ],
-                "symbol": "=/="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "0",
-                  {
-                    "arity": 2,
-                    "args": [
                       {
-                        "arity": 3,
+                        "arity": 2,
                         "args": [
-                          "Token",
-                          "allowance",
-                          [
-                            {
-                              "expression": "src",
-                              "sort": "int"
-                            },
-                            {
-                              "expression": "Caller",
-                              "sort": "int"
-                            }
-                          ]
+                          {
+                            "arity": 2,
+                            "args": [
+                              "Caller",
+                              "src"
+                            ],
+                            "symbol": "=/="
+                          },
+                          {
+                            "arity": 2,
+                            "args": [
+                              "0",
+                              {
+                                "arity": 2,
+                                "args": [
+                                  {
+                                    "arity": 3,
+                                    "args": [
+                                      "Token",
+                                      "allowance",
+                                      [
+                                        {
+                                          "expression": "src",
+                                          "sort": "int"
+                                        },
+                                        {
+                                          "expression": "Caller",
+                                          "sort": "int"
+                                        }
+                                      ]
+                                    ],
+                                    "symbol": "lookup"
+                                  },
+                                  "amount"
+                                ],
+                                "symbol": "-"
+                              }
+                            ],
+                            "symbol": "<="
+                          }
                         ],
-                        "symbol": "lookup"
+                        "symbol": "=>"
                       },
-                      "amount"
+                      {
+                        "arity": 2,
+                        "args": [
+                          {
+                            "arity": 2,
+                            "args": [
+                              "Callvalue",
+                              "0"
+                            ],
+                            "symbol": "=="
+                          },
+                          "True"
+                        ],
+                        "symbol": "and"
+                      }
                     ],
-                    "symbol": "-"
+                    "symbol": "and"
                   }
                 ],
-                "symbol": "<="
+                "symbol": "and"
               }
             ],
-            "symbol": "=>"
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              "0"
-            ],
-            "symbol": "=="
+            "symbol": "and"
           }
         ],
         "symbol": "not"
@@ -4149,7 +4032,6 @@
     ],
     "kind": "Behaviour",
     "mode": "Pass",
-    "creation": false,
     "name": "transferFrom",
     "preConditions": [
       {
@@ -4683,7 +4565,7 @@
         }
       },
       {
-        "Right": {
+        "Left": {
           "location": {
             "arity": 3,
             "args": [
@@ -4701,36 +4583,11 @@
               ]
             ],
             "symbol": "lookup"
-          },
-          "value": {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              },
-              "amount"
-            ],
-            "symbol": "-"
           }
         }
       },
       {
-        "Right": {
+        "Left": {
           "location": {
             "arity": 3,
             "args": [
@@ -4744,32 +4601,11 @@
               ]
             ],
             "symbol": "lookup"
-          },
-          "value": {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              },
-              "amount"
-            ],
-            "symbol": "-"
           }
         }
       },
       {
-        "Right": {
+        "Left": {
           "location": {
             "arity": 3,
             "args": [
@@ -4783,34 +4619,12 @@
               ]
             ],
             "symbol": "lookup"
-          },
-          "value": {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              },
-              "amount"
-            ],
-            "symbol": "+"
           }
         }
       }
     ],
     "kind": "Behaviour",
     "mode": "Fail",
-    "creation": false,
     "name": "transferFrom",
     "preConditions": [
       {
@@ -4886,40 +4700,26 @@
           {
             "arity": 2,
             "args": [
-              "amount",
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              }
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
               {
                 "arity": 2,
                 "args": [
-                  "src",
-                  "dst"
+                  "amount",
+                  {
+                    "arity": 3,
+                    "args": [
+                      "Token",
+                      "balanceOf",
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 ],
-                "symbol": "=/="
+                "symbol": "<="
               },
               {
                 "arity": 2,
@@ -4928,102 +4728,123 @@
                     "arity": 2,
                     "args": [
                       {
-                        "arity": 3,
+                        "arity": 2,
                         "args": [
-                          "Token",
-                          "balanceOf",
-                          [
-                            {
-                              "expression": "dst",
-                              "sort": "int"
-                            }
-                          ]
+                          "src",
+                          "dst"
                         ],
-                        "symbol": "lookup"
+                        "symbol": "=/="
                       },
-                      "amount"
+                      {
+                        "arity": 2,
+                        "args": [
+                          {
+                            "arity": 2,
+                            "args": [
+                              {
+                                "arity": 3,
+                                "args": [
+                                  "Token",
+                                  "balanceOf",
+                                  [
+                                    {
+                                      "expression": "dst",
+                                      "sort": "int"
+                                    }
+                                  ]
+                                ],
+                                "symbol": "lookup"
+                              },
+                              "amount"
+                            ],
+                            "symbol": "+"
+                          },
+                          {
+                            "arity": 2,
+                            "args": [
+                              "2",
+                              "256"
+                            ],
+                            "symbol": "^"
+                          }
+                        ],
+                        "symbol": "<"
+                      }
                     ],
-                    "symbol": "+"
+                    "symbol": "=>"
                   },
                   {
                     "arity": 2,
                     "args": [
-                      "2",
-                      "256"
-                    ],
-                    "symbol": "^"
-                  }
-                ],
-                "symbol": "<"
-              }
-            ],
-            "symbol": "=>"
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 2,
-                "args": [
-                  "Caller",
-                  "src"
-                ],
-                "symbol": "=/="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "0",
-                  {
-                    "arity": 2,
-                    "args": [
                       {
-                        "arity": 3,
+                        "arity": 2,
                         "args": [
-                          "Token",
-                          "allowance",
-                          [
-                            {
-                              "expression": "src",
-                              "sort": "int"
-                            },
-                            {
-                              "expression": "Caller",
-                              "sort": "int"
-                            }
-                          ]
+                          {
+                            "arity": 2,
+                            "args": [
+                              "Caller",
+                              "src"
+                            ],
+                            "symbol": "=/="
+                          },
+                          {
+                            "arity": 2,
+                            "args": [
+                              "0",
+                              {
+                                "arity": 2,
+                                "args": [
+                                  {
+                                    "arity": 3,
+                                    "args": [
+                                      "Token",
+                                      "allowance",
+                                      [
+                                        {
+                                          "expression": "src",
+                                          "sort": "int"
+                                        },
+                                        {
+                                          "expression": "Caller",
+                                          "sort": "int"
+                                        }
+                                      ]
+                                    ],
+                                    "symbol": "lookup"
+                                  },
+                                  "amount"
+                                ],
+                                "symbol": "-"
+                              }
+                            ],
+                            "symbol": "<="
+                          }
                         ],
-                        "symbol": "lookup"
+                        "symbol": "=>"
                       },
-                      "amount"
+                      {
+                        "arity": 2,
+                        "args": [
+                          {
+                            "arity": 2,
+                            "args": [
+                              "Callvalue",
+                              "0"
+                            ],
+                            "symbol": "=="
+                          },
+                          "True"
+                        ],
+                        "symbol": "and"
+                      }
                     ],
-                    "symbol": "-"
+                    "symbol": "and"
                   }
                 ],
-                "symbol": "<="
+                "symbol": "and"
               }
             ],
-            "symbol": "=>"
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              "0"
-            ],
-            "symbol": "=="
+            "symbol": "and"
           }
         ],
         "symbol": "not"
@@ -5425,7 +5246,6 @@
     ],
     "kind": "Behaviour",
     "mode": "Pass",
-    "creation": false,
     "name": "transferFrom",
     "preConditions": [
       {
@@ -5960,7 +5780,6 @@
     ],
     "kind": "Behaviour",
     "mode": "Fail",
-    "creation": false,
     "name": "transferFrom",
     "preConditions": [
       {
@@ -5977,40 +5796,26 @@
           {
             "arity": 2,
             "args": [
-              "amount",
-              {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup"
-              }
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
               {
                 "arity": 2,
                 "args": [
-                  "src",
-                  "dst"
+                  "amount",
+                  {
+                    "arity": 3,
+                    "args": [
+                      "Token",
+                      "balanceOf",
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 ],
-                "symbol": "=/="
+                "symbol": "<="
               },
               {
                 "arity": 2,
@@ -6019,102 +5824,123 @@
                     "arity": 2,
                     "args": [
                       {
-                        "arity": 3,
+                        "arity": 2,
                         "args": [
-                          "Token",
-                          "balanceOf",
-                          [
-                            {
-                              "expression": "dst",
-                              "sort": "int"
-                            }
-                          ]
+                          "src",
+                          "dst"
                         ],
-                        "symbol": "lookup"
+                        "symbol": "=/="
                       },
-                      "amount"
+                      {
+                        "arity": 2,
+                        "args": [
+                          {
+                            "arity": 2,
+                            "args": [
+                              {
+                                "arity": 3,
+                                "args": [
+                                  "Token",
+                                  "balanceOf",
+                                  [
+                                    {
+                                      "expression": "dst",
+                                      "sort": "int"
+                                    }
+                                  ]
+                                ],
+                                "symbol": "lookup"
+                              },
+                              "amount"
+                            ],
+                            "symbol": "+"
+                          },
+                          {
+                            "arity": 2,
+                            "args": [
+                              "2",
+                              "256"
+                            ],
+                            "symbol": "^"
+                          }
+                        ],
+                        "symbol": "<"
+                      }
                     ],
-                    "symbol": "+"
+                    "symbol": "=>"
                   },
                   {
                     "arity": 2,
                     "args": [
-                      "2",
-                      "256"
-                    ],
-                    "symbol": "^"
-                  }
-                ],
-                "symbol": "<"
-              }
-            ],
-            "symbol": "=>"
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 2,
-                "args": [
-                  "Caller",
-                  "src"
-                ],
-                "symbol": "=/="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "0",
-                  {
-                    "arity": 2,
-                    "args": [
                       {
-                        "arity": 3,
+                        "arity": 2,
                         "args": [
-                          "Token",
-                          "allowance",
-                          [
-                            {
-                              "expression": "src",
-                              "sort": "int"
-                            },
-                            {
-                              "expression": "Caller",
-                              "sort": "int"
-                            }
-                          ]
+                          {
+                            "arity": 2,
+                            "args": [
+                              "Caller",
+                              "src"
+                            ],
+                            "symbol": "=/="
+                          },
+                          {
+                            "arity": 2,
+                            "args": [
+                              "0",
+                              {
+                                "arity": 2,
+                                "args": [
+                                  {
+                                    "arity": 3,
+                                    "args": [
+                                      "Token",
+                                      "allowance",
+                                      [
+                                        {
+                                          "expression": "src",
+                                          "sort": "int"
+                                        },
+                                        {
+                                          "expression": "Caller",
+                                          "sort": "int"
+                                        }
+                                      ]
+                                    ],
+                                    "symbol": "lookup"
+                                  },
+                                  "amount"
+                                ],
+                                "symbol": "-"
+                              }
+                            ],
+                            "symbol": "<="
+                          }
                         ],
-                        "symbol": "lookup"
+                        "symbol": "=>"
                       },
-                      "amount"
+                      {
+                        "arity": 2,
+                        "args": [
+                          {
+                            "arity": 2,
+                            "args": [
+                              "Callvalue",
+                              "0"
+                            ],
+                            "symbol": "=="
+                          },
+                          "True"
+                        ],
+                        "symbol": "and"
+                      }
                     ],
-                    "symbol": "-"
+                    "symbol": "and"
                   }
                 ],
-                "symbol": "<="
+                "symbol": "and"
               }
             ],
-            "symbol": "=>"
-          }
-        ],
-        "symbol": "not"
-      },
-      {
-        "arity": 1,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "Callvalue",
-              "0"
-            ],
-            "symbol": "=="
+            "symbol": "and"
           }
         ],
         "symbol": "not"

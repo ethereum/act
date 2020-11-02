@@ -7,7 +7,6 @@
     "stateUpdates": [],
     "kind": "Behaviour",
     "mode": "Pass",
-    "creation": false,
     "name": "f",
     "preConditions": [
       {

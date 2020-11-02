@@ -1,4 +1,4 @@
-behaviour init of Log
+definition Log
 interface constructor(uint256 _n)
 
 iff

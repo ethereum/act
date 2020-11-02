@@ -1,4 +1,4 @@
-behaviour init of Homogeneous
+definition Homogeneous
 interface constructor()
 
 creates

@@ -4,9 +4,9 @@
 // there is an execution path (x == 7) where the invariant does not hold over
 // the post state.
 
-// A stronger invariant (e.g. x < 3) will be succesfully proven
+// A stronger invariant (e.g. x < 3) can succesfully be proven
 
-behaviour init of C
+definition C
 interface constructor()
 
 creates

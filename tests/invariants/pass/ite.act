@@ -1,4 +1,4 @@
-behaviour init of ITE
+definition ITE
 interface constructor(uint256 y)
 
 creates

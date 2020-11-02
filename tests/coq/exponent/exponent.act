@@ -1,4 +1,4 @@
-behaviour init of Exponent
+definition Exponent
 interface constructor(uint _b, uint _e)
 
 iff
