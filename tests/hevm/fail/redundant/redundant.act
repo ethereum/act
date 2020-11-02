@@ -1,0 +1,18 @@
+behaviour constructor of A
+interface constructor()
+
+creates
+
+  uint x := 0
+
+behaviour f of A
+interface f()
+
+iff
+
+  CALLVALUE == 0
+  x == 1
+
+storage
+
+  x => 2
