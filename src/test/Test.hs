@@ -42,13 +42,13 @@ main = defaultMain $ testGroup "act"
        fail spec is also checked.
     -}
     [ testProperty "single roundtrip" $ do
-        behv@(Behaviour name _ creation contract iface preconds _ _ _) <- sized genBehv
+        behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
         let actual = parse (lexer $ prettyBehaviour behv) >>= typecheck
             expected = if null preconds then
-                [ S $ Storages Map.empty, B behv ]
+                [ S $ Map.empty, B behv ]
               else
-                [ S $ Storages Map.empty, B behv
-                , B $ Behaviour name Fail creation contract iface (Neg <$> preconds) [] [] Nothing ]
+                [ S $ Map.empty, B behv
+                , B $ Behaviour name Fail contract iface [Neg $ mconcat preconds] [] [] Nothing ]
         return $ case actual of
           Ok a -> a == expected
           Bad _ -> False
@@ -85,7 +85,6 @@ genBehv n = do
   iface <- Interface ifname <$> mkDecls abiNames
   return Behaviour { _name = name
                    , _mode = Pass
-                   , _creation = False
                    , _contract = contract
                    , _interface = iface
                    , _preconditions = preconditions
