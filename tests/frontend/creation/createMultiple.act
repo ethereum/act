@@ -1,4 +1,4 @@
-definition B
+constructor of B
 interface constructor()
 
 creates

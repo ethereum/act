@@ -1,4 +1,4 @@
-definition ITE
+constructor of ITE
 interface constructor(uint256 y)
 
 creates

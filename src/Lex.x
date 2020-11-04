@@ -25,7 +25,7 @@ tokens :-
   $white+                               ;
 
   -- reserved words
-  definition                            { mk DEFINITION }
+  constructor                           { mk CONSTRUCTOR }
   behaviour                             { mk BEHAVIOUR }
   of                                    { mk OF }
   interface                             { mk INTERFACE }
@@ -117,7 +117,7 @@ data LEX =
 
   -- reserved words
     BEHAVIOUR
-  | DEFINITION
+  | CONSTRUCTOR
   | OF
   | INTERFACE
   | CREATES

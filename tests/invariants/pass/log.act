@@ -1,4 +1,4 @@
-definition Log
+constructor of Log
 interface constructor(uint256 _n)
 
 iff

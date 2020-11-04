@@ -17,7 +17,7 @@ import ErrM
 %token
 
   -- reserved word
-  'definition'                { L DEFINITION _ }
+  'constructor'               { L CONSTRUCTOR _ }
   'behaviour'                 { L BEHAVIOUR _ }
   'of'                        { L OF _ }
   'interface'                 { L INTERFACE _ }
@@ -164,20 +164,22 @@ Transition : 'behaviour' id 'of' id
              opt(Ensures)                             { Transition (arg $2) (arg $4)
                                                         $5 $6 $7 $8 }
 
-Constructor : 'definition' id
-              Interface
+Constructor : 'constructor' 'of' id
+              CInterface
               list(Precondition)
               Creation
               list(ExtStorage)
               opt(Ensures)
-              opt(Invariants)                          { Definition (arg $2)
-                                                         $3 $4 $5 $6 $7 $8 }
+              opt(Invariants)                          { Definition (arg $3)
+                                                         $4 $5 $6 $7 $8 $9 }
 
 Ensures : 'ensures' nonempty(Expr)                    { $2 }
 
 Invariants : 'invariants' nonempty(Expr)              { $2 }
 
 Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface (arg $2) $4 }
+
+CInterface : 'interface' 'constructor' '(' seplist(Decl, ',') ')' { Interface "constructor" $4 }
 
 Cases : Post                                          { Direct $1 }
       | nonempty(Case)                                { Branches $1 }

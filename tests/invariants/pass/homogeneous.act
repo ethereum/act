@@ -1,4 +1,4 @@
-definition Homogeneous
+constructor of Homogeneous
 interface constructor()
 
 creates
