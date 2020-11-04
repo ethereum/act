@@ -6,7 +6,7 @@
 
 // A stronger invariant (e.g. x < 3) can succesfully be proven
 
-definition C
+constructor of C
 interface constructor()
 
 creates

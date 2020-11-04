@@ -1,4 +1,4 @@
-definition Amm
+constructor of Amm
 interface constructor()
 
 creates

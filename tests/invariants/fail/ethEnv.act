@@ -1,4 +1,4 @@
-definition This
+constructor of This
 interface constructor()
 
 creates

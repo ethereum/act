@@ -1,4 +1,4 @@
-definition Exponent
+constructor of Exponent
 interface constructor(uint _b, uint _e)
 
 iff

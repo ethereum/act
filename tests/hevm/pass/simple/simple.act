@@ -1,4 +1,4 @@
-definition A
+constructor of A
 interface constructor()
 
 creates

@@ -118,8 +118,8 @@ checkPostStorage ctx b@(Behaviour _ _ _ _ _ _ updates _) pre post contractMap so
                  slot update = let S _ w = calculateSlot ctx solcjson (mkLoc update)
                                in w
                  insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
-                 insertUpdate store u@(IntUpdate item e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx Pre e
-                 insertUpdate store u@(BoolUpdate item e) = writeArray store (slot u) $ (ite (symExpBool ctx Pre e) 1 0)
+                 insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx Pre e
+                 insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ (ite (symExpBool ctx Pre e) 1 0)
                  insertUpdate store _ = error "bytes unsupported"
                in post .== foldl insertUpdate pre insertions
               _ -> sFalse

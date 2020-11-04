@@ -1,10 +1,10 @@
-definition a
+constructor of a
 interface constructor()
 
 creates
    uint x := 0
 
-definition B
+constructor of B
 interface constructor()
 
 creates

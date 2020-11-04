@@ -1,4 +1,4 @@
-definition StateMachine
+constructor of StateMachine
 interface constructor()
 
 creates

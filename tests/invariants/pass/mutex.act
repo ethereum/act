@@ -1,4 +1,4 @@
-definition Mutex
+constructor of Mutex
 interface constructor()
 
 creates
