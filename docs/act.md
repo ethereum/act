@@ -39,7 +39,7 @@ A constructor section consists of the following fields:
 Specifying the arguments the constructor takes.
 Example:
 ```act
-interface constructor(uint _owner)
+interface constructor(address _owner)
 ```
 
 ### iff (optional)
@@ -109,7 +109,7 @@ invariants
 A `behaviour` specification is indicated by the
 `behaviour of <contractName>` header, as in:
 ```act
-constructor of A
+behaviour of A
 ```
 
 and consists of the following fields:
