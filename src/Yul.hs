@@ -2,10 +2,10 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Yul where
 
---import Data.Generic
 import EVM.Types (ByteStringS(..))
 import qualified Data.ByteString as BS
 import Data.List.NonEmpty
+import Data.List
 import Test.Tasty.QuickCheck
 import GHC.Generics
 import Generic.Random
@@ -88,7 +88,20 @@ instance Show Assignment where
   show (Assignment ids expr) =
     show ids ++ " := " ++ show expr
 
-type Expression = Either FunctionCall (Either Identifier Literal)
+data Expression =
+    ExprFunCall FunctionCall
+  | ExprIdent Identifier
+  | ExprLit Literal
+  deriving (Eq, Generic)
+
+instance Show Expression where
+  show (ExprFunCall func) = show func
+  show (ExprIdent  ident) = show ident
+  show (ExprLit    liter) = show liter
+
+instance Arbitrary Expression where
+  arbitrary = genericArbitrary (1 % 6 % 6 % ())
+
 
 data If = If Expression Block
   deriving (Eq)
@@ -134,7 +147,7 @@ data FunctionCall = FunctionCall Identifier [Expression]
 
 instance Show FunctionCall where
   show (FunctionCall identifier exprs) =
-    show identifier ++ "(" ++ show exprs ++ ")"
+    show identifier ++ "(" ++ intercalate "," (show <$> exprs) ++ ")"
 
 instance Arbitrary FunctionCall where
   arbitrary = genericArbitrary uniform
