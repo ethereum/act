@@ -25,8 +25,6 @@ import ErrM
 import Parse
 import RefinedAst
 
-import Debug.Trace
-
 typecheck :: [RawBehaviour] -> Err [Claim]
 typecheck behvs = do store <- lookupVars behvs
                      bs <- mapM (splitBehaviour store) behvs

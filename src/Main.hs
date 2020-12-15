@@ -42,9 +42,6 @@ import Coq
 import HEVM
 import Print
 
-import Debug.Trace
-trace' x = trace (show x) x
-
 --command line options
 data Command w
   = Lex             { file       :: w ::: String               <?> "Path to file"}
