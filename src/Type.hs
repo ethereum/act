@@ -164,8 +164,8 @@ checkAssign env@(contract, _, _, _) (AssignVal (StorageVar (StorageValue typ) na
       return [BytesUpdate (DirectBytes contract name) val]
 checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
   = mapM (checkDefn env keyType valType name) defns
-checkAssign _ (AssignVal (StorageVar (StorageMapping _ _) _) _)
-  = Bad (nowhere, "Cannot assign a single expression to a composite type")
+checkAssign _ (AssignVal (StorageVar (StorageMapping _ _) _) expr)
+  = Bad (getPosn expr, "Cannot assign a single expression to a composite type")
 checkAssign _ (AssignMany (StorageVar (StorageValue _) _) _)
   = Bad (nowhere, "Cannot assign multiple values to an atomic type")
 checkAssign _ _ = error "todo: support struct assignment in constructors"
@@ -398,7 +398,7 @@ checkInt p env e =
     Bad err -> Bad err
 
 getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
-getLoc ref = either id mkLoc ref
+getLoc = either id mkLoc
 
 mkLoc :: StorageUpdate -> StorageLocation
 mkLoc (IntUpdate item _) = IntLoc item
