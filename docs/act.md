@@ -29,8 +29,8 @@ The types of Act consist of three basic primitives:
 Integers, Booleans and ByteStrings. Integers are unbounded,
 with true integer operations. However, as our integer expressions
 will often represent words in the EVM, we allow ourselves a slight
-abuse of notation and denote by `uintN` integers together with the
-constraint that the value fits into a `uintN`.
+abuse of notation and denote by `uintN/intN` integers together with the
+constraint that the value fits into a `uintN/intN`.
 
 Using conventional ABI types for typing also allows us to specify
 function signatures in a concise way.
