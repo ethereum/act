@@ -93,7 +93,7 @@ main = do
       (Type f) -> do contents <- readFile f
                      case compile contents of
                        Ok a  -> B.putStrLn $ encode a
-                       Bad e -> prettyErr contents (trace' e)
+                       Bad e -> prettyErr contents e
 
       (Prove file' solver' smttimeout' debug') -> do
         contents <- readFile file'
