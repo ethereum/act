@@ -25,7 +25,7 @@ definitions of [RefinedAst.hs](https://github.com/ethereum/act/blob/master/src/R
 
 ## Types
 
-The types of Act are made up from three basic primitives:
+The types of Act consist of three basic primitives:
 Integers, Booleans and ByteStrings. Integers are unbounded,
 with true integer operations. However, as our integer expressions
 will often represent words in the EVM, we allow ourselves a slight
