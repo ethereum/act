@@ -32,7 +32,7 @@ will often represent words in the EVM, we allow ourselves a slight
 abuse of notation and denote by `uintN` integers together with the
 constraint that the value fits into a `uintN`.
 
-Using conventional abi types for typing also allows us to specify
+Using conventional ABI types for typing also allows us to specify
 function signatures in a concise way.
 
 As an example consider the specification of overflow safe addition:
