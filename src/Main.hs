@@ -42,6 +42,9 @@ import Coq
 import HEVM
 import Print
 
+import Debug.Trace
+trace' x = trace (show x) x
+
 --command line options
 data Command w
   = Lex             { file       :: w ::: String               <?> "Path to file"}
@@ -93,7 +96,7 @@ main = do
       (Type f) -> do contents <- readFile f
                      case compile contents of
                        Ok a  -> B.putStrLn $ encode a
-                       Bad e -> prettyErr contents e
+                       Bad e -> prettyErr contents (trace' e)
 
       (Prove file' solver' smttimeout' debug') -> do
         contents <- readFile file'

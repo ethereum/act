@@ -1,7 +1,6 @@
 -- data types for the parsed syntax.
 -- Has the correct basic structure, but doesn't necessarily type check
 -- It is also equipped with position information for extra debugging xp
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Syntax where
@@ -14,7 +13,7 @@ type Pn = AlexPosn
 
 type Id = String
 
-data Act = Main [RawBehaviour]
+newtype Act = Main [RawBehaviour]
   deriving (Eq, Show)
 
 data RawBehaviour
@@ -44,8 +43,7 @@ data Post
     = Post (Maybe [Storage]) [ExtStorage] (Maybe Expr)
   deriving (Eq, Show)
 
-data Creates
-    = Creates [Assign]
+newtype Creates = Creates [Assign]
   deriving (Eq, Show)
 
 data Storage = Rewrite Entry Expr
@@ -97,7 +95,7 @@ data Expr
 --    | Look Pn Id [Expr]
     | Func Pn Id [Expr]
     | ListConst Expr
-    | EmptyList
+    | EmptyList Pn
     | ECat Pn Expr Expr
     | ESlice Pn Expr Expr Expr
     | ENewaddr Pn Expr Expr
@@ -105,10 +103,10 @@ data Expr
     | BYHash Pn Expr
     | BYAbiE Pn Expr
     | StringLit Pn String
-    | WildExp
+    | WildExp Pn
     | EnvExp Pn EthEnv
-    | IntLit Integer
-    | BoolLit Bool
+    | IntLit Pn Integer
+    | BoolLit Pn Bool
   deriving (Eq, Show)
 
 data EthEnv
@@ -135,3 +133,42 @@ data Decl = Decl AbiType Id
 
 instance Show Decl where
   show (Decl t a) = show t <> " " <> a
+
+getPosn :: Expr -> Pn
+getPosn expr = case expr of
+    EAnd pn  _ _ -> pn
+    EOr pn _ _ -> pn
+    ENot pn _ -> pn
+    EImpl pn _ _ -> pn
+    EEq pn _ _ -> pn
+    ENeq pn _ _ -> pn
+    ELEQ pn _ _ -> pn
+    ELT pn _ _ -> pn
+    EGEQ pn _ _ -> pn
+    EGT pn _ _ -> pn
+    ETrue pn -> pn
+    EFalse pn -> pn
+    EAdd pn _ _ -> pn
+    ESub pn _ _ -> pn
+    EITE pn _ _ _ -> pn
+    EMul pn _ _ -> pn
+    EDiv pn _ _ -> pn
+    EMod pn _ _ -> pn
+    EExp pn _ _ -> pn
+    Zoom pn _ _ -> pn
+    EntryExp pn _ _ -> pn
+    Func pn _ _ -> pn
+    ListConst e -> getPosn e
+    EmptyList pn -> pn
+    ECat pn _ _ -> pn
+    ESlice pn _ _ _ -> pn
+    ENewaddr pn _ _ -> pn
+    ENewaddr2 pn _ _ _ -> pn
+    BYHash pn _ -> pn
+    BYAbiE pn _ -> pn
+    StringLit pn _ -> pn
+    WildExp pn -> pn
+    EnvExp pn _ -> pn
+    IntLit pn _ -> pn
+    BoolLit pn _ -> pn
+
