@@ -320,8 +320,6 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     ELEQ p  v1 v2 -> boolintint  p LEQ  v1 v2
     EGEQ p  v1 v2 -> boolintint  p GEQ  v1 v2
     EGT p   v1 v2 -> boolintint  p GE   v1 v2
-    ETrue _ ->  Ok . ExpBool $ LitBool True
-    EFalse _ -> Ok . ExpBool $ LitBool False
     -- TODO: make ITE polymorphic
     EITE p v1 v2 v3 -> do w1 <- checkBool p env v1
                           w2 <- checkInt p env v2

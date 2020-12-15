@@ -264,8 +264,8 @@ Expr : '(' Expr ')'                                    { $2 }
   | Expr '<'   Expr                                     { ELT   (posn $2) $1 $3 }
   | Expr '>='  Expr                                     { EGEQ  (posn $2) $1 $3 }
   | Expr '>'   Expr                                     { EGT   (posn $2) $1 $3 }
-  | 'true'                                              { ETrue (posn $1) }
-  | 'false'                                             { EFalse (posn $1) }
+  | 'true'                                              { BoolLit (posn $1) True }
+  | 'false'                                             { BoolLit (posn $1) False }
 
   -- integer expressions
   | Expr '+'   Expr                                     { EAdd (posn $2)  $1 $3 }

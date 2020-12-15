@@ -81,8 +81,6 @@ data Expr
     | ELT Pn Expr Expr
     | EGEQ Pn Expr Expr
     | EGT Pn Expr Expr
-    | ETrue Pn
-    | EFalse Pn
     | EAdd Pn Expr Expr
     | ESub Pn Expr Expr
     | EITE Pn Expr Expr Expr
@@ -146,8 +144,6 @@ getPosn expr = case expr of
     ELT pn _ _ -> pn
     EGEQ pn _ _ -> pn
     EGT pn _ _ -> pn
-    ETrue pn -> pn
-    EFalse pn -> pn
     EAdd pn _ _ -> pn
     ESub pn _ _ -> pn
     EITE pn _ _ _ -> pn
