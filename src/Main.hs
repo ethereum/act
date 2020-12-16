@@ -196,7 +196,7 @@ runSMTWithTimeOut solver' maybeTimeout debug' sym
  where timeout = fromMaybe 20000 maybeTimeout
        runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
 
--- | Fail on error, or proceed to the continuation
+-- | Fail on error, or proceed with continuation
 proceed :: String -> Err a -> (a -> IO ()) -> IO ()
 proceed contents (Bad e) _ = prettyErr contents e
 proceed _ (Ok a) continue = continue a
@@ -205,17 +205,24 @@ compile :: String -> Err [Claim]
 compile contents = enrich <$> ((parse (lexer contents)) >>= typecheck)
 
 prettyErr :: String -> (Pn, String) -> IO ()
-prettyErr contents pn@(AlexPn _ line col,msg) =
-  if fst pn == nowhere then
-    do hPutStrLn stderr "Internal error"
-       hPutStrLn stderr msg
-       exitFailure
-  else
-    do let cxt = safeDrop (line - 1) (lines contents)
-       hPutStrLn stderr $ show line <> " | " <> head cxt
-       hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
-       hPutStrLn stderr msg
-       exitFailure
+prettyErr _ (pn, msg) | pn == nowhere = do
+  hPutStrLn stderr "Internal error:"
+  hPutStrLn stderr msg
+  exitFailure
+prettyErr contents (pn, msg) | pn == lastPos = do
+  hPutStrLn stderr msg
+  let culprit = last $ lines contents
+      line = length (lines contents) - 1
+      col  = length culprit
+  hPutStrLn stderr $ show line <> " | " <> culprit
+  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
+  exitFailure
+prettyErr contents (AlexPn _ line col, msg) = do
+  let cxt = safeDrop (line - 1) (lines contents)
+  hPutStrLn stderr $ show line <> " | " <> head cxt
+  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
+  hPutStrLn stderr msg
+  exitFailure
   where
     safeDrop :: Int -> [a] -> [a]
     safeDrop 0 a = a

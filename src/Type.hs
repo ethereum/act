@@ -34,15 +34,29 @@ typecheck behvs = do store <- lookupVars behvs
 lookupVars :: [RawBehaviour] -> Err Store
 lookupVars ((Transition {}):bs) = lookupVars bs
 lookupVars ((Definition contract _ _ (Creates assigns) _ _ _):bs) =
-  let new' = Map.singleton contract (Map.fromList $ map fromAssign assigns)
-  in do old <- lookupVars bs
-        if null (Map.intersection new' old)
-          then pure $ new' <> old
-          else Bad (nowhere, "Multiple definitions given of: " <> contract)
-  where fromAssign (AssignVal (StorageVar typ var) _) = (var, typ)
-        fromAssign (AssignMany (StorageVar typ var) _) = (var, typ)
-        fromAssign (AssignStruct _ _) = error "TODO: assignstruct"
+  let assignments = fromAssign <$> assigns
+  in case duplicates $ fst <$> assignments of
+        [] ->
+          let new' = Map.singleton contract (Map.fromList assignments)
+           in do old <- lookupVars bs
+                 if null (Map.intersection new' old)
+                 then pure $ new' <> old
+                 else Bad (nowhere, "Multiple definitions given of contract: " <> contract)
+        vs -> Bad (nowhere,
+                   concatMap (\v -> "Multiple definitions given of state variable: " <> v <> "\n") vs)
 lookupVars [] = pure mempty
+
+fromAssign :: Assign -> (Id, SlotType)
+fromAssign (AssignVal (StorageVar typ var) _) = (var, typ)
+fromAssign (AssignMany (StorageVar typ var) _) = (var, typ)
+fromAssign (AssignStruct _ _) = error "TODO: assignstruct"
+
+-- | filters out duplicate entries in list
+duplicates :: Eq a => [a] -> [a]
+duplicates [] = []
+duplicates (x:xs) =
+  let e = if x `elem` xs then [x] else []
+  in e <> duplicates xs
 
 -- typing of vars: this contract name, this contract storage, other contract scopes, calldata args
 type Env = (Id, Map Id SlotType, Store, Map Id MType)
