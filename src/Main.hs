@@ -210,12 +210,12 @@ prettyErr _ (pn, msg) | pn == nowhere = do
   hPutStrLn stderr msg
   exitFailure
 prettyErr contents (pn, msg) | pn == lastPos = do
-  hPutStrLn stderr msg
   let culprit = last $ lines contents
       line = length (lines contents) - 1
       col  = length culprit
   hPutStrLn stderr $ show line <> " | " <> culprit
   hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
+  hPutStrLn stderr msg
   exitFailure
 prettyErr contents (AlexPn _ line col, msg) = do
   let cxt = safeDrop (line - 1) (lines contents)
