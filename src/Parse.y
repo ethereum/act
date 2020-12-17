@@ -97,7 +97,7 @@ import ErrM
 
   id                          { L (ID _) _ }
 
-  ilit                        { L (ILIT $$) _ }
+  ilit                        { L (ILIT _) _ }
 
 {- --- associativity and precedence ---
 boolean operations have universally lower precedence than numeric
@@ -161,7 +161,7 @@ Transition : 'behaviour' id 'of' id
              Interface
              list(Precondition)
              Cases
-             opt(Ensures)                             { Transition (arg $2) (arg $4)
+             opt(Ensures)                             { Transition (name $2) (name $4)
                                                         $5 $6 $7 $8 }
 
 Constructor : 'constructor' 'of' id
@@ -170,14 +170,14 @@ Constructor : 'constructor' 'of' id
               Creation
               list(ExtStorage)
               opt(Ensures)
-              opt(Invariants)                          { Definition (arg $3)
+              opt(Invariants)                          { Definition (name $3)
                                                          $4 $5 $6 $7 $8 $9 }
 
 Ensures : 'ensures' nonempty(Expr)                    { $2 }
 
 Invariants : 'invariants' nonempty(Expr)              { $2 }
 
-Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface (arg $2) $4 }
+Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface (name $2) $4 }
 
 CInterface : 'interface' 'constructor' '(' seplist(Decl, ',') ')' { Interface "constructor" $4 }
 
@@ -196,8 +196,8 @@ Returns : 'returns' Expr                              { $2 }
 
 Storage : 'storage' nonempty(Store)                   { $2 }
 
-ExtStorage : 'storage' id nonempty(Store)             { ExtStorage (arg $2) $3 }
-           | 'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (arg $2) $4 $5 }
+ExtStorage : 'storage' id nonempty(Store)             { ExtStorage (name $2) $3 }
+           | 'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (name $2) $4 $5 }
            | 'storage' '_' '_' '=>' '_'               { WildStorage }
 
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
@@ -206,7 +206,7 @@ Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
 Store : Entry '=>' Expr                               { Rewrite $1 $3 }
       | Entry                                         { Constant $1 }
 
-Entry : id list(Zoom)                                 { Entry (posn $1) (arg $1) $2 }
+Entry : id list(Zoom)                                 { Entry (posn $1) (name $1) $2 }
       | '_'                                           { Wild }
 
 Zoom : '[' Expr ']'                                   { $2 }
@@ -218,9 +218,9 @@ Assign : StorageVar ':=' Expr                        { AssignVal $1 $3 }
        | StorageVar ':=' '[' seplist(Defn, ',') ']'  { AssignMany $1 $4 }
 
 Defn : Expr ':=' Expr                                 { Defn $1 $3 }
-Decl : Type id                                        { Decl $1 (arg $2) }
+Decl : Type id                                        { Decl $1 (name $2) }
 
-StorageVar : SlotType id                            { StorageVar $1 (arg $2) }
+StorageVar : SlotType id                            { StorageVar $1 (name $2) }
 
 Type : 'uint'
        { case validsize $1 of
@@ -233,7 +233,7 @@ Type : 'uint'
               False -> error $ "invalid int size: int" <> (show $1)
        }
      | 'bytes'                                        { AbiBytesType $1 }
-     | Type '[' ilit ']'                              { AbiArrayType (fromIntegral $3) $1 }
+     | Type '[' ilit ']'                              { AbiArrayType (fromIntegral $ value $3) $1 }
      | 'address'                                      { AbiAddressType }
      | 'bool'                                         { AbiBoolType }
      | 'string'                                       { AbiStringType }
@@ -248,8 +248,8 @@ MappingArgs : Type '=>' Type                           { ($1 NonEmpty.:| [], $3)
 Expr : '(' Expr ')'                                    { $2 }
 
   -- terminals
-  | ilit                                                { IntLit $1 }
-  | '_'                                                 { WildExp }
+  | ilit                                                { IntLit (posn $1) (value $1) }
+  | '_'                                                 { WildExp (posn $1) }
   -- missing string literal
   -- missing wildcard
 
@@ -264,8 +264,8 @@ Expr : '(' Expr ')'                                    { $2 }
   | Expr '<'   Expr                                     { ELT   (posn $2) $1 $3 }
   | Expr '>='  Expr                                     { EGEQ  (posn $2) $1 $3 }
   | Expr '>'   Expr                                     { EGT   (posn $2) $1 $3 }
-  | 'true'                                              { ETrue (posn $1) }
-  | 'false'                                             { EFalse (posn $1) }
+  | 'true'                                              { BoolLit (posn $1) True }
+  | 'false'                                             { BoolLit (posn $1) False }
 
   -- integer expressions
   | Expr '+'   Expr                                     { EAdd (posn $2)  $1 $3 }
@@ -277,8 +277,8 @@ Expr : '(' Expr ')'                                    { $2 }
 
   -- composites
   | 'if' Expr 'then' Expr 'else' Expr                   { EITE (posn $1) $2 $4 $6 }
-  | id list(Zoom)                                       { EntryExp (posn $1) (arg $1) $2 }
---  | id list(Zoom)                                       { Look (posn $1) (arg $1) $2 }
+  | id list(Zoom)                                       { EntryExp (posn $1) (name $1) $2 }
+--  | id list(Zoom)                                       { Look (posn $1) (name $1) $2 }
   | Expr '.' Expr                                       { Zoom (posn $2) $1 $3 }
 --  | id '(' seplist(Expr, ',') ')'                     { App    (posn $1) $1 $3 }
   | Expr '++' Expr                                      { ECat   (posn $2) $1 $3 }

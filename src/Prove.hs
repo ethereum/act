@@ -51,13 +51,13 @@ import Print (prettyEnv)
 {-|
    For each invariant claim, we build an SMT query for each pass behaviour in the transtion system.
 
-   If the behaviour is a constructor (creation == True), the query asks the solver to find instances where:
+   If the behaviour is a constructor, the query asks the solver to find instances where:
 
    - the preconditions hold
    - the storage values in the poststate match those specified by the `creates` block of the constructor holds
    - the invariant does not hold over the post state or the postconditions do not hold over the poststate
 
-   If the behaviour is a method (creation == False), the query asks the solver to find instances where:
+   If the behaviour is a method, the query asks the solver to find instances where:
 
    - the invariant holds over the pre state
    - the preconditions hold
@@ -129,7 +129,7 @@ mkInit inv@(Invariant _ e) constr@(Constructor _ _ _ preConds postConds statedef
     postInv' = mkBool Post e
     preCond' = mkBool Pre (mconcat preConds)
     postCond' = mkBool Pre (mconcat postConds)
-    
+
     stateUpdates' = mkStorageConstraints ctx storages (nub $ (getLoc <$> storages) <> locsFromExp e)
 
   constrain $ preCond' .&& sAnd stateUpdates' .&& (sNot postCond' .|| sNot postInv')

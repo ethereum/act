@@ -71,7 +71,7 @@ splitBehaviour :: Store -> RawBehaviour -> Err [Claim]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
   -- constrain integer calldata variables (TODO: other types)
   iff <- checkIffs env iffs'
-  postcondition <- mapM (checkBool nowhere env) (fromMaybe [] maybePost)
+  postcondition <- mapM (\expr -> checkBool (getPosn expr) env expr) (fromMaybe [] maybePost)
   flatten iff postcondition cases
   where
     env :: Env
@@ -80,19 +80,19 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     -- translate wildcards into negation of other cases
     normalize :: [Case] -> Err [Case]
     normalize cases' =
-      let wildcard (Case _ WildExp _) = True
+      let wildcard (Case _ (WildExp _) _) = True
           wildcard _ = False
       in case findIndex wildcard cases' of
-        Nothing -> return $ snd $ mapAccumL checkCase (BoolLit False) cases'
+        Nothing -> return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
         Just ind ->
           -- wildcard must be last element
           if ind < length cases' - 1
           then case cases' !! ind of
             (Case p _ _) -> Bad (p, "Wildcard pattern must be last case")
-          else return $ snd $ mapAccumL checkCase (BoolLit False) cases'
+          else return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
 
     checkCase :: Expr -> Case -> (Expr, Case)
-    checkCase acc (Case p WildExp post) =
+    checkCase acc (Case p (WildExp _) post) =
       (error "wildcard not last case",
         Case p (ENot nowhere acc) post)
     checkCase acc (Case p e post) = (EOr nowhere e acc, Case p e post)
@@ -106,7 +106,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     flatten iff postc (Branches branches) = do
       branches' <- normalize branches
       cases' <- forM branches' $ \(Case _ cond post) -> do
-        if' <- checkBool nowhere env cond
+        if' <- checkBool (getPosn cond) env cond
         (post', ret) <- checkPost env post
         return (if', post', ret)
 
@@ -120,8 +120,8 @@ splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Create
   stateUpdates <- concat <$> mapM (checkAssign env) assigns
   iffs' <- checkIffs env iffs
 
-  invariants <- mapM (checkBool nowhere env) $ fromMaybe [] maybeInvs
-  ensures <- mapM (checkBool nowhere env) (fromMaybe [] maybeEnsures)
+  invariants <- mapM (\expr -> checkBool (getPosn expr) env expr) $ fromMaybe [] maybeInvs
+  ensures <- mapM (\expr -> checkBool (getPosn expr) env expr) (fromMaybe [] maybeEnsures)
 
   -- this forces the smt backend to be run on every spec, ensuring postconditions are checked for every behaviour
   -- TODO: seperate the smt backend into seperate passes so we only run the invariant analysis if required
@@ -152,18 +152,18 @@ checkAssign :: Env -> Assign -> Err [StorageUpdate]
 checkAssign env@(contract, _, _, _) (AssignVal (StorageVar (StorageValue typ) name) expr)
   = case metaType typ of
     Integer -> do
-      val <- checkInt nowhere env expr
+      val <- checkInt (getPosn expr) env expr
       return [IntUpdate (DirectInt contract name) val]
     Boolean -> do
-      val <- checkBool nowhere env expr
+      val <- checkBool (getPosn expr) env expr
       return [BoolUpdate (DirectBool contract name) val]
     ByteStr -> do
-      val <- checkBytes nowhere env expr
+      val <- checkBytes (getPosn expr) env expr
       return [BytesUpdate (DirectBytes contract name) val]
 checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
   = mapM (checkDefn env keyType valType name) defns
-checkAssign _ (AssignVal (StorageVar (StorageMapping _ _) _) _)
-  = Bad (nowhere, "Cannot assign a single expression to a composite type")
+checkAssign _ (AssignVal (StorageVar (StorageMapping _ _) _) expr)
+  = Bad (getPosn expr, "Cannot assign a single expression to a composite type")
 checkAssign _ (AssignMany (StorageVar (StorageValue _) _) _)
   = Bad (nowhere, "Cannot assign multiple values to an atomic type")
 checkAssign _ _ = error "todo: support struct assignment in constructors"
@@ -173,25 +173,25 @@ checkAssign _ _ = error "todo: support struct assignment in constructors"
 checkDefn :: Env -> AbiType -> AbiType -> Id -> Defn -> Err StorageUpdate
 checkDefn env@(contract, _, _, _) keyType valType name (Defn k v) = case metaType keyType of
     Integer -> do
-      key <- checkInt nowhere env k
+      key <- checkInt (getPosn k) env k
       checkVal (ExpInt key)
     Boolean -> do
-      key <- checkBool nowhere env k
+      key <- checkBool (getPosn k) env k
       checkVal (ExpBool key)
     ByteStr -> do
-      key <- checkBytes nowhere env k
+      key <- checkBytes (getPosn k) env k
       checkVal (ExpBytes key)
     where
       checkVal key = do
         case metaType valType of
           Integer -> do
-            val <- checkInt nowhere env v
+            val <- checkInt (getPosn v) env v
             return $ IntUpdate (MappedInt contract name (key :| [])) val
           Boolean -> do
-            val <- checkBool nowhere env v
+            val <- checkBool (getPosn v) env v
             return $ BoolUpdate (MappedBool contract name (key :| [])) val
           ByteStr -> do
-            val <- checkBytes nowhere env v
+            val <- checkBytes (getPosn v) env v
             return $ BytesUpdate (MappedBytes contract name (key :| [])) val
 
 checkPost :: Env -> Post -> Err ([Either StorageLocation StorageUpdate], Maybe ReturnExp)
@@ -318,8 +318,6 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     ELEQ p  v1 v2 -> boolintint  p LEQ  v1 v2
     EGEQ p  v1 v2 -> boolintint  p GEQ  v1 v2
     EGT p   v1 v2 -> boolintint  p GE   v1 v2
-    ETrue _ ->  Ok . ExpBool $ LitBool True
-    EFalse _ -> Ok . ExpBool $ LitBool False
     -- TODO: make ITE polymorphic
     EITE p v1 v2 v3 -> do w1 <- checkBool p env v1
                           w2 <- checkInt p env v2
@@ -331,8 +329,8 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     EDiv p v1 v2 -> intintint p Div v1 v2
     EMod p v1 v2 -> intintint p Mod v1 v2
     EExp p v1 v2 -> intintint p Exp v1 v2
-    IntLit n -> Ok $ ExpInt $ LitInt n
-    BoolLit n -> Ok $ ExpBool $ LitBool n
+    IntLit _ n -> Ok $ ExpInt $ LitInt n
+    BoolLit _ n -> Ok $ ExpBool $ LitBool n
     EntryExp p name e -> case (Map.lookup name ours, Map.lookup name thisContext) of
         (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> show name)
         (Nothing, Just c) -> case c of
@@ -398,7 +396,7 @@ checkInt p env e =
     Bad err -> Bad err
 
 getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
-getLoc ref = either id mkLoc ref
+getLoc = either id mkLoc
 
 mkLoc :: StorageUpdate -> StorageLocation
 mkLoc (IntUpdate item _) = IntLoc item

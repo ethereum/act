@@ -6,7 +6,8 @@ module Lex
   , lexer
   , posn
   , showposn
-  , arg
+  , name
+  , value
   ) where
 
 import Prelude hiding (EQ, GT, LT)
@@ -211,9 +212,13 @@ showposn (AlexPn _ line column) =
 posn :: Lexeme -> AlexPosn
 posn (L _ p) = p
 
-arg :: Lexeme -> String
-arg (L (ID s) _) = s
-arg _ = error "TODO: support all lexemes in arg"
+name :: Lexeme -> String
+name (L (ID s) _) = s
+name _ = error "unsupported arg to name"
+
+value :: Lexeme -> Integer
+value (L (ILIT i) _) = i
+value _ = error "unsupported arg to value"
 
 -- helper function to reduce boilerplate
 mk :: LEX -> (AlexPosn -> String -> Lexeme)
