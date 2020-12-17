@@ -6,7 +6,6 @@ module Lex
   , lexer
   , posn
   , showposn
-  , arg
   , name
   , value
   ) where
@@ -213,15 +212,12 @@ showposn (AlexPn _ line column) =
 posn :: Lexeme -> AlexPosn
 posn (L _ p) = p
 
-arg :: Lexeme -> LEX
-arg (L lex _) = lex
-
-name :: LEX -> String
-name (ID s) = s
+name :: Lexeme -> String
+name (L (ID s) _) = s
 name _ = error "unsupported arg to name"
 
-value :: LEX -> Integer
-value (ILIT i) = i
+value :: Lexeme -> Integer
+value (L (ILIT i) _) = i
 value _ = error "unsupported arg to value"
 
 -- helper function to reduce boilerplate
