@@ -93,7 +93,6 @@ data Expr
 --    | Look Pn Id [Expr]
     | Func Pn Id [Expr]
     | ListConst Expr
-    | EmptyList Pn
     | ECat Pn Expr Expr
     | ESlice Pn Expr Expr Expr
     | ENewaddr Pn Expr Expr
@@ -155,7 +154,6 @@ getPosn expr = case expr of
     EntryExp pn _ _ -> pn
     Func pn _ _ -> pn
     ListConst e -> getPosn e
-    EmptyList pn -> pn
     ECat pn _ _ -> pn
     ESlice pn _ _ _ -> pn
     ENewaddr pn _ _ -> pn
