@@ -19,23 +19,29 @@ repl: src/Lex.hs src/Parse.hs
 
 compiler: bin/act
 
-test_specs=$(wildcard tests/frontend/*/*.act)
+frontend_pass=$(wildcard tests/frontend/pass/*/*.act)
+frontend_fail=$(wildcard tests/frontend/fail/*/*.act)
 
-parser_specs=$(filter-out $(invariant_specs), $(test_specs))
-typing_specs=$(filter-out $(failing_typing), $(parser_specs))
+parser_pass=$(frontend_pass)
+typing_pass=$(filter-out $(failing_typing), $(parser_pass))
+# supposed to fail
+typing_fail=$(frontend_fail)
+parser_fail=$(filter-out $(typing_fail), $(frontend_fail))
 
 invariant_specs=$(wildcard tests/invariants/*/*.act)
-invariant_pass=$(wildcard tests/invariants/pass/*.act) $(typing_specs)
+invariant_pass=$(wildcard tests/invariants/pass/*.act) $(typing_pass)
 invariant_fail=$(wildcard tests/invariants/fail/*.act)
 
-# supposed to pass, but don't
+# supposed to pass, but timeout
 hevm_buggy=tests/hevm/pass/safemath/safemath.act tests/hevm/pass/transfer/transfer.act
 # supposed to pass
 hevm_pass=$(filter-out $(hevm_buggy), $(wildcard tests/hevm/pass/*/*.act))
 # supposed to fail
 hevm_fail=$(wildcard tests/hevm/fail/*/*.act)
 
-failing_typing=tests/frontend/array/array.act tests/frontend/dss/vat.act tests/frontend/creation/createMultiple.act
+# supposed to pass
+failing_typing=tests/frontend/pass/array/array.act tests/frontend/pass/dss/vat.act tests/frontend/pass/creation/createMultiple.act
+
 
 coq-examples = tests/coq/transitions tests/coq/safemath tests/coq/exponent
 
@@ -44,22 +50,28 @@ test-coq: compiler $(coq-examples)
 $(coq-examples):
 	make -C $@
 
-test-parse: parser compiler $(parser_specs:=.parse)
-test-type: parser compiler $(typing_specs:=.type)
+test-parse: parser compiler $(parser_pass:=.parse.pass) $(parser_fail:=.parse.fail)
+test-type: parser compiler $(typing_pass:=.type.pass) $(typing_fail:=.type.fail)
 test-invariant: parser compiler $(invariant_pass:=.invariant.pass) $(invariant_fail:=.invariant.fail)
 test-hevm: parser compiler $(hevm_pass:=.hevm.pass) $(hevm_fail:=.hevm.fail)
 
 
 # Just checks parsing
-tests/%.parse:
+tests/%.parse.pass:
 	./bin/act parse --file tests/$* > tests/$*.parsed.hs.out
 	diff tests/$*.parsed.hs.out tests/$*.parsed.hs
 	rm tests/$*.parsed.hs.out
 
-tests/%.type:
+tests/%.parse.fail:
+	./bin/act parse --file tests/$* && exit 1 || echo 0
+
+tests/%.type.pass:
 	./bin/act type --file tests/$* | jq . > tests/$*.typed.json.out
 	diff tests/$*.typed.json.out tests/$*.typed.json
 	rm tests/$*.typed.json.out
+
+tests/%.type.fail:
+	./bin/act type --file tests/$* && exit 1 || echo 0
 
 tests/%.invariant.pass:
 	./bin/act prove --file tests/$*
