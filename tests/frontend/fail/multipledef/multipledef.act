@@ -1,0 +1,7 @@
+constructor of LValue
+interface constructor()
+
+creates
+
+	uint x := 2
+	bool x := false
