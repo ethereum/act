@@ -1,0 +1,10 @@
+constructor of C
+interface constructor()
+
+creates
+
+    int totalSupply := -1
+
+invariants
+
+    totalSupply > 0
