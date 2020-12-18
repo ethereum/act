@@ -36,7 +36,19 @@
         "value": "0"
       }
     ],
-    "preConditions": [],
+    "preConditions": [
+      {
+        "arity": 2,
+        "args": [
+          {
+            "name": "a.x",
+            "sort": "int"
+          },
+          "0"
+        ],
+        "symbol": "=="
+      }
+    ],
     "contract": "a",
     "interface": "constructor()",
     "postConditions": []
@@ -53,7 +65,19 @@
         "value": "0"
       }
     ],
-    "preConditions": [],
+    "preConditions": [
+      {
+        "arity": 2,
+        "args": [
+          {
+            "name": "B.y",
+            "sort": "int"
+          },
+          "0"
+        ],
+        "symbol": "=="
+      }
+    ],
     "contract": "B",
     "interface": "constructor()",
     "postConditions": []

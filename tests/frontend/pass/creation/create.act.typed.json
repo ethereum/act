@@ -36,7 +36,52 @@
         "value": "Caller"
       }
     ],
-    "preConditions": [],
+    "preConditions": [
+      {
+        "arity": 2,
+        "args": [
+          {
+            "name": "Modest.x",
+            "sort": "int"
+          },
+          "0"
+        ],
+        "symbol": "=="
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "name": "Modest.y",
+            "sort": "int"
+          },
+          "0"
+        ],
+        "symbol": "=="
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              "1461501637330902918203684832716283019655932542975"
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      }
+    ],
     "contract": "Modest",
     "interface": "constructor()",
     "postConditions": []

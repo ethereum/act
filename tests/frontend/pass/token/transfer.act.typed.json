@@ -83,7 +83,84 @@
         "value": "_totalSupply"
       }
     ],
-    "preConditions": [],
+    "preConditions": [
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "_totalSupply"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "_totalSupply",
+              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "name": "Token.totalSupply",
+            "sort": "int"
+          },
+          "0"
+        ],
+        "symbol": "=="
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 3,
+            "args": [
+              "Token",
+              "balanceOf",
+              [
+                {
+                  "expression": "Caller",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          },
+          "0"
+        ],
+        "symbol": "=="
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              "Caller"
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              "Caller",
+              "1461501637330902918203684832716283019655932542975"
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      }
+    ],
     "contract": "Token",
     "interface": "constructor(string _symbol, string _name, string _version, uint256 _totalSupply)",
     "postConditions": []
