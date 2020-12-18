@@ -1,0 +1,15 @@
+constructor of Fail
+interface constructor()
+
+creates
+
+	uint x := 0
+	uint y := 2
+
+// should fail to typecheck because y has not been declared in the storage block below...
+behaviour f of Fail
+interface f()
+
+storage
+
+	x => y

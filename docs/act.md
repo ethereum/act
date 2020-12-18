@@ -50,12 +50,12 @@ returns x + y
 
 In more verbose terms, this specification would read:
 
-Given any pair of integers x and y, s.t. 0 <= x < 2^256 and
-0 <= y < 2^256, an ABI encoded call to the contract `SafeMath`
-with the signature "add(uint256,uint256)", and x and y, will:
-    -   return x + y      if 0 <= x + y < 2^256
-    -   revert            otherwise
+Given any pair of integers `x` and `y`, s.t. `0 <= x < 2^256` and
+`0 <= y < 2^256`, an ABI encoded call to the contract `SafeMath`
+with the signature `add(uint256,uint256)`, and `x` and `y`, will:
 
+-   return `x + y`      if `0 <= x + y < 2^256`
+-   revert              otherwise
 
 ## Contructor
 
@@ -228,3 +228,23 @@ ensures
 
    x == _x
 ```
+
+## Referencing Storage Variables
+
+Storage locations that are read and used in other expressions must be declared in a storage block.
+
+Some examples:
+
+```act
+storage
+  x => y
+  y
+```
+
+```act
+storage
+  x
+  y
+
+returns x + y
+``

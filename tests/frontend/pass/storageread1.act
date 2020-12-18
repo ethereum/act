@@ -1,0 +1,22 @@
+constructor of Pass
+interface constructor()
+
+creates
+
+    uint x := 0
+    uint y := 2
+
+behaviour g of Pass
+interface g()
+
+iff in range uint256
+
+    x + y
+
+storage
+
+    // TODO: remove this hack once bug #81 is fixed...
+    x => x
+    y
+
+returns x + y

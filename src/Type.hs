@@ -21,6 +21,7 @@ import Data.ByteString (ByteString)
 import Control.Monad
 
 import Syntax hiding (Storage)
+import qualified Syntax
 import ErrM
 import Parse
 import RefinedAst
@@ -55,7 +56,7 @@ fromAssign (AssignStruct _ _) = error "TODO: assignstruct"
 duplicates :: Eq a => [a] -> [a]
 duplicates [] = []
 duplicates (x:xs) =
-  let e = if x `elem` xs then [x] else []
+  let e = ([x | x `elem` xs])
   in e <> duplicates xs
 
 -- typing of vars: this contract name, this contract storage, other contract scopes, calldata args
@@ -124,8 +125,10 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
         (post', ret) <- checkPost env post
         return (if', post', ret)
 
-      pure . join $ ((\(ifcond, stateUpdates, ret) ->
-        splitCase name contract iface [ifcond] iff ret stateUpdates postc) <$> cases')
+      pure $
+        (\(ifcond, stateUpdates, ret)
+            -> splitCase name contract iface [ifcond] iff ret stateUpdates postc)
+           =<< cases'
 
 splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvs) = do
   unless (null extStorage) $ error "TODO: support extStorage in constructor"
@@ -209,24 +212,50 @@ checkDefn env@(contract, _, _, _) keyType valType name (Defn k v) = case metaTyp
             return $ BytesUpdate (MappedBytes contract name (key :| [])) val
 
 checkPost :: Env -> Post -> Err ([Either StorageLocation StorageUpdate], Maybe ReturnExp)
-checkPost env@(contract, _, theirs, localVars) (Post maybeStorage extStorage maybeReturn) =
-  do  returnexp <- mapM (inferExpr env) maybeReturn
-      ourStorage <- case maybeStorage of
-        Just entries -> checkEntries contract entries
-        Nothing -> Ok []
-      otherStorage <- checkStorages extStorage
-      return (ourStorage <> otherStorage, returnexp)
-  where checkEntries name entries =
-          mapM (\case
-                   Rewrite loc val -> Right <$> checkStorageExpr (name, fromMaybe mempty (Map.lookup name theirs), theirs, localVars) loc val
-                   Constant loc -> Left <$> checkEntry env loc
-               ) entries
-        checkStorages :: [ExtStorage] -> Err [Either StorageLocation StorageUpdate]
-        checkStorages [] = Ok []
-        checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries
-                                                          ps <- checkStorages xs
-                                                          Ok $ p <> ps
-        checkStorages _ = error "TODO: check other storages"
+checkPost (contract, _, theirs, calldata) (Post maybeStorage extStorage maybeReturn) =
+  do returnexp <- mapM (inferExpr scopedEnv) maybeReturn
+     ourStorage <- case maybeStorage of
+       Just entries -> checkEntries contract entries
+       Nothing -> Ok []
+     otherStorage <- checkStorages extStorage
+     return (ourStorage <> otherStorage, returnexp)
+  where
+    checkEntries :: Id -> [Syntax.Storage] -> Err [Either StorageLocation StorageUpdate]
+    checkEntries name entries =
+      forM entries $ \case
+        Constant loc -> Left <$> checkEntry (focus name scopedEnv) loc
+        Rewrite loc val -> Right <$> checkStorageExpr (focus name scopedEnv) loc val
+
+    checkStorages :: [ExtStorage] -> Err [Either StorageLocation StorageUpdate]
+    checkStorages [] = Ok []
+    checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries
+                                                      ps <- checkStorages xs
+                                                      Ok $ p <> ps
+    checkStorages _ = error "TODO: check other storages"
+
+    -- remove storage items from the env that are not mentioned on the LHS of a storage declaration
+    scopedEnv :: Env
+    scopedEnv = focus contract (mempty, mempty, filtered, calldata)
+      where
+        filtered = Map.mapWithKey (\name vars ->
+            if (name == contract)
+            then Map.filterWithKey (\slot _ -> slot `elem` localNames) vars
+            else Map.filterWithKey (\slot _ -> slot `elem` (fromMaybe mempty $ Map.lookup name externalNames)) vars
+          ) theirs
+
+    focus :: Id -> Env -> Env
+    focus name (_, _, theirs', calldata') =
+      (name, fromMaybe mempty (Map.lookup name theirs'), theirs', calldata')
+
+    localNames :: [Id]
+    localNames = nameFromStorage <$> fromMaybe mempty maybeStorage
+
+    externalNames :: Map Id [Id]
+    externalNames = Map.fromList $ mapMaybe (\case
+        ExtStorage name storages -> Just (name, nameFromStorage <$> storages)
+        ExtCreates {} -> error "TODO: handle ExtCreate"
+        WildStorage -> Nothing
+      ) extStorage
 
 checkStorageExpr :: Env -> Entry -> Expr -> Err StorageUpdate
 checkStorageExpr env@(contract, ours, _, _) (Entry p name ixs) expr =
@@ -416,3 +445,8 @@ mkLoc :: StorageUpdate -> StorageLocation
 mkLoc (IntUpdate item _) = IntLoc item
 mkLoc (BoolUpdate item _) = BoolLoc item
 mkLoc (BytesUpdate item _) = BytesLoc item
+
+nameFromStorage :: Syntax.Storage -> Id
+nameFromStorage (Rewrite (Entry _ name _) _) = name
+nameFromStorage (Constant (Entry _ name _)) = name
+nameFromStorage store = error $ "Internal error: cannot extract name from " ++ (show store)
