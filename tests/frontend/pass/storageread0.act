@@ -1,0 +1,15 @@
+constructor of Pass
+interface constructor()
+
+creates
+
+	uint x := 0
+	uint y := 2
+
+behaviour f of Pass
+interface f()
+
+storage
+
+	x => y
+    y

@@ -1,0 +1,24 @@
+constructor of C
+interface constructor()
+
+creates
+
+    uint x := 1
+    uint y := 1
+
+
+constructor of B
+interface constructor()
+
+creates
+
+    uint a := 1
+    uint b := 1
+
+behaviour f of B
+interface f()
+
+storage C
+
+    x => y
+    y
