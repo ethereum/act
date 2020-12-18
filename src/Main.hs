@@ -105,7 +105,7 @@ main = do
                       results' = handleRes <$> rs
                       ok = not $ or $ fst <$> results'
                   if ok
-                  then putStrLn $ msg <> "Q.E.D ✨"
+                  then putStrLn $ msg <> "Q.E.D."
                   else do
                       putStrLn $ msg <> "\n\n" <> intercalate sep (snd <$> results')
                       exitFailure
