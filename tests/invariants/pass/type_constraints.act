@@ -1,0 +1,8 @@
+constructor of AllEnvVars
+interface constructor()
+
+creates
+	uint value := 5
+
+invariants
+	value >= 0

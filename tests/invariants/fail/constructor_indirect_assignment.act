@@ -1,0 +1,11 @@
+constructor of LValue
+interface constructor()
+
+creates
+
+	uint y := x
+	uint x := 2
+
+invariants
+
+	y == 2

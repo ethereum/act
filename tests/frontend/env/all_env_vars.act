@@ -1,0 +1,17 @@
+constructor of AllEnvVars
+interface constructor()
+
+creates
+	address caller := CALLER
+	uint value := CALLVALUE
+	uint calldepth := CALLDEPTH
+	address origin := ORIGIN
+	bytes32 blockhash := BLOCKHASH
+	uint blocknumber := BLOCKNUMBER
+	uint difficulty := DIFFICULTY
+	uint chainid := CHAINID
+	uint gaslimit := GASLIMIT
+	address coinbase := COINBASE
+	uint timestamp := TIMESTAMP
+	address this := THIS
+	uint nonce := NONCE
