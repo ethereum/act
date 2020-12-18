@@ -154,10 +154,10 @@ genExpBool names n = oneof
         subExpInt = genExpInt names (n `div` 2)
 
 
--- TODO: storage, negative literals
+-- TODO: storage
 genExpInt :: Names -> Int -> Gen (Exp Integer)
 genExpInt names 0 = oneof
-  [ LitInt . abs <$> arbitrary
+  [ LitInt <$> arbitrary
   , IntVar <$> (selectName Integer names)
   , return $ IntEnv Caller
   , return $ IntEnv Callvalue

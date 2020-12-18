@@ -20,6 +20,7 @@ $digit = 0-9                    -- digits
 $alpha = [a-z A-Z]              -- alphabetic characters
 $ident = [$alpha _]
 $space = [\ \t\f\v\r]
+$negative = \-
 
 tokens :-
 
@@ -111,7 +112,8 @@ tokens :-
   $ident ($ident | $digit)*             { \ p s -> L (ID s) p }
 
   -- literals
-  $digit+                               { \ p s -> L (ILIT (read s)) p }
+  $negative? $digit+                    { \ p s -> L (ILIT (read s)) p }
+
 {
 
 data LEX =
