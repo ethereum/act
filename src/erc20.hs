@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -10,9 +9,6 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE MagicHash #-}
 
 module Dai where
@@ -23,13 +19,12 @@ import Control.Lens hiding (at)
 import qualified Control.Lens
 import Data.Map
 import Control.Monad.State
---import Data.Primitive.MutVar
 import Control.Monad.Reader
 import Control.Monad.Except
-import GHC.Exts (Proxy#)
 import EVM.Types
 import Data.ByteString (ByteString)
 
+-- | Some classic AbiTypes
 newtype Address = Address Addr
   deriving (Eq, Ord, Num)
 newtype Bytes = Bytes ByteString
@@ -42,18 +37,19 @@ newtype Uint8   = Uint8 Word
   deriving (Eq, Ord, Num)
 
 
--- GENERAL SMART CONTRACT STUFF --
--- read from inside out;
--- Except String : any computation can revert at any point
--- StateT a      : the compuation is stateful a (the contract state)
--- ReaderT Env   : the compuation has access to environment information
--- TODO: how do export functions to be called?
--- TODO: how are these constructed?
-type Contract (name :: k) (a :: *) (b :: *) = ReaderT Env ((StateT a) (Except String)) b
+-- | We can express the execution environment of a contract
+-- as a stack of monad transformers. Read from right to left:
+
+-- ^ Except String -- We can revert with an error message at any time
+-- ^ StateT a      -- The State a can be modified
+-- ^ ReaderT Env   -- We have read access to the call and block environment
+-- TODO: how to model external function calls to known / unknown calls? (mutvars?)
+type Exe a b = ReaderT Env ((StateT a) (Except String)) b
 
 data Msg = Msg {
-  _sender :: Address,
-  _value  :: Uint
+  _sender   :: Address,
+  _value    :: Uint,
+  _calldata :: Bytes
   }
 
 
@@ -73,15 +69,20 @@ data Env = Env {
   _block :: Block
   }
 
+makeLenses ''Env
+makeLenses ''Msg
+makeLenses ''Tx
+
 --helpful aliases:
--- | revert if now present
+-- | if {condition} revert(msg)
 require :: (MonadError String m) => Bool -> String -> m ()
-require condition msg = if condition then pure () else throwError msg
+require condition errmsg = if condition then pure () else throwError errmsg
 
 -- redefine `at` to treat missing values as 0s.
 at :: (At m, Num (IxValue m), Eq (IxValue m), Functor f) => Index m -> (IxValue m -> f (IxValue m)) -> m -> f m
 at x = Control.Lens.at x . non 0
 
+-- | some blockchain and abi primitive operations
 class ByteRep b where
   toBytes :: b -> Bytes
 
@@ -92,10 +93,10 @@ instance ByteRep Bytes where
   toBytes = id
 
 keccak256 :: (ByteRep b) => b -> Bytes32
-keccak256 _ = 0
+keccak256 _ = error "todo"
 
 ecrecover :: Bytes32 -> Uint8 -> Bytes32 -> Bytes32 -> Address
-ecrecover msg v r s = error ""
+ecrecover hashmsg v r s = error "todo"
 
 class Abi b where
   abiencode :: b -> Bytes
@@ -118,9 +119,6 @@ instance Abi String where
 instance Abi Bool where
   abiencode = error ""
 
--- instance Abi Bytes where
---   abiencode = error ""
-
 -- if one wants to be fancy, this can be done via generics instead of this boilerplate
 instance (Abi a, Abi b) => Abi (a,b) where
   abiencode = error ""
@@ -140,7 +138,8 @@ instance (Abi a, Abi b, Abi c, Abi d, Abi e, Abi f) => Abi (a,b,c,d,e,f) where
 instance Num Bool where
   fromInteger n = n /= 0
 
--- dai specific:  
+-- | As an experiment, let's model the Dai contract.
+-- It is a state machine over the following state:
 
 data DaiState = DaiState
   { _wards :: Map Address Bool,
@@ -156,22 +155,14 @@ data DaiState = DaiState
   }
 
 makeLenses ''DaiState
-makeLenses ''Env
-makeLenses ''Msg
 
-newtype Dai a = Dai { runDai :: Contract "Dai" DaiState a }
+newtype Dai a = Dai { runDai :: Exe DaiState a }
   deriving (Functor,
             Applicative,
             Monad,
             MonadState DaiState,
             MonadError String,
             MonadReader Env)
-
--- class (Cap.HasState name Address m) => HasReference name m where
---   ref :: (IsContract m) => m
-
-class Export (contract :: k) (function :: k) arg state out where
-  call :: forall b (m :: * -> *). (Cap.HasState contract state m) => Proxy# contract -> Proxy# function -> arg -> Contract contract state out
 
 instance Cap.HasState "wards" (Map Address Bool) Dai where
   state_ _ s =
@@ -297,69 +288,3 @@ permit holder spender nonce deadline allowed v r s = do
   require (nonce == nonce') "invalid nonce"
   allowances . at (holder, spender) .= if allowed then -1 else 0
   nonces . at holder += 1
-
-uncurry4 :: (a -> b -> c -> d) -> (a, b, c) -> d
-uncurry4 f (a,b,c) = f a b c
-
-instance Export "Dai" "transferFrom"(Address,Address,Uint) DaiState Bool where
-  call _ _ = (HasRefrunDai . (uncurry4 transferFrom) -> 
-
-
--- | let's see how calling semantics work. consider another simple contract, in Solidity:
-
-{-
-contract Bank {
-   address Dai public constant = Dai(0xacab);
-   mapping(address=>uint) public deposited;
-   function deposit(uint amount) public {
-      deposited[msg.sender] += amount;
-      transferFrom(msg.sender, address(this), amount);
-   }
-   function withdraw(uint amount) public {
-      require(amount <= deposited[msg.sender])
-      deposited[msg.sender] -= amount;
-      transfer(msg.sender, amount);
-   }
-}
--}
-
-data BankState = BankState {
-  _dai :: ---
-  _deposits :: Map Address Uint
-  }
-
-makeLenses ''BankState
-
-newtype Bank a = Bank (Contract "Bank" BankState a)
-  deriving (Functor,
-            Applicative,
-            Monad,
-            MonadState BankState,
-            MonadError String,
-            MonadReader Env
-            )
-
-deposit :: Uint -> Bank ()
-deposit amount = do
-  caller <- view (msg.sender)
-  us <- view this
-  deposits . at caller += amount
-  _ <- call @"Dai" @"transferFrom"
-  return ()
-
-withdraw :: Uint -> Bank ()
-withdraw amount = do
-  caller <- view (msg.sender)
-  available <- use (deposits . at caller)
-  require (amount <= available) ""
-  us <- view this
-  deposits . at caller -= amount
-  modifying dai (transfer caller amount)
-
-
-class (MonadReader Env m, MonadState a m, MonadError String m, Abi cArg) => IsContract m name a b cArg where
-  address :: Address
-  new :: Env -> cArg -> a
-  
-
-
