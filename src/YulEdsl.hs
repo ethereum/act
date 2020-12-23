@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -10,18 +11,22 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RebindableSyntax #-}
+-- {-# LANGUAGE OverloadedStrings #-}
 module YulEdsl where
 
 import Prelude hiding (EQ, LT, GT, (>>), (>>=), return)
 
-import Control.Monad.Trans.Reader
-import Control.Lens hiding (at)
+-- import Control.Monad.Trans.Reader
+-- import Control.Lens hiding (at)
+import Data.List.NonEmpty
 -- import Control.Monad.State
 -- import Control.Monad.Reader
 -- import Control.Monad.Except
 --import qualified Control.Lens
-import Data.ByteString
+--import Data.ByteString
 import Yul
+import Data.Coerce (coerce)
+import GHC.Base (Coercible)
 
 -- | Some classic ValueTypes
 newtype Address = Address Expression
@@ -65,33 +70,69 @@ instance Fractional Uint where
   fromRational _ = error "hmm"
 
 instance Show Uint where
-  show (Uint e) = show e
+  show (Uint x) = show x
 
 instance Show BExp where
-  show (BExp e) = show e
+  show (BExp x) = show x
+
+class Stmt a where
+  mkStmt :: a -> Statement
+
+class Blck a where
+  mkBlck :: a -> Block
+
+class Fun a where
+  mkFun :: a -> FunctionDefinition
+
+(.:=) :: Identifier -> Expression -> Assignment
+a .:= b = Assignment (NEmpty (a :| [])) b
+
+-- | deriving function instances
+
+-- non recursive functions
+instance (Coercible a Expression) => Fun a where
+  mkFun a = FunctionDefinition (Id "nullary") Nothing
+    (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| [])))) (Block [StmtAssign ((Id "x") .:= (coerce a))])
+
+instance {-# OVERLAPPING  #-} (Coercible (a -> b) (Expression -> Expression)) => Fun (a -> b) where
+  mkFun f = FunctionDefinition (Id "unary") (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| []))))
+    (Just (TypedIdentifierList (NEmpty (((Id "y"), Nothing) :| [])))) (Block [StmtAssign ((Id "y") .:= (coerce f) (ExprIdent (Id "x")))])
+
+instance {-# OVERLAPPING  #-} (Coercible (a -> b -> c) (Expression -> Expression -> Expression)) => Fun (a -> b -> c) where
+  mkFun f = FunctionDefinition (Id "unary") (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| [(Id "y", Nothing)]))))
+    (Just (TypedIdentifierList (NEmpty (((Id "z"), Nothing) :| [])))) (Block [StmtAssign ((Id "z") .:= (coerce f) (ExprIdent (Id "x")) (ExprIdent (Id "y")))])
+
+one :: Uint
+one = 10000000000
+
+double :: Uint -> Uint
+double a = 2 * a
+
+doubleplusone :: Uint -> Uint
+doubleplusone x = (double x) + 1
+
+-- | handling requires:
+emptyRevert :: Expression
+emptyRevert = op' $ REVERT (ExprLit (LitInteger 0)) (ExprLit (LitInteger 0))
+
 
 data Require a = Req BExp | Simply a
 
 require :: BExp -> Requiring a
 require a = Requiring [Req a]
 
-class Stmt a where
-  mkStmt :: a -> Statement
-
-instance Stmt Uint where
-  mkStmt (Uint a) = StmtExpr a
-
 instance Stmt a => Stmt (Require a) where
   mkStmt (Req (BExp b)) = StmtIf (If b (Block [StmtExpr emptyRevert]))
   mkStmt (Simply a) = mkStmt a
 
 newtype Requiring a = Requiring [Require a]
+--  deriving (Functor)
 
-class Blck a where
-  mkBlck :: a -> Block
 
 instance Stmt a => Blck (Requiring a) where
   mkBlck (Requiring a) = Block (fmap mkStmt a)
+
+--instance Monad Requiring
 
 (>>) :: Requiring a -> Requiring a -> Requiring a
 (Requiring a) >> (Requiring b) = Requiring (a ++ b)
@@ -104,9 +145,13 @@ safeAdd a b = do
   require (a .<= (a + b))
   return (a + b)
 
-emptyRevert :: Expression
-emptyRevert = op' $ REVERT (ExprLit (LitInteger 0)) (ExprLit (LitInteger 0)) 
 
+-- instance (Expr b) => Fun (Expression -> b) where
+--   mkFun f = FunctionDefinition "unary" Nothing
+--     (Just (TypedIdentifierList (NEmpty (("x", Nothing) :| [("y", Nothing)])))) (Block _)
+
+-- class Fun a where
+--   mkFunc :: Identifier -> [(Indentifier, Expression)] -> 
 -- instance Stmt (Revert Uint) where
 --   mkStmt (Revert (Right (Uint e))) = StmtExpr e
 --   mkStmt (Revert (Left ())) = StmtExpr emptyRevert

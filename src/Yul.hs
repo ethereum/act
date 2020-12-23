@@ -55,7 +55,7 @@ data Block = Block [Statement]
   deriving (Eq, Generic)
 
 instance Show Block where
-  show (Block statements) = "{" ++ unlines (show <$> statements) ++ "}"
+  show (Block statements) = "{\n"++ unlines (indent 4 (show <$> statements)) ++ "}"
 
 data Statement =
     StmtBlock Block
@@ -102,7 +102,7 @@ instance Show FunctionDefinition where
     ++ show identifier
     ++ "(" ++ showMaybe maybeInputTypes ++ ")"
     ++ maybe "" ((++) " -> " . show) maybeOutputTypes
-    ++ show block
+    ++ "\n" ++ show block
 
 data VariableDeclaration =
   VariableDeclaration TypedIdentifierList (Maybe Expression)
@@ -221,7 +221,11 @@ instance Show FunctionCall where
 instance Arbitrary FunctionCall where
   arbitrary = genericArbitrary' uniform
 
-type Identifier = String
+newtype Identifier = Id String
+  deriving (Eq, Generic, Arbitrary)
+
+instance Show Identifier where
+  show (Id a) = a
 
 type TypeName = Identifier
 
@@ -477,4 +481,4 @@ curly :: String -> String
 curly s = "{" ++ s ++ "}"
 
 indent :: Int -> [String] -> [String]
-indent n = fmap (++ replicate n ' ')
+indent n = fmap (replicate n ' ' ++)
