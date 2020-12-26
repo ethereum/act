@@ -1,6 +1,11 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TypeOperators #-}
+--{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+--{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -8,30 +13,24 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RebindableSyntax #-}
 -- {-# LANGUAGE OverloadedStrings #-}
 module YulEdsl where
 
-import Prelude hiding (EQ, LT, GT, (>>), (>>=), return)
+import Prelude hiding (and, not, or, EQ, LT, GT) --, (>>), (>>=), return)
 
--- import Control.Monad.Trans.Reader
--- import Control.Lens hiding (at)
-import Data.List.NonEmpty
--- import Control.Monad.State
--- import Control.Monad.Reader
--- import Control.Monad.Except
---import qualified Control.Lens
---import Data.ByteString
+import Data.List.NonEmpty hiding (head)
 import Yul
 import Data.Coerce (coerce)
 import GHC.Base (Coercible)
+import Data.Data (Proxy(..))
+import Control.Monad.Trans.Writer
 
 -- | Some classic ValueTypes
 newtype Address = Address Expression
---  deriving (Eq, Ord, Num)
-
 newtype Uint = Uint Expression
 newtype BExp = BExp Expression
 
@@ -59,16 +58,31 @@ instance Num Uint where
 instance EEq Uint where
   (Uint a) .== (Uint b) = BExp (op' (EQ a b))
 
+not :: BExp -> BExp
+not (BExp b) = BExp (op' (ISZERO b))
+
+and :: BExp -> BExp -> BExp
+and (BExp a) (BExp b) = BExp (op' (AND a b))
+
+or :: BExp -> BExp -> BExp
+or (BExp a) (BExp b) = BExp (op' (OR a b))
+
+data Expr a where
+  UINT :: Uint -> Expr Uint
+  BEXP :: BExp -> Expr BExp
+
+-- instance Functor Expr where
+--   fmap f (UINT a) = (f a)
+
 instance OOrd Uint where
   (Uint a) .<  (Uint b) = BExp (op' (LT a b))
-  (Uint a) .<= (Uint b) = BExp (op' (ISZERO $ op' (GT a b)))
   (Uint a) .>  (Uint b) = BExp (op' (GT a b))
-  (Uint a) .>= (Uint b) = BExp (op' (ISZERO $ op' (LT a b)))
+  a .<= b = not (a .> b)
+  a .>= b = not (a .< b)
 
 instance Fractional Uint where
   (Uint a) / (Uint b) = Uint (op' (DIV a b))
   fromRational _ = error "hmm"
-
 instance Show Uint where
   show (Uint x) = show x
 
@@ -76,32 +90,109 @@ instance Show BExp where
   show (BExp x) = show x
 
 class Stmt a where
-  mkStmt :: a -> Statement
+  sdesugar :: a -> Statement
+  ssugar   :: Statement -> a
 
-class Blck a where
-  mkBlck :: a -> Block
-
-class Fun a where
-  mkFun :: a -> FunctionDefinition
+instance Stmt Uint where
+  sdesugar (Uint e) = StmtExpr e
+  ssugar = error "gmmm"
 
 (.:=) :: Identifier -> Expression -> Assignment
 a .:= b = Assignment (NEmpty (a :| [])) b
 
--- | deriving function instances
 
--- non recursive functions
-instance (Coercible a Expression) => Fun a where
-  mkFun a = FunctionDefinition (Id "nullary") Nothing
+class UnnamedFun a where
+  mkFun :: a -> FunctionDefinition
+
+-- | deriving unnamed pure functions
+instance (Coercible a Expression) => UnnamedFun a where
+  mkFun a = FunctionDefinition (Id "f") Nothing
     (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| [])))) (Block [StmtAssign ((Id "x") .:= (coerce a))])
 
-instance {-# OVERLAPPING  #-} (Coercible (a -> b) (Expression -> Expression)) => Fun (a -> b) where
+instance {-# OVERLAPPING  #-} (Coercible (a -> b) (Expression -> Expression)) => UnnamedFun (a -> b) where
   mkFun f = FunctionDefinition (Id "unary") (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| []))))
     (Just (TypedIdentifierList (NEmpty (((Id "y"), Nothing) :| [])))) (Block [StmtAssign ((Id "y") .:= (coerce f) (ExprIdent (Id "x")))])
 
-instance {-# OVERLAPPING  #-} (Coercible (a -> b -> c) (Expression -> Expression -> Expression)) => Fun (a -> b -> c) where
-  mkFun f = FunctionDefinition (Id "unary") (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| [(Id "y", Nothing)]))))
+instance {-# OVERLAPPING  #-} (Coercible (a -> b -> c) (Expression -> Expression -> Expression)) => UnnamedFun (a -> b -> c) where
+  mkFun f = FunctionDefinition (Id "binary") (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| [(Id "y", Nothing)]))))
     (Just (TypedIdentifierList (NEmpty (((Id "z"), Nothing) :| [])))) (Block [StmtAssign ((Id "z") .:= (coerce f) (ExprIdent (Id "x")) (ExprIdent (Id "y")))])
 
+-- | More generally, we can make effectful functions:
+data MStatement a =
+    MStmtBlock (MBlock a)
+  | MStmtFuncDef FunctionDefinition
+  | MStmtVarDecl VariableDeclaration
+  | MStmtAssign Assignment
+  | MStmtIf If
+  | MStmtExpr a
+  | MStmtSwitch Switch
+  | MStmtFor ForLoop
+  | MStmtBrCont BreakContinue
+  | MStmtLeave Leave
+
+data MBlock a = MBlock [MStatement a]
+
+class BlockMonad m b where
+  toBlock :: m b -> Block
+
+-- this is pretty cool, one could also experiment with scoping though:
+
+class (Monad m) => MFun m where
+  declare :: Proxy m -> FunctionDefinition
+  invoke :: m a -> FunctionCall
+  
+
+-- built in function:
+pureIf :: FunctionDefinition
+pureIf = FunctionDefinition (Id "pureIf")
+    (Just (TypedIdentifierList (NEmpty (((Id "condition"), Nothing) :| [(Id "yes", Nothing), (Id "no", Nothing)]))))
+    (Just (TypedIdentifierList (NEmpty (((Id "outcome"), Nothing) :| []))))
+    (Block [yulIf (BExp . ExprIdent $ Id "condition")
+             (Block
+             [StmtAssign ((Id "outcome") .:= (ExprIdent $ Id "yes"))]),
+           yulIf (not . BExp . ExprIdent $ Id "condition")
+            (Block
+             [StmtAssign ((Id "outcome") .:= (ExprIdent $ Id "no"))])])
+
+-- -- | deriving unnamed pure functions
+-- instance (Coercible a Expression) => NamedFun a where
+--   name s a = FunctionDefinition s Nothing
+--     (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| [])))) (Block [StmtAssign ((Id "x") .:= (coerce a))])
+--   call s = coerce (ExprFunCall (UserDefined s []))
+
+-- instance {-# OVERLAPPING  #-} (Coercible (a -> b) (Expression -> Expression)) => NamedFun (a -> b) where
+--   name s f = FunctionDefinition s (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| []))))
+--     (Just (TypedIdentifierList (NEmpty (((Id "y"), Nothing) :| [])))) (Block [StmtAssign ((Id "y") .:= (coerce f) (ExprIdent (Id "x")))])
+--   call s = \a -> coerce (ExprFunCall (UserDefined s [coerce a]))
+
+-- instance {-# OVERLAPPING  #-} (Coercible (a -> b -> c) (Expression -> Expression -> Expression)) => NamedFun (a -> b -> c) where
+--   name s f = FunctionDefinition s (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| [(Id "y", Nothing)]))))
+--     (Just (TypedIdentifierList (NEmpty (((Id "z"), Nothing) :| [])))) (Block [StmtAssign ((Id "z") .:= (coerce f) (ExprIdent (Id "x")) (ExprIdent (Id "y")))])
+--   call s = \a b -> coerce (ExprFunCall (UserDefined s [coerce a, coerce b]))
+
+-- class (Blck a) => InScope (tag :: k) a where
+--   declare :: Proxy tag -> Statement
+
+
+-- class Declared (tag :: k) a where
+--   name :: Proxy tag -> a -> FunctionDefinition
+
+-- class (Declared tag a) => (Callable tag a) where
+--   call :: Proxy tag -> a
+
+-- | TODO: `scoped` class which defines when things are in scope?
+--class (Scoped
+
+-- purely syntactic if
+yulIf :: BExp -> Block -> Statement
+yulIf b x = StmtIf (If (coerce b) x)
+
+class Iffy a where
+  if' :: BExp -> a -> a -> a
+
+instance (Coercible a Expression) => Iffy a where
+  if' c yes no = coerce ExprFunCall (UserDefined (Id "pureIf") [coerce c, coerce yes, coerce no])
+    
 one :: Uint
 one = 10000000000
 
@@ -115,35 +206,37 @@ doubleplusone x = (double x) + 1
 emptyRevert :: Expression
 emptyRevert = op' $ REVERT (ExprLit (LitInteger 0)) (ExprLit (LitInteger 0))
 
-
-data Require a = Req BExp | Simply a
-
-require :: BExp -> Requiring a
-require a = Requiring [Req a]
-
-instance Stmt a => Stmt (Require a) where
-  mkStmt (Req (BExp b)) = StmtIf (If b (Block [StmtExpr emptyRevert]))
-  mkStmt (Simply a) = mkStmt a
-
-newtype Requiring a = Requiring [Require a]
---  deriving (Functor)
+type Requires a = Writer [Statement] a
 
 
-instance Stmt a => Blck (Requiring a) where
-  mkBlck (Requiring a) = Block (fmap mkStmt a)
+require :: BExp -> Requires ()
+require (BExp b) = writer ((), [StmtIf (If b (Block [StmtExpr emptyRevert]))])
 
---instance Monad Requiring
 
-(>>) :: Requiring a -> Requiring a -> Requiring a
-(Requiring a) >> (Requiring b) = Requiring (a ++ b)
+instance {-# OVERLAPPING #-} Coercible a Expression => UnnamedFun (Requires a) where
+  mkFun m = let (a, stmts) = runWriter m
+            in FunctionDefinition (Id "nullaryM") Nothing
+               (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| []))))
+               (Block (stmts <> [StmtAssign ((Id "x") .:= (coerce a))]))
 
-return :: a -> Requiring a
-return a = Requiring [Simply a]
+instance {-# OVERLAPPING #-} Coercible (a -> b) (Expression -> Expression) => UnnamedFun (a -> Requires b) where
+  mkFun m = let (a, stmts) = runWriter (m (coerce $ ExprIdent $ Id "x"))
+            in FunctionDefinition (Id "unaryM")
+               (Just (TypedIdentifierList (NEmpty (((Id "y"), Nothing) :| []))))
+               (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| []))))
+                 (Block (stmts <> [StmtAssign ((Id "x") .:= (coerce a))]))
 
-safeAdd :: Uint -> Uint -> Requiring Uint
+instance {-# OVERLAPPING #-} Coercible (a -> b -> c) (Expression -> Expression -> Expression) => UnnamedFun (a -> b -> Requires c) where
+  mkFun m = let (a, stmts) = runWriter (m (coerce $ ExprIdent $ Id "x") (coerce $ ExprIdent $ Id "y"))
+            in FunctionDefinition (Id "binaryM")
+               (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| [((Id "y"), Nothing)]))))
+               (Just (TypedIdentifierList (NEmpty (((Id "z"), Nothing) :| []))))
+                 (Block (stmts <> [StmtAssign ((Id "z") .:= (coerce a))]))
+
+safeAdd :: Uint -> Uint -> Requires Uint
 safeAdd a b = do
-  require (a .<= (a + b))
-  return (a + b)
+  require (a .<= (a * b))
+  return $ a + b
 
 
 -- instance (Expr b) => Fun (Expression -> b) where
