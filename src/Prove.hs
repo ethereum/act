@@ -153,7 +153,6 @@ mkMethod inv@(Invariant _ e) store initBehv behv = do
            .&& sAnd stateUpdates
            .&& (sNot postCond .|| sNot postInv)
 
-
 mkContext :: Invariant -> Either Behaviour Constructor -> Symbolic Ctx
 mkContext (Invariant contract e) spec = do
   let (c1, decls, updates, method) = either
@@ -195,20 +194,26 @@ mkSymArg contract method decl@(Decl typ _) = case metaType typ of
 mkSymStorage :: Method -> StorageLocation -> Symbolic (Id, (SMType, SMType))
 mkSymStorage method loc = case loc of
   IntLoc item -> do
-    v <- SymInteger <$> sInteger (name item)
-    w <- SymInteger <$> sInteger ((name item) ++ "_post")
+    v <- SymInteger <$> sInteger (pre item)
+    w <- SymInteger <$> sInteger (post item)
     return (name item, (v, w))
   BoolLoc item -> do
-    v <- SymBool <$> sBool (name item)
-    w <- SymBool <$> sBool ((name item) ++ "_post")
+    v <- SymBool <$> sBool (pre item)
+    w <- SymBool <$> sBool (post item)
     return (name item, (v, w))
   BytesLoc item -> do
-    v <- SymBytes <$> sString (name item)
-    w <- SymBytes <$> sString ((name item) ++ "_post")
+    v <- SymBytes <$> sString (pre item)
+    w <- SymBytes <$> sString (post item)
     return (name item, (v, w))
   where
     name :: TStorageItem a -> Id
     name i = nameFromItem method i
+
+    pre :: TStorageItem a -> Id
+    pre i = (name i) ++ "_pre"
+
+    post :: TStorageItem a -> Id
+    post i = (name i) ++ "_post"
 
 mkEnv :: Contract -> Method -> Symbolic Env
 mkEnv contract method = Map.fromList <$> mapM makeSymbolic
