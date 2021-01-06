@@ -406,6 +406,10 @@ instance Show Instruction where
       SHR  x y -> show' "shr" [x, y]
       SAR  x y -> show' "sar" [x, y]
       REVERT x y -> show' "revert" [x, y]
+   -- storage
+      SLOAD x -> show' "sload" [x]
+      SSTORE x y -> show' "sstore" [x, y]
+
       _ -> error "todo"
 --   ADDMOD Expression Expression Expression -- ^ (X + Y) % M WITH ARBITRARY PRECISION ARITHMETIC, 0 IF M == 0
 --   MULMOD Expression Expression Expression -- ^ (X * Y) % M WITH ARBITRARY PRECISION ARITHMETIC, 0 IF M == 0

@@ -1,3 +1,4 @@
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -28,6 +29,11 @@ import Data.Coerce (coerce)
 import GHC.Base (Coercible)
 import Data.Data (Proxy(..))
 import Control.Monad.Trans.Writer
+--import Control.Monad.State
+import Data.Map (Map)
+import Data.Primitive (MutVar(MutVar))
+import EVM.Solidity (StorageItem(..))
+import Control.Lens (Indexed(Indexed))
 
 -- | Some classic ValueTypes
 newtype Address = Address Expression
@@ -141,7 +147,6 @@ class (Monad m) => MFun m where
   declare :: Proxy m -> FunctionDefinition
   invoke :: m a -> FunctionCall
   
-
 -- built in function:
 pureIf :: FunctionDefinition
 pureIf = FunctionDefinition (Id "pureIf")
@@ -206,28 +211,35 @@ doubleplusone x = (double x) + 1
 emptyRevert :: Expression
 emptyRevert = op' $ REVERT (ExprLit (LitInteger 0)) (ExprLit (LitInteger 0))
 
-type Requires a = Writer [Statement] a
+newtype Requires a = Requires {runRequire :: Writer [Statement] a }
+  deriving (Functor)
 
+instance Applicative Requires where
+  pure a = Requires $ pure a
+  (Requires f) <*> (Requires v) = Requires (f <*> v)
+
+instance Monad Requires where
+  return = pure
+  (Requires f) >>= v = Requires $ f >>= runRequire . v
 
 require :: BExp -> Requires ()
-require (BExp b) = writer ((), [StmtIf (If b (Block [StmtExpr emptyRevert]))])
-
+require (BExp b) = Requires $ tell [StmtIf $ If b $ Block [StmtExpr emptyRevert]]
 
 instance {-# OVERLAPPING #-} Coercible a Expression => UnnamedFun (Requires a) where
-  mkFun m = let (a, stmts) = runWriter m
+  mkFun m = let (a, stmts) = runWriter $ runRequire m
             in FunctionDefinition (Id "nullaryM") Nothing
                (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| []))))
                (Block (stmts <> [StmtAssign ((Id "x") .:= (coerce a))]))
 
 instance {-# OVERLAPPING #-} Coercible (a -> b) (Expression -> Expression) => UnnamedFun (a -> Requires b) where
-  mkFun m = let (a, stmts) = runWriter (m (coerce $ ExprIdent $ Id "x"))
+  mkFun m = let (a, stmts) = runWriter $ runRequire (m (coerce $ ExprIdent $ Id "x"))
             in FunctionDefinition (Id "unaryM")
-               (Just (TypedIdentifierList (NEmpty (((Id "y"), Nothing) :| []))))
                (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| []))))
-                 (Block (stmts <> [StmtAssign ((Id "x") .:= (coerce a))]))
+               (Just (TypedIdentifierList (NEmpty (((Id "y"), Nothing) :| []))))
+                 (Block (stmts <> [StmtAssign ((Id "y") .:= (coerce a))]))
 
 instance {-# OVERLAPPING #-} Coercible (a -> b -> c) (Expression -> Expression -> Expression) => UnnamedFun (a -> b -> Requires c) where
-  mkFun m = let (a, stmts) = runWriter (m (coerce $ ExprIdent $ Id "x") (coerce $ ExprIdent $ Id "y"))
+  mkFun m = let (a, stmts) = runWriter $ runRequire (m (coerce $ ExprIdent $ Id "x") (coerce $ ExprIdent $ Id "y"))
             in FunctionDefinition (Id "binaryM")
                (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| [((Id "y"), Nothing)]))))
                (Just (TypedIdentifierList (NEmpty (((Id "z"), Nothing) :| []))))
@@ -235,9 +247,61 @@ instance {-# OVERLAPPING #-} Coercible (a -> b -> c) (Expression -> Expression -
 
 safeAdd :: Uint -> Uint -> Requires Uint
 safeAdd a b = do
-  require (a .<= (a * b))
+  require (a .<= (a + b))
   return $ a + b
 
+-- compile :: String -> IO ByteString
+-- compile =
+
+-- | We follow the memory conventions of Solidity:
+-- Solidity reserves four 32-byte slots, with specific byte ranges (inclusive of endpoints) being used as follows:
+--     0x00 - 0x3f (64 bytes): scratch space for hashing methods
+--     0x40 - 0x5f (32 bytes): currently allocated memory size (aka. free memory pointer)
+--     0x60 - 0x7f (32 bytes): zero slot
+-- This means that we can access storage without worrying about memory
+-- (at least for `value types`)
+
+-- ^ We can use storage in the Requires monad:
+-- instance MonadState (Map Uint Uint) Requires where
+--   put (Uint a) = Requires $ tell [StmtExpr $ op' $ SSTORE (ExprLit (LitInteger 0)) a]
+--   get = pure $ Uint $ op' $ SLOAD $ ExprLit (LitInteger 0)
+-- class (Coercible b Expression) => HasLocation b where
+--   getLoc :: b -> StorageItem
+
+newtype Storage a b = Storage {runStorage :: Requires b}
+  deriving (Functor, Applicative, Monad) via Requires
+
+put :: (Coercible b Expression, Coercible a Expression) => b -> a -> Storage b ()
+put loc a = Storage $ Requires $ tell [StmtExpr $ op' $ SSTORE (coerce loc) (coerce a)]
+
+get :: (Coercible b Expression) => b -> Storage b b
+get a = Storage $ Requires $ do tell [StmtAssign $ (Id "g") .:= (op' $ SLOAD (coerce a))]
+                                return $ coerce $ ExprIdent (Id "g") -- TODO: de bruijn
+
+data Mapping x y = Mapping (Map x y)
+
+increment :: Uint -> Storage Uint Uint
+increment y = do
+  x <- get y
+  Storage $ require (x .< (y - 1))
+  put y (x + 1)
+  return y
+
+transfer :: Uint -> Storage (Mapping Address Uint) BExp
+transfer amount = error ""
+
+instance {-# OVERLAPPING #-} (Coercible a Expression, Coercible b Expression) => UnnamedFun (Storage a b) where
+  mkFun (Storage a) = mkFun a
+
+instance {-# OVERLAPPING #-} (Coercible a Expression, Coercible v1 Expression, Coercible b Expression) => UnnamedFun (v1 -> Storage a b) where
+  mkFun m = let (a, stmts) = runWriter $ runRequire $ runStorage $ (m (coerce $ ExprIdent $ Id "x"))
+            in FunctionDefinition (Id "unaryM")
+               (Just (TypedIdentifierList (NEmpty (((Id "x"), Nothing) :| []))))
+               (Just (TypedIdentifierList (NEmpty (((Id "y"), Nothing) :| []))))
+                 (Block (stmts <> [StmtAssign ((Id "y") .:= (coerce a))]))
+
+-- instance {-# OVERLAPPING #-} (Coercible a Expression, Coercible b Expression) => UnnamedFun (Storage a b) where
+--   mkFun (Storage a) = mkFun a
 
 -- instance (Expr b) => Fun (Expression -> b) where
 --   mkFun f = FunctionDefinition "unary" Nothing
