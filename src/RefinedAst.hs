@@ -6,10 +6,17 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# Language MultiParamTypeClasses #-}
+{-# Language FlexibleContexts #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language TypeFamilies #-}
+{-# Language TypeOperators #-}
+{-# Language TypeApplications #-}
 
 module RefinedAst where
 
 import Data.Text (pack)
+import Data.Type.Equality
+import Data.Typeable
 import Data.Map.Strict (Map)
 import Data.List.NonEmpty hiding (fromList)
 import Data.ByteString (ByteString)
@@ -20,6 +27,7 @@ import Syntax (Id, Interface, EthEnv)
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
+
 
 -- AST post typechecking
 data Claim = C Constructor | B Behaviour | I Invariant | S Store deriving (Show, Eq)
@@ -89,12 +97,10 @@ deriving instance Eq (TStorageItem a)
 
 -- typed expressions
 data Exp t where
-  --booleans
+  -- booleans
   And  :: Exp Bool -> Exp Bool -> Exp Bool
   Or   :: Exp Bool -> Exp Bool -> Exp Bool
   Impl :: Exp Bool -> Exp Bool -> Exp Bool
-  Eq  :: Exp Integer -> Exp Integer -> Exp Bool --TODO: make polymorphic (how to ToJSON.encode them?)
-  NEq  :: Exp Integer -> Exp Integer -> Exp Bool
   Neg :: Exp Bool -> Exp Bool
   LE :: Exp Integer -> Exp Integer -> Exp Bool
   LEQ :: Exp Integer -> Exp Integer -> Exp Bool
@@ -127,12 +133,59 @@ data Exp t where
   -- builtins
   NewAddr :: Exp Integer -> Exp Integer -> Exp Integer
 
-  --polymorphic
+  -- polymorphic
+  Eq  :: (Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
+  NEq :: (Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
   ITE :: Exp Bool -> Exp t -> Exp t -> Exp t
   TEntry :: (TStorageItem t) -> Exp t
 
 deriving instance Show (Exp t)
-deriving instance Eq (Exp t)
+
+instance Eq (Exp t) where
+  And a b == And c d = a == c && b == d
+  Or a b == Or c d = a == c && b == d
+  Impl a b == Impl c d = a == c && b == d
+  LE a b == LE c d = a == c && b == d
+  LEQ a b == LEQ c d = a == c && b == d
+  GEQ a b == GEQ c d = a == c && b == d
+  GE a b == GE c d = a == c && b == d
+  LitBool a == LitBool b = a == b
+  BoolVar a == BoolVar b = a == b
+
+  Add a b == Add c d = a == c && b == d
+  Sub a b == Sub c d = a == c && b == d
+  Mul a b == Mul c d = a == c && b == d
+  Div a b == Div c d = a == c && b == d
+  Mod a b == Mod c d = a == c && b == d
+  Exp a b == Exp c d = a == c && b == d
+  LitInt a == LitInt b = a == b
+  IntVar a == IntVar b = a == b
+  IntEnv a == IntEnv b = a == b
+
+  IntMin a == IntMin b = a == b
+  IntMax a == IntMax b = a == b
+  UIntMin a == UIntMin b = a == b
+  UIntMax a == UIntMax b = a == b
+
+  Cat a b == Cat c d = a == c && b == d
+  Slice a b c == Slice d e f = a == d && b == e && c == f
+  ByVar a == ByVar b = a == b
+  ByStr a == ByStr b = a == b
+  ByLit a == ByLit b = a == b
+  ByEnv a == ByEnv b = a == b
+
+  NewAddr a b == NewAddr c d = a == c && b == d
+
+  Eq (a :: Exp t1) (b :: Exp t1) == Eq (c :: Exp t2) (d :: Exp t2) = case (eqT @t1 @t2) of
+    Just Refl -> a == c && b == d
+    Nothing -> False
+  NEq (a :: Exp t1) (b :: Exp t1) == NEq (c :: Exp t2) (d :: Exp t2) = case eqT @t1 @t2 of
+    Just Refl -> not (a == c && b == d)
+    Nothing -> False
+  ITE a b c == ITE d e f = a == d && b == e && c == f
+  TEntry a == TEntry b = a == b
+
+  _ == _ = False
 
 instance Semigroup (Exp Bool) where
   a <> b = And a b
