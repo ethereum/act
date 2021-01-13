@@ -144,6 +144,7 @@ instance Eq (Exp t) where
   And a b == And c d = a == c && b == d
   Or a b == Or c d = a == c && b == d
   Impl a b == Impl c d = a == c && b == d
+  Neg a == Neg b = a == b
   LE a b == LE c d = a == c && b == d
   LEQ a b == LEQ c d = a == c && b == d
   GEQ a b == GEQ c d = a == c && b == d
@@ -179,7 +180,7 @@ instance Eq (Exp t) where
     Just Refl -> a == c && b == d
     Nothing -> False
   NEq (a :: Exp t1) (b :: Exp t1) == NEq (c :: Exp t2) (d :: Exp t2) = case eqT @t1 @t2 of
-    Just Refl -> not (a == c && b == d)
+    Just Refl -> a == c && b == d
     Nothing -> False
   ITE a b c == ITE d e f = a == d && b == e && c == f
   TEntry a == TEntry b = a == b

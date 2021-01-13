@@ -45,9 +45,9 @@ main = defaultMain $ testGroup "act"
         behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
         let actual = parse (lexer $ prettyBehaviour behv) >>= typecheck
             expected = if null preconds then
-                [ S $ Map.empty, B behv ]
+                [ S Map.empty, B behv ]
               else
-                [ S $ Map.empty, B behv
+                [ S Map.empty, B behv
                 , B $ Behaviour name Fail contract iface [Neg $ mconcat preconds] [] [] Nothing ]
         return $ case actual of
           Ok a -> a == expected
@@ -143,6 +143,8 @@ genExpBool names n = oneof
   , liftM2 Or subExpBool subExpBool
   , liftM2 Impl subExpBool subExpBool
   , liftM2 Eq subExpInt subExpInt
+  , liftM2 Eq subExpBool subExpBool
+  , liftM2 Eq subExpBytes subExpBytes
   , liftM2 NEq subExpInt subExpInt
   , liftM2 LE subExpInt subExpInt
   , liftM2 LEQ subExpInt subExpInt
@@ -151,6 +153,7 @@ genExpBool names n = oneof
   , Neg <$> subExpBool
   ]
   where subExpBool = genExpBool names (n `div` 2)
+        subExpBytes = genExpBytes names (n `div` 2)
         subExpInt = genExpInt names (n `div` 2)
 
 
