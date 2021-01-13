@@ -41,6 +41,30 @@
     }
   },
   {
+    "kind": "Invariant",
+    "contract": "\"Token\"",
+    "expression": {
+      "arity": 2,
+      "args": [
+        "TEntry (DirectBytes \"Token\" \"name\")",
+        "ByVar \"_name\""
+      ],
+      "symbol": "=="
+    }
+  },
+  {
+    "kind": "Invariant",
+    "contract": "\"Token\"",
+    "expression": {
+      "arity": 2,
+      "args": [
+        "TEntry (DirectBytes \"Token\" \"symbol\")",
+        "ByVar \"_symbol\""
+      ],
+      "symbol": "=="
+    }
+  },
+  {
     "kind": "Constructor",
     "mode": "Pass",
     "storage": [
