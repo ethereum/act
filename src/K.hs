@@ -9,6 +9,7 @@ module K where
 
 import Syntax
 import RefinedAst
+import Extract
 import ErrM
 import Data.Text (Text, pack, unpack)
 import Data.Type.Equality
@@ -80,42 +81,6 @@ kCalldata (Interface a b) =
        args ->
          intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args))
   <> ")"
-
-getId :: Either StorageLocation StorageUpdate -> Id
-getId (Right (IntUpdate a _)) = getId' a
-getId (Right (BoolUpdate a _)) = getId' a
-getId (Right (BytesUpdate a _)) = getId' a
-getId (Left (IntLoc a)) = getId' a
-getId (Left (BoolLoc a)) = getId' a
-getId (Left (BytesLoc a)) = getId' a
-
-getId' :: TStorageItem a -> Id
-getId' (DirectInt _ name) = name
-getId' (DirectBool _ name) = name
-getId' (DirectBytes _ name) = name
-getId' (MappedInt _ name _) = name
-getId' (MappedBool _ name _) = name
-getId' (MappedBytes _ name _) = name
-
-getContract :: Either StorageLocation StorageUpdate -> Id
-getContract (Left (IntLoc item)) = getContract' item
-getContract (Left (BoolLoc item)) = getContract' item
-getContract (Left (BytesLoc item)) = getContract' item
-getContract (Right (IntUpdate item _)) = getContract' item
-getContract (Right (BoolUpdate item _)) = getContract' item
-getContract (Right (BytesUpdate item _)) = getContract' item
-
-getContract' :: TStorageItem a -> Id
-getContract' (DirectInt c _) = c
-getContract' (DirectBool c _) = c
-getContract' (DirectBytes c _) = c
-getContract' (MappedInt c _ _) = c
-getContract' (MappedBool c _ _) = c
-getContract' (MappedBytes c _ _) = c
-
-conjunction :: [Invariant] -> Exp Bool
-conjunction [] = LitBool True
-conjunction ((Invariant _ e):tl) = And e (conjunction tl)
 
 kStorageName :: TStorageItem a -> String
 kStorageName (DirectInt _ name)    = kVar name

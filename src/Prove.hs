@@ -22,10 +22,6 @@ module Prove
   , nameFromItem
   , nameFromEnv
   , nameFromDecl
-  , getContractId
-  , getContainerId
-  , getContainerIxs
-  , contractsInvolved
   , concatMapM
   ) where
 
@@ -44,9 +40,9 @@ import Data.SBV.String ((.++), subStr)
 
 import RefinedAst
 import Syntax (Id, Interface(..), Decl(..), EthEnv(..))
-import Type (metaType, getLoc)
-import Enrich (mkStorageBounds)
+import Type (metaType)
 import Print (prettyEnv)
+import Extract (locsFromExp, getLoc)
 
 -- *** Interface *** --
 
@@ -76,11 +72,10 @@ import Print (prettyEnv)
 queries :: [Claim] -> [(Invariant, [Symbolic ()])]
 queries claims = fmap mkQueries gathered
   where
-    gathered = fmap (\inv -> (inv, store, definition inv, getBehaviours inv)) invariants
+    gathered = fmap (\inv -> (inv, definition inv, getBehaviours inv)) invariants
     invariants = [i | I i <- claims]
-    store = head [s | S s <- claims] -- TODO: refine AST so we don't need this head anymore
-    getBehaviours (Invariant c _) = filter (\b -> isPass b && contractMatches c b) [b | B b <- claims]
-    definition (Invariant c _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
+    getBehaviours (Invariant c _ _) = filter (\b -> isPass b && contractMatches c b) [b | B b <- claims]
+    definition (Invariant c _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
     contractMatches c b = c == (_contract b)
     isPass b = (_mode b) == Pass
 
@@ -116,29 +111,28 @@ instance EqSymbolic SMType where
 -- *** Query Construction *** --
 
 
-mkQueries :: (Invariant, Store, Constructor, [Behaviour]) -> (Invariant, [Symbolic ()])
-mkQueries (inv, store, constr, behvs) = (inv, inits:methods)
+mkQueries :: (Invariant, Constructor, [Behaviour]) -> (Invariant, [Symbolic ()])
+mkQueries (inv, constr, behvs) = (inv, inits:methods)
   where
     inits = mkInit inv constr
-    methods = mkMethod inv store constr <$> behvs
+    methods = mkMethod inv constr <$> behvs
 
 mkInit :: Invariant -> Constructor -> Symbolic ()
-mkInit inv@(Invariant _ e) constr@(Constructor _ _ _ preConds postConds statedef otherstorages) = do
+mkInit inv@(Invariant _ invConds invExp) constr@(Constructor _ _ _ preConds postConds statedef otherstorages) = do
   ctx <- mkContext inv (Right constr)
 
   let
     mkBool = symExpBool ctx
     storages = (Right <$> statedef) <> otherstorages
-    postInv' = mkBool Post e
-    preCond' = mkBool Pre (mconcat preConds)
+    postInv' = mkBool Post invExp
+    preCond' = mkBool Pre (mconcat (nub $ preConds <> invConds))
     postCond' = mkBool Pre (mconcat postConds)
-
-    stateUpdates' = mkStorageConstraints ctx storages (nub $ (getLoc <$> storages) <> locsFromExp e)
+    stateUpdates' = mkStorageConstraints ctx storages (references inv (Right constr))
 
   constrain $ preCond' .&& sAnd stateUpdates' .&& (sNot postCond' .|| sNot postInv')
 
-mkMethod :: Invariant -> Store -> Constructor -> Behaviour -> Symbolic ()
-mkMethod inv@(Invariant _ e) store initBehv behv = do
+mkMethod :: Invariant -> Constructor -> Behaviour -> Symbolic ()
+mkMethod inv@(Invariant _ invConds invExp) initBehv behv = do
   ctx@(Ctx c m _ store' env) <- mkContext inv (Left behv)
 
   let (Interface _ initdecls) = _cinterface initBehv
@@ -146,30 +140,27 @@ mkMethod inv@(Invariant _ e) store initBehv behv = do
   let invCtx = Ctx c m initArgs store' env
 
   let
-    locs = references inv behv
-    preInv = symExpBool invCtx Pre e
-    postInv = symExpBool invCtx Post e
+    preInv = symExpBool invCtx Pre invExp
+    postInv = symExpBool invCtx Post invExp
+    invConds' = symExpBool invCtx Pre (mconcat (invConds \\ (_preconditions behv)))
     preCond = symExpBool ctx Pre (mconcat $ _preconditions behv)
     postCond = symExpBool ctx Pre (mconcat $ _postconditions behv)
-    stateUpdates = mkStorageConstraints ctx (_stateUpdates behv) locs
-    storageBounds = symExpBool ctx Pre $ mconcat <$> mkStorageBounds store $ Left <$> locs
+    stateUpdates = mkStorageConstraints ctx (_stateUpdates behv) (references inv (Left behv))
 
-  constrain $ preInv .&& preCond .&& storageBounds
+  constrain $ preInv .&& preCond .&& invConds'
            .&& sAnd stateUpdates
            .&& (sNot postCond .|| sNot postInv)
 
 mkContext :: Invariant -> Either Behaviour Constructor -> Symbolic Ctx
-mkContext (Invariant contract e) spec = do
-  let (c1, decls, updates, method) = either
-        (\(Behaviour m _ c (Interface _ ds) _ _ u _) -> (c,ds, u, m))
-        (\(Constructor c _ (Interface _ ds) _ _ init' cs) -> (c, ds, ((Right <$> init') <> cs), "init"))
+mkContext inv@(Invariant contract _ _) spec = do
+  let (c1, decls, method) = either
+        (\(Behaviour m _ c (Interface _ ds) _ _ _ _) -> (c,ds, m))
+        (\(Constructor c _ (Interface _ ds) _ _ _ _) -> (c, ds, "init"))
         spec
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1) $ error "Internal error: contract mismatch"
 
-  let locs = nub $ (getLoc <$> updates) <> locsFromExp e
-
-  store <- Map.fromList <$> mapM (mkSymStorage method) locs
+  store <- Map.fromList <$> mapM (mkSymStorage method) (references inv spec)
   env <- mkEnv contract method
   args <- mkArgs contract method decls
 
@@ -178,9 +169,14 @@ mkContext (Invariant contract e) spec = do
 mkArgs :: Contract -> Method -> [Decl] -> Symbolic (Map Id SMType)
 mkArgs c m ds = Map.fromList <$> mapM (mkSymArg c m) ds
 
-references :: Invariant -> Behaviour -> [StorageLocation]
-references (Invariant _ inv) (Behaviour _ _ _ _ _ _ updates _)
-  = nub $ (getLoc <$> updates) <> locsFromExp inv
+references :: Invariant -> Either Behaviour Constructor -> [StorageLocation]
+references (Invariant _ _ invExp) spec
+  = nub $ (getLoc <$> updates) <> locsFromExp invExp
+      where
+        updates = either
+          (\(Behaviour _ _ _ _ _ _ u _) -> u)
+          (\(Constructor _ _ _ _ _ i cs) -> (Right <$> i) <> cs)
+          spec
 
 mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
 mkSymArg contract method decl@(Decl typ _) = case metaType typ of
@@ -430,51 +426,6 @@ nameFromEnv contract method e = contract @@ method @@ (prettyEnv e)
 (@@) :: Id -> Id -> Id
 x @@ y = x <> "_" <> y
 
--- *** Storage Location Extraction *** --
-
-locsFromExp :: Exp a -> [StorageLocation]
-locsFromExp e = case e of
-  And a b   -> (locsFromExp a) <> (locsFromExp b)
-  Or a b    -> (locsFromExp a) <> (locsFromExp b)
-  Impl a b  -> (locsFromExp a) <> (locsFromExp b)
-  Eq a b    -> (locsFromExp a) <> (locsFromExp b)
-  LE a b    -> (locsFromExp a) <> (locsFromExp b)
-  LEQ a b   -> (locsFromExp a) <> (locsFromExp b)
-  GE a b    -> (locsFromExp a) <> (locsFromExp b)
-  GEQ a b   -> (locsFromExp a) <> (locsFromExp b)
-  NEq a b   -> (locsFromExp a) <> (locsFromExp b)
-  Neg a     -> (locsFromExp a)
-  Add a b   -> (locsFromExp a) <> (locsFromExp b)
-  Sub a b   -> (locsFromExp a) <> (locsFromExp b)
-  Mul a b   -> (locsFromExp a) <> (locsFromExp b)
-  Div a b   -> (locsFromExp a) <> (locsFromExp b)
-  Mod a b   -> (locsFromExp a) <> (locsFromExp b)
-  Exp a b   -> (locsFromExp a) <> (locsFromExp b)
-  Cat a b   -> (locsFromExp a) <> (locsFromExp b)
-  Slice a b c -> (locsFromExp a) <> (locsFromExp b) <> (locsFromExp c)
-  ByVar _ -> []
-  ByStr _ -> []
-  ByLit _ -> []
-  LitInt _  -> []
-  IntMin _  -> []
-  IntMax _  -> []
-  UIntMin _ -> []
-  UIntMax _ -> []
-  IntVar _  -> []
-  LitBool _ -> []
-  BoolVar _ -> []
-  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  IntEnv _ -> []
-  ByEnv _ -> []
-  ITE x y z -> (locsFromExp x) <> (locsFromExp y) <> (locsFromExp z)
-  TEntry a  -> case a of
-    DirectInt contract name -> [IntLoc $ DirectInt contract name]
-    DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
-    DirectBytes contract slot -> [BytesLoc $ DirectBytes contract slot]
-    MappedInt contract name ixs -> [IntLoc $ MappedInt contract name ixs]
-    MappedBool contract name ixs -> [BoolLoc $ MappedBool contract name ixs]
-    MappedBytes contract name ixs -> [BytesLoc $ MappedBytes contract name ixs]
-
 
 -- *** Utils *** --
 
@@ -490,35 +441,6 @@ catBools m = Map.fromList [(name, i) | (name, SymBool i) <- Map.toList m]
 
 catBytes :: Map Id SMType -> Map Id (SBV String)
 catBytes m = Map.fromList [(name, i) | (name, SymBytes i) <- Map.toList m]
-
-contractsInvolved :: Behaviour -> [Id]
-contractsInvolved beh =
-  getContractId . getLoc <$> _stateUpdates beh
-
--- TODO: write these with fancy patterns or generics?
-getContractId :: StorageLocation -> Id
-getContractId (IntLoc (DirectInt a _)) = a
-getContractId (BoolLoc (DirectBool a _)) = a
-getContractId (BytesLoc (DirectBytes a _)) = a
-getContractId (IntLoc (MappedInt a _ _)) = a
-getContractId (BoolLoc (MappedBool a _ _)) = a
-getContractId (BytesLoc (MappedBytes a _ _)) = a
-
-getContainerId :: StorageLocation -> Id
-getContainerId (IntLoc (DirectInt _ a)) = a
-getContainerId (BoolLoc (DirectBool _ a)) = a
-getContainerId (BytesLoc (DirectBytes _ a)) = a
-getContainerId (IntLoc (MappedInt _ a _)) = a
-getContainerId (BoolLoc (MappedBool _ a _)) = a
-getContainerId (BytesLoc (MappedBytes _ a _)) = a
-
-getContainerIxs :: StorageLocation -> [ReturnExp]
-getContainerIxs (IntLoc (DirectInt _ _)) = []
-getContainerIxs (BoolLoc (DirectBool _ _)) = []
-getContainerIxs (BytesLoc (DirectBytes _ _)) = []
-getContainerIxs (IntLoc (MappedInt _ _ ixs)) = NonEmpty.toList ixs
-getContainerIxs (BoolLoc (MappedBool _ _ ixs)) = NonEmpty.toList ixs
-getContainerIxs (BytesLoc (MappedBytes _ _ ixs)) = NonEmpty.toList ixs
 
 concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
 concatMapM op' = foldr f (pure [])

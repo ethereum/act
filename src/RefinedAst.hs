@@ -33,7 +33,11 @@ data Claim = C Constructor | B Behaviour | I Invariant | S Store deriving (Show,
 
 type Store = Map Id (Map Id SlotType)
 
-data Invariant = Invariant Id (Exp Bool) deriving (Show, Eq)
+data Invariant = Invariant
+  { _icontract :: Id
+  , _ipreconditions :: [Exp Bool]
+  , _predicate :: Exp Bool
+  } deriving (Show, Eq)
 
 data Constructor = Constructor
   { _cname :: Id,
@@ -54,8 +58,7 @@ data Behaviour = Behaviour
    _postconditions :: [Exp Bool],
    _stateUpdates :: [Either StorageLocation StorageUpdate],
    _returns :: Maybe ReturnExp
-  }
-  deriving (Show, Eq)
+  } deriving (Show, Eq)
 
 data Mode
   = Pass
@@ -203,9 +206,10 @@ data ReturnExp
 instance ToJSON Claim where
   toJSON (S storages) = object [ "kind" .= (String "Storages")
                                           , "storages" .= toJSON storages]
-  toJSON (I (Invariant contract e)) = object [ "kind" .= (String "Invariant")
-                                             , "expression" .= toJSON e
-                                             , "contract" .= show contract ]
+  toJSON (I (Invariant {..})) = object [ "kind" .= (String "Invariant")
+                                       , "predicate" .= toJSON _predicate
+                                       , "preconditions" .= toJSON _ipreconditions
+                                       , "contract" .= _icontract]
   toJSON (C (Constructor {..})) = object  [ "kind" .= (String "Constructor")
                                           , "contract" .= _cname
                                           , "mode" .= (String . pack $ show _cmode)

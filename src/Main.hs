@@ -99,7 +99,7 @@ main = do
         contents <- readFile file'
         proceed contents (compile contents) $ \claims -> do
             let
-                handleResults ((Invariant c e), rs) = do
+                handleResults ((Invariant c _ e), rs) = do
                   let msg = "\n============\n\nInvariant " <> show (prettyExp e) <> " of " <> show c <> ": "
                       sep = "\n\n---\n\n"
                       results' = handleRes <$> rs
