@@ -1,6 +1,9 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# Language GADTs #-}
 {-# Language OverloadedStrings #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language TypeFamilies #-}
+{-# Language TypeApplications #-}
 
 module K where
 
@@ -8,6 +11,8 @@ import Syntax
 import RefinedAst
 import ErrM
 import Data.Text (Text, pack, unpack)
+import Data.Type.Equality
+import Data.Typeable
 import Data.List hiding (group)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe
@@ -143,7 +148,7 @@ kExprInt (Div a b) = "(" <> kExprInt a <> " /Int " <> kExprInt b <> ")"
 kExprInt (Mod a b) = "(" <> kExprInt a <> " modInt " <> kExprInt b <> ")"
 kExprInt (Exp a b) = "(" <> kExprInt a <> " ^Int " <> kExprInt b <> ")"
 kExprInt (LitInt a) = show a
-kExprInt (IntMin a) = kExprInt $ LitInt $ 0 - 2 ^ (a - 1)
+kExprInt (IntMin a) = kExprInt $ LitInt $ negate $ 2 ^ (a - 1)
 kExprInt (IntMax a) = kExprInt $ LitInt $ 2 ^ (a - 1) - 1
 kExprInt (UIntMin _) = kExprInt $ LitInt 0
 kExprInt (UIntMax a) = kExprInt $ LitInt $ 2 ^ a - 1
@@ -157,9 +162,6 @@ kExprBool :: Exp Bool -> String
 kExprBool (And a b) = "(" <> kExprBool a <> " andBool\n " <> kExprBool b <> ")"
 kExprBool (Or a b) = "(" <> kExprBool a <> " orBool " <> kExprBool b <> ")"
 kExprBool (Impl a b) = "(" <> kExprBool a <> " impliesBool " <> kExprBool b <> ")"
-kExprBool (Eq a b) = "(" <> kExprInt a <> " ==Int " <> kExprInt b <> ")"
-
-kExprBool (NEq a b) = "(" <> kExprInt a <> " =/=Int " <> kExprInt b <> ")"
 kExprBool (Neg a) = "notBool (" <> kExprBool a <> ")"
 kExprBool (LE a b) = "(" <> kExprInt a <> " <Int " <> kExprInt b <> ")"
 kExprBool (LEQ a b) = "(" <> kExprInt a <> " <=Int " <> kExprInt b <> ")"
@@ -167,7 +169,40 @@ kExprBool (GE a b) = "(" <> kExprInt a <> " >Int " <> kExprInt b <> ")"
 kExprBool (GEQ a b) = "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
 kExprBool (LitBool a) = show a
 kExprBool (BoolVar a) = kVar a
+kExprBool (NEq a b) = "notBool (" <> kExprBool (Eq a b) <> ")"
+kExprBool (Eq (a :: Exp t) (b :: Exp t)) = let
+  op = case eqT @t @Integer of
+          Just Refl -> "==Int"
+          Nothing -> case eqT @t @Bool of
+            Just Refl -> "==Bool"
+            Nothing -> case eqT @t @ByteString of
+              Just Refl -> "==K" -- TODO: Is this correct?
+              Nothing -> error "Internal Error: invalid expression type"
+
+  l = case eqT @t @Integer of
+          Just Refl -> kExprInt a
+          Nothing -> case eqT @t @Bool of
+            Just Refl -> kExprBool a
+            Nothing -> case eqT @t @ByteString of
+              Just Refl -> kExprBytes a
+              Nothing -> error "Internal Error: invalid expression type"
+
+  r = case eqT @t @Integer of
+          Just Refl -> kExprInt b
+          Nothing -> case eqT @t @Bool of
+            Just Refl -> kExprBool b
+            Nothing -> case eqT @t @ByteString of
+              Just Refl -> kExprBytes b
+              Nothing -> error "Internal Error: invalid expression type"
+  in
+    "(" <> l <> " " <> op <> " " <> r <> ")"
 kExprBool v = error ("Internal error: TODO kExprBool of " <> show v)
+
+{-
+  Eq (a :: Exp t1) (b :: Exp t1) == Eq (c :: Exp t2) (d :: Exp t2) = case eqT @t1 @t2 of
+    Just Refl -> a == c && b == d
+    Nothing -> False
+-}
 
 kExprBytes :: Exp ByteString -> String
 kExprBytes (ByVar name) = kVar name

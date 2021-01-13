@@ -9,7 +9,6 @@
 {-# Language FlexibleContexts #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
-{-# Language TypeOperators #-}
 {-# Language TypeApplications #-}
 
 module RefinedAst where
@@ -176,7 +175,7 @@ instance Eq (Exp t) where
 
   NewAddr a b == NewAddr c d = a == c && b == d
 
-  Eq (a :: Exp t1) (b :: Exp t1) == Eq (c :: Exp t2) (d :: Exp t2) = case (eqT @t1 @t2) of
+  Eq (a :: Exp t1) (b :: Exp t1) == Eq (c :: Exp t2) (d :: Exp t2) = case eqT @t1 @t2 of
     Just Refl -> a == c && b == d
     Nothing -> False
   NEq (a :: Exp t1) (b :: Exp t1) == NEq (c :: Exp t2) (d :: Exp t2) = case eqT @t1 @t2 of
