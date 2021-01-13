@@ -56,11 +56,10 @@ data KOptions =
     }
 
 
-makekSpec :: Map Text SolcContract -> KOptions -> [Invariant] -> Behaviour -> Err (String, String)
-makekSpec sources _ invariants behaviour =
+makekSpec :: Map Text SolcContract -> KOptions -> Behaviour -> Err (String, String)
+makekSpec sources _ behaviour =
   let this = _contract behaviour
       names = Map.fromList $ fmap (\(a, b) -> (getContractName a, b)) (Map.toList sources)
-      invExp = conjunction $ Data.List.filter (\(Invariant contract _) -> contract == this) invariants
       hasLayout = Map.foldr ((&&) . isJust . _storageLayout) True sources
   in
     if hasLayout then do
@@ -68,7 +67,7 @@ makekSpec sources _ invariants behaviour =
             (nowhere, "err: " <> show this <> "Bytecode not found\nSources available: " <> show (Map.keys sources))
             (Map.lookup this names)
 
-      return $ mkTerm thisSource names behaviour invExp
+      return $ mkTerm thisSource names behaviour
 
     else Bad (nowhere, "No storagelayout found")
 
@@ -118,13 +117,13 @@ conjunction :: [Invariant] -> Exp Bool
 conjunction [] = LitBool True
 conjunction ((Invariant _ e):tl) = And e (conjunction tl)
 
-kstorageName :: TStorageItem a -> String
-kstorageName (DirectInt _ name)    = kVar name
-kstorageName (DirectBool _ name)   = kVar name
-kstorageName (DirectBytes _ name)  = kVar name
-kstorageName (MappedInt _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kstorageName (MappedBool _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kstorageName (MappedBytes _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kStorageName :: TStorageItem a -> String
+kStorageName (DirectInt _ name)    = kVar name
+kStorageName (DirectBool _ name)   = kVar name
+kStorageName (DirectBytes _ name)  = kVar name
+kStorageName (MappedInt _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kStorageName (MappedBool _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kStorageName (MappedBytes _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> (tail a)
@@ -154,7 +153,7 @@ kExprInt (UIntMin _) = kExprInt $ LitInt 0
 kExprInt (UIntMax a) = kExprInt $ LitInt $ 2 ^ a - 1
 kExprInt (IntVar a) = kVar a
 kExprInt (IntEnv a) = show a
-kExprInt (TEntry a) = kstorageName a
+kExprInt (TEntry a) = kStorageName a
 kExprInt v = error ("Internal error: TODO kExprInt of " <> show v)
 
 
@@ -183,6 +182,7 @@ kExprBytes :: Exp ByteString -> String
 kExprBytes (ByVar name) = kVar name
 kExprBytes (ByStr str) = show str
 kExprBytes (ByLit bs) = show bs
+kExprBytes (TEntry item) = kStorageName item
 kExprBytes e = error $ "TODO: kExprBytes of " <> show e
 --kExprBytes (Cat a b) =
 --kExprBytes (Slice a start end) =
@@ -204,10 +204,10 @@ kStorageEntry storageLayout update =
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (getId update)) storageLayout)
   in case update of
-       Right (IntUpdate a b) -> (loc, (offset, kstorageName a, kExprInt b))
-       Right (BoolUpdate a b) -> (loc, (offset, kstorageName a, kExprBool b))
-       Right (BytesUpdate a b) -> (loc, (offset, kstorageName a, kExprBytes b))
-       Left (IntLoc a) -> (loc, (offset, kstorageName a, kstorageName a))
+       Right (IntUpdate a b) -> (loc, (offset, kStorageName a, kExprInt b))
+       Right (BoolUpdate a b) -> (loc, (offset, kStorageName a, kExprBool b))
+       Right (BytesUpdate a b) -> (loc, (offset, kStorageName a, kExprBytes b))
+       Left (IntLoc a) -> (loc, (offset, kStorageName a, kStorageName a))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
 --  BoolUpdate (TStorageItem Bool) c ->
 --  BytesUpdate (TStorageItem ByteString) d ->  (Exp ByteString)
@@ -317,8 +317,8 @@ defaultConditions acct_id =
 indent :: Int -> String -> String
 indent n text = unlines $ ((Data.List.replicate n ' ') <>) <$> (lines text)
 
-mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> Exp Bool -> (String, String)
-mkTerm this accounts Behaviour{..} invariant = (name, term)
+mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> (String, String)
+mkTerm this accounts Behaviour{..} = (name, term)
   where code = _runtimeCode this
         pass = _mode == Pass
         repl '_' = '.'
@@ -401,4 +401,4 @@ mkTerm this accounts Behaviour{..} invariant = (name, term)
                <> defaultConditions (kVar _contract) <> "\n andBool\n"
                <> kExprBool (mconcat _preconditions)
                <> "\nensures "
-               <> kExprBool (And (mconcat _postconditions) invariant)
+               <> kExprBool (mconcat _postconditions)
