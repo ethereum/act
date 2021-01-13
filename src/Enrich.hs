@@ -149,7 +149,8 @@ forceZero = mapMaybe mkBound
   where
     mkBound :: StorageUpdate -> Maybe (Exp Bool)
     mkBound (IntUpdate item _) = Just $ Eq (TEntry item) (LitInt 0)
-    mkBound _ = Nothing
+    mkBound (BoolUpdate item _) = Just $ Eq (TEntry item) (LitBool False)
+    mkBound (BytesUpdate item _) = Just $ Eq (TEntry item) (ByLit mempty)
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
 mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Bool]
