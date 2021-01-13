@@ -12,6 +12,8 @@ creates
 invariants
 
   totalSupply == _totalSupply
+  name == _name
+  symbol == _symbol
 
 
 behaviour transfer of Token

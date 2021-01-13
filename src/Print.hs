@@ -1,6 +1,6 @@
 {-# Language GADTs #-}
 
-module Print (prettyEnv, prettyExp, prettyBehaviour) where
+module Print (prettyEnv, prettyExp, prettyType, prettyBehaviour) where
 
 import Data.ByteString.UTF8 (toString)
 
@@ -131,3 +131,9 @@ prettyEnv e = case e of
   Timestamp -> "TIMESTAMP"
   This -> "THIS"
   Nonce -> "NONCE"
+
+prettyType :: ReturnExp -> String
+prettyType ret = case ret of
+  ExpInt _ -> "Integer"
+  ExpBool _ -> "Boolean"
+  ExpBytes _ -> "ByteString"

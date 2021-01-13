@@ -25,6 +25,7 @@ import qualified Syntax
 import ErrM
 import Parse
 import RefinedAst
+import Print (prettyType)
 
 typecheck :: [RawBehaviour] -> Err [Claim]
 typecheck behvs = do store <- lookupVars behvs
@@ -350,12 +351,22 @@ inferExpr env@(contract, ours, _,thisContext) expr =
       boolboolbool p op v1 v2 = do w1 <- checkBool p env v1
                                    w2 <- checkBool p env v2
                                    Ok $ ExpBool $ op w1 w2
+      boolbytesbytes p op v1 v2 = do w1 <- checkBytes p env v1
+                                     w2 <- checkBytes p env v2
+                                     Ok $ ExpBool $ op w1 w2
   in case expr of
     ENot p  v1    -> ExpBool . Neg <$> checkBool p env v1
     EAnd p  v1 v2 -> boolboolbool p And  v1 v2
     EOr p   v1 v2 -> boolboolbool p Or   v1 v2
     EImpl p v1 v2 -> boolboolbool p Impl v1 v2
-    EEq p   v1 v2 -> boolintint  p Eq  v1 v2
+    EEq p   v1 v2 -> do
+      l <- inferExpr env v1
+      r <- inferExpr env v2
+      case (l, r) of
+        (ExpInt _, ExpInt _) -> boolintint p Eq v1 v2
+        (ExpBool _, ExpBool _) -> boolboolbool p Eq v1 v2
+        (ExpBytes _, ExpBytes _) -> boolbytesbytes p Eq v1 v2
+        (_, _) -> Bad (p, "mismatched types: " <> prettyType l <> " == " <> prettyType r)
     ENeq p  v1 v2 -> boolintint  p NEq v1 v2
     ELT p   v1 v2 -> boolintint  p LE   v1 v2
     ELEQ p  v1 v2 -> boolintint  p LEQ  v1 v2
