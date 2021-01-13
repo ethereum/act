@@ -109,6 +109,22 @@
       {
         "arity": 2,
         "args": [
+          "TEntry (DirectBytes \"Token\" \"name\")",
+          "ByLit \"\""
+        ],
+        "symbol": "=="
+      },
+      {
+        "arity": 2,
+        "args": [
+          "TEntry (DirectBytes \"Token\" \"symbol\")",
+          "ByLit \"\""
+        ],
+        "symbol": "=="
+      },
+      {
+        "arity": 2,
+        "args": [
           {
             "name": "Token.totalSupply",
             "sort": "int"
