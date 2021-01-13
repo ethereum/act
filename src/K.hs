@@ -235,16 +235,49 @@ normalize pass entries = foldr (\a acc -> case a of
   where group :: [(String, (Int, String, String))] -> [(String, [(Int, String, String)])]
         group a = Map.toList (foldr (\(slot, (offset, pre, post)) acc -> Map.insertWith (<>) slot [(offset, pre, post)] acc) mempty a)
         showSList :: [String] -> String
-        showSList = intercalate " "
+        showSList = unwords
 
 kSlot :: Either StorageLocation StorageUpdate -> StorageItem -> (String, Int)
 kSlot update StorageItem{..} = case _type of
   (StorageValue _) -> (show _slot, _offset)
   (StorageMapping _ _) -> case update of
-      Right (IntUpdate (MappedInt _ _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
-      Right (BoolUpdate (MappedBool _ _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
-      Right (BytesUpdate (MappedBytes _ _ ixs) _) -> ("#hashedLocation(\"Solidity\", " <> show _slot <> ", " <> intercalate " " (fmap kExpr (NonEmpty.toList ixs)) <> ")", _offset)
-      _ -> error "internal error: kSlot. Please report"
+      Right (IntUpdate (MappedInt _ _ ixs) _) ->
+        (
+          "#hashedLocation(\"Solidity\", "
+            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+        , _offset
+        )
+      Left (IntLoc (MappedInt _ _ ixs)) ->
+        (
+          "#hashedLocation(\"Solidity\", "
+            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+        , _offset
+        )
+      Right (BoolUpdate (MappedBool _ _ ixs) _) ->
+        (
+          "#hashedLocation(\"Solidity\", "
+              <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+        , _offset
+        )
+      Left (BoolLoc (MappedBool _ _ ixs)) ->
+        (
+          "#hashedLocation(\"Solidity\", "
+              <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+        , _offset
+        )
+      Right (BytesUpdate (MappedBytes _ _ ixs) _) ->
+        (
+          "#hashedLocation(\"Solidity\", "
+            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+        , _offset
+        )
+      Left (BytesLoc (MappedBytes _ _ ixs)) ->
+        (
+          "#hashedLocation(\"Solidity\", "
+            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+        , _offset
+        )
+      s -> error $ "internal error: kSlot. Please report: " <> (show s)
 
 
 kAccount :: Bool -> Id -> SolcContract -> [Either StorageLocation StorageUpdate] -> String
@@ -281,6 +314,9 @@ defaultConditions acct_id =
     "andBool #rangeUInt(256, " <> show Callvalue <> ")\n" <>
     "andBool #rangeUInt(256, " <> show Chainid <>  " )\n"
 
+indent :: Int -> String -> String
+indent n text = unlines $ ((Data.List.replicate n ' ') <>) <$> (lines text)
+
 mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> Exp Bool -> (String, String)
 mkTerm this accounts Behaviour{..} invariant = (name, term)
   where code = _runtimeCode this
@@ -293,13 +329,13 @@ mkTerm this accounts Behaviour{..} invariant = (name, term)
              <> "exit-code" |- "1"
              <> "mode" |- "NORMAL"
              <> "schedule" |- "ISTANBUL"
-             <> "evm" |- ("\n"
+             <> "evm" |- indent 2 ("\n"
                   <> "output" |- (if pass then kAbiEncode _returns else ".ByteArray")
                   <> "statusCode" |- kStatus _mode
                   <> "callStack" |- "CallStack"
                   <> "interimStates" |- "_"
                   <> "touchedAccounts" |- "_"
-                  <> "callState" |- ("\n"
+                  <> "callState" |- indent 2 ("\n"
                      <> "program" |- kByteStack code
                      <> "jumpDests" |- ("#computeValidJumpDests(" <> kByteStack code <> ")")
                      <> "id" |- kVar _contract
@@ -318,7 +354,7 @@ mkTerm this accounts Behaviour{..} invariant = (name, term)
                      <> "static" |- "false" -- TODO: generalize
                      <> "callDepth" |- (show Calldepth)
                      )
-                  <> "substate" |- ("\n"
+                  <> "substate" |- indent 2 ("\n"
                       <> "selfDestruct" |- "_ => _"
                       <> "log" |- "_ => _" --TODO: spec logs?
                       <> "refund" |- "_ => _"
@@ -326,7 +362,7 @@ mkTerm this accounts Behaviour{..} invariant = (name, term)
                   <> "gasPrice" |- "_" --could be environment var
                   <> "origin" |- show Origin
                   <> "blockhashes" |- "_"
-                  <> "block" |- ("\n"
+                  <> "block" |- indent 2 ("\n"
                      <> "previousHash" |- "_"
                      <> "ommersHash" |- "_"
                      <> "coinbase" |- (show Coinbase)
@@ -345,9 +381,9 @@ mkTerm this accounts Behaviour{..} invariant = (name, term)
                      <> "ommerBlockHeaders" |- "_"
                      )
                 )
-                <> "network" |- ("\n"
+                <> "network" |- indent 2 ("\n"
                   <> "activeAccounts" |- "_"
-                  <> "accounts" |- ("\n" <> (unpack $
+                  <> "accounts" |- indent 2 ("\n" <> (unpack $
                     Text.intercalate "\n" (flip fmap (getContract <$> _stateUpdates) $ \a ->
                       pack $
                         kAccount pass a
