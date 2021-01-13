@@ -1,6 +1,9 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language TypeFamilies #-}
+{-# Language TypeApplications #-}
 
 module Prove
   ( queries
@@ -33,6 +36,8 @@ import Data.List (intercalate, (\\), nub)
 import Data.List.NonEmpty as NonEmpty (toList)
 import Data.Map.Strict as Map (Map, lookup, fromList, toList)
 import Data.Maybe
+import Data.Type.Equality
+import Data.Typeable
 
 import Data.SBV hiding (name)
 import Data.SBV.String ((.++), subStr)
@@ -275,7 +280,6 @@ symExpBool ctx@(Ctx c m args store _) w e = case e of
   And a b   -> (symExpBool ctx w a) .&& (symExpBool ctx w b)
   Or a b    -> (symExpBool ctx w a) .|| (symExpBool ctx w b)
   Impl a b  -> (symExpBool ctx w a) .=> (symExpBool ctx w b)
-  Eq a b    -> (symExpInt ctx w a) .== (symExpInt ctx w b)
   LE a b    -> (symExpInt ctx w a) .< (symExpInt ctx w b)
   LEQ a b   -> (symExpInt ctx w a) .<= (symExpInt ctx w b)
   GE a b    -> (symExpInt ctx w a) .> (symExpInt ctx w b)
@@ -286,6 +290,13 @@ symExpBool ctx@(Ctx c m args store _) w e = case e of
   BoolVar a -> get (nameFromArg c m a) (catBools args)
   TEntry a  -> get (nameFromItem m a) (catBools store')
   ITE x y z -> ite (symExpBool ctx w x) (symExpBool ctx w y) (symExpBool ctx w z)
+  Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
+    Just Refl -> symExpInt ctx w a .== symExpInt ctx w b
+    Nothing -> case eqT @t @Bool of
+      Just Refl -> symExpBool ctx w a .== symExpBool ctx w b
+      Nothing -> case eqT @t @ByteString of
+        Just Refl -> symExpBytes ctx w a .== symExpBytes ctx w b
+        Nothing -> error "Internal Error: invalid expression type"
  where store' = case w of
          Pre -> fst <$> store
          Post -> snd <$> store
@@ -372,17 +383,29 @@ nameFromExpBool c m e = case e of
   And a b   -> nameFromExpBool c m a <> "&&" <> nameFromExpBool c m b
   Or a b    -> nameFromExpBool c m a <> "|" <> nameFromExpBool c m b
   Impl a b  -> nameFromExpBool c m a <> "=>" <> nameFromExpBool c m b
-  Eq a b    -> nameFromExpInt c m a <> "==" <> nameFromExpInt c m b
   LE a b    -> nameFromExpInt c m a <> "<" <> nameFromExpInt c m b
   LEQ a b   -> nameFromExpInt c m a <> "<=" <> nameFromExpInt c m b
   GE a b    -> nameFromExpInt c m a <> ">" <> nameFromExpInt c m b
   GEQ a b   -> nameFromExpInt c m a <> ">=" <> nameFromExpInt c m b
-  NEq a b   -> nameFromExpInt c m a <> "=/=" <> nameFromExpInt c m b
   Neg a     -> "~" <> nameFromExpBool c m a
   LitBool a -> show a
   BoolVar a -> nameFromArg c m a
   TEntry a  -> nameFromItem m a
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBool c m y <> "-else-" <> nameFromExpBool c m z
+  Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
+    Just Refl -> nameFromExpInt c m a <> "==" <> nameFromExpInt c m b
+    Nothing -> case eqT @t @Bool of
+      Just Refl -> nameFromExpBool c m a <> "==" <> nameFromExpBool c m b
+      Nothing -> case eqT @t @ByteString of
+        Just Refl -> nameFromExpBytes c m a <> "==" <> nameFromExpBytes c m b
+        Nothing -> error "Internal Error: invalid expressio type"
+  NEq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
+    Just Refl -> nameFromExpInt c m a <> "=/=" <> nameFromExpInt c m b
+    Nothing -> case eqT @t @Bool of
+      Just Refl -> nameFromExpBool c m a <> "=/=" <> nameFromExpBool c m b
+      Nothing -> case eqT @t @ByteString of
+        Just Refl -> nameFromExpBytes c m a <> "=/=" <> nameFromExpBytes c m b
+        Nothing -> error "Internal Error: invalid expressio type"
 
 nameFromExpBytes :: Contract -> Method -> Exp ByteString -> Id
 nameFromExpBytes c m e = case e of

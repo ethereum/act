@@ -170,39 +170,14 @@ kExprBool (GEQ a b) = "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
 kExprBool (LitBool a) = show a
 kExprBool (BoolVar a) = kVar a
 kExprBool (NEq a b) = "notBool (" <> kExprBool (Eq a b) <> ")"
-kExprBool (Eq (a :: Exp t) (b :: Exp t)) = let
-  op = case eqT @t @Integer of
-          Just Refl -> "==Int"
-          Nothing -> case eqT @t @Bool of
-            Just Refl -> "==Bool"
-            Nothing -> case eqT @t @ByteString of
-              Just Refl -> "==K" -- TODO: Is this correct?
-              Nothing -> error "Internal Error: invalid expression type"
-
-  l = case eqT @t @Integer of
-          Just Refl -> kExprInt a
-          Nothing -> case eqT @t @Bool of
-            Just Refl -> kExprBool a
-            Nothing -> case eqT @t @ByteString of
-              Just Refl -> kExprBytes a
-              Nothing -> error "Internal Error: invalid expression type"
-
-  r = case eqT @t @Integer of
-          Just Refl -> kExprInt b
-          Nothing -> case eqT @t @Bool of
-            Just Refl -> kExprBool b
-            Nothing -> case eqT @t @ByteString of
-              Just Refl -> kExprBytes b
-              Nothing -> error "Internal Error: invalid expression type"
-  in
-    "(" <> l <> " " <> op <> " " <> r <> ")"
+kExprBool (Eq (a :: Exp t) (b :: Exp t)) = case eqT @t @Integer of
+  Just Refl -> "(" <> kExprInt a <> " ==Int " <> kExprInt b <> ")"
+  Nothing -> case eqT @t @Bool of
+    Just Refl -> "(" <> kExprBool a <> " ==Bool " <> kExprBool b <> ")"
+    Nothing -> case eqT @t @ByteString of
+      Just Refl -> "(" <> kExprBytes a <> " ==K " <> kExprBytes b <> ")" -- TODO: Is ==K correct?
+      Nothing -> error "Internal Error: invalid expression type"
 kExprBool v = error ("Internal error: TODO kExprBool of " <> show v)
-
-{-
-  Eq (a :: Exp t1) (b :: Exp t1) == Eq (c :: Exp t2) (d :: Exp t2) = case eqT @t1 @t2 of
-    Just Refl -> a == c && b == d
-    Nothing -> False
--}
 
 kExprBytes :: Exp ByteString -> String
 kExprBytes (ByVar name) = kVar name
