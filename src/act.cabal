@@ -26,9 +26,9 @@ common deps
                  utf8-string      >= 1.0.1.1
   other-modules: Lex ErrM Extract Parse RefinedAst K HEVM Coq Syntax Type Prove Print Enrich
   if flag(ci)
-      ghc-options: -O2 -Wall -Werror -Wno-deprecations -Wno-orphans
+      ghc-options: -O2 -Wall -Werror -Wno-orphans
   else
-      ghc-options: -Wall -Wno-deprecations -Wno-orphans
+      ghc-options: -Wall -Wno-orphans
 
 executable act
   import:             deps
