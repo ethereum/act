@@ -5,6 +5,11 @@ version:    0.1.0.0
 author:     Martin Lundfall
 maintainer: martin.lundfall@protonmail.com
 
+flag ci
+    description: Sets flags for compilation in CI
+    default:     False
+    manual:      True
+
 common deps
   build-depends: base             >= 4.9 && < 5,
                  aeson            >= 1.0,
@@ -19,8 +24,11 @@ common deps
                  sbv              >= 8.4,
                  mtl              >= 2.2.2,
                  utf8-string      >= 1.0.1.1
-  ghc-options:   -Wall -Wno-deprecations
   other-modules: Lex ErrM Extract Parse RefinedAst K HEVM Coq Syntax Type Prove Print Enrich
+  if flag(ci)
+      ghc-options: -O2 -Wall -Werror -Wno-deprecations -Wno-orphans
+  else
+      ghc-options: -Wall -Wno-deprecations -Wno-orphans
 
 executable act
   import:             deps
