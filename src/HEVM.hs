@@ -69,7 +69,7 @@ interfaceCalldata (Interface methodname vars) =
   let types = fmap (\(Decl typ _) -> typ) vars
       textsig = pack $ methodname ++ "(" ++ intercalate "," (show <$> types) ++ ")"
       sig' = litBytes $ selector textsig
-  in SymbolicBuffer <$> (sig' <>) <$> concatMapM mkabiArg types
+  in SymbolicBuffer . (sig' <>) <$> concatMapM mkabiArg types
 
 initialVm :: SolcJson -> Behaviour -> Map Id Addr -> Symbolic VM
 initialVm sources Behaviour{..} contractMap = do
@@ -82,12 +82,12 @@ initialVm sources Behaviour{..} contractMap = do
   caller' <- SAddr <$> sWord_
   value' <- sw256 <$> sWord_
   contracts' <- forM (toList contractMap) $
-    \(contractId, addr) -> do
+    \(contractId, addr') -> do
         let code' = RuntimeCode $ view runtimeCode $
               fromMaybe (error "bytecode not found")
               (lookup (pack contractId) sources)
-        c' <- contractWithStore code' <$> Symbolic <$> newArray_ Nothing
-        return (addr, c')
+        c' <- contractWithStore code' . Symbolic <$> newArray_ Nothing
+        return (addr', c')
 
   let vm = loadSymVM
         (RuntimeCode $ view runtimeCode this)
@@ -101,7 +101,7 @@ initialVm sources Behaviour{..} contractMap = do
   return $ initTx $ execState (loadContract addr) vm
 
 checkPostStorage :: Ctx -> Behaviour -> VM -> VM -> Map Id Addr -> SolcJson -> SBV Bool
-checkPostStorage ctx b@(Behaviour _ _ _ _ _ _ updates _) pre post contractMap solcjson =
+checkPostStorage ctx (Behaviour _ _ _ _ _ _ updates _) pre post contractMap solcjson =
   sAnd $ flip fmap (keys (view (EVM.env . EVM.contracts) post)) $
     \addr ->
       case view (EVM.env . EVM.contracts . at addr) pre of
@@ -112,24 +112,24 @@ checkPostStorage ctx b@(Behaviour _ _ _ _ _ _ updates _) pre post contractMap so
             prestorage = view EVM.storage precontract
             poststorage = view EVM.storage postcontract
           in case (prestorage, poststorage) of
-              (Concrete pre, Concrete post) -> literal $ pre == post
-              (Symbolic pre, Symbolic post) ->
+              (Concrete pre', Concrete post') -> literal $ pre' == post'
+              (Symbolic pre', Symbolic post') ->
                let
                  insertions = rights $ filter (\a -> addr == get (getContractId (getLoc a)) contractMap) updates
-                 slot update = let S _ w = calculateSlot ctx solcjson (mkLoc update)
+                 slot update' = let S _ w = calculateSlot ctx solcjson (mkLoc update')
                                in w
                  insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
                  insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx Pre e
-                 insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ (ite (symExpBool ctx Pre e) 1 0)
-                 insertUpdate store _ = error "bytes unsupported"
-               in post .== foldl insertUpdate pre insertions
+                 insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ ite (symExpBool ctx Pre e) 1 0
+                 insertUpdate _ _ = error "bytes unsupported"
+               in post' .== foldl insertUpdate pre' insertions
               _ -> sFalse
 
 
 -- assumes preconditions as well
 mkPostCondition :: VM -> VM -> SolcJson -> Behaviour -> Map Id Addr -> (Ctx, VMResult) -> SBool
 mkPostCondition preVm postVm solcjson
-  b@(Behaviour _ mode _ _ preCond postCond updates returns)
+  b@(Behaviour _ mode _ _ preCond postCond _ returns)
   contractMap
   (ctx, vmResult) =
     let storageConstraints = checkPostStorage ctx b preVm postVm contractMap solcjson
@@ -169,15 +169,15 @@ mkVmContext solcjson b@(Behaviour method _ c1 (Interface _ decls) _ _ updates _)
 
 makeVmEnv :: Behaviour -> VM -> Map Id SMType
 makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
-  fromList $
+  fromList
     [ Caller    |- SymInteger (sFromIntegral $ saddressWord160 (view (state . caller) vm))
     , Callvalue |- let S _ w = view (state . callvalue) vm
                    in SymInteger (sFromIntegral w)
     , Calldepth |- SymInteger (num $ length (view frames vm))
      -- the following environment variables are always concrete in hevm right now
     , Origin    |- SymInteger (num $ addressWord160 (view (tx . origin) vm))
-    , Difficulty |- SymInteger (num $ (view (block . difficulty) vm))
-    , Chainid |- SymInteger (num $ (view (env . chainId) vm))
+    , Difficulty |- SymInteger (num $ view (block . difficulty) vm)
+    , Chainid |- SymInteger (num $ view (env . chainId) vm)
     , Timestamp |- let S _ w = view (block . timestamp) vm
                    in SymInteger (sFromIntegral w)
     , This |- SymInteger (num $ addressWord160 (view (state . contract) vm))
@@ -193,7 +193,7 @@ makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
 locateStorage :: Ctx -> SolcJson -> Map Id Addr -> Method -> (VM,VM) -> Either StorageLocation StorageUpdate -> (Id, (SMType, SMType))
 locateStorage ctx solcjson contractMap method (pre, post) item =
   let item' = getLoc item
-      contractId = getContractId $ item'
+      contractId = getContractId item'
       addr = get contractId contractMap
 
       Just preContract = view (env . contracts . at addr) pre
@@ -210,14 +210,13 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 
--- |
 calculateSlot :: Ctx -> SolcJson -> StorageLocation -> SymWord
 calculateSlot ctx solcjson loc =
   -- TODO: packing with offset
   let
     source = get (pack (getContractId loc)) solcjson
     layout = fromMaybe (error "internal error: no storageLayout") $ _storageLayout source
-    StorageItem _ offset slot = get (pack (getContainerId loc)) layout
+    StorageItem _ _ slot = get (pack (getContainerId loc)) layout
     slotword = sFromIntegral (literal (fromIntegral slot :: Integer))
     indexers = symExp ctx Pre <$> getContainerIxs loc
   in sw256 $
@@ -237,7 +236,7 @@ locateCalldata b decls calldata' d@(Decl typ name) =
     offset = w256 $ fromIntegral $ 4 + 32 * (fromMaybe
        (error ("internal error: could not find calldata var: " ++
         name ++ " in interface declaration"))
-        (findIndex (== d) decls))
+        (elemIndex d decls))
 
     val = case metaType typ of
       -- all integers are 32 bytes
@@ -247,7 +246,7 @@ locateCalldata b decls calldata' d@(Decl typ name) =
       Boolean -> SymBool $ readSWord offset calldata' ./= 0
       _ -> error "TODO: support bytes"
 
--- | Embedd an SMType as a list of symbolic bytes
+-- | Embed an SMType as a list of symbolic bytes
 toSymBytes :: SMType -> [SWord 8]
 toSymBytes (SymInteger i) = toBytes (sFromIntegral i :: SWord 256)
 toSymBytes (SymBool i) = ite i (toBytes (1 :: SWord 256)) (toBytes (0 :: SWord 256))
@@ -271,7 +270,7 @@ mkabiArg AbiAddressType  = freshbytes32
 mkabiArg (AbiBytesType n) | n <= 32 = freshbytes32
                           | otherwise = error "bad type"
 mkabiArg (AbiArrayType leng typ) =
-  do args <- concat <$> mapM mkabiArg (replicate leng typ)
+  do args <- concat <$> replicateM leng (mkabiArg typ)
      return (litBytes (encodeAbiValue (AbiUInt 256 (fromIntegral leng))) <> args)
 mkabiArg (AbiTupleType tuple) = concat <$> mapM mkabiArg (Vec.toList tuple)
 mkabiArg n =
