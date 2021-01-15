@@ -25,7 +25,7 @@ enrich claims = [S store]
     invariants = [i | I i <- claims]
     constructors = [c | C c <- claims]
 
---| Adds type bounds for calldata / environment vars / external storage vars as preconditions, additionally forces all
+-- |Adds type bounds for calldata / environment vars / external storage vars as preconditions, additionally forces all
 -- local storage vars to be zero
 enrichConstructor :: Store -> Constructor -> Constructor
 enrichConstructor store ctor@(Constructor _ _ (Interface _ decls) pre _ initialStorage storageUpdates) =
