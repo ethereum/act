@@ -33,7 +33,6 @@ enrichConstructor store ctor@(Constructor _ _ (Interface _ decls) pre _ initialS
     where
       pre' = pre
              <> (mkCallDataBounds decls)
-             <> (forceZero initialStorage)
              <> (mkStorageBounds store storageUpdates)
              <> (mkEthEnvBounds $ ethEnvFromConstructor ctor)
 
@@ -142,15 +141,6 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
       Timestamp -> AbiUIntType 256
       This -> AbiAddressType
       Nonce -> AbiUIntType 256
-
--- | constrain the locations referenced to be zero
-forceZero :: [StorageUpdate] -> [Exp Bool]
-forceZero = mapMaybe mkBound
-  where
-    mkBound :: StorageUpdate -> Maybe (Exp Bool)
-    mkBound (IntUpdate item _) = Just $ Eq (TEntry item) (LitInt 0)
-    mkBound (BoolUpdate item _) = Just $ Eq (TEntry item) (LitBool False)
-    mkBound (BytesUpdate item _) = Just $ Eq (TEntry item) (ByLit mempty)
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
 mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Bool]

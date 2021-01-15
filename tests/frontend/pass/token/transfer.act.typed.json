@@ -133,54 +133,6 @@
       {
         "arity": 2,
         "args": [
-          "TEntry (DirectBytes \"Token\" \"name\")",
-          "ByLit \"\""
-        ],
-        "symbol": "=="
-      },
-      {
-        "arity": 2,
-        "args": [
-          "TEntry (DirectBytes \"Token\" \"symbol\")",
-          "ByLit \"\""
-        ],
-        "symbol": "=="
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "name": "Token.totalSupply",
-            "sort": "int"
-          },
-          "0"
-        ],
-        "symbol": "=="
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
-          },
-          "0"
-        ],
-        "symbol": "=="
-      },
-      {
-        "arity": 2,
-        "args": [
           {
             "arity": 2,
             "args": [

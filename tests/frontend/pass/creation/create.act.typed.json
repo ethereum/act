@@ -41,28 +41,6 @@
         "arity": 2,
         "args": [
           {
-            "name": "Modest.x",
-            "sort": "int"
-          },
-          "0"
-        ],
-        "symbol": "=="
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "name": "Modest.y",
-            "sort": "int"
-          },
-          "0"
-        ],
-        "symbol": "=="
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
             "arity": 2,
             "args": [
               "0",
