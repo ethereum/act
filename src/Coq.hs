@@ -83,19 +83,21 @@ reachable constructors groups = inductive
 
 -- | non-recursive constructor for the reachable relation
 baseCase :: Constructor -> Fresh T.Text
-baseCase (Constructor name _ i conds _ _ _) =
+baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _) =
   fresh name >>= continuation where
   continuation name' =
     return $ name'
-      <> baseSuffix <> " : forall"
-      <> parens (stateVar <> " : " <> stateType)
-      <> interface i <> ",\n"
+      <> baseSuffix <> " : "
+      <> universal <> "\n"
       <> constructorBody where
     baseval = parens $ name' <> " " <> arguments i
     constructorBody = (indent 2) . implication . concat $
       [ coqprop <$> conds
       , [reachableType <> " " <> baseval <> " " <> baseval]
       ]
+    universal = if null decls
+      then ""
+      else "forall " <> interface i <> ","
 
 -- | recursive constructor for the reachable relation
 reachableStep :: Behaviour -> Fresh T.Text
