@@ -10,6 +10,7 @@ module Prove
   , Ctx(..)
   , When(..)
   , SMType(..)
+  , Atomic(..)
   , Method
   , getLoc
   , get
@@ -29,7 +30,7 @@ import Control.Monad (when)
 import Data.ByteString (ByteString)
 import Data.ByteString.UTF8 (toString)
 import Data.List (intercalate, (\\), nub)
-import Data.List.NonEmpty as NonEmpty (toList)
+import Data.List.NonEmpty as NonEmpty (NonEmpty, toList)
 import Data.Map.Strict as Map (Map, lookup, fromList, toList)
 import Data.Maybe
 import Data.Type.Equality
@@ -95,13 +96,27 @@ data When = Pre | Post
 data Ctx = Ctx Contract Method Args Storage Env
   deriving (Show)
 
-data SMType
+data Atomic
   = SymInteger (SBV Integer)
   | SymBool (SBV Bool)
   | SymBytes (SBV String)
   deriving (Show)
 
-instance EqSymbolic SMType where
+newtype Idx = Idx (NonEmpty Atomic)
+  deriving (Show)
+
+data SMType = A Atomic | M (SArray Idx Atomic)
+  deriving (Show)
+
+instance HasKind Idx where
+  kindOf (Idx _) = KUserSort "Idx" Nothing
+
+instance HasKind Atomic where
+   kindOf (SymInteger _) = KUnbounded
+   kindOf (SymBool _) = KBool
+   kindOf (SymBytes _) = KString
+
+instance EqSymbolic Atomic where
   SymInteger a .== SymInteger b = a .== b
   SymBool a .== SymBool b = a .== b
   SymBytes a .== SymBytes b = a .== b
@@ -182,29 +197,29 @@ mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
 mkSymArg contract method decl@(Decl typ _) = case metaType typ of
   Integer -> do
     v <- sInteger name
-    return (name, SymInteger v)
+    return (name, A $ SymInteger v)
   Boolean -> do
     v <- sBool name
-    return (name, SymBool v)
+    return (name, A $ SymBool v)
   ByteStr -> do
     v <- sString name
-    return (name, SymBytes v)
+    return (name, A $ SymBytes v)
   where
     name = nameFromDecl contract method decl
 
 mkSymStorage :: Method -> StorageLocation -> Symbolic (Id, (SMType, SMType))
 mkSymStorage method loc = case loc of
   IntLoc item -> do
-    v <- SymInteger <$> sInteger (pre item)
-    w <- SymInteger <$> sInteger (post item)
+    v <- A . SymInteger <$> sInteger (pre item)
+    w <- A . SymInteger <$> sInteger (post item)
     return (name item, (v, w))
   BoolLoc item -> do
-    v <- SymBool <$> sBool (pre item)
-    w <- SymBool <$> sBool (post item)
+    v <- A . SymBool <$> sBool (pre item)
+    w <- A . SymBool <$> sBool (post item)
     return (name item, (v, w))
   BytesLoc item -> do
-    v <- SymBytes <$> sString (pre item)
-    w <- SymBytes <$> sString (post item)
+    v <- A . SymBytes <$> sString (pre item)
+    w <- A . SymBytes <$> sString (post item)
     return (name item, (v, w))
   where
     name :: TStorageItem a -> Id
@@ -228,13 +243,13 @@ mkEnv contract method = Map.fromList <$> mapM makeSymbolic
     mkInt :: EthEnv -> Symbolic (Id, SMType)
     mkInt env = do
       let k = nameFromEnv contract method env
-      v <- SymInteger <$> sInteger k
+      v <- A . SymInteger <$> sInteger k
       return (k, v)
 
     mkBytes :: EthEnv -> Symbolic (Id, SMType)
     mkBytes env = do
       let k = nameFromEnv contract method env
-      v <- SymBytes <$> sString k
+      v <- A . SymBytes <$> sString k
       return (k, v)
 
 mkStorageConstraints :: Ctx -> [Either StorageLocation StorageUpdate] -> [StorageLocation] -> [SBV Bool]
@@ -267,9 +282,9 @@ fromUpdate ctx update = case update of
 
 symExp :: Ctx -> When -> ReturnExp -> SMType
 symExp ctx whn ret = case ret of
-  ExpInt e -> SymInteger $ symExpInt ctx whn e
-  ExpBool e -> SymBool $ symExpBool ctx whn e
-  ExpBytes e -> SymBytes $ symExpBytes ctx whn e
+  ExpInt e -> A . SymInteger $ symExpInt ctx whn e
+  ExpBool e -> A . SymBool $ symExpBool ctx whn e
+  ExpBytes e -> A . SymBytes $ symExpBytes ctx whn e
 
 symExpBool :: Ctx -> When -> Exp Bool -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) w e = case e of
@@ -434,13 +449,13 @@ get :: (Show a, Ord a, Show b) => a -> Map a b -> b
 get name vars = fromMaybe (error (show name <> " not found in " <> show vars)) $ Map.lookup name vars
 
 catInts :: Map Id SMType -> Map Id (SBV Integer)
-catInts m = Map.fromList [(name, i) | (name, SymInteger i) <- Map.toList m]
+catInts m = Map.fromList [(name, i) | (name, A (SymInteger i)) <- Map.toList m]
 
 catBools :: Map Id SMType -> Map Id (SBV Bool)
-catBools m = Map.fromList [(name, i) | (name, SymBool i) <- Map.toList m]
+catBools m = Map.fromList [(name, i) | (name, A (SymBool i)) <- Map.toList m]
 
 catBytes :: Map Id SMType -> Map Id (SBV String)
-catBytes m = Map.fromList [(name, i) | (name, SymBytes i) <- Map.toList m]
+catBytes m = Map.fromList [(name, i) | (name, A (SymBytes i)) <- Map.toList m]
 
 concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
 concatMapM op' = foldr f (pure [])

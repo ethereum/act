@@ -170,19 +170,19 @@ mkVmContext solcjson b@(Behaviour method _ c1 (Interface _ decls) _ _ updates _)
 makeVmEnv :: Behaviour -> VM -> Map Id SMType
 makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
   fromList
-    [ Caller    |- SymInteger (sFromIntegral $ saddressWord160 (view (state . caller) vm))
+    [ Caller    |- A (SymInteger (sFromIntegral $ saddressWord160 (view (state . caller) vm)))
     , Callvalue |- let S _ w = view (state . callvalue) vm
-                   in SymInteger (sFromIntegral w)
-    , Calldepth |- SymInteger (num $ length (view frames vm))
+                   in A (SymInteger (sFromIntegral w))
+    , Calldepth |- A (SymInteger (num $ length (view frames vm)))
      -- the following environment variables are always concrete in hevm right now
-    , Origin    |- SymInteger (num $ addressWord160 (view (tx . origin) vm))
-    , Difficulty |- SymInteger (num $ view (block . difficulty) vm)
-    , Chainid |- SymInteger (num $ view (env . chainId) vm)
+    , Origin    |- A (SymInteger (num $ addressWord160 (view (tx . origin) vm)))
+    , Difficulty |- A (SymInteger (num $ view (block . difficulty) vm))
+    , Chainid |- A (SymInteger (num $ view (env . chainId) vm))
     , Timestamp |- let S _ w = view (block . timestamp) vm
-                   in SymInteger (sFromIntegral w)
-    , This |- SymInteger (num $ addressWord160 (view (state . contract) vm))
-    , Nonce |- SymInteger (num $ view (env . contracts . at (view (state . contract) vm)
-                                       . non (initialContract (RuntimeCode mempty)) . nonce) vm)
+                   in A (SymInteger (sFromIntegral w))
+    , This |- A (SymInteger (num $ addressWord160 (view (state . contract) vm)))
+    , Nonce |- A (SymInteger (num $ view (env . contracts . at (view (state . contract) vm)
+                                       . non (initialContract (RuntimeCode mempty)) . nonce) vm))
       -- and this one does not even give a reasonable result
 --    , Blockhash |- error "blockhash not available in hevm right now"
     ]
@@ -208,7 +208,7 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
       name (BoolLoc i) = nameFromItem method i
       name (BytesLoc i) = nameFromItem method i
 
-  in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
+  in (name item',  (A (SymInteger (sFromIntegral preValue)), A (SymInteger (sFromIntegral postValue))))
 
 calculateSlot :: Ctx -> SolcJson -> StorageLocation -> SymWord
 calculateSlot ctx solcjson loc =
@@ -229,7 +229,7 @@ locateCalldata :: Behaviour -> [Decl] -> Buffer -> Decl -> (Id, SMType)
 locateCalldata b decls calldata' d@(Decl typ name) =
   if any (\(Decl typ' _) -> abiKind typ' /= Static) decls
   then error "dynamic calldata args currently unsupported"
-  else (nameFromDecl (RefinedAst._contract b) (_name b) d, val)
+  else (nameFromDecl (RefinedAst._contract b) (_name b) d, A val)
 
   where
     -- every argument is static right now; length is always 32
@@ -248,9 +248,10 @@ locateCalldata b decls calldata' d@(Decl typ name) =
 
 -- | Embed an SMType as a list of symbolic bytes
 toSymBytes :: SMType -> [SWord 8]
-toSymBytes (SymInteger i) = toBytes (sFromIntegral i :: SWord 256)
-toSymBytes (SymBool i) = ite i (toBytes (1 :: SWord 256)) (toBytes (0 :: SWord 256))
-toSymBytes (SymBytes _) = error "unsupported"
+toSymBytes (A (SymInteger i)) = toBytes (sFromIntegral i :: SWord 256)
+toSymBytes (A (SymBool i)) = ite i (toBytes (1 :: SWord 256)) (toBytes (0 :: SWord 256))
+toSymBytes (A (SymBytes _)) = error "unsupported"
+toSymBytes (M _) = error "unsupported"
 
 
 -- | Convenience functions for generating symbolic byte strings
