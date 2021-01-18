@@ -1,0 +1,14 @@
+constructor of C
+interface constructor(uint _a, bool _b, string _c)
+
+creates
+
+    uint a := _a
+    bool b := _b
+    string c := _c
+
+invariants
+
+    a == _a
+    b == _b
+    c == _c

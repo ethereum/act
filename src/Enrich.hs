@@ -17,7 +17,7 @@ import Syntax (EthEnv(..), Id, Decl(..), Interface(..))
 enrich :: [Claim] -> [Claim]
 enrich claims = [S store]
                 <> (I <$> invariants)
-                <> (C <$> constructors)
+                <> (C <$> (enrichConstructor store <$> constructors))
                 <> (B <$> (enrichBehaviour store <$> behaviours))
   where
     store = head $ [s | S s <- claims]
@@ -25,9 +25,20 @@ enrich claims = [S store]
     invariants = [i | I i <- claims]
     constructors = [c | C c <- claims]
 
+-- |Adds type bounds for calldata / environment vars / external storage vars as preconditions
+enrichConstructor :: Store -> Constructor -> Constructor
+enrichConstructor store ctor@(Constructor _ _ (Interface _ decls) pre _ _ storageUpdates) =
+  ctor { _cpreconditions = pre' }
+    where
+      pre' = pre
+             <> (mkCallDataBounds decls)
+             <> (mkStorageBounds store storageUpdates)
+             <> (mkEthEnvBounds $ ethEnvFromConstructor ctor)
+
+-- |Adds type bounds for calldata / environment vars / storage vars as preconditions
 enrichBehaviour :: Store -> Behaviour -> Behaviour
-enrichBehaviour store behv@(Behaviour name mode contract iface@(Interface _ decls) pre post stateUpdates ret) =
-  Behaviour name mode contract iface pre' post stateUpdates ret
+enrichBehaviour store behv@(Behaviour _ _ _ (Interface _ decls) pre _ stateUpdates _) =
+  behv { _preconditions = pre' }
     where
       pre' = pre
              <> (mkCallDataBounds decls)
@@ -40,6 +51,13 @@ ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) 
   <> (concatMap ethEnvFromExp postconds)
   <> (concatMap ethEnvFromStateUpdate stateUpdates)
   <> (maybe [] ethEnvFromReturnExp returns)
+
+ethEnvFromConstructor :: Constructor -> [EthEnv]
+ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) =
+  (concatMap ethEnvFromExp pre)
+  <> (concatMap ethEnvFromExp post)
+  <> (concatMap ethEnvFromStateUpdate stateUpdates)
+  <> (concatMap ethEnvFromStateUpdate (Right <$> initialStorage))
 
 ethEnvFromStateUpdate :: Either StorageLocation StorageUpdate -> [EthEnv]
 ethEnvFromStateUpdate update = case update of
@@ -141,7 +159,6 @@ mkStorageBounds store refs
     slotType contract name = let
         vars = fromMaybe (error $ contract <> " not found in " <> show store) $ Map.lookup contract store
       in fromMaybe (error $ name <> " not found in " <> show vars) $ Map.lookup name vars
-
 
     abiType :: SlotType -> AbiType
     abiType (StorageMapping _ typ) = typ

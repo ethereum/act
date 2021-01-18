@@ -1,8 +1,9 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# Language ScopedTypeVariables #-}
+{-# Language TypeFamilies #-}
+{-# Language TypeApplications #-}
 
 module Prove
   ( queries
@@ -35,6 +36,8 @@ import Data.List (intercalate, (\\), nub)
 import Data.List.NonEmpty as NonEmpty (toList)
 import Data.Map.Strict as Map (Map, lookup, fromList, toList)
 import Data.Maybe
+import Data.Type.Equality
+import Data.Typeable
 
 import Data.SBV hiding (name)
 import Data.SBV.String ((.++), subStr)
@@ -155,7 +158,6 @@ mkMethod inv@(Invariant _ e) store initBehv behv = do
            .&& sAnd stateUpdates
            .&& (sNot postCond .|| sNot postInv)
 
-
 mkContext :: Invariant -> Either Behaviour Constructor -> Symbolic Ctx
 mkContext (Invariant contract e) spec = do
   let (c1, decls, updates, method) = either
@@ -197,20 +199,26 @@ mkSymArg contract method decl@(Decl typ _) = case metaType typ of
 mkSymStorage :: Method -> StorageLocation -> Symbolic (Id, (SMType, SMType))
 mkSymStorage method loc = case loc of
   IntLoc item -> do
-    v <- SymInteger <$> sInteger (name item)
-    w <- SymInteger <$> sInteger ((name item) ++ "_post")
+    v <- SymInteger <$> sInteger (pre item)
+    w <- SymInteger <$> sInteger (post item)
     return (name item, (v, w))
   BoolLoc item -> do
-    v <- SymBool <$> sBool (name item)
-    w <- SymBool <$> sBool ((name item) ++ "_post")
+    v <- SymBool <$> sBool (pre item)
+    w <- SymBool <$> sBool (post item)
     return (name item, (v, w))
   BytesLoc item -> do
-    v <- SymBytes <$> sString (name item)
-    w <- SymBytes <$> sString ((name item) ++ "_post")
+    v <- SymBytes <$> sString (pre item)
+    w <- SymBytes <$> sString (post item)
     return (name item, (v, w))
   where
     name :: TStorageItem a -> Id
     name i = nameFromItem method i
+
+    pre :: TStorageItem a -> Id
+    pre i = (name i) ++ "_pre"
+
+    post :: TStorageItem a -> Id
+    post i = (name i) ++ "_post"
 
 mkEnv :: Contract -> Method -> Symbolic Env
 mkEnv contract method = Map.fromList <$> mapM makeSymbolic
@@ -272,7 +280,6 @@ symExpBool ctx@(Ctx c m args store _) w e = case e of
   And a b   -> (symExpBool ctx w a) .&& (symExpBool ctx w b)
   Or a b    -> (symExpBool ctx w a) .|| (symExpBool ctx w b)
   Impl a b  -> (symExpBool ctx w a) .=> (symExpBool ctx w b)
-  Eq a b    -> (symExpInt ctx w a) .== (symExpInt ctx w b)
   LE a b    -> (symExpInt ctx w a) .< (symExpInt ctx w b)
   LEQ a b   -> (symExpInt ctx w a) .<= (symExpInt ctx w b)
   GE a b    -> (symExpInt ctx w a) .> (symExpInt ctx w b)
@@ -283,6 +290,13 @@ symExpBool ctx@(Ctx c m args store _) w e = case e of
   BoolVar a -> get (nameFromArg c m a) (catBools args)
   TEntry a  -> get (nameFromItem m a) (catBools store')
   ITE x y z -> ite (symExpBool ctx w x) (symExpBool ctx w y) (symExpBool ctx w z)
+  Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
+    Just Refl -> symExpInt ctx w a .== symExpInt ctx w b
+    Nothing -> case eqT @t @Bool of
+      Just Refl -> symExpBool ctx w a .== symExpBool ctx w b
+      Nothing -> case eqT @t @ByteString of
+        Just Refl -> symExpBytes ctx w a .== symExpBytes ctx w b
+        Nothing -> error "Internal Error: invalid expression type"
  where store' = case w of
          Pre -> fst <$> store
          Post -> snd <$> store
@@ -369,17 +383,29 @@ nameFromExpBool c m e = case e of
   And a b   -> nameFromExpBool c m a <> "&&" <> nameFromExpBool c m b
   Or a b    -> nameFromExpBool c m a <> "|" <> nameFromExpBool c m b
   Impl a b  -> nameFromExpBool c m a <> "=>" <> nameFromExpBool c m b
-  Eq a b    -> nameFromExpInt c m a <> "==" <> nameFromExpInt c m b
   LE a b    -> nameFromExpInt c m a <> "<" <> nameFromExpInt c m b
   LEQ a b   -> nameFromExpInt c m a <> "<=" <> nameFromExpInt c m b
   GE a b    -> nameFromExpInt c m a <> ">" <> nameFromExpInt c m b
   GEQ a b   -> nameFromExpInt c m a <> ">=" <> nameFromExpInt c m b
-  NEq a b   -> nameFromExpInt c m a <> "=/=" <> nameFromExpInt c m b
   Neg a     -> "~" <> nameFromExpBool c m a
   LitBool a -> show a
   BoolVar a -> nameFromArg c m a
   TEntry a  -> nameFromItem m a
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBool c m y <> "-else-" <> nameFromExpBool c m z
+  Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
+    Just Refl -> nameFromExpInt c m a <> "==" <> nameFromExpInt c m b
+    Nothing -> case eqT @t @Bool of
+      Just Refl -> nameFromExpBool c m a <> "==" <> nameFromExpBool c m b
+      Nothing -> case eqT @t @ByteString of
+        Just Refl -> nameFromExpBytes c m a <> "==" <> nameFromExpBytes c m b
+        Nothing -> error "Internal Error: invalid expressio type"
+  NEq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
+    Just Refl -> nameFromExpInt c m a <> "=/=" <> nameFromExpInt c m b
+    Nothing -> case eqT @t @Bool of
+      Just Refl -> nameFromExpBool c m a <> "=/=" <> nameFromExpBool c m b
+      Nothing -> case eqT @t @ByteString of
+        Just Refl -> nameFromExpBytes c m a <> "=/=" <> nameFromExpBytes c m b
+        Nothing -> error "Internal Error: invalid expressio type"
 
 nameFromExpBytes :: Contract -> Method -> Exp ByteString -> Id
 nameFromExpBytes c m e = case e of

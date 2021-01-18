@@ -138,7 +138,7 @@ main = do
                            (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
                              $ Solidity.readJSON $ pack solContents
                            forM [b | B b <- refinedSpecs]
-                             $ makekSpec sources kOpts [i | I i <- refinedSpecs]
+                             $ makekSpec sources kOpts
         proceed specContents errKSpecs $ \kSpecs -> do
           let printFile (filename, content) = case out' of
                 Nothing -> putStrLn (filename <> ".k") >> putStrLn content

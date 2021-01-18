@@ -1,0 +1,14 @@
+constructor of C
+interface constructor(uint24 cd)
+
+creates
+
+    int totalSupply := -1
+    uint x := cd
+    uint val := CALLVALUE
+
+invariants
+
+    totalSupply == -1
+    val >= CALLVALUE
+    x == cd
