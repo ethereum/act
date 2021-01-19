@@ -20,7 +20,7 @@ common deps
                  mtl              >= 2.2.2,
                  utf8-string      >= 1.0.1.1
   ghc-options:   -Wall -Wno-deprecations
-  other-modules: Lex ErrM Parse RefinedAst K HEVM Coq Syntax Type Prove Print Enrich
+  other-modules: Lex ErrM Extract Parse RefinedAst K HEVM Coq Syntax Type Prove Print Enrich
 
 executable act
   import:             deps

@@ -16,13 +16,15 @@
   },
   {
     "kind": "Invariant",
-    "contract": "\"a\"",
-    "expression": "True"
+    "predicate": "True",
+    "preconditions": [],
+    "contract": "a"
   },
   {
     "kind": "Invariant",
-    "contract": "\"B\"",
-    "expression": "True"
+    "predicate": "True",
+    "preconditions": [],
+    "contract": "B"
   },
   {
     "kind": "Constructor",

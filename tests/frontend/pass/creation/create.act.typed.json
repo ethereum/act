@@ -14,8 +14,9 @@
   },
   {
     "kind": "Invariant",
-    "contract": "\"Modest\"",
-    "expression": "True"
+    "predicate": "True",
+    "preconditions": [],
+    "contract": "Modest"
   },
   {
     "kind": "Constructor",

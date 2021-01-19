@@ -1,14 +1,15 @@
 {-# Language RecordWildCards #-}
-{-# Language LambdaCase #-}
 {-# Language TypeApplications #-}
 {-# Language OverloadedStrings #-}
 {-# Language DataKinds #-}
 {-# Language GADTs #-}
+
 module HEVM where
 
 import Prelude hiding (lookup)
 import Syntax
 import RefinedAst hiding (S)
+import Extract
 
 import Data.Text (Text, pack, splitOn)
 import Data.Maybe
@@ -62,7 +63,7 @@ proveBehaviour sources behaviour = do
 
      postC (pre, post) = mkPostCondition pre post sources' behaviour contractMap (ctx pre post)
 
-    
+
 interfaceCalldata :: Interface -> Symbolic Buffer
 interfaceCalldata (Interface methodname vars) =
   let types = fmap (\(Decl typ _) -> typ) vars
@@ -209,7 +210,7 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 
--- | 
+-- |
 calculateSlot :: Ctx -> SolcJson -> StorageLocation -> SymWord
 calculateSlot ctx solcjson loc =
   -- TODO: packing with offset

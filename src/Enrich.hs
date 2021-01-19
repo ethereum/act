@@ -12,11 +12,12 @@ import EVM.Solidity (SlotType(..))
 import RefinedAst
 import Type (bound, defaultStore, metaType)
 import Syntax (EthEnv(..), Id, Decl(..), Interface(..))
+import Extract
 
 -- | Adds extra preconditions to non constructor behaviours based on the types of their variables
 enrich :: [Claim] -> [Claim]
 enrich claims = [S store]
-                <> (I <$> invariants)
+                <> (I <$> ((\i -> enrichInvariant store (definition i) i) <$> invariants))
                 <> (C <$> (enrichConstructor store <$> constructors))
                 <> (B <$> (enrichBehaviour store <$> behaviours))
   where
@@ -24,8 +25,9 @@ enrich claims = [S store]
     behaviours = [b | B b <- claims]
     invariants = [i | I i <- claims]
     constructors = [c | C c <- claims]
+    definition (Invariant c _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
 
--- |Adds type bounds for calldata / environment vars / external storage vars as preconditions
+-- |Adds type bounds for calldata , environment vars, and external storage vars as preconditions
 enrichConstructor :: Store -> Constructor -> Constructor
 enrichConstructor store ctor@(Constructor _ _ (Interface _ decls) pre _ _ storageUpdates) =
   ctor { _cpreconditions = pre' }
@@ -35,7 +37,7 @@ enrichConstructor store ctor@(Constructor _ _ (Interface _ decls) pre _ _ storag
              <> (mkStorageBounds store storageUpdates)
              <> (mkEthEnvBounds $ ethEnvFromConstructor ctor)
 
--- |Adds type bounds for calldata / environment vars / storage vars as preconditions
+-- | Adds type bounds for calldata, environment vars, and storage vars as preconditions
 enrichBehaviour :: Store -> Behaviour -> Behaviour
 enrichBehaviour store behv@(Behaviour _ _ _ (Interface _ decls) pre _ stateUpdates _) =
   behv { _preconditions = pre' }
@@ -45,77 +47,15 @@ enrichBehaviour store behv@(Behaviour _ _ _ (Interface _ decls) pre _ stateUpdat
              <> (mkStorageBounds store stateUpdates)
              <> (mkEthEnvBounds $ ethEnvFromBehaviour behv)
 
-ethEnvFromBehaviour :: Behaviour -> [EthEnv]
-ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
-  (concatMap ethEnvFromExp preconds)
-  <> (concatMap ethEnvFromExp postconds)
-  <> (concatMap ethEnvFromStateUpdate stateUpdates)
-  <> (maybe [] ethEnvFromReturnExp returns)
-
-ethEnvFromConstructor :: Constructor -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) =
-  (concatMap ethEnvFromExp pre)
-  <> (concatMap ethEnvFromExp post)
-  <> (concatMap ethEnvFromStateUpdate stateUpdates)
-  <> (concatMap ethEnvFromStateUpdate (Right <$> initialStorage))
-
-ethEnvFromStateUpdate :: Either StorageLocation StorageUpdate -> [EthEnv]
-ethEnvFromStateUpdate update = case update of
-  Left (IntLoc item) -> ethEnvFromItem item
-  Left (BoolLoc item) -> ethEnvFromItem item
-  Left (BytesLoc item) -> ethEnvFromItem item
-  Right (IntUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
-  Right (BoolUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
-  Right (BytesUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
-
-ethEnvFromItem :: TStorageItem a -> [EthEnv]
-ethEnvFromItem item = case item of
-  MappedInt _ _ ixs -> concatMap ethEnvFromReturnExp ixs
-  MappedBool _ _ ixs -> concatMap ethEnvFromReturnExp ixs
-  MappedBytes _ _ ixs -> concatMap ethEnvFromReturnExp ixs
-  _ -> []
-
-ethEnvFromReturnExp :: ReturnExp -> [EthEnv]
-ethEnvFromReturnExp (ExpInt e) = ethEnvFromExp e
-ethEnvFromReturnExp (ExpBool e) = ethEnvFromExp e
-ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
-
-ethEnvFromExp :: Exp a -> [EthEnv]
-ethEnvFromExp e = case e of
-  And a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Or a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  Impl a b  -> ethEnvFromExp a <> ethEnvFromExp b
-  Eq a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  LE a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  LEQ a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  GE a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  GEQ a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  NEq a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Neg a     -> ethEnvFromExp a
-  Add a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Sub a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Mul a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Div a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Mod a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Exp a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Cat a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Slice a b c -> ethEnvFromExp a <> ethEnvFromExp b <> ethEnvFromExp c
-  ITE a b c -> ethEnvFromExp a <> ethEnvFromExp b <> ethEnvFromExp c
-  ByVar _ -> []
-  ByStr _ -> []
-  ByLit _ -> []
-  LitInt _  -> []
-  IntVar _  -> []
-  LitBool _ -> []
-  BoolVar _ -> []
-  IntMin _ -> []
-  IntMax _ -> []
-  UIntMin _ -> []
-  UIntMax _ -> []
-  NewAddr a b -> ethEnvFromExp a <> ethEnvFromExp b
-  IntEnv a -> [a]
-  ByEnv a -> [a]
-  TEntry a  -> ethEnvFromItem a
+-- | Adds type bounds for calldata, environment vars, and storage vars as preconditions
+enrichInvariant :: Store -> Constructor -> Invariant -> Invariant
+enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invariant _ conds predicate) =
+  inv { _ipreconditions = conds' }
+    where
+      conds' = conds
+               <> (mkCallDataBounds decls)
+               <> (mkStorageBounds store (Left <$> locsFromExp predicate))
+               <> (mkEthEnvBounds $ ethEnvFromExp predicate)
 
 mkEthEnvBounds :: [EthEnv] -> [Exp Bool]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars

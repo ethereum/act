@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Type (typecheck, metaType, bound, getLoc, mkLoc, lookupVars, defaultStore) where
+module Type (typecheck, metaType, bound, lookupVars, defaultStore) where
 
 import Data.List
 import EVM.ABI
@@ -24,6 +24,7 @@ import Syntax hiding (Storage)
 import qualified Syntax
 import ErrM
 import Parse
+import Extract
 import RefinedAst
 import Print (prettyType)
 
@@ -148,7 +149,7 @@ splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Create
                else [ C $ Constructor contract Pass iface iffs' ensures stateUpdates []
                        , C $ Constructor contract Fail iface [Neg (mconcat iffs')] ensures [] []]
 
-  return $ ((I . (Invariant contract)) <$> invariants')
+  return $ ((I . (Invariant contract [])) <$> invariants')
            <> cases'
 
 mkEnv :: Id -> Store -> [Decl]-> Env
@@ -448,16 +449,3 @@ checkInt p env e =
     Ok (ExpBytes _) -> Bad (p, "expected: int, got: bytes")
     Ok (ExpBool _) -> Bad (p, "expected: int, got: bool")
     Bad err -> Bad err
-
-getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
-getLoc = either id mkLoc
-
-mkLoc :: StorageUpdate -> StorageLocation
-mkLoc (IntUpdate item _) = IntLoc item
-mkLoc (BoolUpdate item _) = BoolLoc item
-mkLoc (BytesUpdate item _) = BytesLoc item
-
-nameFromStorage :: Syntax.Storage -> Id
-nameFromStorage (Rewrite (Entry _ name _) _) = name
-nameFromStorage (Constant (Entry _ name _)) = name
-nameFromStorage store = error $ "Internal error: cannot extract name from " ++ (show store)
