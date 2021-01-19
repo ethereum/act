@@ -12,9 +12,10 @@ let
       hevm = dapptools.haskellPackages.hevm;
       sbv = dapptools.haskellPackages.sbv;
       act =
-        hself.callCabal2nix
+        hself.callCabal2nixWithOptions
           "act"
           (gitignore ./src)
+          "-fci"
           {};
     };
   };
