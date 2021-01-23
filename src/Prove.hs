@@ -200,26 +200,59 @@ mkSymStorage method store loc = case loc of
     w <- toDyn <$> sString (post item)
     return $ Map.insert (name item) (v, w) store
 
-  IntLoc item@MappedInt {} -> case Map.lookup (name item) store of
+  IntLoc item@(MappedInt _ _ idxs)  -> case Map.lookup (name item) store of
       Just _ -> return store
-      Nothing -> do
-        v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Integer Integer))
-        w <- toDyn <$> (newArray (post item) Nothing :: Symbolic (SArray Integer Integer))
-        return $ Map.insert (name item) (v, w) store
+      Nothing -> case length idxs of
+        1 -> case idxs NonEmpty.!! 0 of
+          ExpInt _ -> do
+            v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Integer Integer))
+            w <- toDyn <$> (newArray (post item) Nothing :: Symbolic (SArray Integer Integer))
+            return $ Map.insert (name item) (v, w) store
+          ExpBool _ -> do
+            v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Bool Integer))
+            w <- toDyn <$> (newArray (post item) Nothing :: Symbolic (SArray Bool Integer))
+            return $ Map.insert (name item) (v, w) store
+          ExpBytes _ -> do
+            v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray String Integer))
+            w <- toDyn <$> (newArray (post item) Nothing :: Symbolic (SArray String Integer))
+            return $ Map.insert (name item) (v, w) store
+        _ -> error "Internal Error: nested arrays are unsupported by the SMT backend"
 
-  BoolLoc item@MappedBool {} -> case Map.lookup (name item) store of
+  BoolLoc item@(MappedBool _ _ idxs) -> case Map.lookup (name item) store of
       Just _ -> return store
-      Nothing -> do
-        v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Bool Bool))
-        w <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Bool Bool))
-        return $ Map.insert (name item) (v, w) store
+      Nothing -> case length idxs of
+        1 -> case idxs NonEmpty.!! 0 of
+          ExpInt _ -> do
+            v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Integer Bool))
+            w <- toDyn <$> (newArray (post item) Nothing :: Symbolic (SArray Integer Bool))
+            return $ Map.insert (name item) (v, w) store
+          ExpBool _ -> do
+            v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Bool Bool))
+            w <- toDyn <$> (newArray (post item) Nothing :: Symbolic (SArray Bool Bool))
+            return $ Map.insert (name item) (v, w) store
+          ExpBytes _ -> do
+            v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray String Bool))
+            w <- toDyn <$> (newArray (post item) Nothing :: Symbolic (SArray String Bool))
+            return $ Map.insert (name item) (v, w) store
+        _ -> error "Internal Error: nested arrays are unsupported by the SMT backend"
 
-  BytesLoc item@MappedBytes {} -> case Map.lookup (name item) store of
+  BytesLoc item@(MappedBytes _ _ idxs) -> case Map.lookup (name item) store of
       Just _ -> return store
-      Nothing -> do
-        v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray String String))
-        w <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray String String))
-        return $ Map.insert (name item) (v, w) store
+      Nothing -> case length idxs of
+        1 -> case idxs NonEmpty.!! 0 of
+          ExpInt _ -> do
+            v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Integer String))
+            w <- toDyn <$> (newArray (post item) Nothing :: Symbolic (SArray Integer String))
+            return $ Map.insert (name item) (v, w) store
+          ExpBool _ -> do
+            v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Bool String))
+            w <- toDyn <$> (newArray (post item) Nothing :: Symbolic (SArray Bool String))
+            return $ Map.insert (name item) (v, w) store
+          ExpBytes _ -> do
+            v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray String String))
+            w <- toDyn <$> (newArray (post item) Nothing :: Symbolic (SArray String String))
+            return $ Map.insert (name item) (v, w) store
+        _ -> error "Internal Error: nested arrays are unsupported by the SMT backend"
   where
     name :: TStorageItem a -> Id
     name i = nameFromItem method i
@@ -268,26 +301,128 @@ fromLocation :: Ctx -> StorageLocation -> SBV Bool
 fromLocation ctx loc = case loc of
   IntLoc item -> case item of
     DirectInt _ _ -> getVar ctx item (catInts . (fst <$>)) .== getVar ctx item (catInts . (snd <$>))
-    MappedInt _ _ idxs -> let
-        preArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Integer) . (fst <$>))
-        preVal = readArray preArr (fromJust . fromDynamic $ mkIdx1 ctx Pre idxs)
-        postArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Integer) . (snd <$>))
-        postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
-      in preVal .== postVal
-  BoolLoc item -> getVar ctx item (catBools . (fst <$>)) .== getVar ctx item (catBools . (snd <$>))
-  BytesLoc item -> getVar ctx item (catBytes . (fst <$>)) .== getVar ctx item (catBytes . (snd <$>))
+    MappedInt _ _ idxs -> case length idxs of
+      1 -> case idxs NonEmpty.!! 0 of
+        ExpInt _ -> let
+            preArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Integer) . (fst <$>))
+            preVal = readArray preArr (fromJust . fromDynamic $ mkIdx1 ctx Pre idxs)
+            postArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Integer) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in preVal .== postVal
+        ExpBool _ -> let
+            preArr = getVar ctx item (catArrays (undefined :: Bool) (undefined :: Integer) . (fst <$>))
+            preVal = readArray preArr (fromJust . fromDynamic $ mkIdx1 ctx Pre idxs)
+            postArr = getVar ctx item (catArrays (undefined :: Bool) (undefined :: Integer) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in preVal .== postVal
+        ExpBytes _ -> let
+            preArr = getVar ctx item (catArrays (undefined :: String) (undefined :: Integer) . (fst <$>))
+            preVal = readArray preArr (fromJust . fromDynamic $ mkIdx1 ctx Pre idxs)
+            postArr = getVar ctx item (catArrays (undefined :: String) (undefined :: Integer) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in preVal .== postVal
+      _ -> error "Internal Error: nested mappings are not supported by the SMT backend"
+  BoolLoc item -> case item of
+    DirectBool _ _ -> getVar ctx item (catBools . (fst <$>)) .== getVar ctx item (catBools . (snd <$>))
+    MappedBool _ _ idxs -> case length idxs of
+      1 -> case idxs NonEmpty.!! 0 of
+        ExpInt _ -> let
+            preArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Bool) . (fst <$>))
+            preVal = readArray preArr (fromJust . fromDynamic $ mkIdx1 ctx Pre idxs)
+            postArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Bool) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in preVal .== postVal
+        ExpBool _ -> let
+            preArr = getVar ctx item (catArrays (undefined :: Bool) (undefined :: Bool) . (fst <$>))
+            preVal = readArray preArr (fromJust . fromDynamic $ mkIdx1 ctx Pre idxs)
+            postArr = getVar ctx item (catArrays (undefined :: Bool) (undefined :: Bool) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in preVal .== postVal
+        ExpBytes _ -> let
+            preArr = getVar ctx item (catArrays (undefined :: String) (undefined :: Bool) . (fst <$>))
+            preVal = readArray preArr (fromJust . fromDynamic $ mkIdx1 ctx Pre idxs)
+            postArr = getVar ctx item (catArrays (undefined :: String) (undefined :: Bool) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in preVal .== postVal
+      _ -> error "Internal Error: nested mappings are not supported by the SMT backend"
+  BytesLoc item -> case item of
+    DirectBytes _ _ -> getVar ctx item (catBytes . (fst <$>)) .== getVar ctx item (catBytes . (snd <$>))
+    MappedBytes _ _ idxs -> case length idxs of
+      1 -> case idxs NonEmpty.!! 0 of
+        ExpInt _ -> let
+            preArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: String) . (fst <$>))
+            preVal = readArray preArr (fromJust . fromDynamic $ mkIdx1 ctx Pre idxs)
+            postArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: String) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in preVal .== postVal
+        ExpBool _ -> let
+            preArr = getVar ctx item (catArrays (undefined :: Bool) (undefined :: String) . (fst <$>))
+            preVal = readArray preArr (fromJust . fromDynamic $ mkIdx1 ctx Pre idxs)
+            postArr = getVar ctx item (catArrays (undefined :: Bool) (undefined :: String) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in preVal .== postVal
+        ExpBytes _ -> let
+            preArr = getVar ctx item (catArrays (undefined :: String) (undefined :: String) . (fst <$>))
+            preVal = readArray preArr (fromJust . fromDynamic $ mkIdx1 ctx Pre idxs)
+            postArr = getVar ctx item (catArrays (undefined :: String) (undefined :: String) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in preVal .== postVal
+      _ -> error "Internal Error: nested mappings are not supported by the SMT backend"
 
 -- | produces an expression that returns true if the poststate is equal to the rhs of the update
 fromUpdate :: Ctx -> StorageUpdate -> SBV Bool
 fromUpdate ctx update = case update of
   IntUpdate item e -> case item of
     DirectInt _ _ -> getVar ctx item (catInts . (snd <$>)) .== symExpInt ctx Pre e
-    MappedInt _ _ idxs -> let
-        postArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Integer) . (snd <$>))
-        postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
-      in postVal .== symExpInt ctx Pre e
-  BoolUpdate item e -> getVar ctx item (catBools . (snd <$>)) .== symExpBool ctx Pre e
-  BytesUpdate item e -> getVar ctx item (catBytes . (snd <$>)) .== symExpBytes ctx Pre e
+    MappedInt _ _ idxs -> case length idxs of
+      1 -> case idxs NonEmpty.!! 0 of
+        ExpInt _ -> let
+            postArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Integer) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in postVal .== symExpInt ctx Pre e
+        ExpBool _ -> let
+            postArr = getVar ctx item (catArrays (undefined :: Bool) (undefined :: Integer) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in postVal .== symExpInt ctx Pre e
+        ExpBytes _ -> let
+            postArr = getVar ctx item (catArrays (undefined :: String) (undefined :: Integer) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in postVal .== symExpInt ctx Pre e
+      _ -> error "Internal Error: nested mappings are not supported by the SMT backend"
+  BoolUpdate item e -> case item of
+    DirectBool _ _ -> getVar ctx item (catBools . (snd <$>)) .== symExpBool ctx Pre e
+    MappedBool _ _ idxs -> case length idxs of
+      1 -> case idxs NonEmpty.!! 0 of
+        ExpInt _ -> let
+            postArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Bool) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in postVal .== symExpBool ctx Pre e
+        ExpBool _ -> let
+            postArr = getVar ctx item (catArrays (undefined :: Bool) (undefined :: Bool) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in postVal .== symExpBool ctx Pre e
+        ExpBytes _ -> let
+            postArr = getVar ctx item (catArrays (undefined :: String) (undefined :: Bool) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in postVal .== symExpBool ctx Pre e
+      _ -> error "Internal Error: nested mappings are not supported by the SMT backend"
+  BytesUpdate item e -> case item of
+    DirectBytes _ _ -> getVar ctx item (catBytes . (snd <$>)) .== symExpBytes ctx Pre e
+    MappedBytes _ _ idxs -> case length idxs of
+      1 -> case idxs NonEmpty.!! 0 of
+        ExpInt _ -> let
+            postArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: String) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in postVal .== symExpBytes ctx Pre e
+        ExpBool _ -> let
+            postArr = getVar ctx item (catArrays (undefined :: Bool) (undefined :: String) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in postVal .== symExpBytes ctx Pre e
+        ExpBytes _ -> let
+            postArr = getVar ctx item (catArrays (undefined :: String) (undefined :: String) . (snd <$>))
+            postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+          in postVal .== symExpBytes ctx Pre e
+      _ -> error "Internal Error: nested mappings are not supported by the SMT backend"
 
 getVar :: (Show b) => Ctx -> TStorageItem a -> (Map Id (Dynamic, Dynamic) -> Map Id b) -> b
 getVar (Ctx _ m _ store _) i f = get (nameFromItem m i) (f store)
@@ -315,7 +450,17 @@ symExpBool ctx@(Ctx c m args store _) w e = case e of
   Neg a     -> sNot (symExpBool ctx w a)
   LitBool a -> literal a
   BoolVar a -> get (nameFromArg c m a) (catBools args)
-  TEntry a  -> trace ("HI: " <> nameFromItem m a) $ get (nameFromItem m a) (catBools store')
+  TEntry a  -> case a of
+    DirectBool _ _ -> get (nameFromItem m a) (catBools store')
+    MappedBool _ _ idxs -> case length idxs of
+      1 -> case idxs NonEmpty.!! 0 of
+        ExpInt _ -> let arr = get (nameFromItem m a) (catArrays (undefined :: Integer) (undefined :: Bool) store')
+                    in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
+        ExpBool _ -> let arr = get (nameFromItem m a) (catArrays (undefined :: Bool) (undefined :: Bool) store')
+                     in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
+        ExpBytes _ -> let arr = get (nameFromItem m a) (catArrays (undefined :: String) (undefined :: Bool) store')
+                      in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
+      _ -> error "Internal Error: nested mappings are unsupported by the SMT backend"
   ITE x y z -> ite (symExpBool ctx w x) (symExpBool ctx w y) (symExpBool ctx w z)
   Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
     Just Refl -> symExpInt ctx w a .== symExpInt ctx w b
@@ -344,9 +489,15 @@ symExpInt ctx@(Ctx c m args store env) w e = case e of
   IntVar a  -> get (nameFromArg c m a) (catInts args)
   TEntry a  -> case a of
     DirectInt _ _ -> get (nameFromItem m a) (catInts store')
-    MappedInt _ _ idxs ->
-      let arr = get (nameFromItem m a) (catArrays (undefined :: Integer) (undefined :: Integer) store')
-      in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
+    MappedInt _ _ idxs -> case length idxs of
+      1 -> case idxs NonEmpty.!! 0 of
+        ExpInt _ -> let arr = get (nameFromItem m a) (catArrays (undefined :: Integer) (undefined :: Integer) store')
+                    in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
+        ExpBool _ -> let arr = get (nameFromItem m a) (catArrays (undefined :: Bool) (undefined :: Integer) store')
+                     in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
+        ExpBytes _ -> let arr = get (nameFromItem m a) (catArrays (undefined :: String) (undefined :: Integer) store')
+                      in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
+      _ -> error "Internal Error: nested mappings are unsupported by the SMT backend"
   IntEnv a -> trace ("SHIT: " <> nameFromEnv c m a) $ get (nameFromEnv c m a) (catInts env)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx w x) (symExpInt ctx w y) (symExpInt ctx w z)
@@ -366,7 +517,17 @@ symExpBytes ctx@(Ctx c m args store env) w e = case e of
   ByVar a  -> get (nameFromArg c m a) (catBytes args)
   ByStr a -> literal a
   ByLit a -> literal $ toString a
-  TEntry a  -> get (nameFromItem m a) (catBytes store')
+  TEntry a  -> case a of
+    DirectBytes _ _ -> get (nameFromItem m a) (catBytes store')
+    MappedBytes _ _ idxs -> case length idxs of
+      1 -> case idxs NonEmpty.!! 0 of
+        ExpInt _ -> let arr = get (nameFromItem m a) (catArrays (undefined :: Integer) (undefined :: String) store')
+                    in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
+        ExpBool _ -> let arr = get (nameFromItem m a) (catArrays (undefined :: Bool) (undefined :: String) store')
+                     in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
+        ExpBytes _ -> let arr = get (nameFromItem m a) (catArrays (undefined :: String) (undefined :: String) store')
+                      in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
+      _ -> error "Internal Error: nested mappings are unsupported by the SMT backend"
   Slice a x y -> subStr (symExpBytes ctx w a) (symExpInt ctx w x) (symExpInt ctx w y)
   ByEnv a -> get (nameFromEnv c m a) (catBytes env)
   ITE x y z -> ite (symExpBool ctx w x) (symExpBytes ctx w y) (symExpBytes ctx w z)
