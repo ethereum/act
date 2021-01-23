@@ -4,13 +4,14 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
+{-# Language DeriveDataTypeable #-}
+{-# Language DeriveAnyClass #-}
 
 module Prove
   ( queries
   , Ctx(..)
   , When(..)
   , SMType(..)
-  , Atomic(..)
   , Method
   , getLoc
   , get
@@ -29,14 +30,15 @@ module Prove
 import Control.Monad (when, foldM)
 import Data.ByteString (ByteString)
 import Data.ByteString.UTF8 (toString)
-import Data.List (intercalate, (\\), nub)
-import Data.List.NonEmpty as NonEmpty (toList, (!!))
+import Data.List ((\\), nub)
+import Data.Data
+import Data.List.NonEmpty as NonEmpty (NonEmpty(..), (!!))
 import Data.Map.Strict as Map (Map, lookup, fromList, toList, empty, insert)
 import Data.Maybe
-import Data.Type.Equality
-import Data.Typeable
 
 import Data.SBV hiding (name)
+import Data.SBV.Either (either)
+import Data.SBV.Tuple (tuple)
 import Data.SBV.String ((.++), subStr)
 
 import RefinedAst
@@ -90,30 +92,31 @@ type Args = Map Id SMType
 type Storage = Map Id (SMType, SMType)
 type Env = Map Id SMType
 data When = Pre | Post
-
   deriving (Eq, Show)
 
 data Ctx = Ctx Contract Method Args Storage Env
 
-data Atomic
-  = SymInteger (SBV Integer)
-  | SymBool (SBV Bool)
-  | SymBytes (SBV String)
-  deriving (Show)
+data SAtomic = SymInteger (SBV Integer)
+             | SymBool    (SBV Bool)
+             | SymBytes   (SBV String)
 
-data Mapping = forall a b c. (SymArray a, Show (a b c)) => Mapping (a b c)
+-- We need this awkward definition to be able to get a HasKind instance,
+-- allowing us to use produce the Mapping type below...
+type Atomic = Either Integer
+             (Either Bool String)
 
-instance Show Mapping where
-  show (Mapping arr) = show arr
+data Idx = One    Atomic
+         | Two   (Atomic, Atomic)
+         | Three (Atomic, Atomic, Atomic)
+         | Four  (Atomic, Atomic, Atomic, Atomic)
+         | Five  (Atomic, Atomic, Atomic, Atomic, Atomic)
+         | Six   (Atomic, Atomic, Atomic, Atomic, Atomic, Atomic)
+         | Seven (Atomic, Atomic, Atomic, Atomic, Atomic, Atomic, Atomic)
+         deriving (Data, Read, HasKind)
 
-data SMType = A Atomic | M Mapping
-  deriving (Show)
+newtype Mapping = Mapping (SArray Idx Atomic)
 
-instance EqSymbolic Atomic where
-  SymInteger a .== SymInteger b = a .== b
-  SymBool a .== SymBool b = a .== b
-  SymBytes a .== SymBytes b = a .== b
-  _ .== _ = literal False
+data SMType = A SAtomic | M Mapping
 
 
 -- *** Query Construction *** --
@@ -161,7 +164,7 @@ mkMethod inv@(Invariant _ invConds invExp) initBehv behv = do
 
 mkContext :: Invariant -> Either Behaviour Constructor -> Symbolic Ctx
 mkContext inv@(Invariant contract _ _) spec = do
-  let (c1, decls, method) = either
+  let (c1, decls, method) = Prelude.either
         (\(Behaviour m _ c (Interface _ ds) _ _ _ _) -> (c,ds, m))
         (\(Constructor c _ (Interface _ ds) _ _ _ _) -> (c, ds, "init"))
         spec
@@ -181,7 +184,7 @@ references :: Invariant -> Either Behaviour Constructor -> [StorageLocation]
 references (Invariant _ _ invExp) spec
   = nub $ (getLoc <$> updates) <> locsFromExp invExp
       where
-        updates = either
+        updates = Prelude.either
           (\(Behaviour _ _ _ _ _ _ u _) -> u)
           (\(Constructor _ _ _ _ _ i cs) -> (Right <$> i) <> cs)
           spec
@@ -209,227 +212,40 @@ mkSymStorage method store loc = case loc of
     v <- A . SymInteger <$> sInteger (pre item)
     w <- A . SymInteger <$> sInteger (post item)
     return $ Map.insert (name item) (v, w) store
+
   BoolLoc item@DirectBool {} -> do
     v <- A . SymBool <$> sBool (pre item)
     w <- A . SymBool <$> sBool (post item)
     return $ Map.insert (name item) (v, w) store
+
   BytesLoc item@DirectBytes {} -> do
     v <- A . SymBytes <$> sString (pre item)
     w <- A . SymBytes <$> sString (post item)
     return $ Map.insert (name item) (v, w) store
-  IntLoc (MappedInt ctrct name' idxs) -> let key = ctrct <> name' in
-    case Map.lookup key store of
-      Just (M (Mapping _), M (Mapping _)) -> return store
+
+  IntLoc item@MappedInt {} -> case Map.lookup (name item) store of
+      Just (M _, M _) -> return store
       Just (_, _) -> error "internal error: smt type mismatch"
-      Nothing -> case (length idxs) of
-        1 -> case idxs NonEmpty.!! 0 of
-          ExpInt _ -> do
-            let mkArr suffix = newArray (key <> suffix) Nothing
-            v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray SInteger SInteger))
-            w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray SInteger SInteger))
-            return $ Map.insert (key) (v, w) store
-          ExpBool _ -> do
-            let mkArr suffix = newArray (key <> suffix) Nothing
-            v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray SBool SInteger))
-            w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray SBool SInteger))
-            return $ Map.insert (key) (v, w) store
-          ExpBytes _ -> do
-            let mkArr suffix = newArray (key <> suffix) Nothing
-            v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray SString SInteger))
-            w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray SString SInteger))
-            return $ Map.insert (key) (v, w) store
-        2 -> case idxs NonEmpty.!! 0 of
-          ExpInt _ -> case idxs NonEmpty.!! 1 of
-            ExpInt _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SInteger, SInteger) SInteger))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SInteger, SInteger) SInteger))
-              return $ Map.insert (key) (v, w) store
-            ExpBool _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SInteger, SBool) SInteger))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SInteger, SBool) SInteger))
-              return $ Map.insert (key) (v, w) store
-            ExpBytes _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SInteger, SString) SInteger))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SInteger, SString) SInteger))
-              return $ Map.insert (key) (v, w) store
-          ExpBool _ -> case idxs NonEmpty.!! 1 of
-            ExpInt _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SBool, SInteger) SInteger))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SBool, SInteger) SInteger))
-              return $ Map.insert (key) (v, w) store
-            ExpBool _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SBool, SBool) SInteger))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SBool, SBool) SInteger))
-              return $ Map.insert (key) (v, w) store
-            ExpBytes _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SBool, SString) SInteger))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SBool, SString) SInteger))
-              return $ Map.insert (key) (v, w) store
-          ExpBytes _ -> case idxs NonEmpty.!! 1 of
-            ExpInt _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SString, SInteger) SInteger))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SString, SInteger) SInteger))
-              return $ Map.insert (key) (v, w) store
-            ExpBool _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SString, SBool) SInteger))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SString, SBool) SInteger))
-              return $ Map.insert (key) (v, w) store
-            ExpBytes _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SString, SString) SInteger))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SString, SString) SInteger))
-              return $ Map.insert (key) (v, w) store
-        _ -> error "nested mappings of depth > 8 are unsupported!"
-  BoolLoc (MappedBool ctrct name' idxs) -> let key = ctrct <> name' in
-    case Map.lookup key store of
-      Just (M (Mapping _), M (Mapping _)) -> return store
+      Nothing -> do
+        v <- M . Mapping <$> newArray (pre item) Nothing
+        w <- M . Mapping <$> newArray (pre item) Nothing
+        return $ Map.insert (name item) (v, w) store
+
+  BoolLoc item@MappedBool {} -> case Map.lookup (name item) store of
+      Just (M _, M _) -> return store
       Just (_, _) -> error "internal error: smt type mismatch"
-      Nothing -> case (length idxs) of
-        1 -> case idxs NonEmpty.!! 0 of
-          ExpInt _ -> do
-            let mkArr suffix = newArray (key <> suffix) Nothing
-            v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray SInteger SBool))
-            w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray SInteger SBool))
-            return $ Map.insert (key) (v, w) store
-          ExpBool _ -> do
-            let mkArr suffix = newArray (key <> suffix) Nothing
-            v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray SBool SBool))
-            w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray SBool SBool))
-            return $ Map.insert (key) (v, w) store
-          ExpBytes _ -> do
-            let mkArr suffix = newArray (key <> suffix) Nothing
-            v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray SString SBool))
-            w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray SString SBool))
-            return $ Map.insert (key) (v, w) store
-        2 -> case idxs NonEmpty.!! 0 of
-          ExpInt _ -> case idxs NonEmpty.!! 1 of
-            ExpInt _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SInteger, SInteger) SBool))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SInteger, SInteger) SBool))
-              return $ Map.insert (key) (v, w) store
-            ExpBool _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SInteger, SBool) SBool))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SInteger, SBool) SBool))
-              return $ Map.insert (key) (v, w) store
-            ExpBytes _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SInteger, SString) SBool))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SInteger, SString) SBool))
-              return $ Map.insert (key) (v, w) store
-          ExpBool _ -> case idxs NonEmpty.!! 1 of
-            ExpInt _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SBool, SInteger) SBool))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SBool, SInteger) SBool))
-              return $ Map.insert (key) (v, w) store
-            ExpBool _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SBool, SBool) SBool))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SBool, SBool) SBool))
-              return $ Map.insert (key) (v, w) store
-            ExpBytes _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SBool, SString) SBool))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SBool, SString) SBool))
-              return $ Map.insert (key) (v, w) store
-          ExpBytes _ -> case idxs NonEmpty.!! 1 of
-            ExpInt _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SString, SInteger) SBool))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SString, SInteger) SBool))
-              return $ Map.insert (key) (v, w) store
-            ExpBool _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SString, SBool) SBool))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SString, SBool) SBool))
-              return $ Map.insert (key) (v, w) store
-            ExpBytes _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SString, SString) SBool))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SString, SString) SBool))
-              return $ Map.insert (key) (v, w) store
-        _ -> error "nested mappings of depth > 8 are unsupported!"
-  BytesLoc (MappedBytes ctrct name' idxs) -> let key = ctrct <> name' in
-    case Map.lookup key store of
-      Just (M (Mapping _), M (Mapping _)) -> return store
+      Nothing -> do
+        v <- M . Mapping <$> newArray (pre item) Nothing
+        w <- M . Mapping <$> newArray (pre item) Nothing
+        return $ Map.insert (name item) (v, w) store
+
+  BytesLoc item@MappedBytes {} -> case Map.lookup (name item) store of
+      Just (M _, M _) -> return store
       Just (_, _) -> error "internal error: smt type mismatch"
-      Nothing -> case (length idxs) of
-        1 -> case idxs NonEmpty.!! 0 of
-          ExpInt _ -> do
-            let mkArr suffix = newArray (key <> suffix) Nothing
-            v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray SInteger SString))
-            w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray SInteger SString))
-            return $ Map.insert (key) (v, w) store
-          ExpBool _ -> do
-            let mkArr suffix = newArray (key <> suffix) Nothing
-            v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray SBool SString))
-            w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray SBool SString))
-            return $ Map.insert (key) (v, w) store
-          ExpBytes _ -> do
-            let mkArr suffix = newArray (key <> suffix) Nothing
-            v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray SString SString))
-            w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray SString SString))
-            return $ Map.insert (key) (v, w) store
-        2 -> case idxs NonEmpty.!! 0 of
-          ExpInt _ -> case idxs NonEmpty.!! 1 of
-            ExpInt _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SInteger, SInteger) SString))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SInteger, SInteger) SString))
-              return $ Map.insert (key) (v, w) store
-            ExpBool _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SInteger, SBool) SString))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SInteger, SBool) SString))
-              return $ Map.insert (key) (v, w) store
-            ExpBytes _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SInteger, SString) SString))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SInteger, SString) SString))
-              return $ Map.insert (key) (v, w) store
-          ExpBool _ -> case idxs NonEmpty.!! 1 of
-            ExpInt _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SBool, SInteger) SString))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SBool, SInteger) SString))
-              return $ Map.insert (key) (v, w) store
-            ExpBool _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SBool, SBool) SString))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SBool, SBool) SString))
-              return $ Map.insert (key) (v, w) store
-            ExpBytes _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SBool, SString) SString))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SBool, SString) SString))
-              return $ Map.insert (key) (v, w) store
-          ExpBytes _ -> case idxs NonEmpty.!! 1 of
-            ExpInt _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SString, SInteger) SString))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SString, SInteger) SString))
-              return $ Map.insert (key) (v, w) store
-            ExpBool _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SString, SBool) SString))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SString, SBool) SString))
-              return $ Map.insert (key) (v, w) store
-            ExpBytes _ -> do
-              let mkArr suffix = newArray (key <> suffix) Nothing
-              v <- M . Mapping <$> (mkArr "_pre" :: Symbolic (SArray (SString, SString) SString))
-              w <- M . Mapping <$> (mkArr "_post" :: Symbolic (SArray (SString, SString) SString))
-              return $ Map.insert (key) (v, w) store
-        _ -> error "nested mappings of depth > 8 are unsupported!"
+      Nothing -> do
+        v <- M . Mapping <$> newArray (pre item) Nothing
+        w <- M . Mapping <$> newArray (pre item) Nothing
+        return $ Map.insert (name item) (v, w) store
   where
     name :: TStorageItem a -> Id
     name i = nameFromItem method i
@@ -493,6 +309,7 @@ getVar (Ctx _ m _ store _) i f = get (nameFromItem m i) (f store)
 
 -- *** Symbolic Expression Construction *** ---
 
+
 symExp :: Ctx -> When -> ReturnExp -> SMType
 symExp ctx whn ret = case ret of
   ExpInt e -> A . SymInteger $ symExpInt ctx whn e
@@ -539,13 +356,32 @@ symExpInt ctx@(Ctx c m args store env) w e = case e of
   UIntMin a -> literal $ uintmin a
   UIntMax a -> literal $ uintmax a
   IntVar a  -> get (nameFromArg c m a) (catInts args)
-  TEntry a  -> get (nameFromItem m a) (catInts store')
+  TEntry a  -> case a of
+    DirectInt _ _ -> get (nameFromItem m a) (catInts store')
+    MappedInt _ _ idxs -> let
+        arr = fromJust $ Map.lookup (nameFromItem m a) store'
+      in case arr of
+        M (Mapping arr') -> let res = readArray arr' (mkIdx ctx w idxs)
+                            in Data.SBV.Either.either id (error "fuck") res
+        _ -> error "Internal Error: type mismatch"
   IntEnv a -> get (nameFromEnv c m a) (catInts env)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx w x) (symExpInt ctx w y) (symExpInt ctx w z)
  where store' = case w of
          Pre -> fst <$> store
          Post -> snd <$> store
+
+mkIdx :: NonEmpty ReturnExp -> SBV Idx
+mkIdx = One . symbolize . unwrapReturnExp . toTuple1
+
+symbolize :: (a) -> SBV b
+symbolize = undefined
+
+unwrapReturnExp :: (ReturnExp) -> (a)
+unwrapReturnExp = undefined
+
+toTuple1 :: NonEmpty a -> (a)
+toTuple1 = undefined
 
 symExpBytes :: Ctx -> When -> Exp ByteString -> SBV String
 symExpBytes ctx@(Ctx c m args store env) w e = case e of
@@ -570,77 +406,9 @@ nameFromItem method item = case item of
   DirectInt c name -> c @@ method @@ name
   DirectBool c name -> c @@ method @@ name
   DirectBytes c name -> c @@ method @@ name
-  MappedInt c name ixs -> c @@ method @@ name >< showIxs c ixs
-  MappedBool c name ixs -> c @@ method @@ name >< showIxs c ixs
-  MappedBytes c name ixs -> c @@ method @@ name >< showIxs c ixs
-  where
-    x >< y = x <> "-" <> y
-    showIxs contract ixs = intercalate "-" (NonEmpty.toList $ nameFromExp contract method <$> ixs)
-
-nameFromExp :: Contract -> Method -> ReturnExp -> Id
-nameFromExp contract method e = case e of
-  ExpInt e' -> nameFromExpInt contract method e'
-  ExpBool e' -> nameFromExpBool contract method e'
-  ExpBytes e' -> nameFromExpBytes contract method e'
-
-nameFromExpInt :: Contract -> Method -> Exp Integer -> Id
-nameFromExpInt c m e = case e of
-  Add a b   -> (nameFromExpInt c m a) <> "+" <> (nameFromExpInt c m b)
-  Sub a b   -> (nameFromExpInt c m a) <> "-" <> (nameFromExpInt c m b)
-  Mul a b   -> (nameFromExpInt c m a) <> "*" <> (nameFromExpInt c m b)
-  Div a b   -> (nameFromExpInt c m a) <> "/" <> (nameFromExpInt c m b)
-  Mod a b   -> (nameFromExpInt c m a) <> "%" <> (nameFromExpInt c m b)
-  Exp a b   -> (nameFromExpInt c m a) <> "^" <> (nameFromExpInt c m b)
-  LitInt a  -> show a
-  IntMin a  -> show $ intmin a
-  IntMax a  -> show $ intmax a
-  UIntMin a -> show $ uintmin a
-  UIntMax a -> show $ uintmax a
-  IntVar a  -> a
-  TEntry a  -> nameFromItem m a
-  IntEnv a -> nameFromEnv c m a
-  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpInt c m y <> "-else-" <> nameFromExpInt c m z
-
-nameFromExpBool :: Contract -> Method -> Exp Bool -> Id
-nameFromExpBool c m e = case e of
-  And a b   -> nameFromExpBool c m a <> "&&" <> nameFromExpBool c m b
-  Or a b    -> nameFromExpBool c m a <> "|" <> nameFromExpBool c m b
-  Impl a b  -> nameFromExpBool c m a <> "=>" <> nameFromExpBool c m b
-  LE a b    -> nameFromExpInt c m a <> "<" <> nameFromExpInt c m b
-  LEQ a b   -> nameFromExpInt c m a <> "<=" <> nameFromExpInt c m b
-  GE a b    -> nameFromExpInt c m a <> ">" <> nameFromExpInt c m b
-  GEQ a b   -> nameFromExpInt c m a <> ">=" <> nameFromExpInt c m b
-  Neg a     -> "~" <> nameFromExpBool c m a
-  LitBool a -> show a
-  BoolVar a -> nameFromArg c m a
-  TEntry a  -> nameFromItem m a
-  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBool c m y <> "-else-" <> nameFromExpBool c m z
-  Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
-    Just Refl -> nameFromExpInt c m a <> "==" <> nameFromExpInt c m b
-    Nothing -> case eqT @t @Bool of
-      Just Refl -> nameFromExpBool c m a <> "==" <> nameFromExpBool c m b
-      Nothing -> case eqT @t @ByteString of
-        Just Refl -> nameFromExpBytes c m a <> "==" <> nameFromExpBytes c m b
-        Nothing -> error "Internal Error: invalid expressio type"
-  NEq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
-    Just Refl -> nameFromExpInt c m a <> "=/=" <> nameFromExpInt c m b
-    Nothing -> case eqT @t @Bool of
-      Just Refl -> nameFromExpBool c m a <> "=/=" <> nameFromExpBool c m b
-      Nothing -> case eqT @t @ByteString of
-        Just Refl -> nameFromExpBytes c m a <> "=/=" <> nameFromExpBytes c m b
-        Nothing -> error "Internal Error: invalid expressio type"
-
-nameFromExpBytes :: Contract -> Method -> Exp ByteString -> Id
-nameFromExpBytes c m e = case e of
-  Cat a b -> nameFromExpBytes c m a <> "++" <> nameFromExpBytes c m b
-  ByVar a  -> nameFromArg c m a
-  ByStr a -> show a
-  ByLit a -> show a
-  TEntry a  -> nameFromItem m a
-  Slice a x y -> nameFromExpBytes c m a <> "[" <> show x <> ":" <> show y <> "]"
-  ByEnv a -> nameFromEnv c m a
-  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBytes c m y <> "-else-" <> nameFromExpBytes c m z
+  MappedInt c name _ -> c @@ method @@ name
+  MappedBool c name _ -> c @@ method @@ name
+  MappedBytes c name _ -> c @@ method @@ name
 
 nameFromDecl :: Contract -> Method -> Decl -> Id
 nameFromDecl c m (Decl _ name) = nameFromArg c m name

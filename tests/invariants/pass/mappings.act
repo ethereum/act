@@ -1,0 +1,11 @@
+constructor of C
+interface constructor()
+
+creates
+
+   uint a := 0
+   mapping(uint=>uint) b := [0 := 1]
+
+invariants
+
+  b[a] == 1
