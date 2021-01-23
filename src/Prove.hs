@@ -42,6 +42,10 @@ import Syntax (Id, Interface(..), Decl(..), EthEnv(..))
 import Type (metaType)
 import Print (prettyEnv)
 import Extract (locsFromExp, getLoc)
+import Debug.Trace
+
+trace' x = trace (show x) x
+
 
 -- *** Interface *** --
 
@@ -262,14 +266,26 @@ mkConstraint ctx (Right update) = fromUpdate ctx update
 -- | produces an expression that returns true if the prestate and poststate are equal
 fromLocation :: Ctx -> StorageLocation -> SBV Bool
 fromLocation ctx loc = case loc of
-  IntLoc item -> getVar ctx item (catInts . (fst <$>)) .== getVar ctx item (catInts . (snd <$>))
+  IntLoc item -> case item of
+    DirectInt _ _ -> getVar ctx item (catInts . (fst <$>)) .== getVar ctx item (catInts . (snd <$>))
+    MappedInt _ _ idxs -> let
+        preArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Integer) . (fst <$>))
+        preVal = readArray preArr (fromJust . fromDynamic $ mkIdx1 ctx Pre idxs)
+        postArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Integer) . (snd <$>))
+        postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+      in preVal .== postVal
   BoolLoc item -> getVar ctx item (catBools . (fst <$>)) .== getVar ctx item (catBools . (snd <$>))
   BytesLoc item -> getVar ctx item (catBytes . (fst <$>)) .== getVar ctx item (catBytes . (snd <$>))
 
 -- | produces an expression that returns true if the poststate is equal to the rhs of the update
 fromUpdate :: Ctx -> StorageUpdate -> SBV Bool
 fromUpdate ctx update = case update of
-  IntUpdate item e -> getVar ctx item (catInts . (snd <$>)) .== symExpInt ctx Pre e
+  IntUpdate item e -> case item of
+    DirectInt _ _ -> getVar ctx item (catInts . (snd <$>)) .== symExpInt ctx Pre e
+    MappedInt _ _ idxs -> let
+        postArr = getVar ctx item (catArrays (undefined :: Integer) (undefined :: Integer) . (snd <$>))
+        postVal = readArray postArr (fromJust . fromDynamic $ mkIdx1 ctx Post idxs)
+      in postVal .== symExpInt ctx Pre e
   BoolUpdate item e -> getVar ctx item (catBools . (snd <$>)) .== symExpBool ctx Pre e
   BytesUpdate item e -> getVar ctx item (catBytes . (snd <$>)) .== symExpBytes ctx Pre e
 
@@ -299,7 +315,7 @@ symExpBool ctx@(Ctx c m args store _) w e = case e of
   Neg a     -> sNot (symExpBool ctx w a)
   LitBool a -> literal a
   BoolVar a -> get (nameFromArg c m a) (catBools args)
-  TEntry a  -> get (nameFromItem m a) (catBools store')
+  TEntry a  -> trace ("HI: " <> nameFromItem m a) $ get (nameFromItem m a) (catBools store')
   ITE x y z -> ite (symExpBool ctx w x) (symExpBool ctx w y) (symExpBool ctx w z)
   Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
     Just Refl -> symExpInt ctx w a .== symExpInt ctx w b
@@ -331,7 +347,7 @@ symExpInt ctx@(Ctx c m args store env) w e = case e of
     MappedInt _ _ idxs ->
       let arr = get (nameFromItem m a) (catArrays (undefined :: Integer) (undefined :: Integer) store')
       in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
-  IntEnv a -> get (nameFromEnv c m a) (catInts env)
+  IntEnv a -> trace ("SHIT: " <> nameFromEnv c m a) $ get (nameFromEnv c m a) (catInts env)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx w x) (symExpInt ctx w y) (symExpInt ctx w z)
  where store' = case w of
