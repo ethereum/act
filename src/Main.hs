@@ -39,7 +39,7 @@ import Syntax
 import Type
 import Prove
 import Coq
-import HEVM
+--import HEVM
 import Print
 
 --command line options
@@ -66,12 +66,12 @@ data Command w
                     , out        :: w ::: Maybe String         <?> "output directory"
                     }
 
-  | HEVM            { spec       :: w ::: String               <?> "Path to spec"
-                    , soljson    :: w ::: String               <?> "Path to .sol.json"
-                    , solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
-                    , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
-                    , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
-                    }
+  -- | HEVM            { spec       :: w ::: String               <?> "Path to spec"
+                    --, soljson    :: w ::: String               <?> "Path to .sol.json"
+                    --, solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
+                    --, smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
+                    --, debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
+                    --}
  deriving (Generic)
 
 deriving instance ParseField [(Id, String)]
@@ -145,28 +145,28 @@ main = do
                 Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
           forM_ kSpecs printFile
 
-      (HEVM spec' soljson' solver' smttimeout' debug') -> do
-        specContents <- readFile spec'
-        solContents  <- readFile soljson'
-        let preprocess = do refinedSpecs  <- compile specContents
-                            (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
-                              $ Solidity.readJSON $ pack solContents
-                            return ([b | B b <- refinedSpecs], sources)
-        proceed specContents preprocess $ \(specs, sources) -> do
-          -- TODO: prove constructor too
-          passes <- forM specs $ \behv -> do
-            res <- runSMTWithTimeOut solver' smttimeout' debug' $ proveBehaviour sources behv
-            case res of
-              Left (_, posts) -> do
-                 putStrLn $ "Successfully proved " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
-                   <> ", " <> show (length posts) <> " cases."
-                 return True
-              Right _ -> do
-                 putStrLn $ "Failed to prove " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
---                 putStrLn $ "Counterexample: (TODO)"
---                 showCounterexample vm Nothing -- TODO: provide signature
-                 return False
-          unless (and passes) exitFailure
+      --(HEVM spec' soljson' solver' smttimeout' debug') -> do
+        --specContents <- readFile spec'
+        --solContents  <- readFile soljson'
+        --let preprocess = do refinedSpecs  <- compile specContents
+                            --(sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
+                              -- $ Solidity.readJSON $ pack solContents
+                            --return ([b | B b <- refinedSpecs], sources)
+        --proceed specContents preprocess $ \(specs, sources) -> do
+          ---- TODO: prove constructor too
+          --passes <- forM specs $ \behv -> do
+            --res <- runSMTWithTimeOut solver' smttimeout' debug' $ proveBehaviour sources behv
+            --case res of
+              --Left (_, posts) -> do
+                 --putStrLn $ "Successfully proved " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
+                   -- <> ", " <> show (length posts) <> " cases."
+                 --return True
+              --Right _ -> do
+                 --putStrLn $ "Failed to prove " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
+----                 putStrLn $ "Counterexample: (TODO)"
+----                 showCounterexample vm Nothing -- TODO: provide signature
+                 --return False
+          --unless (and passes) exitFailure
 
 -- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
 satWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic () -> IO SatResult

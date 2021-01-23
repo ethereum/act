@@ -24,7 +24,7 @@ common deps
                  sbv              >= 8.4,
                  mtl              >= 2.2.2,
                  utf8-string      >= 1.0.1.1
-  other-modules: Lex ErrM Extract Parse RefinedAst K HEVM Coq Syntax Type Prove Print Enrich
+  other-modules: Lex ErrM Extract Parse RefinedAst K Coq Syntax Type Prove Print Enrich
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans
   else

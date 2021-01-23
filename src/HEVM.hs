@@ -7,7 +7,7 @@
 module HEVM where
 
 import Prelude hiding (lookup)
-import Syntax
+import Syntax hiding (Storage)
 import RefinedAst hiding (S)
 import Extract
 
@@ -24,10 +24,10 @@ import Control.Lens hiding (pre)
 import Control.Monad
 import qualified Data.Vector as Vec
 
-import Prove
 import Type
+import Prove (nameFromEnv, concatMapM, get, symExpBool, symExpInt)
 
-import EVM hiding (Query)
+import EVM hiding (Query, Contract, Storage, Env)
 import EVM.VMTest
 import EVM.Solidity hiding (Method)
 import EVM.ABI
@@ -37,6 +37,20 @@ import EVM.Symbolic
 import EVM.Types
 
 type SolcJson = Map Text SolcContract
+
+data SMType = SymInteger (SBV Integer)
+            | SymBool (SBV Bool)
+            | SymBytes (SBV String)
+
+type Contract = Id
+type Method = Id
+type Args = Map Id SMType
+type Storage = Map Id (SMType, SMType)
+type Env = Map Id SMType
+data When = Pre | Post
+  deriving (Eq, Show)
+
+data Ctx = Ctx Contract Method Args Storage Env
 
 proveBehaviour :: SolcJson -> Behaviour -> Symbolic (Either (VM, [VM]) VM)
 proveBehaviour sources behaviour = do
@@ -170,19 +184,19 @@ mkVmContext solcjson b@(Behaviour method _ c1 (Interface _ decls) _ _ updates _)
 makeVmEnv :: Behaviour -> VM -> Map Id SMType
 makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
   fromList
-    [ Caller    |- A (SymInteger (sFromIntegral $ saddressWord160 (view (state . caller) vm)))
+    [ Caller    |- SymInteger (sFromIntegral $ saddressWord160 (view (state . caller) vm))
     , Callvalue |- let S _ w = view (state . callvalue) vm
-                   in A (SymInteger (sFromIntegral w))
-    , Calldepth |- A (SymInteger (num $ length (view frames vm)))
+                   in SymInteger (sFromIntegral w)
+    , Calldepth |- SymInteger (num $ length (view frames vm))
      -- the following environment variables are always concrete in hevm right now
-    , Origin    |- A (SymInteger (num $ addressWord160 (view (tx . origin) vm)))
-    , Difficulty |- A (SymInteger (num $ view (block . difficulty) vm))
-    , Chainid |- A (SymInteger (num $ view (env . chainId) vm))
+    , Origin    |- SymInteger (num $ addressWord160 (view (tx . origin) vm))
+    , Difficulty |- SymInteger (num $ view (block . difficulty) vm)
+    , Chainid |- SymInteger (num $ view (env . chainId) vm)
     , Timestamp |- let S _ w = view (block . timestamp) vm
-                   in A (SymInteger (sFromIntegral w))
-    , This |- A (SymInteger (num $ addressWord160 (view (state . contract) vm)))
-    , Nonce |- A (SymInteger (num $ view (env . contracts . at (view (state . contract) vm)
-                                       . non (initialContract (RuntimeCode mempty)) . nonce) vm))
+                   in SymInteger (sFromIntegral w)
+    , This |- SymInteger (num $ addressWord160 (view (state . contract) vm))
+    , Nonce |- SymInteger (num $ view (env . contracts . at (view (state . contract) vm)
+                                       . non (initialContract (RuntimeCode mempty)) . nonce) vm)
       -- and this one does not even give a reasonable result
 --    , Blockhash |- error "blockhash not available in hevm right now"
     ]
@@ -248,10 +262,9 @@ locateCalldata b decls calldata' d@(Decl typ name) =
 
 -- | Embed an SMType as a list of symbolic bytes
 toSymBytes :: SMType -> [SWord 8]
-toSymBytes (A (SymInteger i)) = toBytes (sFromIntegral i :: SWord 256)
-toSymBytes (A (SymBool i)) = ite i (toBytes (1 :: SWord 256)) (toBytes (0 :: SWord 256))
-toSymBytes (A (SymBytes _)) = error "unsupported"
-toSymBytes (M _) = error "unsupported"
+toSymBytes (SymInteger i) = toBytes (sFromIntegral i :: SWord 256)
+toSymBytes (SymBool i) = ite i (toBytes (1 :: SWord 256)) (toBytes (0 :: SWord 256))
+toSymBytes (SymBytes _) = error "unsupported"
 
 
 -- | Convenience functions for generating symbolic byte strings

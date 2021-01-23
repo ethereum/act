@@ -4,14 +4,11 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
-{-# Language DeriveDataTypeable #-}
-{-# Language DeriveAnyClass #-}
 
 module Prove
   ( queries
   , Ctx(..)
   , When(..)
-  , SMType(..)
   , Method
   , getLoc
   , get
@@ -32,13 +29,12 @@ import Data.ByteString (ByteString)
 import Data.ByteString.UTF8 (toString)
 import Data.List ((\\), nub)
 import Data.Data
+import Data.Dynamic
 import Data.List.NonEmpty as NonEmpty (NonEmpty(..), (!!))
 import Data.Map.Strict as Map (Map, lookup, fromList, toList, empty, insert)
 import Data.Maybe
 
 import Data.SBV hiding (name)
-import Data.SBV.Either (either)
-import Data.SBV.Tuple (tuple)
 import Data.SBV.String ((.++), subStr)
 
 import RefinedAst
@@ -88,36 +84,13 @@ queries claims = fmap mkQueries gathered
 
 type Contract = Id
 type Method = Id
-type Args = Map Id SMType
-type Storage = Map Id (SMType, SMType)
-type Env = Map Id SMType
+type Args = Map Id Dynamic
+type Storage = Map Id (Dynamic, Dynamic)
+type Env = Map Id Dynamic
 data When = Pre | Post
   deriving (Eq, Show)
 
 data Ctx = Ctx Contract Method Args Storage Env
-
-data SAtomic = SymInteger (SBV Integer)
-             | SymBool    (SBV Bool)
-             | SymBytes   (SBV String)
-
--- We need this awkward definition to be able to get a HasKind instance,
--- allowing us to use produce the Mapping type below...
-type Atomic = Either Integer
-             (Either Bool String)
-
-data Idx = One    Atomic
-         | Two   (Atomic, Atomic)
-         | Three (Atomic, Atomic, Atomic)
-         | Four  (Atomic, Atomic, Atomic, Atomic)
-         | Five  (Atomic, Atomic, Atomic, Atomic, Atomic)
-         | Six   (Atomic, Atomic, Atomic, Atomic, Atomic, Atomic)
-         | Seven (Atomic, Atomic, Atomic, Atomic, Atomic, Atomic, Atomic)
-         deriving (Data, Read, HasKind)
-
-newtype Mapping = Mapping (SArray Idx Atomic)
-
-data SMType = A SAtomic | M Mapping
-
 
 -- *** Query Construction *** --
 
@@ -177,7 +150,7 @@ mkContext inv@(Invariant contract _ _) spec = do
 
   return $ Ctx contract method args store env
 
-mkArgs :: Contract -> Method -> [Decl] -> Symbolic (Map Id SMType)
+mkArgs :: Contract -> Method -> [Decl] -> Symbolic (Map Id Dynamic)
 mkArgs c m ds = Map.fromList <$> mapM (mkSymArg c m) ds
 
 references :: Invariant -> Either Behaviour Constructor -> [StorageLocation]
@@ -189,62 +162,59 @@ references (Invariant _ _ invExp) spec
           (\(Constructor _ _ _ _ _ i cs) -> (Right <$> i) <> cs)
           spec
 
-mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
+mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, Dynamic)
 mkSymArg contract method decl@(Decl typ _) = case metaType typ of
   Integer -> do
     v <- sInteger name
-    return (name, A $ SymInteger v)
+    return (name, toDyn v)
   Boolean -> do
     v <- sBool name
-    return (name, A $ SymBool v)
+    return (name, toDyn v)
   ByteStr -> do
     v <- sString name
-    return (name, A $ SymBytes v)
+    return (name, toDyn v)
   where
     name = nameFromDecl contract method decl
 
 mkSymStorage :: Method
-             -> Map Id (SMType, SMType)
+             -> Map Id (Dynamic, Dynamic)
              -> StorageLocation
-             -> Symbolic (Map Id (SMType, SMType))
+             -> Symbolic (Map Id (Dynamic, Dynamic))
 mkSymStorage method store loc = case loc of
   IntLoc item@DirectInt {} -> do
-    v <- A . SymInteger <$> sInteger (pre item)
-    w <- A . SymInteger <$> sInteger (post item)
+    v <- toDyn <$> sInteger (pre item)
+    w <- toDyn <$> sInteger (post item)
     return $ Map.insert (name item) (v, w) store
 
   BoolLoc item@DirectBool {} -> do
-    v <- A . SymBool <$> sBool (pre item)
-    w <- A . SymBool <$> sBool (post item)
+    v <- toDyn <$> sBool (pre item)
+    w <- toDyn <$> sBool (post item)
     return $ Map.insert (name item) (v, w) store
 
   BytesLoc item@DirectBytes {} -> do
-    v <- A . SymBytes <$> sString (pre item)
-    w <- A . SymBytes <$> sString (post item)
+    v <- toDyn <$> sString (pre item)
+    w <- toDyn <$> sString (post item)
     return $ Map.insert (name item) (v, w) store
 
   IntLoc item@MappedInt {} -> case Map.lookup (name item) store of
-      Just (M _, M _) -> return store
-      Just (_, _) -> error "internal error: smt type mismatch"
+      Just _ -> return store
       Nothing -> do
-        v <- M . Mapping <$> newArray (pre item) Nothing
-        w <- M . Mapping <$> newArray (pre item) Nothing
+        v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Integer Integer))
+        w <- toDyn <$> (newArray (post item) Nothing :: Symbolic (SArray Integer Integer))
         return $ Map.insert (name item) (v, w) store
 
   BoolLoc item@MappedBool {} -> case Map.lookup (name item) store of
-      Just (M _, M _) -> return store
-      Just (_, _) -> error "internal error: smt type mismatch"
+      Just _ -> return store
       Nothing -> do
-        v <- M . Mapping <$> newArray (pre item) Nothing
-        w <- M . Mapping <$> newArray (pre item) Nothing
+        v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Bool Bool))
+        w <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray Bool Bool))
         return $ Map.insert (name item) (v, w) store
 
   BytesLoc item@MappedBytes {} -> case Map.lookup (name item) store of
-      Just (M _, M _) -> return store
-      Just (_, _) -> error "internal error: smt type mismatch"
+      Just _ -> return store
       Nothing -> do
-        v <- M . Mapping <$> newArray (pre item) Nothing
-        w <- M . Mapping <$> newArray (pre item) Nothing
+        v <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray String String))
+        w <- toDyn <$> (newArray (pre item) Nothing :: Symbolic (SArray String String))
         return $ Map.insert (name item) (v, w) store
   where
     name :: TStorageItem a -> Id
@@ -261,20 +231,20 @@ mkEnv contract method = Map.fromList <$> mapM makeSymbolic
   [ Caller, Callvalue, Calldepth, Origin, Blockhash, Blocknumber
   , Difficulty, Chainid, Gaslimit, Coinbase, Timestamp, This, Nonce ]
   where
-    makeSymbolic :: EthEnv -> Symbolic (Id, SMType)
+    makeSymbolic :: EthEnv -> Symbolic (Id, Dynamic)
     makeSymbolic Blockhash = mkBytes Blockhash
     makeSymbolic env = mkInt env
 
-    mkInt :: EthEnv -> Symbolic (Id, SMType)
+    mkInt :: EthEnv -> Symbolic (Id, Dynamic)
     mkInt env = do
       let k = nameFromEnv contract method env
-      v <- A . SymInteger <$> sInteger k
+      v <- toDyn <$> sInteger k
       return (k, v)
 
-    mkBytes :: EthEnv -> Symbolic (Id, SMType)
+    mkBytes :: EthEnv -> Symbolic (Id, Dynamic)
     mkBytes env = do
       let k = nameFromEnv contract method env
-      v <- A . SymBytes <$> sString k
+      v <- toDyn <$> sString k
       return (k, v)
 
 -- | TODO: wtf is going on here?
@@ -303,18 +273,18 @@ fromUpdate ctx update = case update of
   BoolUpdate item e -> getVar ctx item (catBools . (snd <$>)) .== symExpBool ctx Pre e
   BytesUpdate item e -> getVar ctx item (catBytes . (snd <$>)) .== symExpBytes ctx Pre e
 
-getVar :: (Show b) => Ctx -> TStorageItem a -> (Map Id (SMType, SMType) -> Map Id b) -> b
+getVar :: (Show b) => Ctx -> TStorageItem a -> (Map Id (Dynamic, Dynamic) -> Map Id b) -> b
 getVar (Ctx _ m _ store _) i f = get (nameFromItem m i) (f store)
 
 
 -- *** Symbolic Expression Construction *** ---
 
 
-symExp :: Ctx -> When -> ReturnExp -> SMType
+symExp :: Ctx -> When -> ReturnExp -> Dynamic
 symExp ctx whn ret = case ret of
-  ExpInt e -> A . SymInteger $ symExpInt ctx whn e
-  ExpBool e -> A . SymBool $ symExpBool ctx whn e
-  ExpBytes e -> A . SymBytes $ symExpBytes ctx whn e
+  ExpInt e -> toDyn $ symExpInt ctx whn e
+  ExpBool e -> toDyn $ symExpBool ctx whn e
+  ExpBytes e -> toDyn $ symExpBytes ctx whn e
 
 symExpBool :: Ctx -> When -> Exp Bool -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) w e = case e of
@@ -358,12 +328,9 @@ symExpInt ctx@(Ctx c m args store env) w e = case e of
   IntVar a  -> get (nameFromArg c m a) (catInts args)
   TEntry a  -> case a of
     DirectInt _ _ -> get (nameFromItem m a) (catInts store')
-    MappedInt _ _ idxs -> let
-        arr = fromJust $ Map.lookup (nameFromItem m a) store'
-      in case arr of
-        M (Mapping arr') -> let res = readArray arr' (mkIdx ctx w idxs)
-                            in Data.SBV.Either.either id (error "fuck") res
-        _ -> error "Internal Error: type mismatch"
+    MappedInt _ _ idxs ->
+      let arr = get (nameFromItem m a) (catArrays (undefined :: Integer) (undefined :: Integer) store')
+      in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
   IntEnv a -> get (nameFromEnv c m a) (catInts env)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx w x) (symExpInt ctx w y) (symExpInt ctx w z)
@@ -371,17 +338,11 @@ symExpInt ctx@(Ctx c m args store env) w e = case e of
          Pre -> fst <$> store
          Post -> snd <$> store
 
-mkIdx :: NonEmpty ReturnExp -> SBV Idx
-mkIdx = One . symbolize . unwrapReturnExp . toTuple1
-
-symbolize :: (a) -> SBV b
-symbolize = undefined
-
-unwrapReturnExp :: (ReturnExp) -> (a)
-unwrapReturnExp = undefined
-
-toTuple1 :: NonEmpty a -> (a)
-toTuple1 = undefined
+mkIdx1 :: Ctx -> When -> NonEmpty ReturnExp -> Dynamic
+mkIdx1 ctx whn l = case l NonEmpty.!! 0 of
+  ExpInt e -> toDyn $ symExpInt ctx whn e
+  ExpBool e -> toDyn $ symExpBool ctx whn e
+  ExpBytes e -> toDyn $ symExpBytes ctx whn e
 
 symExpBytes :: Ctx -> When -> Exp ByteString -> SBV String
 symExpBytes ctx@(Ctx c m args store env) w e = case e of
@@ -429,15 +390,24 @@ x @@ y = x <> "_" <> y
 get :: (Show a, Ord a, Show b) => a -> Map a b -> b
 get name vars = fromMaybe (error (show name <> " not found in " <> show vars)) $ Map.lookup name vars
 
-catInts :: Map Id SMType -> Map Id (SBV Integer)
-catInts m = Map.fromList [(name, i) | (name, A (SymInteger i)) <- Map.toList m]
+catInts :: Map Id Dynamic -> Map Id (SBV Integer)
+catInts m = Map.fromList . catSndMaybes $ [(name, fromDynamic v) | (name, v) <- Map.toList m]
 
-catBools :: Map Id SMType -> Map Id (SBV Bool)
-catBools m = Map.fromList [(name, i) | (name, A (SymBool i)) <- Map.toList m]
+catBools :: Map Id Dynamic -> Map Id (SBV Bool)
+catBools m = Map.fromList . catSndMaybes $ [(name, fromDynamic v) | (name, v) <- Map.toList m]
 
-catBytes :: Map Id SMType -> Map Id (SBV String)
-catBytes m = Map.fromList [(name, i) | (name, A (SymBytes i)) <- Map.toList m]
+catBytes :: Map Id Dynamic -> Map Id (SBV String)
+catBytes m = Map.fromList . catSndMaybes $ [(name, fromDynamic v) | (name, v) <- Map.toList m]
+
+catArrays :: (Typeable idx, Typeable ret) => idx -> ret -> Map Id Dynamic -> Map Id (SArray idx ret)
+catArrays _ _ m = Map.fromList . catSndMaybes $ [(name, fromDynamic v) | (name, v) <- Map.toList m]
 
 concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
 concatMapM op' = foldr f (pure [])
     where f x xs = do x' <- op' x; if null x' then xs else do xs' <- xs; pure $ x'++xs'
+
+catSndMaybes :: [(a, Maybe b)] -> [(a, b)]
+catSndMaybes [] = []
+catSndMaybes ((k, v) : tl) = case v of
+  Nothing -> catSndMaybes tl
+  Just v' -> (k, v') : catSndMaybes tl
