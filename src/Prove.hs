@@ -42,9 +42,6 @@ import Syntax (Id, Interface(..), Decl(..), EthEnv(..))
 import Type (metaType)
 import Print (prettyEnv)
 import Extract (locsFromExp, getLoc)
-import Debug.Trace
-
-trace' x = trace (show x) x
 
 
 -- *** Interface *** --
@@ -498,7 +495,7 @@ symExpInt ctx@(Ctx c m args store env) w e = case e of
         ExpBytes _ -> let arr = get (nameFromItem m a) (catArrays (undefined :: String) (undefined :: Integer) store')
                       in readArray arr (fromMaybe (error "Internal Error: type mismatch") . fromDynamic $ mkIdx1 ctx w idxs)
       _ -> error "Internal Error: nested mappings are unsupported by the SMT backend"
-  IntEnv a -> trace ("SHIT: " <> nameFromEnv c m a) $ get (nameFromEnv c m a) (catInts env)
+  IntEnv a -> get (nameFromEnv c m a) (catInts env)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx w x) (symExpInt ctx w y) (symExpInt ctx w z)
  where store' = case w of

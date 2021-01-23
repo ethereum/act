@@ -1,11 +1,15 @@
 constructor of C
-interface constructor()
+interface constructor(string f, bool g)
 
 creates
 
    uint a := 0
-   mapping(uint=>uint) b := [0 := 1]
+   mapping(uint=>uint) b   := [ 0 := 1 ]
+   mapping(uint=>bool) c   := [ 0 := g ]
+   mapping(uint=>string) d := [ 0 := f ]
 
 invariants
 
   b[a] == 1
+  c[a] == g
+  d[a] == f
