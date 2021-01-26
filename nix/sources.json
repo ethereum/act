@@ -11,16 +11,16 @@
         "url": "https://github.com/dapphub/dapptools/archive/932e20da95d0c470ec97795e2e461f56a9234866.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
-    "nixpkgs": {
-        "branch": "nixos-20.03",
-        "description": "A read-only mirror of NixOS/nixpkgs tracking the released channels. Send issues and PRs to",
-        "homepage": "https://github.com/NixOS/nixpkgs",
-        "owner": "nixos",
-        "repo": "nixpkgs-channels",
-        "rev": "eba1d0126b4e6c386d529911bbeadbea99b933d6",
-        "sha256": "0qxcsfq6x67rdk5wasafb6acag9n36cfwm7z2n24va53raddfsfz",
+    "haskell.nix": {
+        "branch": "master",
+        "description": "Alternative Haskell Infrastructure for Nixpkgs",
+        "homepage": "https://input-output-hk.github.io/haskell.nix",
+        "owner": "input-output-hk",
+        "repo": "haskell.nix",
+        "rev": "8706c33717b566119e68e715e844645b01a6338b",
+        "sha256": "13d19x2qy2qh1jn1cd8i9f8ld94cp7cr3y04f2yx1h64d1ya2rrg",
         "type": "tarball",
-        "url": "https://github.com/nixos/nixpkgs-channels/archive/eba1d0126b4e6c386d529911bbeadbea99b933d6.tar.gz",
+        "url": "https://github.com/input-output-hk/haskell.nix/archive/8706c33717b566119e68e715e844645b01a6338b.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
