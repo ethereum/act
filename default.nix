@@ -1,45 +1,28 @@
-{ compiler ? "ghc865" }:
-
 let
+  compiler = "ghc865";
+
   sources = import ./nix/sources.nix;
-  pkgs = import sources.nixpkgs {};
+  haskellNix = import sources."haskell.nix" {};
   dapptools = import sources.dapptools {};
 
-  gitignore = pkgs.nix-gitignore.gitignoreSourcePure [ ./.gitignore ];
+  overlays = haskellNix.overlays ++ dapptools.overlays ++ [ (self: super: { ff = self.libff; }) ];
+  pkgs = import haskellNix.sources.nixpkgs-2009 (haskellNix.nixpkgsArgs // { inherit overlays; });
 
   myHaskellPackages = pkgs.haskell.packages.${compiler}.override {
     overrides = hself: hsuper: {
       hevm = dapptools.haskellPackages.hevm;
       sbv = dapptools.haskellPackages.sbv;
-      act =
-        hself.callCabal2nix
-          "act"
-          (gitignore ./src)
-          {};
     };
   };
-
-  shell = myHaskellPackages.shellFor {
-    packages = p: [
-      p.act
-    ];
-    buildInputs = with pkgs.haskellPackages; [
-      cabal-install
-      pkgs.jq
-      pkgs.coq_8_10
-      dapptools.solc
-    ];
-    withHoogle = true;
-    shellHook = ''
-      export PATH=${toString ./bin}:$PATH
-    '';
-  };
-
-  exe = pkgs.haskell.lib.justStaticExecutables (myHaskellPackages.act);
 in
-{
-  inherit shell;
-  inherit exe;
-  inherit myHaskellPackages;
-  act = myHaskellPackages.act;
-}
+  pkgs.haskell-nix.project {
+    hsPkgs = myHaskellPackages;
+    src = pkgs.haskell-nix.haskellLib.cleanGit {
+      name = "act";
+      src = ./src;
+    };
+    compiler-nix-name = compiler;
+    index-state = "2021-01-26T00:00:00Z";
+    plan-sha256 = "03wy36lsf5bxrydi6mgndzyj3p2dzsyrli5xv4nkd5x7llk7zji9";
+  }
+
