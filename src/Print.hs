@@ -1,11 +1,15 @@
 {-# Language GADTs #-}
+{-# Language DataKinds #-}
+{-# Language RankNTypes #-}
+{-# Language KindSignatures #-}
 
 module Print (prettyEnv, prettyExp, prettyType, prettyBehaviour) where
 
 import Data.ByteString.UTF8 (toString)
 
 import Data.List
-import Data.List.NonEmpty as NonEmpty (toList)
+import Data.Parameterized.List (List(..))
+import Data.Kind (Type)
 
 import Syntax
 import RefinedAst
@@ -99,12 +103,16 @@ prettyItem item = case item of
   DirectInt contract name -> contract <> "." <> name
   DirectBool contract name -> contract <> "." <> name
   DirectBytes contract name -> contract <> "." <> name
-  MappedInt contract name ixs -> contract <> "." <> name <> concat (NonEmpty.toList $ surround "[" "]" <$> (prettyReturnExp <$> ixs))
-  MappedBool contract name ixs -> contract <> "." <> name <> concat (NonEmpty.toList $ surround "[" "]" <$> (prettyReturnExp <$> ixs))
-  MappedBytes contract name ixs -> contract <> "." <> name <> concat (NonEmpty.toList $ surround "[" "]" <$> (prettyReturnExp <$> ixs))
+  MappedInt contract name ixs -> contract <> "." <> name <> concat (surround "[" "]" <$> prettyIxs ixs)
+  MappedBool contract name ixs -> contract <> "." <> name <> concat (surround "[" "]" <$> prettyIxs ixs)
+  MappedBytes contract name ixs -> contract <> "." <> name <> concat (surround "[" "]" <$> prettyIxs ixs)
   where
     surround :: String -> String -> String -> String
     surround l r str = l <> str <> r
+
+prettyIxs :: List Exp (ts :: [Type]) -> [String]
+prettyIxs Nil = []
+prettyIxs (hd :< tl) = prettyExp hd : prettyIxs tl
 
 prettyLocation :: StorageLocation -> String
 prettyLocation (IntLoc item) = prettyItem item

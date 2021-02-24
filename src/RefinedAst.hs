@@ -96,13 +96,9 @@ data TStorageItem a where
   DirectInt    :: Id -> Id -> TStorageItem Integer
   DirectBool   :: Id -> Id -> TStorageItem Bool
   DirectBytes  :: Id -> Id -> TStorageItem ByteString
-  MappedInt    :: (All Typeable ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Integer
-  MappedBool   :: (All Typeable ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Bool
-  MappedBytes  :: (All Typeable ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem ByteString
-
-type family All (c :: Type -> Constraint) (ts :: [Type]) :: Constraint where
-  All c '[] = ()
-  All c (t ': ts) = (c t, All c ts)
+  MappedInt    :: ToJSON (List Exp ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Integer
+  MappedBool   :: ToJSON (List Exp ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Bool
+  MappedBytes  :: ToJSON (List Exp ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem ByteString
 
 deriving instance Show (TStorageItem a)
 
@@ -282,8 +278,6 @@ instance ToJSON ReturnExp where
                                ,"expression" .= toJSON a]
    toJSON (ExpBytes a) = object ["sort" .= (String $ pack "bytestring")
                                ,"expression" .= toJSON a]
-
-instance ToJSON (List Exp ts) where
 
 instance ToJSON (Exp Integer) where
   toJSON (Add a b) = symbol "+" a b
