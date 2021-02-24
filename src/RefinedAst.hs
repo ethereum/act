@@ -10,6 +10,9 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
+{-# Language TypeOperators #-}
+{-# Language DeriveAnyClass #-}
+{-# Language PolyKinds #-}
 
 module RefinedAst where
 
@@ -26,6 +29,9 @@ import Syntax (Id, Interface, EthEnv)
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
+import Data.Parameterized.List (List(..))
+import Data.Parameterized.Classes (ShowF)
+import Data.Kind (Type, Constraint)
 
 
 -- AST post typechecking
@@ -87,12 +93,24 @@ data TStorageItem a where
   DirectInt    :: Id -> Id -> TStorageItem Integer
   DirectBool   :: Id -> Id -> TStorageItem Bool
   DirectBytes  :: Id -> Id -> TStorageItem ByteString
-  MappedInt    :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem Integer
-  MappedBool   :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem Bool
-  MappedBytes  :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem ByteString
+  MappedInt    :: (All Typeable ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Integer
+  MappedBool   :: (All Typeable ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Bool
+  MappedBytes  :: (All Typeable ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem ByteString
+
+type family All (c :: Type -> Constraint) (ts :: [Type]) :: Constraint where
+  All c '[] = ()
+  All c (t ': ts) = (c t, All c ts)
 
 deriving instance Show (TStorageItem a)
-deriving instance Eq (TStorageItem a)
+
+instance Eq (TStorageItem a) where
+  DirectInt c n == DirectInt c' n' = c == c' && n == n'
+  DirectBool c n == DirectBool c' n' = c == c' && n == n'
+  DirectBytes c n == DirectBytes c' n' = c == c' && n == n'
+  MappedInt c n ixs == MappedInt c' n' ixs' = case testEquality ixs ixs' of
+    Just Refl -> c == c' && n == n'
+    Nothing -> False
+  _ == _ = False
 
 -- typed expressions
 data Exp t where
@@ -139,6 +157,8 @@ data Exp t where
   TEntry :: (TStorageItem t) -> Exp t
 
 deriving instance Show (Exp t)
+deriving instance ShowF (Exp)
+deriving instance TestEquality (Exp) -- TODO: whats up with the warning here?
 
 instance Eq (Exp t) where
   And a b == And c d = a == c && b == d
@@ -247,9 +267,9 @@ instance ToJSON (TStorageItem b) where
                                    , "name" .= (String $ pack a <> "." <> pack b)]
   toJSON (DirectBytes a b) = object ["sort" .= (pack "bytes")
                                     , "name" .= (String $ pack a <> "." <> pack b)]
-  toJSON (MappedInt a b c) = mapping a b c
-  toJSON (MappedBool a b c) = mapping a b c
-  toJSON (MappedBytes a b c) = mapping a b c
+  toJSON (MappedInt c n ixs) = mapping c n ixs
+  toJSON (MappedBool c n ixs) = mapping c n ixs
+  toJSON (MappedBytes c n ixs) = mapping c n ixs
 
 instance ToJSON ReturnExp where
    toJSON (ExpInt a) = object ["sort" .= (pack "int")
@@ -258,6 +278,8 @@ instance ToJSON ReturnExp where
                                ,"expression" .= toJSON a]
    toJSON (ExpBytes a) = object ["sort" .= (String $ pack "bytestring")
                                ,"expression" .= toJSON a]
+
+instance ToJSON (List Exp ts) where
 
 instance ToJSON (Exp Integer) where
   toJSON (Add a b) = symbol "+" a b
@@ -321,3 +343,12 @@ uintmin _ = 0
 
 uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
+
+type family Tuple (f :: Type -> Type) (l :: [ts]) :: Type where
+  Tuple _ '[] = ()
+  Tuple f (hd ': tl) = (f hd, Tuple f tl)
+
+tuple :: List f ts -> Tuple f ts
+tuple Nil = ()
+tuple (hd :< tl) = (hd, tuple tl)
+
