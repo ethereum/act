@@ -4,6 +4,9 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
+{-# Language RankNTypes #-}
+{-# Language DataKinds #-}
+{-# Language PolyKinds #-}
 
 module K where
 
@@ -11,6 +14,7 @@ import Syntax
 import RefinedAst
 import Extract
 import ErrM
+import Print
 import Data.Text (Text, pack, unpack)
 import Data.Type.Equality
 import Data.Typeable
@@ -21,7 +25,11 @@ import Data.ByteString hiding (group, pack, unpack, intercalate, filter, foldr, 
 import qualified Data.Text as Text
 import Parse
 import EVM.Types
+import Util
 
+import Data.Parameterized.TraversableFC (toListFC)
+import Data.Parameterized.List (List(..))
+import Data.Kind (Type, Constraint)
 import EVM.Solidity (SolcContract(..), StorageItem(..), SlotType(..))
 import Data.Map.Strict (Map) -- abandon in favor of [(a,b)]?
 import qualified Data.Map.Strict as Map -- abandon in favor of [(a,b)]?
@@ -86,9 +94,9 @@ kStorageName :: TStorageItem a -> String
 kStorageName (DirectInt _ name)    = kVar name
 kStorageName (DirectBool _ name)   = kVar name
 kStorageName (DirectBytes _ name)  = kVar name
-kStorageName (MappedInt _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kStorageName (MappedBool _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kStorageName (MappedBytes _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kStorageName (MappedInt _ name ixs) = kVar name <> "_" <> intercalate "_" (prettyIxs ixs)
+kStorageName (MappedBool _ name ixs) = kVar name <> "_" <> intercalate "_" (prettyIxs ixs)
+kStorageName (MappedBytes _ name ixs) = kVar name <> "_" <> intercalate "_" (prettyIxs ixs)
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> (tail a)
@@ -99,10 +107,14 @@ kAbiEncode (Just (ExpInt a)) = "#enc(#uint256" <> kExprInt a <> ")"
 kAbiEncode (Just (ExpBool _)) = ".ByteArray"
 kAbiEncode (Just (ExpBytes _)) = ".ByteArray"
 
-kExpr :: ReturnExp -> String
-kExpr (ExpInt a) = kExprInt a
-kExpr (ExpBool a) = kExprBool a
-kExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
+kExpr :: forall t . Typeable t => Exp t -> String
+kExpr expr = case eqT @t @Integer of
+  Just Refl -> kExprInt expr
+  Nothing -> case eqT @t @Bool of
+    Just Refl -> kExprBool expr
+    Nothing -> case eqT @t @ByteString of
+      Just Refl -> kExprBytes expr
+      Nothing -> error "Internal error: bad type for expression"
 
 kExprInt :: Exp Integer -> String
 kExprInt (Add a b) = "(" <> kExprInt a <> " +Int " <> kExprInt b <> ")"
@@ -209,41 +221,44 @@ kSlot update StorageItem{..} = case _type of
       Right (IntUpdate (MappedInt _ _ ixs) _) ->
         (
           "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+            <> show _slot <> ", " <> unwords (kMappingIndicies ixs) <> ")"
         , _offset
         )
       Left (IntLoc (MappedInt _ _ ixs)) ->
         (
           "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+            <> show _slot <> ", " <> unwords (kMappingIndicies ixs) <> ")"
         , _offset
         )
       Right (BoolUpdate (MappedBool _ _ ixs) _) ->
         (
           "#hashedLocation(\"Solidity\", "
-              <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+              <> show _slot <> ", " <> unwords (kMappingIndicies ixs) <> ")"
         , _offset
         )
       Left (BoolLoc (MappedBool _ _ ixs)) ->
         (
           "#hashedLocation(\"Solidity\", "
-              <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+              <> show _slot <> ", " <> unwords (kMappingIndicies ixs) <> ")"
         , _offset
         )
       Right (BytesUpdate (MappedBytes _ _ ixs) _) ->
         (
           "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+            <> show _slot <> ", " <> unwords (kMappingIndicies ixs) <> ")"
         , _offset
         )
       Left (BytesLoc (MappedBytes _ _ ixs)) ->
         (
           "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+            <> show _slot <> ", " <> unwords (kMappingIndicies ixs) <> ")"
         , _offset
         )
       s -> error $ "internal error: kSlot. Please report: " <> (show s)
 
+kMappingIndicies :: All Typeable ts => List Exp (ts :: [Type]) -> [String]
+kMappingIndicies Nil = []
+kMappingIndicies (hd :< tl) = kExpr hd : kMappingIndicies tl
 
 kAccount :: Bool -> Id -> SolcContract -> [Either StorageLocation StorageUpdate] -> String
 kAccount pass name source updates =

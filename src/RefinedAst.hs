@@ -31,8 +31,9 @@ import Data.Aeson.Types
 import Data.Vector (fromList)
 import Data.Parameterized.List (List(..))
 import Data.Parameterized.Classes (ShowF)
-import Data.Kind (Type, Constraint)
+import Data.Kind (Type)
 
+import Util (All)
 
 -- AST post typechecking
 data Claim = C Constructor | B Behaviour | I Invariant | S Store deriving (Show, Eq)
@@ -96,9 +97,9 @@ data TStorageItem a where
   DirectInt    :: Id -> Id -> TStorageItem Integer
   DirectBool   :: Id -> Id -> TStorageItem Bool
   DirectBytes  :: Id -> Id -> TStorageItem ByteString
-  MappedInt    :: ToJSON (List Exp ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Integer
-  MappedBool   :: ToJSON (List Exp ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Bool
-  MappedBytes  :: ToJSON (List Exp ts) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem ByteString
+  MappedInt    :: (All Typeable ts, ToJSON (List Exp ts)) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Integer
+  MappedBool   :: (All Typeable ts, ToJSON (List Exp ts)) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Bool
+  MappedBytes  :: (All Typeable ts, ToJSON (List Exp ts)) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem ByteString
 
 deriving instance Show (TStorageItem a)
 
@@ -278,6 +279,7 @@ instance ToJSON ReturnExp where
                                ,"expression" .= toJSON a]
    toJSON (ExpBytes a) = object ["sort" .= (String $ pack "bytestring")
                                ,"expression" .= toJSON a]
+
 
 instance ToJSON (Exp Integer) where
   toJSON (Add a b) = symbol "+" a b

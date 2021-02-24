@@ -3,7 +3,7 @@
 {-# Language RankNTypes #-}
 {-# Language KindSignatures #-}
 
-module Print (prettyEnv, prettyExp, prettyType, prettyBehaviour) where
+module Print (prettyEnv, prettyExp, prettyType, prettyBehaviour, prettyIxs) where
 
 import Data.ByteString.UTF8 (toString)
 
