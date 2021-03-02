@@ -13,6 +13,7 @@
 {-# Language TypeOperators #-}
 {-# Language DeriveAnyClass #-}
 {-# Language PolyKinds #-}
+{-# Language RankNTypes #-}
 
 module RefinedAst where
 
@@ -93,13 +94,15 @@ data StorageLocation
   | BytesLoc (TStorageItem ByteString)
   deriving (Show, Eq)
 
+type Ixs (ts :: [Type]) = List Exp ts
+
 data TStorageItem a where
   DirectInt    :: Id -> Id -> TStorageItem Integer
   DirectBool   :: Id -> Id -> TStorageItem Bool
   DirectBytes  :: Id -> Id -> TStorageItem ByteString
-  MappedInt    :: (All Typeable ts, ToJSON (List Exp ts)) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Integer
-  MappedBool   :: (All Typeable ts, ToJSON (List Exp ts)) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem Bool
-  MappedBytes  :: (All Typeable ts, ToJSON (List Exp ts)) => Id -> Id -> List Exp (ts :: [Type]) -> TStorageItem ByteString
+  MappedInt    :: (All Typeable ts, ToJSON (Ixs ts)) => Id -> Id -> Ixs ts -> TStorageItem Integer
+  MappedBool   :: (All Typeable ts, ToJSON (Ixs ts)) => Id -> Id -> Ixs ts -> TStorageItem Bool
+  MappedBytes  :: (All Typeable ts, ToJSON (Ixs ts)) => Id -> Id -> Ixs ts -> TStorageItem ByteString
 
 deriving instance Show (TStorageItem a)
 
@@ -343,12 +346,4 @@ uintmin _ = 0
 
 uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
-
-type family Tuple (f :: Type -> Type) (l :: [ts]) :: Type where
-  Tuple _ '[] = ()
-  Tuple f (hd ': tl) = (f hd, Tuple f tl)
-
-tuple :: List f ts -> Tuple f ts
-tuple Nil = ()
-tuple (hd :< tl) = (hd, tuple tl)
 

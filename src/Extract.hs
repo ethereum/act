@@ -1,11 +1,13 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 
 module Extract where
 
-import qualified Data.List.NonEmpty as NonEmpty
-
 import RefinedAst
 import Syntax
+import Util
 
 locsFromReturnExp :: ReturnExp -> [StorageLocation]
 locsFromReturnExp (ExpInt e) = locsFromExp e
@@ -43,7 +45,7 @@ locsFromExp e = case e of
   IntVar _  -> []
   LitBool _ -> []
   BoolVar _ -> []
-  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
+  NewAddr a b -> (locsFromExp a) <> (locsFromExp b)
   IntEnv _ -> []
   ByEnv _ -> []
   ITE x y z -> (locsFromExp x) <> (locsFromExp y) <> (locsFromExp z)
@@ -55,8 +57,7 @@ locsFromExp e = case e of
     MappedBool contract name ixs -> [BoolLoc $ MappedBool contract name ixs] <> ixLocs ixs
     MappedBytes contract name ixs -> [BytesLoc $ MappedBytes contract name ixs] <> ixLocs ixs
     where
-      ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
-      ixLocs = concatMap locsFromReturnExp
+      ixLocs = concatMapFC locsFromExp
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
@@ -83,9 +84,9 @@ ethEnvFromStateUpdate update = case update of
 
 ethEnvFromItem :: TStorageItem a -> [EthEnv]
 ethEnvFromItem item = case item of
-  MappedInt _ _ ixs -> concatMap ethEnvFromReturnExp ixs
-  MappedBool _ _ ixs -> concatMap ethEnvFromReturnExp ixs
-  MappedBytes _ _ ixs -> concatMap ethEnvFromReturnExp ixs
+  MappedInt _ _ ixs -> concatMapFC ethEnvFromExp ixs
+  MappedBool _ _ ixs -> concatMapFC ethEnvFromExp ixs
+  MappedBytes _ _ ixs -> concatMapFC ethEnvFromExp ixs
   _ -> []
 
 ethEnvFromReturnExp :: ReturnExp -> [EthEnv]
@@ -194,11 +195,3 @@ getContainerId (BytesLoc (DirectBytes _ a)) = a
 getContainerId (IntLoc (MappedInt _ a _)) = a
 getContainerId (BoolLoc (MappedBool _ a _)) = a
 getContainerId (BytesLoc (MappedBytes _ a _)) = a
-
-getContainerIxs :: StorageLocation -> [ReturnExp]
-getContainerIxs (IntLoc (DirectInt _ _)) = []
-getContainerIxs (BoolLoc (DirectBool _ _)) = []
-getContainerIxs (BytesLoc (DirectBytes _ _)) = []
-getContainerIxs (IntLoc (MappedInt _ _ ixs)) = NonEmpty.toList ixs
-getContainerIxs (BoolLoc (MappedBool _ _ ixs)) = NonEmpty.toList ixs
-getContainerIxs (BytesLoc (MappedBytes _ _ ixs)) = NonEmpty.toList ixs
