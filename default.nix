@@ -23,7 +23,6 @@ in
     };
     compiler-nix-name = compiler;
     index-state = "2021-01-26T00:00:00Z";
-    plan-sha256 = "03wy36lsf5bxrydi6mgndzyj3p2dzsyrli5xv4nkd5x7llk7zji9";
     modules = [{ packages.act.flags.ci = true; }];
   }
 
