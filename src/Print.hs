@@ -98,7 +98,7 @@ prettyReturnExp e = case e of
   ExpBool e' -> prettyExp e'
   ExpBytes e' -> prettyExp e'
 
-prettyItem :: TStorageItem t -> String
+prettyItem :: TStorageItem ixs t -> String
 prettyItem item = case item of
   DirectInt contract name -> contract <> "." <> name
   DirectBool contract name -> contract <> "." <> name

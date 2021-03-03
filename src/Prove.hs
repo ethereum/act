@@ -4,12 +4,14 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
+{-# Language FlexibleInstances #-}
+{-# Language AllowAmbiguousTypes #-}
+{-# Language PolyKinds #-}
 
 module Prove
   ( queries
   , Ctx(..)
   , When(..)
-  , SMType(..)
   , Method
   , getLoc
   , get
@@ -28,8 +30,7 @@ module Prove
 import Control.Monad (when)
 import Data.ByteString (ByteString)
 import Data.ByteString.UTF8 (toString)
-import Data.List (intercalate, (\\), nub)
-import Data.List.NonEmpty as NonEmpty (toList)
+import Data.List ((\\), nub)
 import Data.Map.Strict as Map (Map, lookup, fromList, toList)
 import Data.Maybe
 import Data.Type.Equality
@@ -37,8 +38,11 @@ import Data.Typeable
 
 import Data.SBV hiding (name)
 import Data.SBV.String ((.++), subStr)
+import Data.Parameterized.Map (MapF, empty)
+import Data.Parameterized.TraversableF (foldlF)
 
 import RefinedAst
+import Util
 import Syntax (Id, Interface(..), Decl(..), EthEnv(..))
 import Type (metaType)
 import Print (prettyEnv)
@@ -85,23 +89,29 @@ queries claims = fmap mkQueries gathered
 
 type Contract = Id
 type Method = Id
-type Args = Map Id SMType
-type Storage = Map Id (SMType, SMType)
-type Env = Map Id SMType
+type Args = Map Id Atom
+type Storage = MapF TStorageItem PrePost
+type Env = Map Id Atom
 data When = Pre | Post
-
   deriving (Eq, Show)
 
 data Ctx = Ctx Contract Method Args Storage Env
-  deriving (Show)
+  --deriving (Show)
 
-data SMType
+data Atom
   = SymInteger (SBV Integer)
   | SymBool (SBV Bool)
   | SymBytes (SBV String)
   deriving (Show)
 
-instance EqSymbolic SMType where
+data PrePost a where
+  PrePost :: SymLoc a -> SymLoc a -> PrePost a
+
+data SymLoc a where
+  Direct :: SBV val -> SymLoc val
+  Mapped :: SArray (Tuple SBV ixs) val -> SymLoc val
+
+instance EqSymbolic Atom where
   SymInteger a .== SymInteger b = a .== b
   SymBool a .== SymBool b = a .== b
   SymBytes a .== SymBytes b = a .== b
@@ -160,13 +170,13 @@ mkContext inv@(Invariant contract _ _) spec = do
   -- TODO: refine AST so we don't need this anymore
   when (contract /= c1) $ error "Internal error: contract mismatch"
 
-  store <- Map.fromList <$> mapM (mkSymStorage method) (references inv spec)
+  store <- mkSymStorage method (references inv spec)
   env <- mkEnv contract method
   args <- mkArgs contract method decls
 
   return $ Ctx contract method args store env
 
-mkArgs :: Contract -> Method -> [Decl] -> Symbolic (Map Id SMType)
+mkArgs :: Contract -> Method -> [Decl] -> Symbolic Args
 mkArgs c m ds = Map.fromList <$> mapM (mkSymArg c m) ds
 
 references :: Invariant -> Either Behaviour Constructor -> [StorageLocation]
@@ -178,7 +188,7 @@ references (Invariant _ _ invExp) spec
           (\(Constructor _ _ _ _ _ i cs) -> (Right <$> i) <> cs)
           spec
 
-mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, SMType)
+mkSymArg :: Contract -> Method -> Decl -> Symbolic (Id, Atom)
 mkSymArg contract method decl@(Decl typ _) = case metaType typ of
   Integer -> do
     v <- sInteger name
@@ -192,12 +202,49 @@ mkSymArg contract method decl@(Decl typ _) = case metaType typ of
   where
     name = nameFromDecl contract method decl
 
-mkSymStorage :: Method -> StorageLocation -> Symbolic (Id, (SMType, SMType))
+mkSymLoc :: Method -> TStorageItem a -> Symbolic (PrePost a)
+mkSymLoc method item = case item of
+  DirectInt {} -> do
+    before <- Direct <$> sInteger (pre item)
+    after  <- Direct <$> sInteger (post item)
+    return $ PrePost before after
+  MappedInt {} -> do
+    before <- Mapped <$> newArray (pre item) Nothing
+    after  <- Mapped <$> newArray (pre item) Nothing
+    return $ PrePost before after
+  DirectBool {} -> do
+    before <- Direct <$> sBool (pre item)
+    after  <- Direct <$> sBool (post item)
+    return $ PrePost before after
+  MappedBool {} -> do
+    before <- Mapped <$> newArray (pre item) Nothing
+    after  <- Mapped <$> newArray (pre item) Nothing
+    return $ PrePost before after
+  _ -> error "TODO: bytestrings"
+  where
+    pre :: TStorageItem a -> Id
+    pre i = (nameFromItem method i) ++ "_pre"
+
+    post :: TStorageItem a -> Id
+    post i = (nameFromItem method i) ++ "_post"
+
+    mkArray :: TStorageItem ixs val -> Symbolic (SArray (Tuple Exp ixs) val)
+    mkArray (MappedInt {}) = newArray (pre item) Nothing
+
+
+mkSymStorage :: Method -> [StorageLocation] -> Symbolic Storage
+mkSymStorage method locs = pure empty
+  {-
 mkSymStorage method loc = case loc of
-  IntLoc item -> do
-    v <- SymInteger <$> sInteger (pre item)
-    w <- SymInteger <$> sInteger (post item)
-    return (name item, (v, w))
+  IntLoc item -> case item of
+    DirectInt {} -> do
+      v <- A . SymInteger <$> sInteger (pre item)
+      w <- A . SymInteger <$> sInteger (post item)
+      return (name item, (v, w))
+    MappedInt _ _ ixs -> do
+      v <- M . Mapping ixs <$> newArray (pre item) Nothing
+      w <- M . Mapping ixs <$> newArray (post item) Nothing
+      return (name item, (v, w))
   BoolLoc item -> do
     v <- SymBool <$> sBool (pre item)
     w <- SymBool <$> sBool (post item)
@@ -215,23 +262,24 @@ mkSymStorage method loc = case loc of
 
     post :: TStorageItem a -> Id
     post i = (name i) ++ "_post"
+  -}
 
 mkEnv :: Contract -> Method -> Symbolic Env
 mkEnv contract method = Map.fromList <$> mapM makeSymbolic
   [ Caller, Callvalue, Calldepth, Origin, Blockhash, Blocknumber
   , Difficulty, Chainid, Gaslimit, Coinbase, Timestamp, This, Nonce ]
   where
-    makeSymbolic :: EthEnv -> Symbolic (Id, SMType)
+    makeSymbolic :: EthEnv -> Symbolic (Id, Atom)
     makeSymbolic Blockhash = mkBytes Blockhash
     makeSymbolic env = mkInt env
 
-    mkInt :: EthEnv -> Symbolic (Id, SMType)
+    mkInt :: EthEnv -> Symbolic (Id, Atom)
     mkInt env = do
       let k = nameFromEnv contract method env
       v <- SymInteger <$> sInteger k
       return (k, v)
 
-    mkBytes :: EthEnv -> Symbolic (Id, SMType)
+    mkBytes :: EthEnv -> Symbolic (Id, Atom)
     mkBytes env = do
       let k = nameFromEnv contract method env
       v <- SymBytes <$> sString k
@@ -247,7 +295,7 @@ mkConstraint :: Ctx -> (Either StorageLocation StorageUpdate) -> SBV Bool
 mkConstraint ctx (Left loc) = fromLocation ctx loc
 mkConstraint ctx (Right update) = fromUpdate ctx update
 
-getVar :: (Show b) => Ctx -> TStorageItem a -> (Map Id (SMType, SMType) -> Map Id b) -> b
+getVar :: (Show b) => Ctx -> TStorageItem a -> (Map Id (Atom, Atom) -> Map Id b) -> b
 getVar (Ctx _ m _ store _) i f = get (nameFromItem m i) (f store)
 
 fromLocation :: Ctx -> StorageLocation -> SBV Bool
@@ -265,7 +313,7 @@ fromUpdate ctx update = case update of
 
 -- *** Symbolic Expression Construction *** ---
 
-symExp :: Ctx -> When -> ReturnExp -> SMType
+symExp :: Ctx -> When -> ReturnExp -> Atom
 symExp ctx whn ret = case ret of
   ExpInt e -> SymInteger $ symExpInt ctx whn e
   ExpBool e -> SymBool $ symExpBool ctx whn e
@@ -342,77 +390,9 @@ nameFromItem method item = case item of
   DirectInt c name -> c @@ method @@ name
   DirectBool c name -> c @@ method @@ name
   DirectBytes c name -> c @@ method @@ name
-  MappedInt c name ixs -> c @@ method @@ name >< showIxs c ixs
-  MappedBool c name ixs -> c @@ method @@ name >< showIxs c ixs
-  MappedBytes c name ixs -> c @@ method @@ name >< showIxs c ixs
-  where
-    x >< y = x <> "-" <> y
-    showIxs contract ixs = intercalate "-" (NonEmpty.toList $ nameFromExp contract method <$> ixs)
-
-nameFromExp :: Contract -> Method -> ReturnExp -> Id
-nameFromExp contract method e = case e of
-  ExpInt e' -> nameFromExpInt contract method e'
-  ExpBool e' -> nameFromExpBool contract method e'
-  ExpBytes e' -> nameFromExpBytes contract method e'
-
-nameFromExpInt :: Contract -> Method -> Exp Integer -> Id
-nameFromExpInt c m e = case e of
-  Add a b   -> (nameFromExpInt c m a) <> "+" <> (nameFromExpInt c m b)
-  Sub a b   -> (nameFromExpInt c m a) <> "-" <> (nameFromExpInt c m b)
-  Mul a b   -> (nameFromExpInt c m a) <> "*" <> (nameFromExpInt c m b)
-  Div a b   -> (nameFromExpInt c m a) <> "/" <> (nameFromExpInt c m b)
-  Mod a b   -> (nameFromExpInt c m a) <> "%" <> (nameFromExpInt c m b)
-  Exp a b   -> (nameFromExpInt c m a) <> "^" <> (nameFromExpInt c m b)
-  LitInt a  -> show a
-  IntMin a  -> show $ intmin a
-  IntMax a  -> show $ intmax a
-  UIntMin a -> show $ uintmin a
-  UIntMax a -> show $ uintmax a
-  IntVar a  -> a
-  TEntry a  -> nameFromItem m a
-  IntEnv a -> nameFromEnv c m a
-  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpInt c m y <> "-else-" <> nameFromExpInt c m z
-
-nameFromExpBool :: Contract -> Method -> Exp Bool -> Id
-nameFromExpBool c m e = case e of
-  And a b   -> nameFromExpBool c m a <> "&&" <> nameFromExpBool c m b
-  Or a b    -> nameFromExpBool c m a <> "|" <> nameFromExpBool c m b
-  Impl a b  -> nameFromExpBool c m a <> "=>" <> nameFromExpBool c m b
-  LE a b    -> nameFromExpInt c m a <> "<" <> nameFromExpInt c m b
-  LEQ a b   -> nameFromExpInt c m a <> "<=" <> nameFromExpInt c m b
-  GE a b    -> nameFromExpInt c m a <> ">" <> nameFromExpInt c m b
-  GEQ a b   -> nameFromExpInt c m a <> ">=" <> nameFromExpInt c m b
-  Neg a     -> "~" <> nameFromExpBool c m a
-  LitBool a -> show a
-  BoolVar a -> nameFromArg c m a
-  TEntry a  -> nameFromItem m a
-  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBool c m y <> "-else-" <> nameFromExpBool c m z
-  Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
-    Just Refl -> nameFromExpInt c m a <> "==" <> nameFromExpInt c m b
-    Nothing -> case eqT @t @Bool of
-      Just Refl -> nameFromExpBool c m a <> "==" <> nameFromExpBool c m b
-      Nothing -> case eqT @t @ByteString of
-        Just Refl -> nameFromExpBytes c m a <> "==" <> nameFromExpBytes c m b
-        Nothing -> error "Internal Error: invalid expressio type"
-  NEq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
-    Just Refl -> nameFromExpInt c m a <> "=/=" <> nameFromExpInt c m b
-    Nothing -> case eqT @t @Bool of
-      Just Refl -> nameFromExpBool c m a <> "=/=" <> nameFromExpBool c m b
-      Nothing -> case eqT @t @ByteString of
-        Just Refl -> nameFromExpBytes c m a <> "=/=" <> nameFromExpBytes c m b
-        Nothing -> error "Internal Error: invalid expressio type"
-
-nameFromExpBytes :: Contract -> Method -> Exp ByteString -> Id
-nameFromExpBytes c m e = case e of
-  Cat a b -> nameFromExpBytes c m a <> "++" <> nameFromExpBytes c m b
-  ByVar a  -> nameFromArg c m a
-  ByStr a -> show a
-  ByLit a -> show a
-  TEntry a  -> nameFromItem m a
-  Slice a x y -> nameFromExpBytes c m a <> "[" <> show x <> ":" <> show y <> "]"
-  ByEnv a -> nameFromEnv c m a
-  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBytes c m y <> "-else-" <> nameFromExpBytes c m z
+  MappedInt c name _ -> c @@ method @@ name
+  MappedBool c name _ -> c @@ method @@ name
+  MappedBytes c name _ -> c @@ method @@ name
 
 nameFromDecl :: Contract -> Method -> Decl -> Id
 nameFromDecl c m (Decl _ name) = nameFromArg c m name
@@ -433,13 +413,13 @@ x @@ y = x <> "_" <> y
 get :: (Show a, Ord a, Show b) => a -> Map a b -> b
 get name vars = fromMaybe (error (show name <> " not found in " <> show vars)) $ Map.lookup name vars
 
-catInts :: Map Id SMType -> Map Id (SBV Integer)
+catInts :: Map Id Atom -> Map Id (SBV Integer)
 catInts m = Map.fromList [(name, i) | (name, SymInteger i) <- Map.toList m]
 
-catBools :: Map Id SMType -> Map Id (SBV Bool)
+catBools :: Map Id Atom -> Map Id (SBV Bool)
 catBools m = Map.fromList [(name, i) | (name, SymBool i) <- Map.toList m]
 
-catBytes :: Map Id SMType -> Map Id (SBV String)
+catBytes :: Map Id Atom -> Map Id (SBV String)
 catBytes m = Map.fromList [(name, i) | (name, SymBytes i) <- Map.toList m]
 
 concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]

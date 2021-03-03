@@ -168,9 +168,9 @@ stateval store handler updates =
     case find (eqName name) updates' of
       Nothing -> parens $ handler name t
       Just (IntUpdate (DirectInt _ _) e) -> parens $ coqexp e
-      Just (IntUpdate (MappedInt _ name' args) e) -> lambda (NE.toList args) 0 e name'
+      --Just (IntUpdate (MappedInt _ name' args) e) -> lambda (NE.toList args) 0 e name'
       Just (BoolUpdate (DirectBool _ _) e)  -> parens $ coqexp e
-      Just (BoolUpdate (MappedBool _ name' args) e) -> lambda (NE.toList args) 0 e name'
+      --Just (BoolUpdate (MappedBool _ name' args) e) -> lambda (NE.toList args) 0 e name'
       Just (BytesUpdate _ _) -> error "bytestrings not supported"
 
 -- | filter by name
@@ -265,7 +265,7 @@ coqexp (GE e1 e2)   = parens $ coqexp e2 <> " <? "  <> coqexp e1
 coqexp (GEQ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
 coqexp (TEntry (DirectBool _ name)) = parens $ T.pack name <> " " <> stateVar
 coqexp (TEntry (MappedBool _ name args)) = parens $
-  T.pack name <> " s " <> coqargs args
+  T.pack name <> " s " -- <> coqargs args
 
 -- integers
 coqexp (LitInt i) = T.pack $ show i
@@ -282,7 +282,7 @@ coqexp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
 coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
 coqexp (TEntry (DirectInt _ name)) = parens $ T.pack name <> " " <> stateVar
 coqexp (TEntry (MappedInt _ name args)) = parens $
-  T.pack name <> " s " <> coqargs args
+  T.pack name <> " s " -- <> coqargs args
 
 -- polymorphic
 coqexp (ITE b e1 e2) = parens $ "if "

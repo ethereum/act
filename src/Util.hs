@@ -31,3 +31,8 @@ concatMapFC :: forall (f :: Type -> Type) (ts :: [Type]) (b :: Type)
             . (forall (a :: Type) . f a -> [b]) -> List f ts -> [b]
 concatMapFC _ Nil = []
 concatMapFC f (hd :< tl) = (f hd) <> (concatMapFC f tl)
+
+-- | Append two type level lists together
+type family Append (l :: [Type]) (r :: [Type]) :: [Type] where
+  Append '[] r = r
+  Append (hd ': tl) r = hd ': Append tl r

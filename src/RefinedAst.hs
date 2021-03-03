@@ -10,7 +10,6 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
-{-# Language TypeOperators #-}
 {-# Language DeriveAnyClass #-}
 {-# Language PolyKinds #-}
 {-# Language RankNTypes #-}
@@ -31,7 +30,7 @@ import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
 import Data.Parameterized.List (List(..))
-import Data.Parameterized.Classes (ShowF)
+import Data.Parameterized.Classes (ShowF, OrdF(..), leqF)
 import Data.Kind (Type)
 
 import Util (All)
@@ -83,30 +82,101 @@ data MType
   deriving (Eq, Ord, Show, Read)
 
 data StorageUpdate
-  = IntUpdate (TStorageItem Integer) (Exp Integer)
-  | BoolUpdate (TStorageItem Bool) (Exp Bool)
-  | BytesUpdate (TStorageItem ByteString) (Exp ByteString)
-  deriving (Show, Eq)
+  = forall ixs . Typeable ixs => IntUpdate (TStorageItem ixs Integer) (Exp Integer)
+  | forall ixs . Typeable ixs => BoolUpdate (TStorageItem ixs Bool) (Exp Bool)
+  | forall ixs . Typeable ixs => BytesUpdate (TStorageItem ixs ByteString) (Exp ByteString)
+
+deriving instance Show StorageUpdate
+
+instance Eq StorageUpdate where
+  IntUpdate (item :: TStorageItem ixs Integer) e == IntUpdate (item' :: TStorageItem ixs' Integer) e'
+    = case eqT @ixs @ixs' of
+      Just Refl -> item == item' && e == e'
+      Nothing -> False
+  BoolUpdate (item :: TStorageItem ixs Bool) e == BoolUpdate (item' :: TStorageItem ixs' Bool) e'
+    = case eqT @ixs @ixs' of
+      Just Refl -> item == item' && e == e'
+      Nothing -> False
+  BytesUpdate (item :: TStorageItem ixs ByteString) e == BytesUpdate (item' :: TStorageItem ixs' ByteString) e'
+    = case eqT @ixs @ixs' of
+      Just Refl -> item == item' && e == e'
+      Nothing -> False
+  _ == _ = False
 
 data StorageLocation
-  = IntLoc (TStorageItem Integer)
-  | BoolLoc (TStorageItem Bool)
-  | BytesLoc (TStorageItem ByteString)
-  deriving (Show, Eq)
+  = forall ixs . Typeable ixs => IntLoc (TStorageItem ixs Integer)
+  | forall ixs . Typeable ixs => BoolLoc (TStorageItem ixs Bool)
+  | forall ixs . Typeable ixs => BytesLoc (TStorageItem ixs ByteString)
+
+deriving instance Show StorageLocation
+
+instance Eq StorageLocation where
+  IntLoc (item :: TStorageItem ixs Integer) == IntLoc (item' :: TStorageItem ixs' Integer)
+    = case eqT @ixs @ixs' of
+      Just Refl -> item == item'
+      Nothing -> False
+  BoolLoc (item :: TStorageItem ixs Bool) == BoolLoc (item' :: TStorageItem ixs' Bool)
+    = case eqT @ixs @ixs' of
+      Just Refl -> item == item'
+      Nothing -> False
+  BytesLoc (item :: TStorageItem ixs ByteString) == BytesLoc (item' :: TStorageItem ixs' ByteString)
+    = case eqT @ixs @ixs' of
+      Just Refl -> item == item'
+      Nothing -> False
+  _ == _ = False
 
 type Ixs (ts :: [Type]) = List Exp ts
 
-data TStorageItem a where
-  DirectInt    :: Id -> Id -> TStorageItem Integer
-  DirectBool   :: Id -> Id -> TStorageItem Bool
-  DirectBytes  :: Id -> Id -> TStorageItem ByteString
-  MappedInt    :: (All Typeable ts, ToJSON (Ixs ts)) => Id -> Id -> Ixs ts -> TStorageItem Integer
-  MappedBool   :: (All Typeable ts, ToJSON (Ixs ts)) => Id -> Id -> Ixs ts -> TStorageItem Bool
-  MappedBytes  :: (All Typeable ts, ToJSON (Ixs ts)) => Id -> Id -> Ixs ts -> TStorageItem ByteString
+data TStorageItem (ts :: [Type]) (val :: Type) where
+  DirectInt    :: Id -> Id -> TStorageItem '[] Integer
+  DirectBool   :: Id -> Id -> TStorageItem '[] Bool
+  DirectBytes  :: Id -> Id -> TStorageItem '[] ByteString
+  MappedInt    :: (All Typeable ts, ToJSON (Ixs ts)) => Id -> Id -> Ixs ts -> TStorageItem ts Integer
+  MappedBool   :: (All Typeable ts, ToJSON (Ixs ts)) => Id -> Id -> Ixs ts -> TStorageItem ts Bool
+  MappedBytes  :: (All Typeable ts, ToJSON (Ixs ts)) => Id -> Id -> Ixs ts -> TStorageItem ts ByteString
 
-deriving instance Show (TStorageItem a)
+deriving instance Show (TStorageItem ts a)
+deriving instance TestEquality (TStorageItem ts)
 
-instance Eq (TStorageItem a) where
+instance OrdF (TStorageItem ts) where
+  leqF (DirectInt c m) (DirectInt c' m') = (c <= c') && (m <= m')
+  leqF (DirectInt c m) (DirectBool c' m') = (c <= c') && (m <= m')
+  leqF (DirectInt c m) (DirectBytes c' m') = (c <= c') && (m <= m')
+  leqF (DirectInt c m) (MappedInt c' m' _) = (c <= c') && (m <= m')
+  leqF (DirectInt c m) (MappedBool c' m' _) = (c <= c') && (m <= m')
+  leqF (DirectInt c m) (MappedBytes c' m' _) = (c <= c') && (m <= m')
+  leqF (DirectBool c m) (DirectInt c' m') = (c <= c') && (m <= m')
+  leqF (DirectBool c m) (DirectBool c' m') = (c <= c') && (m <= m')
+  leqF (DirectBool c m) (DirectBytes c' m') = (c <= c') && (m <= m')
+  leqF (DirectBool c m) (MappedInt c' m' _) = (c <= c') && (m <= m')
+  leqF (DirectBool c m) (MappedBool c' m' _) = (c <= c') && (m <= m')
+  leqF (DirectBool c m) (MappedBytes c' m' _) = (c <= c') && (m <= m')
+  leqF (DirectBytes c m) (DirectInt c' m') = (c <= c') && (m <= m')
+  leqF (DirectBytes c m) (DirectBool c' m') = (c <= c') && (m <= m')
+  leqF (DirectBytes c m) (DirectBytes c' m') = (c <= c') && (m <= m')
+  leqF (DirectBytes c m) (MappedInt c' m' _) = (c <= c') && (m <= m')
+  leqF (DirectBytes c m) (MappedBool c' m' _) = (c <= c') && (m <= m')
+  leqF (DirectBytes c m) (MappedBytes c' m' _) = (c <= c') && (m <= m')
+  leqF (MappedInt c m _) (DirectInt c' m') = (c <= c') && (m <= m')
+  leqF (MappedInt c m _) (DirectBool c' m') = (c <= c') && (m <= m')
+  leqF (MappedInt c m _) (DirectBytes c' m') = (c <= c') && (m <= m')
+  leqF (MappedInt c m ixs) (MappedInt c' m' ixs') = (c <= c') && (m <= m') && (leqF ixs ixs')
+  leqF (MappedInt c m ixs) (MappedBool c' m' ixs') = (c <= c') && (m <= m') && (leqF ixs ixs')
+  leqF (MappedInt c m ixs) (MappedBytes c' m' ixs') = (c <= c') && (m <= m') && (leqF ixs ixs')
+  leqF (MappedBool c m _) (DirectInt c' m') = (c <= c') && (m <= m')
+  leqF (MappedBool c m _) (DirectBool c' m') = (c <= c') && (m <= m')
+  leqF (MappedBool c m _) (DirectBytes c' m') = (c <= c') && (m <= m')
+  leqF (MappedBool c m ixs) (MappedInt c' m' ixs') = (c <= c') && (m <= m') && (leqF ixs ixs')
+  leqF (MappedBool c m ixs) (MappedBool c' m' ixs') = (c <= c') && (m <= m') && (leqF ixs ixs')
+  leqF (MappedBool c m ixs) (MappedBytes c' m' ixs') = (c <= c') && (m <= m') && (leqF ixs ixs')
+  leqF (MappedBytes c m _) (DirectInt c' m') = (c <= c') && (m <= m')
+  leqF (MappedBytes c m _) (DirectBool c' m') = (c <= c') && (m <= m')
+  leqF (MappedBytes c m _) (DirectBytes c' m') = (c <= c') && (m <= m')
+  leqF (MappedBytes c m ixs) (MappedInt c' m' ixs') = (c <= c') && (m <= m') && (leqF ixs ixs')
+  leqF (MappedBytes c m ixs) (MappedBool c' m' ixs') = (c <= c') && (m <= m') && (leqF ixs ixs')
+  leqF (MappedBytes c m ixs) (MappedBytes c' m' ixs') = (c <= c') && (m <= m') && (leqF ixs ixs')
+
+instance Eq (TStorageItem ts a) where
   DirectInt c n == DirectInt c' n' = c == c' && n == n'
   DirectBool c n == DirectBool c' n' = c == c' && n == n'
   DirectBytes c n == DirectBytes c' n' = c == c' && n == n'
@@ -157,10 +227,11 @@ data Exp t where
   Eq  :: (Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
   NEq :: (Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
   ITE :: Exp Bool -> Exp t -> Exp t -> Exp t
-  TEntry :: (TStorageItem t) -> Exp t
+  TEntry :: Typeable ixs => TStorageItem ixs t -> Exp t
 
 deriving instance Show (Exp t)
 deriving instance ShowF (Exp)
+deriving instance OrdF (Exp)
 deriving instance TestEquality (Exp) -- TODO: whats up with the warning here?
 
 instance Eq (Exp t) where
@@ -206,7 +277,9 @@ instance Eq (Exp t) where
     Just Refl -> a == c && b == d
     Nothing -> False
   ITE a b c == ITE d e f = a == d && b == e && c == f
-  TEntry a == TEntry b = a == b
+  TEntry (a :: TStorageItem ts v) == TEntry (b :: TStorageItem ts' v') = case eqT @ts @ts' of
+    Just Refl -> a == b
+    Nothing -> False
 
   _ == _ = False
 
@@ -254,17 +327,17 @@ instance ToJSON SlotType where
                                                    , "ixTypes" .= show (toList ixTypes)
                                                    , "valType" .= show valType]
 
-instance ToJSON StorageLocation where
+instance ToJSON (StorageLocation) where
   toJSON (IntLoc a) = object ["location" .= toJSON a]
   toJSON (BoolLoc a) = object ["location" .= toJSON a]
   toJSON (BytesLoc a) = object ["location" .= toJSON a]
 
-instance ToJSON StorageUpdate where
+instance ToJSON (StorageUpdate) where
   toJSON (IntUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
   toJSON (BoolUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
   toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
-instance ToJSON (TStorageItem b) where
+instance ToJSON (TStorageItem ixs b) where
   toJSON (DirectInt a b) = object ["sort" .= (pack "int")
                                   , "name" .= (String $ pack a <> "." <> pack b)]
   toJSON (DirectBool a b) = object ["sort" .= (pack "bool")

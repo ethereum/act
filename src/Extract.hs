@@ -82,7 +82,7 @@ ethEnvFromStateUpdate update = case update of
   Right (BoolUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
   Right (BytesUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
 
-ethEnvFromItem :: TStorageItem a -> [EthEnv]
+ethEnvFromItem :: TStorageItem ixs a -> [EthEnv]
 ethEnvFromItem item = case item of
   MappedInt _ _ ixs -> concatMapFC ethEnvFromExp ixs
   MappedBool _ _ ixs -> concatMapFC ethEnvFromExp ixs
@@ -152,7 +152,7 @@ getId (Left (IntLoc a)) = getId' a
 getId (Left (BoolLoc a)) = getId' a
 getId (Left (BytesLoc a)) = getId' a
 
-getId' :: TStorageItem a -> Id
+getId' :: TStorageItem ixs a -> Id
 getId' (DirectInt _ name) = name
 getId' (DirectBool _ name) = name
 getId' (DirectBytes _ name) = name
@@ -168,7 +168,7 @@ getContract (Right (IntUpdate item _)) = getContract' item
 getContract (Right (BoolUpdate item _)) = getContract' item
 getContract (Right (BytesUpdate item _)) = getContract' item
 
-getContract' :: TStorageItem a -> Id
+getContract' :: TStorageItem ixs a -> Id
 getContract' (DirectInt c _) = c
 getContract' (DirectBool c _) = c
 getContract' (DirectBytes c _) = c
