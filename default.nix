@@ -6,7 +6,7 @@ let
   dapptools = import sources.dapptools {};
 
   overlays = haskellNix.overlays ++ dapptools.overlays ++ [ (self: super: { ff = self.libff; }) ];
-  pkgs = import haskellNix.sources.nixpkgs-2009 (haskellNix.nixpkgsArgs // { inherit overlays; });
+  pkgs = import haskellNix.sources.nixpkgs-unstable (haskellNix.nixpkgsArgs // { inherit overlays; });
 
   myHaskellPackages = pkgs.haskell.packages.${compiler}.override {
     overrides = hself: hsuper: {
