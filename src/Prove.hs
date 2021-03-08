@@ -4,6 +4,7 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
+{-# Language FlexibleContexts #-}
 
 module Prove
   ( queries
@@ -29,7 +30,7 @@ import Control.Monad (when)
 import Data.ByteString (ByteString)
 import Data.ByteString.UTF8 (toString)
 import Data.List (intercalate, (\\), nub)
-import Data.List.NonEmpty as NonEmpty (toList)
+import Data.List.NonEmpty as NonEmpty (toList, NonEmpty(..))
 import Data.Map.Strict as Map (Map, lookup, fromList, toList)
 import Data.Maybe
 import Data.Type.Equality
@@ -93,19 +94,42 @@ data When = Pre | Post
   deriving (Eq, Show)
 
 data Ctx = Ctx Contract Method Args Storage Env
-  deriving (Show)
+  --deriving (Show)
 
-data SMType
+data Atom
   = SymInteger (SBV Integer)
   | SymBool (SBV Bool)
   | SymBytes (SBV String)
   deriving (Show)
 
-instance EqSymbolic SMType where
+data SMType
+  = A Atom
+  | Uninterpreted (Atom -> SMType) => M (Atom -> SMType)
+  --deriving (Show)
+
+instance EqSymbolic Atom where
   SymInteger a .== SymInteger b = a .== b
   SymBool a .== SymBool b = a .== b
   SymBytes a .== SymBytes b = a .== b
   _ .== _ = literal False
+
+  {-
+     mapping (uint => mapping (address => bool))
+     M (SymInteger -> M (SymInteger -> A SymBool))
+  -}
+
+mkStorageElem :: StorageLocation -> Symbolic SMType
+mkStorageElem loc = case loc of
+  IntLoc item -> case item of
+    DirectInt {} -> A . SymInteger <$> sInteger (nameFromItem "" item)
+    MappedInt _ _ ixs -> case ixs of
+      hd :| [] -> case hd of
+                    ExpInt _ -> pure . M $ uninterpret (nameFromItem "" item)
+                    _ -> undefined
+      _ -> undefined
+  _ -> undefined
+
+
 
 
 -- *** Query Construction *** --
