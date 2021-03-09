@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT (runSMT, asSMT) where
+module SMT (runSMT, asSMT, expToSMT2) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.List.NonEmpty as NonEmpty
@@ -60,7 +60,7 @@ data SMTResult
 
 --- External Interface ---
 
-runSMT :: SMTConfig -> [SMTExp] -> IO [(SMTExp, SMTResult)]
+runSMT :: SMTConfig -> SMTExp -> IO SMTResult
 runSMT conf exps = undefined
 
 asSMT :: Exp a -> SMTExp
@@ -98,6 +98,69 @@ declareStorageLocation when loc = case loc of
   where
     name :: TStorageItem a -> Id
     name item = nameFromItem item @@ show when
+
+expToSMT2 :: When -> Exp a -> SMT2
+expToSMT2 w e = case e of
+
+  -- booleans
+  And a b -> binop "and" a b
+  Or a b -> binop "or" a b
+  Impl a b -> binop "=>" a b
+  Neg a -> unop "not" a
+  LE a b -> binop "<" a b
+  LEQ a b -> binop "<=" a b
+  GEQ a b -> binop ">=" a b
+  GE a b -> binop ">" a b
+  LitBool a -> if a then "true" else "false"
+  BoolVar a -> a
+
+  -- integers
+  Add a b -> binop "+" a b
+  Sub a b -> binop "-" a b
+  Mul a b -> binop "*" a b
+  Div a b -> binop "div" a b
+  Mod a b -> binop "mod" a b
+  Exp {} -> error "Internal Error: exponentiation is not supported in smt-lib"
+  LitInt a -> show a
+  IntVar a -> a
+  IntEnv a -> prettyEnv a
+
+  -- bounds
+  IntMin a -> show $ intmin a
+  IntMax a -> show $ intmax a
+  UIntMin a -> show $ uintmin a
+  UIntMax a -> show $ uintmax a
+
+  -- bytestrings
+  Cat a b -> binop "str.++" a b
+  Slice a start end -> triop "str.substr" a start (Sub end start)
+  ByVar a -> a
+  ByStr a -> a
+  ByLit a -> show a
+  ByEnv a -> prettyEnv a
+
+  -- builtins
+  NewAddr {} -> error "TODO: NewAddr"
+
+  -- polymorphic
+  Eq a b -> binop "=" a b
+  NEq a b -> unop "not" (Eq a b)
+  ITE a b c -> triop "ite" a b c
+  TEntry item -> case item of
+    DirectInt {} -> nameFromItem item
+    DirectBool {} -> nameFromItem item
+    DirectBytes {} -> nameFromItem item
+    _ -> error "TODO: mapping lookups"
+
+  where
+    unop :: When -> String -> Exp a -> SMT2
+    unop w op a = "(" <> op <> " " <> expToSMT2 w a <> ")"
+
+    binop :: When -> String -> Exp a -> Exp b -> SMT2
+    binop w op a b = "(" <> op <> " " <> expToSMT2 w a <> " " <> expToSMT2 w b <> ")"
+
+    triop :: When -> String -> Exp a -> Exp b -> Exp c -> SMT2
+    triop w op a b c = "(" <> op <> " " <> expToSMT2 w a <> " " <> expToSMT2 w b <> " " <> expToSMT2 w c <> ")"
 
 constant :: Id -> MType -> SMT2
 constant name tp = "(declare-const " <> name <> " " <> (sType tp) <> ")"
