@@ -150,7 +150,9 @@ expToSMT2 w e = case e of
     DirectInt {} -> nameFromItem item
     DirectBool {} -> nameFromItem item
     DirectBytes {} -> nameFromItem item
-    _ -> error "TODO: mapping lookups"
+    MappedInt _ _ ixs -> select (nameFromItem item) ixs
+    MappedBool _ _ ixs -> select (nameFromItem item) ixs
+    MappedBytes _ _ ixs -> select (nameFromItem item) ixs
 
   where
     unop :: String -> Exp a -> SMT2
@@ -162,14 +164,22 @@ expToSMT2 w e = case e of
     triop :: String -> Exp a -> Exp b -> Exp c -> SMT2
     triop op a b c = "(" <> op <> " " <> expToSMT2 w a <> " " <> expToSMT2 w b <> " " <> expToSMT2 w c <> ")"
 
+    select :: String -> NonEmpty ReturnExp -> SMT2
+    select name ixs = "(" <> "select" <> " " <> name <> foldMap ((" " <>) . ixsToSMT2) ixs <> ")"
+      where
+        ixsToSMT2 :: ReturnExp -> SMT2
+        ixsToSMT2 e = case e of
+          ExpInt ei -> expToSMT2 w ei
+          ExpBool eb -> expToSMT2 w eb
+          ExpBytes ebs -> expToSMT2 w ebs
+
 constant :: Id -> MType -> SMT2
 constant name tp = "(declare-const " <> name <> " " <> (sType tp) <> ")"
 
 array :: Id -> NonEmpty ReturnExp -> MType -> SMT2
-array name ixs ret = "(declare-const " <> name <> " " <> arrayDecl ixs <> ")"
+array name ixs ret = "(declare-const " <> name <> " " <> arrayDecl <> ")"
   where
-    arrayDecl (hd :| []) = "(Array " <> sType' hd <> " " <> sType ret <> ")"
-    arrayDecl (hd :| tl) = "(Array " <> sType' hd <> " " <> (arrayDecl (NonEmpty.fromList tl)) <> ")"
+    arrayDecl = "(Array" <> foldMap ((" " <>) . sType') ixs <> " " <> sType ret <> ")"
 
 sType :: MType -> SMT2
 sType Integer = "Int"
