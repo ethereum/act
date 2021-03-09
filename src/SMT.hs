@@ -153,14 +153,14 @@ expToSMT2 w e = case e of
     _ -> error "TODO: mapping lookups"
 
   where
-    unop :: When -> String -> Exp a -> SMT2
-    unop w op a = "(" <> op <> " " <> expToSMT2 w a <> ")"
+    unop :: String -> Exp a -> SMT2
+    unop op a = "(" <> op <> " " <> expToSMT2 w a <> ")"
 
-    binop :: When -> String -> Exp a -> Exp b -> SMT2
-    binop w op a b = "(" <> op <> " " <> expToSMT2 w a <> " " <> expToSMT2 w b <> ")"
+    binop :: String -> Exp a -> Exp b -> SMT2
+    binop op a b = "(" <> op <> " " <> expToSMT2 w a <> " " <> expToSMT2 w b <> ")"
 
-    triop :: When -> String -> Exp a -> Exp b -> Exp c -> SMT2
-    triop w op a b c = "(" <> op <> " " <> expToSMT2 w a <> " " <> expToSMT2 w b <> " " <> expToSMT2 w c <> ")"
+    triop :: String -> Exp a -> Exp b -> Exp c -> SMT2
+    triop op a b c = "(" <> op <> " " <> expToSMT2 w a <> " " <> expToSMT2 w b <> " " <> expToSMT2 w c <> ")"
 
 constant :: Id -> MType -> SMT2
 constant name tp = "(declare-const " <> name <> " " <> (sType tp) <> ")"
