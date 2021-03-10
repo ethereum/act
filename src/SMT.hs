@@ -81,12 +81,11 @@ asSMT e = SMTExp store args environment assertions
     args = Map.empty
     assertions = []
 
-    addToStore store' loc = case Map.lookup (nameFromLoc loc) store' of
-      Just _ -> store'
-      Nothing -> Map.insert
-                   (nameFromLoc loc)
-                   (declareStorageLocation Pre loc, declareStorageLocation Post loc)
-                   store'
+    addToStore store' loc = Map.insertWith
+                              (flip const)
+                              (nameFromLoc loc)
+                              (declareStorageLocation Pre loc, declareStorageLocation Post loc)
+                              store'
 
 --- SMT2 generation ---
 
