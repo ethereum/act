@@ -35,6 +35,7 @@ import Parse
 import RefinedAst
 import Enrich
 import K hiding (normalize)
+import SMT
 import Syntax
 import Type
 import Prove
@@ -110,6 +111,8 @@ main = do
                       putStrLn $ msg <> "\n\n" <> intercalate sep (snd <$> results')
                       exitFailure
 
+                handleRes = undefined
+{-
                 handleRes (SatResult res) = case res of
                   Unsatisfiable _ _ -> (False, "")
                   Satisfiable _ model -> (True, "Counter example found!\n\n" <> show model)
@@ -117,10 +120,17 @@ main = do
                   ProofError _ reasons _  -> (True, "Proof error! " <> show reasons)
                   SatExtField _ _ -> error "Extension field containing Infinite/epsilon"
                   DeltaSat {} -> error "Unexpected DeltaSat"
-
+-}
+{-
             results <- forM (queries claims)
                           (\(i, qs) -> do
                             rs <- mapM (satWithTimeOut solver' smttimeout' debug') qs
+                            pure (i, rs)
+                          )
+-}
+            results <- forM (mkSMT claims)
+                          (\(i, qs) -> do
+                            rs <- mapM (SMT.runSMT undefined) qs
                             pure (i, rs)
                           )
             mapM_ handleResults results

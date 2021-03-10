@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT (runSMT, asSMT, expToSMT2) where
+module SMT (runSMT, asSMT, expToSMT2, mkSMT) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.List.NonEmpty as NonEmpty
@@ -63,6 +63,16 @@ data SMTResult
 runSMT :: SMTConfig -> SMTExp -> IO SMTResult
 runSMT conf exps = undefined
 
+mkSMT :: [Claim] -> [(Invariant, [SMTExp])]
+mkSMT claims = fmap mkQueries gathered
+  where
+    gathered = fmap (\inv -> (inv, definition inv, getBehaviours inv)) invariants
+    invariants = [i | I i <- claims]
+    getBehaviours (Invariant c _ _) = filter (\b -> isPass b && contractMatches c b) [b | B b <- claims]
+    definition (Invariant c _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
+    contractMatches c b = c == (_contract b)
+    isPass b = (_mode b) == Pass
+
 asSMT :: Exp a -> SMTExp
 asSMT e = SMTExp store args environment assertions
   where
@@ -79,6 +89,13 @@ asSMT e = SMTExp store args environment assertions
                    store'
 
 --- SMT2 generation ---
+
+mkQueries :: (Invariant, Constructor, [Behaviour]) -> (Invariant, [SMTExp])
+mkQueries (inv, constr, behvs) = (inv, inits:methods)
+  where
+    inits = mkInit inv constr
+    methods = mkMethod inv constr <$> behvs
+
 
 declareEthEnv :: EthEnv -> SMT2
 declareEthEnv env = constant (prettyEnv env) tp
