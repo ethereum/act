@@ -58,6 +58,58 @@ locsFromExp e = case e of
       ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
       ixLocs = concatMap locsFromReturnExp
 
+varsFromExp :: Exp a -> [Var]
+varsFromExp e = case e of
+  And a b   -> (varsFromExp a) <> (varsFromExp b)
+  Or a b    -> (varsFromExp a) <> (varsFromExp b)
+  Impl a b  -> (varsFromExp a) <> (varsFromExp b)
+  Eq a b    -> (varsFromExp a) <> (varsFromExp b)
+  LE a b    -> (varsFromExp a) <> (varsFromExp b)
+  LEQ a b   -> (varsFromExp a) <> (varsFromExp b)
+  GE a b    -> (varsFromExp a) <> (varsFromExp b)
+  GEQ a b   -> (varsFromExp a) <> (varsFromExp b)
+  NEq a b   -> (varsFromExp a) <> (varsFromExp b)
+  Neg a     -> (varsFromExp a)
+  Add a b   -> (varsFromExp a) <> (varsFromExp b)
+  Sub a b   -> (varsFromExp a) <> (varsFromExp b)
+  Mul a b   -> (varsFromExp a) <> (varsFromExp b)
+  Div a b   -> (varsFromExp a) <> (varsFromExp b)
+  Mod a b   -> (varsFromExp a) <> (varsFromExp b)
+  Exp a b   -> (varsFromExp a) <> (varsFromExp b)
+  Cat a b   -> (varsFromExp a) <> (varsFromExp b)
+  Slice a b c -> (varsFromExp a) <> (varsFromExp b) <> (varsFromExp c)
+  ByVar a -> [ VarBytes (ByVar a) ]
+  ByStr _ -> []
+  ByLit _ -> []
+  LitInt _  -> []
+  IntMin _  -> []
+  IntMax _  -> []
+  UIntMin _ -> []
+  UIntMax _ -> []
+  IntVar a -> [ VarInt (IntVar a) ]
+  LitBool _ -> []
+  BoolVar a -> [ VarBool (BoolVar a) ]
+  NewAddr a b -> (varsFromExp a) <> (varsFromExp b)
+  IntEnv _ -> []
+  ByEnv _ -> []
+  ITE x y z -> (varsFromExp x) <> (varsFromExp y) <> (varsFromExp z)
+  TEntry a -> case a of
+    DirectInt _ _ -> []
+    DirectBool _ _ -> []
+    DirectBytes _ _ -> []
+    MappedInt _ _ ixs -> ixVars ixs
+    MappedBool _ _ ixs -> ixVars ixs
+    MappedBytes _ _ ixs -> ixVars ixs
+    where
+      ixVars :: NonEmpty.NonEmpty ReturnExp -> [Var]
+      ixVars = concatMap varsFromReturnExp
+
+varsFromReturnExp :: ReturnExp -> [Var]
+varsFromReturnExp re = case re of
+  ExpInt e -> varsFromExp e
+  ExpBool e -> varsFromExp e
+  ExpBytes e -> varsFromExp e
+
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
   (concatMap ethEnvFromExp preconds)

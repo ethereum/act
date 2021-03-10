@@ -21,7 +21,7 @@ import Parse (parse)
 import Type (typecheck)
 import Print (prettyBehaviour)
 import Syntax (Interface(..), EthEnv(..), Decl(..))
-import SMT (asSMT', runSMT, SMTConfig(..), Solver(..), SMTResult(..))
+import SMT (asSMT, runSMT, SMTConfig(..), Solver(..), SMTResult(..), When(..))
 import RefinedAst hiding (Mode)
 
 import Debug.Trace
@@ -59,9 +59,10 @@ main = defaultMain $ testGroup "act"
     testGroup "smt"
       [ testProperty "generated smt is well typed" $ do
           names <- genNames
-          actexp <- sized $ genReturnExp names
+          actexp <- sized $ genExpBool names
+          whn <- elements [Pre, Post]
           let smtconf = SMTConfig Z3 1 False
-              smtexp = asSMT' actexp
+              smtexp = trace' $ asSMT whn actexp
           pure $ monadicIO . run $ do
             r <- runSMT smtconf smtexp
             pure $ case r of

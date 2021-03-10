@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT (runSMT, asSMT, asSMT', expToSMT2, mkSMT, testConf, testExp, SMTConfig(..), SMTResult(..), Solver(..)) where
+module SMT (runSMT, asSMT, expToSMT2, mkSMT, SMTConfig(..), SMTResult(..), Solver(..), When(..)) where
 
 import qualified Data.Map.Strict as Map
 import Data.Map (Map)
@@ -117,25 +117,19 @@ runSMT (SMTConfig solver _ _) e = do
                      "unsat\n" -> Unsat
                      _ -> error "fuck"
 
-asSMT :: Exp a -> SMTExp
-asSMT e = SMTExp store args environment assertions
+asSMT :: When -> Exp Bool -> SMTExp
+asSMT when e = SMTExp store args environment assertions
   where
     store = foldl' addToStore Map.empty (locsFromExp e)
     environment = Map.fromList $ fmap (\env -> (prettyEnv env, declareEthEnv env)) (ethEnvFromExp e)
-    args = Map.empty
-    assertions = []
+    args = Map.fromList $ fmap (\var -> (nameFromVar var, declareVar var)) (varsFromExp e)
+    assertions = ["(assert " <> expToSMT2 when e <> ")"]
 
     addToStore store' loc = Map.insertWith
                               (const id) -- if the name exists we want to keep its value as-is
                               (nameFromLoc loc)
                               (declareStorageLocation Pre loc, declareStorageLocation Post loc)
                               store'
-
-asSMT' :: ReturnExp -> SMTExp
-asSMT' re = case re of
-  ExpInt e -> asSMT e
-  ExpBool e -> asSMT e
-  ExpBytes e -> asSMT e
 
 --- SMT2 generation ---
 
@@ -147,6 +141,12 @@ mkQueries (inv, constr, behvs) = (inv, inits:methods)
     methods = mkMethod inv constr <$> behvs
   -}
 
+declareVar :: Var -> SMT2
+declareVar v = case v of
+  VarInt (IntVar a) -> constant a (varType v)
+  VarBool (BoolVar a) -> constant a (varType v)
+  VarBytes (ByVar a) -> constant a (varType v)
+  _ -> error "TODO: refine types so this never happens"
 
 declareEthEnv :: EthEnv -> SMT2
 declareEthEnv env = constant (prettyEnv env) tp
@@ -236,7 +236,7 @@ expToSMT2 w e = case e of
     select name ixs = "(" <> "select" <> " " <> name <> foldMap ((" " <>) . ixsToSMT2) ixs <> ")"
       where
         ixsToSMT2 :: ReturnExp -> SMT2
-        ixsToSMT2 e = case e of
+        ixsToSMT2 e' = case e' of
           ExpInt ei -> expToSMT2 w ei
           ExpBool eb -> expToSMT2 w eb
           ExpBytes ebs -> expToSMT2 w ebs
@@ -259,6 +259,11 @@ sType' (ExpInt {}) = "Int"
 sType' (ExpBool {}) = "Bool"
 sType' (ExpBytes {}) = "String"
 
+varType :: Var -> MType
+varType (VarInt {}) = Integer
+varType (VarBool {}) = Boolean
+varType (VarBytes {}) = ByteStr
+
 --- Variable Names ---
 
 nameFromItem :: TStorageItem a -> Id
@@ -275,6 +280,13 @@ nameFromLoc loc = case loc of
   IntLoc item -> nameFromItem item
   BoolLoc item -> nameFromItem item
   BytesLoc item -> nameFromItem item
+
+nameFromVar :: Var -> Id
+nameFromVar v = case v of
+  VarInt (IntVar a) -> a
+  VarBool (BoolVar a) -> a
+  VarBytes (ByVar a) -> a
+  _ -> error "TODO: refine AST so this isn't needed anymore"
 
 (@@) :: String -> String -> String
 x @@ y = x <> "_" <> y

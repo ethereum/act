@@ -97,6 +97,11 @@ data TStorageItem a where
 deriving instance Show (TStorageItem a)
 deriving instance Eq (TStorageItem a)
 
+data Var
+  = VarInt (Exp Integer)
+  | VarBool (Exp Bool)
+  | VarBytes (Exp ByteString)
+
 -- typed expressions
 data Exp t where
   -- booleans
