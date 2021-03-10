@@ -15,6 +15,8 @@ import Syntax (Id, EthEnv(..))
 import Print (prettyEnv)
 import Type (defaultStore)
 
+import System.Process (readProcess)
+
 {-
    This module contains low level utilities for:
     - constructing smt queries from Act expressions
@@ -37,7 +39,6 @@ data SMTConfig = SMTConfig
   { _solver :: Solver
   , _timeout :: Integer
   , _debug :: Bool
-  , _processes :: Integer
   }
 
 data SMTExp = SMTExp
@@ -46,6 +47,14 @@ data SMTExp = SMTExp
   , _environment :: Map Id SMT2
   , _assertions :: [ SMT2 ]
   }
+
+instance Show SMTExp where
+  show exp = intercalate "\n" (storage <> calldata <> environment <> assertions)
+    where
+      storage = intercalate "\n" . (\(pre, post) -> pre <> "\n" <> post) <$> Map.elems (_storage exp)
+      calldata = intercalate "\n" $ Map.elems (_calldata exp)
+      environment = intercalate "\n" $ Map.elems (_environment exp)
+      assertions = intercalate "\n" (_assertions exp)
 
 data Model = Model
   { _mstorage :: Map Id (MType, MType)
@@ -60,9 +69,6 @@ data SMTResult
 
 --- External Interface ---
 
-runSMT :: SMTConfig -> SMTExp -> IO SMTResult
-runSMT conf exps = undefined
-
 mkSMT :: [Claim] -> [(Invariant, [SMTExp])]
 mkSMT claims = fmap mkQueries gathered
   where
@@ -73,6 +79,11 @@ mkSMT claims = fmap mkQueries gathered
     contractMatches c b = c == (_contract b)
     isPass b = (_mode b) == Pass
 
+runSMT :: SMTConfig -> SMTExp -> IO SMTResult
+runSMT conf exp = do
+  let input = intercalate
+  output <- readProcess (solver conf) ["-in"]
+
 asSMT :: Exp a -> SMTExp
 asSMT e = SMTExp store args environment assertions
   where
@@ -82,7 +93,7 @@ asSMT e = SMTExp store args environment assertions
     assertions = []
 
     addToStore store' loc = Map.insertWith
-                              (flip const) -- if the name exists we want to keep its value as-is
+                              (const id) -- if the name exists we want to keep its value as-is
                               (nameFromLoc loc)
                               (declareStorageLocation Pre loc, declareStorageLocation Post loc)
                               store'

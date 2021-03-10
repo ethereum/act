@@ -23,7 +23,8 @@ common deps
                  bytestring       >= 0.10.8,
                  sbv              >= 8.4,
                  mtl              >= 2.2.2,
-                 utf8-string      >= 1.0.1.1
+                 utf8-string      >= 1.0.1.1,
+                 process          >= 1.6.11.0
   other-modules: Lex ErrM Extract Parse RefinedAst K HEVM Coq Syntax Type Prove Print Enrich SMT
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans
