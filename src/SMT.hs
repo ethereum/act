@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT (runSMT, asSMT, expToSMT2, testConf, testExp) where
+module SMT (runSMT, asSMT, expToSMT2, mkSMT, testConf, testExp) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.List.NonEmpty as NonEmpty
@@ -17,7 +17,8 @@ import Type (defaultStore)
 
 import Debug.Trace
 
-import System.Process (readProcess)
+import System.Process (readProcessWithExitCode)
+import System.Exit (ExitCode(..))
 
 {-
    This module contains low level utilities for:
@@ -67,11 +68,14 @@ data Model = Model
   , _mcalldata :: Map Id MType
   , _menvironment :: Map Id MType
   }
+  deriving (Show)
 
 data SMTResult
   = Sat
-  | Unsat Model
+  | Unsat --Model
   | Unknown
+  | Error Int String
+  deriving (Show)
 
 testConf = SMTConfig
   { _solver = Z3
@@ -85,11 +89,14 @@ testExp = SMTExp
   , _environment = Map.fromList [ ("bye" , "(declare-const bye String)") ]
   , _assertions = [
     "(assert (> hi_pre hi_post))",
-    "(assert (= yo false)" ]
+    "(assert (= yo false))",
+    "(assert (= true true))"]
   }
 
 --- External Interface ---
 
+mkSMT :: [Claim] -> [(Invariant, [SMTExp])]
+mkSMT = undefined
   {-
 mkSMT :: [Claim] -> [(Invariant, [SMTExp])]
 mkSMT claims = fmap mkQueries gathered
@@ -103,11 +110,15 @@ mkSMT claims = fmap mkQueries gathered
   -}
 
 runSMT :: SMTConfig -> SMTExp -> IO SMTResult
-runSMT conf e = do
+runSMT (SMTConfig solver _ _) e = do
   let input = intercalate "\n" [(show e), "(check-sat)"]
-  output <- readProcess (show $ _solver conf) ["-in"] input
-  traceM output
-  return Sat
+  (exitCode, stdout, _) <- readProcessWithExitCode (show solver) ["-in"] input
+  pure $ case exitCode of
+    ExitFailure code -> Error code stdout
+    ExitSuccess -> case stdout of
+                     "sat\n" -> Sat
+                     "unsat\n" -> Unsat
+                     _ -> error "fuck"
 
 asSMT :: Exp a -> SMTExp
 asSMT e = SMTExp store args environment assertions
