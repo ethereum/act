@@ -1,9 +1,8 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT (runSMT, asSMT, expToSMT2, mkSMT, testConf, testExp) where
+module SMT (runSMT, asSMT, asSMT', expToSMT2, mkSMT, testConf, testExp, SMTConfig(..), SMTResult(..), Solver(..)) where
 
 import qualified Data.Map.Strict as Map
-import qualified Data.List.NonEmpty as NonEmpty
 import Data.Map (Map)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Maybe
@@ -14,8 +13,6 @@ import Extract
 import Syntax (Id, EthEnv(..))
 import Print (prettyEnv)
 import Type (defaultStore)
-
-import Debug.Trace
 
 import System.Process (readProcessWithExitCode)
 import System.Exit (ExitCode(..))
@@ -133,6 +130,12 @@ asSMT e = SMTExp store args environment assertions
                               (nameFromLoc loc)
                               (declareStorageLocation Pre loc, declareStorageLocation Post loc)
                               store'
+
+asSMT' :: ReturnExp -> SMTExp
+asSMT' re = case re of
+  ExpInt e -> asSMT e
+  ExpBool e -> asSMT e
+  ExpBytes e -> asSMT e
 
 --- SMT2 generation ---
 

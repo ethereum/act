@@ -8,6 +8,7 @@ import EVM.ABI (AbiType(..))
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Instances.ByteString()
+import Test.QuickCheck.Monadic (run, monadicIO)
 
 import Control.Monad
 import Data.ByteString (ByteString)
@@ -20,6 +21,7 @@ import Parse (parse)
 import Type (typecheck)
 import Print (prettyBehaviour)
 import Syntax (Interface(..), EthEnv(..), Decl(..))
+import SMT (asSMT', runSMT, SMTConfig(..), Solver(..), SMTResult(..))
 import RefinedAst hiding (Mode)
 
 import Debug.Trace
@@ -33,26 +35,39 @@ import Data.Text.Lazy as T (unpack)
 main :: IO ()
 main = defaultMain $ testGroup "act"
   [ testGroup "frontend"
-    {-
-       Generates a random concrete behaviour, prints it, runs it through the frontend
-       (lex -> parse -> type), and then checks that the typechecked output matches the
-       generated behaviour.
+      {-
+         Generates a random concrete behaviour, prints it, runs it through the frontend
+         (lex -> parse -> type), and then checks that the typechecked output matches the
+         generated behaviour.
 
-       If the generated behaviour contains some preconditions, then the structure of the
-       fail spec is also checked.
-    -}
-    [ testProperty "single roundtrip" $ do
-        behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
-        let actual = parse (lexer $ prettyBehaviour behv) >>= typecheck
-            expected = if null preconds then
-                [ S Map.empty, B behv ]
-              else
-                [ S Map.empty, B behv
-                , B $ Behaviour name Fail contract iface [Neg $ mconcat preconds] [] [] Nothing ]
-        return $ case actual of
-          Ok a -> a == expected
-          Bad _ -> False
-    ]
+         If the generated behaviour contains some preconditions, then the structure of the
+         fail spec is also checked.
+      -}
+      [ testProperty "single roundtrip" $ do
+          behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
+          let actual = parse (lexer $ prettyBehaviour behv) >>= typecheck
+              expected = if null preconds then
+                  [ S Map.empty, B behv ]
+                else
+                  [ S Map.empty, B behv
+                  , B $ Behaviour name Fail contract iface [Neg $ mconcat preconds] [] [] Nothing ]
+          return $ case actual of
+            Ok a -> a == expected
+            Bad _ -> False
+      ],
+
+    testGroup "smt"
+      [ testProperty "generated smt is well typed" $ do
+          names <- genNames
+          actexp <- sized $ genReturnExp names
+          let smtconf = SMTConfig Z3 1 False
+              smtexp = asSMT' actexp
+          pure $ monadicIO . run $ do
+            r <- runSMT smtconf smtexp
+            pure $ case r of
+              Error {} -> False
+              _ -> True
+      ]
   ]
 
 
