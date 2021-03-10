@@ -82,7 +82,7 @@ asSMT e = SMTExp store args environment assertions
     assertions = []
 
     addToStore store' loc = Map.insertWith
-                              (flip const)
+                              (flip const) -- if the name exists we want to keep its value as-is
                               (nameFromLoc loc)
                               (declareStorageLocation Pre loc, declareStorageLocation Post loc)
                               store'
