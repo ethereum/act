@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT (runSMT, asSMT, expToSMT2, mkSMT) where
+module SMT (runSMT, asSMT, expToSMT2, testConf, testExp) where
 
 import qualified Data.Map.Strict as Map
 import qualified Data.List.NonEmpty as NonEmpty
@@ -15,6 +15,8 @@ import Syntax (Id, EthEnv(..))
 import Print (prettyEnv)
 import Type (defaultStore)
 
+import Debug.Trace
+
 import System.Process (readProcess)
 
 {-
@@ -27,6 +29,10 @@ import System.Process (readProcess)
 --- Data ---
 
 data Solver = Z3 | CVC4
+instance Show Solver where
+  show Z3 = "z3"
+  show CVC4 = "cvc4"
+
 data When = Pre | Post
 
 type SMT2 = String
@@ -49,12 +55,12 @@ data SMTExp = SMTExp
   }
 
 instance Show SMTExp where
-  show exp = intercalate "\n" (storage <> calldata <> environment <> assertions)
+  show e = intercalate "\n" [storage, calldata, environment, assertions]
     where
-      storage = intercalate "\n" . (\(pre, post) -> pre <> "\n" <> post) <$> Map.elems (_storage exp)
-      calldata = intercalate "\n" $ Map.elems (_calldata exp)
-      environment = intercalate "\n" $ Map.elems (_environment exp)
-      assertions = intercalate "\n" (_assertions exp)
+      storage = intercalate "\n" $ (\(pre, post) -> pre <> "\n" <> post) <$> Map.elems (_storage e)
+      calldata = intercalate "\n" $ Map.elems (_calldata e)
+      environment = intercalate "\n" $ Map.elems (_environment e)
+      assertions = intercalate "\n" (_assertions e)
 
 data Model = Model
   { _mstorage :: Map Id (MType, MType)
@@ -67,8 +73,24 @@ data SMTResult
   | Unsat Model
   | Unknown
 
+testConf = SMTConfig
+  { _solver = Z3
+  , _timeout = 1
+  , _debug = False
+  }
+
+testExp = SMTExp
+  { _storage = Map.fromList [ ("hi", ("(declare-const hi_pre Int)", "(declare-const hi_post Int)")) ]
+  , _calldata = Map.fromList [ ("yo", "(declare-const yo Bool)") ]
+  , _environment = Map.fromList [ ("bye" , "(declare-const bye String)") ]
+  , _assertions = [
+    "(assert (> hi_pre hi_post))",
+    "(assert (= yo false)" ]
+  }
+
 --- External Interface ---
 
+  {-
 mkSMT :: [Claim] -> [(Invariant, [SMTExp])]
 mkSMT claims = fmap mkQueries gathered
   where
@@ -78,11 +100,14 @@ mkSMT claims = fmap mkQueries gathered
     definition (Invariant c _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
     contractMatches c b = c == (_contract b)
     isPass b = (_mode b) == Pass
+  -}
 
 runSMT :: SMTConfig -> SMTExp -> IO SMTResult
-runSMT conf exp = do
-  let input = intercalate
-  output <- readProcess (solver conf) ["-in"]
+runSMT conf e = do
+  let input = intercalate "\n" [(show e), "(check-sat)"]
+  output <- readProcess (show $ _solver conf) ["-in"] input
+  traceM output
+  return Sat
 
 asSMT :: Exp a -> SMTExp
 asSMT e = SMTExp store args environment assertions
@@ -100,11 +125,13 @@ asSMT e = SMTExp store args environment assertions
 
 --- SMT2 generation ---
 
+  {-
 mkQueries :: (Invariant, Constructor, [Behaviour]) -> (Invariant, [SMTExp])
 mkQueries (inv, constr, behvs) = (inv, inits:methods)
   where
     inits = mkInit inv constr
     methods = mkMethod inv constr <$> behvs
+  -}
 
 
 declareEthEnv :: EthEnv -> SMT2
