@@ -123,9 +123,9 @@ mkPostconditionQueries behv@(Behaviour _ _ _ interface preconds postconds stateU
 
     tup2List (a,b) = [a, b]
 
-runSMT :: SMTConfig -> SMT2 -> IO SMTResult
+runSMT :: SMTConfig -> SMTExp -> IO SMTResult
 runSMT (SMTConfig solver _ _) e = do
-  let input = intercalate "\n" [e, "(check-sat)"]
+  let input = intercalate "\n" [show e, "(check-sat)"]
   (exitCode, stdout, _) <- readProcessWithExitCode (show solver) ["-in"] input
   pure $ case exitCode of
     ExitFailure code -> Error code stdout

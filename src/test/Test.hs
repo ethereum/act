@@ -196,19 +196,19 @@ genExpInt names 0 = oneof
   ]
 genExpInt names n = do
   expo <- lift ask
-  oneof
-    [ liftM2 Add subExpInt subExpInt
-    , liftM2 Sub subExpInt subExpInt
-    , liftM2 Mul subExpInt subExpInt
-    , liftM2 Div subExpInt subExpInt
-    , liftM2 Mod subExpInt subExpInt
-    , liftM2 Exp subExpInt subExpInt
-    , liftM3 ITE subExpBool subExpInt subExpInt
-    ] `suchThat` (\expr -> not (isExp expr) && expo)
+  oneof $
+    (if expo
+      then ((liftM2 Exp subExpInt subExpInt):) 
+      else id)
+        [ liftM2 Add subExpInt subExpInt
+        , liftM2 Sub subExpInt subExpInt
+        , liftM2 Mul subExpInt subExpInt
+        , liftM2 Div subExpInt subExpInt
+        , liftM2 Mod subExpInt subExpInt
+        , liftM3 ITE subExpBool subExpInt subExpInt
+        ]
   where subExpInt = genExpInt names (n `div` 2)
         subExpBool = genExpBool names (n `div` 2)
-        isExp (Exp {}) = True
-        isExp _        = False
 
 
 selectName :: MType -> Names -> ExpoGen String
