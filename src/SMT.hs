@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT (runSMT, asSMT, expToSMT2, mkSMT, isError, SMTConfig(..), SMTResult(..), Solver(..), When(..)) where
+module SMT (runSMT, expToSMT2, mkSMT, isError, SMTConfig(..), SMTResult(..), Solver(..), When(..)) where
 
 import qualified Data.Map.Strict as Map
 import Data.Map (Map)
@@ -110,9 +110,22 @@ mkSMT claims = fmap mkQueries gathered
     isPass b = (_mode b) == Pass
   -}
 
-runSMT :: SMTConfig -> SMTExp -> IO SMTResult
+mkPostconditionQueries :: Behaviour -> [(ReturnExp, SMT2)]
+mkPostconditionQueries behv@(Behaviour _ _ _ interface preconds postconds stateUpdates _) = undefined
+  where
+    storage = concatMap tup2List $ declareStorageLocation . getLoc <$> stateUpdates
+
+    args = declareVar <$> varsFromBehaviour behv
+    envs = declareEthEnv <$> ethEnvFromBehaviour behv
+    pres = expToSMT2 Pre <$> preconds
+    posts = expToSMT2 Post <$> postconds
+    updates = encodeUpdate <$> stateUpdates
+
+    tup2List (a,b) = [a, b]
+
+runSMT :: SMTConfig -> SMT2 -> IO SMTResult
 runSMT (SMTConfig solver _ _) e = do
-  let input = intercalate "\n" [(show e), "(check-sat)"]
+  let input = intercalate "\n" [e, "(check-sat)"]
   (exitCode, stdout, _) <- readProcessWithExitCode (show solver) ["-in"] input
   pure $ case exitCode of
     ExitFailure code -> Error code stdout
@@ -121,19 +134,20 @@ runSMT (SMTConfig solver _ _) e = do
                      "unsat\n" -> Unsat
                      _ -> error "fuck"
 
-asSMT :: When -> Exp Bool -> SMTExp
-asSMT when e = SMTExp store args environment assertions
-  where
-    store = foldl' addToStore Map.empty (locsFromExp e)
-    environment = Map.fromList $ fmap (\env -> (prettyEnv env, declareEthEnv env)) (ethEnvFromExp e)
-    args = Map.fromList $ fmap (\var -> (nameFromVar var, declareVar var)) (varsFromExp e)
-    assertions = ["(assert " <> expToSMT2 when e <> ")"]
+--asSMT :: When -> Exp Bool -> SMTExp
+--asSMT when e = SMTExp store args environment assertions
+  --where
+    --store = foldl' addToStore Map.empty (locsFromExp e)
+    --environment = Map.fromList $ fmap (\env -> (prettyEnv env, declareEthEnv env)) (ethEnvFromExp e)
+    --args = Map.fromList $ fmap (\var -> (nameFromVar var, declareVar var)) (varsFromExp e)
+    --assertions = ["(assert " <> expToSMT2 when e <> ")"]
 
-    addToStore store' loc = Map.insertWith
-                              (const id) -- if the name exists we want to keep its value as-is
-                              (nameFromLoc loc)
-                              (declareStorageLocation Pre loc, declareStorageLocation Post loc)
-                              store'
+    --addToStore :: Map Id (SMT2, SMT2) -> StorageLocation -> Map Id (SMT2, SMT2)
+    --addToStore store' loc = Map.insertWith
+                              --(const id) -- if the name exists we want to keep its value as-is
+                              --(nameFromLoc when loc)
+                              --(declareStorageLocation Pre loc, declareStorageLocation Post loc)
+                              --store'
 
 --- SMT2 generation ---
 
@@ -144,6 +158,15 @@ mkQueries (inv, constr, behvs) = (inv, inits:methods)
     inits = mkInit inv constr
     methods = mkMethod inv constr <$> behvs
   -}
+
+encodeUpdate :: Either StorageLocation StorageUpdate -> SMT2
+encodeUpdate (Left loc) = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
+encodeUpdate (Right update) = case update of
+  IntUpdate item e -> encode item e
+  BoolUpdate item e -> encode item e
+  BytesUpdate item e -> encode item e
+  where
+    encode item e = "(assert (= " <> nameFromItem Post item <> " " <> expToSMT2 Pre e <> "))"
 
 declareVar :: Var -> SMT2
 declareVar v = case v of
@@ -156,20 +179,26 @@ declareEthEnv :: EthEnv -> SMT2
 declareEthEnv env = constant (prettyEnv env) tp
   where tp = fromJust . lookup env $ defaultStore
 
-declareStorageLocation :: When -> StorageLocation -> SMT2
-declareStorageLocation when loc = case loc of
+declareStorage :: [StorageLocation] -> [SMT2]
+declareStorage = undefined
+
+declareMappings :: [StorageLocation] -> [(SMT2, SMT2)]
+declareMappings = undefined
+
+declareStorageLocation :: StorageLocation -> (SMT2, SMT2)
+declareStorageLocation loc = case loc of
   IntLoc item -> case item of
-    DirectInt {} -> constant (name item) Integer
-    MappedInt _ _ ixs -> array (name item) ixs Integer
+    DirectInt {} -> mkdirect item Integer
+    MappedInt _ _ ixs -> mkarray item ixs Integer
   BoolLoc item -> case item of
-    DirectBool {} -> constant (name item) Boolean
-    MappedBool _ _ ixs -> array (name item) ixs Boolean
+    DirectBool {} -> mkdirect item Boolean
+    MappedBool _ _ ixs -> mkarray item ixs Boolean
   BytesLoc item -> case item of
-    DirectBytes {} -> constant (name item) ByteStr
-    MappedBytes _ _ ixs -> array (name item) ixs ByteStr
+    DirectBytes {} -> mkdirect item ByteStr
+    MappedBytes _ _ ixs -> mkarray item ixs ByteStr
   where
-    name :: TStorageItem a -> Id
-    name item = nameFromItem item @@ show when
+    mkdirect item tp = (constant (nameFromItem Pre item) tp, constant (nameFromItem Post item) tp)
+    mkarray item ixs tp = (array (nameFromItem Pre item) ixs tp, array (nameFromItem Post item) ixs tp)
 
 expToSMT2 :: When -> Exp a -> SMT2
 expToSMT2 w e = case e of
@@ -219,12 +248,12 @@ expToSMT2 w e = case e of
   NEq a b -> unop "not" (Eq a b)
   ITE a b c -> triop "ite" a b c
   TEntry item -> case item of
-    DirectInt {} -> nameFromItem item
-    DirectBool {} -> nameFromItem item
-    DirectBytes {} -> nameFromItem item
-    MappedInt _ _ ixs -> select (nameFromItem item) ixs
-    MappedBool _ _ ixs -> select (nameFromItem item) ixs
-    MappedBytes _ _ ixs -> select (nameFromItem item) ixs
+    DirectInt {} -> nameFromItem w item
+    DirectBool {} -> nameFromItem w item
+    DirectBytes {} -> nameFromItem w item
+    MappedInt _ _ ixs -> select (nameFromItem w item) ixs
+    MappedBool _ _ ixs -> select (nameFromItem w item) ixs
+    MappedBytes _ _ ixs -> select (nameFromItem w item) ixs
 
   where
     unop :: String -> Exp a -> SMT2
@@ -270,20 +299,20 @@ varType (VarBytes {}) = ByteStr
 
 --- Variable Names ---
 
-nameFromItem :: TStorageItem a -> Id
-nameFromItem item = case item of
-  DirectInt c name -> c @@ name
-  DirectBool c name -> c @@ name
-  DirectBytes c name -> c @@ name
-  MappedInt c name _ -> c @@ name
-  MappedBool c name _ -> c @@ name
-  MappedBytes c name _ -> c @@ name
+nameFromItem :: When -> TStorageItem a -> Id
+nameFromItem when item = case item of
+  DirectInt c name -> c @@ name @@ show when
+  DirectBool c name -> c @@ name @@ show when
+  DirectBytes c name -> c @@ name @@ show when
+  MappedInt c name _ -> c @@ name @@ show when
+  MappedBool c name _ -> c @@ name @@ show when
+  MappedBytes c name _ -> c @@ name @@ show when
 
-nameFromLoc :: StorageLocation -> Id
-nameFromLoc loc = case loc of
-  IntLoc item -> nameFromItem item
-  BoolLoc item -> nameFromItem item
-  BytesLoc item -> nameFromItem item
+nameFromLoc :: When -> StorageLocation -> Id
+nameFromLoc when loc = case loc of
+  IntLoc item -> nameFromItem when item
+  BoolLoc item -> nameFromItem when item
+  BytesLoc item -> nameFromItem when item
 
 nameFromVar :: Var -> Id
 nameFromVar v = case v of

@@ -58,6 +58,29 @@ locsFromExp e = case e of
       ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
       ixLocs = concatMap locsFromReturnExp
 
+varsFromBehaviour :: Behaviour -> [Var]
+varsFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
+  (concatMap varsFromExp preconds)
+  <> (concatMap varsFromExp postconds)
+  <> (concatMap varsFromStateUpdate stateUpdates)
+  <> (maybe [] varsFromReturnExp returns)
+
+varsFromStateUpdate :: Either StorageLocation StorageUpdate -> [Var]
+varsFromStateUpdate update = case update of
+  Left (IntLoc item) -> varsFromItem item
+  Left (BoolLoc item) -> varsFromItem item
+  Left (BytesLoc item) -> varsFromItem item
+  Right (IntUpdate item e) -> varsFromItem item <> varsFromExp e
+  Right (BoolUpdate item e) -> varsFromItem item <> varsFromExp e
+  Right (BytesUpdate item e) -> varsFromItem item <> varsFromExp e
+
+varsFromItem :: TStorageItem a -> [Var]
+varsFromItem item = case item of
+  MappedInt _ _ ixs -> concatMap varsFromReturnExp ixs
+  MappedBool _ _ ixs -> concatMap varsFromReturnExp ixs
+  MappedBytes _ _ ixs -> concatMap varsFromReturnExp ixs
+  _ -> []
+
 varsFromExp :: Exp a -> [Var]
 varsFromExp e = case e of
   And a b   -> (varsFromExp a) <> (varsFromExp b)
@@ -109,6 +132,8 @@ varsFromReturnExp re = case re of
   ExpInt e -> varsFromExp e
   ExpBool e -> varsFromExp e
   ExpBytes e -> varsFromExp e
+
+
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
