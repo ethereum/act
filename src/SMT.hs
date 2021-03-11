@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT (runSMT, expToSMT2, mkSMT, isError, SMTConfig(..), SMTResult(..), Solver(..), When(..)) where
+module SMT (runSMT, asSMT, expToSMT2, mkSMT, isError, SMTConfig(..), SMTResult(..), Solver(..), When(..)) where
 
 import qualified Data.Map.Strict as Map
 import Data.Map (Map)
@@ -113,7 +113,7 @@ mkSMT claims = fmap mkQueries gathered
 mkPostconditionQueries :: Behaviour -> [(ReturnExp, SMT2)]
 mkPostconditionQueries behv@(Behaviour _ _ _ interface preconds postconds stateUpdates _) = undefined
   where
-    storage = concatMap tup2List $ declareStorageLocation . getLoc <$> stateUpdates
+    storage = concatMap tup2List $ declareStorageLocation' . getLoc <$> stateUpdates
 
     args = declareVar <$> varsFromBehaviour behv
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
@@ -134,20 +134,20 @@ runSMT (SMTConfig solver _ _) e = do
                      "unsat\n" -> Unsat
                      _ -> error "fuck"
 
---asSMT :: When -> Exp Bool -> SMTExp
---asSMT when e = SMTExp store args environment assertions
-  --where
-    --store = foldl' addToStore Map.empty (locsFromExp e)
-    --environment = Map.fromList $ fmap (\env -> (prettyEnv env, declareEthEnv env)) (ethEnvFromExp e)
-    --args = Map.fromList $ fmap (\var -> (nameFromVar var, declareVar var)) (varsFromExp e)
-    --assertions = ["(assert " <> expToSMT2 when e <> ")"]
+asSMT :: When -> Exp Bool -> SMTExp
+asSMT when e = SMTExp store args environment assertions
+  where
+    store = foldl' addToStore Map.empty (locsFromExp e)
+    environment = Map.fromList $ fmap (\env -> (prettyEnv env, declareEthEnv env)) (ethEnvFromExp e)
+    args = Map.fromList $ fmap (\var -> (nameFromVar var, declareVar var)) (varsFromExp e)
+    assertions = ["(assert " <> expToSMT2 when e <> ")"]
 
-    --addToStore :: Map Id (SMT2, SMT2) -> StorageLocation -> Map Id (SMT2, SMT2)
-    --addToStore store' loc = Map.insertWith
-                              --(const id) -- if the name exists we want to keep its value as-is
-                              --(nameFromLoc when loc)
-                              --(declareStorageLocation Pre loc, declareStorageLocation Post loc)
-                              --store'
+    addToStore :: Map Id (SMT2, SMT2) -> StorageLocation -> Map Id (SMT2, SMT2)
+    addToStore store' loc = Map.insertWith
+                              (const id) -- if the name exists we want to keep its value as-is
+                              (nameFromLoc when loc)
+                              (declareStorageLocation Pre loc, declareStorageLocation Post loc)
+                              store'
 
 --- SMT2 generation ---
 
@@ -185,8 +185,23 @@ declareStorage = undefined
 declareMappings :: [StorageLocation] -> [(SMT2, SMT2)]
 declareMappings = undefined
 
-declareStorageLocation :: StorageLocation -> (SMT2, SMT2)
-declareStorageLocation loc = case loc of
+declareStorageLocation :: When -> StorageLocation -> SMT2
+declareStorageLocation when loc = case loc of
+  IntLoc item -> case item of
+    DirectInt {} -> constant (name item) Integer
+    MappedInt _ _ ixs -> array (name item) ixs Integer
+  BoolLoc item -> case item of
+    DirectBool {} -> constant (name item) Boolean
+    MappedBool _ _ ixs -> array (name item) ixs Boolean
+  BytesLoc item -> case item of
+    DirectBytes {} -> constant (name item) ByteStr
+    MappedBytes _ _ ixs -> array (name item) ixs ByteStr
+  where
+    name :: TStorageItem a -> Id
+    name item = nameFromItem when item
+
+declareStorageLocation' :: StorageLocation -> (SMT2, SMT2)
+declareStorageLocation' loc = case loc of
   IntLoc item -> case item of
     DirectInt {} -> mkdirect item Integer
     MappedInt _ _ ixs -> mkarray item ixs Integer
