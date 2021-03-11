@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT (runSMT, asSMT, expToSMT2, mkSMT, isError, SMTConfig(..), SMTResult(..), Solver(..), When(..)) where
+module SMT (runSMT, asSMT, expToSMT2, mkSMT, isError, SMTConfig(..), SMTResult(..), Solver(..), When(..), SMTExp(..)) where
 
 import qualified Data.Map.Strict as Map
 import Data.Map (Map)
@@ -124,15 +124,16 @@ mkPostconditionQueries behv@(Behaviour _ _ _ interface preconds postconds stateU
     tup2List (a,b) = [a, b]
 
 runSMT :: SMTConfig -> SMTExp -> IO SMTResult
-runSMT (SMTConfig solver _ _) e = do
+runSMT (SMTConfig solver timeout _) e = do
   let input = intercalate "\n" [show e, "(check-sat)"]
-  (exitCode, stdout, _) <- readProcessWithExitCode (show solver) ["-in"] input
+  (exitCode, stdout, _) <- readProcessWithExitCode (show solver) ["-in", "-T:" <> show timeout] input
   pure $ case exitCode of
     ExitFailure code -> Error code stdout
     ExitSuccess -> case stdout of
                      "sat\n" -> Sat
                      "unsat\n" -> Unsat
-                     _ -> error "fuck"
+                     "timeout\n" -> Unknown
+                     output -> Error 0 $ "Unable to parse SMT output: " <> output 
 
 asSMT :: When -> Exp Bool -> SMTExp
 asSMT when e = SMTExp store args environment assertions

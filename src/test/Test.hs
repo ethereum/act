@@ -9,6 +9,7 @@ import Test.Tasty
 import Test.Tasty.QuickCheck (Gen, ioProperty, arbitrary, testProperty)
 import Test.QuickCheck.Instances.ByteString()
 import Test.QuickCheck.GenT
+import Test.QuickCheck.Monadic
 
 import Control.Monad
 import Control.Monad.Trans
@@ -23,7 +24,8 @@ import Parse (parse)
 import Type (typecheck)
 import Print (prettyBehaviour)
 import Syntax (Interface(..), EthEnv(..), Decl(..))
-import SMT (asSMT, runSMT, isError, SMTConfig(..), Solver(..), SMTResult(..), When(..))
+import SMT (asSMT, runSMT, isError, SMTConfig(..), Solver(..), SMTResult(..), When(..), SMTExp(..))
+import Extract
 import RefinedAst hiding (Mode)
 
 import Debug.Trace
@@ -47,7 +49,7 @@ main = defaultMain $ testGroup "act"
          Generates a random concrete behaviour, prints it, runs it through the frontend
          (lex -> parse -> type), and then checks that the typechecked output matches the
          generated behaviour.
-
+    
          If the generated behaviour contains some preconditions, then the structure of the
          fail spec is also checked.
       -}
@@ -62,16 +64,16 @@ main = defaultMain $ testGroup "act"
           return $ case actual of
             Ok a -> a == expected
             Bad _ -> False
-      ],
+      ]
 
-    testGroup "smt"
+  , testGroup "smt"
       [ testProperty "generated smt is well typed" . noExponents $ do
           names <- genNames
           actexp <- sized $ genExpBool names
           whn <- elements [Pre, Post]
           let smtconf = SMTConfig Z3 1 False
-              smtexp = trace' $ asSMT whn actexp
-          pure . ioProperty $ not . isError <$> runSMT smtconf smtexp
+              smtexp = asSMT whn actexp
+          pure . monadicIO . run $ not . isError <$> runSMT smtconf smtexp
       ]
   ]
 
