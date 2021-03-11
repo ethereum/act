@@ -6,7 +6,7 @@ module Main where
 
 import EVM.ABI (AbiType(..))
 import Test.Tasty
-import Test.Tasty.QuickCheck (Gen, ioProperty, arbitrary, testProperty)
+import Test.Tasty.QuickCheck (Gen, generate, ioProperty, arbitrary, testProperty)
 import Test.QuickCheck.Instances.ByteString()
 import Test.QuickCheck.GenT
 import Test.QuickCheck.Monadic
@@ -24,7 +24,7 @@ import Parse (parse)
 import Type (typecheck)
 import Print (prettyBehaviour)
 import Syntax (Interface(..), EthEnv(..), Decl(..))
-import SMT (asSMT, runSMT, isError, SMTConfig(..), Solver(..), SMTResult(..), When(..), SMTExp(..))
+import SMT -- (asSMT, runSMT, isError, SMTConfig(..), Solver(..), SMTResult(..), When(..), SMTExp(..))
 import Extract
 import RefinedAst hiding (Mode)
 
@@ -39,6 +39,13 @@ type ExpoGen a = GenT (Reader Bool) a
 noExponents, withExponents :: ExpoGen a -> Gen a
 noExponents   = liftM (flip runReader False) . runGenT
 withExponents = liftM (flip runReader True)  . runGenT
+
+--behaviour :: IO () -- [(Exp Bool, SMTExp)]
+behaviour = noExponents $ do
+  behv <- traceb <$> genBehv 0
+  let postcondqueries = trace' $ mkPostconditionQueries behv
+  pure postcondqueries
+  
 
 -- *** Test Cases *** --
 

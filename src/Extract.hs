@@ -43,7 +43,7 @@ locsFromExp e = case e of
   IntVar _  -> []
   LitBool _ -> []
   BoolVar _ -> []
-  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
+  NewAddr a b -> (locsFromExp a) <> (locsFromExp b)
   IntEnv _ -> []
   ByEnv _ -> []
   ITE x y z -> (locsFromExp x) <> (locsFromExp y) <> (locsFromExp z)

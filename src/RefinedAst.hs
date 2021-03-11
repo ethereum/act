@@ -71,7 +71,6 @@ data MType
   = Integer
   | Boolean
   | ByteStr
---  | Mapping (Map MType MType)
   deriving (Eq, Ord, Show, Read)
 
 data StorageUpdate

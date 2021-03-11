@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT (runSMT, asSMT, expToSMT2, mkSMT, isError, SMTConfig(..), SMTResult(..), Solver(..), When(..), SMTExp(..)) where
+module SMT where -- (mkPostC runSMT, asSMT, expToSMT2, mkSMT, isError, SMTConfig(..), SMTResult(..), Solver(..), When(..), SMTExp(..)) where
 
 import qualified Data.Map.Strict as Map
 import Data.Map (Map)
@@ -46,19 +46,19 @@ data SMTConfig = SMTConfig
   }
 
 data SMTExp = SMTExp
-  { _storage :: Map Id (SMT2, SMT2)
-  , _calldata :: Map Id SMT2
-  , _environment :: Map Id SMT2
-  , _assertions :: [ SMT2 ]
+  { _storage :: [SMT2]
+  , _calldata :: [SMT2]
+  , _environment :: [SMT2]
+  , _assertions :: [SMT2]
   }
 
 instance Show SMTExp where
   show e = intercalate "\n" [storage, calldata, environment, assertions]
     where
-      storage = intercalate "\n" $ (\(pre, post) -> pre <> "\n" <> post) <$> Map.elems (_storage e)
-      calldata = intercalate "\n" $ Map.elems (_calldata e)
-      environment = intercalate "\n" $ Map.elems (_environment e)
-      assertions = intercalate "\n" (_assertions e)
+      storage = ";STORAGE:\n" <> intercalate "\n" (_storage e)
+      calldata = ";CALLDATA:\n" <> intercalate "\n" (_calldata e)
+      environment = ";ENVIRONMENT:\n" <> intercalate "\n" (_environment e)
+      assertions = ";ASSERTIONS:\n" <> intercalate "\n" (_assertions e)
 
 data Model = Model
   { _mstorage :: Map Id (MType, MType)
@@ -85,9 +85,9 @@ testConf = SMTConfig
   }
 
 testExp = SMTExp
-  { _storage = Map.fromList [ ("hi", ("(declare-const hi_pre Int)", "(declare-const hi_post Int)")) ]
-  , _calldata = Map.fromList [ ("yo", "(declare-const yo Bool)") ]
-  , _environment = Map.fromList [ ("bye" , "(declare-const bye String)") ]
+  { _storage = ["(declare-const hi_pre Int)", "(declare-const hi_post Int)"]
+  , _calldata = ["(declare-const yo Bool)"]
+  , _environment = ["(declare-const bye String)"]
   , _assertions = [
     "(assert (> hi_pre hi_post))",
     "(assert (= yo false))",
@@ -110,18 +110,26 @@ mkSMT claims = fmap mkQueries gathered
     isPass b = (_mode b) == Pass
   -}
 
-mkPostconditionQueries :: Behaviour -> [(ReturnExp, SMT2)]
-mkPostconditionQueries behv@(Behaviour _ _ _ interface preconds postconds stateUpdates _) = undefined
+mkPostconditionQueries :: Behaviour -> [(Exp Bool, SMTExp)]
+mkPostconditionQueries behv@(Behaviour _ _ _ interface preconds postconds stateUpdates _) = 
+    mkQuery <$> postconds
   where
-    storage = concatMap tup2List $ declareStorageLocation' . getLoc <$> stateUpdates
+    storage = concatMap (declareStorageLocation' . getLoc) stateUpdates
 
     args = declareVar <$> varsFromBehaviour behv
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
-    pres = expToSMT2 Pre <$> preconds
-    posts = expToSMT2 Post <$> postconds
+    pres = mkAssert Pre <$> preconds
     updates = encodeUpdate <$> stateUpdates
 
-    tup2List (a,b) = [a, b]
+    mkQuery :: Exp Bool -> (Exp Bool, SMTExp)
+    mkQuery e = (e, SMTExp { _storage = storage
+                           , _calldata = args
+                           , _environment = envs
+                           , _assertions = [mkAssert Post . Neg $ e] <> pres <> updates })
+
+mkAssert :: When -> Exp Bool -> SMT2
+mkAssert w e = "(assert (" <> expToSMT2 w e <> "))"
+
 
 runSMT :: SMTConfig -> SMTExp -> IO SMTResult
 runSMT (SMTConfig solver timeout _) e = do
@@ -138,17 +146,19 @@ runSMT (SMTConfig solver timeout _) e = do
 asSMT :: When -> Exp Bool -> SMTExp
 asSMT when e = SMTExp store args environment assertions
   where
-    store = foldl' addToStore Map.empty (locsFromExp e)
-    environment = Map.fromList $ fmap (\env -> (prettyEnv env, declareEthEnv env)) (ethEnvFromExp e)
-    args = Map.fromList $ fmap (\var -> (nameFromVar var, declareVar var)) (varsFromExp e)
+    store = nub $ concatMap declareStorageLocation' (locsFromExp e)
+    environment = declareEthEnv <$> (ethEnvFromExp e)
+    args = declareVar <$> (varsFromExp e)
     assertions = ["(assert " <> expToSMT2 when e <> ")"]
 
-    addToStore :: Map Id (SMT2, SMT2) -> StorageLocation -> Map Id (SMT2, SMT2)
-    addToStore store' loc = Map.insertWith
-                              (const id) -- if the name exists we want to keep its value as-is
-                              (nameFromLoc when loc)
-                              (declareStorageLocation Pre loc, declareStorageLocation Post loc)
-                              store'
+
+
+--    addToStore :: Map Id (SMT2, SMT2) -> StorageLocation -> Map Id (SMT2, SMT2)
+--    addToStore store' loc = Map.insertWith
+--                              (const id) -- if the name exists we want to keep its value as-is
+--                              (nameFromLoc when loc)
+--                              (declareStorageLocation Pre loc, declareStorageLocation Post loc)
+--                              store'
 
 --- SMT2 generation ---
 
@@ -201,7 +211,7 @@ declareStorageLocation when loc = case loc of
     name :: TStorageItem a -> Id
     name item = nameFromItem when item
 
-declareStorageLocation' :: StorageLocation -> (SMT2, SMT2)
+declareStorageLocation' :: StorageLocation -> [SMT2]
 declareStorageLocation' loc = case loc of
   IntLoc item -> case item of
     DirectInt {} -> mkdirect item Integer
@@ -213,8 +223,8 @@ declareStorageLocation' loc = case loc of
     DirectBytes {} -> mkdirect item ByteStr
     MappedBytes _ _ ixs -> mkarray item ixs ByteStr
   where
-    mkdirect item tp = (constant (nameFromItem Pre item) tp, constant (nameFromItem Post item) tp)
-    mkarray item ixs tp = (array (nameFromItem Pre item) ixs tp, array (nameFromItem Post item) ixs tp)
+    mkdirect item tp = [constant (nameFromItem Pre item) tp, constant (nameFromItem Post item) tp]
+    mkarray item ixs tp = [array (nameFromItem Pre item) ixs tp, array (nameFromItem Post item) ixs tp]
 
 expToSMT2 :: When -> Exp a -> SMT2
 expToSMT2 w e = case e of
