@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT (runSMT, asSMT, expToSMT2, mkSMT, SMTConfig(..), SMTResult(..), Solver(..), When(..)) where
+module SMT (runSMT, asSMT, expToSMT2, mkSMT, isError, SMTConfig(..), SMTResult(..), Solver(..), When(..)) where
 
 import qualified Data.Map.Strict as Map
 import Data.Map (Map)
@@ -73,6 +73,10 @@ data SMTResult
   | Unknown
   | Error Int String
   deriving (Show)
+
+isError :: SMTResult -> Bool
+isError (Error {}) = True
+isError _          = False
 
 testConf = SMTConfig
   { _solver = Z3
