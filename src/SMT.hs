@@ -125,7 +125,7 @@ mkPostconditionQueries behv@(Behaviour _ _ _ interface preconds postconds stateU
     mkQuery e = (e, SMTExp { _storage = storage
                            , _calldata = args
                            , _environment = envs
-                           , _assertions = [mkAssert Post . Neg $ e] <> pres <> updates })
+                           , _assertions = [mkAssert Pre . Neg $ e] <> pres <> updates })
 
 mkAssert :: When -> Exp Bool -> SMT2
 mkAssert w e = "(assert " <> expToSMT2 w e <> ")"
