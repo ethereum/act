@@ -116,7 +116,7 @@ mkPostconditionQueries behv@(Behaviour _ _ _ interface preconds postconds stateU
   where
     storage = concatMap (declareStorageLocation' . getLoc) stateUpdates
 
-    args = declareVar <$> varsFromBehaviour behv
+    args = declareVar <$> varsFromInterface interface
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
     pres = mkAssert Pre <$> preconds
     updates = encodeUpdate <$> stateUpdates

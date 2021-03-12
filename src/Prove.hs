@@ -40,9 +40,8 @@ import Data.SBV.String ((.++), subStr)
 
 import RefinedAst
 import Syntax (Id, Interface(..), Decl(..), EthEnv(..))
-import Type (metaType)
 import Print (prettyEnv)
-import Extract (locsFromExp, getLoc)
+import Extract (locsFromExp, getLoc, metaType)
 
 -- *** Interface *** --
 

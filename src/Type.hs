@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Type (typecheck, metaType, bound, lookupVars, defaultStore) where
+module Type (typecheck, bound, lookupVars, defaultStore) where
 
 import Data.List
 import EVM.ABI
@@ -320,19 +320,6 @@ upperBound (AbiUIntType n) = UIntMax n
 upperBound (AbiIntType n) = IntMax n
 upperBound AbiAddressType = UIntMax 160
 upperBound typ  = error $ "upperBound not implemented for " ++ show typ
-
-metaType :: AbiType -> MType
-metaType (AbiUIntType _)     = Integer
-metaType (AbiIntType  _)     = Integer
-metaType AbiAddressType      = Integer
-metaType AbiBoolType         = Boolean
-metaType (AbiBytesType _)    = ByteStr
-metaType AbiBytesDynamicType = ByteStr
-metaType AbiStringType       = ByteStr
---metaType (AbiArrayDynamicType a) =
---metaType (AbiArrayType        Int AbiType
---metaType (AbiTupleType        (Vector AbiType)
-metaType _ = error "TODO"
 
 
 checkExpr :: Pn -> Env -> Expr -> AbiType -> Err ReturnExp

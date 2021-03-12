@@ -6,6 +6,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 
 import RefinedAst
 import Syntax
+import EVM.ABI (AbiType(..))
 
 locsFromReturnExp :: ReturnExp -> [StorageLocation]
 locsFromReturnExp (ExpInt e) = locsFromExp e
@@ -133,7 +134,13 @@ varsFromReturnExp re = case re of
   ExpBool e -> varsFromExp e
   ExpBytes e -> varsFromExp e
 
-
+varsFromInterface :: Interface -> [Var]
+varsFromInterface (Interface _ decls) = declToVar <$> decls
+  where
+    declToVar (Decl typ name) = case metaType typ of
+      Integer -> VarInt . IntVar $ name
+      Boolean -> VarBool . BoolVar $ name
+      ByteStr -> VarBytes . ByVar $ name
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
@@ -214,6 +221,19 @@ mkLoc :: StorageUpdate -> StorageLocation
 mkLoc (IntUpdate item _) = IntLoc item
 mkLoc (BoolUpdate item _) = BoolLoc item
 mkLoc (BytesUpdate item _) = BytesLoc item
+
+metaType :: AbiType -> MType
+metaType (AbiUIntType _)     = Integer
+metaType (AbiIntType  _)     = Integer
+metaType AbiAddressType      = Integer
+metaType AbiBoolType         = Boolean
+metaType (AbiBytesType _)    = ByteStr
+metaType AbiBytesDynamicType = ByteStr
+metaType AbiStringType       = ByteStr
+--metaType (AbiArrayDynamicType a) =
+--metaType (AbiArrayType        Int AbiType
+--metaType (AbiTupleType        (Vector AbiType)
+metaType _ = error "Extract.metaType: TODO"
 
 nameFromStorage :: Syntax.Storage -> Id
 nameFromStorage (Rewrite (Entry _ name _) _) = name

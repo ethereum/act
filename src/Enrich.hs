@@ -10,7 +10,7 @@ import EVM.ABI (AbiType(..))
 import EVM.Solidity (SlotType(..))
 
 import RefinedAst
-import Type (bound, defaultStore, metaType)
+import Type (bound, defaultStore)
 import Syntax (EthEnv(..), Id, Decl(..), Interface(..))
 import Extract
 
