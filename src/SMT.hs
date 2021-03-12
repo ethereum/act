@@ -128,7 +128,7 @@ mkPostconditionQueries behv@(Behaviour _ _ _ interface preconds postconds stateU
                            , _assertions = [mkAssert Post . Neg $ e] <> pres <> updates })
 
 mkAssert :: When -> Exp Bool -> SMT2
-mkAssert w e = "(assert (" <> expToSMT2 w e <> "))"
+mkAssert w e = "(assert " <> expToSMT2 w e <> ")"
 
 
 runSMT :: SMTConfig -> SMTExp -> IO SMTResult
