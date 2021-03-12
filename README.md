@@ -49,7 +49,7 @@ functions `f` and `g`, respectively.
 A simple specification for the program above could be the following Act:
 
 ```act
-behaviour init of StateMachine
+constructor of StateMachine
 interface constructor()
 
 creates
@@ -66,9 +66,6 @@ case x == 0:
 	storage
 		x => 1
 
-case _:
-	noop
-
 ensures
 	(x == 0) or (x == 1)
 
@@ -77,11 +74,8 @@ behaviour g of StateMachine
 interface g()
 
 case x == 1:
-	storage:
+	storage
 		x => 0
-
-case _:
-	noop
 
 ensures
 	(x == 1) or (x == 0)
