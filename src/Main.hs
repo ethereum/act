@@ -79,6 +79,22 @@ deriving instance ParseField [(Id, String)]
 instance ParseRecord (Command Wrapped)
 deriving instance Show (Command Unwrapped)
 
+pokeSMT :: FilePath -> IO ()
+pokeSMT file = do
+  contents <- readFile file
+  proceed contents (compile contents) $ \claims -> do
+    let behaviours = [b | B b <- claims]
+    let constructors = [c | C c <- claims]
+    printStuff behaviours "BEHAVIOUR" mkPostconditionQueries
+    printStuff constructors "CONSTRUCTOR" mkConstructorQueries
+  where
+    printStuff xs desc f = do
+      putStrLn $ "\n===" <> desc <> "S==="
+      forM_ ([1..] `zip` xs) $ \(ix,x) -> do
+        putStrLn $ "\n===" <> desc <> " " <> show ix <> "==="
+        putStrLn . show $ x
+        putStrLn . show . f $ x
+
 main :: IO ()
 main = do
     cmd <- unwrapRecord "Act -- Smart contract specifier"

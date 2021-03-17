@@ -53,7 +53,7 @@ data SMTExp = SMTExp
   }
 
 instance Show SMTExp where
-  show e = intercalate "\n" [storage, calldata, environment, assertions]
+  show e = intercalate "\n" ["", storage, calldata, environment, assertions, ""]
     where
       storage = ";STORAGE:\n" <> intercalate "\n" (_storage e)
       calldata = ";CALLDATA:\n" <> intercalate "\n" (_calldata e)
@@ -98,34 +98,46 @@ testExp = SMTExp
 
 mkSMT :: [Claim] -> [(Invariant, [SMTExp])]
 mkSMT = undefined
-  {-
-mkSMT :: [Claim] -> [(Invariant, [SMTExp])]
-mkSMT claims = fmap mkQueries gathered
-  where
-    gathered = fmap (\inv -> (inv, definition inv, getBehaviours inv)) invariants
-    invariants = [i | I i <- claims]
-    getBehaviours (Invariant c _ _) = filter (\b -> isPass b && contractMatches c b) [b | B b <- claims]
-    definition (Invariant c _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
-    contractMatches c b = c == (_contract b)
-    isPass b = (_mode b) == Pass
-  -}
 
-mkPostconditionQueries :: Behaviour -> [(Exp Bool, SMTExp)]
+mkConstructorQueries :: Constructor -> (SMTExp, [(Exp Bool, SMT2)])
+mkConstructorQueries constr@(Constructor _ _ interface preconds postconds state stateUpdates) =
+    (smtexp, postconds `zip` posts)
+  where
+    storage = declareStorageLocation Post . getLoc <$> (Right <$> state) <> stateUpdates
+    args = declareVar <$> varsFromInterface interface
+    envs = declareEthEnv <$> ethEnvFromConstructor constr
+    pres = mkAssert Pre <$> preconds
+    posts = mkAssert Pre . Neg <$> postconds -- `Pre` is actually correct atm, see https://github.com/ethereum/act/issues/92
+    updates = encodeUpdate <$> stateUpdates
+
+    smtexp = SMTExp { _storage = storage
+                    , _calldata = args
+                    , _environment = envs
+                    , _assertions = pres <> updates
+                    }
+
+mkPostconditionQueries :: Behaviour -> (SMTExp, [(Exp Bool, SMT2)])
 mkPostconditionQueries behv@(Behaviour _ _ _ interface preconds postconds stateUpdates _) = 
-    mkQuery <$> postconds
+    (smtexp, postconds `zip` posts)
   where
     storage = concatMap (declareStorageLocation' . getLoc) stateUpdates
-
     args = declareVar <$> varsFromInterface interface
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
     pres = mkAssert Pre <$> preconds
+    posts = mkAssert Pre . Neg <$> postconds -- `Pre` is actually correct atm, see https://github.com/ethereum/act/issues/92
     updates = encodeUpdate <$> stateUpdates
 
-    mkQuery :: Exp Bool -> (Exp Bool, SMTExp)
-    mkQuery e = (e, SMTExp { _storage = storage
-                           , _calldata = args
-                           , _environment = envs
-                           , _assertions = [mkAssert Pre . Neg $ e] <> pres <> updates })
+    smtexp = SMTExp { _storage = storage
+                    , _calldata = args
+                    , _environment = envs
+                    , _assertions = pres <> updates
+                    }
+
+    --mkQuery :: Exp Bool -> (Exp Bool, SMTExp)
+    --mkQuery e = (e, SMTExp { _storage = storage
+    --                       , _calldata = args
+    --                       , _environment = envs
+    --                       , _assertions = [mkAssert Pre . Neg $ e] <> pres <> updates })
 
 mkAssert :: When -> Exp Bool -> SMT2
 mkAssert w e = "(assert " <> expToSMT2 w e <> ")"

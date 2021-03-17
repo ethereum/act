@@ -100,6 +100,7 @@ data Var
   = VarInt (Exp Integer)
   | VarBool (Exp Bool)
   | VarBytes (Exp ByteString)
+  deriving Show
 
 -- typed expressions
 data Exp t where
