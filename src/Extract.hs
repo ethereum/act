@@ -1,11 +1,85 @@
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs              #-}
+{-# LANGUAGE KindSignatures     #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE TypeOperators      #-}
+{-# LANGUAGE RankNTypes         #-}
 
 module Extract where
 
+import Control.Natural
 import qualified Data.List.NonEmpty as NonEmpty
 
 import RefinedAst
 import Syntax
+
+class HFunctor (h :: (* -> *) -> * -> *) where
+  hfmap :: (f ~> g) -> h f ~> h g
+
+class HFoldable (h :: (* -> *) -> * -> *) where
+  hfoldMap :: Monoid m => (forall b. f b -> m) -> h f a -> m
+
+hcata :: HFunctor h => (h f ~> f) -> HFix h ~> f
+hcata alg = alg . hfmap (hcata alg) . unHFix
+
+data ExpF r t where
+  AndF :: r Bool -> r Bool -> ExpF r Bool
+  LitBoolF :: Bool -> ExpF r Bool
+  EqF :: r a -> r a -> ExpF r Bool
+  TEntryF :: TStorageItem t -> ExpF r t
+
+newtype HFix h a = HFix { unHFix :: h (HFix h) a }
+
+instance HFunctor ExpF where
+  hfmap eta = \case
+    AndF p q -> AndF (eta p) (eta q)
+    LitBoolF p -> LitBoolF p
+    EqF x y -> EqF (eta x) (eta y)
+    TEntryF t -> TEntryF t
+
+instance HFoldable ExpF where
+  hfoldMap f = \case
+    AndF p q -> f p <> f q
+    LitBoolF _ -> mempty
+    EqF x y -> f x <> f y
+    TEntryF _ -> mempty
+
+newtype K x y = K { unK :: x }
+  deriving Functor
+
+locsFromExpF :: HFix ExpF a -> [StorageLocation]
+locsFromExpF = unK . hcata count
+  where
+    count (TEntryF t) = K . storageLocations $ t
+    count e           = K $ hfoldMap unK e
+
+countFold :: ExpF (K [StorageLocation]) ~> K [StorageLocation]
+countFold (TEntryF t) = K (storageLocations t)
+countFold e           = K $ hfoldMap unK e
+
+fe0 = HFix (AndF (HFix $ LitBoolF False) (HFix $ AndF (HFix $ LitBoolF True) (HFix $ LitBoolF False)))
+fe1 = HFix $ TEntryF (DirectInt "C" "x")
+fe2 = HFix $ AndF (HFix $ TEntryF (DirectBool "C" "x")) (HFix $ AndF (HFix $ LitBoolF True) (HFix $ LitBoolF False))
+fe3 = HFix $ AndF (HFix $ LitBoolF False) (HFix $ AndF (HFix $ TEntryF (DirectBool "C" "x")) (HFix $ LitBoolF False))
+fe4 = HFix $ AndF (HFix $ LitBoolF False) (HFix $ AndF (HFix $ TEntryF (DirectBool "C" "x")) (HFix $ TEntryF (DirectBool "C" "y")))
+
+e0 = And (LitBool False) (And (LitBool True) (LitBool False))
+e1 = TEntry (DirectInt "C" "x")
+e2 = And (TEntry (DirectBool "C" "x")) (And (LitBool True) (LitBool False))
+e3 = And (LitBool False) (And (TEntry (DirectBool "C" "x")) (LitBool False))
+e4 = And (LitBool False) (And (TEntry (DirectBool "C" "x")) (TEntry (DirectBool "C" "y")))
+
+storageLocations :: TStorageItem a -> [StorageLocation]
+storageLocations a = case a of
+  DirectInt {} -> [IntLoc a]
+  DirectBool {} -> [BoolLoc a]
+  DirectBytes {} -> [BytesLoc a]
+  MappedInt _ _ ixs -> IntLoc a : ixLocs ixs
+  MappedBool _ _ ixs -> BoolLoc a : ixLocs ixs
+  MappedBytes _ _ ixs -> BytesLoc a : ixLocs ixs
+  where
+    ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
+    ixLocs = concatMap locsFromReturnExp
 
 locsFromReturnExp :: ReturnExp -> [StorageLocation]
 locsFromReturnExp (ExpInt e) = locsFromExp e
@@ -47,16 +121,7 @@ locsFromExp e = case e of
   IntEnv _ -> []
   ByEnv _ -> []
   ITE x y z -> (locsFromExp x) <> (locsFromExp y) <> (locsFromExp z)
-  TEntry a -> case a of
-    DirectInt contract name -> [IntLoc $ DirectInt contract name]
-    DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
-    DirectBytes contract slot -> [BytesLoc $ DirectBytes contract slot]
-    MappedInt contract name ixs -> [IntLoc $ MappedInt contract name ixs] <> ixLocs ixs
-    MappedBool contract name ixs -> [BoolLoc $ MappedBool contract name ixs] <> ixLocs ixs
-    MappedBytes contract name ixs -> [BytesLoc $ MappedBytes contract name ixs] <> ixLocs ixs
-    where
-      ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
-      ixLocs = concatMap locsFromReturnExp
+  TEntry a -> storageLocations a
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
