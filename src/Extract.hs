@@ -43,7 +43,7 @@ instance HFoldable ExpF where
     TEntryF _ -> mempty
 
 locsFromExp' :: Exp a -> [StorageLocation]
-locsFromExp' = mcata $ \case
+locsFromExp' = ccata $ \case
   TEntryF t -> storageLocations t
   e         -> recurse e
 

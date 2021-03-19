@@ -35,5 +35,5 @@ class HFunctor (HBase t) => HRecursive (t :: * -> *) where
       mu :: t ~> f
       mu = eta . hfmap mu . hproject
 
-  mcata :: Monoid m => (forall a. HBase t (Const m) a -> m) -> t b -> m
-  mcata count = getConst . hcata (Const . count)
+  ccata :: (forall a. HBase t (Const b) a -> b) -> t a -> b
+  ccata collapse = getConst . hcata (Const . collapse)
