@@ -43,10 +43,9 @@ instance HFoldable ExpF where
     TEntryF _ -> mempty
 
 locsFromExp' :: Exp a -> [StorageLocation]
-locsFromExp' = getConst . hcata count
-  where
-    count (TEntryF t) = Const . storageLocations  $ t
-    count e           = Const . hfoldMap getConst $ e
+locsFromExp' = mcata $ \case
+  TEntryF t -> storageLocations t
+  e         -> recurse e
 
 e0 = And (LitBool False) (And (LitBool True) (LitBool False))
 e1 = TEntry (DirectInt "C" "x")
