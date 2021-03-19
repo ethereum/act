@@ -24,7 +24,7 @@ class HFoldable (h :: (* -> *) -> * -> *) where
   recurse :: Monoid m => h (Const m) a -> m
   recurse = hfoldMap getConst
 
-class (HFunctor (HBase t), HFoldable (HBase t)) => HRecursive (t :: * -> *) where
+class HFunctor (HBase t) => HRecursive (t :: * -> *) where
   type HBase t :: (* -> *) -> * -> *
 
   hproject :: t ~> HBase t t
