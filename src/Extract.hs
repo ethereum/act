@@ -4,14 +4,19 @@
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE TypeOperators      #-}
 {-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE TypeFamilies       #-}
+{-# LANGUAGE FlexibleContexts   #-}
 
 module Extract where
 
 import Control.Natural
+import Data.Functor.Const
 import qualified Data.List.NonEmpty as NonEmpty
 
 import RefinedAst
 import Syntax
+
+-- Utils that should be moved eventually --
 
 class HFunctor (h :: (* -> *) -> * -> *) where
   hfmap :: (f ~> g) -> h f ~> h g
@@ -19,16 +24,21 @@ class HFunctor (h :: (* -> *) -> * -> *) where
 class HFoldable (h :: (* -> *) -> * -> *) where
   hfoldMap :: Monoid m => (forall b. f b -> m) -> h f a -> m
 
-hcata :: HFunctor h => (h f ~> f) -> HFix h ~> f
-hcata alg = alg . hfmap (hcata alg) . unHFix
+class HFunctor (HBase r) => HRecursive (r :: * -> *) where
+  type HBase r :: (* -> *) -> * -> *
+
+  hproject :: r ~> HBase r r
+
+  hcata :: (HBase r f ~> f) -> r ~> f
+  hcata alg = alg . hfmap (hcata alg) . hproject
+
+-- Non-recursive Expression type and necessary instances
 
 data ExpF r t where
   AndF :: r Bool -> r Bool -> ExpF r Bool
   LitBoolF :: Bool -> ExpF r Bool
   EqF :: r a -> r a -> ExpF r Bool
   TEntryF :: TStorageItem t -> ExpF r t
-
-newtype HFix h a = HFix { unHFix :: h (HFix h) a }
 
 instance HFunctor ExpF where
   hfmap eta = \case
@@ -37,6 +47,14 @@ instance HFunctor ExpF where
     EqF x y -> EqF (eta x) (eta y)
     TEntryF t -> TEntryF t
 
+instance HRecursive Exp where
+  type HBase Exp = ExpF
+  hproject = \case
+    And p q -> AndF p q
+    LitBool p -> LitBoolF p
+    Eq x y -> EqF x y
+    TEntry t -> TEntryF t
+
 instance HFoldable ExpF where
   hfoldMap f = \case
     AndF p q -> f p <> f q
@@ -44,24 +62,11 @@ instance HFoldable ExpF where
     EqF x y -> f x <> f y
     TEntryF _ -> mempty
 
-newtype K x y = K { unK :: x }
-  deriving Functor
-
-locsFromExpF :: HFix ExpF a -> [StorageLocation]
-locsFromExpF = unK . hcata count
+locsFromExp' :: Exp a -> [StorageLocation]
+locsFromExp' = getConst . hcata count
   where
-    count (TEntryF t) = K . storageLocations $ t
-    count e           = K $ hfoldMap unK e
-
-countFold :: ExpF (K [StorageLocation]) ~> K [StorageLocation]
-countFold (TEntryF t) = K (storageLocations t)
-countFold e           = K $ hfoldMap unK e
-
-fe0 = HFix (AndF (HFix $ LitBoolF False) (HFix $ AndF (HFix $ LitBoolF True) (HFix $ LitBoolF False)))
-fe1 = HFix $ TEntryF (DirectInt "C" "x")
-fe2 = HFix $ AndF (HFix $ TEntryF (DirectBool "C" "x")) (HFix $ AndF (HFix $ LitBoolF True) (HFix $ LitBoolF False))
-fe3 = HFix $ AndF (HFix $ LitBoolF False) (HFix $ AndF (HFix $ TEntryF (DirectBool "C" "x")) (HFix $ LitBoolF False))
-fe4 = HFix $ AndF (HFix $ LitBoolF False) (HFix $ AndF (HFix $ TEntryF (DirectBool "C" "x")) (HFix $ TEntryF (DirectBool "C" "y")))
+    count (TEntryF t) = Const . storageLocations  $ t
+    count e           = Const . hfoldMap getConst $ e
 
 e0 = And (LitBool False) (And (LitBool True) (LitBool False))
 e1 = TEntry (DirectInt "C" "x")
