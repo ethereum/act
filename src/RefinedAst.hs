@@ -10,9 +10,11 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
+{-# LANGUAGE LambdaCase #-}
 
 module RefinedAst where
 
+import Data.Function (on)
 import Data.Text (pack)
 import Data.Type.Equality
 import Data.Typeable
@@ -23,6 +25,7 @@ import Data.ByteString (ByteString)
 import EVM.Solidity (SlotType(..))
 
 import Syntax (Id, Interface, EthEnv)
+import Utils
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
@@ -98,69 +101,95 @@ deriving instance Show (TStorageItem a)
 deriving instance Eq (TStorageItem a)
 
 -- typed expressions
-data Exp t where
+data ExpF r t where
   -- booleans
-  And  :: Exp Bool -> Exp Bool -> Exp Bool
-  Or   :: Exp Bool -> Exp Bool -> Exp Bool
-  Impl :: Exp Bool -> Exp Bool -> Exp Bool
-  Neg :: Exp Bool -> Exp Bool
-  LE :: Exp Integer -> Exp Integer -> Exp Bool
-  LEQ :: Exp Integer -> Exp Integer -> Exp Bool
-  GEQ :: Exp Integer -> Exp Integer -> Exp Bool
-  GE :: Exp Integer -> Exp Integer -> Exp Bool
-  LitBool :: Bool -> Exp Bool
-  BoolVar :: Id -> Exp Bool
+  And  :: r Bool -> r Bool -> ExpF r Bool
+  Or   :: r Bool -> r Bool -> ExpF r Bool
+  Impl :: r Bool -> r Bool -> ExpF r Bool
+  Neg :: r Bool -> ExpF r Bool
+  LE :: r Integer -> r Integer -> ExpF r Bool
+  LEQ :: r Integer -> r Integer -> ExpF r Bool
+  GEQ :: r Integer -> r Integer -> ExpF r Bool
+  GE :: r Integer -> r Integer -> ExpF r Bool
+  LitBool :: Bool -> ExpF r Bool
+  BoolVar :: Id -> ExpF r Bool
   -- integers
-  Add :: Exp Integer -> Exp Integer -> Exp Integer
-  Sub :: Exp Integer -> Exp Integer -> Exp Integer
-  Mul :: Exp Integer -> Exp Integer -> Exp Integer
-  Div :: Exp Integer -> Exp Integer -> Exp Integer
-  Mod :: Exp Integer -> Exp Integer -> Exp Integer
-  Exp :: Exp Integer -> Exp Integer -> Exp Integer
-  LitInt :: Integer -> Exp Integer
-  IntVar :: Id -> Exp Integer
-  IntEnv :: EthEnv -> Exp Integer
+  Add :: r Integer -> r Integer -> ExpF r Integer
+  Sub :: r Integer -> r Integer -> ExpF r Integer
+  Mul :: r Integer -> r Integer -> ExpF r Integer
+  Div :: r Integer -> r Integer -> ExpF r Integer
+  Mod :: r Integer -> r Integer -> ExpF r Integer
+  Exp :: r Integer -> r Integer -> ExpF r Integer
+  LitInt :: Integer -> ExpF r Integer
+  IntVar :: Id -> ExpF r Integer
+  IntEnv :: EthEnv -> ExpF r Integer
   -- bounds
-  IntMin :: Int -> Exp Integer
-  IntMax :: Int -> Exp Integer
-  UIntMin :: Int -> Exp Integer
-  UIntMax :: Int -> Exp Integer
+  IntMin :: Int -> ExpF r Integer
+  IntMax :: Int -> ExpF r Integer
+  UIntMin :: Int -> ExpF r Integer
+  UIntMax :: Int -> ExpF r Integer
   -- bytestrings
-  Cat :: Exp ByteString -> Exp ByteString -> Exp ByteString
-  Slice :: Exp ByteString -> Exp Integer -> Exp Integer -> Exp ByteString
-  ByVar :: Id -> Exp ByteString
-  ByStr :: String -> Exp ByteString
-  ByLit :: ByteString -> Exp ByteString
-  ByEnv :: EthEnv -> Exp ByteString
+  Cat :: r ByteString -> r ByteString -> ExpF r ByteString
+  Slice :: r ByteString -> r Integer -> r Integer -> ExpF r ByteString
+  ByVar :: Id -> ExpF r ByteString
+  ByStr :: String -> ExpF r ByteString
+  ByLit :: ByteString -> ExpF r ByteString
+  ByEnv :: EthEnv -> ExpF r ByteString
   -- builtins
-  NewAddr :: Exp Integer -> Exp Integer -> Exp Integer
+  NewAddr :: r Integer -> r Integer -> ExpF r Integer
 
   -- polymorphic
-  Eq  :: (Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
-  NEq :: (Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
-  ITE :: Exp Bool -> Exp t -> Exp t -> Exp t
-  TEntry :: (TStorageItem t) -> Exp t
+  Eq  :: (Typeable t, Show t) => r t -> r t -> ExpF r Bool
+  NEq :: (Typeable t, Show t) => r t -> r t -> ExpF r Bool
+  ITE :: r Bool -> r t -> r t -> ExpF r t
+  TEntry :: (TStorageItem t) -> ExpF r t
 
-deriving instance Show (Exp t)
+deriving instance Show a => Show (ExpF (HFix ExpF) a)
 
-instance Eq (Exp t) where
-  And a b == And c d = a == c && b == d
-  Or a b == Or c d = a == c && b == d
-  Impl a b == Impl c d = a == c && b == d
-  Neg a == Neg b = a == b
-  LE a b == LE c d = a == c && b == d
-  LEQ a b == LEQ c d = a == c && b == d
-  GEQ a b == GEQ c d = a == c && b == d
-  GE a b == GE c d = a == c && b == d
+instance HEq r => HEq (ExpF r) where
+  heq = (==)
+
+instance Eq (Exp a) where
+  (==) = (==) `on` unHFix
+
+type Exp = HFix ExpF
+
+instance HFunctor ExpF where
+  hfmap eta = \case
+    And p q -> And (eta p) (eta q)
+    LitBool p -> LitBool p
+    Eq x y -> Eq (eta x) (eta y)
+    TEntry t -> TEntry t
+
+instance HFoldable ExpF where
+  hfoldMap f = \case
+    And p q -> f p <> f q
+    LitBool _ -> mempty
+    Eq x y -> f x <> f y
+    TEntry _ -> mempty
+
+instance HRecursive Exp where
+  type HBase Exp = ExpF
+  hproject = unHFix
+
+instance HEq r => Eq (ExpF r t) where
+  And a b == And c d = a `heq` c && b `heq` d
+  Or a b == Or c d = a `heq` c && b `heq` d
+  Impl a b == Impl c d = a `heq` c && b `heq` d
+  Neg a == Neg b = a `heq` b
+  LE a b == LE c d = a `heq` c && b `heq` d
+  LEQ a b == LEQ c d = a `heq` c && b `heq` d
+  GEQ a b == GEQ c d = a `heq` c && b `heq` d
+  GE a b == GE c d = a `heq` c && b `heq` d
   LitBool a == LitBool b = a == b
   BoolVar a == BoolVar b = a == b
 
-  Add a b == Add c d = a == c && b == d
-  Sub a b == Sub c d = a == c && b == d
-  Mul a b == Mul c d = a == c && b == d
-  Div a b == Div c d = a == c && b == d
-  Mod a b == Mod c d = a == c && b == d
-  Exp a b == Exp c d = a == c && b == d
+  Add a b == Add c d = a `heq` c && b `heq` d
+  Sub a b == Sub c d = a `heq` c && b `heq` d
+  Mul a b == Mul c d = a `heq` c && b `heq` d
+  Div a b == Div c d = a `heq` c && b `heq` d
+  Mod a b == Mod c d = a `heq` c && b `heq` d
+  Exp a b == Exp c d = a `heq` c && b `heq` d
   LitInt a == LitInt b = a == b
   IntVar a == IntVar b = a == b
   IntEnv a == IntEnv b = a == b
@@ -170,22 +199,22 @@ instance Eq (Exp t) where
   UIntMin a == UIntMin b = a == b
   UIntMax a == UIntMax b = a == b
 
-  Cat a b == Cat c d = a == c && b == d
-  Slice a b c == Slice d e f = a == d && b == e && c == f
+  Cat a b == Cat c d = a `heq` c && b `heq` d
+  Slice a b c == Slice d e f = a `heq` d && b `heq` e && c `heq` f
   ByVar a == ByVar b = a == b
   ByStr a == ByStr b = a == b
   ByLit a == ByLit b = a == b
   ByEnv a == ByEnv b = a == b
 
-  NewAddr a b == NewAddr c d = a == c && b == d
+  NewAddr a b == NewAddr c d = a `heq` c && b `heq` d
 
-  Eq (a :: Exp t1) (b :: Exp t1) == Eq (c :: Exp t2) (d :: Exp t2) = case eqT @t1 @t2 of
-    Just Refl -> a == c && b == d
+  Eq (a :: r t1) (b :: r t1) == Eq (c :: r t2) (d :: r t2) = case eqT @t1 @t2 of
+    Just Refl -> a `heq` c && b `heq` d
     Nothing -> False
-  NEq (a :: Exp t1) (b :: Exp t1) == NEq (c :: Exp t2) (d :: Exp t2) = case eqT @t1 @t2 of
-    Just Refl -> a == c && b == d
+  NEq (a :: r t1) (b :: r t1) == NEq (c :: r t2) (d :: r t2) = case eqT @t1 @t2 of
+    Just Refl -> a `heq` c && b `heq` d
     Nothing -> False
-  ITE a b c == ITE d e f = a == d && b == e && c == f
+  ITE a b c == ITE d e f = a `heq` d && b `heq` e && c `heq` f
   TEntry a == TEntry b = a == b
 
   _ == _ = False

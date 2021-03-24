@@ -1,15 +1,18 @@
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE DeriveFunctor       #-}
-{-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE KindSignatures       #-}
+{-# LANGUAGE DeriveFunctor        #-}
+{-# LANGUAGE TypeOperators        #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Utils where
 
 import Control.Natural
-import Data.Functor.Const
+import Data.Function (on)
+import Data.Functor.Const (Const(..))
 import Data.Monoid (Endo(..))
 
 class HFunctor (h :: (* -> *) -> * -> *) where
@@ -37,3 +40,13 @@ class HFunctor (HBase t) => HRecursive (t :: * -> *) where
 
   ccata :: (forall a. HBase t (Const b) a -> b) -> t a -> b
   ccata collapse = getConst . hcata (Const . collapse)
+
+newtype HFix h a = HFix { unHFix :: h (HFix h) a }
+
+deriving instance Show (h (HFix h) a) => Show (HFix h a)
+
+class HEq (f :: * -> *) where
+  heq :: f a -> f a -> Bool
+
+instance HEq (f (HFix f)) => HEq (HFix f) where
+  heq = heq `on` unHFix

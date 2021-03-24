@@ -11,48 +11,6 @@ import RefinedAst
 import Syntax
 import Utils
 
-
--- Non-recursive Expression type and necessary instances
-
-data ExpF r t where
-  AndF :: r Bool -> r Bool -> ExpF r Bool
-  LitBoolF :: Bool -> ExpF r Bool
-  EqF :: r a -> r a -> ExpF r Bool
-  TEntryF :: TStorageItem t -> ExpF r t
-
-instance HFunctor ExpF where
-  hfmap eta = \case
-    AndF p q -> AndF (eta p) (eta q)
-    LitBoolF p -> LitBoolF p
-    EqF x y -> EqF (eta x) (eta y)
-    TEntryF t -> TEntryF t
-
-instance HRecursive Exp where
-  type HBase Exp = ExpF
-  hproject = \case
-    And p q -> AndF p q
-    LitBool p -> LitBoolF p
-    Eq x y -> EqF x y
-    TEntry t -> TEntryF t
-
-instance HFoldable ExpF where
-  hfoldMap f = \case
-    AndF p q -> f p <> f q
-    LitBoolF _ -> mempty
-    EqF x y -> f x <> f y
-    TEntryF _ -> mempty
-
-locsFromExp' :: Exp a -> [StorageLocation]
-locsFromExp' = ccata $ \case
-  TEntryF t -> storageLocations t
-  e         -> recurse e
-
-e0 = And (LitBool False) (And (LitBool True) (LitBool False))
-e1 = TEntry (DirectInt "C" "x")
-e2 = And (TEntry (DirectBool "C" "x")) (And (LitBool True) (LitBool False))
-e3 = And (LitBool False) (And (TEntry (DirectBool "C" "x")) (LitBool False))
-e4 = And (LitBool False) (And (TEntry (DirectBool "C" "x")) (TEntry (DirectBool "C" "y")))
-
 storageLocations :: TStorageItem a -> [StorageLocation]
 storageLocations a = case a of
   DirectInt {} -> [IntLoc a]
