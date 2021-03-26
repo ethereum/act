@@ -69,6 +69,7 @@ import Extract (locsFromExp, getLoc)
    1. The invariant holds over the post state
    2. The postconditions hold for every method level behaviour
 -}
+
 queries :: [Claim] -> [(Invariant, [Symbolic ()])]
 queries claims = fmap mkQueries gathered
   where
@@ -272,7 +273,7 @@ symExp ctx whn ret = case ret of
   ExpBytes e -> SymBytes $ symExpBytes ctx whn e
 
 symExpBool :: Ctx -> When -> Exp Bool -> SBV Bool
-symExpBool ctx@(Ctx c m args store _) w e = case e of
+symExpBool ctx@(Ctx c m args store _) w e = case fixExp e of
   And a b   -> (symExpBool ctx w a) .&& (symExpBool ctx w b)
   Or a b    -> (symExpBool ctx w a) .|| (symExpBool ctx w b)
   Impl a b  -> (symExpBool ctx w a) .=> (symExpBool ctx w b)
@@ -280,7 +281,7 @@ symExpBool ctx@(Ctx c m args store _) w e = case e of
   LEQ a b   -> (symExpInt ctx w a) .<= (symExpInt ctx w b)
   GE a b    -> (symExpInt ctx w a) .> (symExpInt ctx w b)
   GEQ a b   -> (symExpInt ctx w a) .>= (symExpInt ctx w b)
-  NEq a b   -> sNot (symExpBool ctx w (Eq a b))
+  NEq a b   -> sNot (symExpBool ctx w (_Eq a b))
   Neg a     -> sNot (symExpBool ctx w a)
   LitBool a -> literal a
   BoolVar a -> get (nameFromArg c m a) (catBools args)
@@ -298,7 +299,7 @@ symExpBool ctx@(Ctx c m args store _) w e = case e of
          Post -> snd <$> store
 
 symExpInt :: Ctx -> When -> Exp Integer -> SBV Integer
-symExpInt ctx@(Ctx c m args store env) w e = case e of
+symExpInt ctx@(Ctx c m args store env) w e = case fixExp e of
   Add a b   -> (symExpInt ctx w a) + (symExpInt ctx w b)
   Sub a b   -> (symExpInt ctx w a) - (symExpInt ctx w b)
   Mul a b   -> (symExpInt ctx w a) * (symExpInt ctx w b)
@@ -320,7 +321,7 @@ symExpInt ctx@(Ctx c m args store env) w e = case e of
          Post -> snd <$> store
 
 symExpBytes :: Ctx -> When -> Exp ByteString -> SBV String
-symExpBytes ctx@(Ctx c m args store env) w e = case e of
+symExpBytes ctx@(Ctx c m args store env) w e = case fixExp e of
   Cat a b -> (symExpBytes ctx w a) .++ (symExpBytes ctx w b)
   ByVar a  -> get (nameFromArg c m a) (catBytes args)
   ByStr a -> literal a
@@ -356,7 +357,7 @@ nameFromExp contract method e = case e of
   ExpBytes e' -> nameFromExpBytes contract method e'
 
 nameFromExpInt :: Contract -> Method -> Exp Integer -> Id
-nameFromExpInt c m e = case e of
+nameFromExpInt c m e = case fixExp e of
   Add a b   -> (nameFromExpInt c m a) <> "+" <> (nameFromExpInt c m b)
   Sub a b   -> (nameFromExpInt c m a) <> "-" <> (nameFromExpInt c m b)
   Mul a b   -> (nameFromExpInt c m a) <> "*" <> (nameFromExpInt c m b)
@@ -375,7 +376,7 @@ nameFromExpInt c m e = case e of
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpInt c m y <> "-else-" <> nameFromExpInt c m z
 
 nameFromExpBool :: Contract -> Method -> Exp Bool -> Id
-nameFromExpBool c m e = case e of
+nameFromExpBool c m e = case fixExp e of
   And a b   -> nameFromExpBool c m a <> "&&" <> nameFromExpBool c m b
   Or a b    -> nameFromExpBool c m a <> "|" <> nameFromExpBool c m b
   Impl a b  -> nameFromExpBool c m a <> "=>" <> nameFromExpBool c m b
@@ -404,7 +405,7 @@ nameFromExpBool c m e = case e of
         Nothing -> error "Internal Error: invalid expressio type"
 
 nameFromExpBytes :: Contract -> Method -> Exp ByteString -> Id
-nameFromExpBytes c m e = case e of
+nameFromExpBytes c m e = case fixExp e of
   Cat a b -> nameFromExpBytes c m a <> "++" <> nameFromExpBytes c m b
   ByVar a  -> nameFromArg c m a
   ByStr a -> show a

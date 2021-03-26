@@ -248,77 +248,78 @@ abiVal _ = error "TODO: missing default values"
 
 -- | coq syntax for an expression
 coqexp :: Exp a -> T.Text
-
+coqexp e = case fixExp e of
 -- booleans
-coqexp (LitBool True)  = "true"
-coqexp (LitBool False) = "false"
-coqexp (BoolVar name) = T.pack name
-coqexp (And e1 e2)  = parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
-coqexp (Or e1 e2)   = parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
-coqexp (Impl e1 e2) = parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
-coqexp (Eq e1 e2)   = parens $ coqexp e1  <> " =? " <> coqexp e2
-coqexp (NEq e1 e2)  = parens $ "negb " <> parens (coqexp e1  <> " =? " <> coqexp e2)
-coqexp (Neg e)      = parens $ "negb " <> coqexp e
-coqexp (LE e1 e2)   = parens $ coqexp e1 <> " <? "  <> coqexp e2
-coqexp (LEQ e1 e2)  = parens $ coqexp e1 <> " <=? " <> coqexp e2
-coqexp (GE e1 e2)   = parens $ coqexp e2 <> " <? "  <> coqexp e1
-coqexp (GEQ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
-coqexp (TEntry (DirectBool _ name)) = parens $ T.pack name <> " " <> stateVar
-coqexp (TEntry (MappedBool _ name args)) = parens $
-  T.pack name <> " s " <> coqargs args
+  LitBool True  -> "true"
+  LitBool False -> "false"
+  BoolVar name -> T.pack name
+  And e1 e2  -> parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
+  Or e1 e2   -> parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
+  Impl e1 e2 -> parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
+  Eq e1 e2   -> parens $ coqexp e1  <> " =? " <> coqexp e2
+  NEq e1 e2  -> parens $ "negb " <> parens (coqexp e1  <> " =? " <> coqexp e2)
+  Neg e      -> parens $ "negb " <> coqexp e
+  LE e1 e2   -> parens $ coqexp e1 <> " <? "  <> coqexp e2
+  LEQ e1 e2  -> parens $ coqexp e1 <> " <=? " <> coqexp e2
+  GE e1 e2   -> parens $ coqexp e2 <> " <? "  <> coqexp e1
+  GEQ e1 e2  -> parens $ coqexp e2 <> " <=? " <> coqexp e1
+  TEntry (DirectBool _ name) -> parens $ T.pack name <> " " <> stateVar
+  TEntry (MappedBool _ name args) -> parens $
+    T.pack name <> " s " <> coqargs args
 
 -- integers
-coqexp (LitInt i) = T.pack $ show i
-coqexp (IntVar name) = T.pack name
-coqexp (Add e1 e2) = parens $ coqexp e1 <> " + " <> coqexp e2
-coqexp (Sub e1 e2) = parens $ coqexp e1 <> " - " <> coqexp e2
-coqexp (Mul e1 e2) = parens $ coqexp e1 <> " * " <> coqexp e2
-coqexp (Div e1 e2) = parens $ coqexp e1 <> " / " <> coqexp e2
-coqexp (Mod e1 e2) = parens $ "Z.modulo " <> coqexp e1 <> coqexp e2
-coqexp (Exp e1 e2) = parens $ coqexp e1 <> " ^ " <> coqexp e2
-coqexp (IntMin n)  = parens $ "INT_MIN "  <> T.pack (show n)
-coqexp (IntMax n)  = parens $ "INT_MAX "  <> T.pack (show n)
-coqexp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
-coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
-coqexp (TEntry (DirectInt _ name)) = parens $ T.pack name <> " " <> stateVar
-coqexp (TEntry (MappedInt _ name args)) = parens $
-  T.pack name <> " s " <> coqargs args
+  LitInt i -> T.pack $ show i
+  IntVar name -> T.pack name
+  Add e1 e2 -> parens $ coqexp e1 <> " + " <> coqexp e2
+  Sub e1 e2 -> parens $ coqexp e1 <> " - " <> coqexp e2
+  Mul e1 e2 -> parens $ coqexp e1 <> " * " <> coqexp e2
+  Div e1 e2 -> parens $ coqexp e1 <> " / " <> coqexp e2
+  Mod e1 e2 -> parens $ "Z.modulo " <> coqexp e1 <> coqexp e2
+  Exp e1 e2 -> parens $ coqexp e1 <> " ^ " <> coqexp e2
+  IntMin n  -> parens $ "INT_MIN "  <> T.pack (show n)
+  IntMax n  -> parens $ "INT_MAX "  <> T.pack (show n)
+  UIntMin n -> parens $ "UINT_MIN " <> T.pack (show n)
+  UIntMax n -> parens $ "UINT_MAX " <> T.pack (show n)
+  TEntry (DirectInt _ name) -> parens $ T.pack name <> " " <> stateVar
+  TEntry (MappedInt _ name args) -> parens $
+    T.pack name <> " s " <> coqargs args
 
 -- polymorphic
-coqexp (ITE b e1 e2) = parens $ "if "
-  <> coqexp b
-  <> " then "
-  <> coqexp e1
-  <> " else "
-  <> coqexp e2
+  ITE b e1 e2 -> parens $ "if "
+    <> coqexp b
+    <> " then "
+    <> coqexp e1
+    <> " else "
+    <> coqexp e2
 
 -- unsupported
-coqexp (IntEnv e) = error $ show e <> ": environment values not yet supported"
-coqexp (Cat _ _) = error "bytestrings not supported"
-coqexp (Slice _ _ _) = error "bytestrings not supported"
-coqexp (ByVar _) = error "bytestrings not supported"
-coqexp (ByStr _) = error "bytestrings not supported"
-coqexp (ByLit _) = error "bytestrings not supported"
-coqexp (ByEnv _) = error "bytestrings not supported"
-coqexp (TEntry (DirectBytes _ _)) = error "bytestrings not supported"
-coqexp (TEntry (MappedBytes _ _ _)) = error "bytestrings not supported"
-coqexp (NewAddr _ _) = error "newaddr not supported"
+  IntEnv e -> error $ show e <> ": environment values not yet supported"
+  Cat _ _ -> error "bytestrings not supported"
+  Slice _ _ _ -> error "bytestrings not supported"
+  ByVar _ -> error "bytestrings not supported"
+  ByStr _ -> error "bytestrings not supported"
+  ByLit _ -> error "bytestrings not supported"
+  ByEnv _ -> error "bytestrings not supported"
+  TEntry (DirectBytes _ _) -> error "bytestrings not supported"
+  TEntry (MappedBytes _ _ _) -> error "bytestrings not supported"
+  NewAddr _ _ -> error "newaddr not supported"
 
 -- | coq syntax for a proposition
 coqprop :: Exp a -> T.Text
-coqprop (LitBool True)  = "True"
-coqprop (LitBool False) = "False"
-coqprop (And e1 e2)  = parens $ coqprop e1 <> " /\\ " <> coqprop e2
-coqprop (Or e1 e2)   = parens $ coqprop e1 <> " \\/ " <> coqprop e2
-coqprop (Impl e1 e2) = parens $ coqprop e1 <> " -> " <> coqprop e2
-coqprop (Neg e)      = parens $ "not " <> coqprop e
-coqprop (Eq e1 e2)   = parens $ coqexp e1 <> " = "  <> coqexp e2
-coqprop (NEq e1 e2)  = parens $ coqexp e1 <> " <> " <> coqexp e2
-coqprop (LE e1 e2)   = parens $ coqexp e1 <> " < "  <> coqexp e2
-coqprop (LEQ e1 e2)  = parens $ coqexp e1 <> " <= " <> coqexp e2
-coqprop (GE e1 e2)   = parens $ coqexp e1 <> " > "  <> coqexp e2
-coqprop (GEQ e1 e2)  = parens $ coqexp e1 <> " >= " <> coqexp e2
-coqprop _ = error "ill formed proposition"
+coqprop e = case fixExp e of
+  LitBool True  -> "True"
+  LitBool False -> "False"
+  And e1 e2     -> parens $ coqprop e1 <> " /\\ " <> coqprop e2
+  Or e1 e2      -> parens $ coqprop e1 <> " \\/ " <> coqprop e2
+  Impl e1 e2    -> parens $ coqprop e1 <> " -> " <> coqprop e2
+  Neg e         -> parens $ "not " <> coqprop e
+  Eq e1 e2      -> parens $ coqexp e1 <> " = "  <> coqexp e2
+  NEq e1 e2     -> parens $ coqexp e1 <> " <> " <> coqexp e2
+  LE e1 e2      -> parens $ coqexp e1 <> " < "  <> coqexp e2
+  LEQ e1 e2     -> parens $ coqexp e1 <> " <= " <> coqexp e2
+  GE e1 e2      -> parens $ coqexp e1 <> " > "  <> coqexp e2
+  GEQ e1 e2     -> parens $ coqexp e1 <> " >= " <> coqexp e2
+  _             -> error "ill formed proposition"
 
 -- | coq syntax for a return expression
 retexp :: ReturnExp -> T.Text

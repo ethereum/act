@@ -39,7 +39,7 @@ prettyBehaviour (Behaviour name _ contract interface preconditions postcondition
     x >-< y = x <> "\n" <> y
 
 prettyExp :: Exp a -> String
-prettyExp e = case e of
+prettyExp e = case fixExp e of
 
   -- booleans
   Or a b -> print2 "or" a b

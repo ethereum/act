@@ -148,8 +148,11 @@ deriving instance Show (ExpF (HFix ExpF) a)
 
 type Exp = HFix ExpF
 
-mkExp :: ExpF (HFix ExpF) a -> Exp a
-mkExp = HFix
+makeExp :: ExpF (HFix ExpF) a -> Exp a
+makeExp = HFix
+
+fixExp :: Exp a -> ExpF (HFix ExpF) a
+fixExp = hproject
 
 instance HEq r => HEq (ExpF r) where
   heq = (==)
@@ -222,19 +225,19 @@ instance HEq r => Eq (ExpF r t) where
 
   _ == _ = False
 
-instance Semigroup (Exp Bool) where
-  a <> b = mkExp $ And a b
-
-instance Monoid (Exp Bool) where
-  mempty = mkExp $ LitBool True
-
-data ReturnExp -- TODO change these to ExpF?
+data ReturnExp
   = ExpInt    (Exp Integer)
   | ExpBool   (Exp Bool)
   | ExpBytes  (Exp ByteString)
   deriving (Eq, Show)
 
-makeSmartCons ''ExpF 'mkExp
+makeSmartCons ''ExpF 'makeExp
+
+instance Semigroup (Exp Bool) where
+  a <> b = _And a b
+
+instance Monoid (Exp Bool) where
+  mempty = _LitBool True
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
@@ -312,7 +315,10 @@ instance ToJSON (Exp t) where
     UIntMin a -> toJSON $ show $ uintmin a
     UIntMax a -> toJSON $ show $ uintmax a
     IntEnv a -> String $ pack $ show a
-    TEntry a -> toJSON a
+    TEntry a -> case a of -- TODO lol fix the tests instead
+      DirectBytes {} -> String . pack . show $ e
+      MappedBytes {} -> String . pack . show $ e
+      _              -> toJSON a
     ITE a b c -> object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= (Data.Aeson.Types.Number 3)
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]

@@ -105,50 +105,53 @@ kExpr (ExpBool a) = kExprBool a
 kExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
 
 kExprInt :: Exp Integer -> String
-kExprInt (Add a b) = "(" <> kExprInt a <> " +Int " <> kExprInt b <> ")"
-kExprInt (Sub a b) = "(" <> kExprInt a <> " -Int " <> kExprInt b <> ")"
-kExprInt (Mul a b) = "(" <> kExprInt a <> " *Int " <> kExprInt b <> ")"
-kExprInt (Div a b) = "(" <> kExprInt a <> " /Int " <> kExprInt b <> ")"
-kExprInt (Mod a b) = "(" <> kExprInt a <> " modInt " <> kExprInt b <> ")"
-kExprInt (Exp a b) = "(" <> kExprInt a <> " ^Int " <> kExprInt b <> ")"
-kExprInt (LitInt a) = show a
-kExprInt (IntMin a) = kExprInt $ LitInt $ negate $ 2 ^ (a - 1)
-kExprInt (IntMax a) = kExprInt $ LitInt $ 2 ^ (a - 1) - 1
-kExprInt (UIntMin _) = kExprInt $ LitInt 0
-kExprInt (UIntMax a) = kExprInt $ LitInt $ 2 ^ a - 1
-kExprInt (IntVar a) = kVar a
-kExprInt (IntEnv a) = show a
-kExprInt (TEntry a) = kStorageName a
-kExprInt v = error ("Internal error: TODO kExprInt of " <> show v)
+kExprInt e = case fixExp e of
+  Add a b -> "(" <> kExprInt a <> " +Int " <> kExprInt b <> ")"
+  Sub a b -> "(" <> kExprInt a <> " -Int " <> kExprInt b <> ")"
+  Mul a b -> "(" <> kExprInt a <> " *Int " <> kExprInt b <> ")"
+  Div a b -> "(" <> kExprInt a <> " /Int " <> kExprInt b <> ")"
+  Mod a b -> "(" <> kExprInt a <> " modInt " <> kExprInt b <> ")"
+  Exp a b -> "(" <> kExprInt a <> " ^Int " <> kExprInt b <> ")"
+  LitInt a -> show a
+  IntMin a -> kExprInt $ _LitInt $ negate $ 2 ^ (a - 1)
+  IntMax a -> kExprInt $ _LitInt $ 2 ^ (a - 1) - 1
+  UIntMin _ -> kExprInt $ _LitInt 0
+  UIntMax a -> kExprInt $ _LitInt $ 2 ^ a - 1
+  IntVar a -> kVar a
+  IntEnv a -> show a
+  TEntry a -> kStorageName a
+  v -> error ("Internal error: TODO kExprInt of " <> show v)
 
 
 kExprBool :: Exp Bool -> String
-kExprBool (And a b) = "(" <> kExprBool a <> " andBool\n " <> kExprBool b <> ")"
-kExprBool (Or a b) = "(" <> kExprBool a <> " orBool " <> kExprBool b <> ")"
-kExprBool (Impl a b) = "(" <> kExprBool a <> " impliesBool " <> kExprBool b <> ")"
-kExprBool (Neg a) = "notBool (" <> kExprBool a <> ")"
-kExprBool (LE a b) = "(" <> kExprInt a <> " <Int " <> kExprInt b <> ")"
-kExprBool (LEQ a b) = "(" <> kExprInt a <> " <=Int " <> kExprInt b <> ")"
-kExprBool (GE a b) = "(" <> kExprInt a <> " >Int " <> kExprInt b <> ")"
-kExprBool (GEQ a b) = "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
-kExprBool (LitBool a) = show a
-kExprBool (BoolVar a) = kVar a
-kExprBool (NEq a b) = "notBool (" <> kExprBool (Eq a b) <> ")"
-kExprBool (Eq (a :: Exp t) (b :: Exp t)) = case eqT @t @Integer of
-  Just Refl -> "(" <> kExprInt a <> " ==Int " <> kExprInt b <> ")"
-  Nothing -> case eqT @t @Bool of
-    Just Refl -> "(" <> kExprBool a <> " ==Bool " <> kExprBool b <> ")"
-    Nothing -> case eqT @t @ByteString of
-      Just Refl -> "(" <> kExprBytes a <> " ==K " <> kExprBytes b <> ")" -- TODO: Is ==K correct?
-      Nothing -> error "Internal Error: invalid expression type"
-kExprBool v = error ("Internal error: TODO kExprBool of " <> show v)
+kExprBool e = case fixExp e of
+  And a b -> "(" <> kExprBool a <> " andBool\n " <> kExprBool b <> ")"
+  Or a b -> "(" <> kExprBool a <> " orBool " <> kExprBool b <> ")"
+  Impl a b -> "(" <> kExprBool a <> " impliesBool " <> kExprBool b <> ")"
+  Neg a -> "notBool (" <> kExprBool a <> ")"
+  LE a b -> "(" <> kExprInt a <> " <Int " <> kExprInt b <> ")"
+  LEQ a b -> "(" <> kExprInt a <> " <=Int " <> kExprInt b <> ")"
+  GE a b -> "(" <> kExprInt a <> " >Int " <> kExprInt b <> ")"
+  GEQ a b -> "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
+  LitBool a -> show a
+  BoolVar a -> kVar a
+  NEq a b -> "notBool (" <> kExprBool (_Eq a b) <> ")"
+  Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of -- TODO Maybe Monad
+    Just Refl -> "(" <> kExprInt a <> " ==Int " <> kExprInt b <> ")"
+    Nothing -> case eqT @t @Bool of
+      Just Refl -> "(" <> kExprBool a <> " ==Bool " <> kExprBool b <> ")"
+      Nothing -> case eqT @t @ByteString of
+        Just Refl -> "(" <> kExprBytes a <> " ==K " <> kExprBytes b <> ")" -- TODO: Is ==K correct?
+        Nothing -> error "Internal Error: invalid expression type"
+  v -> error ("Internal error: TODO kExprBool of " <> show v)
 
 kExprBytes :: Exp ByteString -> String
-kExprBytes (ByVar name) = kVar name
-kExprBytes (ByStr str) = show str
-kExprBytes (ByLit bs) = show bs
-kExprBytes (TEntry item) = kStorageName item
-kExprBytes e = error $ "TODO: kExprBytes of " <> show e
+kExprBytes e = case fixExp e of
+  ByVar name -> kVar name
+  ByStr str -> show str
+  ByLit bs -> show bs
+  TEntry item -> kStorageName item
+  e -> error $ "TODO: kExprBytes of " <> show e
 --kExprBytes (Cat a b) =
 --kExprBytes (Slice a start end) =
 --kExprBytes (ByEnv env) =

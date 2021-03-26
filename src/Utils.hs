@@ -21,7 +21,7 @@ class HFunctor (h :: (* -> *) -> * -> *) where
 class HFoldable (h :: (* -> *) -> * -> *) where
   hfoldMap :: Monoid m => (forall b. f b -> m) -> h f a -> m
 
-  hfoldr :: (forall a. f a -> b -> b) -> b -> h f a -> b
+  hfoldr :: (forall a. f a -> b -> b) -> b -> h f c -> b
   hfoldr f z h = appEndo (hfoldMap (Endo . f) h) z
 
   recurse :: Monoid m => h (Const m) a -> m
@@ -38,7 +38,7 @@ class HFunctor (HBase t) => HRecursive (t :: * -> *) where
       mu :: t ~> f
       mu = eta . hfmap mu . hproject
 
-  ccata :: (forall a. HBase t (Const b) a -> b) -> t a -> b
+  ccata :: (forall a. HBase t (Const c) a -> c) -> t b -> c
   ccata collapse = getConst . hcata (Const . collapse)
 
 newtype HFix h a = HFix { unHFix :: h (HFix h) a }

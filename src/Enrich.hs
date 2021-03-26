@@ -62,7 +62,7 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
   where
     mkBound :: EthEnv -> Maybe (Exp Bool)
     mkBound e = case lookup e defaultStore of
-      Just (Integer) -> Just $ bound (toAbiType e) (IntEnv e)
+      Just (Integer) -> Just $ bound (toAbiType e) (_IntEnv e)
       _ -> Nothing
 
     toAbiType :: EthEnv -> AbiType
@@ -92,8 +92,8 @@ mkStorageBounds store refs
     mkBound _ = Nothing
 
     fromItem :: TStorageItem Integer -> Exp Bool
-    fromItem item@(DirectInt contract name) = bound (abiType $ slotType contract name) (TEntry item)
-    fromItem item@(MappedInt contract name _) = bound (abiType $ slotType contract name) (TEntry item)
+    fromItem item@(DirectInt contract name) = bound (abiType $ slotType contract name) (_TEntry item)
+    fromItem item@(MappedInt contract name _) = bound (abiType $ slotType contract name) (_TEntry item)
 
     slotType :: Id -> Id -> SlotType
     slotType contract name = let
@@ -108,6 +108,6 @@ mkCallDataBounds :: [Decl] -> [Exp Bool]
 mkCallDataBounds =
     concatMap
       ( \(Decl typ name) -> case metaType typ of
-          Integer -> [bound typ (IntVar name)]
+          Integer -> [bound typ (_IntVar name)]
           _ -> []
       )

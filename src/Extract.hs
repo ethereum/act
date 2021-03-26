@@ -4,12 +4,10 @@
 
 module Extract where
 
-import Data.Functor.Const
 import qualified Data.List.NonEmpty as NonEmpty
 
 import RefinedAst
 import Syntax
-import Utils
 
 storageLocations :: TStorageItem a -> [StorageLocation]
 storageLocations a = case a of
@@ -29,7 +27,7 @@ locsFromReturnExp (ExpBool e) = locsFromExp e
 locsFromReturnExp (ExpBytes e) = locsFromExp e
 
 locsFromExp :: Exp a -> [StorageLocation]
-locsFromExp e = case e of
+locsFromExp e = case fixExp e of
   And a b   -> (locsFromExp a) <> (locsFromExp b)
   Or a b    -> (locsFromExp a) <> (locsFromExp b)
   Impl a b  -> (locsFromExp a) <> (locsFromExp b)
@@ -101,7 +99,7 @@ ethEnvFromReturnExp (ExpBool e) = ethEnvFromExp e
 ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
 
 ethEnvFromExp :: Exp a -> [EthEnv]
-ethEnvFromExp e = case e of
+ethEnvFromExp e = case fixExp e of
   And a b   -> ethEnvFromExp a <> ethEnvFromExp b
   Or a b    -> ethEnvFromExp a <> ethEnvFromExp b
   Impl a b  -> ethEnvFromExp a <> ethEnvFromExp b
