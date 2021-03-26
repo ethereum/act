@@ -162,17 +162,64 @@ instance Eq (Exp a) where
 
 instance HFunctor ExpF where
   hfmap eta = \case
-    And p q -> And (eta p) (eta q)
-    LitBool p -> LitBool p
-    Eq x y -> Eq (eta x) (eta y)
-    TEntry t -> TEntry t
+    And p q     -> And (eta p) (eta q)
+    Or p q      -> Or (eta p) (eta q)
+    Impl p q    -> Impl (eta p) (eta q)
+    Neg p       -> Neg (eta p)
+    LE x y      -> LE (eta x) (eta y)
+    LEQ x y     -> LEQ (eta x) (eta y)
+    GEQ x y     -> GEQ (eta x) (eta y)
+    GE x y      -> GE (eta x) (eta y)
+    LitBool p   -> LitBool p
+    BoolVar p   -> BoolVar p
+    Add x y     -> Add (eta x) (eta y)
+    Sub x y     -> Sub (eta x) (eta y)
+    Mul x y     -> Mul (eta x) (eta y)
+    Div x y     -> Div (eta x) (eta y)
+    Mod x y     -> Mod (eta x) (eta y)
+    Exp x y     -> Exp (eta x) (eta y)
+    LitInt x    -> LitInt x
+    IntVar x    -> IntVar x
+    IntEnv e    -> IntEnv e
+    IntMin x    -> IntMin x
+    IntMax x    -> IntMax x
+    UIntMin x   -> UIntMin x
+    UIntMax x   -> UIntMax x
+    Cat s t     -> Cat (eta s) (eta t)
+    Slice s x y -> Slice (eta s) (eta x) (eta y)
+    ByVar s     -> ByVar s
+    ByStr s     -> ByStr s
+    ByLit s     -> ByLit s
+    ByEnv e     -> ByEnv e
+    NewAddr x y -> NewAddr (eta x) (eta y)
+    Eq a b      -> Eq (eta a) (eta b)
+    NEq a b     -> NEq (eta a) (eta b)
+    ITE p a b   -> ITE (eta p) (eta a) (eta b)
+    TEntry t    -> TEntry t
 
 instance HFoldable ExpF where
   hfoldMap f = \case
-    And p q -> f p <> f q
-    LitBool _ -> mempty
-    Eq x y -> f x <> f y
-    TEntry _ -> mempty
+    And p q     -> f p <> f q
+    Or p q      -> f p <> f q
+    Impl p q    -> f p <> f q
+    Neg p       -> f p
+    LE x y      -> f x <> f y
+    LEQ x y     -> f x <> f y
+    GEQ x y     -> f x <> f y
+    GE x y      -> f x <> f y
+    Add x y     -> f x <> f y
+    Sub x y     -> f x <> f y
+    Mul x y     -> f x <> f y
+    Div x y     -> f x <> f y
+    Mod x y     -> f x <> f y
+    Exp x y     -> f x <> f y
+    Cat s t     -> f s <> f t
+    Slice s x y -> f s <> f x <> f y
+    NewAddr x y -> f x <> f y
+    Eq a b      -> f a <> f b
+    NEq a b     -> f a <> f b
+    ITE p a b   -> f p <> f a <> f b
+    _           -> mempty
 
 type instance HBase Exp = ExpF
 
