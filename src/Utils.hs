@@ -27,9 +27,9 @@ class HFoldable (h :: (* -> *) -> * -> *) where
   recurse :: Monoid m => h (Const m) a -> m
   recurse = hfoldMap getConst
 
-class HFunctor (HBase t) => HRecursive (t :: * -> *) where
-  type HBase t :: (* -> *) -> * -> *
+type family HBase (t :: * -> *) :: (* -> *) -> * -> *
 
+class HFunctor (HBase t) => HRecursive (t :: * -> *) where
   hproject :: t ~> HBase t t
 
   hcata :: forall f. (HBase t f ~> f) -> t ~> f
@@ -40,6 +40,15 @@ class HFunctor (HBase t) => HRecursive (t :: * -> *) where
 
   ccata :: (forall a. HBase t (Const c) a -> c) -> t b -> c
   ccata collapse = getConst . hcata (Const . collapse)
+
+class HFunctor (HBase t) => HCorecursive (t :: * -> *) where
+  hembed :: HBase t t ~> t
+
+  hana :: forall f. (f ~> HBase t f) -> f ~> t
+  hana eta = mu
+    where
+      mu :: f ~> t
+      mu = hembed . hfmap mu . eta
 
 newtype HFix h a = HFix { unHFix :: h (HFix h) a }
 

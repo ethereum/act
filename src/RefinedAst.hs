@@ -174,9 +174,13 @@ instance HFoldable ExpF where
     Eq x y -> f x <> f y
     TEntry _ -> mempty
 
+type instance HBase Exp = ExpF
+
 instance HRecursive Exp where
-  type HBase Exp = ExpF
   hproject = unHFix
+
+instance HCorecursive Exp where
+  hembed = HFix
 
 instance HEq r => Eq (ExpF r t) where
   And a b == And c d = a `heq` c && b `heq` d
