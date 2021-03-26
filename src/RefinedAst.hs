@@ -11,6 +11,7 @@
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module RefinedAst where
 
@@ -29,7 +30,7 @@ import Utils
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
-
+import TH
 
 -- AST post typechecking
 data Claim = C Constructor | B Behaviour | I Invariant | S Store deriving (Show, Eq)
@@ -143,16 +144,18 @@ data ExpF r t where
   NEq :: (Typeable t, Show t) => r t -> r t -> ExpF r Bool
   ITE :: r Bool -> r t -> r t -> ExpF r t
   TEntry :: (TStorageItem t) -> ExpF r t
+deriving instance Show (ExpF (HFix ExpF) a)
 
-deriving instance Show a => Show (ExpF (HFix ExpF) a)
+type Exp = HFix ExpF
+
+mkExp :: ExpF (HFix ExpF) a -> Exp a
+mkExp = HFix
 
 instance HEq r => HEq (ExpF r) where
   heq = (==)
 
 instance Eq (Exp a) where
-  (==) = (==) `on` unHFix
-
-type Exp = HFix ExpF
+  (==) = (==) `on` hproject
 
 instance HFunctor ExpF where
   hfmap eta = \case
@@ -220,16 +223,18 @@ instance HEq r => Eq (ExpF r t) where
   _ == _ = False
 
 instance Semigroup (Exp Bool) where
-  a <> b = And a b
+  a <> b = mkExp $ And a b
 
 instance Monoid (Exp Bool) where
-  mempty = LitBool True
+  mempty = mkExp $ LitBool True
 
-data ReturnExp
+data ReturnExp -- TODO change these to ExpF?
   = ExpInt    (Exp Integer)
   | ExpBool   (Exp Bool)
   | ExpBytes  (Exp ByteString)
   deriving (Eq, Show)
+
+makeSmartCons ''ExpF 'mkExp
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
@@ -292,46 +297,40 @@ instance ToJSON ReturnExp where
    toJSON (ExpBytes a) = object ["sort" .= (String $ pack "bytestring")
                                ,"expression" .= toJSON a]
 
-instance ToJSON (Exp Integer) where
-  toJSON (Add a b) = symbol "+" a b
-  toJSON (Sub a b) = symbol "-" a b
-  toJSON (Exp a b) = symbol "^" a b
-  toJSON (Mul a b) = symbol "*" a b
-  toJSON (Div a b) = symbol "/" a b
-  toJSON (NewAddr a b) = symbol "newAddr" a b
-  toJSON (IntVar a) = String $ pack a
-  toJSON (LitInt a) = toJSON $ show a
-  toJSON (IntMin a) = toJSON $ show $ intmin a
-  toJSON (IntMax a) = toJSON $ show $ intmax a
-  toJSON (UIntMin a) = toJSON $ show $ uintmin a
-  toJSON (UIntMax a) = toJSON $ show $ uintmax a
-  toJSON (IntEnv a) = String $ pack $ show a
-  toJSON (TEntry a) = toJSON a
-  toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
+instance ToJSON (Exp t) where
+  toJSON (HFix e) = case e of
+    Add a b -> symbol "+" a b
+    Sub a b -> symbol "-" a b
+    Exp a b -> symbol "^" a b
+    Mul a b -> symbol "*" a b
+    Div a b -> symbol "/" a b
+    NewAddr a b -> symbol "newAddr" a b
+    IntVar a -> String $ pack a
+    LitInt a -> toJSON $ show a
+    IntMin a -> toJSON $ show $ intmin a
+    IntMax a -> toJSON $ show $ intmax a
+    UIntMin a -> toJSON $ show $ uintmin a
+    UIntMax a -> toJSON $ show $ uintmax a
+    IntEnv a -> String $ pack $ show a
+    TEntry a -> toJSON a
+    ITE a b c -> object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= (Data.Aeson.Types.Number 3)
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
-  toJSON v = error $ "todo: json ast for: " <> show v
-
-instance ToJSON (Exp Bool) where
-  toJSON (And a b)  = symbol "and" a b
-  toJSON (Or a b)   = symbol "or" a b
-  toJSON (LE a b)   = symbol "<" a b
-  toJSON (GE a b)   = symbol ">" a b
-  toJSON (Impl a b) = symbol "=>" a b
-  toJSON (NEq a b)  = symbol "=/=" a b
-  toJSON (Eq a b)   = symbol "==" a b
-  toJSON (LEQ a b)  = symbol "<=" a b
-  toJSON (GEQ a b)  = symbol ">=" a b
-  toJSON (LitBool a) = String $ pack $ show a
-  toJSON (BoolVar a) = toJSON a
-  toJSON (Neg a) = object [  "symbol"   .= pack "not"
+    And a b -> symbol "and" a b
+    Or a b   -> symbol "or" a b
+    LE a b   -> symbol "<" a b
+    GE a b   -> symbol ">" a b
+    Impl a b -> symbol "=>" a b
+    NEq a b -> symbol "=/=" a b
+    Eq a b   -> symbol "==" a b
+    LEQ a b  -> symbol "<=" a b
+    GEQ a b  -> symbol ">=" a b
+    LitBool a -> String $ pack $ show a
+    BoolVar a -> toJSON a
+    Neg a -> object [  "symbol"   .= pack "not"
                           ,  "arity"    .= (Data.Aeson.Types.Number 1)
                           ,  "args"     .= (Array $ fromList [toJSON a])]
-  toJSON v = error $ "todo: json ast for: " <> show v
-
-instance ToJSON (Exp ByteString) where
-  toJSON a = String $ pack $ show a
-
+    a -> String $ pack $ show a
 
 mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
 mapping c a b = object [  "symbol"   .= pack "lookup"
