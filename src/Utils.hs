@@ -40,16 +40,8 @@ class HFunctor h => HFoldable (h :: (* -> *) -> * -> *) where
   recurse :: Monoid m => h (Const m) a -> m
   recurse = hfoldMap getConst
 
-class HFunctor w => HComonad w where
-  hextract    :: w f ~> f
-  hduplicate  :: w f ~> w (w f)
-
 instance HFunctor ((:*:) a) where
   hfmap eta (a:*:b) = a :*: eta b
-
-instance HComonad ((:*:) a) where
-  hextract     (_:*:b) = b
-  hduplicate p@(a:*:_) = a:*:p
 
 type family HBase (t :: * -> *) :: (* -> *) -> * -> *
 
@@ -71,18 +63,11 @@ class HFunctor (HBase t) => HRecursive (t :: * -> *) where
       mu :: t ~> f
       mu = eta . hfmap (id &&&& mu) . hproject
 
-  hgfold
-    :: forall w f. HComonad w
-    => (forall g x. HBase t (w g) ~> w (HBase t g))
-    -> HBase t (w f) ~> f
-    -> t ~> f
-  hgfold k g = g . hextract . c
+  hzygo :: forall f g. HBase t g ~> g -> HBase t (g :*: f) ~> f -> t ~> f
+  hzygo eta psi = fsnd . hcata phi
     where
-      c :: t ~> w (HBase t (w f))
-      c = k . hfmap (hduplicate . hfmap g . c) . hproject
-
-  hzygo :: HBase t g ~> g -> HBase t (g :*: f) ~> f -> t ~> f
-  hzygo eta = hgfold (hdistZygo eta)
+      phi :: HBase t (g :*: f) ~> g :*: f
+      phi bGF = eta (hfmap ffst bGF) :*: psi bGF 
 
   czygo
     :: (forall x. HBase t (Const b)     x -> b)
@@ -98,9 +83,12 @@ class HFunctor (HBase t) => HRecursive (t :: * -> *) where
 
 hdistZygo :: HFunctor h => h g ~> g -> h (g :*: f) ~> g :*: h f
 hdistZygo eta m = eta (hfmap ffst m) :*: hfmap fsnd m
-  where
-    ffst (f :*: _) = f
-    fsnd (_ :*: f) = f
+
+ffst :: f :*: g ~> f
+ffst (f :*: _) = f
+
+fsnd :: f :*: g ~> g
+fsnd (_ :*: g) = g
 
 pattern Fst  a   <- Const (_,a)
 pattern Snd  a   <- Const (a,_)
