@@ -1,12 +1,8 @@
-{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# Language MultiParamTypeClasses #-}
-{-# Language FlexibleContexts #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
@@ -149,7 +145,7 @@ deriving instance Show (ExpF (HFix ExpF) a)
 type Exp = HFix ExpF
 
 makeExp :: ExpF (HFix ExpF) a -> Exp a
-makeExp = HFix
+makeExp = hembed
 
 fixExp :: Exp a -> ExpF (HFix ExpF) a
 fixExp = hproject
@@ -195,7 +191,7 @@ instance HFunctor ExpF where
     Eq a b      -> Eq (eta a) (eta b)
     NEq a b     -> NEq (eta a) (eta b)
     ITE p a b   -> ITE (eta p) (eta a) (eta b)
-    TEntry t    -> TEntry t
+    TEntry t    -> TEntry t -- TODO go into ReturnExp in MappedXs?
 
 instance HFoldable ExpF where
   hfoldMap f = \case
