@@ -11,20 +11,25 @@
 
 {-# Language OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BlockArguments #-}
 
 module Coq where
 
+import Data.Functor.Const (Const(..))
 import qualified Data.Map.Strict    as M
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
 import Data.Either (rights)
 import Data.List (find, groupBy)
 import Control.Monad.State
+import GHC.Generics ((:*:)(..))
 
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import Syntax
 import RefinedAst hiding (Store)
+import Utils
 
 type Store = M.Map Id SlotType
 type Fresh = State Int
@@ -246,51 +251,43 @@ abiVal AbiAddressType = "0"
 abiVal AbiStringType = strMod <> ".EmptyString"
 abiVal _ = error "TODO: missing default values"
 
--- | coq syntax for an expression
-coqexp :: Exp a -> T.Text
-coqexp e = case fixExp e of
--- booleans
-  LitBool True  -> "true"
-  LitBool False -> "false"
-  BoolVar name -> T.pack name
-  And e1 e2  -> parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
-  Or e1 e2   -> parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
-  Impl e1 e2 -> parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
-  Eq e1 e2   -> parens $ coqexp e1  <> " =? " <> coqexp e2
-  NEq e1 e2  -> parens $ "negb " <> parens (coqexp e1  <> " =? " <> coqexp e2)
-  Neg e      -> parens $ "negb " <> coqexp e
-  LE e1 e2   -> parens $ coqexp e1 <> " <? "  <> coqexp e2
-  LEQ e1 e2  -> parens $ coqexp e1 <> " <=? " <> coqexp e2
-  GE e1 e2   -> parens $ coqexp e2 <> " <? "  <> coqexp e1
-  GEQ e1 e2  -> parens $ coqexp e2 <> " <=? " <> coqexp e1
-  TEntry (DirectBool _ name) -> parens $ T.pack name <> " " <> stateVar
-  TEntry (MappedBool _ name args) -> parens $
-    T.pack name <> " s " <> coqargs args
+expAlg :: ExpF (Const T.Text) x -> T.Text
+expAlg = \case
+--booleans
+  LitBool b    -> T.toLower . T.pack . show $ b
+  BoolVar name -> T.pack $ name
+  And e1 e2  -> prefix2 "andb"  <$*> e1 <$*> e2
+  Or e1 e2   -> prefix2 "orb"   <$*> e1 <$*> e2
+  Impl e1 e2 -> prefix2 "implb" <$*> e1 <$*> e2
+  Eq e1 e2   -> infix2  "=?"    <$*> e1 <$*> e2
+  NEq e1 e2  -> prefix1 "negb" (infix2 "=?" <$*> e1 <$*> e2)
+  Neg e      -> prefix1 "negb"  <$*> e
+  LE e1 e2   -> infix2 "<?"     <$*> e1 <$*> e2
+  LEQ e1 e2  -> infix2 "<=?"    <$*> e1 <$*> e2
+  GE e1 e2   -> infix2 "<?"     <$*> e2 <$*> e1
+  GEQ e1 e2  -> infix2 "<=?"    <$*> e2 <$*> e1
+  TEntry (DirectBool _ name) -> prefix1 (T.pack name) stateVar
+  TEntry (MappedBool _ name args) -> prefix2 (T.pack name) "s" (coqargs args)
 
 -- integers
-  LitInt i -> T.pack $ show i
-  IntVar name -> T.pack name
-  Add e1 e2 -> parens $ coqexp e1 <> " + " <> coqexp e2
-  Sub e1 e2 -> parens $ coqexp e1 <> " - " <> coqexp e2
-  Mul e1 e2 -> parens $ coqexp e1 <> " * " <> coqexp e2
-  Div e1 e2 -> parens $ coqexp e1 <> " / " <> coqexp e2
-  Mod e1 e2 -> parens $ "Z.modulo " <> coqexp e1 <> coqexp e2
-  Exp e1 e2 -> parens $ coqexp e1 <> " ^ " <> coqexp e2
-  IntMin n  -> parens $ "INT_MIN "  <> T.pack (show n)
-  IntMax n  -> parens $ "INT_MAX "  <> T.pack (show n)
-  UIntMin n -> parens $ "UINT_MIN " <> T.pack (show n)
-  UIntMax n -> parens $ "UINT_MAX " <> T.pack (show n)
-  TEntry (DirectInt _ name) -> parens $ T.pack name <> " " <> stateVar
-  TEntry (MappedInt _ name args) -> parens $
-    T.pack name <> " s " <> coqargs args
+  LitInt i    -> T.pack . show $ i
+  IntVar name -> T.pack $ name
+  Add e1 e2 -> infix2  "+"        <$*> e1 <$*> e2
+  Sub e1 e2 -> infix2  "-"        <$*> e1 <$*> e2
+  Mul e1 e2 -> infix2  "*"        <$*> e1 <$*> e2
+  Div e1 e2 -> infix2  "/"        <$*> e1 <$*> e2
+  Mod e1 e2 -> prefix2 "Z.modulo" <$*> e1 <$*> e2
+  Exp e1 e2 -> infix2  "^"        <$*> e1 <$*> e2
+  IntMin n  -> prefix1 "INT_MIN"  (T.pack $ show n)
+  IntMax n  -> prefix1 "INT_MAX"  (T.pack $ show n)
+  UIntMin n -> prefix1 "UINT_MIN" (T.pack $ show n)
+  UIntMax n -> prefix1 "UINT_MAX" (T.pack $ show n)
+  TEntry (DirectInt _ name) -> prefix1 (T.pack name) stateVar
+  TEntry (MappedInt _ name args) -> prefix2 (T.pack name) "s" (coqargs args)
 
 -- polymorphic
-  ITE b e1 e2 -> parens $ "if "
-    <> coqexp b
-    <> " then "
-    <> coqexp e1
-    <> " else "
-    <> coqexp e2
+  ITE b e1 e2 -> (\cond true false -> apply ["if",cond,"then",true,"else",false])
+                  <$*> b <$*> e1 <$*> e2
 
 -- unsupported
   IntEnv e -> error $ show e <> ": environment values not yet supported"
@@ -303,23 +300,45 @@ coqexp e = case fixExp e of
   TEntry (DirectBytes _ _) -> error "bytestrings not supported"
   TEntry (MappedBytes _ _ _) -> error "bytestrings not supported"
   NewAddr _ _ -> error "newaddr not supported"
+  where
+    (<$*>) :: (a -> b) -> Const a x -> b
+    f <$*> (Const a) = f a -- TODO decide if we want this and if so move to Utils
+
+-- | coq syntax for an expression
+coqexp :: Exp a -> T.Text
+coqexp = ccata expAlg
 
 -- | coq syntax for a proposition
-coqprop :: Exp a -> T.Text
-coqprop e = case fixExp e of
-  LitBool True  -> "True"
-  LitBool False -> "False"
-  And e1 e2     -> parens $ coqprop e1 <> " /\\ " <> coqprop e2
-  Or e1 e2      -> parens $ coqprop e1 <> " \\/ " <> coqprop e2
-  Impl e1 e2    -> parens $ coqprop e1 <> " -> " <> coqprop e2
-  Neg e         -> parens $ "not " <> coqprop e
-  Eq e1 e2      -> parens $ coqexp e1 <> " = "  <> coqexp e2
-  NEq e1 e2     -> parens $ coqexp e1 <> " <> " <> coqexp e2
-  LE e1 e2      -> parens $ coqexp e1 <> " < "  <> coqexp e2
-  LEQ e1 e2     -> parens $ coqexp e1 <> " <= " <> coqexp e2
-  GE e1 e2      -> parens $ coqexp e1 <> " > "  <> coqexp e2
-  GEQ e1 e2     -> parens $ coqexp e1 <> " >= " <> coqexp e2
-  _             -> error "ill formed proposition"
+coqprop' :: Exp Bool -> T.Text -- TODO this is syntactically nicer but
+coqprop' = czygo expAlg \case  -- somehow evaluates the error case??
+  LitBool b              -> T.pack . show $ b
+  And  (Snd e1) (Snd e2) -> infix2  "/\\" e1 e2
+  Or   (Snd e1) (Snd e2) -> infix2  "\\/" e1 e2
+  Impl (Snd e1) (Snd e2) -> infix2  "->"  e1 e2
+  Neg  (Snd e)           -> prefix1 "not" e
+  Eq   (Fst e1) (Fst e2) -> infix2  "="   e1 e2
+  NEq  (Fst e1) (Fst e2) -> infix2  "<>"  e1 e2
+  LE   (Fst e1) (Fst e2) -> infix2  "<"   e1 e2
+  LEQ  (Fst e1) (Fst e2) -> infix2  "<="  e1 e2
+  GE   (Fst e1) (Fst e2) -> infix2  ">"   e1 e2
+  GEQ  (Fst e1) (Fst e2) -> infix2  ">="  e1 e2
+  _                      -> error "ill formed proposition"
+
+-- | coq syntax for a proposition
+coqprop :: Exp Bool -> T.Text
+coqprop = getConst . hzygo (Const . expAlg) \case
+  LitBool b              -> Const . T.pack . show $ b
+  And  (_:*:e1) (_:*:e2) -> infix2  "/\\" <$$> e1 <**> e2
+  Or   (_:*:e1) (_:*:e2) -> infix2  "\\/" <$$> e1 <**> e2
+  Impl (_:*:e1) (_:*:e2) -> infix2  "->"  <$$> e1 <**> e2
+  Neg  (_:*:e)           -> prefix1 "not" <$$> e
+  Eq   (e1:*:_) (e2:*:_) -> infix2  "="   <$$> e1 <**> e2
+  NEq  (e1:*:_) (e2:*:_) -> infix2  "<>"  <$$> e1 <**> e2
+  LE   (e1:*:_) (e2:*:_) -> infix2  "<"   <$$> e1 <**> e2
+  LEQ  (e1:*:_) (e2:*:_) -> infix2  "<="  <$$> e1 <**> e2
+  GE   (e1:*:_) (e2:*:_) -> infix2  ">"   <$$> e1 <**> e2
+  GEQ  (e1:*:_) (e2:*:_) -> infix2  ">="  <$$> e1 <**> e2
+  _                      -> error "ill formed proposition"
 
 -- | coq syntax for a return expression
 retexp :: ReturnExp -> T.Text
@@ -365,6 +384,15 @@ parens s = "(" <> s <> ")"
 indent :: Int -> T.Text -> T.Text
 indent n text = T.unlines $ ((T.replicate n " ") <>) <$> (T.lines text)
 
+apply :: [T.Text] -> T.Text
+apply = parens . T.intercalate " "
+
+prefix1 :: T.Text -> T.Text -> T.Text
+prefix1 op x   = apply [op,x]
+
+prefix2, infix2 :: T.Text -> T.Text -> T.Text -> T.Text
+prefix2 op x y = apply [op,x,y]
+infix2  op x y = apply [x,op,y]
 
 --- constants ---
 
