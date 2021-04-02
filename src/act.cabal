@@ -26,7 +26,6 @@ common deps
                  utf8-string      >= 1.0.1.1,
                  natural-transformation >= 0.4,
                  template-haskell >= 2.14,
-                 comonad          >= 5.0.6,
   other-modules: Lex ErrM Extract Parse RefinedAst K HEVM Coq Syntax Type Prove Print Enrich Utils TH
 
   if flag(ci)

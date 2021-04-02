@@ -11,7 +11,6 @@
 
 module Utils where
 
-import Control.Comonad
 import Control.Natural
 import Data.Function (on)
 import Data.Functor.Const (Const(..))
@@ -90,8 +89,8 @@ ffst (f :*: _) = f
 fsnd :: f :*: g ~> g
 fsnd (_ :*: g) = g
 
-pattern Fst  a   <- Const (_,a)
-pattern Snd  a   <- Const (a,_)
+pattern Fst  a   <- Const (a,_)
+pattern Snd  b   <- Const (_,b)
 pattern Pair a b <- Const (a,b)
 
 class HFunctor (HBase t) => HCorecursive (t :: * -> *) where

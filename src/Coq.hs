@@ -309,8 +309,8 @@ coqexp :: Exp a -> T.Text
 coqexp = ccata expAlg
 
 -- | coq syntax for a proposition
-coqprop' :: Exp Bool -> T.Text -- TODO this is syntactically nicer but
-coqprop' = czygo expAlg \case  -- somehow evaluates the error case??
+coqprop :: Exp Bool -> T.Text
+coqprop = czygo expAlg \case
   LitBool b              -> T.pack . show $ b
   And  (Snd e1) (Snd e2) -> infix2  "/\\" e1 e2
   Or   (Snd e1) (Snd e2) -> infix2  "\\/" e1 e2
@@ -324,9 +324,9 @@ coqprop' = czygo expAlg \case  -- somehow evaluates the error case??
   GEQ  (Fst e1) (Fst e2) -> infix2  ">="  e1 e2
   _                      -> error "ill formed proposition"
 
--- | coq syntax for a proposition
-coqprop :: Exp Bool -> T.Text
-coqprop = getConst . hzygo (Const . expAlg) \case
+-- | coq syntax for a proposition (director's cut)
+coqprop' :: Exp Bool -> T.Text
+coqprop' = getConst . hzygo (Const . expAlg) \case
   LitBool b              -> Const . T.pack . show $ b
   And  (_:*:e1) (_:*:e2) -> infix2  "/\\" <$$> e1 <**> e2
   Or   (_:*:e1) (_:*:e2) -> infix2  "\\/" <$$> e1 <**> e2
