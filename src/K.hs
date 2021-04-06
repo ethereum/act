@@ -113,14 +113,14 @@ kExprInt e = case fixExp e of
   Mod a b -> "(" <> kExprInt a <> " modInt " <> kExprInt b <> ")"
   Exp a b -> "(" <> kExprInt a <> " ^Int " <> kExprInt b <> ")"
   LitInt a -> show a
-  IntMin a -> kExprInt $ _LitInt $ negate $ 2 ^ (a - 1)
-  IntMax a -> kExprInt $ _LitInt $ 2 ^ (a - 1) - 1
-  UIntMin _ -> kExprInt $ _LitInt 0
-  UIntMax a -> kExprInt $ _LitInt $ 2 ^ a - 1
+  IntMin a -> kExprInt $ iLitInt $ negate $ 2 ^ (a - 1)
+  IntMax a -> kExprInt $ iLitInt $ 2 ^ (a - 1) - 1
+  UIntMin _ -> kExprInt $ iLitInt 0
+  UIntMax a -> kExprInt $ iLitInt $ 2 ^ a - 1
   IntVar a -> kVar a
   IntEnv a -> show a
-  TEntry a -> kStorageName a
-  v -> error ("Internal error: TODO kExprInt of " <> show v)
+  IntStore a -> kStorageName a
+  v -> error ("Internal error: TODO kExprInt of " <> show e)
 
 
 kExprBool :: Exp Bool -> String
@@ -135,7 +135,7 @@ kExprBool e = case fixExp e of
   GEQ a b -> "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
   LitBool a -> show a
   BoolVar a -> kVar a
-  NEq a b -> "notBool (" <> kExprBool (_Eq a b) <> ")"
+  NEq a b -> "notBool (" <> kExprBool (iEq a b) <> ")"
   Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of -- TODO Maybe Monad
     Just Refl -> "(" <> kExprInt a <> " ==Int " <> kExprInt b <> ")"
     Nothing -> case eqT @t @Bool of
@@ -143,15 +143,15 @@ kExprBool e = case fixExp e of
       Nothing -> case eqT @t @ByteString of
         Just Refl -> "(" <> kExprBytes a <> " ==K " <> kExprBytes b <> ")" -- TODO: Is ==K correct?
         Nothing -> error "Internal Error: invalid expression type"
-  v -> error ("Internal error: TODO kExprBool of " <> show v)
+  _ -> error ("Internal error: TODO kExprBool of " <> show e)
 
 kExprBytes :: Exp ByteString -> String
 kExprBytes e = case fixExp e of
   ByVar name -> kVar name
   ByStr str -> show str
   ByLit bs -> show bs
-  TEntry item -> kStorageName item
-  e -> error $ "TODO: kExprBytes of " <> show e
+  ByStore item -> kStorageName item
+  _ -> error $ "TODO: kExprBytes of " <> show e
 --kExprBytes (Cat a b) =
 --kExprBytes (Slice a start end) =
 --kExprBytes (ByEnv env) =

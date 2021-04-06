@@ -97,8 +97,8 @@
     "predicate": {
       "arity": 2,
       "args": [
-        "TEntry (DirectBytes \"Token\" \"name\")",
-        "ByVar \"_name\""
+        "(ByStore DirectBytes \"Token\" \"name\")",
+        "(ByVar \"_name\")"
       ],
       "symbol": "=="
     },
@@ -133,8 +133,8 @@
     "predicate": {
       "arity": 2,
       "args": [
-        "TEntry (DirectBytes \"Token\" \"symbol\")",
-        "ByVar \"_symbol\""
+        "(ByStore DirectBytes \"Token\" \"symbol\")",
+        "(ByVar \"_symbol\")"
       ],
       "symbol": "=="
     },
@@ -173,14 +173,14 @@
           "name": "Token.name",
           "sort": "bytes"
         },
-        "value": "ByVar \"_name\""
+        "value": "(ByVar \"_name\")"
       },
       {
         "location": {
           "name": "Token.symbol",
           "sort": "bytes"
         },
-        "value": "ByVar \"_symbol\""
+        "value": "(ByVar \"_symbol\")"
       },
       {
         "location": {

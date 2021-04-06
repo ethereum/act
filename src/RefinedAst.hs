@@ -8,6 +8,8 @@
 {-# Language TypeApplications #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module RefinedAst where
 
@@ -22,11 +24,16 @@ import Data.ByteString (ByteString)
 import EVM.Solidity (SlotType(..))
 
 import Syntax (Id, Interface, EthEnv)
-import Utils
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
-import TH
+
+import Data.Comp.Multi.Algebra
+import Data.Comp.Multi.Derive
+import Data.Comp.Multi.HFunctor hiding (I(..))
+import Data.Comp.Multi.HFoldable
+import Data.Comp.Multi.Show
+import Data.Comp.Multi.Term
 
 -- AST post typechecking
 data Claim = C Constructor | B Behaviour | I Invariant | S Store deriving (Show, Eq)
@@ -37,7 +44,9 @@ data Invariant = Invariant
   { _icontract :: Id
   , _ipreconditions :: [Exp Bool]
   , _predicate :: Exp Bool
-  } deriving (Show, Eq)
+  }
+deriving instance Show Invariant
+deriving instance Eq Invariant
 
 data Constructor = Constructor
   { _cname :: Id,
@@ -47,7 +56,9 @@ data Constructor = Constructor
     _cpostconditions :: [Exp Bool],
     _initialStorage :: [StorageUpdate],
     _cstateUpdates :: [Either StorageLocation StorageUpdate]
-  } deriving (Show, Eq)
+  }
+deriving instance Show Constructor
+deriving instance Eq Constructor
 
 data Behaviour = Behaviour
   {_name :: Id,
@@ -58,7 +69,9 @@ data Behaviour = Behaviour
    _postconditions :: [Exp Bool],
    _stateUpdates :: [Either StorageLocation StorageUpdate],
    _returns :: Maybe ReturnExp
-  } deriving (Show, Eq)
+  }
+deriving instance Show Behaviour
+deriving instance Eq Behaviour
 
 data Mode
   = Pass
@@ -78,13 +91,15 @@ data StorageUpdate
   = IntUpdate (TStorageItem Integer) (Exp Integer)
   | BoolUpdate (TStorageItem Bool) (Exp Bool)
   | BytesUpdate (TStorageItem ByteString) (Exp ByteString)
-  deriving (Show, Eq)
+deriving instance Show StorageUpdate
+deriving instance Eq StorageUpdate
 
 data StorageLocation
   = IntLoc (TStorageItem Integer)
   | BoolLoc (TStorageItem Bool)
   | BytesLoc (TStorageItem ByteString)
-  deriving (Show, Eq)
+deriving instance Show StorageLocation
+deriving instance Eq StorageLocation
 
 data TStorageItem a where
   DirectInt    :: Id -> Id -> TStorageItem Integer
@@ -93,9 +108,15 @@ data TStorageItem a where
   MappedInt    :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem Integer
   MappedBool   :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem Bool
   MappedBytes  :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem ByteString
-
 deriving instance Show (TStorageItem a)
 deriving instance Eq (TStorageItem a)
+
+data ReturnExp
+  = ExpInt    (Exp Integer)
+  | ExpBool   (Exp Bool)
+  | ExpBytes  (Exp ByteString)
+deriving instance Show ReturnExp
+deriving instance Eq ReturnExp
 
 -- typed expressions
 data ExpF r t where
@@ -110,6 +131,7 @@ data ExpF r t where
   GE :: r Integer -> r Integer -> ExpF r Bool
   LitBool :: Bool -> ExpF r Bool
   BoolVar :: Id -> ExpF r Bool
+  BoolStore :: TStorageItem Bool -> ExpF r Bool
   -- integers
   Add :: r Integer -> r Integer -> ExpF r Integer
   Sub :: r Integer -> r Integer -> ExpF r Integer
@@ -120,6 +142,7 @@ data ExpF r t where
   LitInt :: Integer -> ExpF r Integer
   IntVar :: Id -> ExpF r Integer
   IntEnv :: EthEnv -> ExpF r Integer
+  IntStore :: TStorageItem Integer -> ExpF r Integer
   -- bounds
   IntMin :: Int -> ExpF r Integer
   IntMax :: Int -> ExpF r Integer
@@ -132,6 +155,7 @@ data ExpF r t where
   ByStr :: String -> ExpF r ByteString
   ByLit :: ByteString -> ExpF r ByteString
   ByEnv :: EthEnv -> ExpF r ByteString
+  ByStore :: TStorageItem ByteString -> ExpF r ByteString
   -- builtins
   NewAddr :: r Integer -> r Integer -> ExpF r Integer
 
@@ -139,152 +163,24 @@ data ExpF r t where
   Eq  :: (Typeable t, Show t) => r t -> r t -> ExpF r Bool
   NEq :: (Typeable t, Show t) => r t -> r t -> ExpF r Bool
   ITE :: r Bool -> r t -> r t -> ExpF r t
-  TEntry :: (TStorageItem t) -> ExpF r t
-deriving instance Show (ExpF (HFix ExpF) a)
 
-type Exp = HFix ExpF
+type Exp = Term ExpF
 
-makeExp :: ExpF (HFix ExpF) a -> Exp a
-makeExp = hembed
+derive
+  [makeEqHF, makeShowHF, makeHFunctor, makeHFoldable, makeHTraversable, smartConstructors, smartAConstructors]
+  [''ExpF]
 
-fixExp :: Exp a -> ExpF (HFix ExpF) a
-fixExp = hproject
+fixExp :: Exp t -> ExpF Exp t
+fixExp = unTerm
 
-instance HEq r => HEq (ExpF r) where
-  heq = (==)
-
-instance Eq (Exp a) where
-  (==) = (==) `on` hproject
-
-instance HFunctor ExpF where
-  hfmap eta = \case
-    And p q     -> And (eta p) (eta q)
-    Or p q      -> Or (eta p) (eta q)
-    Impl p q    -> Impl (eta p) (eta q)
-    Neg p       -> Neg (eta p)
-    LE x y      -> LE (eta x) (eta y)
-    LEQ x y     -> LEQ (eta x) (eta y)
-    GEQ x y     -> GEQ (eta x) (eta y)
-    GE x y      -> GE (eta x) (eta y)
-    LitBool p   -> LitBool p
-    BoolVar p   -> BoolVar p
-    Add x y     -> Add (eta x) (eta y)
-    Sub x y     -> Sub (eta x) (eta y)
-    Mul x y     -> Mul (eta x) (eta y)
-    Div x y     -> Div (eta x) (eta y)
-    Mod x y     -> Mod (eta x) (eta y)
-    Exp x y     -> Exp (eta x) (eta y)
-    LitInt x    -> LitInt x
-    IntVar x    -> IntVar x
-    IntEnv e    -> IntEnv e
-    IntMin x    -> IntMin x
-    IntMax x    -> IntMax x
-    UIntMin x   -> UIntMin x
-    UIntMax x   -> UIntMax x
-    Cat s t     -> Cat (eta s) (eta t)
-    Slice s x y -> Slice (eta s) (eta x) (eta y)
-    ByVar s     -> ByVar s
-    ByStr s     -> ByStr s
-    ByLit s     -> ByLit s
-    ByEnv e     -> ByEnv e
-    NewAddr x y -> NewAddr (eta x) (eta y)
-    Eq a b      -> Eq (eta a) (eta b)
-    NEq a b     -> NEq (eta a) (eta b)
-    ITE p a b   -> ITE (eta p) (eta a) (eta b)
-    TEntry t    -> TEntry t -- TODO go into ReturnExp in MappedXs?
-
-instance HFoldable ExpF where
-  hfoldMap f = \case
-    And p q     -> f p <> f q
-    Or p q      -> f p <> f q
-    Impl p q    -> f p <> f q
-    Neg p       -> f p
-    LE x y      -> f x <> f y
-    LEQ x y     -> f x <> f y
-    GEQ x y     -> f x <> f y
-    GE x y      -> f x <> f y
-    Add x y     -> f x <> f y
-    Sub x y     -> f x <> f y
-    Mul x y     -> f x <> f y
-    Div x y     -> f x <> f y
-    Mod x y     -> f x <> f y
-    Exp x y     -> f x <> f y
-    Cat s t     -> f s <> f t
-    Slice s x y -> f s <> f x <> f y
-    NewAddr x y -> f x <> f y
-    Eq a b      -> f a <> f b
-    NEq a b     -> f a <> f b
-    ITE p a b   -> f p <> f a <> f b
-    _           -> mempty
-
-type instance HBase Exp = ExpF
-
-instance HRecursive Exp where
-  hproject = unHFix
-
-instance HCorecursive Exp where
-  hembed = HFix
-
-instance HEq r => Eq (ExpF r t) where
-  And a b == And c d = a `heq` c && b `heq` d
-  Or a b == Or c d = a `heq` c && b `heq` d
-  Impl a b == Impl c d = a `heq` c && b `heq` d
-  Neg a == Neg b = a `heq` b
-  LE a b == LE c d = a `heq` c && b `heq` d
-  LEQ a b == LEQ c d = a `heq` c && b `heq` d
-  GEQ a b == GEQ c d = a `heq` c && b `heq` d
-  GE a b == GE c d = a `heq` c && b `heq` d
-  LitBool a == LitBool b = a == b
-  BoolVar a == BoolVar b = a == b
-
-  Add a b == Add c d = a `heq` c && b `heq` d
-  Sub a b == Sub c d = a `heq` c && b `heq` d
-  Mul a b == Mul c d = a `heq` c && b `heq` d
-  Div a b == Div c d = a `heq` c && b `heq` d
-  Mod a b == Mod c d = a `heq` c && b `heq` d
-  Exp a b == Exp c d = a `heq` c && b `heq` d
-  LitInt a == LitInt b = a == b
-  IntVar a == IntVar b = a == b
-  IntEnv a == IntEnv b = a == b
-
-  IntMin a == IntMin b = a == b
-  IntMax a == IntMax b = a == b
-  UIntMin a == UIntMin b = a == b
-  UIntMax a == UIntMax b = a == b
-
-  Cat a b == Cat c d = a `heq` c && b `heq` d
-  Slice a b c == Slice d e f = a `heq` d && b `heq` e && c `heq` f
-  ByVar a == ByVar b = a == b
-  ByStr a == ByStr b = a == b
-  ByLit a == ByLit b = a == b
-  ByEnv a == ByEnv b = a == b
-
-  NewAddr a b == NewAddr c d = a `heq` c && b `heq` d
-
-  Eq (a :: r t1) (b :: r t1) == Eq (c :: r t2) (d :: r t2) = case eqT @t1 @t2 of
-    Just Refl -> a `heq` c && b `heq` d
-    Nothing -> False
-  NEq (a :: r t1) (b :: r t1) == NEq (c :: r t2) (d :: r t2) = case eqT @t1 @t2 of
-    Just Refl -> a `heq` c && b `heq` d
-    Nothing -> False
-  ITE a b c == ITE d e f = a `heq` d && b `heq` e && c `heq` f
-  TEntry a == TEntry b = a == b
-
-  _ == _ = False
-
-data ReturnExp
-  = ExpInt    (Exp Integer)
-  | ExpBool   (Exp Bool)
-  | ExpBytes  (Exp ByteString)
-  deriving (Eq, Show)
-
-makeSmartCons ''ExpF 'makeExp
+makeExp :: ExpF Exp t -> Exp t
+makeExp = Term
 
 instance Semigroup (Exp Bool) where
-  a <> b = _And a b
+  a <> b = iAnd a b
 
 instance Monoid (Exp Bool) where
-  mempty = _LitBool True
+  mempty = iLitBool True
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
@@ -348,7 +244,7 @@ instance ToJSON ReturnExp where
                                ,"expression" .= toJSON a]
 
 instance ToJSON (Exp t) where
-  toJSON (HFix e) = case e of
+  toJSON t@(Term e) = case e of
     Add a b -> symbol "+" a b
     Sub a b -> symbol "-" a b
     Exp a b -> symbol "^" a b
@@ -362,10 +258,10 @@ instance ToJSON (Exp t) where
     UIntMin a -> toJSON $ show $ uintmin a
     UIntMax a -> toJSON $ show $ uintmax a
     IntEnv a -> String $ pack $ show a
-    TEntry a -> case a of -- TODO lol fix the tests instead
-      DirectBytes {} -> String . pack . show $ e
-      MappedBytes {} -> String . pack . show $ e
-      _              -> toJSON a
+    IntStore a -> toJSON a
+    ByStore a -> case a of -- TODO lol fix the tests instead
+      DirectBytes {} -> String . pack . show $ t
+      MappedBytes {} -> String . pack . show $ t
     ITE a b c -> object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= (Data.Aeson.Types.Number 3)
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
@@ -380,10 +276,11 @@ instance ToJSON (Exp t) where
     GEQ a b  -> symbol ">=" a b
     LitBool a -> String $ pack $ show a
     BoolVar a -> toJSON a
+    BoolStore a -> toJSON a
     Neg a -> object [  "symbol"   .= pack "not"
                           ,  "arity"    .= (Data.Aeson.Types.Number 1)
                           ,  "args"     .= (Array $ fromList [toJSON a])]
-    a -> String $ pack $ show a
+    _ -> String $ pack $ show t
 
 mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
 mapping c a b = object [  "symbol"   .= pack "lookup"

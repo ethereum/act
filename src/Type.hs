@@ -144,10 +144,10 @@ splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Create
 
   -- this forces the smt backend to be run on every spec, ensuring postconditions are checked for every behaviour
   -- TODO: seperate the smt backend into seperate passes so we only run the invariant analysis if required
-  let invariants' = if (null invariants) then [_LitBool True] else invariants
+  let invariants' = if (null invariants) then [iLitBool True] else invariants
       cases' = if null iffs' then [C $ Constructor contract Pass iface iffs' ensures stateUpdates []]
                else [ C $ Constructor contract Pass iface iffs' ensures stateUpdates []
-                       , C $ Constructor contract Fail iface [_Neg (mconcat iffs')] ensures [] []]
+                       , C $ Constructor contract Fail iface [iNeg (mconcat iffs')] ensures [] []]
 
   return $ ((I . (Invariant contract [])) <$> invariants')
            <> cases'
@@ -164,7 +164,7 @@ splitCase name contract iface if' [] ret storage postcs =
   [ B $ Behaviour name Pass contract iface if' postcs storage ret ]
 splitCase name contract iface if' iffs ret storage postcs =
   [ B $ Behaviour name Pass contract iface (if' <> iffs) postcs storage ret,
-    B $ Behaviour name Fail contract iface (if' <> [_Neg (mconcat iffs)]) [] (Left . getLoc <$> storage) Nothing ]
+    B $ Behaviour name Fail contract iface (if' <> [iNeg (mconcat iffs)]) [] (Left . getLoc <$> storage) Nothing ]
 
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
@@ -307,18 +307,18 @@ checkIffs env ((IffIn p typ exps):xs) = do
 checkIffs _ [] = Ok []
 
 bound :: AbiType -> (Exp Integer) -> Exp Bool
-bound typ e = _And (_LEQ (lowerBound typ) e) (_LEQ e (upperBound typ))
+bound typ e = iAnd (iLEQ (lowerBound typ) e) (iLEQ e (upperBound typ))
 
 lowerBound :: AbiType -> Exp Integer
-lowerBound (AbiIntType a) = _IntMin a
+lowerBound (AbiIntType a) = iIntMin a
 -- todo: other negatives?
-lowerBound _ = _LitInt 0
+lowerBound _ = iLitInt 0
 
 -- todo, the rest
 upperBound :: AbiType -> Exp Integer
-upperBound (AbiUIntType n) = _UIntMax n
-upperBound (AbiIntType n) = _IntMax n
-upperBound AbiAddressType = _UIntMax 160
+upperBound (AbiUIntType n) = iUIntMax n
+upperBound (AbiIntType n) = iIntMax n
+upperBound AbiAddressType = iUIntMax 160
 upperBound typ  = error $ "upperBound not implemented for " ++ show typ
 
 metaType :: AbiType -> MType
@@ -356,7 +356,7 @@ inferExpr env@(contract, ours, _,thisContext) expr =
                                      w2 <- checkBytes p env v2
                                      Ok $ ExpBool $ makeExp $ op w1 w2
   in case expr of
-    ENot p  v1    -> ExpBool . _Neg <$> checkBool p env v1
+    ENot p  v1    -> ExpBool . iNeg <$> checkBool p env v1
     EAnd p  v1 v2 -> boolboolbool p And  v1 v2
     EOr p   v1 v2 -> boolboolbool p Or   v1 v2
     EImpl p v1 v2 -> boolboolbool p Impl v1 v2
@@ -377,37 +377,37 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     EITE p v1 v2 v3 -> do w1 <- checkBool p env v1
                           w2 <- checkInt p env v2
                           w3 <- checkInt p env v3
-                          Ok . ExpInt $ _ITE w1 w2 w3
+                          Ok . ExpInt $ iITE w1 w2 w3
     EAdd p v1 v2 -> intintint p Add v1 v2
     ESub p v1 v2 -> intintint p Sub v1 v2
     EMul p v1 v2 -> intintint p Mul v1 v2
     EDiv p v1 v2 -> intintint p Div v1 v2
     EMod p v1 v2 -> intintint p Mod v1 v2
     EExp p v1 v2 -> intintint p Exp v1 v2
-    IntLit _ n -> Ok $ ExpInt $ _LitInt n
-    BoolLit _ n -> Ok $ ExpBool $ _LitBool n
+    IntLit _ n -> Ok $ ExpInt $ iLitInt n
+    BoolLit _ n -> Ok $ ExpBool $ iLitBool n
     EntryExp p name e -> case (Map.lookup name ours, Map.lookup name thisContext) of
         (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> show name)
         (Nothing, Just c) -> case c of
-            Integer -> Ok . ExpInt . _IntVar $ name
-            Boolean -> Ok . ExpBool . _BoolVar $ name
-            ByteStr -> Ok . ExpBytes . _ByVar $ name
+            Integer -> Ok . ExpInt . iIntVar $ name
+            Boolean -> Ok . ExpBool . iBoolVar $ name
+            ByteStr -> Ok . ExpBytes . iByVar $ name
         (Just (StorageValue a), Nothing) ->
           case metaType a of
-             Integer -> Ok . ExpInt . _TEntry $ DirectInt contract name
-             Boolean -> Ok . ExpBool . _TEntry $ DirectBool contract name
-             ByteStr -> Ok . ExpBytes . _TEntry $ DirectBytes contract name
+             Integer -> Ok . ExpInt . iIntStore $ DirectInt contract name
+             Boolean -> Ok . ExpBool . iBoolStore $ DirectBool contract name
+             ByteStr -> Ok . ExpBytes . iByStore $ DirectBytes contract name
         (Just (StorageMapping ts a), Nothing) ->
            let indexExprs = forM (NonEmpty.zip (head e :| tail e) ts)
                                      (uncurry (checkExpr p env))
            in case metaType a of
-             Integer -> ExpInt . _TEntry . (MappedInt contract name) <$> indexExprs
-             Boolean -> ExpBool . _TEntry . (MappedBool contract name) <$> indexExprs
-             ByteStr -> ExpBytes . _TEntry . (MappedBytes contract name) <$> indexExprs
+             Integer -> ExpInt . iIntStore . (MappedInt contract name) <$> indexExprs
+             Boolean -> ExpBool . iBoolStore . (MappedBool contract name) <$> indexExprs
+             ByteStr -> ExpBytes . iByStore . (MappedBytes contract name) <$> indexExprs
         (Just _, Just _) -> Bad (p, "Ambiguous variable: " <> show name)
     EnvExp p v1 -> case lookup v1 defaultStore of
-      Just Integer -> Ok . ExpInt . _IntEnv $ v1
-      Just ByteStr -> Ok . ExpBytes . _ByEnv $ v1
+      Just Integer -> Ok . ExpInt . iIntEnv $ v1
+      Just ByteStr -> Ok . ExpBytes . iByEnv $ v1
       _            -> Bad (p, "unknown environment variable: " <> show v1)
     -- Var p v -> case Map.lookup v thisContext of
     --   Just Integer -> Ok $ IntVar v

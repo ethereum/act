@@ -1,6 +1,9 @@
 {-# LANGUAGE GADTs        #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE LambdaCase   #-}
+{-# LANGUAGE BlockArguments #-}
+
+{-# LANGUAGE TypeOperators, RankNTypes #-}
 
 module Extract where
 
@@ -8,6 +11,8 @@ import qualified Data.List.NonEmpty as NonEmpty
 
 import RefinedAst
 import Syntax
+
+import Data.Comp.Multi.HFunctor (K)
 import Utils
 
 storageLocations :: TStorageItem a -> [StorageLocation]
@@ -28,9 +33,11 @@ locsFromReturnExp (ExpBool e) = locsFromExp e
 locsFromReturnExp (ExpBytes e) = locsFromExp e
 
 locsFromExp :: Exp a -> [StorageLocation]
-locsFromExp = ccata $ \case
-  TEntry a -> storageLocations a
-  e        -> recurse e
+locsFromExp = cataK \case
+  BoolStore t -> storageLocations t
+  IntStore t  -> storageLocations t
+  ByStore t   -> storageLocations t
+  e           -> recurse e
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
@@ -68,11 +75,13 @@ ethEnvFromReturnExp (ExpBool e) = ethEnvFromExp e
 ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
 
 ethEnvFromExp :: Exp a -> [EthEnv]
-ethEnvFromExp = ccata $ \case
-  IntEnv a -> [a]
-  ByEnv a  -> [a]
-  TEntry a -> ethEnvFromItem a
-  e        -> recurse e
+ethEnvFromExp = cataK \case
+  IntEnv a    -> [a]
+  ByEnv a     -> [a]
+  BoolStore a -> ethEnvFromItem a
+  IntStore a  -> ethEnvFromItem a
+  ByStore a   -> ethEnvFromItem a
+  e           -> recurse e
 
 getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
 getLoc = either id mkLoc

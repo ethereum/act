@@ -54,6 +54,7 @@ prettyExp e = case fixExp e of
   Impl a b -> print2 "=>" a b
   LitBool b -> if b then "true" else "false"
   BoolVar b -> b
+  BoolStore a -> prettyItem a
 
   -- integers
   Add a b -> print2 "+" a b
@@ -69,6 +70,7 @@ prettyExp e = case fixExp e of
   LitInt a -> show a
   IntVar a -> a
   IntEnv a -> prettyEnv a
+  IntStore a -> prettyItem a
 
   -- bytestrings
   Cat a b -> print2 "++" a b
@@ -77,13 +79,13 @@ prettyExp e = case fixExp e of
   ByStr a -> a
   ByLit a -> toString a
   ByEnv a -> prettyEnv a
+  ByStore a -> prettyItem a
 
   -- builtins
   NewAddr addr nonce -> "newAddr(" <> prettyExp addr <> ", " <> prettyExp nonce <> ")"
 
   --polymorphic
   ITE a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  TEntry a -> prettyItem a
 
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"

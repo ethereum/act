@@ -281,11 +281,11 @@ symExpBool ctx@(Ctx c m args store _) w e = case fixExp e of
   LEQ a b   -> (symExpInt ctx w a) .<= (symExpInt ctx w b)
   GE a b    -> (symExpInt ctx w a) .> (symExpInt ctx w b)
   GEQ a b   -> (symExpInt ctx w a) .>= (symExpInt ctx w b)
-  NEq a b   -> sNot (symExpBool ctx w (_Eq a b))
+  NEq a b   -> sNot (symExpBool ctx w (iEq a b))
   Neg a     -> sNot (symExpBool ctx w a)
   LitBool a -> literal a
   BoolVar a -> get (nameFromArg c m a) (catBools args)
-  TEntry a  -> get (nameFromItem m a) (catBools store')
+  BoolStore a  -> get (nameFromItem m a) (catBools store')
   ITE x y z -> ite (symExpBool ctx w x) (symExpBool ctx w y) (symExpBool ctx w z)
   Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
     Just Refl -> symExpInt ctx w a .== symExpInt ctx w b
@@ -312,7 +312,7 @@ symExpInt ctx@(Ctx c m args store env) w e = case fixExp e of
   UIntMin a -> literal $ uintmin a
   UIntMax a -> literal $ uintmax a
   IntVar a  -> get (nameFromArg c m a) (catInts args)
-  TEntry a  -> get (nameFromItem m a) (catInts store')
+  IntStore a  -> get (nameFromItem m a) (catInts store')
   IntEnv a -> get (nameFromEnv c m a) (catInts env)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx w x) (symExpInt ctx w y) (symExpInt ctx w z)
@@ -326,7 +326,7 @@ symExpBytes ctx@(Ctx c m args store env) w e = case fixExp e of
   ByVar a  -> get (nameFromArg c m a) (catBytes args)
   ByStr a -> literal a
   ByLit a -> literal $ toString a
-  TEntry a  -> get (nameFromItem m a) (catBytes store')
+  ByStore a  -> get (nameFromItem m a) (catBytes store')
   Slice a x y -> subStr (symExpBytes ctx w a) (symExpInt ctx w x) (symExpInt ctx w y)
   ByEnv a -> get (nameFromEnv c m a) (catBytes env)
   ITE x y z -> ite (symExpBool ctx w x) (symExpBytes ctx w y) (symExpBytes ctx w z)
@@ -370,7 +370,7 @@ nameFromExpInt c m e = case fixExp e of
   UIntMin a -> show $ uintmin a
   UIntMax a -> show $ uintmax a
   IntVar a  -> a
-  TEntry a  -> nameFromItem m a
+  IntStore a  -> nameFromItem m a
   IntEnv a -> nameFromEnv c m a
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpInt c m y <> "-else-" <> nameFromExpInt c m z
@@ -387,7 +387,7 @@ nameFromExpBool c m e = case fixExp e of
   Neg a     -> "~" <> nameFromExpBool c m a
   LitBool a -> show a
   BoolVar a -> nameFromArg c m a
-  TEntry a  -> nameFromItem m a
+  BoolStore a  -> nameFromItem m a
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBool c m y <> "-else-" <> nameFromExpBool c m z
   Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
     Just Refl -> nameFromExpInt c m a <> "==" <> nameFromExpInt c m b
@@ -410,7 +410,7 @@ nameFromExpBytes c m e = case fixExp e of
   ByVar a  -> nameFromArg c m a
   ByStr a -> show a
   ByLit a -> show a
-  TEntry a  -> nameFromItem m a
+  ByStore a  -> nameFromItem m a
   Slice a x y -> nameFromExpBytes c m a <> "[" <> show x <> ":" <> show y <> "]"
   ByEnv a -> nameFromEnv c m a
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBytes c m y <> "-else-" <> nameFromExpBytes c m z
