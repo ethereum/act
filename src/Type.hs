@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Type (typecheck, bound, lookupVars, defaultStore) where
+module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
 
 import Data.List
 import EVM.ABI

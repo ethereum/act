@@ -10,9 +10,9 @@ import Data.List
 
 import RefinedAst
 import Extract
-import Syntax (Id, EthEnv(..))
+import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
 import Print (prettyEnv)
-import Type (defaultStore)
+import Type (defaultStore, metaType)
 
 import System.Process (readProcessWithExitCode)
 import System.Exit (ExitCode(..))
@@ -100,11 +100,11 @@ mkSMT :: [Claim] -> [(Invariant, [SMTExp])]
 mkSMT = undefined
 
 mkConstructorQueries :: Constructor -> (SMTExp, [(Exp Bool, SMT2)])
-mkConstructorQueries constr@(Constructor _ _ interface preconds postconds state stateUpdates) =
+mkConstructorQueries constr@(Constructor _ _ (Interface _ decls) preconds postconds state stateUpdates) =
     (smtexp, postconds `zip` posts)
   where
     storage = declareStorageLocation Post . getLoc <$> (Right <$> state) <> stateUpdates
-    args = declareVar <$> varsFromInterface interface
+    args = encodeDecl <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constr
     pres = mkAssert Pre <$> preconds
     posts = mkAssert Pre . Neg <$> postconds -- `Pre` is actually correct atm, see https://github.com/ethereum/act/issues/92
@@ -117,11 +117,11 @@ mkConstructorQueries constr@(Constructor _ _ interface preconds postconds state 
                     }
 
 mkPostconditionQueries :: Behaviour -> (SMTExp, [(Exp Bool, SMT2)])
-mkPostconditionQueries behv@(Behaviour _ _ _ interface preconds postconds stateUpdates _) = 
+mkPostconditionQueries behv@(Behaviour _ _ _ (Interface _ decls) preconds postconds stateUpdates _) =
     (smtexp, postconds `zip` posts)
   where
     storage = concatMap (declareStorageLocation' . getLoc) stateUpdates
-    args = declareVar <$> varsFromInterface interface
+    args = encodeDecl <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
     pres = mkAssert Pre <$> preconds
     posts = mkAssert Pre . Neg <$> postconds -- `Pre` is actually correct atm, see https://github.com/ethereum/act/issues/92
@@ -153,14 +153,14 @@ runSMT (SMTConfig solver timeout _) e = do
                      "sat\n" -> Sat
                      "unsat\n" -> Unsat
                      "timeout\n" -> Unknown
-                     output -> Error 0 $ "Unable to parse SMT output: " <> output 
+                     output -> Error 0 $ "Unable to parse SMT output: " <> output
 
 asSMT :: When -> Exp Bool -> SMTExp
 asSMT when e = SMTExp store args environment assertions
   where
     store = nub $ concatMap declareStorageLocation' (locsFromExp e)
     environment = declareEthEnv <$> (ethEnvFromExp e)
-    args = declareVar <$> (varsFromExp e)
+    args = []
     assertions = ["(assert " <> expToSMT2 when e <> ")"]
 
 
@@ -191,12 +191,8 @@ encodeUpdate (Right update) = case update of
   where
     encode item e = "(assert (= " <> nameFromItem Post item <> " " <> expToSMT2 Pre e <> "))"
 
-declareVar :: Var -> SMT2
-declareVar v = case v of
-  VarInt (IntVar a) -> constant a (varType v)
-  VarBool (BoolVar a) -> constant a (varType v)
-  VarBytes (ByVar a) -> constant a (varType v)
-  _ -> error "TODO: refine types so this never happens"
+encodeDecl :: Decl -> SMT2
+encodeDecl (Decl typ name) = constant name (metaType typ)
 
 declareEthEnv :: EthEnv -> SMT2
 declareEthEnv env = constant (prettyEnv env) tp
@@ -330,11 +326,6 @@ sType' (ExpInt {}) = "Int"
 sType' (ExpBool {}) = "Bool"
 sType' (ExpBytes {}) = "String"
 
-varType :: Var -> MType
-varType (VarInt {}) = Integer
-varType (VarBool {}) = Boolean
-varType (VarBytes {}) = ByteStr
-
 --- Variable Names ---
 
 nameFromItem :: When -> TStorageItem a -> Id
@@ -351,13 +342,6 @@ nameFromLoc when loc = case loc of
   IntLoc item -> nameFromItem when item
   BoolLoc item -> nameFromItem when item
   BytesLoc item -> nameFromItem when item
-
-nameFromVar :: Var -> Id
-nameFromVar v = case v of
-  VarInt (IntVar a) -> a
-  VarBool (BoolVar a) -> a
-  VarBytes (ByVar a) -> a
-  _ -> error "TODO: refine AST so this isn't needed anymore"
 
 (@@) :: String -> String -> String
 x @@ y = x <> "_" <> y
