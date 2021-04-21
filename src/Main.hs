@@ -101,14 +101,12 @@ main = do
         contents <- readFile file'
         proceed contents (compile contents) $ \claims -> do
           let
-            handleRes (query, res) = putStrLn $ debug <> msg
+            handleRes (query, res) = case res of
+                  Unsat -> (True, typ <> " " <> prettyExp target <> " holds :)", show $ getSMT query)
+                  Sat -> (False, typ <> " " <> prettyExp target <> " does not hold :(", show $ getSMT query)
+                  SMT.Unknown -> (False, typ <> " " <> prettyExp target <> " could not be proved due to a solver timeout :(", show $ getSMT query)
+                  SMT.Error _ str -> (False, typ <> " " <> prettyExp target <> " could not be proved to due a solver error: " <> str, show $ getSMT query)
               where
-                debug = if (_debug config) then (show $ getSMT query) <> "\n" else ""
-                msg = case res of
-                  Unsat -> typ <> " " <> prettyExp target <> " holds :)"
-                  Sat -> typ <> " " <> prettyExp target <> " does not hold :("
-                  SMT.Unknown -> typ <> " " <> prettyExp target <> " could not be proved due to a solver timeout :("
-                  SMT.Error _ str -> typ <> " " <> prettyExp target <> " could not be proved to due a solver error: " <> str
                 target = getTarget query
                 typ = case query of
                   Postcondition {} -> "postcondition"
@@ -116,8 +114,12 @@ main = do
 
           pcResults <- mapM (runQuery config) (concatMap mkPostconditionQueries claims)
           invResults <- mapM (runQuery config) (mkInvariantQueries claims)
-          mapM_ handleRes pcResults
-          mapM_ handleRes invResults
+          let results = map handleRes (pcResults <> invResults)
+          allGood <- foldM (\acc (r, msg, smt) -> do
+            if (_debug config) then putStrLn (msg <> "\n" <> smt) else putStrLn msg
+            pure $ if acc == False then False else r
+            ) True results
+          if not allGood then exitFailure else pure ()
 
       (Coq f) -> do
         contents <- readFile f
