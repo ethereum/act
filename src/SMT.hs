@@ -56,13 +56,14 @@ data SMTExp = SMTExp
   , _assertions :: [SMT2]
   }
 
+-- TODO: can we get rid of these nubs? or at least use something non quadratic....
 instance Show SMTExp where
   show e = intercalate "\n" ["", storage, "", calldata, "", environment, "", assertions, ""]
     where
-      storage = ";STORAGE:\n" <> intercalate "\n" (_storage e)
-      calldata = ";CALLDATA:\n" <> intercalate "\n" (_calldata e)
-      environment = ";ENVIRONMENT:\n" <> intercalate "\n" (_environment e)
-      assertions = ";ASSERTIONS:\n" <> intercalate "\n" (_assertions e)
+      storage = ";STORAGE:\n" <> intercalate "\n" (nub $ _storage e)
+      calldata = ";CALLDATA:\n" <> intercalate "\n" (nub $ _calldata e)
+      environment = ";ENVIRONMENT:\n" <> intercalate "\n" (nub $ _environment e)
+      assertions = ";ASSERTIONS:\n" <> intercalate "\n" (nub $ _assertions e)
 
 -- A Query is a structured representation of an SMT query for an individual
 -- expression, along with the metadata needed to pretty print the result
@@ -92,7 +93,7 @@ mkPostconditionQueries (B behv@(Behaviour _ _ _ (Interface _ decls) preconds pos
   where
     storage = concatMap (declareStorageLocation . getLoc) stateUpdates
     args = encodeDecl <$> decls
-    envs = declareEthEnv <$> (nub $ ethEnvFromBehaviour behv)
+    envs = declareEthEnv <$> ethEnvFromBehaviour behv
 
     pres = mkAssert Pre <$> preconds
     updates = encodeUpdate <$> stateUpdates
@@ -109,7 +110,7 @@ mkPostconditionQueries (C constructor@(Constructor _ _ (Interface _ decls) preco
     localStorage = declareInitialStorage <$> initialStorage
     externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
     args = encodeDecl <$> decls
-    envs = declareEthEnv <$> (nub $ ethEnvFromConstructor constructor) -- TODO: polynomial time :(
+    envs = declareEthEnv <$> ethEnvFromConstructor constructor
 
     pres = mkAssert Pre <$> preconds
     updates = encodeUpdate <$> ((Right <$> initialStorage) <> stateUpdates)
@@ -143,7 +144,7 @@ mkInit inv@(Invariant _ invConds invExp) constr@(Constructor _ _ (Interface _ de
     localStorage = declareInitialStorage <$> initialStorage
     externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
     args = encodeDecl <$> decls
-    envs = declareEthEnv <$> (nub $ ethEnvFromConstructor constr) -- TODO: polynomial time :(
+    envs = declareEthEnv <$> (ethEnvFromConstructor constr)
 
     pres = (mkAssert Pre <$> preconds) <> (mkAssert Pre <$> invConds)
     updates = encodeUpdate <$> ((Right <$> initialStorage) <> stateUpdates)
@@ -167,7 +168,7 @@ mkBehv inv@(Invariant _ invConds invExp) constr behv = Inv (B behv) inv smt
     storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv) <> (concatMap declareStorageLocation implicitStorageLocs)
     initArgs = encodeDecl <$> initDecls
     behvArgs = encodeDecl <$> behvDecls
-    envs = declareEthEnv <$> (nub $ ethEnvFromBehaviour behv <> ethEnvFromConstructor constr) -- TODO: polynomial time :(
+    envs = declareEthEnv <$> (ethEnvFromBehaviour behv <> ethEnvFromConstructor constr)
 
     preInv = mkAssert Pre invExp
     postInv = mkAssert Post . Neg $ invExp
