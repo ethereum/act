@@ -79,21 +79,21 @@ deriving instance ParseField [(Id, String)]
 instance ParseRecord (Command Wrapped)
 deriving instance Show (Command Unwrapped)
 
-pokeSMT :: FilePath -> IO ()
-pokeSMT file = do
-  contents <- readFile file
-  proceed contents (compile contents) $ \claims -> do
-    let behaviours = [b | B b <- claims]
-    let constructors = [c | C c <- claims]
-    printStuff behaviours "BEHAVIOUR" mkPostconditionQueries
-    printStuff constructors "CONSTRUCTOR" mkConstructorQueries
-  where
-    printStuff xs desc f = do
-      putStrLn $ "\n===" <> desc <> "S==="
-      forM_ ([1..] `zip` xs) $ \(ix,x) -> do
-        putStrLn $ "\n===" <> desc <> " " <> show ix <> "==="
-        putStrLn . show $ x
-        putStrLn . show . f $ x
+--pokeSMT :: FilePath -> IO ()
+--pokeSMT file = do
+  --contents <- readFile file
+  --proceed contents (compile contents) $ \claims -> do
+    --let behaviours = [b | B b <- claims]
+    --let constructors = [c | C c <- claims]
+    --printStuff behaviours "BEHAVIOUR" mkPostconditionQueries
+    --printStuff constructors "CONSTRUCTOR" mkConstructorQueries
+  --where
+    --printStuff xs desc f = do
+      --putStrLn $ "\n===" <> desc <> "S==="
+      --forM_ ([1..] `zip` xs) $ \(ix,x) -> do
+        --putStrLn $ "\n===" <> desc <> " " <> show ix <> "==="
+        --putStrLn . show $ x
+        --putStrLn . show . f $ x
 
 main :: IO ()
 main = do
@@ -113,43 +113,18 @@ main = do
                        Bad e -> prettyErr contents e
 
       (Prove file' solver' smttimeout' debug') -> do
+        let config = SMT.SMTConfig SMT.Z3 60 False
         contents <- readFile file'
         proceed contents (compile contents) $ \claims -> do
-            let
-                handleResults ((Invariant c _ e), rs) = do
-                  let msg = "\n============\n\nInvariant " <> show (prettyExp e) <> " of " <> show c <> ": "
-                      sep = "\n\n---\n\n"
-                      results' = handleRes <$> rs
-                      ok = not $ or $ fst <$> results'
-                  if ok
-                  then putStrLn $ msg <> "Q.E.D."
-                  else do
-                      putStrLn $ msg <> "\n\n" <> intercalate sep (snd <$> results')
-                      exitFailure
+          let handleRes ((Query _ _ target _), res) =
+                case res of
+                  Unsat -> putStrLn $ "postcondition " <> prettyExp target <> " holds :)"
+                  Sat -> putStrLn $ "postcondition " <> prettyExp target <> "does not hold :("
+                  SMT.Unknown -> putStrLn $ "postcondition " <> prettyExp target <> "could not be proved due to a solver timeout :("
+                  SMT.Error _ str -> putStrLn $ "postcondition " <> prettyExp target <> "could not be proved to due a solver error: " <> str
 
-                handleRes = undefined
-{-
-                handleRes (SatResult res) = case res of
-                  Unsatisfiable _ _ -> (False, "")
-                  Satisfiable _ model -> (True, "Counter example found!\n\n" <> show model)
-                  Unknown _ reason -> (True, "Unknown! " <> show reason)
-                  ProofError _ reasons _  -> (True, "Proof error! " <> show reasons)
-                  SatExtField _ _ -> error "Extension field containing Infinite/epsilon"
-                  DeltaSat {} -> error "Unexpected DeltaSat"
--}
-{-
-            results <- forM (queries claims)
-                          (\(i, qs) -> do
-                            rs <- mapM (satWithTimeOut solver' smttimeout' debug') qs
-                            pure (i, rs)
-                          )
--}
-            results <- forM (mkSMT claims)
-                          (\(i, qs) -> do
-                            rs <- mapM (SMT.runSMT undefined) qs
-                            pure (i, rs)
-                          )
-            mapM_ handleResults results
+          results <- mapM (runQuery config) (concatMap mkPostconditionQueries claims)
+          mapM_ handleRes results
 
       (Coq f) -> do
         contents <- readFile f

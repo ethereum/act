@@ -2,7 +2,6 @@
 
 module SMT where -- (mkPostC runSMT, asSMT, expToSMT2, mkSMT, isError, SMTConfig(..), SMTResult(..), Solver(..), When(..), SMTExp(..)) where
 
-import qualified Data.Map.Strict as Map
 import Data.Map (Map)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Maybe
@@ -27,17 +26,10 @@ import System.Exit (ExitCode(..))
 --- Data ---
 
 data Solver = Z3 | CVC4
+
 instance Show Solver where
   show Z3 = "z3"
   show CVC4 = "cvc4"
-
-data When = Pre | Post
-
-type SMT2 = String
-
-instance Show When where
-  show Pre = "pre"
-  show Post = "post"
 
 data SMTConfig = SMTConfig
   { _solver :: Solver
@@ -45,6 +37,18 @@ data SMTConfig = SMTConfig
   , _debug :: Bool
   }
 
+type SMT2 = String
+
+-- Some expressions should be constructed over the poststate, and some over the prestate...
+data When = Pre | Post
+
+instance Show When where
+  show Pre = "pre"
+  show Post = "post"
+
+-- An SMTExp is a structured representation of an SMT Expression
+-- The _storage, _calldata, and _environment fields hold variable declarations
+-- The assertions field holds the various constraints that should be satisfied
 data SMTExp = SMTExp
   { _storage :: [SMT2]
   , _calldata :: [SMT2]
@@ -60,11 +64,17 @@ instance Show SMTExp where
       environment = ";ENVIRONMENT:\n" <> intercalate "\n" (_environment e)
       assertions = ";ASSERTIONS:\n" <> intercalate "\n" (_assertions e)
 
-data Model = Model
-  { _mstorage :: Map Id (MType, MType)
-  , _mcalldata :: Map Id MType
-  , _menvironment :: Map Id MType
+-- A Query is a structured representation of an SMT query for an individual
+-- expression, along with the metadata needed to pretty print the result
+data Query = Query
+  { _claim :: Claim
+  , _type :: QueryType
+  , _exp :: Exp Bool
+  , _smt :: SMTExp
   }
+  deriving (Show)
+
+data QueryType = Postcondition | Invariant
   deriving (Show)
 
 data SMTResult
@@ -74,74 +84,45 @@ data SMTResult
   | Error Int String
   deriving (Show)
 
-isError :: SMTResult -> Bool
-isError (Error {}) = True
-isError _          = False
-
-testConf = SMTConfig
-  { _solver = Z3
-  , _timeout = 1
-  , _debug = False
+data Model = Model
+  { _mstorage :: Map Id (MType, MType)
+  , _mcalldata :: Map Id MType
+  , _menvironment :: Map Id MType
   }
-
-testExp = SMTExp
-  { _storage = ["(declare-const hi_pre Int)", "(declare-const hi_post Int)"]
-  , _calldata = ["(declare-const yo Bool)"]
-  , _environment = ["(declare-const bye String)"]
-  , _assertions = [
-    "(assert (> hi_pre hi_post))",
-    "(assert (= yo false))",
-    "(assert (= true true))"]
-  }
+  deriving (Show)
 
 --- External Interface ---
 
-mkSMT :: [Claim] -> [(Invariant, [SMTExp])]
-mkSMT = undefined
-
-mkConstructorQueries :: Constructor -> (SMTExp, [(Exp Bool, SMT2)])
-mkConstructorQueries constr@(Constructor _ _ (Interface _ decls) preconds postconds state stateUpdates) =
-    (smtexp, postconds `zip` posts)
+mkPostconditionQueries :: Claim -> [Query]
+mkPostconditionQueries (B behv@(Behaviour _ _ _ (Interface _ decls) preconds postconds stateUpdates _)) = mkQuery <$> postconds
   where
-    storage = declareStorageLocation Post . getLoc <$> (Right <$> state) <> stateUpdates
-    args = encodeDecl <$> decls
-    envs = declareEthEnv <$> ethEnvFromConstructor constr
-    pres = mkAssert Pre <$> preconds
-    posts = mkAssert Pre . Neg <$> postconds -- `Pre` is actually correct atm, see https://github.com/ethereum/act/issues/92
-    updates = encodeUpdate <$> stateUpdates
-
-    smtexp = SMTExp { _storage = storage
-                    , _calldata = args
-                    , _environment = envs
-                    , _assertions = pres <> updates
-                    }
-
-mkPostconditionQueries :: Behaviour -> (SMTExp, [(Exp Bool, SMT2)])
-mkPostconditionQueries behv@(Behaviour _ _ _ (Interface _ decls) preconds postconds stateUpdates _) =
-    (smtexp, postconds `zip` posts)
-  where
-    storage = concatMap (declareStorageLocation' . getLoc) stateUpdates
+    storage = concatMap (declareStorageLocation . getLoc) stateUpdates
     args = encodeDecl <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
+
     pres = mkAssert Pre <$> preconds
-    posts = mkAssert Pre . Neg <$> postconds -- `Pre` is actually correct atm, see https://github.com/ethereum/act/issues/92
     updates = encodeUpdate <$> stateUpdates
 
-    smtexp = SMTExp { _storage = storage
-                    , _calldata = args
-                    , _environment = envs
-                    , _assertions = pres <> updates
-                    }
+    mksmt e = SMTExp { _storage = storage, _calldata = args, _environment = envs, _assertions = pres <> updates <> [mkAssert Pre . Neg $ e] }
+    mkQuery e = Query (B behv) Postcondition e (mksmt e)
+mkPostconditionQueries (C constructor@(Constructor _ _ (Interface _ decls) preconds postconds initialStorage stateUpdates)) = mkQuery <$> postconds
+  where
+    localStorage = declareInitialStorage <$> initialStorage
+    externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
+    args = encodeDecl <$> decls
+    envs = declareEthEnv <$> ethEnvFromConstructor constructor
 
-    --mkQuery :: Exp Bool -> (Exp Bool, SMTExp)
-    --mkQuery e = (e, SMTExp { _storage = storage
-    --                       , _calldata = args
-    --                       , _environment = envs
-    --                       , _assertions = [mkAssert Pre . Neg $ e] <> pres <> updates })
+    pres = mkAssert Pre <$> preconds
+    updates = encodeUpdate <$> ((Right <$> initialStorage) <> stateUpdates)
 
-mkAssert :: When -> Exp Bool -> SMT2
-mkAssert w e = "(assert " <> expToSMT2 w e <> ")"
+    mksmt e = SMTExp { _storage = localStorage <> externalStorage, _calldata = args, _environment = envs, _assertions = pres <> updates <> [mkAssert Pre . Neg $ e] }
+    mkQuery e = Query (C constructor) Postcondition e (mksmt e)
+mkPostconditionQueries _ = []
 
+runQuery :: SMTConfig -> Query -> IO (Query, SMTResult)
+runQuery conf q@(Query _ _ _ smt) = do
+  res <- runSMT conf smt
+  pure (q, res)
 
 runSMT :: SMTConfig -> SMTExp -> IO SMTResult
 runSMT (SMTConfig solver timeout _) e = do
@@ -155,32 +136,8 @@ runSMT (SMTConfig solver timeout _) e = do
                      "timeout\n" -> Unknown
                      output -> Error 0 $ "Unable to parse SMT output: " <> output
 
-asSMT :: When -> Exp Bool -> SMTExp
-asSMT when e = SMTExp store args environment assertions
-  where
-    store = nub $ concatMap declareStorageLocation' (locsFromExp e)
-    environment = declareEthEnv <$> (ethEnvFromExp e)
-    args = []
-    assertions = ["(assert " <> expToSMT2 when e <> ")"]
-
-
-
---    addToStore :: Map Id (SMT2, SMT2) -> StorageLocation -> Map Id (SMT2, SMT2)
---    addToStore store' loc = Map.insertWith
---                              (const id) -- if the name exists we want to keep its value as-is
---                              (nameFromLoc when loc)
---                              (declareStorageLocation Pre loc, declareStorageLocation Post loc)
---                              store'
 
 --- SMT2 generation ---
-
-  {-
-mkQueries :: (Invariant, Constructor, [Behaviour]) -> (Invariant, [SMTExp])
-mkQueries (inv, constr, behvs) = (inv, inits:methods)
-  where
-    inits = mkInit inv constr
-    methods = mkMethod inv constr <$> behvs
-  -}
 
 encodeUpdate :: Either StorageLocation StorageUpdate -> SMT2
 encodeUpdate (Left loc) = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
@@ -198,29 +155,25 @@ declareEthEnv :: EthEnv -> SMT2
 declareEthEnv env = constant (prettyEnv env) tp
   where tp = fromJust . lookup env $ defaultStore
 
-declareStorage :: [StorageLocation] -> [SMT2]
-declareStorage = undefined
-
-declareMappings :: [StorageLocation] -> [(SMT2, SMT2)]
-declareMappings = undefined
-
-declareStorageLocation :: When -> StorageLocation -> SMT2
-declareStorageLocation when loc = case loc of
+-- declares a storage location that is created by the constructor, these locations have no prestate, so we declare a post var only
+declareInitialStorage :: StorageUpdate -> SMT2
+declareInitialStorage update = case getLoc . Right $ update of
   IntLoc item -> case item of
-    DirectInt {} -> constant (name item) Integer
-    MappedInt _ _ ixs -> array (name item) ixs Integer
+    DirectInt {} -> mkdirect item Integer
+    MappedInt _ _ ixs -> mkarray item ixs Integer
   BoolLoc item -> case item of
-    DirectBool {} -> constant (name item) Boolean
-    MappedBool _ _ ixs -> array (name item) ixs Boolean
+    DirectBool {} -> mkdirect item Boolean
+    MappedBool _ _ ixs -> mkarray item ixs Boolean
   BytesLoc item -> case item of
-    DirectBytes {} -> constant (name item) ByteStr
-    MappedBytes _ _ ixs -> array (name item) ixs ByteStr
+    DirectBytes {} -> mkdirect item ByteStr
+    MappedBytes _ _ ixs -> mkarray item ixs ByteStr
   where
-    name :: TStorageItem a -> Id
-    name item = nameFromItem when item
+    mkdirect item tp = constant (nameFromItem Post item) tp
+    mkarray item ixs tp = array (nameFromItem Post item) ixs tp
 
-declareStorageLocation' :: StorageLocation -> [SMT2]
-declareStorageLocation' loc = case loc of
+-- declares a storage location that exists both in the pre state and the post state (i.e. anything except a loc created by a constructor claim)
+declareStorageLocation :: StorageLocation -> [SMT2]
+declareStorageLocation loc = case loc of
   IntLoc item -> case item of
     DirectInt {} -> mkdirect item Integer
     MappedInt _ _ ixs -> mkarray item ixs Integer
@@ -311,6 +264,9 @@ expToSMT2 w e = case e of
 constant :: Id -> MType -> SMT2
 constant name tp = "(declare-const " <> name <> " " <> (sType tp) <> ")"
 
+mkAssert :: When -> Exp Bool -> SMT2
+mkAssert w e = "(assert " <> expToSMT2 w e <> ")"
+
 array :: Id -> NonEmpty ReturnExp -> MType -> SMT2
 array name ixs ret = "(declare-const " <> name <> " " <> arrayDecl <> ")"
   where
@@ -346,3 +302,24 @@ nameFromLoc when loc = case loc of
 (@@) :: String -> String -> String
 x @@ y = x <> "_" <> y
 
+--- Util ---
+
+isError :: SMTResult -> Bool
+isError (Error {}) = True
+isError _          = False
+
+testConf = SMTConfig
+  { _solver = Z3
+  , _timeout = 1
+  , _debug = False
+  }
+
+testExp = SMTExp
+  { _storage = ["(declare-const hi_pre Int)", "(declare-const hi_post Int)"]
+  , _calldata = ["(declare-const yo Bool)"]
+  , _environment = ["(declare-const bye String)"]
+  , _assertions = [
+    "(assert (> hi_pre hi_post))",
+    "(assert (= yo false))",
+    "(assert (= true true))"]
+  }
