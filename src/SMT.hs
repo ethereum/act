@@ -161,7 +161,10 @@ mkBehv inv@(Invariant _ invConds invExp) constr behv = Inv (B behv) inv smt
     (Interface _ initDecls) = _cinterface constr
     (Interface _ behvDecls) = _interface behv
 
-    storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv)
+    -- storage locs mentioned in the invariant but not in the behaviour
+    implicitStorageLocs = locsFromExp invExp \\ (getLoc <$> _stateUpdates behv)
+
+    storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv) <> (concatMap declareStorageLocation implicitStorageLocs)
     initArgs = encodeDecl <$> initDecls
     behvArgs = encodeDecl <$> behvDecls
     envs = declareEthEnv <$> (nub $ ethEnvFromBehaviour behv <> ethEnvFromConstructor constr) -- TODO: polynomial time :(
@@ -170,7 +173,7 @@ mkBehv inv@(Invariant _ invConds invExp) constr behv = Inv (B behv) inv smt
     postInv = mkAssert Post . Neg $ invExp
     invConds' = mkAssert Pre <$> (invConds \\ (_preconditions behv))
     behvConds = mkAssert Pre <$> _preconditions behv
-    updates = encodeUpdate <$> _stateUpdates behv
+    updates = encodeUpdate <$> (_stateUpdates behv <> (Left <$> implicitStorageLocs))
 
     smt = SMTExp
       { _storage = storage
