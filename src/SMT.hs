@@ -57,7 +57,7 @@ data SMTExp = SMTExp
   }
 
 instance Show SMTExp where
-  show e = intercalate "\n" ["", storage, calldata, environment, assertions, ""]
+  show e = intercalate "\n" ["", storage, "", calldata, "", environment, "", assertions, ""]
     where
       storage = ";STORAGE:\n" <> intercalate "\n" (_storage e)
       calldata = ";CALLDATA:\n" <> intercalate "\n" (_calldata e)
@@ -66,15 +66,9 @@ instance Show SMTExp where
 
 -- A Query is a structured representation of an SMT query for an individual
 -- expression, along with the metadata needed to pretty print the result
-data Query = Query
-  { _claim :: Claim
-  , _type :: QueryType
-  , _exp :: Exp Bool
-  , _smt :: SMTExp
-  }
-  deriving (Show)
-
-data QueryType = Postcondition | Invariant
+data Query
+  = Postcondition Claim (Exp Bool) SMTExp
+  | Inv Claim Invariant SMTExp
   deriving (Show)
 
 data SMTResult
@@ -98,30 +92,96 @@ mkPostconditionQueries (B behv@(Behaviour _ _ _ (Interface _ decls) preconds pos
   where
     storage = concatMap (declareStorageLocation . getLoc) stateUpdates
     args = encodeDecl <$> decls
-    envs = declareEthEnv <$> ethEnvFromBehaviour behv
+    envs = declareEthEnv <$> (nub $ ethEnvFromBehaviour behv)
 
     pres = mkAssert Pre <$> preconds
     updates = encodeUpdate <$> stateUpdates
 
-    mksmt e = SMTExp { _storage = storage, _calldata = args, _environment = envs, _assertions = pres <> updates <> [mkAssert Pre . Neg $ e] }
-    mkQuery e = Query (B behv) Postcondition e (mksmt e)
+    mksmt e = SMTExp
+      { _storage = storage
+      , _calldata = args
+      , _environment = envs
+      , _assertions = pres <> updates <> [mkAssert Pre . Neg $ e]
+      }
+    mkQuery e = Postcondition (B behv) e (mksmt e)
 mkPostconditionQueries (C constructor@(Constructor _ _ (Interface _ decls) preconds postconds initialStorage stateUpdates)) = mkQuery <$> postconds
   where
     localStorage = declareInitialStorage <$> initialStorage
     externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
     args = encodeDecl <$> decls
-    envs = declareEthEnv <$> ethEnvFromConstructor constructor
+    envs = declareEthEnv <$> (nub $ ethEnvFromConstructor constructor) -- TODO: polynomial time :(
 
     pres = mkAssert Pre <$> preconds
     updates = encodeUpdate <$> ((Right <$> initialStorage) <> stateUpdates)
 
-    mksmt e = SMTExp { _storage = localStorage <> externalStorage, _calldata = args, _environment = envs, _assertions = pres <> updates <> [mkAssert Pre . Neg $ e] }
-    mkQuery e = Query (C constructor) Postcondition e (mksmt e)
+    mksmt e = SMTExp
+      { _storage = localStorage <> externalStorage
+      , _calldata = args
+      , _environment = envs
+      , _assertions = pres <> updates <> [mkAssert Pre . Neg $ e]
+      }
+    mkQuery e = Postcondition (C constructor) e (mksmt e)
 mkPostconditionQueries _ = []
 
+mkInvariantQueries :: [Claim] -> [Query]
+mkInvariantQueries claims = concatMap mkQuery gathered
+  where
+    gathered = fmap (\inv -> (inv, definition inv, getBehaviours inv)) invariants
+    invariants = [i | I i <- claims]
+    getBehaviours (Invariant c _ _) = filter (\b -> isPass b && contractMatches c b) [b | B b <- claims]
+    definition (Invariant c _ _) = head $ filter
+      (\b -> Pass == _cmode b && _cname b == c)
+      [c' | C c' <- claims]
+    contractMatches c b = c == (_contract b)
+    isPass b = (_mode b) == Pass
+
+    mkQuery (inv, constructor, behvs) = mkInit inv constructor : fmap (mkBehv inv constructor) behvs
+
+mkInit :: Invariant -> Constructor -> Query
+mkInit inv@(Invariant _ invConds invExp) constr@(Constructor _ _ (Interface _ decls) preconds _ initialStorage stateUpdates) = Inv (C constr) inv smt
+  where
+    localStorage = declareInitialStorage <$> initialStorage
+    externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
+    args = encodeDecl <$> decls
+    envs = declareEthEnv <$> (nub $ ethEnvFromConstructor constr) -- TODO: polynomial time :(
+
+    pres = (mkAssert Pre <$> preconds) <> (mkAssert Pre <$> invConds)
+    updates = encodeUpdate <$> ((Right <$> initialStorage) <> stateUpdates)
+
+    smt = SMTExp
+      { _storage = localStorage <> externalStorage
+      , _calldata = args
+      , _environment = envs
+      , _assertions = pres <> updates <> [mkAssert Post . Neg $ invExp]
+      }
+
+mkBehv :: Invariant -> Constructor -> Behaviour -> Query
+mkBehv inv@(Invariant _ invConds invExp) constr behv = Inv (B behv) inv smt
+  where
+    (Interface _ initDecls) = _cinterface constr
+    (Interface _ behvDecls) = _interface behv
+
+    storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv)
+    initArgs = encodeDecl <$> initDecls
+    behvArgs = encodeDecl <$> behvDecls
+    envs = declareEthEnv <$> (nub $ ethEnvFromBehaviour behv <> ethEnvFromConstructor constr) -- TODO: polynomial time :(
+
+    preInv = mkAssert Pre invExp
+    postInv = mkAssert Post . Neg $ invExp
+    invConds' = mkAssert Pre <$> (invConds \\ (_preconditions behv))
+    behvConds = mkAssert Pre <$> _preconditions behv
+    updates = encodeUpdate <$> _stateUpdates behv
+
+    smt = SMTExp
+      { _storage = storage
+      , _calldata = initArgs <> behvArgs
+      , _environment = envs
+      , _assertions = behvConds <> invConds' <> updates <> [preInv, postInv]
+      }
+
 runQuery :: SMTConfig -> Query -> IO (Query, SMTResult)
-runQuery conf q@(Query _ _ _ smt) = do
-  res <- runSMT conf smt
+runQuery conf q = do
+  res <- runSMT conf (getSMT q)
   pure (q, res)
 
 runSMT :: SMTConfig -> SMTExp -> IO SMTResult
@@ -308,18 +368,10 @@ isError :: SMTResult -> Bool
 isError (Error {}) = True
 isError _          = False
 
-testConf = SMTConfig
-  { _solver = Z3
-  , _timeout = 1
-  , _debug = False
-  }
+getTarget :: Query -> Exp Bool
+getTarget (Postcondition _ t _) = t
+getTarget (Inv _ (Invariant _ _ t) _) = t
 
-testExp = SMTExp
-  { _storage = ["(declare-const hi_pre Int)", "(declare-const hi_post Int)"]
-  , _calldata = ["(declare-const yo Bool)"]
-  , _environment = ["(declare-const bye String)"]
-  , _assertions = [
-    "(assert (> hi_pre hi_post))",
-    "(assert (= yo false))",
-    "(assert (= true true))"]
-  }
+getSMT :: Query -> SMTExp
+getSMT (Postcondition _ _ e) = e
+getSMT (Inv _ _ e) = e

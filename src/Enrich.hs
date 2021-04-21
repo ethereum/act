@@ -54,7 +54,7 @@ enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invaria
     where
       conds' = conds
                <> (mkCallDataBounds decls)
-               <> (mkStorageBounds store (Left <$> locsFromExp predicate))
+               -- <> (mkStorageBounds store (Left <$> locsFromExp predicate)) TODO: this breaks constructor queries atm... :/
                <> (mkEthEnvBounds $ ethEnvFromExp predicate)
 
 mkEthEnvBounds :: [EthEnv] -> [Exp Bool]

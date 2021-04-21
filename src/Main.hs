@@ -79,22 +79,6 @@ deriving instance ParseField [(Id, String)]
 instance ParseRecord (Command Wrapped)
 deriving instance Show (Command Unwrapped)
 
---pokeSMT :: FilePath -> IO ()
---pokeSMT file = do
-  --contents <- readFile file
-  --proceed contents (compile contents) $ \claims -> do
-    --let behaviours = [b | B b <- claims]
-    --let constructors = [c | C c <- claims]
-    --printStuff behaviours "BEHAVIOUR" mkPostconditionQueries
-    --printStuff constructors "CONSTRUCTOR" mkConstructorQueries
-  --where
-    --printStuff xs desc f = do
-      --putStrLn $ "\n===" <> desc <> "S==="
-      --forM_ ([1..] `zip` xs) $ \(ix,x) -> do
-        --putStrLn $ "\n===" <> desc <> " " <> show ix <> "==="
-        --putStrLn . show $ x
-        --putStrLn . show . f $ x
-
 main :: IO ()
 main = do
     cmd <- unwrapRecord "Act -- Smart contract specifier"
@@ -116,15 +100,24 @@ main = do
         let config = SMT.SMTConfig SMT.Z3 60 False
         contents <- readFile file'
         proceed contents (compile contents) $ \claims -> do
-          let handleRes ((Query _ _ target _), res) =
-                case res of
-                  Unsat -> putStrLn $ "postcondition " <> prettyExp target <> " holds :)"
-                  Sat -> putStrLn $ "postcondition " <> prettyExp target <> "does not hold :("
-                  SMT.Unknown -> putStrLn $ "postcondition " <> prettyExp target <> "could not be proved due to a solver timeout :("
-                  SMT.Error _ str -> putStrLn $ "postcondition " <> prettyExp target <> "could not be proved to due a solver error: " <> str
+          let
+            handleRes (query, res) = putStrLn $ debug <> msg
+              where
+                debug = if (_debug config) then (show $ getSMT query) <> "\n" else ""
+                msg = case res of
+                  Unsat -> typ <> " " <> prettyExp target <> " holds :)"
+                  Sat -> typ <> " " <> prettyExp target <> " does not hold :("
+                  SMT.Unknown -> typ <> " " <> prettyExp target <> " could not be proved due to a solver timeout :("
+                  SMT.Error _ str -> typ <> " " <> prettyExp target <> " could not be proved to due a solver error: " <> str
+                target = getTarget query
+                typ = case query of
+                  Postcondition {} -> "postcondition"
+                  Inv {} -> "invariant"
 
-          results <- mapM (runQuery config) (concatMap mkPostconditionQueries claims)
-          mapM_ handleRes results
+          pcResults <- mapM (runQuery config) (concatMap mkPostconditionQueries claims)
+          invResults <- mapM (runQuery config) (mkInvariantQueries claims)
+          mapM_ handleRes pcResults
+          mapM_ handleRes invResults
 
       (Coq f) -> do
         contents <- readFile f
