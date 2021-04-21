@@ -272,7 +272,7 @@ expToSMT2 w e = case e of
   Mul a b -> binop "*" a b
   Div a b -> binop "div" a b
   Mod a b -> binop "mod" a b
-  Exp {} -> error "Internal Error: exponentiation is not supported in smt-lib"
+  Exp a b -> expToSMT2 w (simplifyExponentiation a b)
   LitInt a -> show a
   IntVar a -> a
   IntEnv a -> prettyEnv a
@@ -324,6 +324,10 @@ expToSMT2 w e = case e of
           ExpInt ei -> expToSMT2 w ei
           ExpBool eb -> expToSMT2 w eb
           ExpBytes ebs -> expToSMT2 w ebs
+
+simplifyExponentiation :: Exp Integer -> Exp Integer -> Exp Integer
+simplifyExponentiation (LitInt a) (LitInt b) = (LitInt (a ^ b))
+simplifyExponentiation _ _ = error "Internal Error: exponentiation is unsupported in SMT lib"
 
 constant :: Id -> MType -> SMT2
 constant name tp = "(declare-const " <> name <> " " <> (sType tp) <> ")"
