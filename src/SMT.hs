@@ -16,13 +16,6 @@ import Type (defaultStore, metaType)
 import System.Process (readProcessWithExitCode)
 import System.Exit (ExitCode(..))
 
-{-
-   This module contains low level utilities for:
-    - constructing smt queries from Act expressions
-    - dispatching those queries to an smt solver
-    - getting a model for unsatisfiable queries
--}
-
 --- Data ---
 
 data Solver = Z3 | CVC4
@@ -191,13 +184,14 @@ runQuery conf q = do
 runSMT :: SMTConfig -> SMTExp -> IO SMTResult
 runSMT (SMTConfig solver timeout _) e = do
   let input = intercalate "\n" [show e, "(check-sat)"]
-  (exitCode, stdout, _) <- readProcessWithExitCode (show solver) ["-in", "-T:" <> show timeout] input
+  (exitCode, stdout, _) <- readProcessWithExitCode (show solver) ["-in", "-t:" <> show timeout] input
   pure $ case exitCode of
     ExitFailure code -> Error code stdout
     ExitSuccess -> case stdout of
                      "sat\n" -> Sat
                      "unsat\n" -> Unsat
-                     "timeout\n" -> Unknown
+                     "timeout\n" -> Unknown -- TODO: disambiguate
+                     "unknown\n" -> Unknown
                      output -> Error 0 $ "Unable to parse SMT output: " <> output
 
 

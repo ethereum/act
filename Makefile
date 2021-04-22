@@ -54,7 +54,8 @@ test-parse: parser compiler $(parser_pass:=.parse.pass) $(parser_fail:=.parse.fa
 test-type: parser compiler $(typing_pass:=.type.pass) $(typing_fail:=.type.fail)
 test-invariant: parser compiler $(invariant_pass:=.invariant.pass) $(invariant_fail:=.invariant.fail)
 test-hevm: parser compiler $(hevm_pass:=.hevm.pass) $(hevm_fail:=.hevm.fail)
-
+test-cabal: src/*.hs
+	cd src && cabal v2-run test
 
 # Just checks parsing
 tests/%.parse.pass:
@@ -91,4 +92,4 @@ tests/hevm/fail/%.act.hevm.fail:
 	./bin/act hevm --spec tests/hevm/fail/$*.act --soljson tests/hevm/fail/$*.sol.json && exit 1 || echo 0
 	rm tests/hevm/fail/$*.sol.json
 
-test: test-parse test-type test-invariant test-coq test-hevm
+test: test-parse test-type test-invariant test-coq test-hevm test-cabal

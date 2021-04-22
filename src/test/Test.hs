@@ -6,7 +6,7 @@ module Main where
 
 import EVM.ABI (AbiType(..))
 import Test.Tasty
-import Test.Tasty.QuickCheck (Gen, generate, ioProperty, arbitrary, testProperty)
+import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty)
 import Test.QuickCheck.Instances.ByteString()
 import Test.QuickCheck.GenT
 import Test.QuickCheck.Monadic
@@ -24,8 +24,7 @@ import Parse (parse)
 import Type (typecheck)
 import Print (prettyBehaviour)
 import Syntax (Interface(..), EthEnv(..), Decl(..))
-import SMT -- (asSMT, runSMT, isError, SMTConfig(..), Solver(..), SMTResult(..), When(..), SMTExp(..))
-import Extract
+import SMT
 import RefinedAst hiding (Mode)
 
 import Debug.Trace
@@ -37,30 +36,24 @@ import Data.Text.Lazy as T (unpack)
 type ExpoGen a = GenT (Reader Bool) a
 
 noExponents, withExponents :: ExpoGen a -> Gen a
-noExponents   = liftM (flip runReader False) . runGenT
-withExponents = liftM (flip runReader True)  . runGenT
+noExponents   = fmap (`runReader` False) . runGenT
+withExponents = fmap (`runReader` True)  . runGenT
 
---behaviour :: IO () -- [(Exp Bool, SMTExp)]
-behaviour = noExponents $ do
-  behv <- traceb <$> genBehv 0
-  let postcondqueries = trace' $ mkPostconditionQueries behv
-  pure postcondqueries
-  
-
+--
 -- *** Test Cases *** --
 
 main :: IO ()
 main = defaultMain $ testGroup "act"
   [ testGroup "frontend"
       {-
-         Generates a random concrete behaviour, prints it, runs it through the frontend
+         Generates a random behaviour, prints it, runs it through the frontend
          (lex -> parse -> type), and then checks that the typechecked output matches the
          generated behaviour.
-    
+
          If the generated behaviour contains some preconditions, then the structure of the
          fail spec is also checked.
       -}
-      [ testProperty "single roundtrip" . withExponents $ do
+      [ testProperty "roundtrip" . withExponents $ do
           behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
           let actual = parse (lexer $ prettyBehaviour behv) >>= typecheck
               expected = if null preconds then
@@ -74,18 +67,17 @@ main = defaultMain $ testGroup "act"
       ]
 
   , testGroup "smt"
+      -- TODO: run these queries without a (check-sat)
       [ testProperty "generated smt is well typed" . noExponents $ do
-          names <- genNames
-          actexp <- sized $ genExpBool names
-          whn <- elements [Pre, Post]
+          behv <- sized genBehv
           let smtconf = SMTConfig Z3 1 False
-              smtexp = asSMT whn actexp
-          pure . monadicIO . run $ not . isError <$> runSMT smtconf smtexp
+              smt = getSMT <$> mkPostconditionQueries (B behv)
+          pure . monadicIO . run $ and . fmap (not . isError) <$> mapM (runSMT smtconf) smt
       ]
   ]
 
 
--- ** QuickCheck Generators ** --
+-- *** QuickCheck Generators *** --
 
 
 data Mode = Concrete | Symbolic deriving (Eq, Show)
@@ -207,7 +199,7 @@ genExpInt names n = do
   expo <- lift ask
   oneof $
     (if expo
-      then ((liftM2 Exp subExpInt subExpInt):) 
+      then ((liftM2 Exp subExpInt subExpInt):)
       else id)
         [ liftM2 Add subExpInt subExpInt
         , liftM2 Sub subExpInt subExpInt
