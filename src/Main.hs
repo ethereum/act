@@ -95,7 +95,13 @@ main = do
                        Bad e -> prettyErr contents e
 
       (Prove file' solver' smttimeout' debug') -> do
-        let config = SMT.SMTConfig SMT.Z3 60000 True True
+        let
+          parseSolver s = case s of
+            Just "z3" -> SMT.Z3
+            Just "cvc4" -> SMT.CVC4
+            Nothing -> SMT.Z3
+            Just _ -> error "unrecognized solver"
+          config = SMT.SMTConfig (parseSolver solver') (fromMaybe 20000 smttimeout') debug' True
         contents <- readFile file'
         proceed contents (compile contents) $ \claims -> do
           let
