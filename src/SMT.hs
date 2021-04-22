@@ -209,7 +209,7 @@ encodeUpdate (Right update) = case update of
   BoolUpdate item e -> encode item e
   BytesUpdate item e -> encode item e
   where
-    encode item e = "(assert (= " <> nameFromItem Post item <> " " <> expToSMT2 Pre e <> "))"
+    encode item e = "(assert (= " <> expToSMT2 Pre (TEntry item) <> " " <> expToSMT2 Pre e <> "))"
 
 encodeDecl :: Decl -> SMT2
 encodeDecl (Decl typ name) = constant name (metaType typ)
