@@ -17,7 +17,6 @@ import System.IO (hPutStrLn, stderr)
 import Data.SBV hiding (preprocess)
 import Data.Text (pack, unpack)
 import Data.Maybe
-import Data.List
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
@@ -38,7 +37,6 @@ import K hiding (normalize)
 import SMT
 import Syntax
 import Type
-import Prove
 import Coq
 import HEVM
 import Print
