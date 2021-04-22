@@ -28,6 +28,7 @@ data SMTConfig = SMTConfig
   { _solver :: Solver
   , _timeout :: Integer
   , _debug :: Bool
+  , _checkSat :: Bool
   }
 
 type SMT2 = String
@@ -182,8 +183,8 @@ runQuery conf q = do
   pure (q, res)
 
 runSMT :: SMTConfig -> SMTExp -> IO SMTResult
-runSMT (SMTConfig solver timeout _) e = do
-  let input = intercalate "\n" [show e, "(check-sat)"]
+runSMT (SMTConfig solver timeout _ checkSat) e = do
+  let input = intercalate "\n" [show e, if checkSat then "(check-sat)" else ""]
   (exitCode, stdout, _) <- readProcessWithExitCode (show solver) ["-in", "-t:" <> show timeout] input
   pure $ case exitCode of
     ExitFailure code -> Error code stdout
@@ -192,6 +193,7 @@ runSMT (SMTConfig solver timeout _) e = do
                      "unsat\n" -> Unsat
                      "timeout\n" -> Unknown -- TODO: disambiguate
                      "unknown\n" -> Unknown
+                     "" -> Unknown
                      output -> Error 0 $ "Unable to parse SMT output: " <> output
 
 

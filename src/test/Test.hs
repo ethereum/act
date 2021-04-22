@@ -69,8 +69,8 @@ main = defaultMain $ testGroup "act"
   , testGroup "smt"
       -- TODO: run these queries without a (check-sat)
       [ testProperty "generated smt is well typed" . noExponents $ do
-          behv <- sized genBehv
-          let smtconf = SMTConfig Z3 1 False
+          behv <- genBehv 3
+          let smtconf = SMTConfig Z3 1 False False
               smt = getSMT <$> mkPostconditionQueries (B behv)
           pure . monadicIO . run $ and . fmap (not . isError) <$> mapM (runSMT smtconf) smt
       ]

@@ -95,7 +95,7 @@ main = do
                        Bad e -> prettyErr contents e
 
       (Prove file' solver' smttimeout' debug') -> do
-        let config = SMT.SMTConfig SMT.Z3 60000 True
+        let config = SMT.SMTConfig SMT.Z3 60000 True True
         contents <- readFile file'
         proceed contents (compile contents) $ \claims -> do
           let
