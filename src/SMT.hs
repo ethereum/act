@@ -129,8 +129,8 @@ mkInvariantQueries claims = concatMap mkQuery gathered
   where
     gathered = fmap (\inv -> (inv, definition inv, getBehaviours inv)) invariants
     invariants = [i | I i <- claims]
-    getBehaviours (Invariant c _ _) = filter (\b -> isPass b && contractMatches c b) [b | B b <- claims]
-    definition (Invariant c _ _) = head $ filter
+    getBehaviours (Invariant c _ _ _) = filter (\b -> isPass b && contractMatches c b) [b | B b <- claims]
+    definition (Invariant c _ _ _) = head $ filter
       (\b -> Pass == _cmode b && _cname b == c)
       [c' | C c' <- claims]
     contractMatches c b = c == (_contract b)
@@ -139,7 +139,7 @@ mkInvariantQueries claims = concatMap mkQuery gathered
     mkQuery (inv, constructor, behvs) = mkInit inv constructor : fmap (mkBehv inv constructor) behvs
 
 mkInit :: Invariant -> Constructor -> Query
-mkInit inv@(Invariant _ invConds invExp) constr@(Constructor _ _ (Interface _ decls) preconds _ initialStorage stateUpdates) = Inv (C constr) inv smt
+mkInit inv@(Invariant _ invConds _ invExp) constr@(Constructor _ _ (Interface _ decls) preconds _ initialStorage stateUpdates) = Inv (C constr) inv smt
   where
     localStorage = declareInitialStorage <$> initialStorage
     externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
@@ -157,7 +157,7 @@ mkInit inv@(Invariant _ invConds invExp) constr@(Constructor _ _ (Interface _ de
       }
 
 mkBehv :: Invariant -> Constructor -> Behaviour -> Query
-mkBehv inv@(Invariant _ invConds invExp) constr behv = Inv (B behv) inv smt
+mkBehv inv@(Invariant _ invConds invStorageBounds invExp) constr behv = Inv (B behv) inv smt
   where
     (Interface _ initDecls) = _cinterface constr
     (Interface _ behvDecls) = _interface behv
@@ -172,15 +172,14 @@ mkBehv inv@(Invariant _ invConds invExp) constr behv = Inv (B behv) inv smt
 
     preInv = mkAssert Pre invExp
     postInv = mkAssert Post . Neg $ invExp
-    invConds' = mkAssert Pre <$> (invConds \\ (_preconditions behv))
-    behvConds = mkAssert Pre <$> _preconditions behv
+    preConds = mkAssert Pre <$> (_preconditions behv <> invConds <> invStorageBounds)
     updates = encodeUpdate <$> (_stateUpdates behv <> (Left <$> implicitStorageLocs))
 
     smt = SMTExp
       { _storage = storage
       , _calldata = initArgs <> behvArgs
       , _environment = envs
-      , _assertions = behvConds <> invConds' <> updates <> [preInv, postInv]
+      , _assertions = preConds <> updates <> [preInv, postInv]
       }
 
 runQuery :: SMTConfig -> Query -> IO (Query, SMTResult)
@@ -325,6 +324,7 @@ expToSMT2 w e = case e of
           ExpBool eb -> expToSMT2 w eb
           ExpBytes ebs -> expToSMT2 w ebs
 
+-- TODO: support any exponentiation expression where the RHS evaluates to a concrete value
 simplifyExponentiation :: Exp Integer -> Exp Integer -> Exp Integer
 simplifyExponentiation (LitInt a) (LitInt b) = (LitInt (a ^ b))
 simplifyExponentiation _ _ = error "Internal Error: exponentiation is unsupported in SMT lib"
@@ -378,7 +378,7 @@ isError _          = False
 
 getTarget :: Query -> Exp Bool
 getTarget (Postcondition _ t _) = t
-getTarget (Inv _ (Invariant _ _ t) _) = t
+getTarget (Inv _ (Invariant _ _ _ t) _) = t
 
 getSMT :: Query -> SMTExp
 getSMT (Postcondition _ _ e) = e

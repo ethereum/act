@@ -25,7 +25,7 @@ enrich claims = [S store]
     behaviours = [b | B b <- claims]
     invariants = [i | I i <- claims]
     constructors = [c | C c <- claims]
-    definition (Invariant c _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
+    definition (Invariant c _ _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
 
 -- |Adds type bounds for calldata , environment vars, and external storage vars as preconditions
 enrichConstructor :: Store -> Constructor -> Constructor
@@ -47,15 +47,16 @@ enrichBehaviour store behv@(Behaviour _ _ _ (Interface _ decls) pre _ stateUpdat
              <> (mkStorageBounds store stateUpdates)
              <> (mkEthEnvBounds $ ethEnvFromBehaviour behv)
 
--- | Adds type bounds for calldata, environment vars, and storage vars as preconditions
+-- | Adds type bounds for calldata, environment vars, and storage vars
 enrichInvariant :: Store -> Constructor -> Invariant -> Invariant
-enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invariant _ conds predicate) =
-  inv { _ipreconditions = conds' }
+enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invariant _ preconds storagebounds predicate) =
+  inv { _ipreconditions = preconds', _istoragebounds = storagebounds' }
     where
-      conds' = conds
-               <> (mkCallDataBounds decls)
-               -- <> (mkStorageBounds store (Left <$> locsFromExp predicate)) TODO: this breaks constructor queries atm... :/
-               <> (mkEthEnvBounds $ ethEnvFromExp predicate)
+      preconds' = preconds
+                  <> (mkCallDataBounds decls)
+                  <> (mkEthEnvBounds $ ethEnvFromExp predicate)
+      storagebounds' = storagebounds
+                       <> (mkStorageBounds store (Left <$> locsFromExp predicate))
 
 mkEthEnvBounds :: [EthEnv] -> [Exp Bool]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars

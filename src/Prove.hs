@@ -73,8 +73,8 @@ queries claims = fmap mkQueries gathered
   where
     gathered = fmap (\inv -> (inv, definition inv, getBehaviours inv)) invariants
     invariants = [i | I i <- claims]
-    getBehaviours (Invariant c _ _) = filter (\b -> isPass b && contractMatches c b) [b | B b <- claims]
-    definition (Invariant c _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
+    getBehaviours (Invariant c _ _ _) = filter (\b -> isPass b && contractMatches c b) [b | B b <- claims]
+    definition (Invariant c _ _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
     contractMatches c b = c == (_contract b)
     isPass b = (_mode b) == Pass
 
@@ -117,7 +117,7 @@ mkQueries (inv, constr, behvs) = (inv, inits:methods)
     methods = mkMethod inv constr <$> behvs
 
 mkInit :: Invariant -> Constructor -> Symbolic ()
-mkInit inv@(Invariant _ invConds invExp) constr@(Constructor _ _ _ preConds postConds statedef otherstorages) = do
+mkInit inv@(Invariant _ invConds _ invExp) constr@(Constructor _ _ _ preConds postConds statedef otherstorages) = do
   ctx <- mkContext inv (Right constr)
 
   let
@@ -131,7 +131,7 @@ mkInit inv@(Invariant _ invConds invExp) constr@(Constructor _ _ _ preConds post
   constrain $ preCond' .&& sAnd stateUpdates' .&& (sNot postCond' .|| sNot postInv')
 
 mkMethod :: Invariant -> Constructor -> Behaviour -> Symbolic ()
-mkMethod inv@(Invariant _ invConds invExp) initBehv behv = do
+mkMethod inv@(Invariant _ invConds _ invExp) initBehv behv = do
   ctx@(Ctx c m _ store' env) <- mkContext inv (Left behv)
 
   let (Interface _ initdecls) = _cinterface initBehv
@@ -151,7 +151,7 @@ mkMethod inv@(Invariant _ invConds invExp) initBehv behv = do
            .&& (sNot postCond .|| sNot postInv)
 
 mkContext :: Invariant -> Either Behaviour Constructor -> Symbolic Ctx
-mkContext inv@(Invariant contract _ _) spec = do
+mkContext inv@(Invariant contract _ _ _) spec = do
   let (c1, decls, method) = either
         (\(Behaviour m _ c (Interface _ ds) _ _ _ _) -> (c,ds, m))
         (\(Constructor c _ (Interface _ ds) _ _ _ _) -> (c, ds, "init"))
@@ -169,7 +169,7 @@ mkArgs :: Contract -> Method -> [Decl] -> Symbolic (Map Id SMType)
 mkArgs c m ds = Map.fromList <$> mapM (mkSymArg c m) ds
 
 references :: Invariant -> Either Behaviour Constructor -> [StorageLocation]
-references (Invariant _ _ invExp) spec
+references (Invariant _ _ _ invExp) spec
   = nub $ (getLoc <$> updates) <> locsFromExp invExp
       where
         updates = either
