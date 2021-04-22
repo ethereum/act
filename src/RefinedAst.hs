@@ -222,6 +222,7 @@ instance ToJSON Claim where
   toJSON (I (Invariant {..})) = object [ "kind" .= (String "Invariant")
                                        , "predicate" .= toJSON _predicate
                                        , "preconditions" .= toJSON _ipreconditions
+                                       , "storagebounds" .= toJSON _istoragebounds
                                        , "contract" .= _icontract]
   toJSON (C (Constructor {..})) = object  [ "kind" .= (String "Constructor")
                                           , "contract" .= _cname

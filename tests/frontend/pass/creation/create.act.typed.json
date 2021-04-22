@@ -16,7 +16,8 @@
     "kind": "Invariant",
     "predicate": "True",
     "preconditions": [],
-    "contract": "Modest"
+    "contract": "Modest",
+    "storagebounds": []
   },
   {
     "kind": "Constructor",

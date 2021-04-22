@@ -60,7 +60,10 @@
           }
         ],
         "symbol": "and"
-      },
+      }
+    ],
+    "contract": "Token",
+    "storagebounds": [
       {
         "arity": 2,
         "args": [
@@ -89,8 +92,7 @@
         ],
         "symbol": "and"
       }
-    ],
-    "contract": "Token"
+    ]
   },
   {
     "kind": "Invariant",
@@ -126,7 +128,8 @@
         "symbol": "and"
       }
     ],
-    "contract": "Token"
+    "contract": "Token",
+    "storagebounds": []
   },
   {
     "kind": "Invariant",
@@ -162,7 +165,8 @@
         "symbol": "and"
       }
     ],
-    "contract": "Token"
+    "contract": "Token",
+    "storagebounds": []
   },
   {
     "kind": "Constructor",

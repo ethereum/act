@@ -18,13 +18,15 @@
     "kind": "Invariant",
     "predicate": "True",
     "preconditions": [],
-    "contract": "a"
+    "contract": "a",
+    "storagebounds": []
   },
   {
     "kind": "Invariant",
     "predicate": "True",
     "preconditions": [],
-    "contract": "B"
+    "contract": "B",
+    "storagebounds": []
   },
   {
     "kind": "Constructor",
