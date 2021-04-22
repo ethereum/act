@@ -147,13 +147,14 @@ mkInit inv@(Invariant _ invConds _ invExp) constr@(Constructor _ _ (Interface _ 
     envs = declareEthEnv <$> (ethEnvFromConstructor constr)
 
     pres = (mkAssert Pre <$> preconds) <> (mkAssert Pre <$> invConds)
-    updates = encodeUpdate <$> ((Right <$> initialStorage) <> stateUpdates)
+    updates = encodeUpdate <$> stateUpdates
+    initialStorage' = encodeInitialStorage <$> initialStorage
 
     smt = SMTExp
       { _storage = localStorage <> externalStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = pres <> updates <> [mkAssert Post . Neg $ invExp]
+      , _assertions = pres <> updates <> initialStorage' <> [mkAssert Post . Neg $ invExp]
       }
 
 mkBehv :: Invariant -> Constructor -> Behaviour -> Query
@@ -209,7 +210,15 @@ encodeUpdate (Right update) = case update of
   BoolUpdate item e -> encode item e
   BytesUpdate item e -> encode item e
   where
-    encode item e = "(assert (= " <> expToSMT2 Pre (TEntry item) <> " " <> expToSMT2 Pre e <> "))"
+    encode item e = "(assert (= " <> expToSMT2 Post (TEntry item) <> " " <> expToSMT2 Pre e <> "))"
+
+encodeInitialStorage :: StorageUpdate -> SMT2
+encodeInitialStorage update = case update of
+  IntUpdate item e -> encode item e
+  BoolUpdate item e -> encode item e
+  BytesUpdate item e -> encode item e
+  where
+    encode item e = "(assert (= " <> expToSMT2 Post (TEntry item) <> " " <> expToSMT2 Post e <> "))"
 
 encodeDecl :: Decl -> SMT2
 encodeDecl (Decl typ name) = constant name (metaType typ)
