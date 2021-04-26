@@ -19,6 +19,7 @@ import System.Exit (ExitCode(..))
 --- Data ---
 
 data Solver = Z3 | CVC4
+  deriving Eq
 
 instance Show Solver where
   show Z3 = "z3"
@@ -185,17 +186,24 @@ runQuery conf q = do
 runSMT :: SMTConfig -> SMTExp -> IO SMTResult
 runSMT (SMTConfig solver timeout _ checkSat) e = do
   let input = intercalate "\n" [show e, if checkSat then "(check-sat)" else ""]
-  (exitCode, stdout, _) <- readProcessWithExitCode (show solver) ["-in", "-t:" <> show timeout] input
+      args = case solver of
+               Z3 -> ["-in", "-t:" <> show timeout]
+               CVC4 -> ["--lang=smt", "--interactive", "--no-interactive-prompt", "--tlimit-per=" <> show timeout]
+  (exitCode, stdout, _) <- readProcessWithExitCode (show solver) args input
+
+  let output = filter (/= "") . lines $ stdout
+      containsErrors = any (isPrefixOf "(error") output
   pure $ case exitCode of
     ExitFailure code -> Error code stdout
-    ExitSuccess -> case stdout of
-                     "sat\n" -> Sat
-                     "unsat\n" -> Unsat
-                     "timeout\n" -> Unknown -- TODO: disambiguate
-                     "unknown\n" -> Unknown
-                     "" -> Unknown
-                     output -> Error 0 $ "Unable to parse SMT output: " <> output
-
+    ExitSuccess -> if containsErrors
+                      then Error 0 stdout -- cvc4 returns exit code zero even if there are smt errors present... :/
+                      else case last output of
+                             "sat" -> Sat
+                             "unsat" -> Unsat
+                             "timeout" -> Unknown -- TODO: disambiguate
+                             "unknown" -> Unknown
+                             "" -> Unknown
+                             _ -> Error 0 $ "Unable to parse SMT output: " <> stdout
 
 --- SMT2 generation ---
 
@@ -277,12 +285,12 @@ expToSMT2 w e = case e of
   Div a b -> binop "div" a b
   Mod a b -> binop "mod" a b
   Exp a b -> expToSMT2 w (simplifyExponentiation a b)
-  LitInt a -> show a
+  LitInt a -> if a > 0 then show a else "(- " <> (show . negate $ a) <> ")"
   IntVar a -> a
   IntEnv a -> prettyEnv a
 
   -- bounds
-  IntMin a -> show $ intmin a
+  IntMin a -> expToSMT2 w (LitInt $ intmin a)
   IntMax a -> show $ intmax a
   UIntMin a -> show $ uintmin a
   UIntMax a -> show $ uintmax a
