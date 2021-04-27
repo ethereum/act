@@ -1,11 +1,12 @@
 {-# LANGUAGE GADTs #-}
 
-module SMT where -- (mkPostC runSMT, asSMT, expToSMT2, mkSMT, isError, SMTConfig(..), SMTResult(..), Solver(..), When(..), SMTExp(..)) where
+module SMT (Solver(..), SMTConfig(..), Query(..), SMTResult(..), runSMT, runQuery, mkPostconditionQueries, mkInvariantQueries, getTarget, getSMT) where
 
 import Data.Map (Map)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Maybe
 import Data.List
+import Data.Containers.ListUtils (nubOrd)
 
 import RefinedAst
 import Extract
@@ -50,14 +51,13 @@ data SMTExp = SMTExp
   , _assertions :: [SMT2]
   }
 
--- TODO: can we get rid of these nubs? or at least use something non quadratic....
 instance Show SMTExp where
   show e = intercalate "\n" ["", storage, "", calldata, "", environment, "", assertions, ""]
     where
-      storage = ";STORAGE:\n" <> intercalate "\n" (nub $ _storage e)
-      calldata = ";CALLDATA:\n" <> intercalate "\n" (nub $ _calldata e)
-      environment = ";ENVIRONMENT:\n" <> intercalate "\n" (nub $ _environment e)
-      assertions = ";ASSERTIONS:\n" <> intercalate "\n" (nub $ _assertions e)
+      storage = ";STORAGE:\n" <> intercalate "\n" (nubOrd $ _storage e)
+      calldata = ";CALLDATA:\n" <> intercalate "\n" (nubOrd $ _calldata e)
+      environment = ";ENVIRONMENT:\n" <> intercalate "\n" (nubOrd $ _environment e)
+      assertions = ";ASSERTIONS:\n" <> intercalate "\n" (nubOrd $ _assertions e)
 
 -- A Query is a structured representation of an SMT query for an individual
 -- expression, along with the metadata needed to pretty print the result
@@ -82,11 +82,16 @@ data Model = Model
 
 --- External Interface ---
 
+-- | For each postcondition in the claim we construct a query that:
+--    - Asserts that the preconditions hold
+--    - Asserts that storage has been updated according to the rewrites in the behaviour
+--    - Asserts that the postcondition cannot be reached
+--   If this query is unsatisfiable, then there exists no case where the postcondition can be violated.
 mkPostconditionQueries :: Claim -> [Query]
 mkPostconditionQueries (B behv@(Behaviour _ _ _ (Interface _ decls) preconds postconds stateUpdates _)) = mkQuery <$> postconds
   where
     storage = concatMap (declareStorageLocation . getLoc) stateUpdates
-    args = encodeDecl <$> decls
+    args = declareArg <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
 
     pres = mkAssert Pre <$> preconds
@@ -103,21 +108,40 @@ mkPostconditionQueries (C constructor@(Constructor _ _ (Interface _ decls) preco
   where
     localStorage = declareInitialStorage <$> initialStorage
     externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
-    args = encodeDecl <$> decls
+    args = declareArg <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
 
     pres = mkAssert Pre <$> preconds
-    updates = encodeUpdate <$> ((Right <$> initialStorage) <> stateUpdates)
+    updates = encodeUpdate <$> stateUpdates
+    initialStorage' = encodeInitialStorage <$> initialStorage
 
     mksmt e = SMTExp
       { _storage = localStorage <> externalStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = pres <> updates <> [mkAssert Pre . Neg $ e]
+      , _assertions = pres <> updates <> initialStorage' <> [mkAssert Pre . Neg $ e]
       }
     mkQuery e = Postcondition (C constructor) e (mksmt e)
 mkPostconditionQueries _ = []
 
+-- | For each invariant in the list of input claims, we first gather all the
+--   specs relevant to that invariant (i.e. the constructor for that contract,
+--   and all passing behaviours for that contract).
+--
+--   For the constructor we build a query that:
+--     - Asserts that all preconditions hold
+--     - Asserts that external storage has been updated according to the spec
+--     - Asserts that internal storage values have the value given in the creates block
+--     - Asserts that the invariant does not hold over the poststate
+--
+--   For the behaviours, we build a query that:
+--     - Asserts that the invariant holds over the prestate
+--     - Asserts that all preconditions hold
+--     - Asserts that external storage has been updated according to the spec
+--     - Asserts that internal storage values have the value given in the creates block
+--     - Asserts that the invariant does not hold over the poststate
+--
+--  If all of the queries return `unsat` then we have an inductive proof that the invariant holds for all possible contract states.
 mkInvariantQueries :: [Claim] -> [Query]
 mkInvariantQueries claims = concatMap mkQuery gathered
   where
@@ -137,7 +161,7 @@ mkInvariantQueries claims = concatMap mkQuery gathered
       where
         localStorage = declareInitialStorage <$> initialStorage
         externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
-        args = encodeDecl <$> decls
+        args = declareArg <$> decls
         envs = declareEthEnv <$> (ethEnvFromConstructor constr)
 
         pres = (mkAssert Pre <$> preconds) <> (mkAssert Pre <$> invConds)
@@ -161,8 +185,8 @@ mkInvariantQueries claims = concatMap mkQuery gathered
         implicitStorageLocs = locsFromExp invExp \\ (getLoc <$> _stateUpdates behv)
 
         storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv) <> (concatMap declareStorageLocation implicitStorageLocs)
-        initArgs = encodeDecl <$> initDecls
-        behvArgs = encodeDecl <$> behvDecls
+        initArgs = declareArg <$> initDecls
+        behvArgs = declareArg <$> behvDecls
         envs = declareEthEnv <$> (ethEnvFromBehaviour behv <> ethEnvFromConstructor constr)
 
         preInv = mkAssert Pre invExp
@@ -207,6 +231,7 @@ runSMT (SMTConfig solver timeout _) e = do
 
 --- SMT2 generation ---
 
+-- | encodes a storge update rewrite as an smt assertion
 encodeUpdate :: Either StorageLocation StorageUpdate -> SMT2
 encodeUpdate (Left loc) = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
 encodeUpdate (Right update) = case update of
@@ -216,6 +241,7 @@ encodeUpdate (Right update) = case update of
   where
     encode item e = "(assert (= " <> expToSMT2 Post (TEntry item) <> " " <> expToSMT2 Pre e <> "))"
 
+-- | encodes a storage update from a constructor creates block as an smt assertion
 encodeInitialStorage :: StorageUpdate -> SMT2
 encodeInitialStorage update = case update of
   IntUpdate item e -> encode item e
@@ -224,14 +250,14 @@ encodeInitialStorage update = case update of
   where
     encode item e = "(assert (= " <> expToSMT2 Post (TEntry item) <> " " <> expToSMT2 Post e <> "))"
 
-encodeDecl :: Decl -> SMT2
-encodeDecl (Decl typ name) = constant name (metaType typ)
+declareArg :: Decl -> SMT2
+declareArg (Decl typ name) = constant name (metaType typ)
 
 declareEthEnv :: EthEnv -> SMT2
 declareEthEnv env = constant (prettyEnv env) tp
   where tp = fromJust . lookup env $ defaultStore
 
--- declares a storage location that is created by the constructor, these locations have no prestate, so we declare a post var only
+-- | declares a storage location that is created by the constructor, these locations have no prestate, so we declare a post var only
 declareInitialStorage :: StorageUpdate -> SMT2
 declareInitialStorage update = case getLoc . Right $ update of
   IntLoc item -> case item of
@@ -339,7 +365,8 @@ expToSMT2 w e = case e of
       where
         inner = "(" <> "select" <> " " <> name <> " " <> returnExpToSMT2 w hd <> ")"
 
--- TODO: support any exponentiation expression where the RHS evaluates to a concrete value
+-- | SMT2 has no support for exponentiation, but we can do some preprocessing if the RHS is concrete to provide some limited support for exponentiation
+--   TODO: support any exponentiation expression where the RHS evaluates to a concrete value
 simplifyExponentiation :: Exp Integer -> Exp Integer -> Exp Integer
 simplifyExponentiation (LitInt a) (LitInt b) = (LitInt (a ^ b))
 simplifyExponentiation _ _ = error "Internal Error: exponentiation is unsupported in SMT lib"
@@ -387,10 +414,6 @@ nameFromLoc when loc = case loc of
 x @@ y = x <> "_" <> y
 
 --- Util ---
-
-isError :: SMTResult -> Bool
-isError (Error {}) = True
-isError _          = False
 
 getTarget :: Query -> Exp Bool
 getTarget (Postcondition _ t _) = t

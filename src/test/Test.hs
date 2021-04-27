@@ -83,7 +83,7 @@ typeCheckSMT solver = do
     where
       parseOutput (exitCode, stdout, _) = case exitCode of
         ExitFailure _ -> False
-        ExitSuccess -> any (isPrefixOf "(error") . filter (/= "") . lines $ stdout
+        ExitSuccess -> not . any (isPrefixOf "(error") . filter (/= "") . lines $ stdout
 
 
 -- *** QuickCheck Generators *** --
