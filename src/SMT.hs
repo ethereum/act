@@ -29,7 +29,6 @@ data SMTConfig = SMTConfig
   { _solver :: Solver
   , _timeout :: Integer
   , _debug :: Bool
-  , _checkSat :: Bool
   }
 
 type SMT2 = String
@@ -180,30 +179,31 @@ mkInvariantQueries claims = concatMap mkQuery gathered
 
 runQuery :: SMTConfig -> Query -> IO (Query, SMTResult)
 runQuery conf q = do
-  res <- runSMT conf (getSMT q)
-  pure (q, res)
-
-runSMT :: SMTConfig -> SMTExp -> IO SMTResult
-runSMT (SMTConfig solver timeout _ checkSat) e = do
-  let input = intercalate "\n" [show e, if checkSat then "(check-sat)" else ""]
-      args = case solver of
-               Z3 -> ["-in", "-t:" <> show timeout]
-               CVC4 -> ["--lang=smt", "--interactive", "--no-interactive-prompt", "--tlimit-per=" <> show timeout]
-  (exitCode, stdout, _) <- readProcessWithExitCode (show solver) args input
-
+  (exitCode, stdout, _) <- runSMT conf ((show . getSMT $ q) <> "\n(check-sat)")
   let output = filter (/= "") . lines $ stdout
       containsErrors = any (isPrefixOf "(error") output
-  pure $ case exitCode of
-    ExitFailure code -> Error code stdout
-    ExitSuccess -> if containsErrors
-                      then Error 0 stdout -- cvc4 returns exit code zero even if there are smt errors present... :/
-                      else case last output of
-                             "sat" -> Sat
-                             "unsat" -> Unsat
-                             "timeout" -> Unknown -- TODO: disambiguate
-                             "unknown" -> Unknown
-                             "" -> Unknown
-                             _ -> Error 0 $ "Unable to parse SMT output: " <> stdout
+      res = case exitCode of
+        ExitFailure code -> Error code stdout
+        ExitSuccess -> if containsErrors
+                          then Error 0 stdout -- cvc4 returns exit code zero even if there are smt errors present... :/
+                          else case output of
+                                 [] -> Unknown
+                                 l -> case last l of
+                                   "sat" -> Sat
+                                   "unsat" -> Unsat
+                                   "timeout" -> Unknown -- TODO: disambiguate
+                                   "unknown" -> Unknown
+                                   _ -> Error 0 $ "Unable to parse SMT output: " <> stdout
+  pure (q, res)
+
+runSMT :: SMTConfig -> SMT2 -> IO (ExitCode, String, String)
+runSMT (SMTConfig solver timeout _) e = do
+  let input = intercalate "\n" ["(set-logic ALL)", e]
+      args = case solver of
+               Z3 -> ["-in", "-t:" <> show timeout]
+               CVC4 -> ["--lang=smt", "--interactive", "--no-interactive-prompt", "--tlimit=" <> show timeout]
+  readProcessWithExitCode (show solver) args input
+
 
 --- SMT2 generation ---
 

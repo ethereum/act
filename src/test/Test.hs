@@ -6,7 +6,7 @@ module Main where
 
 import EVM.ABI (AbiType(..))
 import Test.Tasty
-import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty)
+import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property)
 import Test.QuickCheck.Instances.ByteString()
 import Test.QuickCheck.GenT
 import Test.QuickCheck.Monadic
@@ -14,7 +14,9 @@ import Test.QuickCheck.Monadic
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Reader
+import Data.List
 import Data.ByteString (ByteString)
+import System.Exit (ExitCode(..))
 import qualified Data.Set as Set
 import qualified Data.Map as Map (empty)
 
@@ -67,14 +69,21 @@ main = defaultMain $ testGroup "act"
       ]
 
   , testGroup "smt"
-      -- TODO: run these queries without a (check-sat)
-      [ testProperty "generated smt is well typed" . noExponents $ do
-          behv <- genBehv 3
-          let smtconf = SMTConfig Z3 1 False False
-              smt = getSMT <$> mkPostconditionQueries (B behv)
-          pure . monadicIO . run $ and . fmap (not . isError) <$> mapM (runSMT smtconf) smt
+      [ testProperty "generated smt is well typed (z3)" . noExponents $ typeCheckSMT Z3
+      , testProperty "generated smt is well typed (cvc4)" . noExponents $ typeCheckSMT CVC4
       ]
   ]
+
+typeCheckSMT :: Solver -> GenT (Reader Bool) Property
+typeCheckSMT solver = do
+  behv <- genBehv 3
+  let smtconf = SMTConfig solver 1 False
+      smt = show . getSMT <$> mkPostconditionQueries (B behv)
+  pure . monadicIO . run $ and . fmap parseOutput <$> mapM (runSMT smtconf) smt
+    where
+      parseOutput (exitCode, stdout, _) = case exitCode of
+        ExitFailure _ -> False
+        ExitSuccess -> any (isPrefixOf "(error") . filter (/= "") . lines $ stdout
 
 
 -- *** QuickCheck Generators *** --

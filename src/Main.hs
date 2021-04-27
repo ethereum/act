@@ -101,7 +101,7 @@ main = do
             Just "cvc4" -> SMT.CVC4
             Nothing -> SMT.Z3
             Just _ -> error "unrecognized solver"
-          config = SMT.SMTConfig (parseSolver solver') (fromMaybe 20000 smttimeout') debug' True
+          config = SMT.SMTConfig (parseSolver solver') (fromMaybe 20000 smttimeout') debug'
         contents <- readFile file'
         proceed contents (compile contents) $ \claims -> do
           let
@@ -169,20 +169,6 @@ main = do
           unless (and passes) exitFailure
 
 -- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
-satWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic () -> IO SatResult
-satWithTimeOut solver' maybeTimeout debug' sym = case solver' of
-  Just "cvc4" -> do
-    setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --interactive --incremental --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
-    res <- satWith cvc4{verbose=debug'} sym
-    setEnv "SBV_CVC4_OPTIONS" ""
-    return res
-  Just "z3" -> runwithz3
-  Nothing -> runwithz3
-  _ -> error "Unknown solver. Currently supported solvers; z3, cvc4"
-  where timeout = fromMaybe 20000 maybeTimeout
-        runwithz3 = satWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
-
--- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
 runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic a -> IO a
 runSMTWithTimeOut solver' maybeTimeout debug' sym
   | solver' == Just "cvc4" = do
@@ -191,7 +177,7 @@ runSMTWithTimeOut solver' maybeTimeout debug' sym
       setEnv "SBV_CVC4_OPTIONS" ""
       return res
   | solver' == Just "z3" = runwithz3
-  | solver' == Nothing = runwithz3
+  | isNothing solver' = runwithz3
   | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
  where timeout = fromMaybe 20000 maybeTimeout
        runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
