@@ -133,50 +133,50 @@ mkInvariantQueries claims = concatMap mkQuery gathered
 
     mkQuery (inv, constructor, behvs) = mkInit inv constructor : fmap (mkBehv inv constructor) behvs
 
-mkInit :: Invariant -> Constructor -> Query
-mkInit inv@(Invariant _ invConds _ invExp) constr@(Constructor _ _ (Interface _ decls) preconds _ initialStorage stateUpdates) = Inv (C constr) inv smt
-  where
-    localStorage = declareInitialStorage <$> initialStorage
-    externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
-    args = encodeDecl <$> decls
-    envs = declareEthEnv <$> (ethEnvFromConstructor constr)
+    mkInit :: Invariant -> Constructor -> Query
+    mkInit inv@(Invariant _ invConds _ invExp) constr@(Constructor _ _ (Interface _ decls) preconds _ initialStorage stateUpdates) = Inv (C constr) inv smt
+      where
+        localStorage = declareInitialStorage <$> initialStorage
+        externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
+        args = encodeDecl <$> decls
+        envs = declareEthEnv <$> (ethEnvFromConstructor constr)
 
-    pres = (mkAssert Pre <$> preconds) <> (mkAssert Pre <$> invConds)
-    updates = encodeUpdate <$> stateUpdates
-    initialStorage' = encodeInitialStorage <$> initialStorage
+        pres = (mkAssert Pre <$> preconds) <> (mkAssert Pre <$> invConds)
+        updates = encodeUpdate <$> stateUpdates
+        initialStorage' = encodeInitialStorage <$> initialStorage
 
-    smt = SMTExp
-      { _storage = localStorage <> externalStorage
-      , _calldata = args
-      , _environment = envs
-      , _assertions = pres <> updates <> initialStorage' <> [mkAssert Post . Neg $ invExp]
-      }
+        smt = SMTExp
+          { _storage = localStorage <> externalStorage
+          , _calldata = args
+          , _environment = envs
+          , _assertions = pres <> updates <> initialStorage' <> [mkAssert Post . Neg $ invExp]
+          }
 
-mkBehv :: Invariant -> Constructor -> Behaviour -> Query
-mkBehv inv@(Invariant _ invConds invStorageBounds invExp) constr behv = Inv (B behv) inv smt
-  where
-    (Interface _ initDecls) = _cinterface constr
-    (Interface _ behvDecls) = _interface behv
+    mkBehv :: Invariant -> Constructor -> Behaviour -> Query
+    mkBehv inv@(Invariant _ invConds invStorageBounds invExp) constr behv = Inv (B behv) inv smt
+      where
+        (Interface _ initDecls) = _cinterface constr
+        (Interface _ behvDecls) = _interface behv
 
-    -- storage locs mentioned in the invariant but not in the behaviour
-    implicitStorageLocs = locsFromExp invExp \\ (getLoc <$> _stateUpdates behv)
+        -- storage locs mentioned in the invariant but not in the behaviour
+        implicitStorageLocs = locsFromExp invExp \\ (getLoc <$> _stateUpdates behv)
 
-    storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv) <> (concatMap declareStorageLocation implicitStorageLocs)
-    initArgs = encodeDecl <$> initDecls
-    behvArgs = encodeDecl <$> behvDecls
-    envs = declareEthEnv <$> (ethEnvFromBehaviour behv <> ethEnvFromConstructor constr)
+        storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv) <> (concatMap declareStorageLocation implicitStorageLocs)
+        initArgs = encodeDecl <$> initDecls
+        behvArgs = encodeDecl <$> behvDecls
+        envs = declareEthEnv <$> (ethEnvFromBehaviour behv <> ethEnvFromConstructor constr)
 
-    preInv = mkAssert Pre invExp
-    postInv = mkAssert Post . Neg $ invExp
-    preConds = mkAssert Pre <$> (_preconditions behv <> invConds <> invStorageBounds)
-    updates = encodeUpdate <$> (_stateUpdates behv <> (Left <$> implicitStorageLocs))
+        preInv = mkAssert Pre invExp
+        postInv = mkAssert Post . Neg $ invExp
+        preConds = mkAssert Pre <$> (_preconditions behv <> invConds <> invStorageBounds)
+        updates = encodeUpdate <$> (_stateUpdates behv <> (Left <$> implicitStorageLocs))
 
-    smt = SMTExp
-      { _storage = storage
-      , _calldata = initArgs <> behvArgs
-      , _environment = envs
-      , _assertions = preConds <> updates <> [preInv, postInv]
-      }
+        smt = SMTExp
+          { _storage = storage
+          , _calldata = initArgs <> behvArgs
+          , _environment = envs
+          , _assertions = preConds <> updates <> [preInv, postInv]
+          }
 
 runQuery :: SMTConfig -> Query -> IO (Query, SMTResult)
 runQuery conf q = do
@@ -263,6 +263,12 @@ declareStorageLocation loc = case loc of
     mkdirect item tp = [constant (nameFromItem Pre item) tp, constant (nameFromItem Post item) tp]
     mkarray item ixs tp = [array (nameFromItem Pre item) ixs tp, array (nameFromItem Post item) ixs tp]
 
+returnExpToSMT2 :: When -> ReturnExp -> SMT2
+returnExpToSMT2 w e = case e of
+  ExpInt ei -> expToSMT2 w ei
+  ExpBool eb -> expToSMT2 w eb
+  ExpBytes ebs -> expToSMT2 w ebs
+
 expToSMT2 :: When -> Exp a -> SMT2
 expToSMT2 w e = case e of
 
@@ -285,7 +291,7 @@ expToSMT2 w e = case e of
   Div a b -> binop "div" a b
   Mod a b -> binop "mod" a b
   Exp a b -> expToSMT2 w (simplifyExponentiation a b)
-  LitInt a -> if a > 0 then show a else "(- " <> (show . negate $ a) <> ")"
+  LitInt a -> if a > 0 then show a else "(- " <> (show . negate $ a) <> ")" -- cvc4 does not accept negative integer literals...
   IntVar a -> a
   IntEnv a -> prettyEnv a
 
@@ -329,13 +335,9 @@ expToSMT2 w e = case e of
     triop op a b c = "(" <> op <> " " <> expToSMT2 w a <> " " <> expToSMT2 w b <> " " <> expToSMT2 w c <> ")"
 
     select :: String -> NonEmpty ReturnExp -> SMT2
-    select name ixs = "(" <> "select" <> " " <> name <> foldMap ((" " <>) . ixsToSMT2) ixs <> ")"
+    select name (hd :| tl) = foldl' (\smt ix -> "(select " <> smt <> " " <> returnExpToSMT2 w ix <> ")") inner tl
       where
-        ixsToSMT2 :: ReturnExp -> SMT2
-        ixsToSMT2 e' = case e' of
-          ExpInt ei -> expToSMT2 w ei
-          ExpBool eb -> expToSMT2 w eb
-          ExpBytes ebs -> expToSMT2 w ebs
+        inner = "(" <> "select" <> " " <> name <> " " <> returnExpToSMT2 w hd <> ")"
 
 -- TODO: support any exponentiation expression where the RHS evaluates to a concrete value
 simplifyExponentiation :: Exp Integer -> Exp Integer -> Exp Integer
@@ -349,9 +351,10 @@ mkAssert :: When -> Exp Bool -> SMT2
 mkAssert w e = "(assert " <> expToSMT2 w e <> ")"
 
 array :: Id -> NonEmpty ReturnExp -> MType -> SMT2
-array name ixs ret = "(declare-const " <> name <> " " <> arrayDecl <> ")"
+array name (hd :| tl) ret = "(declare-const " <> name <> " (Array " <> sType' hd <> " " <> valueDecl tl <> "))"
   where
-    arrayDecl = "(Array" <> foldMap ((" " <>) . sType') ixs <> " " <> sType ret <> ")"
+    valueDecl [] = sType ret
+    valueDecl (h : t) = "(Array " <> sType' h <> " " <> valueDecl t <> ")"
 
 sType :: MType -> SMT2
 sType Integer = "Int"
