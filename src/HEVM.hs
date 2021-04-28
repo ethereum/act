@@ -486,5 +486,4 @@ catBytes :: Map Id SMType -> Map Id (SBV String)
 catBytes m = Map.fromList [(name, i) | (name, SymBytes i) <- Map.toList m]
 
 concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
-concatMapM op' = foldr f (pure [])
-    where f x xs = do x' <- op' x; if null x' then xs else do xs' <- xs; pure $ x'++xs'
+concatMapM f xs = liftM concat (mapM f xs)
