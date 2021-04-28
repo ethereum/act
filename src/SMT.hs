@@ -188,6 +188,7 @@ mkInvariantQueries claims = concatMap mkQueries gathered
         -- declare vars
         invLocs = concatMap declareStorageLocation (locsFromExp invExp)
         behvLocs = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv)
+        -- TODO: handle args with the same name...
         initArgs = declareArg <$> initDecls
         behvArgs = declareArg <$> behvDecls
         invEnv = declareEthEnv <$> (ethEnvFromExp invExp)
@@ -231,7 +232,7 @@ runSMT (SMTConfig solver timeout _) e = do
   let input = intercalate "\n" ["(set-logic ALL)", e]
       args = case solver of
                Z3 ->
-                 [ "-interactive"
+                 [ "-in"
                  , "-t:" <> show timeout]
                CVC4 ->
                  [ "--lang=smt"
