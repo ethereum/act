@@ -17,7 +17,9 @@ import Type (defaultStore, metaType)
 import System.Process (readProcessWithExitCode)
 import System.Exit (ExitCode(..))
 
---- Data ---
+
+--- ** Data ** ---
+
 
 data Solver = Z3 | CVC4
   deriving Eq
@@ -80,7 +82,9 @@ data Model = Model
   }
   deriving (Show)
 
---- External Interface ---
+
+--- ** Analysis Passes ** ---
+
 
 -- | For each postcondition in the claim we construct a query that:
 --    - Asserts that the preconditions hold
@@ -208,6 +212,10 @@ mkInvariantQueries claims = concatMap mkQueries gathered
           , _assertions = preConds <> updates <> [preInv, postInv]
           }
 
+
+--- ** Solver Interaction ** ---
+
+
 runQuery :: SMTConfig -> Query -> IO (Query, SMTResult)
 runQuery conf q = do
   (exitCode, stdout, _) <- runSMT conf ((show . getSMT $ q) <> "\n(check-sat)")
@@ -243,7 +251,8 @@ runSMT (SMTConfig solver timeout _) e = do
   readProcessWithExitCode (show solver) args input
 
 
---- SMT2 generation ---
+--- ** SMT2 generation ** ---
+
 
 -- | encodes a storage update from a constructor creates block as an smt assertion
 encodeInitialStorage :: StorageUpdate -> SMT2
@@ -415,7 +424,9 @@ sType' (ExpInt {}) = "Int"
 sType' (ExpBool {}) = "Bool"
 sType' (ExpBytes {}) = "String"
 
---- Variable Names ---
+
+--- ** Variable Names ** ---
+
 
 nameFromItem :: When -> TStorageItem a -> Id
 nameFromItem when item = case item of
@@ -435,7 +446,9 @@ nameFromLoc when loc = case loc of
 (@@) :: String -> String -> String
 x @@ y = x <> "_" <> y
 
---- Util ---
+
+--- ** Util ** ---
+
 
 getTarget :: Query -> Exp Bool
 getTarget (Postcondition _ t _) = t
