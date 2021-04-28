@@ -49,7 +49,7 @@ instance Show When where
 
 -- | An SMTExp is a structured representation of an SMT Expression
 --   The _storage, _calldata, and _environment fields hold variable declarations
---   The assertions field holds the various constraints that should be satisfied
+--   The _assertions field holds the various constraints that should be satisfied
 data SMTExp = SMTExp
   { _storage :: [SMT2]
   , _calldata :: [SMT2]
@@ -61,7 +61,7 @@ instance Show SMTExp where
   show e = unlines [storage, calldata, environment, assertions]
     where
       storage = unlines $ ";STORAGE:" : (nubOrd $ _storage e)
-      calldata = unlines $ ";CALLDATA" : (nubOrd $ _calldata e)
+      calldata = unlines $ ";CALLDATA:" : (nubOrd $ _calldata e)
       environment = unlines $ ";ENVIRONMENT:" : (nubOrd $ _environment e)
       assertions = unlines $ ";ASSERTIONS:" : (nubOrd $ _assertions e)
 
