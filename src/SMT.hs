@@ -193,7 +193,7 @@ mkInvariantQueries claims = concatMap mkQueries gathered
         behvArgs = declareArg <$> behvDecls
         -- storage locs mentioned in the invariant but not in the behaviour
         implicitStorageLocs = Left <$> (locsFromExp invExp \\ (getLoc <$> _stateUpdates behv))
-        storage = concatMap (declareStorageLocation . getLoc) ((_stateUpdates behv) <> implicitStorageLocs)
+        storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv <> implicitStorageLocs)
 
         -- constraints
         preInv = mkAssert Pre invExp
@@ -390,7 +390,7 @@ expToSMT2 w e = case e of
 --   if the RHS is concrete to provide some limited support for exponentiation
 --   TODO: support any exponentiation expression where the RHS evaluates to a concrete value
 simplifyExponentiation :: Exp Integer -> Exp Integer -> Exp Integer
-simplifyExponentiation (LitInt a) (LitInt b) = (LitInt (a ^ b))
+simplifyExponentiation (LitInt a) (LitInt b) = LitInt (a ^ b)
 simplifyExponentiation _ _ = error "Internal Error: exponentiation is unsupported in SMT lib"
 
 constant :: Id -> MType -> SMT2

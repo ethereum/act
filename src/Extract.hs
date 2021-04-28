@@ -44,10 +44,10 @@ locsFromExp e = case e of
   IntVar _  -> []
   LitBool _ -> []
   BoolVar _ -> []
-  NewAddr a b -> (locsFromExp a) <> (locsFromExp b)
+  NewAddr a b -> locsFromExp a <> locsFromExp b
   IntEnv _ -> []
   ByEnv _ -> []
-  ITE x y z -> (locsFromExp x) <> (locsFromExp y) <> (locsFromExp z)
+  ITE x y z -> locsFromExp x <> locsFromExp y <> locsFromExp z
   TEntry a -> case a of
     DirectInt contract name -> [IntLoc $ DirectInt contract name]
     DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]

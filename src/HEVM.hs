@@ -316,13 +316,13 @@ symExp ctx whn ret = case ret of
 
 symExpBool :: Ctx -> When -> Exp Bool -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) w e = case e of
-  And a b   -> (symExpBool ctx w a) .&& (symExpBool ctx w b)
-  Or a b    -> (symExpBool ctx w a) .|| (symExpBool ctx w b)
-  Impl a b  -> (symExpBool ctx w a) .=> (symExpBool ctx w b)
-  LE a b    -> (symExpInt ctx w a) .< (symExpInt ctx w b)
-  LEQ a b   -> (symExpInt ctx w a) .<= (symExpInt ctx w b)
-  GE a b    -> (symExpInt ctx w a) .> (symExpInt ctx w b)
-  GEQ a b   -> (symExpInt ctx w a) .>= (symExpInt ctx w b)
+  And a b   -> symExpBool ctx w a .&& symExpBool ctx w b
+  Or a b    -> symExpBool ctx w a .|| (symExpBool ctx w b
+  Impl a b  -> symExpBool ctx w a .=> symExpBool ctx w b
+  LE a b    -> symExpInt ctx w a .< symExpInt ctx w b
+  LEQ a b   -> symExpInt ctx w a .<= symExpInt ctx w b
+  GE a b    -> symExpInt ctx w a .> symExpInt ctx w b
+  GEQ a b   -> symExpInt ctx w a .>= symExpInt ctx w b
   NEq a b   -> sNot (symExpBool ctx w (Eq a b))
   Neg a     -> sNot (symExpBool ctx w a)
   LitBool a -> literal a
@@ -342,12 +342,12 @@ symExpBool ctx@(Ctx c m args store _) w e = case e of
 
 symExpInt :: Ctx -> When -> Exp Integer -> SBV Integer
 symExpInt ctx@(Ctx c m args store environment) w e = case e of
-  Add a b   -> (symExpInt ctx w a) + (symExpInt ctx w b)
-  Sub a b   -> (symExpInt ctx w a) - (symExpInt ctx w b)
-  Mul a b   -> (symExpInt ctx w a) * (symExpInt ctx w b)
-  Div a b   -> (symExpInt ctx w a) `sDiv` (symExpInt ctx w b)
-  Mod a b   -> (symExpInt ctx w a) `sMod` (symExpInt ctx w b)
-  Exp a b   -> (symExpInt ctx w a) .^ (symExpInt ctx w b)
+  Add a b   -> symExpInt ctx w a + symExpInt ctx w b
+  Sub a b   -> symExpInt ctx w a - symExpInt ctx w b
+  Mul a b   -> symExpInt ctx w a * symExpInt ctx w b
+  Div a b   -> symExpInt ctx w a `sDiv` symExpInt ctx w b
+  Mod a b   -> symExpInt ctx w a `sMod` symExpInt ctx w b
+  Exp a b   -> symExpInt ctx w a .^ symExpInt ctx w b
   LitInt a  -> literal a
   IntMin a  -> literal $ intmin a
   IntMax a  -> literal $ intmax a
@@ -364,7 +364,7 @@ symExpInt ctx@(Ctx c m args store environment) w e = case e of
 
 symExpBytes :: Ctx -> When -> Exp ByteString -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) w e = case e of
-  Cat a b -> (symExpBytes ctx w a) .++ (symExpBytes ctx w b)
+  Cat a b -> symExpBytes ctx w a .++ symExpBytes ctx w b
   ByVar a  -> get (nameFromArg c m a) (catBytes args)
   ByStr a -> literal a
   ByLit a -> literal $ toString a
@@ -400,12 +400,12 @@ nameFromExp c method e = case e of
 
 nameFromExpInt :: ContractName -> Method -> Exp Integer -> Id
 nameFromExpInt c m e = case e of
-  Add a b   -> (nameFromExpInt c m a) <> "+" <> (nameFromExpInt c m b)
-  Sub a b   -> (nameFromExpInt c m a) <> "-" <> (nameFromExpInt c m b)
-  Mul a b   -> (nameFromExpInt c m a) <> "*" <> (nameFromExpInt c m b)
-  Div a b   -> (nameFromExpInt c m a) <> "/" <> (nameFromExpInt c m b)
-  Mod a b   -> (nameFromExpInt c m a) <> "%" <> (nameFromExpInt c m b)
-  Exp a b   -> (nameFromExpInt c m a) <> "^" <> (nameFromExpInt c m b)
+  Add a b   -> nameFromExpInt c m a <> "+" <> nameFromExpInt c m b
+  Sub a b   -> nameFromExpInt c m a <> "-" <> nameFromExpInt c m b
+  Mul a b   -> nameFromExpInt c m a <> "*" <> nameFromExpInt c m b
+  Div a b   -> nameFromExpInt c m a <> "/" <> nameFromExpInt c m b
+  Mod a b   -> nameFromExpInt c m a <> "%" <> nameFromExpInt c m b
+  Exp a b   -> nameFromExpInt c m a <> "^" <> nameFromExpInt c m b
   LitInt a  -> show a
   IntMin a  -> show $ intmin a
   IntMax a  -> show $ intmax a
@@ -488,4 +488,3 @@ catBytes m = Map.fromList [(name, i) | (name, SymBytes i) <- Map.toList m]
 concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
 concatMapM op' = foldr f (pure [])
     where f x xs = do x' <- op' x; if null x' then xs else do xs' <- xs; pure $ x'++xs'
-
