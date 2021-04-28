@@ -120,7 +120,7 @@ main = do
           invResults <- mapM (runQuery config) (mkInvariantQueries claims)
           let results = map handleRes (pcResults <> invResults)
           allGood <- foldM (\acc (r, msg, smt) -> do
-            if (_debug config) then putStrLn (msg <> "\n" <> smt) else putStrLn msg
+            if (_debug config) then putStrLn (msg <> "\n\n" <> smt) else putStrLn msg
             pure $ if acc == False then False else r
             ) True results
           unless allGood exitFailure

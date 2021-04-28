@@ -58,7 +58,7 @@ data SMTExp = SMTExp
   }
 
 instance Show SMTExp where
-  show e = unlines [storage, calldata, environment, assertions]
+  show e = concatMap (++ "\n\n") [storage, calldata, environment, assertions]
     where
       storage = ";STORAGE:\n" <> intercalate "\n" (nubOrd $ _storage e)
       calldata = ";CALLDATA:\n" <> intercalate "\n" (nubOrd $ _calldata e)
