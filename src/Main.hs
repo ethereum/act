@@ -123,7 +123,7 @@ main = do
             if (_debug config) then putStrLn (msg <> "\n" <> smt) else putStrLn msg
             pure $ if acc == False then False else r
             ) True results
-          if not allGood then exitFailure else pure ()
+          unless allGood exitFailure
 
       (Coq f) -> do
         contents <- readFile f
