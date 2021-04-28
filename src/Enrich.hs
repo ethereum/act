@@ -21,7 +21,7 @@ enrich claims = [S store]
                 <> (C <$> (enrichConstructor store <$> constructors))
                 <> (B <$> (enrichBehaviour store <$> behaviours))
   where
-    store = head $ [s | S s <- claims]
+    store = head [s | S s <- claims]
     behaviours = [b | B b <- claims]
     invariants = [i | I i <- claims]
     constructors = [c | C c <- claims]
@@ -33,9 +33,9 @@ enrichConstructor store ctor@(Constructor _ _ (Interface _ decls) pre _ _ storag
   ctor { _cpreconditions = pre' }
     where
       pre' = pre
-             <> (mkCallDataBounds decls)
-             <> (mkStorageBounds store storageUpdates)
-             <> (mkEthEnvBounds $ ethEnvFromConstructor ctor)
+             <> mkCallDataBounds decls
+             <> mkStorageBounds store storageUpdates
+             <> mkEthEnvBounds (ethEnvFromConstructor ctor)
 
 -- | Adds type bounds for calldata, environment vars, and storage vars as preconditions
 enrichBehaviour :: Store -> Behaviour -> Behaviour
@@ -43,9 +43,9 @@ enrichBehaviour store behv@(Behaviour _ _ _ (Interface _ decls) pre _ stateUpdat
   behv { _preconditions = pre' }
     where
       pre' = pre
-             <> (mkCallDataBounds decls)
-             <> (mkStorageBounds store stateUpdates)
-             <> (mkEthEnvBounds $ ethEnvFromBehaviour behv)
+             <> mkCallDataBounds decls
+             <> mkStorageBounds store stateUpdates
+             <> mkEthEnvBounds (ethEnvFromBehaviour behv)
 
 -- | Adds type bounds for calldata, environment vars, and storage vars
 enrichInvariant :: Store -> Constructor -> Invariant -> Invariant
@@ -53,10 +53,10 @@ enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invaria
   inv { _ipreconditions = preconds', _istoragebounds = storagebounds' }
     where
       preconds' = preconds
-                  <> (mkCallDataBounds decls)
-                  <> (mkEthEnvBounds $ ethEnvFromExp predicate)
+                  <> mkCallDataBounds decls
+                  <> mkEthEnvBounds (ethEnvFromExp predicate)
       storagebounds' = storagebounds
-                       <> (mkStorageBounds store (Left <$> locsFromExp predicate))
+                       <> mkStorageBounds store (Left <$> locsFromExp predicate)
 
 mkEthEnvBounds :: [EthEnv] -> [Exp Bool]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
