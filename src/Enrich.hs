@@ -25,7 +25,7 @@ enrich claims = [S store]
     behaviours = [b | B b <- claims]
     invariants = [i | I i <- claims]
     constructors = [c | C c <- claims]
-    definition (Invariant c _ _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
+    definition (Invariant c _ _ _) = head [c' | c' <- constructors, _cmode c' == Pass, _cname c' == c]
 
 -- |Adds type bounds for calldata , environment vars, and external storage vars as preconditions
 enrichConstructor :: Store -> Constructor -> Constructor
