@@ -58,12 +58,12 @@ data SMTExp = SMTExp
   }
 
 instance Show SMTExp where
-  show e = concatMap (++ "\n\n") [storage, calldata, environment, assertions]
+  show e = unlines [storage, calldata, environment, assertions]
     where
-      storage = ";STORAGE:\n" <> intercalate "\n" (nubOrd $ _storage e)
-      calldata = ";CALLDATA:\n" <> intercalate "\n" (nubOrd $ _calldata e)
-      environment = ";ENVIRONMENT:\n" <> intercalate "\n" (nubOrd $ _environment e)
-      assertions = ";ASSERTIONS:\n" <> intercalate "\n" (nubOrd $ _assertions e)
+      storage = unlines $ ";STORAGE:" : (nubOrd $ _storage e)
+      calldata = unlines $ ";CALLDATA" : (nubOrd $ _calldata e)
+      environment = unlines $ ";ENVIRONMENT:" : (nubOrd $ _environment e)
+      assertions = unlines $ ";ASSERTIONS:" : (nubOrd $ _assertions e)
 
 -- A Query is a structured representation of an SMT query for an individual
 -- expression, along with the metadata needed to pretty print the result
