@@ -317,7 +317,7 @@ symExp ctx whn ret = case ret of
 symExpBool :: Ctx -> When -> Exp Bool -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) w e = case e of
   And a b   -> symExpBool ctx w a .&& symExpBool ctx w b
-  Or a b    -> symExpBool ctx w a .|| (symExpBool ctx w b
+  Or a b    -> symExpBool ctx w a .|| symExpBool ctx w b
   Impl a b  -> symExpBool ctx w a .=> symExpBool ctx w b
   LE a b    -> symExpInt ctx w a .< symExpInt ctx w b
   LEQ a b   -> symExpInt ctx w a .<= symExpInt ctx w b
