@@ -58,7 +58,7 @@ data SMTExp = SMTExp
   }
 
 instance Show SMTExp where
-  show e = intercalate "\n" ["", storage, "", calldata, "", environment, "", assertions, ""]
+  show e = unlines [storage, calldata, environment, assertions]
     where
       storage = ";STORAGE:\n" <> intercalate "\n" (nubOrd $ _storage e)
       calldata = ";CALLDATA:\n" <> intercalate "\n" (nubOrd $ _calldata e)
@@ -74,7 +74,7 @@ data Query
 
 data SMTResult
   = Sat
-  | Unsat --Model
+  | Unsat
   | Unknown
   | Error Int String
   deriving (Show)
@@ -111,7 +111,7 @@ mkPostconditionQueries (B behv@(Behaviour _ _ _ (Interface ifaceName decls) prec
       { _storage = storage
       , _calldata = args
       , _environment = envs
-      , _assertions = pres <> updates <> [mkAssert (Ctx ifaceName Pre) . Neg $ e]
+      , _assertions = [mkAssert (Ctx ifaceName Pre) . Neg $ e] <> pres <> updates
       }
     mkQuery e = Postcondition (B behv) e (mksmt e)
 mkPostconditionQueries (C constructor@(Constructor _ _ (Interface ifaceName decls) preconds postconds initialStorage stateUpdates)) = mkQuery <$> postconds
@@ -131,7 +131,7 @@ mkPostconditionQueries (C constructor@(Constructor _ _ (Interface ifaceName decl
       { _storage = localStorage <> externalStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = pres <> updates <> initialStorage' <> [mkAssert (Ctx ifaceName Pre) . Neg $ e]
+      , _assertions = [mkAssert (Ctx ifaceName Pre) . Neg $ e] <> pres <> updates <> initialStorage'
       }
     mkQuery e = Postcondition (C constructor) e (mksmt e)
 mkPostconditionQueries _ = []
@@ -161,19 +161,19 @@ mkInvariantQueries claims = concatMap mkQueries gathered
     mkQueries (inv, constructor, behvs) = mkInit inv constructor : fmap (mkBehv inv constructor) behvs
     gathered = fmap (\inv -> (inv, getConstructor inv, getBehaviours inv)) [i | I i <- claims]
 
-    getBehaviours (Invariant c _ _ _) = filter (matchBehaviour c) [b | B b <- claims]
-    getConstructor (Invariant c _ _ _) = head $ filter (matchConstructor c) [c' | C c' <- claims]
+    getBehaviours (Invariant c _ _ _) = [b | B b <- claims, matchBehaviour c b]
+    getConstructor (Invariant c _ _ _) = head [c' | C c' <- claims, matchConstructor c c']
     matchBehaviour contract behv = (_mode behv) == Pass && (_contract behv) == contract
     matchConstructor contract defn = _cmode defn == Pass && _cname defn == contract
 
     mkInit :: Invariant -> Constructor -> Query
-    mkInit inv@(Invariant _ invConds _ invExp) constr@(Constructor _ _ (Interface ifaceName decls) preconds _ initialStorage stateUpdates) = Inv (C constr) inv smt
+    mkInit inv@(Invariant _ invConds _ invExp) ctor@(Constructor _ _ (Interface ifaceName decls) preconds _ initialStorage stateUpdates) = Inv (C ctor) inv smt
       where
         -- declare vars
         localStorage = declareInitialStorage <$> initialStorage
         externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
         args = declareArg ifaceName <$> decls
-        envs = declareEthEnv <$> (ethEnvFromConstructor constr)
+        envs = declareEthEnv <$> ethEnvFromConstructor ctor
 
         -- constraints
         pres = (mkAssert (Ctx ifaceName Pre)) <$> (preconds <> invConds)
@@ -185,7 +185,7 @@ mkInvariantQueries claims = concatMap mkQueries gathered
           { _storage = localStorage <> externalStorage
           , _calldata = args
           , _environment = envs
-          , _assertions = pres <> updates <> initialStorage' <> [postInv]
+          , _assertions = postInv : pres <> updates <> initialStorage'
           }
 
     mkBehv :: Invariant -> Constructor -> Behaviour -> Query
@@ -197,8 +197,8 @@ mkInvariantQueries claims = concatMap mkQueries gathered
         implicitLocs = Left <$> (locsFromExp invExp \\ (getLoc <$> _stateUpdates behv))
 
         -- declare vars
-        invEnv = declareEthEnv <$> (ethEnvFromExp invExp)
-        behvEnv = declareEthEnv <$> (ethEnvFromBehaviour behv)
+        invEnv = declareEthEnv <$> ethEnvFromExp invExp
+        behvEnv = declareEthEnv <$> ethEnvFromBehaviour behv
         initArgs = declareArg ctorIface <$> ctorDecls
         behvArgs = declareArg behvIface <$> behvDecls
         storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv <> implicitLocs)
@@ -215,7 +215,7 @@ mkInvariantQueries claims = concatMap mkQueries gathered
           { _storage = storage
           , _calldata = initArgs <> behvArgs
           , _environment = invEnv <> behvEnv
-          , _assertions = behvConds <> invConds' <> implicitLocs' <> updates <> [preInv, postInv]
+          , _assertions = [preInv, postInv] <> behvConds <> invConds' <> implicitLocs' <> updates
           }
 
 
@@ -352,7 +352,7 @@ expToSMT2 ctx@(Ctx behvName whn) e = case e of
   Div a b -> binop "div" a b
   Mod a b -> binop "mod" a b
   Exp a b -> expToSMT2 ctx (simplifyExponentiation a b)
-  LitInt a -> if a > 0
+  LitInt a -> if a >= 0
               then show a
               else "(- " <> (show . negate $ a) <> ")" -- cvc4 does not accept negative integer literals
   IntVar _ -> nameFromVar behvName e
