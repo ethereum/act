@@ -186,22 +186,23 @@ mkInvariantQueries claims = concatMap mkQueries gathered
         (Interface _ behvDecls) = _interface behv
 
         -- declare vars
-        invLocs = concatMap declareStorageLocation (locsFromExp invExp)
-        behvLocs = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv)
+        invEnv = declareEthEnv <$> (ethEnvFromExp invExp)
+        behvEnv = declareEthEnv <$> (ethEnvFromBehaviour behv)
         -- TODO: handle args with the same name...
         initArgs = declareArg <$> initDecls
         behvArgs = declareArg <$> behvDecls
-        invEnv = declareEthEnv <$> (ethEnvFromExp invExp)
-        behvEnv = declareEthEnv <$> (ethEnvFromBehaviour behv)
+        -- storage locs mentioned in the invariant but not in the behaviour
+        implicitStorageLocs = Left <$> (locsFromExp invExp \\ (getLoc <$> _stateUpdates behv))
+        storage = concatMap (declareStorageLocation . getLoc) ((_stateUpdates behv) <> implicitStorageLocs)
 
         -- constraints
         preInv = mkAssert Pre invExp
         postInv = mkAssert Post . Neg $ invExp
         preConds = mkAssert Pre <$> (_preconditions behv <> invConds <> invStorageBounds)
-        updates = encodeUpdate <$> (_stateUpdates behv <> (Left <$> (locsFromExp invExp)))
+        updates = encodeUpdate <$> (_stateUpdates behv <> implicitStorageLocs)
 
         smt = SMTExp
-          { _storage = invLocs <> behvLocs
+          { _storage = storage
           , _calldata = initArgs <> behvArgs
           , _environment = invEnv <> behvEnv
           , _assertions = preConds <> updates <> [preInv, postInv]
