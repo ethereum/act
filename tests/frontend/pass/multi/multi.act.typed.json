@@ -15,20 +15,6 @@
     "kind": "Storages"
   },
   {
-    "kind": "Invariant",
-    "predicate": "True",
-    "preconditions": [],
-    "contract": "a",
-    "storagebounds": []
-  },
-  {
-    "kind": "Invariant",
-    "predicate": "True",
-    "preconditions": [],
-    "contract": "B",
-    "storagebounds": []
-  },
-  {
     "kind": "Constructor",
     "mode": "Pass",
     "storage": [
