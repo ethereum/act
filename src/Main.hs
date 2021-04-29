@@ -17,7 +17,6 @@ import System.IO (hPutStrLn, stderr)
 import Data.SBV hiding (preprocess)
 import Data.Text (pack, unpack)
 import Data.Maybe
-import Data.List
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
@@ -35,9 +34,9 @@ import Parse
 import RefinedAst
 import Enrich
 import K hiding (normalize)
+import SMT
 import Syntax
 import Type
-import Prove
 import Coq
 import HEVM
 import Print
@@ -96,34 +95,35 @@ main = do
                        Bad e -> prettyErr contents e
 
       (Prove file' solver' smttimeout' debug') -> do
+        let
+          parseSolver s = case s of
+            Just "z3" -> SMT.Z3
+            Just "cvc4" -> SMT.CVC4
+            Nothing -> SMT.Z3
+            Just _ -> error "unrecognized solver"
+          config = SMT.SMTConfig (parseSolver solver') (fromMaybe 20000 smttimeout') debug'
         contents <- readFile file'
         proceed contents (compile contents) $ \claims -> do
-            let
-                handleResults ((Invariant c _ e), rs) = do
-                  let msg = "\n============\n\nInvariant " <> show (prettyExp e) <> " of " <> show c <> ": "
-                      sep = "\n\n---\n\n"
-                      results' = handleRes <$> rs
-                      ok = not $ or $ fst <$> results'
-                  if ok
-                  then putStrLn $ msg <> "Q.E.D."
-                  else do
-                      putStrLn $ msg <> "\n\n" <> intercalate sep (snd <$> results')
-                      exitFailure
+          let
+            handleRes (query, res) = case res of
+                  Unsat -> (True, typ <> " " <> prettyExp target <> " holds :)", show $ getSMT query)
+                  Sat -> (False, typ <> " " <> prettyExp target <> " does not hold :(", show $ getSMT query)
+                  SMT.Unknown -> (False, typ <> " " <> prettyExp target <> " could not be proved due to a solver timeout :(", show $ getSMT query)
+                  SMT.Error _ str -> (False, typ <> " " <> prettyExp target <> " could not be proved to due a solver error: " <> str, show $ getSMT query)
+              where
+                target = getTarget query
+                typ = case query of
+                  Postcondition {} -> "postcondition"
+                  Inv {} -> "invariant"
 
-                handleRes (SatResult res) = case res of
-                  Unsatisfiable _ _ -> (False, "")
-                  Satisfiable _ model -> (True, "Counter example found!\n\n" <> show model)
-                  Unknown _ reason -> (True, "Unknown! " <> show reason)
-                  ProofError _ reasons _  -> (True, "Proof error! " <> show reasons)
-                  SatExtField _ _ -> error "Extension field containing Infinite/epsilon"
-                  DeltaSat {} -> error "Unexpected DeltaSat"
-
-            results <- forM (queries claims)
-                          (\(i, qs) -> do
-                            rs <- mapM (satWithTimeOut solver' smttimeout' debug') qs
-                            pure (i, rs)
-                          )
-            mapM_ handleResults results
+          pcResults <- mapM (runQuery config) (concatMap mkPostconditionQueries claims)
+          invResults <- mapM (runQuery config) (mkInvariantQueries claims)
+          let results = map handleRes (pcResults <> invResults)
+          allGood <- foldM (\acc (r, msg, smt) -> do
+            if (_debug config) then putStrLn (msg <> "\n\n" <> smt) else putStrLn msg
+            pure $ if acc == False then False else r
+            ) True results
+          unless allGood exitFailure
 
       (Coq f) -> do
         contents <- readFile f
@@ -169,20 +169,6 @@ main = do
           unless (and passes) exitFailure
 
 -- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
-satWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic () -> IO SatResult
-satWithTimeOut solver' maybeTimeout debug' sym = case solver' of
-  Just "cvc4" -> do
-    setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --interactive --incremental --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
-    res <- satWith cvc4{verbose=debug'} sym
-    setEnv "SBV_CVC4_OPTIONS" ""
-    return res
-  Just "z3" -> runwithz3
-  Nothing -> runwithz3
-  _ -> error "Unknown solver. Currently supported solvers; z3, cvc4"
-  where timeout = fromMaybe 20000 maybeTimeout
-        runwithz3 = satWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
-
--- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
 runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic a -> IO a
 runSMTWithTimeOut solver' maybeTimeout debug' sym
   | solver' == Just "cvc4" = do
@@ -191,7 +177,7 @@ runSMTWithTimeOut solver' maybeTimeout debug' sym
       setEnv "SBV_CVC4_OPTIONS" ""
       return res
   | solver' == Just "z3" = runwithz3
-  | solver' == Nothing = runwithz3
+  | isNothing solver' = runwithz3
   | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
  where timeout = fromMaybe 20000 maybeTimeout
        runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym

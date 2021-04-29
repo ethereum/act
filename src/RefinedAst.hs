@@ -33,9 +33,23 @@ data Claim = C Constructor | B Behaviour | I Invariant | S Store deriving (Show,
 
 type Store = Map Id (Map Id SlotType)
 
+-- | Represents a contract level invariant along with some associated metadata.
+-- The invariant is defined in the context of the constructor, but must also be
+-- checked against each behaviour in the contract, and thus may reference variables
+-- that are not present in a given behaviour (constructor args, or storage
+-- variables that are not referenced in the behaviour), so we additionally
+-- attach some constraints over the variables referenced by the predicate in
+-- the `_ipreconditions` and `_istoragebounds` fields. These fields are
+-- seperated as the constraints derived from the types of the storage
+-- references must be treated differently in the constructor specific queries
+-- (as the storage variables have no prestate in the constructor...), wheras
+-- the constraints derived from the types of the environment variables and
+-- calldata args (stored in _ipreconditions) have a uniform semantics over both
+-- the constructor and behaviour claims.
 data Invariant = Invariant
   { _icontract :: Id
   , _ipreconditions :: [Exp Bool]
+  , _istoragebounds :: [Exp Bool]
   , _predicate :: Exp Bool
   } deriving (Show, Eq)
 
@@ -71,7 +85,6 @@ data MType
   = Integer
   | Boolean
   | ByteStr
---  | Mapping (Map MType MType)
   deriving (Eq, Ord, Show, Read)
 
 data StorageUpdate
@@ -209,6 +222,7 @@ instance ToJSON Claim where
   toJSON (I (Invariant {..})) = object [ "kind" .= (String "Invariant")
                                        , "predicate" .= toJSON _predicate
                                        , "preconditions" .= toJSON _ipreconditions
+                                       , "storagebounds" .= toJSON _istoragebounds
                                        , "contract" .= _icontract]
   toJSON (C (Constructor {..})) = object  [ "kind" .= (String "Constructor")
                                           , "contract" .= _cname

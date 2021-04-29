@@ -6,6 +6,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 
 import RefinedAst
 import Syntax
+import EVM.ABI (AbiType(..))
 
 locsFromReturnExp :: ReturnExp -> [StorageLocation]
 locsFromReturnExp (ExpInt e) = locsFromExp e
@@ -43,10 +44,10 @@ locsFromExp e = case e of
   IntVar _  -> []
   LitBool _ -> []
   BoolVar _ -> []
-  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
+  NewAddr a b -> locsFromExp a <> locsFromExp b
   IntEnv _ -> []
   ByEnv _ -> []
-  ITE x y z -> (locsFromExp x) <> (locsFromExp y) <> (locsFromExp z)
+  ITE x y z -> locsFromExp x <> locsFromExp y <> locsFromExp z
   TEntry a -> case a of
     DirectInt contract name -> [IntLoc $ DirectInt contract name]
     DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
@@ -137,6 +138,19 @@ mkLoc :: StorageUpdate -> StorageLocation
 mkLoc (IntUpdate item _) = IntLoc item
 mkLoc (BoolUpdate item _) = BoolLoc item
 mkLoc (BytesUpdate item _) = BytesLoc item
+
+metaType :: AbiType -> MType
+metaType (AbiUIntType _)     = Integer
+metaType (AbiIntType  _)     = Integer
+metaType AbiAddressType      = Integer
+metaType AbiBoolType         = Boolean
+metaType (AbiBytesType _)    = ByteStr
+metaType AbiBytesDynamicType = ByteStr
+metaType AbiStringType       = ByteStr
+--metaType (AbiArrayDynamicType a) =
+--metaType (AbiArrayType        Int AbiType
+--metaType (AbiTupleType        (Vector AbiType)
+metaType _ = error "Extract.metaType: TODO"
 
 nameFromStorage :: Syntax.Storage -> Id
 nameFromStorage (Rewrite (Entry _ name _) _) = name

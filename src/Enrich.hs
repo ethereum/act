@@ -10,7 +10,7 @@ import EVM.ABI (AbiType(..))
 import EVM.Solidity (SlotType(..))
 
 import RefinedAst
-import Type (bound, defaultStore, metaType)
+import Type (bound, defaultStore)
 import Syntax (EthEnv(..), Id, Decl(..), Interface(..))
 import Extract
 
@@ -21,11 +21,11 @@ enrich claims = [S store]
                 <> (C <$> (enrichConstructor store <$> constructors))
                 <> (B <$> (enrichBehaviour store <$> behaviours))
   where
-    store = head $ [s | S s <- claims]
+    store = head [s | S s <- claims]
     behaviours = [b | B b <- claims]
     invariants = [i | I i <- claims]
     constructors = [c | C c <- claims]
-    definition (Invariant c _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
+    definition (Invariant c _ _ _) = head [c' | c' <- constructors, _cmode c' == Pass, _cname c' == c]
 
 -- |Adds type bounds for calldata , environment vars, and external storage vars as preconditions
 enrichConstructor :: Store -> Constructor -> Constructor
@@ -33,9 +33,9 @@ enrichConstructor store ctor@(Constructor _ _ (Interface _ decls) pre _ _ storag
   ctor { _cpreconditions = pre' }
     where
       pre' = pre
-             <> (mkCallDataBounds decls)
-             <> (mkStorageBounds store storageUpdates)
-             <> (mkEthEnvBounds $ ethEnvFromConstructor ctor)
+             <> mkCallDataBounds decls
+             <> mkStorageBounds store storageUpdates
+             <> mkEthEnvBounds (ethEnvFromConstructor ctor)
 
 -- | Adds type bounds for calldata, environment vars, and storage vars as preconditions
 enrichBehaviour :: Store -> Behaviour -> Behaviour
@@ -43,19 +43,20 @@ enrichBehaviour store behv@(Behaviour _ _ _ (Interface _ decls) pre _ stateUpdat
   behv { _preconditions = pre' }
     where
       pre' = pre
-             <> (mkCallDataBounds decls)
-             <> (mkStorageBounds store stateUpdates)
-             <> (mkEthEnvBounds $ ethEnvFromBehaviour behv)
+             <> mkCallDataBounds decls
+             <> mkStorageBounds store stateUpdates
+             <> mkEthEnvBounds (ethEnvFromBehaviour behv)
 
--- | Adds type bounds for calldata, environment vars, and storage vars as preconditions
+-- | Adds type bounds for calldata, environment vars, and storage vars
 enrichInvariant :: Store -> Constructor -> Invariant -> Invariant
-enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invariant _ conds predicate) =
-  inv { _ipreconditions = conds' }
+enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invariant _ preconds storagebounds predicate) =
+  inv { _ipreconditions = preconds', _istoragebounds = storagebounds' }
     where
-      conds' = conds
-               <> (mkCallDataBounds decls)
-               <> (mkStorageBounds store (Left <$> locsFromExp predicate))
-               <> (mkEthEnvBounds $ ethEnvFromExp predicate)
+      preconds' = preconds
+                  <> mkCallDataBounds decls
+                  <> mkEthEnvBounds (ethEnvFromExp predicate)
+      storagebounds' = storagebounds
+                       <> mkStorageBounds store (Left <$> locsFromExp predicate)
 
 mkEthEnvBounds :: [EthEnv] -> [Exp Bool]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars

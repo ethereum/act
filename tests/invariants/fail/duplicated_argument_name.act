@@ -1,0 +1,17 @@
+constructor of C
+interface constructor(uint _x)
+
+creates
+
+    uint x := _x
+
+invariants
+
+    x == _x
+
+behaviour f of C
+interface f(uint _x)
+
+storage
+
+    x => _x

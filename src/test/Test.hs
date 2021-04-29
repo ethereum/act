@@ -6,11 +6,17 @@ module Main where
 
 import EVM.ABI (AbiType(..))
 import Test.Tasty
-import Test.Tasty.QuickCheck
+import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property)
 import Test.QuickCheck.Instances.ByteString()
+import Test.QuickCheck.GenT
+import Test.QuickCheck.Monadic
 
 import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.Reader
+import Data.List
 import Data.ByteString (ByteString)
+import System.Exit (ExitCode(..))
 import qualified Data.Set as Set
 import qualified Data.Map as Map (empty)
 
@@ -20,43 +26,67 @@ import Parse (parse)
 import Type (typecheck)
 import Print (prettyBehaviour)
 import Syntax (Interface(..), EthEnv(..), Decl(..))
+import SMT
 import RefinedAst hiding (Mode)
 
 import Debug.Trace
 import Text.Pretty.Simple
 import Data.Text.Lazy as T (unpack)
 
+-- Transformer stack to keep track of whether we are to generate expressions
+-- with exponentiation or not (for compatibility with SMT).
+type ExpoGen a = GenT (Reader Bool) a
 
+noExponents, withExponents :: ExpoGen a -> Gen a
+noExponents   = fmap (`runReader` False) . runGenT
+withExponents = fmap (`runReader` True)  . runGenT
+
+--
 -- *** Test Cases *** --
-
 
 main :: IO ()
 main = defaultMain $ testGroup "act"
   [ testGroup "frontend"
-    {-
-       Generates a random concrete behaviour, prints it, runs it through the frontend
-       (lex -> parse -> type), and then checks that the typechecked output matches the
-       generated behaviour.
+      {-
+         Generates a random behaviour, prints it, runs it through the frontend
+         (lex -> parse -> type), and then checks that the typechecked output matches the
+         generated behaviour.
 
-       If the generated behaviour contains some preconditions, then the structure of the
-       fail spec is also checked.
-    -}
-    [ testProperty "single roundtrip" $ do
-        behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
-        let actual = parse (lexer $ prettyBehaviour behv) >>= typecheck
-            expected = if null preconds then
-                [ S Map.empty, B behv ]
-              else
-                [ S Map.empty, B behv
-                , B $ Behaviour name Fail contract iface [Neg $ mconcat preconds] [] [] Nothing ]
-        return $ case actual of
-          Ok a -> a == expected
-          Bad _ -> False
-    ]
+         If the generated behaviour contains some preconditions, then the structure of the
+         fail spec is also checked.
+      -}
+      [ testProperty "roundtrip" . withExponents $ do
+          behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
+          let actual = parse (lexer $ prettyBehaviour behv) >>= typecheck
+              expected = if null preconds then
+                  [ S Map.empty, B behv ]
+                else
+                  [ S Map.empty, B behv
+                  , B $ Behaviour name Fail contract iface [Neg $ mconcat preconds] [] [] Nothing ]
+          return $ case actual of
+            Ok a -> a == expected
+            Bad _ -> False
+      ]
+
+  , testGroup "smt"
+      [ testProperty "generated smt is well typed (z3)" . noExponents $ typeCheckSMT Z3
+      , testProperty "generated smt is well typed (cvc4)" . noExponents $ typeCheckSMT CVC4
+      ]
   ]
 
+typeCheckSMT :: Solver -> GenT (Reader Bool) Property
+typeCheckSMT solver = do
+  behv <- genBehv 3
+  let smtconf = SMTConfig solver 1 False
+      smt = show . getSMT <$> mkPostconditionQueries (B behv)
+  pure . monadicIO . run $ and . fmap parseOutput <$> mapM (runSMT smtconf) smt
+    where
+      parseOutput (exitCode, stdout, _) = case exitCode of
+        ExitFailure _ -> False
+        ExitSuccess -> not . any (isPrefixOf "(error") . filter (/= "") . lines $ stdout
 
--- ** QuickCheck Generators ** --
+
+-- *** QuickCheck Generators *** --
 
 
 data Mode = Concrete | Symbolic deriving (Eq, Show)
@@ -73,7 +103,7 @@ data Names = Names { _ints :: [String]
 
    Storage conditions are currently not generated.
 -}
-genBehv :: Int -> Gen Behaviour
+genBehv :: Int -> ExpoGen Behaviour
 genBehv n = do
   name <- ident
   contract <- ident
@@ -94,7 +124,7 @@ genBehv n = do
                    }
 
 
-mkDecls :: Names -> Gen [Decl]
+mkDecls :: Names -> ExpoGen [Decl]
 mkDecls (Names ints bools bytes) = mapM mkDecl names
   where
     mkDecl (n, typ) = ((flip Decl) n) <$> (genType typ)
@@ -102,7 +132,7 @@ mkDecls (Names ints bools bytes) = mapM mkDecl names
     prepare typ ns = (,typ) <$> ns
 
 
-genType :: MType -> Gen AbiType
+genType :: MType -> ExpoGen AbiType
 genType typ = case typ of
   Integer -> oneof [ AbiUIntType <$> validIntSize
                    , AbiIntType <$> validIntSize
@@ -116,7 +146,7 @@ genType typ = case typ of
     validBytesSize = elements [1..32]
 
 
-genReturnExp :: Names -> Int -> Gen ReturnExp
+genReturnExp :: Names -> Int -> ExpoGen ReturnExp
 genReturnExp names n = oneof
   [ ExpInt <$> genExpInt names n
   , ExpBool <$> genExpBool names n
@@ -125,18 +155,17 @@ genReturnExp names n = oneof
 
 
 -- TODO: literals, cat slice, ITE, storage, ByStr
-genExpBytes :: Names -> Int -> Gen (Exp ByteString)
+genExpBytes :: Names -> Int -> ExpoGen (Exp ByteString)
 genExpBytes names _ = oneof
   [ ByVar <$> (selectName ByteStr names)
   , return $ ByEnv Blockhash
   ]
 
-
 -- TODO: ITE, storage
-genExpBool :: Names -> Int -> Gen (Exp Bool)
+genExpBool :: Names -> Int -> ExpoGen (Exp Bool)
 genExpBool names 0 = oneof
   [ BoolVar <$> (selectName Boolean names)
-  , LitBool <$> arbitrary
+  , LitBool <$> liftGen arbitrary
   ]
 genExpBool names n = oneof
   [ liftM2 And subExpBool subExpBool
@@ -158,9 +187,9 @@ genExpBool names n = oneof
 
 
 -- TODO: storage
-genExpInt :: Names -> Int -> Gen (Exp Integer)
+genExpInt :: Names -> Int -> ExpoGen (Exp Integer)
 genExpInt names 0 = oneof
-  [ LitInt <$> arbitrary
+  [ LitInt <$> liftGen arbitrary
   , IntVar <$> (selectName Integer names)
   , return $ IntEnv Caller
   , return $ IntEnv Callvalue
@@ -175,20 +204,24 @@ genExpInt names 0 = oneof
   , return $ IntEnv This
   , return $ IntEnv Nonce
   ]
-genExpInt names n = oneof
-  [ liftM2 Add subExpInt subExpInt
-  , liftM2 Sub subExpInt subExpInt
-  , liftM2 Mul subExpInt subExpInt
-  , liftM2 Div subExpInt subExpInt
-  , liftM2 Mod subExpInt subExpInt
-  , liftM2 Exp subExpInt subExpInt
-  , liftM3 ITE subExpBool subExpInt subExpInt
-  ]
+genExpInt names n = do
+  expo <- lift ask
+  oneof $
+    (if expo
+      then ((liftM2 Exp subExpInt subExpInt):)
+      else id)
+        [ liftM2 Add subExpInt subExpInt
+        , liftM2 Sub subExpInt subExpInt
+        , liftM2 Mul subExpInt subExpInt
+        , liftM2 Div subExpInt subExpInt
+        , liftM2 Mod subExpInt subExpInt
+        , liftM3 ITE subExpBool subExpInt subExpInt
+        ]
   where subExpInt = genExpInt names (n `div` 2)
         subExpBool = genExpBool names (n `div` 2)
 
 
-selectName :: MType -> Names -> Gen String
+selectName :: MType -> Names -> ExpoGen String
 selectName typ (Names ints bools bytes) = do
   let names = case typ of
                 Integer -> ints
@@ -201,7 +234,7 @@ selectName typ (Names ints bools bytes) = do
 -- |Generates a record type containing identifier names.
 -- Ensures each generated name appears once only.
 -- Names are seperated by type to ensure that e.g. an int expression does not reference a bool
-genNames :: Gen Names
+genNames :: ExpoGen Names
 genNames = mkNames <$> (split <$> unique)
   where
     mkNames :: [[String]] -> Names
@@ -210,7 +243,7 @@ genNames = mkNames <$> (split <$> unique)
                        , _bytes = cs!!2
                        }
 
-    unique :: Gen [String]
+    unique :: ExpoGen [String]
     unique = (Set.toList . Set.fromList <$> (listOf1 ident))
                 `suchThat` (\l -> (length l) > 3)
 
@@ -222,7 +255,7 @@ genNames = mkNames <$> (split <$> unique)
           where (as,bs) = splitAt n xs
 
 
-ident :: Gen String
+ident :: ExpoGen String
 ident = liftM2 (<>) (listOf1 (elements chars)) (listOf (elements $ chars <> digits))
           `suchThat` (`notElem` reserved)
   where

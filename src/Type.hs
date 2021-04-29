@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Type (typecheck, metaType, bound, lookupVars, defaultStore) where
+module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
 
 import Data.List
 import EVM.ABI
@@ -149,7 +149,7 @@ splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Create
                else [ C $ Constructor contract Pass iface iffs' ensures stateUpdates []
                        , C $ Constructor contract Fail iface [Neg (mconcat iffs')] ensures [] []]
 
-  return $ ((I . (Invariant contract [])) <$> invariants')
+  return $ ((I . (Invariant contract [] [])) <$> invariants')
            <> cases'
 
 mkEnv :: Id -> Store -> [Decl]-> Env
@@ -320,19 +320,6 @@ upperBound (AbiUIntType n) = UIntMax n
 upperBound (AbiIntType n) = IntMax n
 upperBound AbiAddressType = UIntMax 160
 upperBound typ  = error $ "upperBound not implemented for " ++ show typ
-
-metaType :: AbiType -> MType
-metaType (AbiUIntType _)     = Integer
-metaType (AbiIntType  _)     = Integer
-metaType AbiAddressType      = Integer
-metaType AbiBoolType         = Boolean
-metaType (AbiBytesType _)    = ByteStr
-metaType AbiBytesDynamicType = ByteStr
-metaType AbiStringType       = ByteStr
---metaType (AbiArrayDynamicType a) =
---metaType (AbiArrayType        Int AbiType
---metaType (AbiTupleType        (Vector AbiType)
-metaType _ = error "TODO"
 
 
 checkExpr :: Pn -> Env -> Expr -> AbiType -> Err ReturnExp

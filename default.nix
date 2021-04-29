@@ -12,11 +12,11 @@ let
       hevm = dapptools.haskellPackages.hevm;
       sbv = dapptools.haskellPackages.sbv;
       act =
-        hself.callCabal2nixWithOptions
+        pkgs.haskell.lib.dontCheck (hself.callCabal2nixWithOptions
           "act"
           (gitignore ./src)
           "-fci"
-          {};
+          {});
     };
   };
 
@@ -27,6 +27,8 @@ let
     buildInputs = with pkgs.haskellPackages; [
       cabal-install
       pkgs.jq
+      pkgs.z3
+      pkgs.cvc4
       pkgs.coq_8_10
       dapptools.solc
     ];
