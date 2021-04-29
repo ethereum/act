@@ -149,8 +149,7 @@ mkPostconditionQueries _ = []
 --   For the behaviours, we build a query that:
 --     - Asserts that the invariant holds over the prestate
 --     - Asserts that all preconditions hold
---     - Asserts that external storage has been updated according to the spec
---     - Asserts that internal storage values have the value given in the creates block
+--     - Asserts that storage has been updated according to the spec
 --     - Asserts that the invariant does not hold over the poststate
 --
 --   If all of the queries return `unsat` then we have an inductive proof that
