@@ -116,8 +116,9 @@ main = do
                   Postcondition {} -> "postcondition"
                   Inv {} -> "invariant"
 
-          pcResults <- mapM (runQuery config) (concatMap mkPostconditionQueries claims)
-          invResults <- mapM (runQuery config) (mkInvariantQueries claims)
+          solverInstance <- spawnSolver config
+          pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
+          invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
           let results = map handleRes (pcResults <> invResults)
           allGood <- foldM (\acc (r, msg, smt) -> do
             if (_debug config) then putStrLn (msg <> "\n\n" <> smt) else putStrLn msg

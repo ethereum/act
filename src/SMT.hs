@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MonadComprehensions #-}
 
-module SMT (Solver(..), SMTConfig(..), Query(..), SMTResult(..), runSMT, runQuery, mkPostconditionQueries, mkInvariantQueries, getTarget, getSMT) where
+module SMT (Solver(..), SMTConfig(..), Query(..), SMTResult(..), spawnSolver, runSMT, runQuery, mkPostconditionQueries, mkInvariantQueries, getTarget, getSMT) where
 
 import Control.Applicative ((<|>))
 
@@ -17,7 +17,8 @@ import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
 import Print (prettyEnv)
 import Type (defaultStore, metaType)
 
-import System.Process (readProcessWithExitCode)
+import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
+import System.Process (readProcessWithExitCode, createProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
 import System.Exit (ExitCode(..))
 
 
@@ -89,6 +90,13 @@ data Model = Model
   }
   deriving (Show)
 
+data SolverInstance = SolverInstance
+  { _type :: Solver
+  , _stdin :: Handle
+  , _stdout :: Handle
+  , _stderr :: Handle
+  , _process :: ProcessHandle
+  }
 
 --- ** Analysis Passes ** ---
 
@@ -224,26 +232,6 @@ mkInvariantQueries claims = concatMap mkQueries gathered
 --- ** Solver Interaction ** ---
 
 
-runQuery :: SMTConfig -> Query -> IO (Query, SMTResult)
-runQuery conf q = do
-  (exitCode, stdout, _) <- runSMT conf ((show . getSMT $ q) <> "(check-sat)")
-  let output = filter (/= "") . lines $ stdout
-      containsErrors = any (isPrefixOf "(error") output
-      res = case exitCode of
-        ExitFailure code -> Error code stdout
-        ExitSuccess ->
-          if containsErrors
-          then Error 0 stdout -- cvc4 returns exit code zero even if there are errors
-          else case output of
-                 [] -> Error 0 "No solver output to parse"
-                 l -> case last l of
-                   "sat" -> Sat
-                   "unsat" -> Unsat
-                   "timeout" -> Unknown -- TODO: disambiguate
-                   "unknown" -> Unknown
-                   _ -> Error 0 $ "Unable to parse solver output: " <> stdout
-  pure (q, res)
-
 runSMT :: SMTConfig -> SMT2 -> IO (ExitCode, String, String)
 runSMT (SMTConfig solver timeout _) e = do
   let input = intercalate "\n" ["(set-logic ALL)", e]
@@ -255,8 +243,76 @@ runSMT (SMTConfig solver timeout _) e = do
                  [ "--lang=smt"
                  , "--interactive"
                  , "--no-interactive-prompt"
-                 , "--tlimit=" <> show timeout]
+                 , "--tlimit-per=" <> show timeout]
   readProcessWithExitCode (show solver) args input
+
+runQuery :: SolverInstance -> Query -> IO (Query, SMTResult)
+runQuery solver query = do
+  reset <- sendCommand solver "(reset)"
+  case reset of
+    "success" -> do
+      suc <- sendLines solver (lines . show . getSMT $ query)
+      case suc of
+        Nothing -> do
+          sat <- sendCommand solver "(check-sat)"
+          let res = case sat of
+                      "sat" -> Sat
+                      "unsat" -> Unsat
+                      "timeout" -> Unknown -- TODO: disambiguate
+                      "unknown" -> Unknown
+                      _ -> Error 0 $ "Unable to parse solver output: " <> sat
+          pure (query, res)
+        Just err -> do
+          pure (query, Error 0 err)
+    err -> do
+      pure (query, Error 0 $ "unable to reset solver state: " <> err)
+
+smtPreamble :: [SMT2]
+smtPreamble = [ "(set-logic ALL)" ]
+
+solverArgs :: SMTConfig -> [String]
+solverArgs (SMTConfig solver timeout _) = case solver of
+  Z3 ->
+    [ "-in"
+    , "-t:" <> show timeout]
+  CVC4 ->
+    [ "--lang=smt"
+    , "--interactive"
+    , "--no-interactive-prompt"
+    , "--tlimit-per=" <> show timeout]
+
+spawnSolver :: SMTConfig -> IO SolverInstance
+spawnSolver config@(SMTConfig solver _ _) = do
+  let cmd = (proc (show solver) (solverArgs config)) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
+  (Just stdin, Just stdout, Just stderr, process) <- createProcess cmd
+  let solverInstance = SolverInstance solver stdin stdout stderr process
+
+  _ <- sendCommand solverInstance "(set-option :print-success true)"
+  res <- sendLines solverInstance smtPreamble
+  case res of
+    Nothing -> pure solverInstance
+    Just msg -> error $ "could not spawn solver: " <> msg
+
+sendLines :: SolverInstance -> [SMT2] -> IO (Maybe String)
+sendLines solver smt = case smt of
+    [] -> pure Nothing
+    hd : tl -> do
+      suc <- sendCommand solver hd
+      if suc == "success"
+         then sendLines solver tl
+         else pure (Just suc)
+
+sendCommand :: SolverInstance -> String -> IO String
+sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
+  if (cmd == "") || (";" `isPrefixOf` cmd) then pure "success" -- blank lines and comments do not produce any output from the solver
+  else do
+    hPutStr stdin (cmd <> "\n")
+    hFlush stdin
+    case solver of
+      Z3 -> hGetLine stdout
+      CVC4 -> do
+        _ <- hGetLine stdout -- cvc4 echos back each input line as part of the output
+        hGetLine stdout
 
 
 --- ** SMT2 generation ** ---
