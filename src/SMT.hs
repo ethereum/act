@@ -84,9 +84,10 @@ data SMTResult
   deriving (Show)
 
 data Model = Model
-  { _mstorage :: Map Id (MType, MType)
-  , _mcalldata :: Map Id MType
-  , _menvironment :: Map Id MType
+  { _mprestate :: [(StorageLocation, ReturnExp)]
+  , _mpoststate :: [(StorageLocation, ReturnExp)]
+  , _mcalldata :: [(ReturnExp, ReturnExp)]
+  , _menvironment :: [(EthEnv, ReturnExp)]
   }
   deriving (Show)
 
@@ -97,6 +98,7 @@ data SolverInstance = SolverInstance
   , _stderr :: Handle
   , _process :: ProcessHandle
   }
+
 
 --- ** Analysis Passes ** ---
 
@@ -248,24 +250,19 @@ runSMT (SMTConfig solver timeout _) e = do
 
 runQuery :: SolverInstance -> Query -> IO (Query, SMTResult)
 runQuery solver query = do
-  reset <- sendCommand solver "(reset)"
-  case reset of
-    "success" -> do
-      suc <- sendLines solver (lines . show . getSMT $ query)
-      case suc of
-        Nothing -> do
-          sat <- sendCommand solver "(check-sat)"
-          let res = case sat of
-                      "sat" -> Sat
-                      "unsat" -> Unsat
-                      "timeout" -> Unknown -- TODO: disambiguate
-                      "unknown" -> Unknown
-                      _ -> Error 0 $ "Unable to parse solver output: " <> sat
-          pure (query, res)
-        Just err -> do
-          pure (query, Error 0 err)
-    err -> do
-      pure (query, Error 0 $ "unable to reset solver state: " <> err)
+  err <- sendLines solver ("(reset)" : (lines . show . getSMT $ query))
+  case err of
+    Nothing -> do
+      sat <- sendCommand solver "(check-sat)"
+      let res = case sat of
+                  "sat" -> Sat
+                  "unsat" -> Unsat
+                  "timeout" -> Unknown -- TODO: disambiguate?
+                  "unknown" -> Unknown
+                  _ -> Error 0 $ "Unable to parse solver output: " <> sat
+      pure (query, res)
+    Just msg -> do
+      pure (query, Error 0 msg)
 
 smtPreamble :: [SMT2]
 smtPreamble = [ "(set-logic ALL)" ]
@@ -288,21 +285,21 @@ spawnSolver config@(SMTConfig solver _ _) = do
   let solverInstance = SolverInstance solver stdin stdout stderr process
 
   _ <- sendCommand solverInstance "(set-option :print-success true)"
-  res <- sendLines solverInstance smtPreamble
-  case res of
+  err <- sendLines solverInstance smtPreamble
+  case err of
     Nothing -> pure solverInstance
     Just msg -> error $ "could not spawn solver: " <> msg
 
 sendLines :: SolverInstance -> [SMT2] -> IO (Maybe String)
 sendLines solver smt = case smt of
-    [] -> pure Nothing
-    hd : tl -> do
-      suc <- sendCommand solver hd
-      if suc == "success"
-         then sendLines solver tl
-         else pure (Just suc)
+  [] -> pure Nothing
+  hd : tl -> do
+    suc <- sendCommand solver hd
+    if suc == "success"
+       then sendLines solver tl
+       else pure (Just suc)
 
-sendCommand :: SolverInstance -> String -> IO String
+sendCommand :: SolverInstance -> SMT2 -> IO String
 sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
   if (cmd == "") || (";" `isPrefixOf` cmd) then pure "success" -- blank lines and comments do not produce any output from the solver
   else do
