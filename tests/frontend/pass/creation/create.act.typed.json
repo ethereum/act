@@ -13,13 +13,6 @@
     "kind": "Storages"
   },
   {
-    "kind": "Invariant",
-    "predicate": "True",
-    "preconditions": [],
-    "contract": "Modest",
-    "storagebounds": []
-  },
-  {
     "kind": "Constructor",
     "mode": "Pass",
     "storage": [

@@ -223,7 +223,7 @@ mkInvariantQueries claims = concatMap mkQueries gathered
 
 runQuery :: SMTConfig -> Query -> IO (Query, SMTResult)
 runQuery conf q = do
-  (exitCode, stdout, _) <- runSMT conf ((show . getSMT $ q) <> "\n(check-sat)")
+  (exitCode, stdout, _) <- runSMT conf ((show . getSMT $ q) <> "(check-sat)")
   let output = filter (/= "") . lines $ stdout
       containsErrors = any (isPrefixOf "(error") output
       res = case exitCode of
@@ -232,13 +232,13 @@ runQuery conf q = do
           if containsErrors
           then Error 0 stdout -- cvc4 returns exit code zero even if there are errors
           else case output of
-                 [] -> Unknown
+                 [] -> Error 0 "No solver output to parse"
                  l -> case last l of
                    "sat" -> Sat
                    "unsat" -> Unsat
                    "timeout" -> Unknown -- TODO: disambiguate
                    "unknown" -> Unknown
-                   _ -> Error 0 $ "Unable to parse SMT output: " <> stdout
+                   _ -> Error 0 $ "Unable to parse solver output: " <> stdout
   pure (q, res)
 
 runSMT :: SMTConfig -> SMT2 -> IO (ExitCode, String, String)
