@@ -8,7 +8,7 @@ module SMT (
   SMTResult(..),
   spawnSolver,
   stopSolver,
-  runSMT,
+  sendLines,
   runQuery,
   mkPostconditionQueries,
   mkInvariantQueries,
@@ -29,8 +29,7 @@ import Print (prettyEnv)
 import Type (defaultStore, metaType)
 
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
-import System.Process (readProcessWithExitCode, createProcess, cleanupProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
-import System.Exit (ExitCode(..))
+import System.Process (createProcess, cleanupProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
 
 
 --- ** Data ** ---
@@ -244,20 +243,6 @@ mkInvariantQueries claims = concatMap mkQueries gathered
 
 --- ** Solver Interaction ** ---
 
-
-runSMT :: SMTConfig -> SMT2 -> IO (ExitCode, String, String)
-runSMT (SMTConfig solver timeout _) e = do
-  let input = intercalate "\n" ["(set-logic ALL)", e]
-      args = case solver of
-               Z3 ->
-                 [ "-in"
-                 , "-t:" <> show timeout]
-               CVC4 ->
-                 [ "--lang=smt"
-                 , "--interactive"
-                 , "--no-interactive-prompt"
-                 , "--tlimit-per=" <> show timeout]
-  readProcessWithExitCode (show solver) args input
 
 runQuery :: SolverInstance -> Query -> IO (Query, SMTResult)
 runQuery solver query = do

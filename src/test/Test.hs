@@ -14,9 +14,8 @@ import Test.QuickCheck.Monadic
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Reader
-import Data.List
 import Data.ByteString (ByteString)
-import System.Exit (ExitCode(..))
+import Data.Maybe (catMaybes)
 import qualified Data.Set as Set
 import qualified Data.Map as Map (empty)
 
@@ -78,12 +77,15 @@ typeCheckSMT :: Solver -> GenT (Reader Bool) Property
 typeCheckSMT solver = do
   behv <- genBehv 3
   let smtconf = SMTConfig solver 1 False
-      smt = show . getSMT <$> mkPostconditionQueries (B behv)
-  pure . monadicIO . run $ and . fmap parseOutput <$> mapM (runSMT smtconf) smt
+      smt = mkPostconditionQueries (B behv)
+  pure . monadicIO . run $ runQueries smtconf smt
     where
-      parseOutput (exitCode, stdout, _) = case exitCode of
-        ExitFailure _ -> False
-        ExitSuccess -> not . any (isPrefixOf "(error") . filter (/= "") . lines $ stdout
+      runQueries smtconf queries = do
+        solverInstance <- spawnSolver smtconf
+        res <- mapM (askSMT solverInstance) queries
+        pure $ null (catMaybes res)
+
+      askSMT solverInstance query = sendLines solverInstance ("(reset)" : (lines . show . getSMT $ query))
 
 
 -- *** QuickCheck Generators *** --
