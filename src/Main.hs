@@ -119,10 +119,12 @@ main = do
           solverInstance <- spawnSolver config
           pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
           invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
+          stopSolver solverInstance
+
           let results = map handleRes (pcResults <> invResults)
           allGood <- foldM (\acc (r, msg, smt) -> do
-            if (_debug config) then putStrLn (msg <> "\n\n" <> smt) else putStrLn msg
-            pure $ if acc == False then False else r
+              if (_debug config) then putStrLn (msg <> "\n\n" <> smt) else putStrLn msg
+              pure $ acc && r
             ) True results
           unless allGood exitFailure
 

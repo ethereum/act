@@ -1,10 +1,21 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MonadComprehensions #-}
 
-module SMT (Solver(..), SMTConfig(..), Query(..), SMTResult(..), spawnSolver, runSMT, runQuery, mkPostconditionQueries, mkInvariantQueries, getTarget, getSMT) where
+module SMT (
+  Solver(..),
+  SMTConfig(..),
+  Query(..),
+  SMTResult(..),
+  spawnSolver,
+  stopSolver,
+  runSMT,
+  runQuery,
+  mkPostconditionQueries,
+  mkInvariantQueries,
+  getTarget,
+  getSMT) where
 
 import Control.Applicative ((<|>))
-
 import Data.Map (Map)
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Maybe
@@ -18,7 +29,7 @@ import Print (prettyEnv)
 import Type (defaultStore, metaType)
 
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
-import System.Process (readProcessWithExitCode, createProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
+import System.Process (readProcessWithExitCode, createProcess, cleanupProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
 import System.Exit (ExitCode(..))
 
 
@@ -289,6 +300,9 @@ spawnSolver config@(SMTConfig solver _ _) = do
   case err of
     Nothing -> pure solverInstance
     Just msg -> error $ "could not spawn solver: " <> msg
+
+stopSolver :: SolverInstance -> IO ()
+stopSolver (SolverInstance _ stdin stdout stderr process) = cleanupProcess (Just stdin, Just stdout, Just stderr, process)
 
 sendLines :: SolverInstance -> [SMT2] -> IO (Maybe String)
 sendLines solver smt = case smt of
