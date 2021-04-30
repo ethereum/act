@@ -85,10 +85,10 @@ defaultStore =
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> RawBehaviour -> Err [Claim]
-splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
+splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases posts) = do
   -- constrain integer calldata variables (TODO: other types)
   iff <- checkIffs env iffs'
-  postcondition <- mapM (\expr -> checkBool (getPosn expr) env expr) (fromMaybe [] maybePost)
+  postcondition <- mapM (\expr -> checkBool (getPosn expr) env expr) posts
   flatten iff postcondition cases
   where
     env :: Env
@@ -132,15 +132,15 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
             -> splitCase name contract iface [ifcond] iff ret stateUpdates postc)
            =<< cases'
 
-splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Creates assigns) extStorage maybeEnsures maybeInvs) = do
+splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Creates assigns) extStorage postcs invs) = do
   unless (null extStorage) $ error "TODO: support extStorage in constructor"
 
   let env = mkEnv contract store decls
   stateUpdates <- concat <$> mapM (checkAssign env) assigns
   iffs' <- checkIffs env iffs
 
-  invariants <- mapM (\expr -> checkBool (getPosn expr) env expr) $ fromMaybe [] maybeInvs
-  ensures <- mapM (\expr -> checkBool (getPosn expr) env expr) (fromMaybe [] maybeEnsures)
+  invariants <- mapM (\expr -> checkBool (getPosn expr) env expr) invs
+  ensures <- mapM (\expr -> checkBool (getPosn expr) env expr) postcs
 
   let cases' = if null iffs' then [C $ Constructor contract Pass iface iffs' ensures stateUpdates []]
                else [ C $ Constructor contract Pass iface iffs' ensures stateUpdates []

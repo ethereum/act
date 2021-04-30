@@ -17,8 +17,8 @@ newtype Act = Main [RawBehaviour]
   deriving (Eq, Show)
 
 data RawBehaviour
-    = Transition Id Id Interface [IffH] Cases (Maybe Ensures)
-    | Definition Id Interface [IffH] Creates [ExtStorage] (Maybe Ensures) (Maybe Invariants)
+    = Transition Id Id Interface [IffH] Cases Ensures
+    | Definition Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
   deriving (Eq, Show)
 
 type Ensures = [Expr]
