@@ -148,9 +148,8 @@ nonempty(x) : x                                       { [$1]    }
 list(x) : {- empty -}                                 { []      }
         | x list(x)                                   { $1 : $2 }
 
-opt(x) : x                                            { Just $1 }
-       | {- empty -}                                  { Nothing }
-
+optblock(label, x) : label nonempty(x)                { $2 }
+                   | {- empty -}                      { [] }
 
 -- rules --
 
@@ -161,7 +160,7 @@ Transition : 'behaviour' id 'of' id
              Interface
              list(Precondition)
              Cases
-             opt(Ensures)                             { Transition (name $2) (name $4)
+             Ensures                                  { Transition (name $2) (name $4)
                                                         $5 $6 $7 $8 }
 
 Constructor : 'constructor' 'of' id
@@ -169,13 +168,13 @@ Constructor : 'constructor' 'of' id
               list(Precondition)
               Creation
               list(ExtStorage)
-              opt(Ensures)
-              opt(Invariants)                          { Definition (name $3)
+              Ensures
+              Invariants                              { Definition (name $3)
                                                          $4 $5 $6 $7 $8 $9 }
 
-Ensures : 'ensures' nonempty(Expr)                    { $2 }
+Ensures : optblock('ensures', Expr)                   { $1 }
 
-Invariants : 'invariants' nonempty(Expr)              { $2 }
+Invariants : optblock('invariants', Expr)             { $1 }
 
 Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface (name $2) $4 }
 

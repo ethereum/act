@@ -88,7 +88,7 @@ splitBehaviour :: Store -> RawBehaviour -> Err [Claim]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases maybePost) = do
   -- constrain integer calldata variables (TODO: other types)
   iff <- checkIffs env iffs'
-  postcondition <- mapM (\expr -> checkBool (getPosn expr) env expr) (fromMaybe [] maybePost)
+  postcondition <- mapM (\expr -> checkBool (getPosn expr) env expr) maybePost
   flatten iff postcondition cases
   where
     env :: Env
@@ -139,8 +139,8 @@ splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Create
   stateUpdates <- concat <$> mapM (checkAssign env) assigns
   iffs' <- checkIffs env iffs
 
-  invariants <- mapM (\expr -> checkBool (getPosn expr) env expr) $ fromMaybe [] maybeInvs
-  ensures <- mapM (\expr -> checkBool (getPosn expr) env expr) (fromMaybe [] maybeEnsures)
+  invariants <- mapM (\expr -> checkBool (getPosn expr) env expr) maybeInvs
+  ensures <- mapM (\expr -> checkBool (getPosn expr) env expr) maybeEnsures
 
   -- this forces the smt backend to be run on every spec, ensuring postconditions are checked for every behaviour
   -- TODO: seperate the smt backend into seperate passes so we only run the invariant analysis if required
