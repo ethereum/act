@@ -132,7 +132,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
             -> splitCase name contract iface [ifcond] iff ret stateUpdates postc)
            =<< cases'
 
-splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Creates assigns) extStorage ens invs) = do
+splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Creates assigns) extStorage postcs invs) = do
   unless (null extStorage) $ error "TODO: support extStorage in constructor"
 
   let env = mkEnv contract store decls
@@ -140,7 +140,7 @@ splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Create
   iffs' <- checkIffs env iffs
 
   invariants <- mapM (\expr -> checkBool (getPosn expr) env expr) invs
-  ensures <- mapM (\expr -> checkBool (getPosn expr) env expr) ens
+  ensures <- mapM (\expr -> checkBool (getPosn expr) env expr) postcs
 
   -- this forces the smt backend to be run on every spec, ensuring postconditions are checked for every behaviour
   -- TODO: seperate the smt backend into seperate passes so we only run the invariant analysis if required
