@@ -20,7 +20,7 @@ import Data.Maybe
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
-import qualified Data.Map.Strict      as Map -- abandon in favor of [(a,b)]?
+import qualified Data.Map.Strict as Map
 import System.Environment (setEnv)
 
 import qualified Data.ByteString.Lazy.Char8 as B
@@ -106,15 +106,23 @@ main = do
         proceed contents (compile contents) $ \claims -> do
           let
             handleRes (query, res) = case res of
-                  Unsat -> (True, typ <> " " <> prettyExp target <> " holds :)", show $ getSMT query)
-                  Sat -> (False, typ <> " " <> prettyExp target <> " does not hold :(", show $ getSMT query)
-                  SMT.Unknown -> (False, typ <> " " <> prettyExp target <> " could not be proved due to a solver timeout :(", show $ getSMT query)
-                  SMT.Error _ str -> (False, typ <> " " <> prettyExp target <> " could not be proved to due a solver error: " <> str, show $ getSMT query)
+                  Unsat -> (True, identifier <> " holds :)", show $ getSMT query)
+                  Sat model -> (False, identifier <> " violated:\n" <> show model, show $ getSMT query)
+                  SMT.Unknown -> (False, identifier <> " could not be proved due to a solver timeout :(", show $ getSMT query)
+                  SMT.Error _ str -> (False, identifier <> " could not be proved to due a solver error: " <> str, show $ getSMT query)
               where
                 target = getTarget query
-                typ = case query of
-                  Postcondition {} -> "postcondition"
-                  Inv {} -> "invariant"
+                contract = getContract query
+                behv = getBehvName query
+                identifier = case query of
+                  Postcondition {} -> "postcondition " <> prettyExp target <> " in " <> getBehvName query <> " of contract " <> contract
+                  Inv {} -> "invariant " <> prettyExp target <> " of contract " <> contract
+
+                getBehvName (Postcondition (C _) _ _) = "the constructor"
+                getBehvName (Postcondition (B behv) _ _) = "behaviour " <> _name behv
+                getBehvName (Inv (C _) _ _) = "the constructor"
+                getBehvName (Inv (B behv) _ _) = "behaviour " <> _name behv
+                getBehvName _ = error "Internal Error: invalid query" -- TODO: refine types
 
           solverInstance <- spawnSolver config
           pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)

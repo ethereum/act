@@ -8,6 +8,27 @@ import RefinedAst
 import Syntax
 import EVM.ABI (AbiType(..))
 
+locsFromBehaviour :: Behaviour -> [StorageLocation]
+locsFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
+  (concatMap locsFromExp preconds)
+  <> (concatMap locsFromExp postconds)
+  <> (concatMap locsFromStateUpdate stateUpdates)
+  <> (maybe [] locsFromReturnExp returns)
+
+locsFromConstructor :: Constructor -> [StorageLocation]
+locsFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) =
+  (concatMap locsFromExp pre)
+  <> (concatMap locsFromExp post)
+  <> (concatMap locsFromStateUpdate stateUpdates)
+  <> (concatMap locsFromStateUpdate (Right <$> initialStorage))
+
+locsFromStateUpdate :: Either StorageLocation StorageUpdate -> [StorageLocation]
+locsFromStateUpdate update = case update of
+  Left loc -> [loc]
+  Right (IntUpdate item e) -> (IntLoc item) : locsFromExp e
+  Right (BoolUpdate item e) -> (BoolLoc item) : locsFromExp e
+  Right (BytesUpdate item e) -> (BytesLoc item) : locsFromExp e
+
 locsFromReturnExp :: ReturnExp -> [StorageLocation]
 locsFromReturnExp (ExpInt e) = locsFromExp e
 locsFromReturnExp (ExpBool e) = locsFromExp e
@@ -216,3 +237,10 @@ getContainerIxs (BytesLoc (DirectBytes _ _)) = []
 getContainerIxs (IntLoc (MappedInt _ _ ixs)) = NonEmpty.toList ixs
 getContainerIxs (BoolLoc (MappedBool _ _ ixs)) = NonEmpty.toList ixs
 getContainerIxs (BytesLoc (MappedBytes _ _ ixs)) = NonEmpty.toList ixs
+
+isMapping :: StorageLocation -> Bool
+isMapping loc = case loc of
+  (IntLoc (MappedInt {})) -> True
+  (BoolLoc (MappedBool {})) -> True
+  (BytesLoc (MappedBytes {})) -> True
+  _ -> False

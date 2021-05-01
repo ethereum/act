@@ -1,35 +1,40 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
-module SMT (
-  Solver(..),
-  SMTConfig(..),
-  Query(..),
-  SMTResult(..),
-  spawnSolver,
-  stopSolver,
-  sendLines,
-  runQuery,
-  mkPostconditionQueries,
-  mkInvariantQueries,
-  getTarget,
-  getSMT) where
+module SMT where
+--module SMT (
+  --Solver(..),
+  --SMTConfig(..),
+  --Query(..),
+  --SMTResult(..),
+  --spawnSolver,
+  --stopSolver,
+  --sendLines,
+  --runQuery,
+  --mkPostconditionQueries,
+  --mkInvariantQueries,
+  --getTarget,
+  --getSMT) where
+
+import Data.Containers.ListUtils (nubOrd)
+import System.Process (createProcess, cleanupProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
+import EVM.ABI (AbiType(..))
 
 import Control.Applicative ((<|>))
 import Data.Map (Map)
 import Data.List.NonEmpty (NonEmpty(..))
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe
 import Data.List
-import Data.Containers.ListUtils (nubOrd)
+import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
+import Data.ByteString.UTF8 (fromString)
 
 import RefinedAst
 import Extract
 import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
-import Print (prettyEnv)
+import Print
 import Type (defaultStore, metaType)
-
-import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
-import System.Process (createProcess, cleanupProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
 
 
 --- ** Data ** ---
@@ -79,27 +84,61 @@ instance Show SMTExp where
       environment = unlines $ ";ENVIRONMENT:" : (nubOrd $ _environment e)
       assertions = unlines $ ";ASSERTIONS:" : (nubOrd $ _assertions e)
 
--- A Query is a structured representation of an SMT query for an individual
--- expression, along with the metadata needed to pretty print the result
+-- | A Query is a structured representation of an SMT query for an individual
+--   expression, along with the metadata needed to extract a model from a satisfiable query
 data Query
   = Postcondition Claim (Exp Bool) SMTExp
   | Inv Claim Invariant SMTExp
   deriving (Show)
 
 data SMTResult
-  = Sat
+  = Sat Model
   | Unsat
   | Unknown
   | Error Int String
   deriving (Show)
 
+-- | An assignment of concrete values to symbolic variables structured in a way
+--   to allow for easy pretty printing. The LHS of each pair is the symbolic
+--   variable, and the RHS is the concrete value assigned to that variable in the
+--   counterexample
 data Model = Model
   { _mprestate :: [(StorageLocation, ReturnExp)]
   , _mpoststate :: [(StorageLocation, ReturnExp)]
-  , _mcalldata :: [(ReturnExp, ReturnExp)]
+  , _mcalldata :: (String, [(Decl, ReturnExp)])
   , _menvironment :: [(EthEnv, ReturnExp)]
+  -- invariants always have access to the constructor context
+  , _minitargs :: [(ReturnExp, ReturnExp)]
+  , _minitenv :: [(Decl, ReturnExp)]
   }
-  deriving (Show)
+
+instance Show Model where
+  show (Model prestate poststate (ifaceName, args) environment initargs initenv) = unlines $
+    ["", "counterexample:"]
+      <> indent 2
+        (  calldata'
+        <> ifExists environment environment'
+        <> storage
+        )
+    where
+      calldata' = (header "calldata:") <> (indent 2 [ifaceName <> "(" <> (intercalate ", " $ fmap formatCalldata args) <> ")"])
+      environment' = (header "environment:") <> (indent 2 $ fmap formatEnvironment environment)
+      storage = ["", "storage:"] <> (indent 2 $ (ifExists prestate prestate') <> poststate')
+
+      prestate' = (header "prestate:") <> (indent 2 $ fmap formatStorage poststate)
+      poststate' = (header "poststate:") <> (indent 2 $ fmap formatStorage poststate)
+
+      formatCalldata ((Decl _ name), val) = name <> " : " <> prettyReturnExp val
+      formatEnvironment (env, val) = prettyEnv env <> " : " <> prettyReturnExp val
+      formatStorage (loc, val) = prettyLocation loc <> " : " <> prettyReturnExp val
+
+      ifExists a b = if null a then [] else b
+
+      header s = ["", s, ""]
+
+
+indent :: Int -> [String] -> [String]
+indent n text = ((replicate n ' ') <>) <$> text
 
 data SolverInstance = SolverInstance
   { _type :: Solver
@@ -244,24 +283,117 @@ mkInvariantQueries claims = concatMap mkQueries gathered
 --- ** Solver Interaction ** ---
 
 
+getModel :: SolverInstance -> Query -> IO Model
+getModel solver (Postcondition (C ctor) _ _) = do
+  let locs = locsFromConstructor ctor
+      env = ethEnvFromConstructor ctor
+      (Interface ifaceName decls) = _cinterface ctor
+  poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
+  calldata <- mapM (getCalldataValue solver ifaceName) decls
+  environment <- mapM (getEnvironmentValue solver) env
+  pure $ Model
+    { _mprestate = []
+    , _mpoststate = nub poststate -- TODO: dedup in extract
+    , _mcalldata = (ifaceName, nub calldata)
+    , _menvironment = nub environment
+    , _minitargs = []
+    , _minitenv = []
+    }
+getModel solver (Postcondition (B behv) _ _) = do
+  let locs = locsFromBehaviour behv
+      env = ethEnvFromBehaviour behv
+      (Interface ifaceName decls) = _interface behv
+  prestate <- mapM (getStorageValue solver (Ctx ifaceName Pre)) locs
+  poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
+  calldata <- mapM (getCalldataValue solver ifaceName) decls
+  environment <- mapM (getEnvironmentValue solver) env
+  pure $ Model
+    { _mprestate = nub prestate
+    , _mpoststate = nub poststate
+    , _mcalldata = (ifaceName, nub calldata)
+    , _menvironment = nub environment
+    , _minitargs = []
+    , _minitenv = []
+    }
+getModel _ _ = undefined
+
+-- output should be in the form "((identifier value))"
+-- we therefore return the non-whitespace group before the last two ')' chars
+-- TODO: this could probably be faster with a regex
+parseSMTModel :: String -> String
+parseSMTModel s = init . init $ last (words s)
+
+getStorageValue :: SolverInstance -> Ctx -> StorageLocation -> IO (StorageLocation, ReturnExp)
+getStorageValue solver ctx@(Ctx _ whn) loc = do
+  let name = if isMapping loc
+                then select ctx (nameFromLoc whn loc) (NonEmpty.fromList $ getContainerIxs loc)
+                else nameFromLoc whn loc
+  output <- getValue solver name
+  -- TODO: handle errors here...
+  let val = case loc of
+              IntLoc {} -> parseIntModel output
+              BoolLoc {} -> parseBoolModel output
+              BytesLoc {} -> parseBytesModel output
+  pure (loc, val)
+
+getCalldataValue :: SolverInstance -> Id -> Decl -> IO (Decl, ReturnExp)
+getCalldataValue solver ifaceName decl@(Decl tp _) = do
+  let name = nameFromDecl ifaceName decl
+  output <- getValue solver name
+  let val = case metaType tp of
+              Integer -> parseIntModel output
+              Boolean -> parseBoolModel output
+              ByteStr -> parseBytesModel output
+  pure (decl, val)
+
+getEnvironmentValue :: SolverInstance -> EthEnv -> IO (EthEnv, ReturnExp)
+getEnvironmentValue solver env = do
+  output <- getValue solver (prettyEnv env)
+  let val = case lookup env defaultStore of
+              Just Integer -> parseIntModel output
+              Just Boolean -> parseBoolModel output
+              Just ByteStr -> parseBytesModel output
+              Nothing -> error "whoops" -- TODO: handle errors properly...
+  pure (env, val)
+
+getValue :: SolverInstance -> String -> IO String
+getValue solver name = sendCommand solver $ "(get-value (" <> name <> "))"
+
+parseIntModel :: String -> ReturnExp
+parseIntModel = ExpInt . LitInt . read . parseSMTModel
+
+parseBoolModel :: String -> ReturnExp
+parseBoolModel = ExpBool . LitBool . readBool . parseSMTModel
+  where
+    readBool "true" = True
+    readBool "false" = False
+    readBool s = error ("Could not parse " <> s <> "into a bool")
+
+parseBytesModel :: String -> ReturnExp
+parseBytesModel = ExpBytes . ByLit . fromString . parseSMTModel
+
 runQuery :: SolverInstance -> Query -> IO (Query, SMTResult)
 runQuery solver query = do
   err <- sendLines solver ("(reset)" : (lines . show . getSMT $ query))
   case err of
     Nothing -> do
       sat <- sendCommand solver "(check-sat)"
-      let res = case sat of
-                  "sat" -> Sat
-                  "unsat" -> Unsat
-                  "timeout" -> Unknown -- TODO: disambiguate?
-                  "unknown" -> Unknown
-                  _ -> Error 0 $ "Unable to parse solver output: " <> sat
-      pure (query, res)
+      case sat of
+        "sat" -> do
+          model <- getModel solver query
+          pure (query, Sat model)
+        "unsat" -> pure (query, Unsat)
+        "timeout" -> pure (query, Unknown) -- TODO: disambiguate?
+        "unknown" -> pure (query, Unknown)
+        _ -> pure (query, Error 0 $ "Unable to parse solver output: " <> sat)
     Just msg -> do
       pure (query, Error 0 msg)
 
 smtPreamble :: [SMT2]
-smtPreamble = [ "(set-logic ALL)" ]
+smtPreamble =
+  [ "(set-logic ALL)"
+  , "(set-option :produce-models true)"
+  ]
 
 solverArgs :: SMTConfig -> [String]
 solverArgs (SMTConfig solver timeout _) = case solver of
@@ -435,9 +567,9 @@ expToSMT2 ctx@(Ctx behvName whn) e = case e of
     DirectInt {} -> nameFromItem whn item
     DirectBool {} -> nameFromItem whn item
     DirectBytes {} -> nameFromItem whn item
-    MappedInt _ _ ixs -> select (nameFromItem whn item) ixs
-    MappedBool _ _ ixs -> select (nameFromItem whn item) ixs
-    MappedBytes _ _ ixs -> select (nameFromItem whn item) ixs
+    MappedInt _ _ ixs -> select ctx (nameFromItem whn item) ixs
+    MappedBool _ _ ixs -> select ctx (nameFromItem whn item) ixs
+    MappedBytes _ _ ixs -> select ctx (nameFromItem whn item) ixs
 
   where
     asSMT2 :: Exp a -> SMT2
@@ -451,11 +583,6 @@ expToSMT2 ctx@(Ctx behvName whn) e = case e of
 
     triop :: String -> Exp a -> Exp b -> Exp c -> SMT2
     triop op a b c = "(" <> op <> " " <> asSMT2 a <> " " <> asSMT2 b <> " " <> asSMT2 c <> ")"
-
-    select :: String -> NonEmpty ReturnExp -> SMT2
-    select name (hd :| tl) = foldl' (\smt ix -> "(select " <> smt <> " " <> returnExpToSMT2 ctx ix <> ")") inner tl
-      where
-        inner = "(" <> "select" <> " " <> name <> " " <> returnExpToSMT2 ctx hd <> ")"
 
 -- | SMT2 has no support for exponentiation, but we can do some preprocessing
 --   if the RHS is concrete to provide some limited support for exponentiation
@@ -477,6 +604,12 @@ array name (hd :| tl) ret = "(declare-const " <> name <> " (Array " <> sType' hd
   where
     valueDecl [] = sType ret
     valueDecl (h : t) = "(Array " <> sType' h <> " " <> valueDecl t <> ")"
+
+select :: Ctx -> String -> NonEmpty ReturnExp -> SMT2
+select ctx name (hd :| tl) = foldl' (\smt ix -> "(select " <> smt <> " " <> returnExpToSMT2 ctx ix <> ")") inner tl
+  where
+    inner = "(" <> "select" <> " " <> name <> " " <> returnExpToSMT2 ctx hd <> ")"
+
 
 sType :: MType -> SMT2
 sType Integer = "Int"
@@ -508,12 +641,12 @@ nameFromLoc when loc = case loc of
   BytesLoc item -> nameFromItem when item
 
 nameFromDecl :: Id -> Decl -> Id
-nameFromDecl behvName (Decl _ name) = behvName @@ name
+nameFromDecl ifaceName (Decl _ name) = ifaceName @@ name
 
 nameFromVar :: Id -> Exp a -> Id
-nameFromVar behvName (IntVar name) = behvName @@ name
-nameFromVar behvName (ByVar name) = behvName @@ name
-nameFromVar behvName (BoolVar name) = behvName @@ name
+nameFromVar ifaceName (IntVar name) = ifaceName @@ name
+nameFromVar ifaceName (ByVar name) = ifaceName @@ name
+nameFromVar ifaceName (BoolVar name) = ifaceName @@ name
 nameFromVar _ _ = error "Internal Error: cannot produce a variable name for non variable expressions"
 
 (@@) :: String -> String -> String
@@ -530,3 +663,10 @@ getTarget (Inv _ (Invariant _ _ _ t) _) = t
 getSMT :: Query -> SMTExp
 getSMT (Postcondition _ _ e) = e
 getSMT (Inv _ _ e) = e
+
+getContract :: Query -> String
+getContract (Postcondition (C ctor) _ _) = _cname ctor
+getContract (Postcondition (B behv) _ _) = _contract behv
+getContract (Inv (C ctor) _ _) = _cname ctor
+getContract (Inv (B behv) _ _) = _contract behv
+getContract _ = error "Internal Error: invalid query" -- TODO: refine types
