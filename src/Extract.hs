@@ -12,7 +12,12 @@ import qualified Data.List.NonEmpty as NonEmpty
 import RefinedAst
 import Syntax
 
-import Data.Comp.Multi.HFunctor (K)
+import Data.Comp.Multi.Algebra (cata)
+import Data.Comp.Multi.HFunctor (K(..))
+import Data.Comp.Multi.HFoldable (hfold)
+import Data.Comp.Multi.Ops (injectA, projectA, (:&:)(..))
+import qualified Data.Comp.Ops as O
+import Data.Comp.Multi.Term (Term, unTerm)
 import Utils
 
 storageLocations :: TStorageItem a -> [StorageLocation]
@@ -37,7 +42,17 @@ locsFromExp = cataK \case
   BoolStore t -> storageLocations t
   IntStore t  -> storageLocations t
   ByStore t   -> storageLocations t
-  e           -> recurse e
+  e           -> hfold e
+
+locsFromExp' :: Exp a -> [StorageLocation]
+locsFromExp' = unK . cata f
+  where
+    f :: ExpF (K [StorageLocation]) i -> K [StorageLocation] i
+    f = K . \case
+      BoolStore t -> storageLocations t
+      IntStore t  -> storageLocations t
+      ByStore t   -> storageLocations t
+      e           -> hfold e
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
@@ -81,7 +96,7 @@ ethEnvFromExp = cataK \case
   BoolStore a -> ethEnvFromItem a
   IntStore a  -> ethEnvFromItem a
   ByStore a   -> ethEnvFromItem a
-  e           -> recurse e
+  e           -> hfold e
 
 getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
 getLoc = either id mkLoc

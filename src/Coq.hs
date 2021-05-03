@@ -300,9 +300,6 @@ expAlg = \case
   ByStore (DirectBytes _ _) -> error "bytestrings not supported"
   ByStore (MappedBytes _ _ _) -> error "bytestrings not supported"
   NewAddr _ _ -> error "newaddr not supported"
-  where
-    (<$*>) :: (a -> b) -> K a x -> b
-    f <$*> (K a) = f a -- TODO decide if we want this and if so move to Utils
 
 -- | coq syntax for an expression
 coqexp :: Exp a -> T.Text

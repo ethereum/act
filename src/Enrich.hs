@@ -27,7 +27,7 @@ enrich claims = [S store]
     constructors = [c | C c <- claims]
     definition (Invariant c _ _) = head $ filter (\b -> Pass == _cmode b && _cname b == c) [c' | C c' <- claims]
 
--- |Adds type bounds for calldata , environment vars, and external storage vars as preconditions
+-- | Adds type bounds for calldata , environment vars, and external storage vars as preconditions
 enrichConstructor :: Store -> Constructor -> Constructor
 enrichConstructor store ctor@(Constructor _ _ (Interface _ decls) pre _ _ storageUpdates) =
   ctor { _cpreconditions = pre' }

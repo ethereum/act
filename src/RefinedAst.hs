@@ -10,11 +10,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE BlockArguments #-}
 
 module RefinedAst where
 
 import Data.Function (on)
-import Data.Text (pack)
+import Data.Text (Text,pack)
 import Data.Type.Equality
 import Data.Typeable
 import Data.Map.Strict (Map)
@@ -34,6 +35,8 @@ import Data.Comp.Multi.HFunctor hiding (I(..))
 import Data.Comp.Multi.HFoldable
 import Data.Comp.Multi.Show
 import Data.Comp.Multi.Term
+
+import Utils
 
 -- AST post typechecking
 data Claim = C Constructor | B Behaviour | I Invariant | S Store deriving (Show, Eq)
@@ -243,6 +246,7 @@ instance ToJSON ReturnExp where
    toJSON (ExpBytes a) = object ["sort" .= (String $ pack "bytestring")
                                ,"expression" .= toJSON a]
 
+-- TODO possibly use cataK instead for consistency...but honestly why?
 instance ToJSON (Exp t) where
   toJSON t@(Term e) = case e of
     Add a b -> symbol "+" a b
@@ -259,9 +263,7 @@ instance ToJSON (Exp t) where
     UIntMax a -> toJSON $ show $ uintmax a
     IntEnv a -> String $ pack $ show a
     IntStore a -> toJSON a
-    ByStore a -> case a of -- TODO lol fix the tests instead
-      DirectBytes {} -> String . pack . show $ t
-      MappedBytes {} -> String . pack . show $ t
+    ByStore a -> String . pack . show $ t
     ITE a b c -> object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= (Data.Aeson.Types.Number 3)
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]

@@ -4,6 +4,9 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE TypeOperators #-}
 
 module K where
 
@@ -11,6 +14,9 @@ import Syntax
 import RefinedAst
 import Extract
 import ErrM
+import Control.Applicative ((<|>))
+import Data.Char (toUpper)
+import Data.Functor (($>))
 import Data.Text (Text, pack, unpack)
 import Data.Type.Equality
 import Data.Typeable
@@ -21,6 +27,13 @@ import Data.ByteString hiding (group, pack, unpack, intercalate, filter, foldr, 
 import qualified Data.Text as Text
 import Parse
 import EVM.Types
+import Utils
+import Data.Comp.Multi.Ops ((:*:)(..), ffst, fsnd)
+import Data.Comp.Multi.Algebra
+import Data.Comp.Multi.HFoldable (hfold)
+import Data.Comp.Multi.HFunctor
+import Data.Comp.Multi.Show (showHF')
+import Data.Comp.Multi.Term
 
 import EVM.Solidity (SolcContract(..), StorageItem(..), SlotType(..))
 import Data.Map.Strict (Map) -- abandon in favor of [(a,b)]?
@@ -86,75 +99,77 @@ kStorageName :: TStorageItem a -> String
 kStorageName (DirectInt _ name)    = kVar name
 kStorageName (DirectBool _ name)   = kVar name
 kStorageName (DirectBytes _ name)  = kVar name
-kStorageName (MappedInt _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kStorageName (MappedBool _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kStorageName (MappedBytes _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kStorageName (MappedInt _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kReturnExp ixs)
+kStorageName (MappedBool _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kReturnExp ixs)
+kStorageName (MappedBytes _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kReturnExp ixs)
 
 kVar :: Id -> String
-kVar a = (unpack . Text.toUpper . pack $ [head a]) <> (tail a)
+kVar (a:as) = toUpper a : as
 
 kAbiEncode :: Maybe ReturnExp -> String
 kAbiEncode Nothing = ".ByteArray"
-kAbiEncode (Just (ExpInt a)) = "#enc(#uint256" <> kExprInt a <> ")"
+kAbiEncode (Just (ExpInt a)) = "#enc(#uint256" <> kExpr a <> ")"
 kAbiEncode (Just (ExpBool _)) = ".ByteArray"
 kAbiEncode (Just (ExpBytes _)) = ".ByteArray"
 
-kExpr :: ReturnExp -> String
-kExpr (ExpInt a) = kExprInt a
-kExpr (ExpBool a) = kExprBool a
-kExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
+kReturnExp :: ReturnExp -> String
+kReturnExp (ExpInt a) = kExpr a
+kReturnExp (ExpBool a) = kExpr a
+kReturnExp (ExpBytes _) = error "TODO: add support for ExpBytes to kReturnExp"
 
-kExprInt :: Exp Integer -> String
-kExprInt e = case fixExp e of
-  Add a b -> "(" <> kExprInt a <> " +Int " <> kExprInt b <> ")"
-  Sub a b -> "(" <> kExprInt a <> " -Int " <> kExprInt b <> ")"
-  Mul a b -> "(" <> kExprInt a <> " *Int " <> kExprInt b <> ")"
-  Div a b -> "(" <> kExprInt a <> " /Int " <> kExprInt b <> ")"
-  Mod a b -> "(" <> kExprInt a <> " modInt " <> kExprInt b <> ")"
-  Exp a b -> "(" <> kExprInt a <> " ^Int " <> kExprInt b <> ")"
-  LitInt a -> show a
-  IntMin a -> kExprInt $ iLitInt $ negate $ 2 ^ (a - 1)
-  IntMax a -> kExprInt $ iLitInt $ 2 ^ (a - 1) - 1
-  UIntMin _ -> kExprInt $ iLitInt 0
-  UIntMax a -> kExprInt $ iLitInt $ 2 ^ a - 1
-  IntVar a -> kVar a
-  IntEnv a -> show a
+kExpr :: Exp a -> String
+kExpr = paraK \case
+
+  -- integers
+  Add a b -> infix2 "+Int"   <$*> fsnd a <$*> fsnd b
+  Sub a b -> infix2 "-Int"   <$*> fsnd a <$*> fsnd b
+  Mul a b -> infix2 "*Int"   <$*> fsnd a <$*> fsnd b
+  Div a b -> infix2 "/Int"   <$*> fsnd a <$*> fsnd b
+  Mod a b -> infix2 "modInt" <$*> fsnd a <$*> fsnd b
+  Exp a b -> infix2 "^Int"   <$*> fsnd a <$*> fsnd b
+  LitInt   a -> show a
+  IntMin   a -> show . negate $ 2 ^ (a - 1)
+  IntMax   a -> show $ 2 ^ (a - 1) - 1
+  UIntMin  _       -> show 0
+  UIntMax  a -> show $ 2 ^ a - 1
+  IntVar   a -> kVar a
+  IntEnv   a -> show a
   IntStore a -> kStorageName a
-  v -> error ("Internal error: TODO kExprInt of " <> show e)
 
-
-kExprBool :: Exp Bool -> String
-kExprBool e = case fixExp e of
-  And a b -> "(" <> kExprBool a <> " andBool\n " <> kExprBool b <> ")"
-  Or a b -> "(" <> kExprBool a <> " orBool " <> kExprBool b <> ")"
-  Impl a b -> "(" <> kExprBool a <> " impliesBool " <> kExprBool b <> ")"
-  Neg a -> "notBool (" <> kExprBool a <> ")"
-  LE a b -> "(" <> kExprInt a <> " <Int " <> kExprInt b <> ")"
-  LEQ a b -> "(" <> kExprInt a <> " <=Int " <> kExprInt b <> ")"
-  GE a b -> "(" <> kExprInt a <> " >Int " <> kExprInt b <> ")"
-  GEQ a b -> "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
+  -- booleans
+  And  a b -> infix2  "andBool\n"   <$*> fsnd a <$*> fsnd b
+  Or   a b -> infix2  "orBool"      <$*> fsnd a <$*> fsnd b
+  Impl a b -> infix2  "impliesBool" <$*> fsnd a <$*> fsnd b
+  Neg  a   -> prefix1 "notBool"     <$*> fsnd a
+  LE   a b -> infix2  "<Int"        <$*> fsnd a <$*> fsnd b
+  LEQ  a b -> infix2  "<=Int"       <$*> fsnd a <$*> fsnd b
+  GE   a b -> infix2  ">Int"        <$*> fsnd a <$*> fsnd b
+  GEQ  a b -> infix2  ">=Int"       <$*> fsnd a <$*> fsnd b
   LitBool a -> show a
   BoolVar a -> kVar a
-  NEq a b -> "notBool (" <> kExprBool (iEq a b) <> ")"
-  Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of -- TODO Maybe Monad
-    Just Refl -> "(" <> kExprInt a <> " ==Int " <> kExprInt b <> ")"
-    Nothing -> case eqT @t @Bool of
-      Just Refl -> "(" <> kExprBool a <> " ==Bool " <> kExprBool b <> ")"
-      Nothing -> case eqT @t @ByteString of
-        Just Refl -> "(" <> kExprBytes a <> " ==K " <> kExprBytes b <> ")" -- TODO: Is ==K correct?
-        Nothing -> error "Internal Error: invalid expression type"
-  _ -> error ("Internal error: TODO kExprBool of " <> show e)
+  NEq a b -> kExpr . iNeg $ iEq (ffst a) (ffst b)
+  Eq (_:*:(a :: K String t)) (_:*:(b :: K String t)) ->
+    let
+      eqExpr typ = infix2 ("==" <> typ) <$*> a <$*> b
+     in
+      fromMaybe (error "Internal Error: invalid expression type")
+      $   eqT @t @Integer    $> eqExpr "Int"
+      <|> eqT @t @Bool       $> eqExpr "Bool"
+      <|> eqT @t @ByteString $> eqExpr "K"
 
-kExprBytes :: Exp ByteString -> String
-kExprBytes e = case fixExp e of
+  -- bytestrings
   ByVar name -> kVar name
   ByStr str -> show str
   ByLit bs -> show bs
   ByStore item -> kStorageName item
-  _ -> error $ "TODO: kExprBytes of " <> show e
---kExprBytes (Cat a b) =
---kExprBytes (Slice a start end) =
---kExprBytes (ByEnv env) =
+
+  -- error
+  v -> error ("Internal error: TODO kExpr' of " <> showHF' (hfmap fsnd v))
+  where
+    prefix1 op x   = op <> parens x
+    infix2  op a b = parens . apply $ [a,op,b]
+    apply = intercalate " "
+    parens s = "(" <> s <> ")"
 
 fst' :: (a, b, c) -> a
 fst' (x, _, _) = x
@@ -172,13 +187,11 @@ kStorageEntry storageLayout update =
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (getId update)) storageLayout)
   in case update of
-       Right (IntUpdate a b) -> (loc, (offset, kStorageName a, kExprInt b))
-       Right (BoolUpdate a b) -> (loc, (offset, kStorageName a, kExprBool b))
-       Right (BytesUpdate a b) -> (loc, (offset, kStorageName a, kExprBytes b))
+       Right (IntUpdate a b) -> (loc, (offset, kStorageName a, kExpr b))
+       Right (BoolUpdate a b) -> (loc, (offset, kStorageName a, kExpr b))
+       Right (BytesUpdate a b) -> (loc, (offset, kStorageName a, kExpr b))
        Left (IntLoc a) -> (loc, (offset, kStorageName a, kStorageName a))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
---  BoolUpdate (TStorageItem Bool) c ->
---  BytesUpdate (TStorageItem ByteString) d ->  (Exp ByteString)
 
 --packs entries packed in one slot
 normalize :: Bool -> [(String, (Int, String, String))] -> String
@@ -212,37 +225,37 @@ kSlot update StorageItem{..} = case _type of
       Right (IntUpdate (MappedInt _ _ ixs) _) ->
         (
           "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+            <> show _slot <> ", " <> unwords (fmap kReturnExp (NonEmpty.toList ixs)) <> ")"
         , _offset
         )
       Left (IntLoc (MappedInt _ _ ixs)) ->
         (
           "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+            <> show _slot <> ", " <> unwords (fmap kReturnExp (NonEmpty.toList ixs)) <> ")"
         , _offset
         )
       Right (BoolUpdate (MappedBool _ _ ixs) _) ->
         (
           "#hashedLocation(\"Solidity\", "
-              <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+              <> show _slot <> ", " <> unwords (fmap kReturnExp (NonEmpty.toList ixs)) <> ")"
         , _offset
         )
       Left (BoolLoc (MappedBool _ _ ixs)) ->
         (
           "#hashedLocation(\"Solidity\", "
-              <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+              <> show _slot <> ", " <> unwords (fmap kReturnExp (NonEmpty.toList ixs)) <> ")"
         , _offset
         )
       Right (BytesUpdate (MappedBytes _ _ ixs) _) ->
         (
           "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+            <> show _slot <> ", " <> unwords (fmap kReturnExp (NonEmpty.toList ixs)) <> ")"
         , _offset
         )
       Left (BytesLoc (MappedBytes _ _ ixs)) ->
         (
           "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kExpr (NonEmpty.toList ixs)) <> ")"
+            <> show _slot <> ", " <> unwords (fmap kReturnExp (NonEmpty.toList ixs)) <> ")"
         , _offset
         )
       s -> error $ "internal error: kSlot. Please report: " <> (show s)
@@ -367,6 +380,6 @@ mkTerm this accounts Behaviour{..} = (name, term)
                   )
                <> "\nrequires "
                <> defaultConditions (kVar _contract) <> "\n andBool\n"
-               <> kExprBool (mconcat _preconditions)
+               <> kExpr (mconcat _preconditions)
                <> "\nensures "
-               <> kExprBool (mconcat _postconditions)
+               <> kExpr (mconcat _postconditions)

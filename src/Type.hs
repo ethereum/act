@@ -306,7 +306,7 @@ checkIffs env ((IffIn p typ exps):xs) = do
   Ok $ map (bound typ) hd <> tl
 checkIffs _ [] = Ok []
 
-bound :: AbiType -> (Exp Integer) -> Exp Bool
+bound :: AbiType -> Exp Integer -> Exp Bool
 bound typ e = iAnd (iLEQ (lowerBound typ) e) (iLEQ e (upperBound typ))
 
 lowerBound :: AbiType -> Exp Integer
