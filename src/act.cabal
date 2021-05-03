@@ -25,7 +25,7 @@ common deps
                  mtl              >= 2.2.2,
                  utf8-string      >= 1.0.1.1,
                  template-haskell >= 2.14,
-                 compdata         >= 0.12.1,
+                 compdata         >= 0.12,
   other-modules: Lex ErrM Extract Parse RefinedAst K HEVM Coq Syntax Type Prove Print Enrich Utils
 
   if flag(ci)
