@@ -15,10 +15,7 @@ import Syntax
 import Data.Comp.Multi.Algebra (cata)
 import Data.Comp.Multi.HFunctor (K(..))
 import Data.Comp.Multi.HFoldable (hfold)
-import Data.Comp.Multi.Ops (injectA, projectA, (:&:)(..))
-import qualified Data.Comp.Ops as O
-import Data.Comp.Multi.Term (Term, unTerm)
-import Utils
+import Utils (cataK)
 
 storageLocations :: TStorageItem a -> [StorageLocation]
 storageLocations a = case a of

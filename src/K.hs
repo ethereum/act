@@ -18,7 +18,6 @@ import Control.Applicative ((<|>))
 import Data.Char (toUpper)
 import Data.Functor (($>))
 import Data.Text (Text, pack, unpack)
-import Data.Type.Equality
 import Data.Typeable
 import Data.List hiding (group)
 import qualified Data.List.NonEmpty as NonEmpty
@@ -29,11 +28,8 @@ import Parse
 import EVM.Types
 import Utils
 import Data.Comp.Multi.Ops ((:*:)(..), ffst, fsnd)
-import Data.Comp.Multi.Algebra
-import Data.Comp.Multi.HFoldable (hfold)
 import Data.Comp.Multi.HFunctor
 import Data.Comp.Multi.Show (showHF')
-import Data.Comp.Multi.Term
 
 import EVM.Solidity (SolcContract(..), StorageItem(..), SlotType(..))
 import Data.Map.Strict (Map) -- abandon in favor of [(a,b)]?
@@ -105,6 +101,7 @@ kStorageName (MappedBytes _ name ixs) = kVar name <> "_" <> intercalate "_" (Non
 
 kVar :: Id -> String
 kVar (a:as) = toUpper a : as
+kVar _      = error "kVar: empty variable name"
 
 kAbiEncode :: Maybe ReturnExp -> String
 kAbiEncode Nothing = ".ByteArray"
@@ -128,10 +125,13 @@ kExpr = paraK \case
   Mod a b -> infix2 "modInt" <$*> fsnd a <$*> fsnd b
   Exp a b -> infix2 "^Int"   <$*> fsnd a <$*> fsnd b
   LitInt   a -> show a
-  IntMin   a -> show . negate $ 2 ^ (a - 1)
-  IntMax   a -> show $ 2 ^ (a - 1) - 1
-  UIntMin  _       -> show 0
-  UIntMax  a -> show $ 2 ^ a - 1
+
+  -- TODO these cases are somewhat unsatisfactory. 
+  -- *manual* recursion!? 😱
+  IntMin   a -> kExpr . iIntMin . negate $ 2 ^ (a - 1)
+  IntMax   a -> kExpr . iIntMin $ 2 ^ (a - 1) - 1
+  UIntMin  _ -> kExpr . iIntMin $ 0
+  UIntMax  a -> kExpr . iIntMin $ 2 ^ a - 1
   IntVar   a -> kVar a
   IntEnv   a -> show a
   IntStore a -> kStorageName a
@@ -147,7 +147,7 @@ kExpr = paraK \case
   GEQ  a b -> infix2  ">=Int"       <$*> fsnd a <$*> fsnd b
   LitBool a -> show a
   BoolVar a -> kVar a
-  NEq a b -> kExpr . iNeg $ iEq (ffst a) (ffst b)
+  NEq a b -> kExpr . iNeg $ iEq (ffst a) (ffst b) -- TODO 😱
   Eq (_:*:(a :: K String t)) (_:*:(b :: K String t)) ->
     let
       eqExpr typ = infix2 ("==" <> typ) <$*> a <$*> b

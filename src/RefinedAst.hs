@@ -3,9 +3,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# Language ScopedTypeVariables #-}
-{-# Language TypeFamilies #-}
-{-# Language TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
@@ -14,9 +14,7 @@
 
 module RefinedAst where
 
-import Data.Function (on)
-import Data.Text (Text,pack)
-import Data.Type.Equality
+import Data.Text (pack)
 import Data.Typeable
 import Data.Map.Strict (Map)
 import Data.List.NonEmpty hiding (fromList)
@@ -29,14 +27,9 @@ import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
 
-import Data.Comp.Multi.Algebra
-import Data.Comp.Multi.Derive
-import Data.Comp.Multi.HFunctor hiding (I(..))
-import Data.Comp.Multi.HFoldable
-import Data.Comp.Multi.Show
 import Data.Comp.Multi.Term
-
-import Utils
+import Data.Comp.Multi.Derive
+import Data.Comp.Multi.Show()
 
 -- AST post typechecking
 data Claim = C Constructor | B Behaviour | I Invariant | S Store deriving (Show, Eq)
@@ -263,16 +256,16 @@ instance ToJSON (Exp t) where
     UIntMax a -> toJSON $ show $ uintmax a
     IntEnv a -> String $ pack $ show a
     IntStore a -> toJSON a
-    ByStore a -> String . pack . show $ t
+    ByStore _ -> String . pack . show $ t -- lol just fix the tests instead so we can use toJSON
     ITE a b c -> object [  "symbol"   .= pack "ite"
-                              ,  "arity"    .= (Data.Aeson.Types.Number 3)
-                              ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
-    And a b -> symbol "and" a b
+                        ,  "arity"    .= (Data.Aeson.Types.Number 3)
+                        ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
+    And a b  -> symbol "and" a b
     Or a b   -> symbol "or" a b
     LE a b   -> symbol "<" a b
     GE a b   -> symbol ">" a b
     Impl a b -> symbol "=>" a b
-    NEq a b -> symbol "=/=" a b
+    NEq a b  -> symbol "=/=" a b
     Eq a b   -> symbol "==" a b
     LEQ a b  -> symbol "<=" a b
     GEQ a b  -> symbol ">=" a b
@@ -280,9 +273,9 @@ instance ToJSON (Exp t) where
     BoolVar a -> toJSON a
     BoolStore a -> toJSON a
     Neg a -> object [  "symbol"   .= pack "not"
-                          ,  "arity"    .= (Data.Aeson.Types.Number 1)
-                          ,  "args"     .= (Array $ fromList [toJSON a])]
-    _ -> String $ pack $ show t
+                    ,  "arity"    .= (Data.Aeson.Types.Number 1)
+                    ,  "args"     .= (Array $ fromList [toJSON a])]
+    _ -> String . pack . show $ t
 
 mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
 mapping c a b = object [  "symbol"   .= pack "lookup"
