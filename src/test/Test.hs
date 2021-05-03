@@ -48,7 +48,7 @@ main = defaultMain $ testGroup "act"
                 [ S Map.empty, B behv ]
               else
                 [ S Map.empty, B behv
-                , B $ Behaviour name Fail contract iface [Neg $ mconcat preconds] [] [] Nothing ]
+                , B $ Behaviour name Fail contract iface [iNeg $ mconcat preconds] [] [] Nothing ]
         return $ case actual of
           Ok a -> a == expected
           Bad _ -> False
@@ -127,30 +127,30 @@ genReturnExp names n = oneof
 -- TODO: literals, cat slice, ITE, storage, ByStr
 genExpBytes :: Names -> Int -> Gen (Exp ByteString)
 genExpBytes names _ = oneof
-  [ ByVar <$> (selectName ByteStr names)
-  , return $ ByEnv Blockhash
+  [ iByVar <$> (selectName ByteStr names)
+  , return $ iByEnv Blockhash
   ]
 
 
 -- TODO: ITE, storage
 genExpBool :: Names -> Int -> Gen (Exp Bool)
 genExpBool names 0 = oneof
-  [ BoolVar <$> (selectName Boolean names)
-  , LitBool <$> arbitrary
+  [ iBoolVar <$> (selectName Boolean names)
+  , iLitBool <$> arbitrary
   ]
 genExpBool names n = oneof
-  [ liftM2 And subExpBool subExpBool
-  , liftM2 Or subExpBool subExpBool
-  , liftM2 Impl subExpBool subExpBool
-  , liftM2 Eq subExpInt subExpInt
-  , liftM2 Eq subExpBool subExpBool
-  , liftM2 Eq subExpBytes subExpBytes
-  , liftM2 NEq subExpInt subExpInt
-  , liftM2 LE subExpInt subExpInt
-  , liftM2 LEQ subExpInt subExpInt
-  , liftM2 GEQ subExpInt subExpInt
-  , liftM2 GE subExpInt subExpInt
-  , Neg <$> subExpBool
+  [ liftM2 iAnd subExpBool subExpBool
+  , liftM2 iOr subExpBool subExpBool
+  , liftM2 iImpl subExpBool subExpBool
+  , liftM2 iEq subExpInt subExpInt
+  , liftM2 iEq subExpBool subExpBool
+  , liftM2 iEq subExpBytes subExpBytes
+  , liftM2 iNEq subExpInt subExpInt
+  , liftM2 iLE subExpInt subExpInt
+  , liftM2 iLEQ subExpInt subExpInt
+  , liftM2 iGEQ subExpInt subExpInt
+  , liftM2 iGE subExpInt subExpInt
+  , iNeg <$> subExpBool
   ]
   where subExpBool = genExpBool names (n `div` 2)
         subExpBytes = genExpBytes names (n `div` 2)
@@ -160,29 +160,29 @@ genExpBool names n = oneof
 -- TODO: storage
 genExpInt :: Names -> Int -> Gen (Exp Integer)
 genExpInt names 0 = oneof
-  [ LitInt <$> arbitrary
-  , IntVar <$> (selectName Integer names)
-  , return $ IntEnv Caller
-  , return $ IntEnv Callvalue
-  , return $ IntEnv Calldepth
-  , return $ IntEnv Origin
-  , return $ IntEnv Blocknumber
-  , return $ IntEnv Difficulty
-  , return $ IntEnv Chainid
-  , return $ IntEnv Gaslimit
-  , return $ IntEnv Coinbase
-  , return $ IntEnv Timestamp
-  , return $ IntEnv This
-  , return $ IntEnv Nonce
+  [ iLitInt <$> arbitrary
+  , iIntVar <$> (selectName Integer names)
+  , return $ iIntEnv Caller
+  , return $ iIntEnv Callvalue
+  , return $ iIntEnv Calldepth
+  , return $ iIntEnv Origin
+  , return $ iIntEnv Blocknumber
+  , return $ iIntEnv Difficulty
+  , return $ iIntEnv Chainid
+  , return $ iIntEnv Gaslimit
+  , return $ iIntEnv Coinbase
+  , return $ iIntEnv Timestamp
+  , return $ iIntEnv This
+  , return $ iIntEnv Nonce
   ]
 genExpInt names n = oneof
-  [ liftM2 Add subExpInt subExpInt
-  , liftM2 Sub subExpInt subExpInt
-  , liftM2 Mul subExpInt subExpInt
-  , liftM2 Div subExpInt subExpInt
-  , liftM2 Mod subExpInt subExpInt
-  , liftM2 Exp subExpInt subExpInt
-  , liftM3 ITE subExpBool subExpInt subExpInt
+  [ liftM2 iAdd subExpInt subExpInt
+  , liftM2 iSub subExpInt subExpInt
+  , liftM2 iMul subExpInt subExpInt
+  , liftM2 iDiv subExpInt subExpInt
+  , liftM2 iMod subExpInt subExpInt
+  , liftM2 iExp subExpInt subExpInt
+  , liftM3 iITE subExpBool subExpInt subExpInt
   ]
   where subExpInt = genExpInt names (n `div` 2)
         subExpBool = genExpBool names (n `div` 2)
