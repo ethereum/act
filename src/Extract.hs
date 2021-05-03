@@ -45,10 +45,9 @@ locsFromExp = cataK \case
   e           -> hfold e
 
 locsFromExp' :: Exp a -> [StorageLocation]
-locsFromExp' = unK . cata f
+locsFromExp' = unK . cata (K . f)
   where
-    f :: ExpF (K [StorageLocation]) i -> K [StorageLocation] i
-    f = K . \case
+    f = \case
       BoolStore t -> storageLocations t
       IntStore t  -> storageLocations t
       ByStore t   -> storageLocations t
