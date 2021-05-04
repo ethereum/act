@@ -128,10 +128,10 @@ kExpr = paraK \case
 
   -- TODO these cases are somewhat unsatisfactory. 
   -- *manual* recursion!? 😱
-  IntMin   a -> kExpr . iIntMin . negate $ 2 ^ (a - 1)
-  IntMax   a -> kExpr . iIntMin $ 2 ^ (a - 1) - 1
-  UIntMin  _ -> kExpr . iIntMin $ 0
-  UIntMax  a -> kExpr . iIntMin $ 2 ^ a - 1
+  IntMin   a -> kExpr . iLitInt . negate $ 2 ^ (a - 1)
+  IntMax   a -> kExpr . iLitInt $ 2 ^ (a - 1) - 1
+  UIntMin  _ -> kExpr . iLitInt $ 0
+  UIntMax  a -> kExpr . iLitInt $ 2 ^ a - 1
   IntVar   a -> kVar a
   IntEnv   a -> show a
   IntStore a -> kStorageName a
