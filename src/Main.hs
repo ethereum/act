@@ -113,15 +113,14 @@ main = do
               where
                 target = getTarget query
                 contract = getContract query
-                behv = getBehvName query
                 identifier = case query of
                   Postcondition {} -> "postcondition " <> prettyExp target <> " in " <> getBehvName query <> " of contract " <> contract
                   Inv {} -> "invariant " <> prettyExp target <> " of contract " <> contract
 
                 getBehvName (Postcondition (C _) _ _) = "the constructor"
                 getBehvName (Postcondition (B behv) _ _) = "behaviour " <> _name behv
-                getBehvName (Inv (C _) _ _) = "the constructor"
-                getBehvName (Inv (B behv) _ _) = "behaviour " <> _name behv
+                getBehvName (Inv _ Nothing _ _) = "the constructor"
+                getBehvName (Inv _ (Just behv) _ _) = "behaviour " <> _name behv
                 getBehvName _ = error "Internal Error: invalid query" -- TODO: refine types
 
           solverInstance <- spawnSolver config

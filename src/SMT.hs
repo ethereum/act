@@ -19,7 +19,6 @@ module SMT where
 
 import Data.Containers.ListUtils (nubOrd)
 import System.Process (createProcess, cleanupProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
-import EVM.ABI (AbiType(..))
 
 import Control.Applicative ((<|>))
 import Data.Map (Map)
@@ -88,7 +87,7 @@ instance Show SMTExp where
 --   expression, along with the metadata needed to extract a model from a satisfiable query
 data Query
   = Postcondition Claim (Exp Bool) SMTExp
-  | Inv Claim Invariant SMTExp
+  | Inv Constructor (Maybe Behaviour) Invariant SMTExp
   deriving (Show)
 
 data SMTResult
@@ -108,37 +107,34 @@ data Model = Model
   , _mcalldata :: (String, [(Decl, ReturnExp)])
   , _menvironment :: [(EthEnv, ReturnExp)]
   -- invariants always have access to the constructor context
-  , _minitargs :: [(ReturnExp, ReturnExp)]
-  , _minitenv :: [(Decl, ReturnExp)]
+  , _minitargs :: [(Decl, ReturnExp)]
   }
 
 instance Show Model where
-  show (Model prestate poststate (ifaceName, args) environment initargs initenv) = unlines $
+  show (Model prestate poststate (ifaceName, args) environment initargs) = unlines $
     ["", "counterexample:"]
       <> indent 2
         (  calldata'
         <> ifExists environment environment'
         <> storage
+        <> ifExists initargs initargs'
         )
     where
-      calldata' = (header "calldata:") <> (indent 2 [ifaceName <> "(" <> (intercalate ", " $ fmap formatCalldata args) <> ")"])
+      calldata' = (header "calldata:") <> (indent 2 [formatSig ifaceName args])
       environment' = (header "environment:") <> (indent 2 $ fmap formatEnvironment environment)
       storage = ["", "storage:"] <> (indent 2 $ (ifExists prestate prestate') <> poststate')
+      initargs' = (header "constructor arguments:") <> (indent 2 [formatSig "constructor" initargs])
 
       prestate' = (header "prestate:") <> (indent 2 $ fmap formatStorage poststate)
       poststate' = (header "poststate:") <> (indent 2 $ fmap formatStorage poststate)
 
+      formatSig iface cd = iface <> "(" <> (intercalate ", " $ fmap formatCalldata cd) <> ")"
       formatCalldata ((Decl _ name), val) = name <> " : " <> prettyReturnExp val
       formatEnvironment (env, val) = prettyEnv env <> " : " <> prettyReturnExp val
       formatStorage (loc, val) = prettyLocation loc <> " : " <> prettyReturnExp val
 
       ifExists a b = if null a then [] else b
-
       header s = ["", s, ""]
-
-
-indent :: Int -> [String] -> [String]
-indent n text = ((replicate n ' ') <>) <$> text
 
 data SolverInstance = SolverInstance
   { _type :: Solver
@@ -228,7 +224,7 @@ mkInvariantQueries claims = concatMap mkQueries gathered
     matchConstructor contract defn = _cmode defn == Pass && _cname defn == contract
 
     mkInit :: Invariant -> Constructor -> Query
-    mkInit inv@(Invariant _ invConds _ invExp) ctor@(Constructor _ _ (Interface ifaceName decls) preconds _ initialStorage stateUpdates) = Inv (C ctor) inv smt
+    mkInit inv@(Invariant _ invConds _ invExp) ctor@(Constructor _ _ (Interface ifaceName decls) preconds _ initialStorage stateUpdates) = Inv ctor Nothing inv smt
       where
         -- declare vars
         localStorage = declareInitialStorage <$> initialStorage
@@ -250,7 +246,7 @@ mkInvariantQueries claims = concatMap mkQueries gathered
           }
 
     mkBehv :: Invariant -> Constructor -> Behaviour -> Query
-    mkBehv inv@(Invariant _ invConds invStorageBounds invExp) ctor behv = Inv (B behv) inv smt
+    mkBehv inv@(Invariant _ invConds invStorageBounds invExp) ctor behv = Inv ctor (Just behv) inv smt
       where
         (Interface ctorIface ctorDecls) = _cinterface ctor
         (Interface behvIface behvDecls) = _interface behv
@@ -283,6 +279,81 @@ mkInvariantQueries claims = concatMap mkQueries gathered
 --- ** Solver Interaction ** ---
 
 
+runQuery :: SolverInstance -> Query -> IO (Query, SMTResult)
+runQuery solver query = do
+  err <- sendLines solver ("(reset)" : (lines . show . getSMT $ query))
+  case err of
+    Nothing -> do
+      sat <- sendCommand solver "(check-sat)"
+      case sat of
+        "sat" -> do
+          model <- getModel solver query
+          pure (query, Sat model)
+        "unsat" -> pure (query, Unsat)
+        "timeout" -> pure (query, Unknown) -- TODO: disambiguate?
+        "unknown" -> pure (query, Unknown)
+        _ -> pure (query, Error 0 $ "Unable to parse solver output: " <> sat)
+    Just msg -> do
+      pure (query, Error 0 msg)
+
+smtPreamble :: [SMT2]
+smtPreamble =
+  [ "(set-logic ALL)"
+  , "(set-option :produce-models true)"
+  ]
+
+solverArgs :: SMTConfig -> [String]
+solverArgs (SMTConfig solver timeout _) = case solver of
+  Z3 ->
+    [ "-in"
+    , "-t:" <> show timeout]
+  CVC4 ->
+    [ "--lang=smt"
+    , "--interactive"
+    , "--no-interactive-prompt"
+    , "--tlimit-per=" <> show timeout]
+
+-- TODO: switch to typed-process (avoids some race conditions?)
+spawnSolver :: SMTConfig -> IO SolverInstance
+spawnSolver config@(SMTConfig solver _ _) = do
+  let cmd = (proc (show solver) (solverArgs config)) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
+  (Just stdin, Just stdout, Just stderr, process) <- createProcess cmd
+  let solverInstance = SolverInstance solver stdin stdout stderr process
+
+  _ <- sendCommand solverInstance "(set-option :print-success true)"
+  err <- sendLines solverInstance smtPreamble
+  case err of
+    Nothing -> pure solverInstance
+    Just msg -> error $ "could not spawn solver: " <> msg
+
+stopSolver :: SolverInstance -> IO ()
+stopSolver (SolverInstance _ stdin stdout stderr process) = cleanupProcess (Just stdin, Just stdout, Just stderr, process)
+
+sendLines :: SolverInstance -> [SMT2] -> IO (Maybe String)
+sendLines solver smt = case smt of
+  [] -> pure Nothing
+  hd : tl -> do
+    suc <- sendCommand solver hd
+    if suc == "success"
+       then sendLines solver tl
+       else pure (Just suc)
+
+sendCommand :: SolverInstance -> SMT2 -> IO String
+sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
+  if (cmd == "") || (";" `isPrefixOf` cmd) then pure "success" -- blank lines and comments do not produce any output from the solver
+  else do
+    hPutStr stdin (cmd <> "\n")
+    hFlush stdin
+    case solver of
+      Z3 -> hGetLine stdout
+      CVC4 -> do
+        _ <- hGetLine stdout -- cvc4 echos back each input line as part of the output
+        hGetLine stdout
+
+
+--- ** Model Extraction ** ---
+
+
 getModel :: SolverInstance -> Query -> IO Model
 getModel solver (Postcondition (C ctor) _ _) = do
   let locs = locsFromConstructor ctor
@@ -294,10 +365,9 @@ getModel solver (Postcondition (C ctor) _ _) = do
   pure $ Model
     { _mprestate = []
     , _mpoststate = nub poststate -- TODO: dedup in extract
-    , _mcalldata = (ifaceName, nub calldata)
+    , _mcalldata = (ifaceName, calldata)
     , _menvironment = nub environment
     , _minitargs = []
-    , _minitenv = []
     }
 getModel solver (Postcondition (B behv) _ _) = do
   let locs = locsFromBehaviour behv
@@ -310,12 +380,43 @@ getModel solver (Postcondition (B behv) _ _) = do
   pure $ Model
     { _mprestate = nub prestate
     , _mpoststate = nub poststate
-    , _mcalldata = (ifaceName, nub calldata)
+    , _mcalldata = (ifaceName, calldata)
     , _menvironment = nub environment
     , _minitargs = []
-    , _minitenv = []
     }
-getModel _ _ = undefined
+getModel solver (Inv ctor Nothing _ _) = do
+  let locs = locsFromConstructor ctor
+      env = ethEnvFromConstructor ctor
+      (Interface ifaceName decls) = _cinterface ctor
+  poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
+  calldata <- mapM (getCalldataValue solver ifaceName) decls
+  environment <- mapM (getEnvironmentValue solver) env
+  pure $ Model
+    { _mprestate = []
+    , _mpoststate = nub poststate
+    , _mcalldata = (ifaceName, calldata)
+    , _menvironment = nub environment
+    , _minitargs = []
+    }
+getModel solver (Inv ctor (Just behv) (Invariant _ _ _ invExp) _) = do
+  let locs = nub $ locsFromBehaviour behv <> locsFromExp invExp
+      env = nub $ ethEnvFromBehaviour behv <> ethEnvFromExp invExp
+      (Interface behvIface behvDecls) = _interface behv
+      (Interface ctorIface ctorDecls) = _cinterface ctor
+  -- TODO: v ugly to ignore the ifaceName here, but it's safe...
+  prestate <- mapM (getStorageValue solver (Ctx "" Pre)) locs
+  poststate <- mapM (getStorageValue solver (Ctx ""Post)) locs
+  behvCalldata <- mapM (getCalldataValue solver behvIface) behvDecls
+  ctorCalldata <- mapM (getCalldataValue solver ctorIface) ctorDecls
+  environment <- mapM (getEnvironmentValue solver) env
+  pure $ Model
+    { _mprestate = prestate
+    , _mpoststate = poststate
+    , _mcalldata = (behvIface, behvCalldata)
+    , _menvironment = nub environment
+    , _minitargs = ctorCalldata
+    }
+getModel _ _ = error "Internal Error: invalid query"
 
 -- output should be in the form "((identifier value))"
 -- we therefore return the non-whitespace group before the last two ')' chars
@@ -372,78 +473,8 @@ parseBoolModel = ExpBool . LitBool . readBool . parseSMTModel
 parseBytesModel :: String -> ReturnExp
 parseBytesModel = ExpBytes . ByLit . fromString . parseSMTModel
 
-runQuery :: SolverInstance -> Query -> IO (Query, SMTResult)
-runQuery solver query = do
-  err <- sendLines solver ("(reset)" : (lines . show . getSMT $ query))
-  case err of
-    Nothing -> do
-      sat <- sendCommand solver "(check-sat)"
-      case sat of
-        "sat" -> do
-          model <- getModel solver query
-          pure (query, Sat model)
-        "unsat" -> pure (query, Unsat)
-        "timeout" -> pure (query, Unknown) -- TODO: disambiguate?
-        "unknown" -> pure (query, Unknown)
-        _ -> pure (query, Error 0 $ "Unable to parse solver output: " <> sat)
-    Just msg -> do
-      pure (query, Error 0 msg)
 
-smtPreamble :: [SMT2]
-smtPreamble =
-  [ "(set-logic ALL)"
-  , "(set-option :produce-models true)"
-  ]
-
-solverArgs :: SMTConfig -> [String]
-solverArgs (SMTConfig solver timeout _) = case solver of
-  Z3 ->
-    [ "-in"
-    , "-t:" <> show timeout]
-  CVC4 ->
-    [ "--lang=smt"
-    , "--interactive"
-    , "--no-interactive-prompt"
-    , "--tlimit-per=" <> show timeout]
-
-spawnSolver :: SMTConfig -> IO SolverInstance
-spawnSolver config@(SMTConfig solver _ _) = do
-  let cmd = (proc (show solver) (solverArgs config)) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
-  (Just stdin, Just stdout, Just stderr, process) <- createProcess cmd
-  let solverInstance = SolverInstance solver stdin stdout stderr process
-
-  _ <- sendCommand solverInstance "(set-option :print-success true)"
-  err <- sendLines solverInstance smtPreamble
-  case err of
-    Nothing -> pure solverInstance
-    Just msg -> error $ "could not spawn solver: " <> msg
-
-stopSolver :: SolverInstance -> IO ()
-stopSolver (SolverInstance _ stdin stdout stderr process) = cleanupProcess (Just stdin, Just stdout, Just stderr, process)
-
-sendLines :: SolverInstance -> [SMT2] -> IO (Maybe String)
-sendLines solver smt = case smt of
-  [] -> pure Nothing
-  hd : tl -> do
-    suc <- sendCommand solver hd
-    if suc == "success"
-       then sendLines solver tl
-       else pure (Just suc)
-
-sendCommand :: SolverInstance -> SMT2 -> IO String
-sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
-  if (cmd == "") || (";" `isPrefixOf` cmd) then pure "success" -- blank lines and comments do not produce any output from the solver
-  else do
-    hPutStr stdin (cmd <> "\n")
-    hFlush stdin
-    case solver of
-      Z3 -> hGetLine stdout
-      CVC4 -> do
-        _ <- hGetLine stdout -- cvc4 echos back each input line as part of the output
-        hGetLine stdout
-
-
---- ** SMT2 generation ** ---
+--- ** SMT2 Generation ** ---
 
 
 -- | encodes a storage update from a constructor creates block as an smt assertion
@@ -658,15 +689,17 @@ x @@ y = x <> "_" <> y
 
 getTarget :: Query -> Exp Bool
 getTarget (Postcondition _ t _) = t
-getTarget (Inv _ (Invariant _ _ _ t) _) = t
+getTarget (Inv _ _ (Invariant _ _ _ t) _) = t
 
 getSMT :: Query -> SMTExp
 getSMT (Postcondition _ _ e) = e
-getSMT (Inv _ _ e) = e
+getSMT (Inv _ _ _ e) = e
 
 getContract :: Query -> String
 getContract (Postcondition (C ctor) _ _) = _cname ctor
 getContract (Postcondition (B behv) _ _) = _contract behv
-getContract (Inv (C ctor) _ _) = _cname ctor
-getContract (Inv (B behv) _ _) = _contract behv
+getContract (Inv ctor _ _ _) = _cname ctor
 getContract _ = error "Internal Error: invalid query" -- TODO: refine types
+
+indent :: Int -> [String] -> [String]
+indent n text = ((replicate n ' ') <>) <$> text
