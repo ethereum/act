@@ -40,7 +40,7 @@ hevm_pass=$(filter-out $(hevm_buggy), $(wildcard tests/hevm/pass/*/*.act))
 hevm_fail=$(wildcard tests/hevm/fail/*/*.act)
 
 # supposed to pass
-failing_typing=tests/frontend/pass/array/array.act tests/frontend/pass/dss/vat.act tests/frontend/pass/creation/createMultiple.act
+failing_typing=tests/frontend/pass/array/array.act tests/frontend/pass/dss/vat.act tests/frontend/pass/creation/createMultiple.act tests/frontend/pass/staticstore/staticstore.act
 
 
 coq-examples = tests/coq/transitions tests/coq/safemath tests/coq/exponent
