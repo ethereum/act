@@ -266,10 +266,8 @@ encodeInitialStorage behvName update = case update of
   BoolUpdate item e -> encode item e
   BytesUpdate item e -> encode item e
   where
-    ctx = Ctx behvName Post
-
     encode :: TStorageItem a -> Exp a -> SMT2
-    encode item e = "(assert (= " <> expToSMT2 ctx (TEntry item) <> " " <> expToSMT2 ctx e <> "))"
+    encode item e = "(assert (= " <> expToSMT2 (Ctx behvName Post) (TEntry item) <> " " <> expToSMT2 (Ctx behvName Pre) e <> "))"
 
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
