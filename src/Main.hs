@@ -105,35 +105,48 @@ main = do
         contents <- readFile file'
         proceed contents (compile contents) $ \claims -> do
           let
-            handleRes (query, res) = case res of
-                  Unsat -> (True, identifier <> " holds :)", show $ getSMT query)
-                  Sat model -> (False, identifier <> " violated:\n" <> show model, show $ getSMT query)
-                  SMT.Unknown -> (False, identifier <> " could not be proved due to a solver timeout :(", show $ getSMT query)
-                  SMT.Error _ str -> (False, identifier <> " could not be proved to due a solver error: " <> str, show $ getSMT query)
-              where
-                target = getTarget query
-                contract = getContract query
-                identifier = case query of
-                  Postcondition {} -> "postcondition " <> prettyExp target <> " in " <> getBehvName query <> " of contract " <> contract
-                  Inv {} -> "invariant " <> prettyExp target <> " of contract " <> contract
+            getBehvName (Postcondition (C _) _ _) = "the constructor"
+            getBehvName (Postcondition (B behv) _ _) = "behaviour " <> _name behv
+            getBehvName _ = error "Internal Error: invalid query" -- TODO: refine types
 
-                getBehvName (Postcondition (C _) _ _) = "the constructor"
-                getBehvName (Postcondition (B behv) _ _) = "behaviour " <> _name behv
-                getBehvName (Inv _ Nothing _ _) = "the constructor"
-                getBehvName (Inv _ (Just behv) _ _) = "behaviour " <> _name behv
-                getBehvName _ = error "Internal Error: invalid query" -- TODO: refine types
+            isFail Unsat = False
+            isFail _ = True
+
+            catModels results = [m | Sat m <- results]
+
+            indent' n text = unlines $ ((replicate n ' ') <>) <$> (lines text)
+
+            identifier (q@Inv {}) = "invariant " <> (prettyExp . getTarget $ q) <> " of " <> getContract q
+            identifier (q@Postcondition {}) = "postcondition " <> (prettyExp . getTarget $ q) <> " in " <> getBehvName q <> " of " <> getContract q
+
+            handleResults :: (Query, [SMT.SMTResult]) -> (Bool, String)
+            handleResults (query, results) = let
+                models = catModels results
+              in
+                if or (fmap isFail results)
+                then (False, (identifier query) <> " violated:\n" <> (concatMap (indent' 2 . show) models))
+                else (True, (identifier query) <> " holds")
 
           solverInstance <- spawnSolver config
-          pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
-          invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
+          pcResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
+          invResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (mkInvariantQueries claims)
           stopSolver solverInstance
 
-          let results = map handleRes (pcResults <> invResults)
-          allGood <- foldM (\acc (r, msg, smt) -> do
-              if (_debug config) then putStrLn (msg <> "\n\n" <> smt) else putStrLn msg
+          unless (null invResults) $ putStrLn "Invariants:\n"
+
+          allGood <- foldM (\acc (r, msg) -> do
+              putStrLn . (indent' 2) $ msg
               pure $ acc && r
-            ) True results
-          unless allGood exitFailure
+            ) True invResults
+
+          unless (null pcResults) $ putStrLn "Postconditions:\n"
+
+          allGood' <- foldM (\acc (r, msg) -> do
+              putStrLn . (indent' 2) $ msg
+              pure $ acc && r
+            ) allGood pcResults
+
+          unless allGood' exitFailure
 
       (Coq f) -> do
         contents <- readFile f

@@ -87,7 +87,7 @@ instance Show SMTExp where
 --   expression, along with the metadata needed to extract a model from a satisfiable query
 data Query
   = Postcondition Claim (Exp Bool) SMTExp
-  | Inv Constructor (Maybe Behaviour) Invariant SMTExp
+  | Inv Invariant (Constructor, SMTExp) [(Behaviour, SMTExp)]
   deriving (Show)
 
 data SMTResult
@@ -112,13 +112,12 @@ data Model = Model
 
 instance Show Model where
   show (Model prestate poststate (ifaceName, args) environment initargs) = unlines $
-    ["", "counterexample:"]
-      <> indent 2
-        (  calldata'
-        <> ifExists environment environment'
-        <> storage
-        <> ifExists initargs initargs'
-        )
+      ("\ncounterexample:") : (indent 2
+      (  calldata'
+      <> ifExists environment environment'
+      <> storage
+      <> ifExists initargs initargs'
+      ))
     where
       calldata' = (header "calldata:") <> (indent 2 [formatSig ifaceName args])
       environment' = (header "environment:") <> (indent 2 $ fmap formatEnvironment environment)
@@ -213,9 +212,9 @@ mkPostconditionQueries _ = []
 --   If all of the queries return `unsat` then we have an inductive proof that
 --   the invariant holds for all possible contract states.
 mkInvariantQueries :: [Claim] -> [Query]
-mkInvariantQueries claims = concatMap mkQueries gathered
+mkInvariantQueries claims = fmap mkQuery gathered
   where
-    mkQueries (inv, constructor, behvs) = mkInit inv constructor : fmap (mkBehv inv constructor) behvs
+    mkQuery (inv, ctor, behvs) = Inv inv (mkInit inv ctor) (fmap (mkBehv inv ctor) behvs)
     gathered = fmap (\inv -> (inv, getConstructor inv, getBehaviours inv)) [i | I i <- claims]
 
     getBehaviours (Invariant c _ _ _) = [b | B b <- claims, matchBehaviour c b]
@@ -223,8 +222,8 @@ mkInvariantQueries claims = concatMap mkQueries gathered
     matchBehaviour contract behv = (_mode behv) == Pass && (_contract behv) == contract
     matchConstructor contract defn = _cmode defn == Pass && _cname defn == contract
 
-    mkInit :: Invariant -> Constructor -> Query
-    mkInit inv@(Invariant _ invConds _ invExp) ctor@(Constructor _ _ (Interface ifaceName decls) preconds _ initialStorage stateUpdates) = Inv ctor Nothing inv smt
+    mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
+    mkInit (Invariant _ invConds _ invExp) ctor@(Constructor _ _ (Interface ifaceName decls) preconds _ initialStorage stateUpdates) = (ctor, smt)
       where
         -- declare vars
         localStorage = declareInitialStorage <$> initialStorage
@@ -245,8 +244,8 @@ mkInvariantQueries claims = concatMap mkQueries gathered
           , _assertions = postInv : pres <> updates <> initialStorage'
           }
 
-    mkBehv :: Invariant -> Constructor -> Behaviour -> Query
-    mkBehv inv@(Invariant _ invConds invStorageBounds invExp) ctor behv = Inv ctor (Just behv) inv smt
+    mkBehv :: Invariant -> Constructor -> Behaviour -> (Behaviour, SMTExp)
+    mkBehv (Invariant _ invConds invStorageBounds invExp) ctor behv = (behv, smt)
       where
         (Interface ctorIface ctorDecls) = _cinterface ctor
         (Interface behvIface behvDecls) = _interface behv
@@ -279,22 +278,34 @@ mkInvariantQueries claims = concatMap mkQueries gathered
 --- ** Solver Interaction ** ---
 
 
-runQuery :: SolverInstance -> Query -> IO (Query, SMTResult)
-runQuery solver query = do
-  err <- sendLines solver ("(reset)" : (lines . show . getSMT $ query))
+runQuery :: SolverInstance -> Query -> IO (Query, [SMTResult])
+runQuery solver query@(Postcondition claim _ smt) = do
+  res <- checkSat solver (getPostconditionModel claim) smt
+  pure (query, [res])
+runQuery solver query@(Inv (Invariant _ _ _ invExp) (ctor, ctorSMT) behvs) = do
+  ctorRes <- runCtor
+  behvRes <- mapM runBehv behvs
+  pure (query, ctorRes : behvRes)
+  where
+    runCtor = checkSat solver (getInvariantModel invExp ctor Nothing) ctorSMT
+    runBehv (b, smt) = checkSat solver (getInvariantModel invExp ctor (Just b)) smt
+
+checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO SMTResult
+checkSat solver modelFn smt = do
+  err <- sendLines solver ("(reset)" : (lines . show $ smt))
   case err of
     Nothing -> do
       sat <- sendCommand solver "(check-sat)"
       case sat of
         "sat" -> do
-          model <- getModel solver query
-          pure (query, Sat model)
-        "unsat" -> pure (query, Unsat)
-        "timeout" -> pure (query, Unknown) -- TODO: disambiguate?
-        "unknown" -> pure (query, Unknown)
-        _ -> pure (query, Error 0 $ "Unable to parse solver output: " <> sat)
+          model <- modelFn solver
+          pure $ Sat model
+        "unsat" -> pure Unsat
+        "timeout" -> pure Unknown -- TODO: disambiguate?
+        "unknown" -> pure Unknown
+        _ -> pure $ Error 0 $ "Unable to parse solver output: " <> sat
     Just msg -> do
-      pure (query, Error 0 msg)
+      pure $ Error 0 msg
 
 smtPreamble :: [SMT2]
 smtPreamble =
@@ -354,8 +365,8 @@ sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
 --- ** Model Extraction ** ---
 
 
-getModel :: SolverInstance -> Query -> IO Model
-getModel solver (Postcondition (C ctor) _ _) = do
+getPostconditionModel :: Claim -> SolverInstance -> IO Model
+getPostconditionModel (C ctor) solver = do
   let locs = locsFromConstructor ctor
       env = ethEnvFromConstructor ctor
       (Interface ifaceName decls) = _cinterface ctor
@@ -369,7 +380,7 @@ getModel solver (Postcondition (C ctor) _ _) = do
     , _menvironment = nub environment
     , _minitargs = []
     }
-getModel solver (Postcondition (B behv) _ _) = do
+getPostconditionModel (B behv) solver = do
   let locs = locsFromBehaviour behv
       env = ethEnvFromBehaviour behv
       (Interface ifaceName decls) = _interface behv
@@ -384,7 +395,9 @@ getModel solver (Postcondition (B behv) _ _) = do
     , _menvironment = nub environment
     , _minitargs = []
     }
-getModel solver (Inv ctor Nothing _ _) = do
+
+getInvariantModel :: Exp Bool -> Constructor -> Maybe Behaviour -> SolverInstance -> IO Model
+getInvariantModel _ ctor Nothing solver = do
   let locs = locsFromConstructor ctor
       env = ethEnvFromConstructor ctor
       (Interface ifaceName decls) = _cinterface ctor
@@ -398,7 +411,7 @@ getModel solver (Inv ctor Nothing _ _) = do
     , _menvironment = nub environment
     , _minitargs = []
     }
-getModel solver (Inv ctor (Just behv) (Invariant _ _ _ invExp) _) = do
+getInvariantModel invExp ctor (Just behv) solver = do
   let locs = nub $ locsFromBehaviour behv <> locsFromExp invExp
       env = nub $ ethEnvFromBehaviour behv <> ethEnvFromExp invExp
       (Interface behvIface behvDecls) = _interface behv
@@ -416,11 +429,10 @@ getModel solver (Inv ctor (Just behv) (Invariant _ _ _ invExp) _) = do
     , _menvironment = nub environment
     , _minitargs = ctorCalldata
     }
-getModel _ _ = error "Internal Error: invalid query"
 
 -- output should be in the form "((identifier value))"
 -- we therefore return the non-whitespace group before the last two ')' chars
--- TODO: this could probably be faster with a regex
+-- TODO: handle failure here
 parseSMTModel :: String -> String
 parseSMTModel s = init . init $ last (words s)
 
@@ -689,16 +701,12 @@ x @@ y = x <> "_" <> y
 
 getTarget :: Query -> Exp Bool
 getTarget (Postcondition _ t _) = t
-getTarget (Inv _ _ (Invariant _ _ _ t) _) = t
-
-getSMT :: Query -> SMTExp
-getSMT (Postcondition _ _ e) = e
-getSMT (Inv _ _ _ e) = e
+getTarget (Inv (Invariant _ _ _ t) _ _) = t
 
 getContract :: Query -> String
 getContract (Postcondition (C ctor) _ _) = _cname ctor
 getContract (Postcondition (B behv) _ _) = _contract behv
-getContract (Inv ctor _ _ _) = _cname ctor
+getContract (Inv (Invariant c _ _ _) _ _) = c
 getContract _ = error "Internal Error: invalid query" -- TODO: refine types
 
 indent :: Int -> [String] -> [String]
