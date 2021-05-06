@@ -125,7 +125,7 @@ instance Show Model where
       storage = ["", "storage:"] <> (indent 2 $ (ifExists prestate prestate') <> poststate')
       initargs' = (header "constructor arguments:") <> (indent 2 [formatSig "constructor" initargs])
 
-      prestate' = (header "prestate:") <> (indent 2 $ fmap formatStorage poststate)
+      prestate' = (header "prestate:") <> (indent 2 $ fmap formatStorage prestate)
       poststate' = (header "poststate:") <> (indent 2 $ fmap formatStorage poststate)
 
       formatSig iface cd = iface <> "(" <> (intercalate ", " $ fmap formatCalldata cd) <> ")"
