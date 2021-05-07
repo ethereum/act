@@ -168,8 +168,6 @@ noStorageRead store e = forM_ (getIds e) $ \(name,pos) ->
   if member name store
     then Bad (pos,"Cannot read from storage in creates block")
     else Ok ()
--- | all (flip notMember store) (getIds e) = Ok ()
---                       | otherwise = Bad (getPosn e, "Cannot read from storage in creates block")
 
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
