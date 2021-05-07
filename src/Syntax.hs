@@ -4,7 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Syntax where
-import Data.List (intercalate)
+import Data.List (intercalate,nub)
 import EVM.ABI (AbiType)
 import EVM.Solidity (SlotType)
 import Lex
@@ -166,3 +166,37 @@ getPosn expr = case expr of
     IntLit pn _ -> pn
     BoolLit pn _ -> pn
 
+getIds :: Expr -> [Id]
+getIds e = nub $ case e of
+  EAnd _ a b        -> getIds a <> getIds b
+  EOr _ a b         -> getIds a <> getIds b
+  ENot _ a          -> getIds a
+  EImpl _ a b       -> getIds a <> getIds b
+  EEq _ a b         -> getIds a <> getIds b
+  ENeq _ a b        -> getIds a <> getIds b
+  ELEQ _ a b        -> getIds a <> getIds b
+  ELT _ a b         -> getIds a <> getIds b
+  EGEQ _ a b        -> getIds a <> getIds b
+  EGT _ a b         -> getIds a <> getIds b
+  EAdd _ a b        -> getIds a <> getIds b
+  ESub _ a b        -> getIds a <> getIds b
+  EITE _ a b c      -> getIds a <> getIds b <> getIds c
+  EMul _ a b        -> getIds a <> getIds b
+  EDiv _ a b        -> getIds a <> getIds b
+  EMod _ a b        -> getIds a <> getIds b
+  EExp _ a b        -> getIds a <> getIds b
+  Zoom _ a b        -> getIds a <> getIds b
+  EntryExp _ x _    -> [x]
+  Func _ _ a        -> getIds =<< a
+  ListConst a       -> getIds a
+  ECat _ a b        -> getIds a <> getIds b
+  ESlice _ a b c    -> getIds a <> getIds b <> getIds c
+  ENewaddr _ a b    -> getIds a <> getIds b
+  ENewaddr2 _ a b c -> getIds a <> getIds b <> getIds c
+  BYHash _ a        -> getIds a
+  BYAbiE _ a        -> getIds a
+  StringLit {}      -> []
+  WildExp {}        -> []
+  EnvExp {}         -> []
+  IntLit {}         -> []
+  BoolLit {}        -> []
