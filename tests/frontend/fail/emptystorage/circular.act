@@ -1,0 +1,7 @@
+constructor of LValue
+interface constructor()
+
+creates
+
+    uint x := y
+    uint y := x
