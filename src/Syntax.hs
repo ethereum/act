@@ -167,6 +167,8 @@ getPosn expr = case expr of
     IntLit pn _ -> pn
     BoolLit pn _ -> pn
 
+-- | Returns all the identifiers used in an expression,
+-- as well all of the positions they're used in.
 getIds :: Expr -> Map Id [Pn]
 getIds e = case e of
   EAnd _ a b        -> getIds a <> getIds b
