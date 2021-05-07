@@ -166,7 +166,7 @@ getPosn expr = case expr of
     IntLit pn _ -> pn
     BoolLit pn _ -> pn
 
-getIds :: Expr -> [Id]
+getIds :: Expr -> [(Id,Pn)]
 getIds e = nub $ case e of
   EAnd _ a b        -> getIds a <> getIds b
   EOr _ a b         -> getIds a <> getIds b
@@ -186,8 +186,8 @@ getIds e = nub $ case e of
   EMod _ a b        -> getIds a <> getIds b
   EExp _ a b        -> getIds a <> getIds b
   Zoom _ a b        -> getIds a <> getIds b
-  EntryExp _ x _    -> [x]
-  Func _ _ a        -> getIds =<< a
+  EntryExp p x es   -> (x,p)    :  (getIds =<< es)
+  Func _ _ es       -> getIds =<< es
   ListConst a       -> getIds a
   ECat _ a b        -> getIds a <> getIds b
   ESlice _ a b c    -> getIds a <> getIds b <> getIds c
