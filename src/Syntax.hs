@@ -4,7 +4,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Syntax where
-import Data.List (intercalate,nub)
+import Data.List (intercalate)
+import Data.Map (Map,empty,insert,unionsWith)
 import EVM.ABI (AbiType)
 import EVM.Solidity (SlotType)
 import Lex
@@ -166,8 +167,8 @@ getPosn expr = case expr of
     IntLit pn _ -> pn
     BoolLit pn _ -> pn
 
-getIds :: Expr -> [(Id,Pn)]
-getIds e = nub $ case e of
+getIds :: Expr -> Map Id [Pn]
+getIds e = case e of
   EAnd _ a b        -> getIds a <> getIds b
   EOr _ a b         -> getIds a <> getIds b
   ENot _ a          -> getIds a
@@ -186,8 +187,8 @@ getIds e = nub $ case e of
   EMod _ a b        -> getIds a <> getIds b
   EExp _ a b        -> getIds a <> getIds b
   Zoom _ a b        -> getIds a <> getIds b
-  EntryExp p x es   -> (x,p)    :  (getIds =<< es)
-  Func _ _ es       -> getIds =<< es
+  EntryExp p x es   -> insert x [p] . unionsWith (<>) $ getIds <$> es
+  Func _ _ es       -> unionsWith (<>) $ getIds <$> es
   ListConst a       -> getIds a
   ECat _ a b        -> getIds a <> getIds b
   ESlice _ a b c    -> getIds a <> getIds b <> getIds c
@@ -195,8 +196,8 @@ getIds e = nub $ case e of
   ENewaddr2 _ a b c -> getIds a <> getIds b <> getIds c
   BYHash _ a        -> getIds a
   BYAbiE _ a        -> getIds a
-  StringLit {}      -> []
-  WildExp {}        -> []
-  EnvExp {}         -> []
-  IntLit {}         -> []
-  BoolLit {}        -> []
+  StringLit {}      -> empty
+  WildExp {}        -> empty
+  EnvExp {}         -> empty
+  IntLit {}         -> empty
+  BoolLit {}        -> empty

@@ -10,7 +10,7 @@ module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
 import Data.List
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
-import Data.Map.Strict    (Map,member)
+import Data.Map.Strict    (Map,keys,findWithDefault)
 import Data.Maybe
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
@@ -163,12 +163,12 @@ splitCase name contract iface if' iffs ret storage postcs =
   [ B $ Behaviour name Pass contract iface (if' <> iffs) postcs storage ret,
     B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs)]) [] (Left . getLoc <$> storage) Nothing ]
 
+-- | Ensures that no of the storage variables are read in the supplied `Expr`.
 noStorageRead :: Map Id SlotType -> Expr -> Err ()
-noStorageRead store e = forM_ (getIds e) $ \(name,pos) ->
-  if member name store
-    then Bad (pos,"Cannot read from storage in creates block")
-    else Ok ()
-
+noStorageRead store expr = forM_ (keys store) $ \name ->
+  forM_ (findWithDefault [] name (getIds expr)) $ \pn ->
+    Bad (pn,"Cannot read storage in creates block")
+  
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
 checkAssign env@(contract, store, _, _) (AssignVal (StorageVar (StorageValue typ) name) expr)
