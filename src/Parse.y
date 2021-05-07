@@ -195,9 +195,9 @@ Returns : 'returns' Expr                              { $2 }
 
 Storage : 'storage' nonempty(Store)                   { $2 }
 
-ExtStorage : 'storage' id nonempty(Store)             { ExtStorage (name $2) $3 }
+ExtStorage : 'storage' 'of' id nonempty(Store)        { ExtStorage (name $3) $4 }
            | 'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (name $2) $4 $5 }
-           | 'storage' '_' '_' '=>' '_'               { WildStorage }
+           | 'storage' 'of' '_' '_' '=>' '_'          { WildStorage }
 
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
              | 'iff in range' Type nonempty(Expr)     { IffIn (posn $1) $2 $3 }
@@ -213,13 +213,13 @@ Zoom : '[' Expr ']'                                   { $2 }
 
 Creation : 'creates' list(Assign)                     { Creates $2 }
 
-Assign : StorageVar ':=' Expr                        { AssignVal $1 $3 }
-       | StorageVar ':=' '[' seplist(Defn, ',') ']'  { AssignMany $1 $4 }
+Assign : StorageVar ':=' Expr                         { AssignVal $1 $3 }
+       | StorageVar ':=' '[' seplist(Defn, ',') ']'   { AssignMany $1 $4 }
 
 Defn : Expr ':=' Expr                                 { Defn $1 $3 }
 Decl : Type id                                        { Decl $1 (name $2) }
 
-StorageVar : SlotType id                            { StorageVar $1 (name $2) }
+StorageVar : SlotType id                              { StorageVar $1 (name $2) }
 
 Type : 'uint'
        { case validsize $1 of
@@ -237,66 +237,66 @@ Type : 'uint'
      | 'bool'                                         { AbiBoolType }
      | 'string'                                       { AbiStringType }
 
-SlotType : 'mapping' '(' MappingArgs ')'             { (uncurry StorageMapping) $3 }
-         | Type                                      { StorageValue $1 }
+SlotType : 'mapping' '(' MappingArgs ')'              { (uncurry StorageMapping) $3 }
+         | Type                                       { StorageValue $1 }
 
 
-MappingArgs : Type '=>' Type                           { ($1 NonEmpty.:| [], $3) }
-            | Type '=>' 'mapping' '(' MappingArgs ')'  { (NonEmpty.cons $1 (fst $5), snd $5)  }
+MappingArgs : Type '=>' Type                          { ($1 NonEmpty.:| [], $3) }
+            | Type '=>' 'mapping' '(' MappingArgs ')' { (NonEmpty.cons $1 (fst $5), snd $5)  }
 
-Expr : '(' Expr ')'                                    { $2 }
+Expr : '(' Expr ')'                                   { $2 }
 
   -- terminals
-  | ilit                                                { IntLit (posn $1) (value $1) }
-  | '_'                                                 { WildExp (posn $1) }
+  | ilit                                              { IntLit (posn $1) (value $1) }
+  | '_'                                               { WildExp (posn $1) }
   -- missing string literal
   -- missing wildcard
 
   -- boolean expressions
-  | Expr 'and' Expr                                     { EAnd  (posn $2) $1 $3 }
-  | Expr 'or'  Expr                                     { EOr   (posn $2) $1 $3 }
-  | Expr '=>'  Expr                                     { EImpl (posn $2) $1 $3 }
-  | 'not'      Expr                                     { ENot  (posn $1) $2 }
-  | Expr '=='  Expr                                     { EEq   (posn $2) $1 $3 }
-  | Expr '=/=' Expr                                     { ENeq  (posn $2) $1 $3 }
-  | Expr '<='  Expr                                     { ELEQ  (posn $2) $1 $3 }
-  | Expr '<'   Expr                                     { ELT   (posn $2) $1 $3 }
-  | Expr '>='  Expr                                     { EGEQ  (posn $2) $1 $3 }
-  | Expr '>'   Expr                                     { EGT   (posn $2) $1 $3 }
-  | 'true'                                              { BoolLit (posn $1) True }
-  | 'false'                                             { BoolLit (posn $1) False }
+  | Expr 'and' Expr                                   { EAnd  (posn $2) $1 $3 }
+  | Expr 'or'  Expr                                   { EOr   (posn $2) $1 $3 }
+  | Expr '=>'  Expr                                   { EImpl (posn $2) $1 $3 }
+  | 'not'      Expr                                   { ENot  (posn $1) $2 }
+  | Expr '=='  Expr                                   { EEq   (posn $2) $1 $3 }
+  | Expr '=/=' Expr                                   { ENeq  (posn $2) $1 $3 }
+  | Expr '<='  Expr                                   { ELEQ  (posn $2) $1 $3 }
+  | Expr '<'   Expr                                   { ELT   (posn $2) $1 $3 }
+  | Expr '>='  Expr                                   { EGEQ  (posn $2) $1 $3 }
+  | Expr '>'   Expr                                   { EGT   (posn $2) $1 $3 }
+  | 'true'                                            { BoolLit (posn $1) True }
+  | 'false'                                           { BoolLit (posn $1) False }
 
   -- integer expressions
-  | Expr '+'   Expr                                     { EAdd (posn $2)  $1 $3 }
-  | Expr '-'   Expr                                     { ESub (posn $2)  $1 $3 }
-  | Expr '*'   Expr                                     { EMul (posn $2)  $1 $3 }
-  | Expr '/'   Expr                                     { EDiv (posn $2)  $1 $3 }
-  | Expr '%'   Expr                                     { EMod (posn $2)  $1 $3 }
-  | Expr '^'   Expr                                     { EExp (posn $2)  $1 $3 }
+  | Expr '+'   Expr                                   { EAdd (posn $2)  $1 $3 }
+  | Expr '-'   Expr                                   { ESub (posn $2)  $1 $3 }
+  | Expr '*'   Expr                                   { EMul (posn $2)  $1 $3 }
+  | Expr '/'   Expr                                   { EDiv (posn $2)  $1 $3 }
+  | Expr '%'   Expr                                   { EMod (posn $2)  $1 $3 }
+  | Expr '^'   Expr                                   { EExp (posn $2)  $1 $3 }
 
   -- composites
-  | 'if' Expr 'then' Expr 'else' Expr                   { EITE (posn $1) $2 $4 $6 }
-  | id list(Zoom)                                       { EntryExp (posn $1) (name $1) $2 }
---  | id list(Zoom)                                       { Look (posn $1) (name $1) $2 }
-  | Expr '.' Expr                                       { Zoom (posn $2) $1 $3 }
---  | id '(' seplist(Expr, ',') ')'                     { App    (posn $1) $1 $3 }
-  | Expr '++' Expr                                      { ECat   (posn $2) $1 $3 }
---  | id '[' Expr '..' Expr ']'                         { ESlice (posn $2) $1 $3 $5 }
-  | 'CALLER'                                            { EnvExp (posn $1) Caller }
-  | 'CALLDEPTH'                                         { EnvExp (posn $1) Calldepth }
-  | 'ORIGIN'                                            { EnvExp (posn $1) Origin }
-  | 'BLOCKHASH'                                         { EnvExp (posn $1) Blockhash }
-  | 'BLOCKNUMBER'                                       { EnvExp (posn $1) Blocknumber }
-  | 'DIFFICULTY'                                        { EnvExp (posn $1) Difficulty }
-  | 'CHAINID'                                           { EnvExp (posn $1) Chainid }
-  | 'GASLIMIT'                                          { EnvExp (posn $1) Gaslimit }
-  | 'COINBASE'                                          { EnvExp (posn $1) Coinbase }
-  | 'TIMESTAMP'                                         { EnvExp (posn $1) Timestamp }
-  | 'CALLVALUE'                                         { EnvExp (posn $1) Callvalue }
-  | 'THIS'                                              { EnvExp (posn $1) This }
-  | 'NONCE'                                             { EnvExp (posn $1) Nonce }
+  | 'if' Expr 'then' Expr 'else' Expr                 { EITE (posn $1) $2 $4 $6 }
+  | id list(Zoom)                                     { EntryExp (posn $1) (name $1) $2 }
+--  | id list(Zoom)                                   { Look (posn $1) (name $1) $2 }
+  | Expr '.' Expr                                     { Zoom (posn $2) $1 $3 }
+--  | id '(' seplist(Expr, ',') ')'                   { App    (posn $1) $1 $3 }
+  | Expr '++' Expr                                    { ECat   (posn $2) $1 $3 }
+--  | id '[' Expr '..' Expr ']'                       { ESlice (posn $2) $1 $3 $5 }
+  | 'CALLER'                                          { EnvExp (posn $1) Caller }
+  | 'CALLDEPTH'                                       { EnvExp (posn $1) Calldepth }
+  | 'ORIGIN'                                          { EnvExp (posn $1) Origin }
+  | 'BLOCKHASH'                                       { EnvExp (posn $1) Blockhash }
+  | 'BLOCKNUMBER'                                     { EnvExp (posn $1) Blocknumber }
+  | 'DIFFICULTY'                                      { EnvExp (posn $1) Difficulty }
+  | 'CHAINID'                                         { EnvExp (posn $1) Chainid }
+  | 'GASLIMIT'                                        { EnvExp (posn $1) Gaslimit }
+  | 'COINBASE'                                        { EnvExp (posn $1) Coinbase }
+  | 'TIMESTAMP'                                       { EnvExp (posn $1) Timestamp }
+  | 'CALLVALUE'                                       { EnvExp (posn $1) Callvalue }
+  | 'THIS'                                            { EnvExp (posn $1) This }
+  | 'NONCE'                                           { EnvExp (posn $1) Nonce }
   -- missing builtins
-  | 'newAddr' '(' Expr ',' Expr ')'                     { ENewaddr (posn $1) $3 $5 }
+  | 'newAddr' '(' Expr ',' Expr ')'                   { ENewaddr (posn $1) $3 $5 }
 
 {
 
