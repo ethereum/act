@@ -184,9 +184,9 @@ checkAssign env@(contract, store, _, _) (AssignVal (StorageVar (StorageValue typ
       val <- checkBytes (getPosn expr) env expr
       return [BytesUpdate (DirectBytes contract name) val]
 checkAssign env@(_, store, _, _) (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
-  = do
-      mapM_ (\(Defn e1 e2) -> mapM_ (noStorageRead store) [e1,e2]) defns
-      mapM (checkDefn env keyType valType name) defns
+  = forM defns $ \def@(Defn e1 e2) -> do
+      mapM_ (noStorageRead store) [e1,e2]
+      checkDefn env keyType valType name def
 checkAssign _ (AssignVal (StorageVar (StorageMapping _ _) _) expr)
   = Bad (getPosn expr, "Cannot assign a single expression to a composite type")
 checkAssign _ (AssignMany (StorageVar (StorageValue _) _) _)
