@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Syntax where
 import Data.List (intercalate)
-import Data.Map (Map,empty,insert,unionsWith)
+import Data.Map (Map,empty,insertWith,unionsWith)
 import EVM.ABI (AbiType)
 import EVM.Solidity (SlotType)
 import Lex
@@ -189,7 +189,7 @@ getIds e = case e of
   EMod _ a b        -> getIds' [a,b]
   EExp _ a b        -> getIds' [a,b]
   Zoom _ a b        -> getIds' [a,b]
-  EntryExp p x es   -> insert x [p] $ getIds' es
+  EntryExp p x es   -> insertWith (<>) x [p] $ getIds' es
   Func _ _ es       -> getIds' es
   ListConst a       -> getIds a
   ECat _ a b        -> getIds' [a,b]
