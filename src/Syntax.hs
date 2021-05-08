@@ -171,31 +171,31 @@ getPosn expr = case expr of
 -- as well all of the positions they're used in.
 getIds :: Expr -> Map Id [Pn]
 getIds e = case e of
-  EAnd _ a b        -> getIds a <> getIds b
-  EOr _ a b         -> getIds a <> getIds b
+  EAnd _ a b        -> combine [getIds a, getIds b]
+  EOr _ a b         -> combine [getIds a, getIds b]
   ENot _ a          -> getIds a
-  EImpl _ a b       -> getIds a <> getIds b
-  EEq _ a b         -> getIds a <> getIds b
-  ENeq _ a b        -> getIds a <> getIds b
-  ELEQ _ a b        -> getIds a <> getIds b
-  ELT _ a b         -> getIds a <> getIds b
-  EGEQ _ a b        -> getIds a <> getIds b
-  EGT _ a b         -> getIds a <> getIds b
-  EAdd _ a b        -> getIds a <> getIds b
-  ESub _ a b        -> getIds a <> getIds b
-  EITE _ a b c      -> getIds a <> getIds b <> getIds c
-  EMul _ a b        -> getIds a <> getIds b
-  EDiv _ a b        -> getIds a <> getIds b
-  EMod _ a b        -> getIds a <> getIds b
-  EExp _ a b        -> getIds a <> getIds b
-  Zoom _ a b        -> getIds a <> getIds b
-  EntryExp p x es   -> insert x [p] . unionsWith (<>) $ getIds <$> es
-  Func _ _ es       -> unionsWith (<>) $ getIds <$> es
+  EImpl _ a b       -> combine [getIds a, getIds b]
+  EEq _ a b         -> combine [getIds a, getIds b]
+  ENeq _ a b        -> combine [getIds a, getIds b]
+  ELEQ _ a b        -> combine [getIds a, getIds b]
+  ELT _ a b         -> combine [getIds a, getIds b]
+  EGEQ _ a b        -> combine [getIds a, getIds b]
+  EGT _ a b         -> combine [getIds a, getIds b]
+  EAdd _ a b        -> combine [getIds a, getIds b]
+  ESub _ a b        -> combine [getIds a, getIds b]
+  EITE _ a b c      -> combine [getIds a, getIds b, getIds c]
+  EMul _ a b        -> combine [getIds a, getIds b]
+  EDiv _ a b        -> combine [getIds a, getIds b]
+  EMod _ a b        -> combine [getIds a, getIds b]
+  EExp _ a b        -> combine [getIds a, getIds b]
+  Zoom _ a b        -> combine [getIds a, getIds b]
+  EntryExp p x es   -> insert x [p] . combine $ getIds <$> es
+  Func _ _ es       -> combine $ getIds <$> es
   ListConst a       -> getIds a
-  ECat _ a b        -> getIds a <> getIds b
-  ESlice _ a b c    -> getIds a <> getIds b <> getIds c
-  ENewaddr _ a b    -> getIds a <> getIds b
-  ENewaddr2 _ a b c -> getIds a <> getIds b <> getIds c
+  ECat _ a b        -> combine [getIds a, getIds b]
+  ESlice _ a b c    -> combine [getIds a, getIds b, getIds c]
+  ENewaddr _ a b    -> combine [getIds a, getIds b]
+  ENewaddr2 _ a b c -> combine [getIds a, getIds b, getIds c]
   BYHash _ a        -> getIds a
   BYAbiE _ a        -> getIds a
   StringLit {}      -> empty
@@ -203,3 +203,5 @@ getIds e = case e of
   EnvExp {}         -> empty
   IntLit {}         -> empty
   BoolLit {}        -> empty
+  where
+    combine = unionsWith (<>)
