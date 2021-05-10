@@ -10,8 +10,11 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
+{-# LANGUAGE MonadComprehensions #-}
 
 module RefinedAst where
+
+import Control.Applicative (empty)
 
 import Data.Text (pack)
 import Data.Type.Equality
@@ -19,6 +22,7 @@ import Data.Typeable
 import Data.Map.Strict (Map)
 import Data.List.NonEmpty hiding (fromList)
 import Data.ByteString (ByteString)
+import Data.String (fromString)
 
 import EVM.Solidity (SlotType(..))
 
@@ -149,8 +153,8 @@ data Exp t where
   NewAddr :: Exp Integer -> Exp Integer -> Exp Integer
 
   -- polymorphic
-  Eq  :: (Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
-  NEq :: (Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
+  Eq  :: (Eq t, Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
+  NEq :: (Eq t, Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
   ITE :: Exp Bool -> Exp t -> Exp t -> Exp t
   TEntry :: (TStorageItem t) -> Exp t
 
@@ -214,6 +218,47 @@ data ReturnExp
   | ExpBool   (Exp Bool)
   | ExpBytes  (Exp ByteString)
   deriving (Eq, Show)
+
+eval :: Exp a -> Maybe a
+eval e = case e of
+  And  a b    -> [a' && b' | a' <- eval a, b' <- eval b ]
+  Or   a b    -> [a' || b' | a' <- eval a, b' <- eval b ]
+  Impl a b    -> [a' <= b' | a' <- eval a, b' <- eval b ]
+  Neg  a      -> not  <$> eval a
+  LE   a b    -> [a' <  b' | a' <- eval a, b' <- eval b ]
+  LEQ  a b    -> [a' <= b' | a' <- eval a, b' <- eval b ]
+  GE   a b    -> [a' >  b' | a' <- eval a, b' <- eval b ]
+  GEQ  a b    -> [a' >= b' | a' <- eval a, b' <- eval b ]
+  LitBool a   -> pure a
+  BoolVar _   -> empty
+
+  Add a b     -> [a' + b'     | a' <- eval a, b' <- eval b ]
+  Sub a b     -> [a' - b'     | a' <- eval a, b' <- eval b ]
+  Mul a b     -> [a' * b'     | a' <- eval a, b' <- eval b ]
+  Div a b     -> error "eval: check how the EVM truncates division"
+  Mod a b     -> [a' `mod` b' | a' <- eval a, b' <- eval b ]
+  Exp a b     -> [a' ^ b'     | a' <- eval a, b' <- eval b ]
+  LitInt a    -> pure a
+  IntVar _    -> empty
+  IntEnv _    -> empty
+  IntMin  a   -> pure . negate $ 2 ^ (a - 1)
+  IntMax  a   -> pure $ 2 ^ (a - 1) - 1
+  UIntMin _   -> pure 0
+  UIntMax a   -> pure $ 2 ^ a - 1
+
+  Cat   s t   -> [a' <> b' | a' <- eval s, b' <- eval t ]
+  Slice s a b -> error "eval: Slice"
+  ByVar _     -> empty
+  ByStr s     -> pure . fromString $ s
+  ByLit s     -> pure s
+  ByEnv _     -> empty
+
+  NewAddr a b -> error "eval: NewAddr"
+
+  Eq a b      -> [a' == b' | a' <- eval a, b' <- eval b ]
+  NEq a b     -> [a' /= b' | a' <- eval a, b' <- eval b ]
+  ITE a b c   -> eval a >>= \cond -> if cond then eval b else eval c
+  TEntry t    -> error "eval: TEntry"
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
