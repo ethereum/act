@@ -1,6 +1,9 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE MonadComprehensions #-}
 
 module SMT (Solver(..), SMTConfig(..), Query(..), SMTResult(..), runSMT, runQuery, mkPostconditionQueries, mkInvariantQueries, getTarget, getSMT) where
+
+import Control.Applicative ((<|>))
 
 import Data.Map (Map)
 import Data.List.NonEmpty (NonEmpty(..))
@@ -406,10 +409,12 @@ expToSMT2 ctx@(Ctx behvName whn) e = case e of
 
 -- | SMT2 has no support for exponentiation, but we can do some preprocessing
 --   if the RHS is concrete to provide some limited support for exponentiation
---   TODO: support any exponentiation expression where the RHS evaluates to a concrete value
 simplifyExponentiation :: Exp Integer -> Exp Integer -> Exp Integer
-simplifyExponentiation (LitInt a) (LitInt b) = LitInt (a ^ b)
-simplifyExponentiation _ _ = error "Internal Error: exponentiation is unsupported in SMT lib"
+simplifyExponentiation a b = fromMaybe (error "Internal Error: exponentiation is unsupported in SMT lib")
+                           $   [LitInt $ a' ^ b'                      | a' <- eval a,   b' <- evalb]
+                           <|> [foldr Mul (LitInt 1) (replicate b' a) | b' <- fromInteger <$> evalb]
+  where
+    evalb = eval b
 
 constant :: Id -> MType -> SMT2
 constant name tp = "(declare-const " <> name <> " " <> (sType tp) <> ")"
