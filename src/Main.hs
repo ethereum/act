@@ -26,6 +26,7 @@ import System.Environment (setEnv)
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import Control.Monad
+import Data.List
 
 import ErrM
 import Lex (lexer, AlexPosn(..))
@@ -116,6 +117,12 @@ main = do
             catErrors results = [e | e@SMT.Error {} <- results]
             catUnknowns results = [u | u@SMT.Unknown {} <- results]
 
+            getSMT (Postcondition _ _ smt) = show smt
+            getSMT (Inv _ (_, csmt) behvs) = (show csmt) <> (foldl' (@>) "" (fmap (show . snd) behvs))
+              where
+                (@>) :: String -> String -> String
+                x @> y = x <> "\n\n;----------------------\n\n" <> y
+
             indent' n text = unlines $ ((replicate n ' ') <>) <$> (lines text)
 
             identifier (q@Inv {}) = "invariant " <> (prettyExp . getTarget $ q) <> " of " <> getContract q
@@ -126,11 +133,11 @@ main = do
               | not . null . catUnknowns $ results = identifier query <> " could not be proven due to a solver timeout"
               | otherwise = identifier query <> " violated:\n" <> (concatMap (indent' 2 . show) (catModels results))
 
-            handleResults :: (Query, [SMT.SMTResult]) -> (Bool, String)
+            handleResults :: (Query, [SMT.SMTResult]) -> (Bool, String, String)
             handleResults (query, results) =
               if or (fmap isFail results)
-              then (False, buildFailMsg query results)
-              else (True, (identifier query) <> " holds")
+              then (False, buildFailMsg query results, getSMT query)
+              else (True, (identifier query) <> " holds", getSMT query)
 
           solverInstance <- spawnSolver config
           pcResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
@@ -139,15 +146,15 @@ main = do
 
           unless (null invResults) $ putStrLn "Invariants:\n"
 
-          allGood <- foldM (\acc (r, msg) -> do
-              putStrLn . (indent' 2) $ msg
+          allGood <- foldM (\acc (r, msg, smt) -> do
+              putStrLn . (indent' 2) $ if debug' then msg <> "\n" <> smt else msg
               pure $ acc && r
             ) True invResults
 
           unless (null pcResults) $ putStrLn "Postconditions:\n"
 
-          allGood' <- foldM (\acc (r, msg) -> do
-              putStrLn . (indent' 2) $ msg
+          allGood' <- foldM (\acc (r, msg, smt) -> do
+              putStrLn . (indent' 2) $ if debug' then msg <> "\n" <> smt else msg
               pure $ acc && r
             ) allGood pcResults
 
