@@ -37,6 +37,7 @@ import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
 import Print
 import Type (defaultStore, metaType)
 
+
 --- ** Data ** ---
 
 
@@ -154,7 +155,7 @@ data SolverInstance = SolverInstance
 --    - Asserts that the postcondition cannot be reached
 --   If this query is unsatisfiable, then there exists no case where the postcondition can be violated.
 mkPostconditionQueries :: Claim -> [Query]
-mkPostconditionQueries (B behv@(Behaviour _ _ _ (Interface ifaceName decls) preconds postconds stateUpdates _)) = mkQuery <$> postconds
+mkPostconditionQueries (B behv@(Behaviour _ Pass _ (Interface ifaceName decls) preconds postconds stateUpdates _)) = mkQuery <$> postconds
   where
     -- declare vars
     storage = concatMap (declareStorageLocation . getLoc) stateUpdates
@@ -172,7 +173,7 @@ mkPostconditionQueries (B behv@(Behaviour _ _ _ (Interface ifaceName decls) prec
       , _assertions = [mkAssert (Ctx ifaceName Pre) . Neg $ e] <> pres <> updates
       }
     mkQuery e = Postcondition (B behv) e (mksmt e)
-mkPostconditionQueries (C constructor@(Constructor _ _ (Interface ifaceName decls) preconds postconds initialStorage stateUpdates)) = mkQuery <$> postconds
+mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName decls) preconds postconds initialStorage stateUpdates)) = mkQuery <$> postconds
   where
     -- declare vars
     localStorage = declareInitialStorage <$> initialStorage
