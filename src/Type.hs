@@ -10,7 +10,7 @@ module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
 import Data.List
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
-import Data.Map.Strict    (Map)
+import Data.Map.Strict    (Map,keys,findWithDefault)
 import Data.Maybe
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
@@ -163,10 +163,17 @@ splitCase name contract iface if' iffs ret storage postcs =
   [ B $ Behaviour name Pass contract iface (if' <> iffs) postcs storage ret,
     B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs)]) [] (Left . getLoc <$> storage) Nothing ]
 
+-- | Ensures that no of the storage variables are read in the supplied `Expr`.
+noStorageRead :: Map Id SlotType -> Expr -> Err ()
+noStorageRead store expr = forM_ (keys store) $ \name ->
+  forM_ (findWithDefault [] name (getIds expr)) $ \pn ->
+    Bad (pn,"Cannot read storage in creates block")
+  
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
-checkAssign env@(contract, _, _, _) (AssignVal (StorageVar (StorageValue typ) name) expr)
-  = case metaType typ of
+checkAssign env@(contract, store, _, _) (AssignVal (StorageVar (StorageValue typ) name) expr)
+  = noStorageRead store expr >>
+  case metaType typ of
     Integer -> do
       val <- checkInt (getPosn expr) env expr
       return [IntUpdate (DirectInt contract name) val]
@@ -176,8 +183,10 @@ checkAssign env@(contract, _, _, _) (AssignVal (StorageVar (StorageValue typ) na
     ByteStr -> do
       val <- checkBytes (getPosn expr) env expr
       return [BytesUpdate (DirectBytes contract name) val]
-checkAssign env (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
-  = mapM (checkDefn env keyType valType name) defns
+checkAssign env@(_, store, _, _) (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
+  = forM defns $ \def@(Defn e1 e2) -> do
+      mapM_ (noStorageRead store) [e1,e2]
+      checkDefn env keyType valType name def
 checkAssign _ (AssignVal (StorageVar (StorageMapping _ _) _) expr)
   = Bad (getPosn expr, "Cannot assign a single expression to a composite type")
 checkAssign _ (AssignMany (StorageVar (StorageValue _) _) _)

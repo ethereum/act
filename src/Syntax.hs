@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Syntax where
 import Data.List (intercalate)
+import Data.Map (Map,empty,insertWith,unionsWith)
 import EVM.ABI (AbiType)
 import EVM.Solidity (SlotType)
 import Lex
@@ -166,3 +167,41 @@ getPosn expr = case expr of
     IntLit pn _ -> pn
     BoolLit pn _ -> pn
 
+-- | Returns all the identifiers used in an expression,
+-- as well all of the positions they're used in.
+getIds :: Expr -> Map Id [Pn]
+getIds e = case e of
+  EAnd _ a b        -> getIds' [a,b]
+  EOr _ a b         -> getIds' [a,b]
+  ENot _ a          -> getIds a
+  EImpl _ a b       -> getIds' [a,b]
+  EEq _ a b         -> getIds' [a,b]
+  ENeq _ a b        -> getIds' [a,b]
+  ELEQ _ a b        -> getIds' [a,b]
+  ELT _ a b         -> getIds' [a,b]
+  EGEQ _ a b        -> getIds' [a,b]
+  EGT _ a b         -> getIds' [a,b]
+  EAdd _ a b        -> getIds' [a,b]
+  ESub _ a b        -> getIds' [a,b]
+  EITE _ a b c      -> getIds' [a,b,c]
+  EMul _ a b        -> getIds' [a,b]
+  EDiv _ a b        -> getIds' [a,b]
+  EMod _ a b        -> getIds' [a,b]
+  EExp _ a b        -> getIds' [a,b]
+  Zoom _ a b        -> getIds' [a,b]
+  EntryExp p x es   -> insertWith (<>) x [p] $ getIds' es
+  Func _ _ es       -> getIds' es
+  ListConst a       -> getIds a
+  ECat _ a b        -> getIds' [a,b]
+  ESlice _ a b c    -> getIds' [a,b,c]
+  ENewaddr _ a b    -> getIds' [a,b]
+  ENewaddr2 _ a b c -> getIds' [a,b,c]
+  BYHash _ a        -> getIds a
+  BYAbiE _ a        -> getIds a
+  StringLit {}      -> empty
+  WildExp {}        -> empty
+  EnvExp {}         -> empty
+  IntLit {}         -> empty
+  BoolLit {}        -> empty
+  where
+    getIds' = unionsWith (<>) . fmap getIds
