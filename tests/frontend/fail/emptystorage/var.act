@@ -3,7 +3,7 @@ interface constructor()
 
 creates
 
-    uint x := (true && x)
+    uint x := x
     
 invariants
 
