@@ -13,15 +13,17 @@ module Main where
 import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
 import System.Exit ( exitFailure )
-import System.IO (hPutStrLn, stderr)
+import System.IO (hPutStrLn, stderr, stdout)
 import Data.SBV hiding (preprocess)
 import Data.Text (pack, unpack)
+import Data.List
 import Data.Maybe
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import qualified Data.Map.Strict as Map
 import System.Environment (setEnv)
+import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 
 import qualified Data.ByteString.Lazy.Char8 as B
 
@@ -109,37 +111,49 @@ main = do
             catErrors results = [e | e@SMT.Error {} <- results]
             catUnknowns results = [u | u@SMT.Unknown {} <- results]
 
-            indent n text = unlines $ ((replicate n ' ') <>) <$> (lines text)
+            getBehvName :: Query -> Doc
+            getBehvName (Postcondition (C _) _ _) = (text "the") <+> (bold . text $ "constructor")
+            getBehvName (Postcondition (B behv) _ _) = (text "behaviour") <+> (bold . text $ _name behv)
+            getBehvName _ = error "Internal Error: invalid query"
 
-            identifier (q@Inv {}) = "invariant " <> (prettyExp . getTarget $ q) <> " of " <> getContract q
-            identifier (q@Postcondition {}) = "postcondition " <> (prettyExp . getTarget $ q) <> " in " <> getBehvName q <> " of " <> getContract q
+            identifier :: Query -> Doc
+            identifier (q@Inv {}) = (bold . text. prettyExp . getTarget $ q) <+> text "of" <+> (bold . text . getContract $ q)
+            identifier (q@Postcondition {}) = (bold . text. prettyExp . getTarget $ q) <+> text "in" <+> getBehvName q <+> text "of" <+> (bold . text . getContract $ q)
 
+            buildFailMsg :: Query -> [SMT.SMTResult] -> Doc
             buildFailMsg query results
-              | not . null . catErrors $ results = identifier query <> " failed due to solver errors:\n " <> (concatMap (indent 2 . show) (catErrors results))
-              | not . null . catUnknowns $ results = identifier query <> " could not be proven due to a solver timeout"
-              | otherwise = identifier query <> " violated:\n" <> (concatMap (indent 2 . show) (catModels results))
+              | not . null . catErrors $ results = identifier query <+> text "failed due to solver errors:" <$$> line <> (indent 2 $ vsep (fmap (text . show) (catErrors results)))
+              | not . null . catUnknowns $ results = identifier query <+> text "could not be proven due to a solver timeout"
+              | otherwise = identifier query <+> ((red . text $ "violated") <> colon) <$$> line <> (indent 2 $ vsep (fmap pretty (catModels results)))
 
+            handleResults :: (Query, [SMT.SMTResult]) -> (Bool, Doc, Doc)
             handleResults (query, results) =
               if or (fmap isFail results)
-              then (False, buildFailMsg query results, getSMT query)
-              else (True, (identifier query) <> " holds", getSMT query)
+              then (False, buildFailMsg query results, text . getSMT $ query)
+              else (True, (identifier query) <+> ((green . text $ "holds") <+> (bold . text $ "∎")), text . getSMT $ query)
 
-            accumulateResults acc (r, msg, smt) = do
-              putStrLn . (indent 2) $ if debug' then msg <> "\n" <> smt else msg
-              pure $ acc && r
+            accumulateResults :: (Bool, Doc) -> (Bool, Doc, Doc) -> (Bool, Doc)
+            accumulateResults acc (r, msg, smt) = (fst acc && r, doc)
+              where doc = snd acc <$$> if debug' then msg <$$> smt <> line else msg <> line
+
+            render :: Doc -> IO ()
+            render doc = displayIO stdout (renderPretty 0.9 120 doc)
+
 
           solverInstance <- spawnSolver config
           pcResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
           invResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (mkInvariantQueries claims)
           stopSolver solverInstance
 
-          unless (null invResults) $ putStrLn "Invariants:\n"
-          allGood <- foldM accumulateResults True invResults
+          let
+            invTitle = if not . null $ invResults then (line <> (underline . bold . text $ "Invariants:") <> line) else empty
+            invOutput = foldl' accumulateResults (True, empty) invResults
 
-          unless (null pcResults) $ putStrLn "Postconditions:\n"
-          allGood' <- foldM accumulateResults allGood pcResults
+            pcTitle = if not . null $ pcResults then (line <> (underline . bold . text $ "Postconditions:") <> line) else empty
+            pcOutput = foldl' accumulateResults (True, empty) pcResults
 
-          unless allGood' exitFailure
+          render $ vsep [invTitle, indent 2 $ snd invOutput, pcTitle, indent 2 $ snd pcOutput]
+          unless (fst invOutput && fst pcOutput) exitFailure
 
       (Coq f) -> do
         contents <- readFile f
@@ -213,16 +227,16 @@ prettyErr _ (pn, msg) | pn == nowhere = do
   exitFailure
 prettyErr contents (pn, msg) | pn == lastPos = do
   let culprit = last $ lines contents
-      line = length (lines contents) - 1
+      line' = length (lines contents) - 1
       col  = length culprit
-  hPutStrLn stderr $ show line <> " | " <> culprit
-  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
+  hPutStrLn stderr $ show line' <> " | " <> culprit
+  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line' <> " | ")) - 1) " " <> "^")
   hPutStrLn stderr msg
   exitFailure
-prettyErr contents (AlexPn _ line col, msg) = do
-  let cxt = safeDrop (line - 1) (lines contents)
-  hPutStrLn stderr $ show line <> " | " <> head cxt
-  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
+prettyErr contents (AlexPn _ line' col, msg) = do
+  let cxt = safeDrop (line' - 1) (lines contents)
+  hPutStrLn stderr $ show line' <> " | " <> head cxt
+  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line' <> " | ")) - 1) " " <> "^")
   hPutStrLn stderr msg
   exitFailure
   where

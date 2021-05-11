@@ -17,13 +17,13 @@ module SMT (
   getTarget,
   getSMT,
   getContract,
-  isFail,
-  getBehvName
+  isFail
 ) where
 
 import Data.Containers.ListUtils (nubOrd)
 import System.Process (createProcess, cleanupProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
-import Text.Regex.TDFA
+import Text.Regex.TDFA hiding (empty)
+import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 
 import Control.Applicative ((<|>))
 import Data.Map (Map)
@@ -114,31 +114,32 @@ data Model = Model
   -- invariants always have access to the constructor context
   , _minitargs :: [(Decl, ReturnExp)]
   }
+  deriving (Show)
 
-instance Show Model where
-  show (Model prestate poststate (ifaceName, args) environment initargs) = unlines $
-      ("\ncounterexample:") : (indent 2
-      (  calldata'
-      <> ifExists environment environment'
-      <> storage
-      <> ifExists initargs initargs'
-      ))
+instance Pretty Model where
+  pretty (Model prestate poststate (ifaceName, args) environment initargs) =
+    (underline . text $ "counterexample:") <$$> line
+      <> (indent 2
+        (    calldata'
+        <$$> ifExists environment (line <> environment' <> line)
+        <$$> storage
+        <$$> ifExists initargs (line <> initargs')
+        ))
     where
-      calldata' = (header "calldata:") <> (indent 2 [formatSig ifaceName args])
-      environment' = (header "environment:") <> (indent 2 $ fmap formatEnvironment environment)
-      storage = ["", "storage:"] <> (indent 2 $ (ifExists prestate prestate') <> poststate')
-      initargs' = (header "constructor arguments:") <> (indent 2 [formatSig "constructor" initargs])
+      calldata' = (text "calldata:") <$$> line <> (indent 2 $ formatSig ifaceName args)
+      environment' = (text "environment:") <$$> line <> (indent 2 . vsep $ fmap formatEnvironment environment)
+      storage = (text "storage:") <$$> (indent 2 . vsep $ [ifExists prestate (line <> prestate'), poststate'])
+      initargs' = (text "constructor arguments:") <$$> line <> (indent 2 $ formatSig "constructor" initargs)
 
-      prestate' = (header "prestate:") <> (indent 2 $ fmap formatStorage prestate)
-      poststate' = (header "poststate:") <> (indent 2 $ fmap formatStorage poststate)
+      prestate' = (text "prestate:") <$$> line <> (indent 2 . vsep $ fmap formatStorage prestate) <> line
+      poststate' = (text "poststate:") <$$> line <> (indent 2 . vsep $ fmap formatStorage poststate)
 
-      formatSig iface cd = iface <> "(" <> (intercalate ", " $ fmap formatCalldata cd) <> ")"
-      formatCalldata ((Decl _ name), val) = name <> " : " <> prettyReturnExp val
-      formatEnvironment (env, val) = prettyEnv env <> " : " <> prettyReturnExp val
-      formatStorage (loc, val) = prettyLocation loc <> " : " <> prettyReturnExp val
+      formatSig iface cd = (text iface) <> (encloseSep lparen rparen (text ", ") $ fmap formatCalldata cd)
+      formatCalldata ((Decl _ name), val) = text $ name <> " : " <> prettyReturnExp val
+      formatEnvironment (env, val) = text $ prettyEnv env <> " : " <> prettyReturnExp val
+      formatStorage (loc, val) = text $ prettyLocation loc <> " : " <> prettyReturnExp val
 
-      ifExists a b = if null a then [] else b
-      header s = ["", s, ""]
+      ifExists a b = if null a then empty else b
 
 data SolverInstance = SolverInstance
   { _type :: Solver
@@ -725,14 +726,6 @@ getContract (Postcondition (C ctor) _ _) = _cname ctor
 getContract (Postcondition (B behv) _ _) = _contract behv
 getContract (Inv (Invariant c _ _ _) _ _) = c
 getContract _ = error "Internal Error: invalid query" -- TODO: refine types
-
-indent :: Int -> [String] -> [String]
-indent n text = ((replicate n ' ') <>) <$> text
-
-getBehvName :: Query -> String
-getBehvName (Postcondition (C _) _ _) = "the constructor"
-getBehvName (Postcondition (B behv) _ _) = "behaviour " <> _name behv
-getBehvName _ = error "Internal Error: invalid query" -- TODO: refine types
 
 isFail :: SMTResult -> Bool
 isFail Unsat = False
