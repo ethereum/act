@@ -3,20 +3,23 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
-module SMT where
---module SMT (
-  --Solver(..),
-  --SMTConfig(..),
-  --Query(..),
-  --SMTResult(..),
-  --spawnSolver,
-  --stopSolver,
-  --sendLines,
-  --runQuery,
-  --mkPostconditionQueries,
-  --mkInvariantQueries,
-  --getTarget,
-  --getSMT) where
+module SMT (
+  Solver(..),
+  SMTConfig(..),
+  Query(..),
+  SMTResult(..),
+  spawnSolver,
+  stopSolver,
+  sendLines,
+  runQuery,
+  mkPostconditionQueries,
+  mkInvariantQueries,
+  getTarget,
+  getSMT,
+  getContract,
+  isFail,
+  getBehvName
+) where
 
 import Data.Containers.ListUtils (nubOrd)
 import System.Process (createProcess, cleanupProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
@@ -32,7 +35,7 @@ import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
 
 import RefinedAst
-import Extract
+import Extract hiding (getContract)
 import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
 import Print
 import Type (defaultStore, metaType)
@@ -725,3 +728,19 @@ getContract _ = error "Internal Error: invalid query" -- TODO: refine types
 
 indent :: Int -> [String] -> [String]
 indent n text = ((replicate n ' ') <>) <$> text
+
+getBehvName :: Query -> String
+getBehvName (Postcondition (C _) _ _) = "the constructor"
+getBehvName (Postcondition (B behv) _ _) = "behaviour " <> _name behv
+getBehvName _ = error "Internal Error: invalid query" -- TODO: refine types
+
+isFail :: SMTResult -> Bool
+isFail Unsat = False
+isFail _ = True
+
+getSMT :: Query -> String
+getSMT (Postcondition _ _ smt) = show smt
+getSMT (Inv _ (_, csmt) behvs) = (show csmt) <> (foldl' (@>) "" (fmap (show . snd) behvs))
+  where
+    (@>) :: String -> String -> String
+    x @> y = x <> "\n\n;----------------------\n\n" <> y

@@ -26,7 +26,6 @@ import System.Environment (setEnv)
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import Control.Monad
-import Data.List
 
 import ErrM
 import Lex (lexer, AlexPosn(..))
@@ -34,11 +33,11 @@ import Options.Generic
 import Parse
 import RefinedAst
 import Enrich
-import K hiding (normalize)
+import K hiding (normalize, indent)
 import SMT
 import Syntax
 import Type
-import Coq
+import Coq hiding (indent)
 import HEVM
 import Print
 
@@ -106,38 +105,28 @@ main = do
         contents <- readFile file'
         proceed contents (compile contents) $ \claims -> do
           let
-            getBehvName (Postcondition (C _) _ _) = "the constructor"
-            getBehvName (Postcondition (B behv) _ _) = "behaviour " <> _name behv
-            getBehvName _ = error "Internal Error: invalid query" -- TODO: refine types
-
-            isFail Unsat = False
-            isFail _ = True
-
             catModels results = [m | Sat m <- results]
             catErrors results = [e | e@SMT.Error {} <- results]
             catUnknowns results = [u | u@SMT.Unknown {} <- results]
 
-            getSMT (Postcondition _ _ smt) = show smt
-            getSMT (Inv _ (_, csmt) behvs) = (show csmt) <> (foldl' (@>) "" (fmap (show . snd) behvs))
-              where
-                (@>) :: String -> String -> String
-                x @> y = x <> "\n\n;----------------------\n\n" <> y
-
-            indent' n text = unlines $ ((replicate n ' ') <>) <$> (lines text)
+            indent n text = unlines $ ((replicate n ' ') <>) <$> (lines text)
 
             identifier (q@Inv {}) = "invariant " <> (prettyExp . getTarget $ q) <> " of " <> getContract q
             identifier (q@Postcondition {}) = "postcondition " <> (prettyExp . getTarget $ q) <> " in " <> getBehvName q <> " of " <> getContract q
 
             buildFailMsg query results
-              | not . null . catErrors $ results = identifier query <> " failed due to solver errors:\n " <> (concatMap (indent' 2 . show) (catErrors results))
+              | not . null . catErrors $ results = identifier query <> " failed due to solver errors:\n " <> (concatMap (indent 2 . show) (catErrors results))
               | not . null . catUnknowns $ results = identifier query <> " could not be proven due to a solver timeout"
-              | otherwise = identifier query <> " violated:\n" <> (concatMap (indent' 2 . show) (catModels results))
+              | otherwise = identifier query <> " violated:\n" <> (concatMap (indent 2 . show) (catModels results))
 
-            handleResults :: (Query, [SMT.SMTResult]) -> (Bool, String, String)
             handleResults (query, results) =
               if or (fmap isFail results)
               then (False, buildFailMsg query results, getSMT query)
               else (True, (identifier query) <> " holds", getSMT query)
+
+            accumulateResults acc (r, msg, smt) = do
+              putStrLn . (indent 2) $ if debug' then msg <> "\n" <> smt else msg
+              pure $ acc && r
 
           solverInstance <- spawnSolver config
           pcResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
@@ -145,18 +134,10 @@ main = do
           stopSolver solverInstance
 
           unless (null invResults) $ putStrLn "Invariants:\n"
-
-          allGood <- foldM (\acc (r, msg, smt) -> do
-              putStrLn . (indent' 2) $ if debug' then msg <> "\n" <> smt else msg
-              pure $ acc && r
-            ) True invResults
+          allGood <- foldM accumulateResults True invResults
 
           unless (null pcResults) $ putStrLn "Postconditions:\n"
-
-          allGood' <- foldM (\acc (r, msg, smt) -> do
-              putStrLn . (indent' 2) $ if debug' then msg <> "\n" <> smt else msg
-              pure $ acc && r
-            ) allGood pcResults
+          allGood' <- foldM accumulateResults allGood pcResults
 
           unless allGood' exitFailure
 
