@@ -25,6 +25,7 @@ common deps
                  mtl              >= 2.2.2,
                  utf8-string      >= 1.0.1.1,
                  process          >= 1.6.5.0,
+                 regex-tdfa
   other-modules: Lex ErrM Extract Parse RefinedAst K HEVM Coq Syntax Type Print Enrich SMT
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans

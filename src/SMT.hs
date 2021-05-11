@@ -1,5 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
 module SMT where
@@ -19,6 +20,7 @@ module SMT where
 
 import Data.Containers.ListUtils (nubOrd)
 import System.Process (createProcess, cleanupProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
+import Text.Regex.TDFA
 
 import Control.Applicative ((<|>))
 import Data.Map (Map)
@@ -428,11 +430,24 @@ getInvariantModel invExp ctor (Just behv) solver = do
     , _minitargs = ctorCalldata
     }
 
--- output should be in the form "((identifier value))"
--- we therefore return the non-whitespace group before the last two ')' chars
--- TODO: handle failure here
 parseSMTModel :: String -> String
-parseSMTModel s = init . init $ last (words s)
+parseSMTModel s = if length s0Caps == 1
+                  then if length s1Caps == 1 then head s1Caps else head s0Caps
+                  else ""
+  where
+    -- output should be in the form "((identifier value))" for positive integers / booleans / strings
+    -- or "((identifier (value)))" for negative integers.
+
+    -- The stage0 regex first extracts either value or (value), and then the
+    -- stage1 regex is used to strip the additional brackets if required.
+    stage0 = "\\`\\(\\([a-zA-Z0-9_]+ ([ \"\\(\\)a-zA-Z0-9_\\-]+)\\)\\)\\'"
+    stage1 = "\\(([ a-zA-Z0-9_\\-]+)\\)"
+
+    s0Caps = getCaptures s stage0
+    s1Caps = getCaptures (head s0Caps) stage1
+
+    getCaptures str regex = captures
+      where (_, _, _, captures) = str =~ regex :: (String, String, String, [String])
 
 getStorageValue :: SolverInstance -> Ctx -> StorageLocation -> IO (StorageLocation, ReturnExp)
 getStorageValue solver ctx@(Ctx _ whn) loc = do
