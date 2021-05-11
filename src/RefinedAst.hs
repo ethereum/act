@@ -22,6 +22,7 @@ import Data.Typeable
 import Data.Map.Strict (Map)
 import Data.List.NonEmpty hiding (fromList)
 import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import Data.String (fromString)
 
 import EVM.Solidity (SlotType(..))
@@ -219,25 +220,27 @@ data ReturnExp
   | ExpBytes  (Exp ByteString)
   deriving (Eq, Show)
 
+-- | Simplifies concrete expressions into literals.
+-- Returns `Nothing` if the expression contains symbols.
 eval :: Exp a -> Maybe a
 eval e = case e of
-  And  a b    -> [a' && b' | a' <- eval a, b' <- eval b ]
-  Or   a b    -> [a' || b' | a' <- eval a, b' <- eval b ]
-  Impl a b    -> [a' <= b' | a' <- eval a, b' <- eval b ]
-  Neg  a      -> not  <$> eval a
-  LE   a b    -> [a' <  b' | a' <- eval a, b' <- eval b ]
-  LEQ  a b    -> [a' <= b' | a' <- eval a, b' <- eval b ]
-  GE   a b    -> [a' >  b' | a' <- eval a, b' <- eval b ]
-  GEQ  a b    -> [a' >= b' | a' <- eval a, b' <- eval b ]
+  And  a b    -> [a' && b' | a' <- eval a, b' <- eval b]
+  Or   a b    -> [a' || b' | a' <- eval a, b' <- eval b]
+  Impl a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
+  Neg  a      -> not <$> eval a
+  LE   a b    -> [a' <  b' | a' <- eval a, b' <- eval b]
+  LEQ  a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
+  GE   a b    -> [a' >  b' | a' <- eval a, b' <- eval b]
+  GEQ  a b    -> [a' >= b' | a' <- eval a, b' <- eval b]
   LitBool a   -> pure a
   BoolVar _   -> empty
 
-  Add a b     -> [a' + b'     | a' <- eval a, b' <- eval b ]
-  Sub a b     -> [a' - b'     | a' <- eval a, b' <- eval b ]
-  Mul a b     -> [a' * b'     | a' <- eval a, b' <- eval b ]
-  Div a b     -> error "eval: check how the EVM truncates division"
-  Mod a b     -> [a' `mod` b' | a' <- eval a, b' <- eval b ]
-  Exp a b     -> [a' ^ b'     | a' <- eval a, b' <- eval b ]
+  Add a b     -> [a' + b'     | a' <- eval a, b' <- eval b]
+  Sub a b     -> [a' - b'     | a' <- eval a, b' <- eval b]
+  Mul a b     -> [a' * b'     | a' <- eval a, b' <- eval b]
+  Div a b     -> [a' `div` b' | a' <- eval a, b' <- eval b]
+  Mod a b     -> [a' `mod` b' | a' <- eval a, b' <- eval b]
+  Exp a b     -> [a' ^ b'     | a' <- eval a, b' <- eval b]
   LitInt a    -> pure a
   IntVar _    -> empty
   IntEnv _    -> empty
@@ -246,19 +249,21 @@ eval e = case e of
   UIntMin _   -> pure 0
   UIntMax a   -> pure $ 2 ^ a - 1
 
-  Cat   s t   -> [a' <> b' | a' <- eval s, b' <- eval t ]
-  Slice s a b -> error "eval: Slice"
+  Cat s t     -> [s' <> t' | s' <- eval s, t' <- eval t]
+  Slice s a b -> [BS.drop a' . BS.take b' $ s' | s' <- eval s
+                                               , a' <- fromInteger <$> eval a
+                                               , b' <- fromInteger <$> eval b]
   ByVar _     -> empty
   ByStr s     -> pure . fromString $ s
   ByLit s     -> pure s
   ByEnv _     -> empty
 
-  NewAddr a b -> error "eval: NewAddr"
+  NewAddr _ _ -> empty
 
-  Eq a b      -> [a' == b' | a' <- eval a, b' <- eval b ]
-  NEq a b     -> [a' /= b' | a' <- eval a, b' <- eval b ]
+  Eq a b      -> [a' == b' | a' <- eval a, b' <- eval b]
+  NEq a b     -> [a' /= b' | a' <- eval a, b' <- eval b]
   ITE a b c   -> eval a >>= \cond -> if cond then eval b else eval c
-  TEntry t    -> error "eval: TEntry"
+  TEntry _    -> empty
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
