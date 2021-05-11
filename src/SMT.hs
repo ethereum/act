@@ -35,7 +35,6 @@ import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
 import Print
 import Type (defaultStore, metaType)
 
-
 --- ** Data ** ---
 
 
@@ -78,10 +77,10 @@ data SMTExp = SMTExp
 instance Show SMTExp where
   show e = unlines [storage, calldata, environment, assertions]
     where
-      storage = unlines $ ";STORAGE:" : (nubOrd $ _storage e)
-      calldata = unlines $ ";CALLDATA:" : (nubOrd $ _calldata e)
-      environment = unlines $ ";ENVIRONMENT:" : (nubOrd $ _environment e)
-      assertions = unlines $ ";ASSERTIONS:" : (nubOrd $ _assertions e)
+      storage = unlines $ ";STORAGE:" : (nubOrd . _storage $ e)
+      calldata = unlines $ ";CALLDATA:" : (nubOrd . _calldata $ e)
+      environment = unlines $ ";ENVIRONMENT:" : (nubOrd . _environment $ e)
+      assertions = unlines $ ";ASSERTIONS:" : (nubOrd . _assertions $ e)
 
 -- | A Query is a structured representation of an SMT query for an individual
 --   expression, along with the metadata needed to extract a model from a satisfiable query
@@ -296,22 +295,20 @@ checkSat solver modelFn smt = do
   case err of
     Nothing -> do
       sat <- sendCommand solver "(check-sat)"
-      case sat of
+      case (sat) of
         "sat" -> do
           model <- modelFn solver
           pure $ Sat model
         "unsat" -> pure Unsat
-        "timeout" -> pure Unknown -- TODO: disambiguate?
+        "timeout" -> pure Unknown
         "unknown" -> pure Unknown
         _ -> pure $ Error 0 $ "Unable to parse solver output: " <> sat
     Just msg -> do
       pure $ Error 0 msg
 
+-- | Global settings applied directly after each solver instance is spawned
 smtPreamble :: [SMT2]
-smtPreamble =
-  [ "(set-logic ALL)"
-  , "(set-option :produce-models true)"
-  ]
+smtPreamble = [ "(set-logic ALL)" ]
 
 solverArgs :: SMTConfig -> [String]
 solverArgs (SMTConfig solver timeout _) = case solver of
@@ -322,9 +319,9 @@ solverArgs (SMTConfig solver timeout _) = case solver of
     [ "--lang=smt"
     , "--interactive"
     , "--no-interactive-prompt"
+    , "--produce-models"
     , "--tlimit-per=" <> show timeout]
 
--- TODO: switch to typed-process (avoids some race conditions?)
 spawnSolver :: SMTConfig -> IO SolverInstance
 spawnSolver config@(SMTConfig solver _ _) = do
   let cmd = (proc (show solver) (solverArgs config)) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
@@ -375,9 +372,9 @@ getPostconditionModel (C ctor) solver = do
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
     { _mprestate = []
-    , _mpoststate = nub poststate -- TODO: dedup in extract
+    , _mpoststate = poststate
     , _mcalldata = (ifaceName, calldata)
-    , _menvironment = nub environment
+    , _menvironment = environment
     , _minitargs = []
     }
 getPostconditionModel (B behv) solver = do
@@ -389,12 +386,13 @@ getPostconditionModel (B behv) solver = do
   calldata <- mapM (getCalldataValue solver ifaceName) decls
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
-    { _mprestate = nub prestate
-    , _mpoststate = nub poststate
+    { _mprestate = prestate
+    , _mpoststate = poststate
     , _mcalldata = (ifaceName, calldata)
-    , _menvironment = nub environment
+    , _menvironment = environment
     , _minitargs = []
     }
+getPostconditionModel _ _ = error "Internal Error: invalid call" -- TODO: refine types
 
 getInvariantModel :: Exp Bool -> Constructor -> Maybe Behaviour -> SolverInstance -> IO Model
 getInvariantModel _ ctor Nothing solver = do
@@ -406,14 +404,14 @@ getInvariantModel _ ctor Nothing solver = do
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
     { _mprestate = []
-    , _mpoststate = nub poststate
+    , _mpoststate = poststate
     , _mcalldata = (ifaceName, calldata)
-    , _menvironment = nub environment
+    , _menvironment = environment
     , _minitargs = []
     }
 getInvariantModel invExp ctor (Just behv) solver = do
-  let locs = nub $ locsFromBehaviour behv <> locsFromExp invExp
-      env = nub $ ethEnvFromBehaviour behv <> ethEnvFromExp invExp
+  let locs = locsFromBehaviour behv <> locsFromExp invExp
+      env = ethEnvFromBehaviour behv <> ethEnvFromExp invExp
       (Interface behvIface behvDecls) = _interface behv
       (Interface ctorIface ctorDecls) = _cinterface ctor
   -- TODO: v ugly to ignore the ifaceName here, but it's safe...
@@ -426,7 +424,7 @@ getInvariantModel invExp ctor (Just behv) solver = do
     { _mprestate = prestate
     , _mpoststate = poststate
     , _mcalldata = (behvIface, behvCalldata)
-    , _menvironment = nub environment
+    , _menvironment = environment
     , _minitargs = ctorCalldata
     }
 

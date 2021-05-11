@@ -113,19 +113,24 @@ main = do
             isFail _ = True
 
             catModels results = [m | Sat m <- results]
+            catErrors results = [e | e@SMT.Error {} <- results]
+            catUnknowns results = [u | u@SMT.Unknown {} <- results]
 
             indent' n text = unlines $ ((replicate n ' ') <>) <$> (lines text)
 
             identifier (q@Inv {}) = "invariant " <> (prettyExp . getTarget $ q) <> " of " <> getContract q
             identifier (q@Postcondition {}) = "postcondition " <> (prettyExp . getTarget $ q) <> " in " <> getBehvName q <> " of " <> getContract q
 
+            buildFailMsg query results
+              | not . null . catErrors $ results = identifier query <> " failed due to solver errors:\n " <> (concatMap (indent' 2 . show) (catErrors results))
+              | not . null . catUnknowns $ results = identifier query <> " could not be proven due to a solver timeout"
+              | otherwise = identifier query <> " violated:\n" <> (concatMap (indent' 2 . show) (catModels results))
+
             handleResults :: (Query, [SMT.SMTResult]) -> (Bool, String)
-            handleResults (query, results) = let
-                models = catModels results
-              in
-                if or (fmap isFail results)
-                then (False, (identifier query) <> " violated:\n" <> (concatMap (indent' 2 . show) models))
-                else (True, (identifier query) <> " holds")
+            handleResults (query, results) =
+              if or (fmap isFail results)
+              then (False, buildFailMsg query results)
+              else (True, (identifier query) <> " holds")
 
           solverInstance <- spawnSolver config
           pcResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)

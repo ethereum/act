@@ -3,27 +3,28 @@
 module Extract where
 
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.List
 
 import RefinedAst
 import Syntax
 import EVM.ABI (AbiType(..))
 
 locsFromBehaviour :: Behaviour -> [StorageLocation]
-locsFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
+locsFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
   (concatMap locsFromExp preconds)
   <> (concatMap locsFromExp postconds)
   <> (concatMap locsFromStateUpdate stateUpdates)
   <> (maybe [] locsFromReturnExp returns)
 
 locsFromConstructor :: Constructor -> [StorageLocation]
-locsFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) =
+locsFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = nub $
   (concatMap locsFromExp pre)
   <> (concatMap locsFromExp post)
   <> (concatMap locsFromStateUpdate stateUpdates)
   <> (concatMap locsFromStateUpdate (Right <$> initialStorage))
 
 locsFromStateUpdate :: Either StorageLocation StorageUpdate -> [StorageLocation]
-locsFromStateUpdate update = case update of
+locsFromStateUpdate update = nub $ case update of
   Left loc -> [loc]
   Right (IntUpdate item e) -> (IntLoc item) : locsFromExp e
   Right (BoolUpdate item e) -> (BoolLoc item) : locsFromExp e
@@ -35,7 +36,7 @@ locsFromReturnExp (ExpBool e) = locsFromExp e
 locsFromReturnExp (ExpBytes e) = locsFromExp e
 
 locsFromExp :: Exp a -> [StorageLocation]
-locsFromExp e = case e of
+locsFromExp e = nub $ case e of
   And a b   -> (locsFromExp a) <> (locsFromExp b)
   Or a b    -> (locsFromExp a) <> (locsFromExp b)
   Impl a b  -> (locsFromExp a) <> (locsFromExp b)
@@ -81,21 +82,21 @@ locsFromExp e = case e of
       ixLocs = concatMap locsFromReturnExp
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
-ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
+ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
   (concatMap ethEnvFromExp preconds)
   <> (concatMap ethEnvFromExp postconds)
   <> (concatMap ethEnvFromStateUpdate stateUpdates)
   <> (maybe [] ethEnvFromReturnExp returns)
 
 ethEnvFromConstructor :: Constructor -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) =
+ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = nub $
   (concatMap ethEnvFromExp pre)
   <> (concatMap ethEnvFromExp post)
   <> (concatMap ethEnvFromStateUpdate stateUpdates)
   <> (concatMap ethEnvFromStateUpdate (Right <$> initialStorage))
 
 ethEnvFromStateUpdate :: Either StorageLocation StorageUpdate -> [EthEnv]
-ethEnvFromStateUpdate update = case update of
+ethEnvFromStateUpdate update = nub $ case update of
   Left (IntLoc item) -> ethEnvFromItem item
   Left (BoolLoc item) -> ethEnvFromItem item
   Left (BytesLoc item) -> ethEnvFromItem item
@@ -104,7 +105,7 @@ ethEnvFromStateUpdate update = case update of
   Right (BytesUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
 
 ethEnvFromItem :: TStorageItem a -> [EthEnv]
-ethEnvFromItem item = case item of
+ethEnvFromItem item = nub $ case item of
   MappedInt _ _ ixs -> concatMap ethEnvFromReturnExp ixs
   MappedBool _ _ ixs -> concatMap ethEnvFromReturnExp ixs
   MappedBytes _ _ ixs -> concatMap ethEnvFromReturnExp ixs
@@ -116,7 +117,7 @@ ethEnvFromReturnExp (ExpBool e) = ethEnvFromExp e
 ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
 
 ethEnvFromExp :: Exp a -> [EthEnv]
-ethEnvFromExp e = case e of
+ethEnvFromExp e = nub $ case e of
   And a b   -> ethEnvFromExp a <> ethEnvFromExp b
   Or a b    -> ethEnvFromExp a <> ethEnvFromExp b
   Impl a b  -> ethEnvFromExp a <> ethEnvFromExp b
