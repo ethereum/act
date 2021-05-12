@@ -484,7 +484,7 @@ getEnvironmentValue solver env = do
               Just Integer -> parseIntModel output
               Just Boolean -> parseBoolModel output
               Just ByteStr -> parseBytesModel output
-              Nothing -> error "whoops" -- TODO: handle errors properly...
+              Nothing -> error $ "Internal Error: could not determine a type for" <> show env
   pure (env, val)
 
 getValue :: SolverInstance -> String -> IO String
