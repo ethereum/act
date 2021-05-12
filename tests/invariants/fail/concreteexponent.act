@@ -1,0 +1,10 @@
+constructor of Exponentiation
+interface constructor(uint256 x)
+
+creates
+
+    uint256 xpow5 := x ^ (100 - 5 * 19)
+
+invariants
+
+    xpow5 == x ^ 4

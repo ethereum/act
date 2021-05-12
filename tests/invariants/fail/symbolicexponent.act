@@ -1,0 +1,10 @@
+constructor of Exponentiation
+interface constructor(uint x)
+
+creates
+
+    uint256 exponential := (10 - 2 * 4) ^ (100 - x * 19)
+
+invariants
+
+    exponential == 32

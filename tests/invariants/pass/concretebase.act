@@ -1,0 +1,10 @@
+constructor of Exponentiation
+interface constructor()
+
+creates
+
+    uint256 thirtytwo := (10 - 2 * 4) ^ (100 - 5 * 19)
+
+invariants
+
+    thirtytwo == 32
