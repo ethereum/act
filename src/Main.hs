@@ -13,16 +13,15 @@ module Main where
 import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
 import System.Exit ( exitFailure )
-import System.IO (hPutStrLn, stderr, stdout)
 import Data.SBV hiding (preprocess)
-import Data.Text (pack, unpack)
+import Data.Text (pack)
 import Data.List
 import Data.Maybe
 import qualified EVM.Solidity as Solidity
-import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import qualified Data.Map.Strict as Map
 import System.Environment (setEnv)
+import System.IO (stdout)
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 
 import qualified Data.ByteString.Lazy.Char8 as B
@@ -30,7 +29,7 @@ import qualified Data.ByteString.Lazy.Char8 as B
 import Control.Monad
 
 import ErrM
-import Lex (lexer, AlexPosn(..))
+import Lex (lexer)
 import Options.Generic
 import Parse
 import RefinedAst
@@ -208,38 +207,12 @@ runSMTWithTimeOut solver' maybeTimeout debug' sym
        runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
 
 -- | Fail on error, or proceed with continuation
-proceed :: String -> Err a -> (a -> IO ()) -> IO ()
+proceed :: PrintableError a => String -> Err a b -> (b -> IO ()) -> IO ()
 proceed contents (Bad e) _ = prettyErr contents e
 proceed _ (Ok a) continue = continue a
 
-compile :: String -> Err [Claim]
+compile :: String -> TypeErr [Claim]
 compile contents = enrich <$> ((parse (lexer contents)) >>= typecheck)
-
-prettyErr :: String -> (Pn, String) -> IO ()
-prettyErr _ (pn, msg) | pn == nowhere = do
-  hPutStrLn stderr "Internal error:"
-  hPutStrLn stderr msg
-  exitFailure
-prettyErr contents (pn, msg) | pn == lastPos = do
-  let culprit = last $ lines contents
-      line' = length (lines contents) - 1
-      col  = length culprit
-  hPutStrLn stderr $ show line' <> " | " <> culprit
-  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line' <> " | ")) - 1) " " <> "^")
-  hPutStrLn stderr msg
-  exitFailure
-prettyErr contents (AlexPn _ line' col, msg) = do
-  let cxt = safeDrop (line' - 1) (lines contents)
-  hPutStrLn stderr $ show line' <> " | " <> head cxt
-  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line' <> " | ")) - 1) " " <> "^")
-  hPutStrLn stderr msg
-  exitFailure
-  where
-    safeDrop :: Int -> [a] -> [a]
-    safeDrop 0 a = a
-    safeDrop _ [] = []
-    safeDrop _ [a] = [a]
-    safeDrop n (_:xs) = safeDrop (n-1) xs
 
 -- | prints a Doc, with wider output than the built in `putDoc`
 render :: Doc -> IO ()

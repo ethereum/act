@@ -57,7 +57,7 @@ data KOptions =
     }
 
 
-makekSpec :: Map Text SolcContract -> KOptions -> Behaviour -> Err (String, String)
+makekSpec :: Map Text SolcContract -> KOptions -> Behaviour -> KErr (String, String)
 makekSpec sources _ behaviour =
   let this = _contract behaviour
       names = Map.fromList $ fmap (\(a, b) -> (getContractName a, b)) (Map.toList sources)

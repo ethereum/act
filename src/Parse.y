@@ -10,7 +10,7 @@ import ErrM
 }
 
 %name parse
-%monad { Err } { (>>=) } { return }
+%monad { ParseErr } { (>>=) } { return }
 %tokentype { Lexeme }
 %error { parseError }
 
@@ -300,13 +300,10 @@ Expr : '(' Expr ')'                                   { $2 }
 
 {
 
-nowhere = AlexPn 0 0 0
-lastPos = AlexPn (-1) (-1) (-1)
-
 validsize :: Int -> Bool
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
-parseError :: [Lexeme] -> Err a
+parseError :: [Lexeme] -> ParseErr a
 parseError [] = Bad (lastPos, "Expected more tokens")
 parseError ((L token pn):_) =
   Bad $ (pn, concat [

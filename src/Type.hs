@@ -28,13 +28,13 @@ import Extract
 import RefinedAst
 import Print (prettyType)
 
-typecheck :: [RawBehaviour] -> Err [Claim]
+typecheck :: [RawBehaviour] -> TypeErr [Claim]
 typecheck behvs = do store <- lookupVars behvs
                      bs <- mapM (splitBehaviour store) behvs
                      return $ (S store):(join bs)
 
 --- Finds storage declarations from constructors
-lookupVars :: [RawBehaviour] -> Err Store
+lookupVars :: [RawBehaviour] -> TypeErr Store
 lookupVars ((Transition {}):bs) = lookupVars bs
 lookupVars ((Definition contract _ _ (Creates assigns) _ _ _):bs) =
   let assignments = fromAssign <$> assigns
@@ -84,8 +84,8 @@ defaultStore =
   ]
 
 -- checks a transition given a typing of its storage variables
-splitBehaviour :: Store -> RawBehaviour -> Err [Claim]
-splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases posts) = do
+splitBehaviour :: Store -> RawBehaviour -> TypeErr [Claim]
+splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases post) = do
   -- constrain integer calldata variables (TODO: other types)
   iff <- checkIffs env iffs'
   postcondition <- mapM (\expr -> checkBool (getPosn expr) env expr) posts
@@ -95,7 +95,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     env = mkEnv contract store decls
 
     -- translate wildcards into negation of other cases
-    normalize :: [Case] -> Err [Case]
+    normalize :: [Case] -> TypeErr [Case]
     normalize cases' =
       let wildcard (Case _ (WildExp _) _) = True
           wildcard _ = False
@@ -116,7 +116,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
 
 
     -- flatten case list
-    flatten :: [Exp Bool] -> [Exp Bool] -> Cases -> Err [Claim]
+    flatten :: [Exp Bool] -> [Exp Bool] -> Cases -> TypeErr [Claim]
     flatten iff postc (Direct post) = do
       (p, maybeReturn) <- checkPost env post
       return $ splitCase name contract iface [] iff maybeReturn p postc
@@ -168,9 +168,9 @@ noStorageRead :: Map Id SlotType -> Expr -> Err ()
 noStorageRead store expr = forM_ (keys store) $ \name ->
   forM_ (findWithDefault [] name (getIds expr)) $ \pn ->
     Bad (pn,"Cannot read storage in creates block")
-  
+
 -- ensures that key types match value types in an Assign
-checkAssign :: Env -> Assign -> Err [StorageUpdate]
+checkAssign :: Env -> Assign -> TypeErr [StorageUpdate]
 checkAssign env@(contract, store, _, _) (AssignVal (StorageVar (StorageValue typ) name) expr)
   = noStorageRead store expr >>
   case metaType typ of
@@ -195,7 +195,7 @@ checkAssign _ _ = error "todo: support struct assignment in constructors"
 
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
-checkDefn :: Env -> AbiType -> AbiType -> Id -> Defn -> Err StorageUpdate
+checkDefn :: Env -> AbiType -> AbiType -> Id -> Defn -> TypeErr StorageUpdate
 checkDefn env@(contract, _, _, _) keyType valType name (Defn k v) = case metaType keyType of
     Integer -> do
       key <- checkInt (getPosn k) env k
@@ -219,7 +219,7 @@ checkDefn env@(contract, _, _, _) keyType valType name (Defn k v) = case metaTyp
             val <- checkBytes (getPosn v) env v
             return $ BytesUpdate (MappedBytes contract name (key :| [])) val
 
-checkPost :: Env -> Post -> Err ([Either StorageLocation StorageUpdate], Maybe ReturnExp)
+checkPost :: Env -> Post -> TypeErr ([Either StorageLocation StorageUpdate], Maybe ReturnExp)
 checkPost (contract, _, theirs, calldata) (Post maybeStorage extStorage maybeReturn) =
   do returnexp <- mapM (inferExpr scopedEnv) maybeReturn
      ourStorage <- case maybeStorage of
@@ -228,13 +228,13 @@ checkPost (contract, _, theirs, calldata) (Post maybeStorage extStorage maybeRet
      otherStorage <- checkStorages extStorage
      return (ourStorage <> otherStorage, returnexp)
   where
-    checkEntries :: Id -> [Syntax.Storage] -> Err [Either StorageLocation StorageUpdate]
+    checkEntries :: Id -> [Syntax.Storage] -> TypeErr [Either StorageLocation StorageUpdate]
     checkEntries name entries =
       forM entries $ \case
         Constant loc -> Left <$> checkEntry (focus name scopedEnv) loc
         Rewrite loc val -> Right <$> checkStorageExpr (focus name scopedEnv) loc val
 
-    checkStorages :: [ExtStorage] -> Err [Either StorageLocation StorageUpdate]
+    checkStorages :: [ExtStorage] -> TypeErr [Either StorageLocation StorageUpdate]
     checkStorages [] = Ok []
     checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries
                                                       ps <- checkStorages xs
@@ -265,7 +265,7 @@ checkPost (contract, _, theirs, calldata) (Post maybeStorage extStorage maybeRet
         WildStorage -> Nothing
       ) extStorage
 
-checkStorageExpr :: Env -> Entry -> Expr -> Err StorageUpdate
+checkStorageExpr :: Env -> Entry -> Expr -> TypeErr StorageUpdate
 checkStorageExpr env@(contract, ours, _, _) (Entry p name ixs) expr =
     case Map.lookup name ours of
       Just (StorageValue t)  -> case metaType t of
@@ -283,7 +283,7 @@ checkStorageExpr env@(contract, ours, _, _) (Entry p name ixs) expr =
       Nothing -> Bad (p, "Unknown storage variable: " <> show name)
 checkStorageExpr _ Wild _ = error "TODO: add support for wild storage to checkStorageExpr"
 
-checkEntry :: Env -> Entry -> Err StorageLocation
+checkEntry :: Env -> Entry -> TypeErr StorageLocation
 checkEntry env@(contract, ours, _, _) (Entry p name ixs) =
   case Map.lookup name ours of
     Just (StorageValue t) -> case metaType t of
@@ -301,7 +301,7 @@ checkEntry env@(contract, ours, _, _) (Entry p name ixs) =
     Nothing -> Bad (p, "Unknown storage variable: " <> show name)
 checkEntry _ Wild = error "TODO: checkEntry for Wild storage"
 
-checkIffs :: Env -> [IffH] -> Err [Exp Bool]
+checkIffs :: Env -> [IffH] -> TypeErr [Exp Bool]
 checkIffs env ((Iff p exps):xs) = do
   hd <- mapM (checkBool p env) exps
   tl <- checkIffs env xs
@@ -328,13 +328,13 @@ upperBound AbiAddressType = UIntMax 160
 upperBound typ  = error $ "upperBound not implemented for " ++ show typ
 
 
-checkExpr :: Pn -> Env -> Expr -> AbiType -> Err ReturnExp
+checkExpr :: Pn -> Env -> Expr -> AbiType -> TypeErr ReturnExp
 checkExpr p env e typ = case metaType typ of
   Integer -> ExpInt <$> checkInt p env e
   Boolean -> ExpBool <$> checkBool p env e
   ByteStr -> ExpBytes <$> checkBytes p env e
 
-inferExpr :: Env -> Expr -> Err ReturnExp
+inferExpr :: Env -> Expr -> TypeErr ReturnExp
 inferExpr env@(contract, ours, _,thisContext) expr =
   let intintint p op v1 v2 = do w1 <- checkInt p env v1
                                 w2 <- checkInt p env v2
@@ -419,7 +419,7 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     -- BYAbiE Expr
     -- StringLit String
 
-checkBool :: Pn -> Env -> Expr -> Err (Exp Bool)
+checkBool :: Pn -> Env -> Expr -> TypeErr (Exp Bool)
 checkBool p env e =
   case inferExpr env e of
     Ok (ExpInt _) -> Bad (p, "expected: bool, got: int")
@@ -427,7 +427,7 @@ checkBool p env e =
     Ok (ExpBool a) -> Ok a
     Bad err -> Bad err
 
-checkBytes :: Pn -> Env -> Expr -> Err (Exp ByteString)
+checkBytes :: Pn -> Env -> Expr -> TypeErr (Exp ByteString)
 checkBytes p env e =
   case inferExpr env e of
     Ok (ExpInt _) -> Bad (p, "expected: bytes, got: int")
@@ -435,7 +435,7 @@ checkBytes p env e =
     Ok (ExpBool _) -> Bad (p, "expected: bytes, got: bool")
     Bad err -> Bad err
 
-checkInt :: Pn -> Env -> Expr -> Err (Exp Integer)
+checkInt :: Pn -> Env -> Expr -> TypeErr (Exp Integer)
 checkInt p env e =
   case inferExpr env e of
     Ok (ExpInt a) -> Ok a
