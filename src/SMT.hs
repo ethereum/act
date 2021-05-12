@@ -411,8 +411,8 @@ expToSMT2 ctx@(Ctx behvName whn) e = case e of
 --   if the RHS is concrete to provide some limited support for exponentiation
 simplifyExponentiation :: Exp Integer -> Exp Integer -> Exp Integer
 simplifyExponentiation a b = fromMaybe (error "Internal Error: no support for symbolic exponents in SMT lib")
-                             $   [LitInt $ a' ^ b'                      | a' <- eval a,   b' <- evalb]
-                             <|> [foldr Mul (LitInt 1) (replicate b' a) | b' <- fromInteger <$> evalb]
+                             $   [LitInt $ a' ^ b'               | a' <- eval a, b' <- evalb]
+                             <|> [foldr Mul (LitInt 1) (genericReplicate b' a) | b' <- evalb]
   where
     evalb = eval b
 
