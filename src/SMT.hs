@@ -42,6 +42,7 @@ import Extract hiding (getContract)
 import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
 import Print
 import Type (defaultStore, metaType)
+import ErrM
 
 
 --- ** Data ** ---
@@ -103,7 +104,6 @@ data SMTResult
   = Sat Model
   | Unsat
   | Unknown
-  | Error Int String
   deriving (Show)
 
 -- | An assignment of concrete values to symbolic variables structured in a way
@@ -286,34 +286,32 @@ mkInvariantQueries claims = fmap mkQuery gathered
 --- ** Solver Interaction ** ---
 
 
-runQuery :: SolverInstance -> Query -> IO (Query, [SMTResult])
+runQuery :: SolverInstance -> Query -> IO (SMTErr (Query, [SMTResult]))
 runQuery solver query@(Postcondition trans _ smt) = do
   res <- checkSat solver (getPostconditionModel trans) smt
-  pure (query, [res])
+  case res of
+    Bad e -> pure . Bad $ e
+    Ok r -> pure . Ok $ (query, [r])
 runQuery solver query@(Inv (Invariant _ _ _ invExp) (ctor, ctorSMT) behvs) = do
   ctorRes <- runCtor
   behvRes <- mapM runBehv behvs
-  pure (query, ctorRes : behvRes)
+  pure . Ok $ (query, ctorRes : behvRes)
   where
     runCtor = checkSat solver (getInvariantModel invExp ctor Nothing) ctorSMT
     runBehv (b, smt) = checkSat solver (getInvariantModel invExp ctor (Just b)) smt
 
-checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO SMTResult
+checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO (SMTErr SMTResult)
 checkSat solver modelFn smt = do
-  err <- sendLines solver ("(reset)" : (lines . show . pretty $ smt))
-  case err of
-    Nothing -> do
-      sat <- sendCommand solver "(check-sat)"
-      case (sat) of
-        "sat" -> do
-          model <- modelFn solver
-          pure $ Sat model
-        "unsat" -> pure Unsat
-        "timeout" -> pure Unknown
-        "unknown" -> pure Unknown
-        _ -> pure $ Error 0 $ "Unable to parse solver output: " <> sat
-    Just msg -> do
-      pure $ Error 0 msg
+  sendLines solver ("(reset)" : (lines . show . pretty $ smt))
+  sat <- sendCommand solver "(check-sat)"
+  case (sat) of
+    "sat" -> do
+      model <- modelFn solver
+      pure . Ok $ Sat model
+    "unsat" -> pure . Ok $ Unsat
+    "timeout" -> pure . Ok $ Unknown
+    "unknown" -> pure . Ok $ Unknown
+    _ -> pure . Bad $ "Unable to parse solver output: " <> sat
 
 -- | Global settings applied directly after each solver instance is spawned
 smtPreamble :: [SMT2]
@@ -331,29 +329,27 @@ solverArgs (SMTConfig solver timeout _) = case solver of
     , "--produce-models"
     , "--tlimit-per=" <> show timeout]
 
-spawnSolver :: SMTConfig -> IO SolverInstance
+spawnSolver :: SMTConfig -> IO (SMTErr SolverInstance)
 spawnSolver config@(SMTConfig solver _ _) = do
   let cmd = (proc (show solver) (solverArgs config)) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
   (Just stdin, Just stdout, Just stderr, process) <- createProcess cmd
   let solverInstance = SolverInstance solver stdin stdout stderr process
 
   _ <- sendCommand solverInstance "(set-option :print-success true)"
-  err <- sendLines solverInstance smtPreamble
-  case err of
-    Nothing -> pure solverInstance
-    Just msg -> error $ "could not spawn solver: " <> msg
+  sendLines solverInstance smtPreamble
+  pure $ Ok solverInstance
 
 stopSolver :: SolverInstance -> IO ()
 stopSolver (SolverInstance _ stdin stdout stderr process) = cleanupProcess (Just stdin, Just stdout, Just stderr, process)
 
-sendLines :: SolverInstance -> [SMT2] -> IO (Maybe String)
+sendLines :: SolverInstance -> [SMT2] -> IO (SMTErr ())
 sendLines solver smt = case smt of
-  [] -> pure Nothing
+  [] -> pure $ Ok ()
   hd : tl -> do
-    suc <- sendCommand solver hd
-    if suc == "success"
+    out <- sendCommand solver hd
+    if out == "success"
        then sendLines solver tl
-       else pure (Just suc)
+       else pure (Bad $ "solver error:" <> out)
 
 sendCommand :: SolverInstance -> SMT2 -> IO String
 sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
