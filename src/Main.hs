@@ -122,19 +122,29 @@ main = do
 
             buildFailMsg :: Query -> [SMT.SMTResult] -> Doc
             buildFailMsg query results
-              | not . null . catErrors $ results = identifier query <+> text "failed due to solver errors:" <$$> line <> (indent 2 $ vsep (fmap (text . show) (catErrors results)))
               | not . null . catUnknowns $ results = identifier query <+> text "could not be proven due to a solver timeout"
+              | not . null . catErrors $ results = identifier query <+> (red . text $ "failed") <+> "due to solver errors:"
+                                                     <$$> line <> (indent 2 $ vsep (fmap (text . show) (catErrors results)))
               | otherwise = identifier query <+> ((red . text $ "violated") <> colon) <$$> line <> (indent 2 $ vsep (fmap pretty (catModels results)))
 
             handleResults :: (Query, [SMT.SMTResult]) -> (Bool, Doc, Doc)
             handleResults (query, results) =
               if or (fmap isFail results)
-              then (False, buildFailMsg query results, text . getSMT $ query)
-              else (True, (identifier query) <+> ((green . text $ "holds") <+> (bold . text $ "∎")), text . getSMT $ query)
+              then (False, buildFailMsg query results, getSMT query)
+              else (True, (identifier query) <+> ((green . text $ "holds") <+> (bold . text $ "∎")), getSMT query)
 
             accumulateResults :: (Bool, Doc) -> (Bool, Doc, Doc) -> (Bool, Doc)
             accumulateResults acc (r, msg, smt) = (fst acc && r, doc)
-              where doc = snd acc <$$> if debug' then msg <$$> smt <> line else msg <> line
+              where doc = snd acc <$$> if debug'
+                                          then msg <$$> line <> "with the following smt:" <$$> line <> smt <> line
+                                          else msg <> line
+
+            getSMT :: Query -> Doc
+            getSMT (Postcondition _ _ smt) = pretty smt
+            getSMT (Inv _ (_, csmt) behvs) = text "; constructor" <$$> sep' <$$> line <> pretty csmt <$$> vsep (fmap formatBehv behvs)
+              where
+                formatBehv (b, smt) = line <> text "; behaviour: " <> (text . _name $ b) <$$> sep' <$$> line <> pretty smt
+                sep' = text "; -------------------------------"
 
             render :: Doc -> IO ()
             render doc = displayIO stdout (renderPretty 0.9 120 doc)

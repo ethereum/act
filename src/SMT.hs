@@ -15,7 +15,6 @@ module SMT (
   mkPostconditionQueries,
   mkInvariantQueries,
   getTarget,
-  getSMT,
   getContract,
   isFail
 ) where
@@ -79,14 +78,15 @@ data SMTExp = SMTExp
   , _environment :: [SMT2]
   , _assertions :: [SMT2]
   }
+  deriving (Show)
 
-instance Show SMTExp where
-  show e = unlines [storage, calldata, environment, assertions]
+instance Pretty SMTExp where
+  pretty e = vsep [storage, calldata, environment, assertions]
     where
-      storage = unlines $ ";STORAGE:" : (nubOrd . _storage $ e)
-      calldata = unlines $ ";CALLDATA:" : (nubOrd . _calldata $ e)
-      environment = unlines $ ";ENVIRONMENT:" : (nubOrd . _environment $ e)
-      assertions = unlines $ ";ASSERTIONS:" : (nubOrd . _assertions $ e)
+      storage = text ";STORAGE:" <$$> (vsep . (fmap text) . nubOrd . _storage $ e) <> line
+      calldata = text ";CALLDATA:" <$$> (vsep . (fmap text) . nubOrd . _calldata $ e) <> line
+      environment = text ";ENVIRONMENT" <$$> (vsep . (fmap text) . nubOrd . _environment $ e) <> line
+      assertions = text ";ASSERTIONS:" <$$> (vsep . (fmap text) . nubOrd . _assertions $ e) <> line
 
 -- | A Query is a structured representation of an SMT query for an individual
 --   expression, along with the metadata needed to extract a model from a satisfiable query
@@ -298,7 +298,7 @@ runQuery solver query@(Inv (Invariant _ _ _ invExp) (ctor, ctorSMT) behvs) = do
 
 checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO SMTResult
 checkSat solver modelFn smt = do
-  err <- sendLines solver ("(reset)" : (lines . show $ smt))
+  err <- sendLines solver ("(reset)" : (lines . show . pretty $ smt))
   case err of
     Nothing -> do
       sat <- sendCommand solver "(check-sat)"
@@ -731,9 +731,3 @@ isFail :: SMTResult -> Bool
 isFail Unsat = False
 isFail _ = True
 
-getSMT :: Query -> String
-getSMT (Postcondition _ _ smt) = show smt
-getSMT (Inv _ (_, csmt) behvs) = (show csmt) <> (foldl' (@>) "" (fmap (show . snd) behvs))
-  where
-    (@>) :: String -> String -> String
-    x @> y = x <> "\n\n;----------------------\n\n" <> y
