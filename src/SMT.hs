@@ -417,8 +417,8 @@ getInvariantModel _ ctor Nothing solver = do
     , _minitargs = []
     }
 getInvariantModel invExp ctor (Just behv) solver = do
-  let locs = locsFromBehaviour behv <> locsFromExp invExp
-      env = ethEnvFromBehaviour behv <> ethEnvFromExp invExp
+  let locs = nub $ locsFromBehaviour behv <> locsFromExp invExp
+      env = nub $ ethEnvFromBehaviour behv <> ethEnvFromExp invExp
       (Interface behvIface behvDecls) = _interface behv
       (Interface ctorIface ctorDecls) = _cinterface ctor
   -- TODO: v ugly to ignore the ifaceName here, but it's safe...
