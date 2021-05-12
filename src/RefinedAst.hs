@@ -16,6 +16,7 @@ module RefinedAst where
 
 import Control.Applicative (empty)
 
+import Data.List (genericDrop,genericTake)
 import Data.Text (pack)
 import Data.Type.Equality
 import Data.Typeable
@@ -250,9 +251,10 @@ eval e = case e of
   UIntMax a   -> pure $ 2 ^ a - 1
 
   Cat s t     -> [s' <> t' | s' <- eval s, t' <- eval t]
-  Slice s a b -> [BS.drop a' . BS.take b' $ s' | s' <- eval s
-                                               , a' <- fromInteger <$> eval a
-                                               , b' <- fromInteger <$> eval b]
+  Slice s a b -> [BS.pack . genericDrop a' . genericTake b' $ s'
+                           | s' <- BS.unpack <$> eval s
+                           , a' <- eval a
+                           , b' <- eval b]
   ByVar _     -> empty
   ByStr s     -> pure . fromString $ s
   ByLit s     -> pure s
