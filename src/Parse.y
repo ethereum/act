@@ -7,6 +7,7 @@ import EVM.Solidity (SlotType(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Syntax
 import ErrM
+import Control.Monad.Except
 }
 
 %name parse
@@ -307,9 +308,9 @@ validsize :: Int -> Bool
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
 parseError :: [Lexeme] -> Err a
-parseError [] = Bad (lastPos, "Expected more tokens")
+parseError [] = throwError (lastPos, "Expected more tokens")
 parseError ((L token pn):_) =
-  Bad $ (pn, concat [
+  throwError $ (pn, concat [
     "parsing error at token ",
     show token])
 }

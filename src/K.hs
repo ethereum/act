@@ -11,6 +11,7 @@ import Syntax
 import RefinedAst
 import Extract
 import ErrM
+import Control.Monad.Except
 import Data.Text (Text, pack, unpack)
 import Data.Type.Equality
 import Data.Typeable
@@ -70,7 +71,7 @@ makekSpec sources _ behaviour =
 
       return $ mkTerm thisSource names behaviour
 
-    else Bad (nowhere, "No storagelayout found")
+    else throwError (nowhere, "No storagelayout found")
 
 kCalldata :: Interface -> String
 kCalldata (Interface a b) =

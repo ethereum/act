@@ -19,6 +19,7 @@ import qualified Data.Map.Strict    as Map -- abandon in favor of [(a,b)]?
 import Data.ByteString (ByteString)
 
 import Control.Monad
+import Control.Monad.Except
 
 import Syntax hiding (Storage)
 import qualified Syntax
@@ -44,8 +45,8 @@ lookupVars ((Definition contract _ _ (Creates assigns) _ _ _):bs) =
            in do old <- lookupVars bs
                  if null (Map.intersection new' old)
                  then pure $ new' <> old
-                 else Bad (nowhere, "Multiple definitions given of contract: " <> contract)
-        vs -> Bad (nowhere,
+                 else throwError (nowhere, "Multiple definitions given of contract: " <> contract)
+        vs -> throwError (nowhere,
                    concatMap (\v -> "Multiple definitions given of state variable: " <> v <> "\n") vs)
 lookupVars [] = pure mempty
 
@@ -105,7 +106,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
           -- wildcard must be last element
           if ind < length cases' - 1
           then case cases' !! ind of
-            (Case p _ _) -> Bad (p, "Wildcard pattern must be last case")
+            (Case p _ _) -> throwError (p, "Wildcard pattern must be last case")
           else return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
 
     checkCase :: Expr -> Case -> (Expr, Case)
@@ -167,7 +168,7 @@ splitCase name contract iface if' iffs ret storage postcs =
 noStorageRead :: Map Id SlotType -> Expr -> Err ()
 noStorageRead store expr = forM_ (keys store) $ \name ->
   forM_ (findWithDefault [] name (getIds expr)) $ \pn ->
-    Bad (pn,"Cannot read storage in creates block")
+    throwError (pn,"Cannot read storage in creates block")
   
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
@@ -188,9 +189,9 @@ checkAssign env@(_, store, _, _) (AssignMany (StorageVar (StorageMapping (keyTyp
       mapM_ (noStorageRead store) [e1,e2]
       checkDefn env keyType valType name def
 checkAssign _ (AssignVal (StorageVar (StorageMapping _ _) _) expr)
-  = Bad (getPosn expr, "Cannot assign a single expression to a composite type")
+  = throwError (getPosn expr, "Cannot assign a single expression to a composite type")
 checkAssign _ (AssignMany (StorageVar (StorageValue _) _) _)
-  = Bad (nowhere, "Cannot assign multiple values to an atomic type")
+  = throwError (nowhere, "Cannot assign multiple values to an atomic type")
 checkAssign _ _ = error "todo: support struct assignment in constructors"
 
 -- ensures key and value types match when assigning a defn to a mapping
@@ -224,7 +225,7 @@ checkPost (contract, _, theirs, calldata) (Post maybeStorage extStorage maybeRet
   do returnexp <- mapM (inferExpr scopedEnv) maybeReturn
      ourStorage <- case maybeStorage of
        Just entries -> checkEntries contract entries
-       Nothing -> Ok []
+       Nothing -> pure []
      otherStorage <- checkStorages extStorage
      return (ourStorage <> otherStorage, returnexp)
   where
@@ -235,10 +236,10 @@ checkPost (contract, _, theirs, calldata) (Post maybeStorage extStorage maybeRet
         Rewrite loc val -> Right <$> checkStorageExpr (focus name scopedEnv) loc val
 
     checkStorages :: [ExtStorage] -> Err [Either StorageLocation StorageUpdate]
-    checkStorages [] = Ok []
+    checkStorages [] = pure []
     checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries
                                                       ps <- checkStorages xs
-                                                      Ok $ p <> ps
+                                                      pure $ p <> ps
     checkStorages _ = error "TODO: check other storages"
 
     -- remove storage items from the env that are not mentioned on the LHS of a storage declaration
@@ -274,43 +275,43 @@ checkStorageExpr env@(contract, ours, _, _) (Entry p name ixs) expr =
           ByteStr -> BytesUpdate (DirectBytes contract name) <$> checkBytes p env expr
       Just (StorageMapping argtyps  t) ->
         if length argtyps /= length ixs
-        then Bad (p, "Argument mismatch for storageitem: " <> name)
+        then throwError (p, "Argument mismatch for storageitem: " <> name)
         else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr p env))
              in case metaType t of
                   Integer -> liftM2 (IntUpdate . MappedInt contract name) indexExprs (checkInt p env expr)
                   Boolean -> liftM2 (BoolUpdate . MappedBool contract name) indexExprs (checkBool p env expr)
                   ByteStr -> liftM2 (BytesUpdate . MappedBytes contract name) indexExprs (checkBytes p env expr)
-      Nothing -> Bad (p, "Unknown storage variable: " <> show name)
+      Nothing -> throwError (p, "Unknown storage variable: " <> show name)
 checkStorageExpr _ Wild _ = error "TODO: add support for wild storage to checkStorageExpr"
 
 checkEntry :: Env -> Entry -> Err StorageLocation
 checkEntry env@(contract, ours, _, _) (Entry p name ixs) =
   case Map.lookup name ours of
     Just (StorageValue t) -> case metaType t of
-          Integer -> Ok $ IntLoc (DirectInt contract name)
-          Boolean -> Ok $ BoolLoc (DirectBool contract name)
-          ByteStr -> Ok $ BytesLoc (DirectBytes contract name)
+          Integer -> pure $ IntLoc (DirectInt contract name)
+          Boolean -> pure $ BoolLoc (DirectBool contract name)
+          ByteStr -> pure $ BytesLoc (DirectBytes contract name)
     Just (StorageMapping argtyps t) ->
       if length argtyps /= length ixs
-      then Bad (p, "Argument mismatch for storageitem: " <> name)
+      then throwError (p, "Argument mismatch for storageitem: " <> name)
       else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr p env))
            in case metaType t of
                   Integer -> (IntLoc . MappedInt contract name) <$> indexExprs
                   Boolean -> (BoolLoc . MappedBool contract name) <$> indexExprs
                   ByteStr -> (BytesLoc . MappedBytes contract name) <$> indexExprs
-    Nothing -> Bad (p, "Unknown storage variable: " <> show name)
+    Nothing -> throwError (p, "Unknown storage variable: " <> show name)
 checkEntry _ Wild = error "TODO: checkEntry for Wild storage"
 
 checkIffs :: Env -> [IffH] -> Err [Exp Bool]
 checkIffs env ((Iff p exps):xs) = do
   hd <- mapM (checkBool p env) exps
   tl <- checkIffs env xs
-  Ok $ hd <> tl
+  pure $ hd <> tl
 checkIffs env ((IffIn p typ exps):xs) = do
   hd <- mapM (checkInt p env) exps
   tl <- checkIffs env xs
-  Ok $ map (bound typ) hd <> tl
-checkIffs _ [] = Ok []
+  pure $ map (bound typ) hd <> tl
+checkIffs _ [] = pure []
 
 bound :: AbiType -> (Exp Integer) -> Exp Bool
 bound typ e = And (LEQ (lowerBound typ) e) $ LEQ e (upperBound typ)
@@ -338,16 +339,16 @@ inferExpr :: Env -> Expr -> Err ReturnExp
 inferExpr env@(contract, ours, _,thisContext) expr =
   let intintint p op v1 v2 = do w1 <- checkInt p env v1
                                 w2 <- checkInt p env v2
-                                Ok $ ExpInt $ op w1 w2
+                                pure $ ExpInt $ op w1 w2
       boolintint p op v1 v2 = do w1 <- checkInt p env v1
                                  w2 <- checkInt p env v2
-                                 Ok $ ExpBool $ op w1 w2
+                                 pure $ ExpBool $ op w1 w2
       boolboolbool p op v1 v2 = do w1 <- checkBool p env v1
                                    w2 <- checkBool p env v2
-                                   Ok $ ExpBool $ op w1 w2
+                                   pure $ ExpBool $ op w1 w2
       boolbytesbytes p op v1 v2 = do w1 <- checkBytes p env v1
                                      w2 <- checkBytes p env v2
-                                     Ok $ ExpBool $ op w1 w2
+                                     pure $ ExpBool $ op w1 w2
   in case expr of
     ENot p  v1    -> ExpBool . Neg <$> checkBool p env v1
     EAnd p  v1 v2 -> boolboolbool p And  v1 v2
@@ -360,7 +361,7 @@ inferExpr env@(contract, ours, _,thisContext) expr =
         (ExpInt _, ExpInt _) -> boolintint p Eq v1 v2
         (ExpBool _, ExpBool _) -> boolboolbool p Eq v1 v2
         (ExpBytes _, ExpBytes _) -> boolbytesbytes p Eq v1 v2
-        (_, _) -> Bad (p, "mismatched types: " <> prettyType l <> " == " <> prettyType r)
+        (_, _) -> throwError (p, "mismatched types: " <> prettyType l <> " == " <> prettyType r)
     ENeq p  v1 v2 -> boolintint  p NEq v1 v2
     ELT p   v1 v2 -> boolintint  p LE   v1 v2
     ELEQ p  v1 v2 -> boolintint  p LEQ  v1 v2
@@ -370,26 +371,26 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     EITE p v1 v2 v3 -> do w1 <- checkBool p env v1
                           w2 <- checkInt p env v2
                           w3 <- checkInt p env v3
-                          Ok . ExpInt $ ITE w1 w2 w3
+                          pure . ExpInt $ ITE w1 w2 w3
     EAdd p v1 v2 -> intintint p Add v1 v2
     ESub p v1 v2 -> intintint p Sub v1 v2
     EMul p v1 v2 -> intintint p Mul v1 v2
     EDiv p v1 v2 -> intintint p Div v1 v2
     EMod p v1 v2 -> intintint p Mod v1 v2
     EExp p v1 v2 -> intintint p Exp v1 v2
-    IntLit _ n -> Ok $ ExpInt $ LitInt n
-    BoolLit _ n -> Ok $ ExpBool $ LitBool n
+    IntLit _ n -> pure $ ExpInt $ LitInt n
+    BoolLit _ n -> pure $ ExpBool $ LitBool n
     EntryExp p name e -> case (Map.lookup name ours, Map.lookup name thisContext) of
-        (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> show name)
+        (Nothing, Nothing) -> throwError (p, "Unknown variable: " <> show name)
         (Nothing, Just c) -> case c of
-            Integer -> Ok . ExpInt $ IntVar name
-            Boolean -> Ok . ExpBool $ BoolVar name
-            ByteStr -> Ok . ExpBytes $ ByVar name
+            Integer -> pure . ExpInt $ IntVar name
+            Boolean -> pure . ExpBool $ BoolVar name
+            ByteStr -> pure . ExpBytes $ ByVar name
         (Just (StorageValue a), Nothing) ->
           case metaType a of
-             Integer -> Ok . ExpInt $ TEntry (DirectInt contract name)
-             Boolean -> Ok . ExpBool $ TEntry (DirectBool contract name)
-             ByteStr -> Ok . ExpBytes $ TEntry (DirectBytes contract name)
+             Integer -> pure . ExpInt $ TEntry (DirectInt contract name)
+             Boolean -> pure . ExpBool $ TEntry (DirectBool contract name)
+             ByteStr -> pure . ExpBytes $ TEntry (DirectBytes contract name)
         (Just (StorageMapping ts a), Nothing) ->
            let indexExprs = forM (NonEmpty.zip (head e :| tail e) ts)
                                      (uncurry (checkExpr p env))
@@ -397,11 +398,11 @@ inferExpr env@(contract, ours, _,thisContext) expr =
              Integer -> ExpInt . TEntry . (MappedInt contract name) <$> indexExprs
              Boolean -> ExpBool . TEntry . (MappedBool contract name) <$> indexExprs
              ByteStr -> ExpBytes . TEntry . (MappedBytes contract name) <$> indexExprs
-        (Just _, Just _) -> Bad (p, "Ambiguous variable: " <> show name)
+        (Just _, Just _) -> throwError (p, "Ambiguous variable: " <> show name)
     EnvExp p v1 -> case lookup v1 defaultStore of
-      Just Integer -> Ok . ExpInt $ IntEnv v1
-      Just ByteStr -> Ok . ExpBytes $ ByEnv v1
-      _            -> Bad (p, "unknown environment variable: " <> show v1)
+      Just Integer -> pure . ExpInt $ IntEnv v1
+      Just ByteStr -> pure . ExpBytes $ ByEnv v1
+      _            -> throwError (p, "unknown environment variable: " <> show v1)
     -- Var p v -> case Map.lookup v thisContext of
     --   Just Integer -> Ok $ IntVar v
     --   _ -> Bad $ (p, "Unexpected variable: " <> show v <> " of type integer")
@@ -420,25 +421,23 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     -- StringLit String
 
 checkBool :: Pn -> Env -> Expr -> Err (Exp Bool)
-checkBool p env e =
-  case inferExpr env e of
-    Ok (ExpInt _) -> Bad (p, "expected: bool, got: int")
-    Ok (ExpBytes _) -> Bad (p, "expected: bool, got: bytes")
-    Ok (ExpBool a) -> Ok a
-    Bad err -> Bad err
+checkBool p env e = do
+  exp <- inferExpr env e
+  case exp of
+    ExpInt _ -> throwError (p, "expected: bool, got: int")
+    ExpBytes _ -> throwError (p, "expected: bool, got: bytes")
+    ExpBool a -> pure a
 
 checkBytes :: Pn -> Env -> Expr -> Err (Exp ByteString)
 checkBytes p env e =
-  case inferExpr env e of
-    Ok (ExpInt _) -> Bad (p, "expected: bytes, got: int")
-    Ok (ExpBytes a) -> Ok a
-    Ok (ExpBool _) -> Bad (p, "expected: bytes, got: bool")
-    Bad err -> Bad err
+  inferExpr env e >>= \case
+    ExpInt _ -> throwError (p, "expected: bytes, got: int")
+    ExpBytes a -> pure a
+    ExpBool _ -> throwError (p, "expected: bytes, got: bool")
 
 checkInt :: Pn -> Env -> Expr -> Err (Exp Integer)
 checkInt p env e =
-  case inferExpr env e of
-    Ok (ExpInt a) -> Ok a
-    Ok (ExpBytes _) -> Bad (p, "expected: int, got: bytes")
-    Ok (ExpBool _) -> Bad (p, "expected: int, got: bool")
-    Bad err -> Bad err
+  inferExpr env e >>= \case
+    ExpInt a -> pure a
+    ExpBytes _ -> throwError (p, "expected: int, got: bytes")
+    ExpBool _ -> throwError (p, "expected: int, got: bool")
