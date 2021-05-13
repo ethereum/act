@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- BNF Converter: Error Monad
--- Copyright (C) 2004  Author:  Aarne Ranta
+-- Copyright (C) 2004  Author:  Aarne Ranta, David Terry
 
 -- This file comes with NO WARRANTY and may be used FOR ANY PURPOSE.
 module ErrM where
@@ -12,13 +12,26 @@ import Data.Text (unpack)
 import System.IO (hPutStrLn, stderr)
 import System.Exit (exitFailure)
 
-import Control.Monad (MonadPlus(..), liftM)
+import Control.Monad (MonadPlus(..), liftM, ap)
 import Control.Monad.Fail
 import Control.Applicative (Applicative(..), Alternative(..))
+import Control.Monad.Trans (MonadTrans(..))
 
 import Syntax
 import Lex (AlexPosn(..))
+
+
+-- Type aliases --
+
+
+type ParseErr = Err (Pn, String)
+type TypeErr = Err (Pn, String)
+type KErr = Err (Pn, String)
+type SMTErr = ErrT String IO
+
+
 -- the Error monad: like Maybe type with error msgs
+
 
 data Err a b = Bad a | Ok b
   deriving (Show, Eq)
@@ -48,9 +61,47 @@ instance Monoid a => Alternative (Err a) where
   empty = mzero
   (<|>) = mplus
 
-newtype ErrT m a = ErrT {
-  runMaybeT :: m (Err a)
+
+-- Error Monad Transformer
+
+
+newtype ErrT a m b = ErrT {
+  runErrT :: m (Err a b)
 }
+
+instance Monad m => Functor (ErrT a m) where
+  fmap = liftM
+
+instance Monad m => Applicative (ErrT a m) where
+  pure = return
+  (<*>) = ap
+
+instance Monad m => Monad (ErrT a m) where
+  return = ErrT . return . return
+  x >>= f = ErrT $ do err <- runErrT x
+                      case err of
+                        Bad e -> pure . Bad $ e
+                        Ok val -> runErrT $ f val
+
+instance (Monoid a, Monad m) => Alternative (ErrT a m) where
+  empty = ErrT . pure . Bad $ mempty
+  x <|> y = ErrT $ do err <- runErrT x
+                      case err of
+                        Bad _ -> runErrT y
+                        Ok _ -> pure err
+
+instance (Monoid a, Monad m) => MonadPlus (ErrT a m) where
+  mzero = empty
+  mplus = (<|>)
+
+-- lift . return = return
+-- lift (m >>= f) = lift m >>= (lift . f)
+instance MonadTrans (ErrT a) where
+  lift = ErrT . (fmap Ok)
+
+
+-- Typeclass for polymorphic display of the various error types used throughout the codebase
+
 
 class PrintableError a where
   prettyErr :: String -> a -> IO ()
@@ -86,10 +137,9 @@ instance PrintableError String where
     hPutStrLn stderr msg
     exitFailure
 
-type ParseErr = Err (Pn, String)
-type TypeErr = Err (Pn, String)
-type KErr = Err (Pn, String)
-type SMTErr = Err String
+
+-- ** Utils  ** --
+
 
 errMessage :: (Pn, String) -> Maybe a -> Err (Pn, String) a
 errMessage _ (Just c) = Ok c
