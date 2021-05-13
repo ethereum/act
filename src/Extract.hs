@@ -11,17 +11,17 @@ import EVM.ABI (AbiType(..))
 
 locsFromBehaviour :: Behaviour -> [StorageLocation]
 locsFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
-  (concatMap locsFromExp preconds)
-  <> (concatMap locsFromExp postconds)
-  <> (concatMap locsFromStateUpdate stateUpdates)
-  <> (maybe [] locsFromReturnExp returns)
+  concatMap locsFromExp preconds
+  <> concatMap locsFromExp postconds
+  <> concatMap locsFromStateUpdate stateUpdates
+  <> maybe [] locsFromReturnExp returns
 
 locsFromConstructor :: Constructor -> [StorageLocation]
 locsFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = nub $
-  (concatMap locsFromExp pre)
-  <> (concatMap locsFromExp post)
-  <> (concatMap locsFromStateUpdate stateUpdates)
-  <> (concatMap locsFromStateUpdate (Right <$> initialStorage))
+  concatMap locsFromExp pre
+  <> concatMap locsFromExp post
+  <> concatMap locsFromStateUpdate stateUpdates
+  <> concatMap locsFromStateUpdate (Right <$> initialStorage)
 
 locsFromStateUpdate :: Either StorageLocation StorageUpdate -> [StorageLocation]
 locsFromStateUpdate update = nub $ case update of
@@ -37,24 +37,24 @@ locsFromReturnExp (ExpBytes e) = locsFromExp e
 
 locsFromExp :: Exp a -> [StorageLocation]
 locsFromExp e = nub $ case e of
-  And a b   -> (locsFromExp a) <> (locsFromExp b)
-  Or a b    -> (locsFromExp a) <> (locsFromExp b)
-  Impl a b  -> (locsFromExp a) <> (locsFromExp b)
-  Eq a b    -> (locsFromExp a) <> (locsFromExp b)
-  LE a b    -> (locsFromExp a) <> (locsFromExp b)
-  LEQ a b   -> (locsFromExp a) <> (locsFromExp b)
-  GE a b    -> (locsFromExp a) <> (locsFromExp b)
-  GEQ a b   -> (locsFromExp a) <> (locsFromExp b)
-  NEq a b   -> (locsFromExp a) <> (locsFromExp b)
-  Neg a     -> (locsFromExp a)
-  Add a b   -> (locsFromExp a) <> (locsFromExp b)
-  Sub a b   -> (locsFromExp a) <> (locsFromExp b)
-  Mul a b   -> (locsFromExp a) <> (locsFromExp b)
-  Div a b   -> (locsFromExp a) <> (locsFromExp b)
-  Mod a b   -> (locsFromExp a) <> (locsFromExp b)
-  Exp a b   -> (locsFromExp a) <> (locsFromExp b)
-  Cat a b   -> (locsFromExp a) <> (locsFromExp b)
-  Slice a b c -> (locsFromExp a) <> (locsFromExp b) <> (locsFromExp c)
+  And a b   -> locsFromExp a <> locsFromExp b
+  Or a b    -> locsFromExp a <> locsFromExp b
+  Impl a b  -> locsFromExp a <> locsFromExp b
+  Eq a b    -> locsFromExp a <> locsFromExp b
+  LE a b    -> locsFromExp a <> locsFromExp b
+  LEQ a b   -> locsFromExp a <> locsFromExp b
+  GE a b    -> locsFromExp a <> locsFromExp b
+  GEQ a b   -> locsFromExp a <> locsFromExp b
+  NEq a b   -> locsFromExp a <> locsFromExp b
+  Neg a     -> locsFromExp a
+  Add a b   -> locsFromExp a <> locsFromExp b
+  Sub a b   -> locsFromExp a <> locsFromExp b
+  Mul a b   -> locsFromExp a <> locsFromExp b
+  Div a b   -> locsFromExp a <> locsFromExp b
+  Mod a b   -> locsFromExp a <> locsFromExp b
+  Exp a b   -> locsFromExp a <> locsFromExp b
+  Cat a b   -> locsFromExp a <> locsFromExp b
+  Slice a b c -> locsFromExp a <> locsFromExp b <> locsFromExp c
   ByVar _ -> []
   ByStr _ -> []
   ByLit _ -> []
