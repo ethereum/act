@@ -96,7 +96,7 @@ instance Pretty SMTExp where
 -- | A Query is a structured representation of an SMT query for an individual
 --   expression, along with the metadata needed to extract a model from a satisfiable query
 data Query
-  = Postcondition Claim (Exp Bool) SMTExp
+  = Postcondition Transition (Exp Bool) SMTExp
   | Inv Invariant (Constructor, SMTExp) [(Behaviour, SMTExp)]
   deriving (Show)
 
@@ -179,7 +179,7 @@ mkPostconditionQueries (B behv@(Behaviour _ Pass _ (Interface ifaceName decls) p
       , _environment = envs
       , _assertions = [mkAssert (Ctx ifaceName Pre) . Neg $ e] <> pres <> updates
       }
-    mkQuery e = Postcondition (B behv) e (mksmt e)
+    mkQuery e = Postcondition (Behv behv) e (mksmt e)
 mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName decls) preconds postconds initialStorage stateUpdates)) = mkQuery <$> postconds
   where
     -- declare vars
@@ -199,7 +199,7 @@ mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName d
       , _environment = envs
       , _assertions = [mkAssert (Ctx ifaceName Pre) . Neg $ e] <> pres <> updates <> initialStorage'
       }
-    mkQuery e = Postcondition (C constructor) e (mksmt e)
+    mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
 mkPostconditionQueries _ = []
 
 -- | For each invariant in the list of input claims, we first gather all the
@@ -288,8 +288,8 @@ mkInvariantQueries claims = fmap mkQuery gathered
 
 
 runQuery :: SolverInstance -> Query -> IO (Query, [SMTResult])
-runQuery solver query@(Postcondition claim _ smt) = do
-  res <- checkSat solver (getPostconditionModel claim) smt
+runQuery solver query@(Postcondition trans _ smt) = do
+  res <- checkSat solver (getPostconditionModel trans) smt
   pure (query, [res])
 runQuery solver query@(Inv (Invariant _ _ _ invExp) (ctor, ctorSMT) behvs) = do
   ctorRes <- runCtor
@@ -372,8 +372,8 @@ sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
 --- ** Model Extraction ** ---
 
 
-getPostconditionModel :: Claim -> SolverInstance -> IO Model
-getPostconditionModel (C ctor) solver = do
+getPostconditionModel :: Transition -> SolverInstance -> IO Model
+getPostconditionModel (Ctor ctor) solver = do
   let locs = locsFromConstructor ctor
       env = ethEnvFromConstructor ctor
       (Interface ifaceName decls) = _cinterface ctor
@@ -387,7 +387,7 @@ getPostconditionModel (C ctor) solver = do
     , _menvironment = environment
     , _minitargs = []
     }
-getPostconditionModel (B behv) solver = do
+getPostconditionModel (Behv behv) solver = do
   let locs = locsFromBehaviour behv
       env = ethEnvFromBehaviour behv
       (Interface ifaceName decls) = _interface behv
@@ -402,7 +402,6 @@ getPostconditionModel (B behv) solver = do
     , _menvironment = environment
     , _minitargs = []
     }
-getPostconditionModel _ _ = error "Internal Error: invalid call" -- TODO: refine types
 
 getInvariantModel :: Exp Bool -> Constructor -> Maybe Behaviour -> SolverInstance -> IO Model
 getInvariantModel _ ctor Nothing solver = do
@@ -725,10 +724,9 @@ getTarget (Postcondition _ t _) = t
 getTarget (Inv (Invariant _ _ _ t) _ _) = t
 
 getContract :: Query -> String
-getContract (Postcondition (C ctor) _ _) = _cname ctor
-getContract (Postcondition (B behv) _ _) = _contract behv
+getContract (Postcondition (Ctor ctor) _ _) = _cname ctor
+getContract (Postcondition (Behv behv) _ _) = _contract behv
 getContract (Inv (Invariant c _ _ _) _ _) = c
-getContract _ = error "Internal Error: invalid query" -- TODO: refine types
 
 isFail :: SMTResult -> Bool
 isFail Unsat = False
@@ -738,9 +736,9 @@ isPass :: SMTResult -> Bool
 isPass = not . isFail
 
 getBehvName :: Query -> Doc
-getBehvName (Postcondition (C _) _ _) = (text "the") <+> (bold . text $ "constructor")
-getBehvName (Postcondition (B behv) _ _) = (text "behaviour") <+> (bold . text $ _name behv)
-getBehvName _ = error "Internal Error: invalid query"
+getBehvName (Postcondition (Ctor _) _ _) = (text "the") <+> (bold . text $ "constructor")
+getBehvName (Postcondition (Behv behv) _ _) = (text "behaviour") <+> (bold . text $ _name behv)
+getBehvName (Inv {}) = error "Internal Error: invariant queries do not have an associated behaviour"
 
 identifier :: Query -> Doc
 identifier (q@Inv {}) = (bold . text. prettyExp . getTarget $ q) <+> text "of" <+> (bold . text . getContract $ q)

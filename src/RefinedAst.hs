@@ -37,6 +37,8 @@ import Data.Vector (fromList)
 -- AST post typechecking
 data Claim = C Constructor | B Behaviour | I Invariant | S Store deriving (Show, Eq)
 
+data Transition = Ctor Constructor | Behv Behaviour deriving (Show, Eq)
+
 type Store = Map Id (Map Id SlotType)
 
 -- | Represents a contract level invariant along with some associated metadata.
