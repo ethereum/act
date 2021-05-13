@@ -16,7 +16,12 @@ module SMT (
   mkInvariantQueries,
   getTarget,
   getContract,
-  isFail
+  isFail,
+  isPass,
+  ifExists,
+  getBehvName,
+  identifier,
+  getSMT
 ) where
 
 import Data.Containers.ListUtils (nubOrd)
@@ -138,8 +143,6 @@ instance Pretty Model where
       formatCalldata ((Decl _ name), val) = text $ name <> " : " <> prettyReturnExp val
       formatEnvironment (env, val) = text $ prettyEnv env <> " : " <> prettyReturnExp val
       formatStorage (loc, val) = text $ prettyLocation loc <> " : " <> prettyReturnExp val
-
-      ifExists a b = if null a then empty else b
 
 data SolverInstance = SolverInstance
   { _type :: Solver
@@ -731,3 +734,24 @@ isFail :: SMTResult -> Bool
 isFail Unsat = False
 isFail _ = True
 
+isPass :: SMTResult -> Bool
+isPass = not . isFail
+
+getBehvName :: Query -> Doc
+getBehvName (Postcondition (C _) _ _) = (text "the") <+> (bold . text $ "constructor")
+getBehvName (Postcondition (B behv) _ _) = (text "behaviour") <+> (bold . text $ _name behv)
+getBehvName _ = error "Internal Error: invalid query"
+
+identifier :: Query -> Doc
+identifier (q@Inv {}) = (bold . text. prettyExp . getTarget $ q) <+> text "of" <+> (bold . text . getContract $ q)
+identifier (q@Postcondition {}) = (bold . text. prettyExp . getTarget $ q) <+> text "in" <+> getBehvName q <+> text "of" <+> (bold . text . getContract $ q)
+
+getSMT :: Query -> Doc
+getSMT (Postcondition _ _ smt) = pretty smt
+getSMT (Inv _ (_, csmt) behvs) = text "; constructor" <$$> sep' <$$> line <> pretty csmt <$$> vsep (fmap formatBehv behvs)
+  where
+    formatBehv (b, smt) = line <> text "; behaviour: " <> (text . _name $ b) <$$> sep' <$$> line <> pretty smt
+    sep' = text "; -------------------------------"
+
+ifExists :: Foldable t => t a -> Doc -> Doc
+ifExists a b = if null a then empty else b

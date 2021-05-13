@@ -41,7 +41,6 @@ import Syntax
 import Type
 import Coq hiding (indent)
 import HEVM
-import Print
 
 --command line options
 data Command w
@@ -111,58 +110,44 @@ main = do
             catErrors results = [e | e@SMT.Error {} <- results]
             catUnknowns results = [u | u@SMT.Unknown {} <- results]
 
-            getBehvName :: Query -> Doc
-            getBehvName (Postcondition (C _) _ _) = (text "the") <+> (bold . text $ "constructor")
-            getBehvName (Postcondition (B behv) _ _) = (text "behaviour") <+> (bold . text $ _name behv)
-            getBehvName _ = error "Internal Error: invalid query"
+            (<->) :: Doc -> [Doc] -> Doc
+            x <-> y = x <$$> line <> (indent 2 . vsep $ y)
 
-            identifier :: Query -> Doc
-            identifier (q@Inv {}) = (bold . text. prettyExp . getTarget $ q) <+> text "of" <+> (bold . text . getContract $ q)
-            identifier (q@Postcondition {}) = (bold . text. prettyExp . getTarget $ q) <+> text "in" <+> getBehvName q <+> text "of" <+> (bold . text . getContract $ q)
+            failMsg :: [SMT.SMTResult] -> Doc
+            failMsg results
+              | not . null . catUnknowns $ results = text "could not be proven due to a solver timeout"
+              | not . null . catErrors $ results = (red . text $ "failed") <+> "due to solver errors:" <-> ((fmap (text . show)) . catErrors $ results)
+              | otherwise = (red . text $ "violated") <> colon <-> ((fmap pretty) . catModels $ results)
 
-            buildFailMsg :: Query -> [SMT.SMTResult] -> Doc
-            buildFailMsg query results
-              | not . null . catUnknowns $ results = identifier query <+> text "could not be proven due to a solver timeout"
-              | not . null . catErrors $ results = identifier query <+> (red . text $ "failed") <+> "due to solver errors:"
-                                                     <$$> line <> (indent 2 $ vsep (fmap (text . show) (catErrors results)))
-              | otherwise = identifier query <+> ((red . text $ "violated") <> colon) <$$> line <> (indent 2 $ vsep (fmap pretty (catModels results)))
+            passMsg :: Doc
+            passMsg = (green . text $ "holds") <+> (bold . text $ "∎")
 
-            handleResults :: (Query, [SMT.SMTResult]) -> (Bool, Doc, Doc)
-            handleResults (query, results) =
-              if or (fmap isFail results)
-              then (False, buildFailMsg query results, getSMT query)
-              else (True, (identifier query) <+> ((green . text $ "holds") <+> (bold . text $ "∎")), getSMT query)
-
-            accumulateResults :: (Bool, Doc) -> (Bool, Doc, Doc) -> (Bool, Doc)
-            accumulateResults acc (r, msg, smt) = (fst acc && r, doc)
-              where doc = snd acc <$$> if debug'
-                                          then msg <$$> line <> "with the following smt:" <$$> line <> smt <> line
-                                          else msg <> line
-
-            getSMT :: Query -> Doc
-            getSMT (Postcondition _ _ smt) = pretty smt
-            getSMT (Inv _ (_, csmt) behvs) = text "; constructor" <$$> sep' <$$> line <> pretty csmt <$$> vsep (fmap formatBehv behvs)
+            accumulateResults :: (Bool, Doc) -> (Query, [SMT.SMTResult]) -> (Bool, Doc)
+            accumulateResults (status, report) (query, results) = (status && holds, report <$$> msg <$$> smt)
               where
-                formatBehv (b, smt) = line <> text "; behaviour: " <> (text . _name $ b) <$$> sep' <$$> line <> pretty smt
-                sep' = text "; -------------------------------"
-
-            render :: Doc -> IO ()
-            render doc = displayIO stdout (renderPretty 0.9 120 doc)
-
+                holds = and (fmap isPass results)
+                msg = identifier query <+> if holds then passMsg else failMsg results
+                smt = if debug' then line <> (getSMT query) else empty
 
           solverInstance <- spawnSolver config
-          pcResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
-          invResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (mkInvariantQueries claims)
+          pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
+          invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
           stopSolver solverInstance
 
           let
-            invTitle = if not . null $ invResults then (line <> (underline . bold . text $ "Invariants:") <> line) else empty
+            invTitle = line <> (underline . bold . text $ "Invariants:") <> line
             invOutput = foldl' accumulateResults (True, empty) invResults
 
-            pcTitle = if not . null $ pcResults then (line <> (underline . bold . text $ "Postconditions:") <> line) else empty
+            pcTitle = line <> (underline . bold . text $ "Postconditions:") <> line
             pcOutput = foldl' accumulateResults (True, empty) pcResults
 
-          render $ vsep [invTitle, indent 2 $ snd invOutput, pcTitle, indent 2 $ snd pcOutput]
+          render $ vsep
+            [ ifExists invResults invTitle
+            , indent 2 $ snd invOutput
+            , ifExists pcResults pcTitle
+            , indent 2 $ snd pcOutput
+            ]
+
           unless (fst invOutput && fst pcOutput) exitFailure
 
       (Coq f) -> do
@@ -255,3 +240,7 @@ prettyErr contents (AlexPn _ line' col, msg) = do
     safeDrop _ [] = []
     safeDrop _ [a] = [a]
     safeDrop n (_:xs) = safeDrop (n-1) xs
+
+-- | prints a Doc, with wider output than the built in `putDoc`
+render :: Doc -> IO ()
+render doc = displayIO stdout (renderPretty 0.9 120 doc)
