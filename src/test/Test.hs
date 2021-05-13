@@ -86,9 +86,6 @@ typeCheckSMT solver = do
         res <- mapM (askSMT solverInstance) queries
         pure $ null (catMaybes res)
 
-      getSMT (Postcondition _ _ smt) = smt
-      getSMT _ = undefined
-
       askSMT solverInstance query = sendLines solverInstance ("(reset)" : (lines . show . pretty . getSMT $ query))
 
 
