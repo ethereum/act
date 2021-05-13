@@ -74,11 +74,11 @@ runErrT (Ok val)  = Right <$> val
 -- The above code won't work though. Why?
 -- How can it be fixed?
 
--- The Monad instance for ErrT need to change because
--- we no longer have an Err inside. We could more or
--- less copy the instances we previously had for Err,
--- but I would suggest making the types less restrictive
--- to keep the Functor > Applicative > Monad
+-- The Functor/Applicative/Monad instances for ErrT need
+-- to change because we no longer have an Err inside.
+-- We could more or less copy the instances we previously
+-- had for Err, but I would suggest making the types less
+-- restrictive to keep the Functor > Applicative > Monad
 -- hierarchy clearer:
 
 instance Functor m => Functor (ErrT a m) where
