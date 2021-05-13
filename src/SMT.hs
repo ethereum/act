@@ -30,7 +30,6 @@ import Text.Regex.TDFA hiding (empty)
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 
 import Control.Applicative ((<|>))
-import Data.Map (Map)
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe
