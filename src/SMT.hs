@@ -21,7 +21,8 @@ module SMT (
   ifExists,
   getBehvName,
   identifier,
-  getSMT
+  getSMT,
+  analyse
 ) where
 
 import Data.Containers.ListUtils (nubOrd)
@@ -36,7 +37,7 @@ import Data.Maybe
 import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
-import Control.Monad (liftM2)
+import Control.Monad.IO.Class (MonadIO(..))
 
 import RefinedAst
 import Extract hiding (getContract)
@@ -152,12 +153,54 @@ data SolverInstance = SolverInstance
   , _process :: ProcessHandle
   }
 
-analyse :: SMTConfig -> [Claim] -> IO (SMTErr [(Query, SMTResult)])
+
+--- ** Analysis Passes ** ---
+
+
+analyse :: SMTConfig -> [Claim] -> SMTErr (Bool, Doc)
 analyse config claims = do
   solverInstance <- spawnSolver config
-  pcResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
-  invResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (mkInvariantQueries claims)
-  stopSolver solverInstance
+  pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
+  invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
+  liftIO $ stopSolver solverInstance
+  pure $ buildReport config pcResults invResults
+
+buildReport :: SMTConfig -> [(Query, [SMTResult])] -> [(Query, [SMTResult])] -> (Bool, Doc)
+buildReport config pcResults invResults = (fst pcOutput && fst invOutput, report)
+  where
+    catModels res = [m | Sat m <- res]
+    catUnknowns res = [u | u@SMT.Unknown {} <- res]
+
+    (<->) :: Doc -> [Doc] -> Doc
+    x <-> y = x <$$> line <> (indent 2 . vsep $ y)
+
+    failMsg :: [SMT.SMTResult] -> Doc
+    failMsg res
+      | not . null . catUnknowns $ res = text "could not be proven due to a solver timeout"
+      | otherwise = (red . text $ "violated") <> colon <-> ((fmap pretty) . catModels $ res)
+
+    passMsg :: Doc
+    passMsg = (green . text $ "holds") <+> (bold . text $ "∎")
+
+    accumulateResults :: (Bool, Doc) -> (Query, [SMT.SMTResult]) -> (Bool, Doc)
+    accumulateResults (status, doc) (query, res) = (status && holds, doc <$$> msg <$$> smt)
+      where
+        holds = and (fmap isPass res)
+        msg = identifier query <+> if holds then passMsg else failMsg res
+        smt = if _debug config then line <> (getSMT query) else empty
+
+    invTitle = line <> (underline . bold . text $ "Invariants:") <> line
+    invOutput = foldl' accumulateResults (True, empty) invResults
+
+    pcTitle = line <> (underline . bold . text $ "Postconditions:") <> line
+    pcOutput = foldl' accumulateResults (True, empty) pcResults
+
+    report = vsep
+      [ ifExists invResults invTitle
+      , indent 2 $ snd invOutput
+      , ifExists pcResults pcTitle
+      , indent 2 $ snd pcOutput
+      ]
 
 
 --- ** Analysis Passes ** ---
@@ -294,30 +337,30 @@ mkInvariantQueries claims = fmap mkQuery gathered
 --- ** Solver Interaction ** ---
 
 
-runQuery :: SolverInstance -> Query -> IO (SMTErr (Query, [SMTResult]))
+runQuery :: SolverInstance -> Query -> SMTErr (Query, [SMTResult])
 runQuery solver query@(Postcondition trans _ smt) = do
   res <- checkSat solver (getPostconditionModel trans) smt
-  pure $ fmap (\r -> (query, [r])) res
+  pure (query, [res])
 runQuery solver query@(Inv (Invariant _ _ _ invExp) (ctor, ctorSMT) behvs) = do
   ctorRes <- runCtor
-  behvRes <- sequence <$> mapM runBehv behvs
-  pure $ liftM2 (\c bs -> (query, c:bs)) ctorRes behvRes
+  behvRes <- mapM runBehv behvs
+  pure (query, ctorRes:behvRes)
   where
     runCtor = checkSat solver (getInvariantModel invExp ctor Nothing) ctorSMT
     runBehv (b, smt) = checkSat solver (getInvariantModel invExp ctor (Just b)) smt
 
-checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO (SMTErr SMTResult)
+checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> SMTErr SMTResult
 checkSat solver modelFn smt = do
   sendLines solver ("(reset)" : (lines . show . pretty $ smt))
-  sat <- sendCommand solver "(check-sat)"
+  sat <- liftIO $ sendCommand solver "(check-sat)"
   case (sat) of
     "sat" -> do
-      model <- modelFn solver
-      pure . Ok $ Sat model
-    "unsat" -> pure . Ok $ Unsat
-    "timeout" -> pure . Ok $ Unknown
-    "unknown" -> pure . Ok $ Unknown
-    _ -> pure . Bad $ "Unable to parse solver output: " <> sat
+      model <- liftIO $ modelFn solver
+      pure $ Sat model
+    "unsat" -> pure Unsat
+    "timeout" -> pure Unknown
+    "unknown" -> pure Unknown
+    _ -> fail $ "Unable to parse solver output: " <> sat
 
 -- | Global settings applied directly after each solver instance is spawned
 smtPreamble :: [SMT2]
@@ -335,27 +378,27 @@ solverArgs (SMTConfig solver timeout _) = case solver of
     , "--produce-models"
     , "--tlimit-per=" <> show timeout]
 
-spawnSolver :: SMTConfig -> IO (SMTErr SolverInstance)
+spawnSolver :: SMTConfig -> SMTErr SolverInstance
 spawnSolver config@(SMTConfig solver _ _) = do
   let cmd = (proc (show solver) (solverArgs config)) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
-  (Just stdin, Just stdout, Just stderr, process) <- createProcess cmd
+  (Just stdin, Just stdout, Just stderr, process) <- liftIO $ createProcess cmd
   let solverInstance = SolverInstance solver stdin stdout stderr process
 
-  _ <- sendCommand solverInstance "(set-option :print-success true)"
+  _ <- liftIO $ sendCommand solverInstance "(set-option :print-success true)"
   sendLines solverInstance smtPreamble
-  pure $ Ok solverInstance
+  pure solverInstance
 
 stopSolver :: SolverInstance -> IO ()
 stopSolver (SolverInstance _ stdin stdout stderr process) = cleanupProcess (Just stdin, Just stdout, Just stderr, process)
 
-sendLines :: SolverInstance -> [SMT2] -> IO (SMTErr ())
+sendLines :: SolverInstance -> [SMT2] -> SMTErr ()
 sendLines solver smt = case smt of
-  [] -> pure $ Ok ()
+  [] -> pure ()
   hd : tl -> do
-    out <- sendCommand solver hd
+    out <- liftIO $ sendCommand solver hd
     if out == "success"
        then sendLines solver tl
-       else pure (Bad $ "solver error:" <> out)
+       else fail $ "solver error:" <> out
 
 sendCommand :: SolverInstance -> SMT2 -> IO String
 sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
@@ -374,20 +417,7 @@ sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
 
 
 getPostconditionModel :: Transition -> SolverInstance -> IO Model
-getPostconditionModel (Ctor ctor) solver = do
-  let locs = locsFromConstructor ctor
-      env = ethEnvFromConstructor ctor
-      (Interface ifaceName decls) = _cinterface ctor
-  poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
-  calldata <- mapM (getCalldataValue solver ifaceName) decls
-  environment <- mapM (getEnvironmentValue solver) env
-  pure $ Model
-    { _mprestate = []
-    , _mpoststate = poststate
-    , _mcalldata = (ifaceName, calldata)
-    , _menvironment = environment
-    , _minitargs = []
-    }
+getPostconditionModel (Ctor ctor) solver = getCtorModel ctor solver
 getPostconditionModel (Behv behv) solver = do
   let locs = locsFromBehaviour behv
       env = ethEnvFromBehaviour behv
@@ -405,7 +435,28 @@ getPostconditionModel (Behv behv) solver = do
     }
 
 getInvariantModel :: Exp Bool -> Constructor -> Maybe Behaviour -> SolverInstance -> IO Model
-getInvariantModel _ ctor Nothing solver = do
+getInvariantModel _ ctor Nothing solver = getCtorModel ctor solver
+getInvariantModel invExp ctor (Just behv) solver = do
+  let locs = nub $ locsFromBehaviour behv <> locsFromExp invExp
+      env = nub $ ethEnvFromBehaviour behv <> ethEnvFromExp invExp
+      (Interface behvIface behvDecls) = _interface behv
+      (Interface ctorIface ctorDecls) = _cinterface ctor
+  -- TODO: v ugly to ignore the ifaceName here, but it's safe...
+  prestate <- mapM (getStorageValue solver (Ctx "" Pre)) locs
+  poststate <- mapM (getStorageValue solver (Ctx "" Post)) locs
+  behvCalldata <- mapM (getCalldataValue solver behvIface) behvDecls
+  ctorCalldata <- mapM (getCalldataValue solver ctorIface) ctorDecls
+  environment <- mapM (getEnvironmentValue solver) env
+  pure $ Model
+    { _mprestate = prestate
+    , _mpoststate = poststate
+    , _mcalldata = (behvIface, behvCalldata)
+    , _menvironment = environment
+    , _minitargs = ctorCalldata
+    }
+
+getCtorModel :: Constructor -> SolverInstance -> IO Model
+getCtorModel ctor solver = do
   let locs = locsFromConstructor ctor
       env = ethEnvFromConstructor ctor
       (Interface ifaceName decls) = _cinterface ctor
@@ -418,24 +469,6 @@ getInvariantModel _ ctor Nothing solver = do
     , _mcalldata = (ifaceName, calldata)
     , _menvironment = environment
     , _minitargs = []
-    }
-getInvariantModel invExp ctor (Just behv) solver = do
-  let locs = nub $ locsFromBehaviour behv <> locsFromExp invExp
-      env = nub $ ethEnvFromBehaviour behv <> ethEnvFromExp invExp
-      (Interface behvIface behvDecls) = _interface behv
-      (Interface ctorIface ctorDecls) = _cinterface ctor
-  -- TODO: v ugly to ignore the ifaceName here, but it's safe...
-  prestate <- mapM (getStorageValue solver (Ctx "" Pre)) locs
-  poststate <- mapM (getStorageValue solver (Ctx ""Post)) locs
-  behvCalldata <- mapM (getCalldataValue solver behvIface) behvDecls
-  ctorCalldata <- mapM (getCalldataValue solver ctorIface) ctorDecls
-  environment <- mapM (getEnvironmentValue solver) env
-  pure $ Model
-    { _mprestate = prestate
-    , _mpoststate = poststate
-    , _mcalldata = (behvIface, behvCalldata)
-    , _menvironment = environment
-    , _minitargs = ctorCalldata
     }
 
 parseSMTModel :: String -> String

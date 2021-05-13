@@ -96,57 +96,16 @@ main = do
 
       (Prove file' solver' smttimeout' debug') -> do
         let
-          parseSolver s = case s of
+          parsedSolver = case solver' of
             Just "z3" -> SMT.Z3
             Just "cvc4" -> SMT.CVC4
             Nothing -> SMT.Z3
-            Just _ -> error "unrecognized solver"
-          config = SMT.SMTConfig (parseSolver solver') (fromMaybe 20000 smttimeout') debug'
+            Just input -> error $ "unrecognized solver: " <> show input
+          config = SMT.SMTConfig (parsedSolver) (fromMaybe 20000 smttimeout') debug'
         contents <- readFile file'
-        proceed contents (compile contents) $ \claims -> do
-          let
-            catModels results = [m | Sat m <- results]
-            catUnknowns results = [u | u@SMT.Unknown {} <- results]
-
-            (<->) :: Doc -> [Doc] -> Doc
-            x <-> y = x <$$> line <> (indent 2 . vsep $ y)
-
-            failMsg :: [SMT.SMTResult] -> Doc
-            failMsg results
-              | not . null . catUnknowns $ results = text "could not be proven due to a solver timeout"
-              | not . null . catErrors $ results = (red . text $ "failed") <+> "due to solver errors:" <-> ((fmap (text . show)) . catErrors $ results)
-              | otherwise = (red . text $ "violated") <> colon <-> ((fmap pretty) . catModels $ results)
-
-            passMsg :: Doc
-            passMsg = (green . text $ "holds") <+> (bold . text $ "∎")
-
-            accumulateResults :: (Bool, Doc) -> (Query, [SMT.SMTResult]) -> (Bool, Doc)
-            accumulateResults (status, report) (query, results) = (status && holds, report <$$> msg <$$> smt)
-              where
-                holds = and (fmap isPass results)
-                msg = identifier query <+> if holds then passMsg else failMsg results
-                smt = if debug' then line <> (getSMT query) else empty
-
-          solverInstance <- spawnSolver config
-          pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
-          invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
-          stopSolver solverInstance
-
-          let
-            invTitle = line <> (underline . bold . text $ "Invariants:") <> line
-            invOutput = foldl' accumulateResults (True, empty) invResults
-
-            pcTitle = line <> (underline . bold . text $ "Postconditions:") <> line
-            pcOutput = foldl' accumulateResults (True, empty) pcResults
-
-          render $ vsep
-            [ ifExists invResults invTitle
-            , indent 2 $ snd invOutput
-            , ifExists pcResults pcTitle
-            , indent 2 $ snd pcOutput
-            ]
-
-          unless (fst invOutput && fst pcOutput) exitFailure
+        proceed contents (compile contents >>= (analyze config)) $ \(ok, report) -> do
+          render report
+          unless ok exitFailure
 
       (Coq f) -> do
         contents <- readFile f
@@ -212,6 +171,11 @@ proceed _ (Ok a) continue = continue a
 
 compile :: String -> TypeErr [Claim]
 compile contents = enrich <$> ((parse (lexer contents)) >>= typecheck)
+
+prove :: SMT.SMTConfig -> String -> SMTErr (Bool, Doc)
+prove config contents = do
+  claims <- compile contents
+  analyze config claims
 
 -- | prints a Doc, with wider output than the built in `putDoc`
 render :: Doc -> IO ()

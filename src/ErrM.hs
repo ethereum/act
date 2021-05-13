@@ -16,6 +16,7 @@ import Control.Monad (MonadPlus(..), liftM, ap)
 import Control.Monad.Fail
 import Control.Applicative (Applicative(..), Alternative(..))
 import Control.Monad.Trans (MonadTrans(..))
+import Control.Monad.IO.Class (MonadIO(..))
 
 import Syntax
 import Lex (AlexPosn(..))
@@ -94,10 +95,18 @@ instance (Monoid a, Monad m) => MonadPlus (ErrT a m) where
   mzero = empty
   mplus = (<|>)
 
+instance (Monoid a, Monad m) => MonadFail (ErrT a m) where
+  fail _ = empty
+
 -- lift . return = return
 -- lift (m >>= f) = lift m >>= (lift . f)
 instance MonadTrans (ErrT a) where
   lift = ErrT . (fmap Ok)
+
+-- liftIO . return = return
+-- liftIO (m >>= f) = liftIO m >>= (liftIO . f)
+instance MonadIO (ErrT a IO) where
+  liftIO = ErrT . (fmap Ok)
 
 
 -- Typeclass for polymorphic display of the various error types used throughout the codebase
