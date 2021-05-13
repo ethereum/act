@@ -16,7 +16,10 @@ data Object = Object StringLiteral Code [Either Object Data]
 
 instance Show Object where
   show (Object identifier code objectOrData) =
-    "object " ++ show identifier ++ "\n{" ++ show code ++ unlines (showEither <$> objectOrData) ++ "}"
+    "object " ++ show identifier ++
+      "\n{\n"
+      ++ indent 4 (show code ++ unlines (showEither <$> objectOrData))
+      ++ "}"
 
 instance Arbitrary Object where
   arbitrary = genericArbitrary' uniform
@@ -28,7 +31,7 @@ instance Arbitrary Code where
   arbitrary = genericArbitrary' uniform
 
 instance Show Code where
-  show (Code block) = "code " ++ show block
+  show (Code block) = "code " ++ show block ++ "\n"
 
 data Data = Data StringLiteral (Either HexLiteral StringLiteral)
   deriving (Eq, Generic)
@@ -49,13 +52,17 @@ instance Show HexLiteral where
 instance Arbitrary HexLiteral where
   arbitrary = genericArbitrary uniform
 
-type StringLiteral = Identifier
+newtype StringLiteral = StringLiteral Identifier
+  deriving (Eq, Generic, Arbitrary)
 
-data Block = Block [Statement]
+instance Show StringLiteral where
+  show (StringLiteral a) = show $ show a
+
+newtype Block = Block [Statement]
   deriving (Eq, Generic)
 
 instance Show Block where
-  show (Block statements) = "{\n"++ unlines (indent 4 (show <$> statements)) ++ "}"
+  show (Block statements) = "\n{\n"++ (indent 4 (unlines (fmap show statements))) ++ "}"
 
 data Statement =
     StmtBlock Block
@@ -372,6 +379,10 @@ data Instruction
   | LOG2 Expression Expression Expression Expression -- ^ log with topics t1, t2 and data mem[p…(p+s))
   | LOG3 Expression Expression Expression Expression Expression  -- ^ log with topics t1, t2, t3 and data mem[p…(p+s))
   | LOG4 Expression Expression Expression Expression Expression Expression  -- ^ log with topics t1, t2, t3, t4 and data mem[p…(p+s))
+  -- Yul builtins
+  | DATASIZE StringLiteral -- ^ bytecode length of yul object
+  | DATAOFFSET StringLiteral -- ^ bytecode offset of yul object
+  | DATACOPY Expression Expression Expression -- ^ alias for code copy
   deriving (Eq, Generic, Arbitrary) -- show instance needs tweakin
 
 instance Show Instruction where
@@ -410,6 +421,15 @@ instance Show Instruction where
       SLOAD x -> show' "sload" [x]
       SSTORE x y -> show' "sstore" [x, y]
 
+      INVALID -> "invalid()"
+      CALLDATALOAD o -> show' "calldataload" [o]
+
+   -- yul builtin
+      DATASIZE s -> "datasize(" ++ show s ++ ")"
+      DATAOFFSET s -> "dataoffset(" ++ show s ++ ")"
+      DATACOPY x y z -> show' "datacopy" [x, y, z]
+
+      RETURN x y -> show' "return" [x, y]
       _ -> error "todo"
 --   ADDMOD Expression Expression Expression -- ^ (X + Y) % M WITH ARBITRARY PRECISION ARITHMETIC, 0 IF M == 0
 --   MULMOD Expression Expression Expression -- ^ (X * Y) % M WITH ARBITRARY PRECISION ARITHMETIC, 0 IF M == 0
@@ -464,7 +484,6 @@ instance Show Instruction where
 --   | DELEGATECALL Expression Expression Expression Expression Expression Expression  -- ^ IDENTICAL TO CALLCODE BUT ALSO KEEP CALLER AND CALLVALUE SEE MORE
 --   | STATICCALL   Expression Expression Expression Expression Expression Expression  -- ^ IDENTICAL TO CALL(G, A, 0, IN, INSIZE, OUT, OUTSIZE) BUT DO NOT ALLOW STATE MODIFICATIONS SEE MORE
 --   -- MISC
---   | RETURN Expression Expression -- ^ END EXECUTION, RETURN DATA MEM[P…(P+S))
 
 --   | SELFDESTRUCT Expression  -- ^ END EXECUTION, DESTROY CURRENT CONTRACT AND SEND FUNDS TO A
 --   | INVALID  -- ^ END EXECUTION WITH INVALID INSTRUCTION
@@ -484,5 +503,5 @@ showMaybe = maybe "" show
 curly :: String -> String
 curly s = "{" ++ s ++ "}"
 
-indent :: Int -> [String] -> [String]
-indent n = fmap (replicate n ' ' ++)
+indent :: Int -> String -> String
+indent n str = unlines $ ((++) (replicate n ' ')) <$> lines str
