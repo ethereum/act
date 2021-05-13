@@ -70,7 +70,7 @@ main = defaultMain $ testGroup "act"
 
   , testGroup "smt"
       [ testProperty "generated smt is well typed (z3)" . noExponents $ typeCheckSMT Z3
-      , testProperty "generated smt is well typed (cvc4)" . noExponents $ typeCheckSMT CVC4
+      --, testProperty "generated smt is well typed (cvc4)" . noExponents $ typeCheckSMT CVC4 -- This test is too sloooowwww :(
       ]
   ]
 
