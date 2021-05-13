@@ -30,6 +30,7 @@ import Control.Monad
 import qualified Data.Vector as Vec
 import Data.Type.Equality
 import Data.Typeable
+import Data.Tree
 
 import Print
 
@@ -40,21 +41,21 @@ import EVM.ABI
 import EVM.Concrete
 import EVM.SymExec
 import EVM.Symbolic
-import EVM.Types
+import EVM.Types (SymWord(..), Buffer(..), Addr(..), toSizzle, litBytes, num, var)
+import EVM.Types (w256, addressWord160, saddressWord160, SAddr(..))
 
 type SolcJson = Map Text SolcContract
 
-proveBehaviour :: SolcJson -> Behaviour -> Symbolic (Either (VM, [VM]) VM)
+proveBehaviour :: SolcJson -> Behaviour -> Symbolic (Either (Tree BranchInfo) VM)
 proveBehaviour sources behaviour = do
   preVm <- initialVm sources' behaviour contractMap
   query $ do
     res <- verify preVm Nothing Nothing (Just postC)
     case res of
-      Right vm -> do
-        showCounterexample vm Nothing
-        return res
-      _ ->
-        return res
+      Right _ -> do
+        showCounterexample preVm Nothing
+        return $ Right preVm :: Query (Either (Tree BranchInfo) VM)
+      Left tree -> return $ Left tree :: Query (Either (Tree BranchInfo) VM)
 
    where
      -- todo: deal with ambiguities in contract name
@@ -86,22 +87,22 @@ initialVm sources Behaviour{..} contractMap = do
     store = Concrete mempty
   cd <- interfaceCalldata _interface
   caller' <- SAddr <$> sWord_
-  value' <- sw256 <$> sWord_
+  value' <- (var "CALLVALUE") <$> sWord_
   contracts' <- forM (toList contractMap) $
     \(contractId, addr') -> do
-        let code' = RuntimeCode $ view runtimeCode $
+        let code' = RuntimeCode . ConcreteBuffer $ view runtimeCode $
               fromMaybe (error "bytecode not found")
               (lookup (pack contractId) sources)
-        c' <- contractWithStore code' . Symbolic <$> newArray_ Nothing
+        c' <- contractWithStore code' . (Symbolic []) <$> newArray_ Nothing
         return (addr', c')
 
   let vm = loadSymVM
-        (RuntimeCode $ view runtimeCode this)
+        (RuntimeCode . ConcreteBuffer $ view runtimeCode this)
         store
         SymbolicS
         caller'
         value'
-        (cd, literal $ fromIntegral $ len cd)
+        (cd, num $ len cd)
         & over (env . contracts) (\a -> a <> (fromList contracts'))
 
   return $ initTx $ execState (loadContract addr) vm
@@ -119,7 +120,7 @@ checkPostStorage ctx (Behaviour _ _ _ _ _ _ updates _) pre post contractMap solc
             poststorage = view EVM.storage postcontract
           in case (prestorage, poststorage) of
               (Concrete pre', Concrete post') -> literal $ pre' == post'
-              (Symbolic pre', Symbolic post') ->
+              (Symbolic _ pre', Symbolic _ post') ->
                let
                  insertions = rights $ filter (\a -> addr == get (getContractId (getLoc a)) contractMap) updates
                  slot update' = let S _ w = calculateSlot ctx solcjson (mkLoc update')
@@ -187,8 +188,10 @@ makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
     , Timestamp |- let S _ w = view (block . timestamp) vm
                    in SymInteger (sFromIntegral w)
     , This |- SymInteger (num $ addressWord160 (view (state . contract) vm))
-    , Nonce |- SymInteger (num $ view (env . contracts . at (view (state . contract) vm)
-                                       . non (initialContract (RuntimeCode mempty)) . nonce) vm)
+    , Nonce |- let
+                 maybeContract = view (env . contracts . at (view (state . contract) vm)) vm
+               in SymInteger $ maybe 1 (num . view nonce) maybeContract
+
       -- and this one does not even give a reasonable result
 --    , Blockhash |- error "blockhash not available in hevm right now"
     ]
@@ -225,7 +228,7 @@ calculateSlot ctx solcjson loc =
     StorageItem _ _ slot = get (pack (getContainerId loc)) layout
     slotword = sFromIntegral (literal (fromIntegral slot :: Integer))
     indexers = symExp ctx Pre <$> getContainerIxs loc
-  in sw256 $
+  in var (getContainerId loc) $
      if null indexers
      then slotword
      else foldl (\a b -> keccak' (SymbolicBuffer (toBytes a <> (toSymBytes b)))) slotword indexers
