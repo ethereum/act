@@ -106,7 +106,6 @@ main = do
         proceed contents (compile contents) $ \claims -> do
           let
             catModels results = [m | Sat m <- results]
-            catErrors results = [e | e@SMT.Error {} <- results]
             catUnknowns results = [u | u@SMT.Unknown {} <- results]
 
             (<->) :: Doc -> [Doc] -> Doc

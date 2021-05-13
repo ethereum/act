@@ -48,6 +48,10 @@ instance Monoid a => Alternative (Err a) where
   empty = mzero
   (<|>) = mplus
 
+newtype ErrT m a = ErrT {
+  runMaybeT :: m (Err a)
+}
+
 class PrintableError a where
   prettyErr :: String -> a -> IO ()
 

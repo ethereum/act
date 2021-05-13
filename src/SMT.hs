@@ -36,6 +36,7 @@ import Data.Maybe
 import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
+import Control.Monad (liftM2)
 
 import RefinedAst
 import Extract hiding (getContract)
@@ -150,6 +151,13 @@ data SolverInstance = SolverInstance
   , _stderr :: Handle
   , _process :: ProcessHandle
   }
+
+analyse :: SMTConfig -> [Claim] -> IO (SMTErr [(Query, SMTResult)])
+analyse config claims = do
+  solverInstance <- spawnSolver config
+  pcResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
+  invResults <- (fmap handleResults) <$> mapM (runQuery solverInstance) (mkInvariantQueries claims)
+  stopSolver solverInstance
 
 
 --- ** Analysis Passes ** ---
@@ -289,13 +297,11 @@ mkInvariantQueries claims = fmap mkQuery gathered
 runQuery :: SolverInstance -> Query -> IO (SMTErr (Query, [SMTResult]))
 runQuery solver query@(Postcondition trans _ smt) = do
   res <- checkSat solver (getPostconditionModel trans) smt
-  case res of
-    Bad e -> pure . Bad $ e
-    Ok r -> pure . Ok $ (query, [r])
+  pure $ fmap (\r -> (query, [r])) res
 runQuery solver query@(Inv (Invariant _ _ _ invExp) (ctor, ctorSMT) behvs) = do
   ctorRes <- runCtor
-  behvRes <- mapM runBehv behvs
-  pure . Ok $ (query, ctorRes : behvRes)
+  behvRes <- sequence <$> mapM runBehv behvs
+  pure $ liftM2 (\c bs -> (query, c:bs)) ctorRes behvRes
   where
     runCtor = checkSat solver (getInvariantModel invExp ctor Nothing) ctorSMT
     runBehv (b, smt) = checkSat solver (getInvariantModel invExp ctor (Just b)) smt

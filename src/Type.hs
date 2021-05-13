@@ -23,7 +23,6 @@ import Control.Monad
 import Syntax hiding (Storage)
 import qualified Syntax
 import ErrM
-import Parse
 import Extract
 import RefinedAst
 import Print (prettyType)
@@ -85,7 +84,7 @@ defaultStore =
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> RawBehaviour -> TypeErr [Claim]
-splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases post) = do
+splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases posts) = do
   -- constrain integer calldata variables (TODO: other types)
   iff <- checkIffs env iffs'
   postcondition <- mapM (\expr -> checkBool (getPosn expr) env expr) posts
@@ -164,7 +163,7 @@ splitCase name contract iface if' iffs ret storage postcs =
     B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs)]) [] (Left . getLoc <$> storage) Nothing ]
 
 -- | Ensures that no of the storage variables are read in the supplied `Expr`.
-noStorageRead :: Map Id SlotType -> Expr -> Err ()
+noStorageRead :: Map Id SlotType -> Expr -> TypeErr ()
 noStorageRead store expr = forM_ (keys store) $ \name ->
   forM_ (findWithDefault [] name (getIds expr)) $ \pn ->
     Bad (pn,"Cannot read storage in creates block")
