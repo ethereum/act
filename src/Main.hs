@@ -17,6 +17,7 @@ import System.IO (hPutStrLn, stderr)
 import Data.SBV hiding (preprocess)
 import Data.Text (pack, unpack)
 import Data.Maybe
+import Data.Tree
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
@@ -157,9 +158,9 @@ main = do
           passes <- forM specs $ \behv -> do
             res <- runSMTWithTimeOut solver' smttimeout' debug' $ proveBehaviour sources behv
             case res of
-              Left (_, posts) -> do
+              Left posts -> do
                  putStrLn $ "Successfully proved " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
-                   <> ", " <> show (length posts) <> " cases."
+                   <> ", " <> show (length $ last $ levels posts) <> " cases."
                  return True
               Right _ -> do
                  putStrLn $ "Failed to prove " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
