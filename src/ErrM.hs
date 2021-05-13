@@ -14,6 +14,7 @@ import System.Exit (exitFailure)
 
 import Control.Monad (MonadPlus(..), liftM, ap)
 import Control.Monad.Fail
+import Control.Monad.Identity
 import Control.Applicative (Applicative(..), Alternative(..))
 import Control.Monad.Trans (MonadTrans(..))
 import Control.Monad.IO.Class (MonadIO(..))
@@ -34,79 +35,101 @@ type SMTErr = ErrT String IO
 -- the Error monad: like Maybe type with error msgs
 
 
-data Err a b = Bad a | Ok b
-  deriving (Show, Eq)
+-- It's common practice to define the non-transformer
+-- in terms of the transformer rather than the other way
+-- around. This is because there exists an Identity monad,
+-- which literally does nothing except embedding a normal
+-- value inside a monad. If we parametrize ErrT on that,
+-- we literally get back the original functionality of Err:
 
-instance Monad (Err a) where
-  return      = Ok
-  Ok a  >>= f = f a
-  Bad s >>= _ = Bad s
+type Err a = ErrT a Identity
 
-instance Applicative (Err a) where
-  pure = Ok
-  (Bad s) <*> _ = Bad s
-  (Ok f) <*> o  = fmap f o
-
-instance Functor (Err a) where
-  fmap = liftM
-
-instance Monoid a => MonadPlus (Err a) where
-  mzero = Bad mempty
-  mplus (Bad _) y = y
-  mplus x       _ = x
-
-instance Monoid a => MonadFail (Err a) where
-  fail _ = mzero
-
-instance Monoid a => Alternative (Err a) where
-  empty = mzero
-  (<|>) = mplus
+-- And since Identity is a monad, as long as we have the
+-- appropriate instances for ErrT
+-- (e.g. Monad m => Monad (ErrT a m))
+-- we get all of those instances for free for Err.
 
 
 -- Error Monad Transformer
 
 
-newtype ErrT a m b = ErrT {
-  runErrT :: m (Err a b)
-}
+-- Since we no longer have a simple Err which we can put
+-- inside ErrT, ErrT must itself contain our constructors.
+-- The below code may look weird, and in a way it is, but
+-- I want to base it immediately on how Err used to look,
+-- and then we can simplify it later:
 
-instance Monad m => Functor (ErrT a m) where
-  fmap = liftM
+data ErrT a m b = Bad (m a) | Ok (m b)
 
-instance Monad m => Applicative (ErrT a m) where
-  pure = return
-  (<*>) = ap
+-- We need to define runErrT as a way to get out the
+-- "underlying" monad. Compare this to e.g. runStateT:
+-- https://hackage.haskell.org/package/transformers-0.5.6.2/docs/Control-Monad-Trans-State-Lazy.html#v:runStateT
+-- Because it can contain one of two values, when we run
+-- it, we can encode the result as an Either.
+
+runErrT :: ErrT a m b -> m (Either a b)
+runErrT (Bad err) = Left <$> err
+runErrT (Ok val)  = Right <$> val
+
+-- The above code won't work though. Why?
+-- How can it be fixed?
+
+-- The Monad instance for ErrT need to change because
+-- we no longer have an Err inside. We could more or
+-- less copy the instances we previously had for Err,
+-- but I would suggest making the types less restrictive
+-- to keep the Functor > Applicative > Monad
+-- hierarchy clearer:
+
+instance Functor m => Functor (ErrT a m) where
+  fmap _ (Bad err) = Bad err
+  fmap f (Ok val)  = Ok (f <$> val)
+
+instance Applicative m => Applicative (ErrT a m) where
+  pure                = Ok . pure
+  (Bad s) <*> _       = Bad s
+  (Ok f)  <*> (Bad s) = Bad s
+  (Ok f)  <*> (Ok a)  = Ok (f <*> a)
+
+-- As for the Monad instance, we run into problems:
 
 instance Monad m => Monad (ErrT a m) where
-  return = ErrT . return . return
-  x >>= f = ErrT $ do err <- runErrT x
-                      case err of
-                        Bad e -> pure . Bad $ e
-                        Ok val -> runErrT $ f val
+  return = pure
+  Bad err >>= _ = Bad err
+  Ok val  >>= f = _
+    where
+      run = do
+        a <- val
+        res <- runErrT $ f a
+        case res of
+          Right ok  -> _
+          Left  bad -> _
 
-instance (Monoid a, Monad m) => Alternative (ErrT a m) where
-  empty = ErrT . pure . Bad $ mempty
-  x <|> y = ErrT $ do err <- runErrT x
-                      case err of
-                        Bad _ -> runErrT y
-                        Ok _ -> pure err
+-- We're able to run f on the contents of Ok and then
+-- do runErrT to get out the Either wrapped in the
+-- underlying monad. But then we want to put these values
+-- back into ErrT, which we can't because we're still
+-- working inside the underlying monad. This explanation
+-- may not be super clear but I encourage you to play around
+-- and try to get this to type check to get a feel for the
+-- problem.
 
-instance (Monoid a, Monad m) => MonadPlus (ErrT a m) where
-  mzero = empty
-  mplus = (<|>)
+-- Anyway, this is why the definition of ErrT is bad.
+-- We need to do this instead:
 
-instance (Monoid a, Monad m) => MonadFail (ErrT a m) where
-  fail _ = empty
+newtype ErrT2 a m b = ErrT2 { runErrT2 :: m (Either a b) }
 
--- lift . return = return
--- lift (m >>= f) = lift m >>= (lift . f)
-instance MonadTrans (ErrT a) where
-  lift = ErrT . (fmap Ok)
+-- The difference here is:
+-- Instead of having a sum type which contains the
+-- underlying monad, we have an underlying monad which
+-- contains a sum type. Using this, defining all of the
+-- instances will be much easier. If you're unsure, try it!
 
--- liftIO . return = return
--- liftIO (m >>= f) = liftIO m >>= (liftIO . f)
-instance MonadIO (ErrT a IO) where
-  liftIO = ErrT . (fmap Ok)
+-- Note that the runErrT2 function actually works out of
+-- the box, as opposed to runErrT above.
+
+-- And compare ErrT2 to the definition of ExceptT, too!
+
 
 
 -- Typeclass for polymorphic display of the various error types used throughout the codebase
@@ -150,9 +173,9 @@ instance PrintableError String where
 -- ** Utils  ** --
 
 
-errMessage :: (Pn, String) -> Maybe a -> Err (Pn, String) a
-errMessage _ (Just c) = Ok c
-errMessage e Nothing = Bad e
+--errMessage :: (Pn, String) -> Maybe a -> Err (Pn, String) a
+--errMessage _ (Just c) = Ok c
+--errMessage e Nothing = Bad e
 
 nowhere :: Pn
 nowhere = AlexPn 0 0 0
