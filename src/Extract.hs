@@ -181,9 +181,10 @@ metaType AbiStringType       = ByteStr
 metaType _ = error "Extract.metaType: TODO"
 
 nameFromStorage :: Syntax.Storage -> Id
-nameFromStorage (Rewrite (Entry _ name _) _) = name
-nameFromStorage (Constant (Entry _ name _)) = name
-nameFromStorage store = error $ "Internal error: cannot extract name from " ++ (show store)
+nameFromStorage (Rewrite (PEntry _ x _) _) = x
+nameFromStorage (Constant (PEntry _ x _)) = x
+nameFromStorage store = error $ "Internal error: cannot extract name from " ++ show store
+
 
 getId :: Either StorageLocation StorageUpdate -> Id
 getId (Right (IntUpdate a _)) = getId' a

@@ -18,8 +18,8 @@ newtype Act = Main [RawBehaviour]
   deriving (Eq, Show)
 
 data RawBehaviour
-    = Transition Id Id Interface [IffH] Cases Ensures
-    | Definition Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
+  = Transition Id Id Interface [IffH] Cases Ensures
+  | Definition Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
   deriving (Eq, Show)
 
 type Ensures = [Expr]
@@ -32,8 +32,8 @@ data Interface = Interface Id [Decl]
 instance Show Interface where
   show (Interface a d) = a <> "(" <> intercalate ", " (fmap show d) <> ")"
 
-data Cases =
-  Direct Post
+data Cases
+  = Direct Post
   | Branches [Case]
   deriving (Eq, Show)
 
@@ -41,20 +41,21 @@ data Case = Case Pn Expr Post
   deriving (Eq, Show)
 
 data Post
-    = Post (Maybe [Storage]) [ExtStorage] (Maybe Expr)
+  = Post (Maybe [Storage]) [ExtStorage] (Maybe Expr)
   deriving (Eq, Show)
 
 newtype Creates = Creates [Assign]
   deriving (Eq, Show)
 
-data Storage = Rewrite Entry Expr
-             | Constant Entry
+data Storage
+  = Rewrite Pattern Expr
+  | Constant Pattern
   deriving (Eq, Show)
 
 data ExtStorage
-    = ExtStorage Id [Storage]
-    | ExtCreates Id Expr [Assign]
-    | WildStorage
+  = ExtStorage Id [Storage]
+  | ExtCreates Id Expr [Assign]
+  | WildStorage
   deriving (Eq, Show)
 
 data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignStruct StorageVar [Defn]
@@ -63,64 +64,74 @@ data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignS
 data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
   deriving (Eq, Show)
 
+data Pattern
+  = PEntry Pn Id [Expr]
+--  = PEntry Pn Entry
+  | PWild Pn
+  deriving (Eq, Show)
+
 data Entry
   = Entry Pn Id [Expr]
-  | Wild
   deriving (Eq, Show)
 
 data Defn = Defn Expr Expr
   deriving (Eq, Show)
 
 data Expr
-    = EAnd Pn Expr Expr
-    | EOr Pn Expr Expr
-    | ENot Pn Expr
-    | EImpl Pn Expr Expr
-    | EEq Pn Expr Expr
-    | ENeq Pn Expr Expr
-    | ELEQ Pn Expr Expr
-    | ELT Pn Expr Expr
-    | EGEQ Pn Expr Expr
-    | EGT Pn Expr Expr
-    | EAdd Pn Expr Expr
-    | ESub Pn Expr Expr
-    | EITE Pn Expr Expr Expr
-    | EMul Pn Expr Expr
-    | EDiv Pn Expr Expr
-    | EMod Pn Expr Expr
-    | EExp Pn Expr Expr
-    | Zoom Pn Expr Expr
-    | EntryExp Pn Id [Expr]
+  = EAnd Pn Expr Expr
+  | EOr Pn Expr Expr
+  | ENot Pn Expr
+  | EImpl Pn Expr Expr
+  | EEq Pn Expr Expr
+  | ENeq Pn Expr Expr
+  | ELEQ Pn Expr Expr
+  | ELT Pn Expr Expr
+  | EGEQ Pn Expr Expr
+  | EGT Pn Expr Expr
+  | EAdd Pn Expr Expr
+  | ESub Pn Expr Expr
+  | EITE Pn Expr Expr Expr
+  | EMul Pn Expr Expr
+  | EDiv Pn Expr Expr
+  | EMod Pn Expr Expr
+  | EExp Pn Expr Expr
+  | Zoom Pn Expr Expr
+  | EntryExp Pn Id [Expr]
+  | PreEntry Pn Id [Expr]
+  | PostEntry Pn Id [Expr]
+--  | EntryExp Pn Entry
+--  | PreEntry Pn Entry
+--  | PostEntry Pn Entry
 --    | Look Pn Id [Expr]
-    | Func Pn Id [Expr]
-    | ListConst Expr
-    | ECat Pn Expr Expr
-    | ESlice Pn Expr Expr Expr
-    | ENewaddr Pn Expr Expr
-    | ENewaddr2 Pn Expr Expr Expr
-    | BYHash Pn Expr
-    | BYAbiE Pn Expr
-    | StringLit Pn String
-    | WildExp Pn
-    | EnvExp Pn EthEnv
-    | IntLit Pn Integer
-    | BoolLit Pn Bool
+  | Func Pn Id [Expr]
+  | ListConst Expr
+  | ECat Pn Expr Expr
+  | ESlice Pn Expr Expr Expr
+  | ENewaddr Pn Expr Expr
+  | ENewaddr2 Pn Expr Expr Expr
+  | BYHash Pn Expr
+  | BYAbiE Pn Expr
+  | StringLit Pn String
+  | WildExp Pn
+  | EnvExp Pn EthEnv
+  | IntLit Pn Integer
+  | BoolLit Pn Bool
   deriving (Eq, Show)
 
 data EthEnv
-   = Caller
-   | Callvalue
-   | Calldepth
-   | Origin
-   | Blockhash
-   | Blocknumber
-   | Difficulty
-   | Chainid
-   | Gaslimit
-   | Coinbase
-   | Timestamp
-   | This
-   | Nonce
+  = Caller
+  | Callvalue
+  | Calldepth
+  | Origin
+  | Blockhash
+  | Blocknumber
+  | Difficulty
+  | Chainid
+  | Gaslimit
+  | Coinbase
+  | Timestamp
+  | This
+  | Nonce
   deriving (Show, Eq)
 
 data StorageVar = StorageVar SlotType Id
@@ -153,6 +164,11 @@ getPosn expr = case expr of
     EExp pn _ _ -> pn
     Zoom pn _ _ -> pn
     EntryExp pn _ _ -> pn
+    PreEntry pn _ _ -> pn
+    PostEntry pn _ _ -> pn
+--    EntryExp pn _ _ -> pn
+--    PreEntry pn _ _   -> pn
+--    PostEntry pn _ _  -> pn
     Func pn _ _ -> pn
     ListConst e -> getPosn e
     ECat pn _ _ -> pn
@@ -190,6 +206,11 @@ getIds e = case e of
   EExp _ a b        -> getIds' [a,b]
   Zoom _ a b        -> getIds' [a,b]
   EntryExp p x es   -> insertWith (<>) x [p] $ getIds' es
+  PreEntry p x es  -> insertWith (<>) x [p] $ getIds' es
+  PostEntry p x es  -> insertWith (<>) x [p] $ getIds' es
+  --EntryExp p x es  -> insertWith (<>) x [p] $ getIds' es
+  --PreEntry p x es  -> error "getIds: PreEntry"
+  --PostEntry p x es -> error "getIds: PostEntry"
   Func _ _ es       -> getIds' es
   ListConst a       -> getIds a
   ECat _ a b        -> getIds' [a,b]

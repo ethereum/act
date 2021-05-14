@@ -231,7 +231,7 @@ checkPost (contract, _, theirs, calldata) (Post maybeStorage extStorage maybeRet
     checkEntries :: Id -> [Syntax.Storage] -> Err [Either StorageLocation StorageUpdate]
     checkEntries name entries =
       forM entries $ \case
-        Constant loc -> Left <$> checkEntry (focus name scopedEnv) loc
+        Constant loc -> Left <$> checkPattern (focus name scopedEnv) loc
         Rewrite loc val -> Right <$> checkStorageExpr (focus name scopedEnv) loc val
 
     checkStorages :: [ExtStorage] -> Err [Either StorageLocation StorageUpdate]
@@ -265,8 +265,8 @@ checkPost (contract, _, theirs, calldata) (Post maybeStorage extStorage maybeRet
         WildStorage -> Nothing
       ) extStorage
 
-checkStorageExpr :: Env -> Entry -> Expr -> Err StorageUpdate
-checkStorageExpr env@(contract, ours, _, _) (Entry p name ixs) expr =
+checkStorageExpr :: Env -> Pattern -> Expr -> Err StorageUpdate
+checkStorageExpr env@(contract, ours, _, _) (PEntry p name ixs) expr =
     case Map.lookup name ours of
       Just (StorageValue t)  -> case metaType t of
           Integer -> IntUpdate (DirectInt contract name) <$> checkInt p env expr
@@ -281,10 +281,10 @@ checkStorageExpr env@(contract, ours, _, _) (Entry p name ixs) expr =
                   Boolean -> liftM2 (BoolUpdate . MappedBool contract name) indexExprs (checkBool p env expr)
                   ByteStr -> liftM2 (BytesUpdate . MappedBytes contract name) indexExprs (checkBytes p env expr)
       Nothing -> Bad (p, "Unknown storage variable: " <> show name)
-checkStorageExpr _ Wild _ = error "TODO: add support for wild storage to checkStorageExpr"
+checkStorageExpr _ (PWild _) _ = error "TODO: add support for wild storage to checkStorageExpr"
 
-checkEntry :: Env -> Entry -> Err StorageLocation
-checkEntry env@(contract, ours, _, _) (Entry p name ixs) =
+checkPattern :: Env -> Pattern -> Err StorageLocation
+checkPattern env@(contract, ours, _, _) (PEntry p name ixs) =
   case Map.lookup name ours of
     Just (StorageValue t) -> case metaType t of
           Integer -> Ok $ IntLoc (DirectInt contract name)
@@ -299,7 +299,7 @@ checkEntry env@(contract, ours, _, _) (Entry p name ixs) =
                   Boolean -> (BoolLoc . MappedBool contract name) <$> indexExprs
                   ByteStr -> (BytesLoc . MappedBytes contract name) <$> indexExprs
     Nothing -> Bad (p, "Unknown storage variable: " <> show name)
-checkEntry _ Wild = error "TODO: checkEntry for Wild storage"
+checkPattern _ (PWild _) = error "TODO: checkPattern for Wild storage"
 
 checkIffs :: Env -> [IffH] -> Err [Exp Bool]
 checkIffs env ((Iff p exps):xs) = do
@@ -348,6 +348,25 @@ inferExpr env@(contract, ours, _,thisContext) expr =
       boolbytesbytes p op v1 v2 = do w1 <- checkBytes p env v1
                                      w2 <- checkBytes p env v2
                                      Ok $ ExpBool $ op w1 w2
+      entry pn name es = case (Map.lookup name ours, Map.lookup name thisContext) of
+        (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
+        (Nothing, Just c) -> case c of
+          Integer -> Ok . ExpInt $ IntVar name
+          Boolean -> Ok . ExpBool $ BoolVar name
+          ByteStr -> Ok . ExpBytes $ ByVar name
+        (Just (StorageValue a), Nothing) -> case metaType a of
+          Integer -> Ok . ExpInt $ TEntry (DirectInt contract name)
+          Boolean -> Ok . ExpBool $ TEntry (DirectBool contract name)
+          ByteStr -> Ok . ExpBytes $ TEntry (DirectBytes contract name)
+        (Just (StorageMapping ts a), Nothing) ->
+           let indexExprs = forM (NonEmpty.zip (head es :| tail es) ts)
+                                     (uncurry (checkExpr pn env))
+           in case metaType a of
+             Integer -> ExpInt . TEntry . (MappedInt contract name) <$> indexExprs
+             Boolean -> ExpBool . TEntry . (MappedBool contract name) <$> indexExprs
+             ByteStr -> ExpBytes . TEntry . (MappedBytes contract name) <$> indexExprs
+        (Just _, Just _) -> Bad (pn, "Ambiguous variable: " <> show name)
+
   in case expr of
     ENot p  v1    -> ExpBool . Neg <$> checkBool p env v1
     EAnd p  v1 v2 -> boolboolbool p And  v1 v2
@@ -377,27 +396,11 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     EDiv p v1 v2 -> intintint p Div v1 v2
     EMod p v1 v2 -> intintint p Mod v1 v2
     EExp p v1 v2 -> intintint p Exp v1 v2
-    IntLit _ n -> Ok $ ExpInt $ LitInt n
+    IntLit _ n  -> Ok $ ExpInt $ LitInt n
     BoolLit _ n -> Ok $ ExpBool $ LitBool n
-    EntryExp p name e -> case (Map.lookup name ours, Map.lookup name thisContext) of
-        (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> show name)
-        (Nothing, Just c) -> case c of
-            Integer -> Ok . ExpInt $ IntVar name
-            Boolean -> Ok . ExpBool $ BoolVar name
-            ByteStr -> Ok . ExpBytes $ ByVar name
-        (Just (StorageValue a), Nothing) ->
-          case metaType a of
-             Integer -> Ok . ExpInt $ TEntry (DirectInt contract name)
-             Boolean -> Ok . ExpBool $ TEntry (DirectBool contract name)
-             ByteStr -> Ok . ExpBytes $ TEntry (DirectBytes contract name)
-        (Just (StorageMapping ts a), Nothing) ->
-           let indexExprs = forM (NonEmpty.zip (head e :| tail e) ts)
-                                     (uncurry (checkExpr p env))
-           in case metaType a of
-             Integer -> ExpInt . TEntry . (MappedInt contract name) <$> indexExprs
-             Boolean -> ExpBool . TEntry . (MappedBool contract name) <$> indexExprs
-             ByteStr -> ExpBytes . TEntry . (MappedBytes contract name) <$> indexExprs
-        (Just _, Just _) -> Bad (p, "Ambiguous variable: " <> show name)
+    EntryExp p x e  -> entry p x e
+    PreEntry p x e  -> entry p x e
+    PostEntry p x e -> entry p x e
     EnvExp p v1 -> case lookup v1 defaultStore of
       Just Integer -> Ok . ExpInt $ IntEnv v1
       Just ByteStr -> Ok . ExpBytes $ ByEnv v1
