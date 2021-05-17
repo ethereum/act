@@ -82,20 +82,20 @@ main :: IO ()
 main = do
     cmd <- unwrapRecord "Act -- Smart contract specifier"
     case cmd of
-      (Lex f) -> do contents <- readFile f
-                    print $ lexer contents
+      Lex f -> do contents <- readFile f
+                  print $ lexer contents
 
-      (Parse f) -> do contents <- readFile f
-                      case parse $ lexer contents of
-                        Bad e -> prettyErr contents e
-                        Ok x -> print x
+      Parse f -> do contents <- readFile f
+                    case parse $ lexer contents of
+                      Bad e -> prettyErr contents e
+                      Ok x -> print x
 
-      (Type f) -> do contents <- readFile f
-                     case compile contents of
-                       Ok a  -> B.putStrLn $ encode a
-                       Bad e -> prettyErr contents e
+      Type f -> do contents <- readFile f
+                   case compile contents of
+                     Ok a  -> B.putStrLn $ encode a
+                     Bad e -> prettyErr contents e
 
-      (Prove file' solver' smttimeout' debug') -> do
+      Prove file' solver' smttimeout' debug' -> do
         let
           parseSolver s = case s of
             Just "z3" -> SMT.Z3
@@ -117,7 +117,7 @@ main = do
             failMsg results
               | not . null . catUnknowns $ results = text "could not be proven due to a" <+> (yellow . text $ "solver timeout")
               | not . null . catErrors $ results = (red . text $ "failed") <+> "due to solver errors:" <-> ((fmap (text . show)) . catErrors $ results)
-              | otherwise = (red . text $ "violated") <> colon <-> ((fmap pretty) . catModels $ results)
+              | otherwise = (red . text $ "violated") <> colon <-> (fmap pretty . catModels $ results)
 
             passMsg :: Doc
             passMsg = (green . text $ "holds") <+> (bold . text $ "∎")
@@ -150,12 +150,12 @@ main = do
 
           unless (fst invOutput && fst pcOutput) exitFailure
 
-      (Coq f) -> do
+      Coq f -> do
         contents <- readFile f
         proceed contents (compile contents) $ \claims ->
           TIO.putStr $ coq claims
 
-      (K spec' soljson' gas' storage' extractbin' out') -> do
+      K spec' soljson' gas' storage' extractbin' out' -> do
         specContents <- readFile spec'
         solContents  <- readFile soljson'
         let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
@@ -170,7 +170,7 @@ main = do
                 Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
           forM_ kSpecs printFile
 
-      (HEVM spec' soljson' solver' smttimeout' debug') -> do
+      HEVM spec' soljson' solver' smttimeout' debug' -> do
         specContents <- readFile spec'
         solContents  <- readFile soljson'
         let preprocess = do refinedSpecs  <- compile specContents
@@ -225,13 +225,13 @@ prettyErr contents (pn, msg) | pn == lastPos = do
       line' = length (lines contents) - 1
       col  = length culprit
   hPutStrLn stderr $ show line' <> " | " <> culprit
-  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line' <> " | ")) - 1) " " <> "^")
+  hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
   hPutStrLn stderr msg
   exitFailure
 prettyErr contents (AlexPn _ line' col, msg) = do
   let cxt = safeDrop (line' - 1) (lines contents)
   hPutStrLn stderr $ show line' <> " | " <> head cxt
-  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line' <> " | ")) - 1) " " <> "^")
+  hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
   hPutStrLn stderr msg
   exitFailure
   where
