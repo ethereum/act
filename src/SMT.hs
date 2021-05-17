@@ -36,13 +36,12 @@ import Data.Maybe
 import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
-import Control.Monad (when, void)
 
 import RefinedAst
 import Extract hiding (getContract)
 import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
 import Print
-import Type (defaultStore, metaType)
+import Type (defaultStore)
 
 
 --- ** Data ** ---
@@ -363,7 +362,7 @@ sendLines solver smt = case smt of
 
 -- | Sends a single command to the solver, returns the first available line from the output buffer
 sendCommand :: SolverInstance -> SMT2 -> IO String
-sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
+sendCommand (SolverInstance _ stdin stdout _ _) cmd = do
   if null cmd || ";" `isPrefixOf` cmd then pure "success" -- blank lines and comments do not produce any output from the solver
   else do
     hPutStr stdin (cmd <> "\n")
