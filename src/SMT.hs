@@ -361,7 +361,6 @@ sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
   else do
     hPutStr stdin (cmd <> "\n")
     hFlush stdin
-    when (solver == CVC4) $ void (hGetLine stdout) -- cvc4 echoes back each input line as part of the output
     hGetLine stdout
 
 
