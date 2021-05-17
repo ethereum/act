@@ -8,8 +8,7 @@ import Syntax
 -- the Error monad: like Maybe type with error msgs
 
 import Control.Monad (MonadPlus(..), liftM)
-import Control.Monad.Fail
-import Control.Applicative (Applicative(..), Alternative(..))
+import Control.Applicative (Alternative(..))
 
 data Err a = Ok a | Bad (AlexPosn, String)
   deriving (Show, Eq)
