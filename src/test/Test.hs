@@ -16,7 +16,7 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Reader
 import Data.ByteString (ByteString)
-import Data.Maybe (catMaybes)
+import Data.Maybe (isNothing)
 import qualified Data.Set as Set
 import qualified Data.Map as Map (empty)
 
@@ -83,8 +83,7 @@ typeCheckSMT solver = do
     where
       runQueries smtconf queries = do
         solverInstance <- spawnSolver smtconf
-        res <- mapM (askSMT solverInstance) queries
-        pure $ null (catMaybes res)
+        all isNothing <$> mapM (askSMT solverInstance) queries
 
       askSMT solverInstance query = sendLines solverInstance ("(reset)" : (lines . show . pretty . getSMT $ query))
 

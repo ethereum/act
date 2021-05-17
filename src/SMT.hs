@@ -130,16 +130,16 @@ instance Pretty Model where
         <$$> ifExists initargs (line <> initargs')
         ))
     where
-      calldata' = (text "calldata:") <$$> line <> (indent 2 $ formatSig ifaceName args)
-      environment' = (text "environment:") <$$> line <> (indent 2 . vsep $ fmap formatEnvironment environment)
-      storage = (text "storage:") <$$> (indent 2 . vsep $ [ifExists prestate (line <> prestate'), poststate'])
-      initargs' = (text "constructor arguments:") <$$> line <> (indent 2 $ formatSig "constructor" initargs)
+      calldata' = text "calldata:" <$$> line <> (indent 2 $ formatSig ifaceName args)
+      environment' = text "environment:" <$$> line <> (indent 2 . vsep $ fmap formatEnvironment environment)
+      storage = text "storage:" <$$> (indent 2 . vsep $ [ifExists prestate (line <> prestate'), poststate'])
+      initargs' = text "constructor arguments:" <$$> line <> (indent 2 $ formatSig "constructor" initargs)
 
-      prestate' = (text "prestate:") <$$> line <> (indent 2 . vsep $ fmap formatStorage prestate) <> line
-      poststate' = (text "poststate:") <$$> line <> (indent 2 . vsep $ fmap formatStorage poststate)
+      prestate' = text "prestate:" <$$> line <> (indent 2 . vsep $ fmap formatStorage prestate) <> line
+      poststate' = text "poststate:" <$$> line <> (indent 2 . vsep $ fmap formatStorage poststate)
 
-      formatSig iface cd = (text iface) <> (encloseSep lparen rparen (text ", ") $ fmap formatCalldata cd)
-      formatCalldata ((Decl _ name), val) = text $ name <> " : " <> prettyReturnExp val
+      formatSig iface cd = text iface <> (encloseSep lparen rparen (text ", ") $ fmap formatCalldata cd)
+      formatCalldata (Decl _ name, val) = text $ name <> " : " <> prettyReturnExp val
       formatEnvironment (env, val) = text $ prettyEnv env <> " : " <> prettyReturnExp val
       formatStorage (loc, val) = text $ prettyLocation loc <> " : " <> prettyReturnExp val
 
@@ -304,10 +304,8 @@ checkSat solver modelFn smt = do
   case err of
     Nothing -> do
       sat <- sendCommand solver "(check-sat)"
-      case (sat) of
-        "sat" -> do
-          model <- modelFn solver
-          pure $ Sat model
+      case sat of
+        "sat" -> Sat <$> modelFn solver
         "unsat" -> pure Unsat
         "timeout" -> pure Unknown
         "unknown" -> pure Unknown
@@ -346,6 +344,7 @@ spawnSolver config@(SMTConfig solver _ _) = do
 stopSolver :: SolverInstance -> IO ()
 stopSolver (SolverInstance _ stdin stdout stderr process) = cleanupProcess (Just stdin, Just stdout, Just stderr, process)
 
+-- | Sends a list of commands to the solver. Returns the first error, if there was one.
 sendLines :: SolverInstance -> [SMT2] -> IO (Maybe String)
 sendLines solver smt = case smt of
   [] -> pure Nothing
@@ -357,15 +356,12 @@ sendLines solver smt = case smt of
 
 sendCommand :: SolverInstance -> SMT2 -> IO String
 sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
-  if (cmd == "") || (";" `isPrefixOf` cmd) then pure "success" -- blank lines and comments do not produce any output from the solver
+  if null cmd || ";" `isPrefixOf` cmd then pure "success" -- blank lines and comments do not produce any output from the solver
   else do
     hPutStr stdin (cmd <> "\n")
     hFlush stdin
-    case solver of
-      Z3 -> hGetLine stdout
-      CVC4 -> do
-        _ <- hGetLine stdout -- cvc4 echos back each input line as part of the output
-        hGetLine stdout
+    when (solver == CVC4) $ void (hGetLine stdout) -- cvc4 echoes back each input line as part of the output
+    hGetLine stdout
 
 
 --- ** Model Extraction ** ---
@@ -375,7 +371,7 @@ getPostconditionModel :: Transition -> SolverInstance -> IO Model
 getPostconditionModel (Ctor ctor) solver = do
   let locs = locsFromConstructor ctor
       env = ethEnvFromConstructor ctor
-      (Interface ifaceName decls) = _cinterface ctor
+      Interface ifaceName decls = _cinterface ctor
   poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
   calldata <- mapM (getCalldataValue solver ifaceName) decls
   environment <- mapM (getEnvironmentValue solver) env
@@ -389,7 +385,7 @@ getPostconditionModel (Ctor ctor) solver = do
 getPostconditionModel (Behv behv) solver = do
   let locs = locsFromBehaviour behv
       env = ethEnvFromBehaviour behv
-      (Interface ifaceName decls) = _interface behv
+      Interface ifaceName decls = _interface behv
   prestate <- mapM (getStorageValue solver (Ctx ifaceName Pre)) locs
   poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
   calldata <- mapM (getCalldataValue solver ifaceName) decls
@@ -406,7 +402,7 @@ getInvariantModel :: Exp Bool -> Constructor -> Maybe Behaviour -> SolverInstanc
 getInvariantModel _ ctor Nothing solver = do
   let locs = locsFromConstructor ctor
       env = ethEnvFromConstructor ctor
-      (Interface ifaceName decls) = _cinterface ctor
+      Interface ifaceName decls = _cinterface ctor
   poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
   calldata <- mapM (getCalldataValue solver ifaceName) decls
   environment <- mapM (getEnvironmentValue solver) env
@@ -420,11 +416,11 @@ getInvariantModel _ ctor Nothing solver = do
 getInvariantModel invExp ctor (Just behv) solver = do
   let locs = nub $ locsFromBehaviour behv <> locsFromExp invExp
       env = nub $ ethEnvFromBehaviour behv <> ethEnvFromExp invExp
-      (Interface behvIface behvDecls) = _interface behv
-      (Interface ctorIface ctorDecls) = _cinterface ctor
+      Interface behvIface behvDecls = _interface behv
+      Interface ctorIface ctorDecls = _cinterface ctor
   -- TODO: v ugly to ignore the ifaceName here, but it's safe...
   prestate <- mapM (getStorageValue solver (Ctx "" Pre)) locs
-  poststate <- mapM (getStorageValue solver (Ctx ""Post)) locs
+  poststate <- mapM (getStorageValue solver (Ctx "" Post)) locs
   behvCalldata <- mapM (getCalldataValue solver behvIface) behvDecls
   ctorCalldata <- mapM (getCalldataValue solver ctorIface) ctorDecls
   environment <- mapM (getEnvironmentValue solver) env
@@ -470,8 +466,7 @@ getStorageValue solver ctx@(Ctx _ whn) loc = do
 
 getCalldataValue :: SolverInstance -> Id -> Decl -> IO (Decl, ReturnExp)
 getCalldataValue solver ifaceName decl@(Decl tp _) = do
-  let name = nameFromDecl ifaceName decl
-  output <- getValue solver name
+  output <- getValue solver $ nameFromDecl ifaceName decl
   let val = case metaType tp of
               Integer -> parseIntModel output
               Boolean -> parseBoolModel output

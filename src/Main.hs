@@ -125,9 +125,9 @@ main = do
             accumulateResults :: (Bool, Doc) -> (Query, [SMT.SMTResult]) -> (Bool, Doc)
             accumulateResults (status, report) (query, results) = (status && holds, report <$$> msg <$$> smt)
               where
-                holds = and (fmap isPass results)
+                holds = all isPass results
                 msg = identifier query <+> if holds then passMsg else failMsg results
-                smt = if debug' then line <> (getSMT query) else empty
+                smt = if debug' then line <> getSMT query else empty
 
           solverInstance <- spawnSolver config
           pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)

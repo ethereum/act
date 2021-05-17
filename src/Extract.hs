@@ -86,16 +86,16 @@ locsFromExp = nub . go
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
-  (concatMap ethEnvFromExp preconds)
-  <> (concatMap ethEnvFromExp postconds)
-  <> (concatMap ethEnvFromStateUpdate stateUpdates)
-  <> (maybe [] ethEnvFromReturnExp returns)
+  concatMap ethEnvFromExp preconds
+  <> concatMap ethEnvFromExp postconds
+  <> concatMap ethEnvFromStateUpdate stateUpdates
+  <> maybe [] ethEnvFromReturnExp returns
 
 ethEnvFromConstructor :: Constructor -> [EthEnv]
 ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = nub $
-  (concatMap ethEnvFromExp pre)
-  <> (concatMap ethEnvFromExp post)
-  <> (concatMap ethEnvFromStateUpdate stateUpdates)
+  concatMap ethEnvFromExp pre
+  <> concatMap ethEnvFromExp post
+  <> concatMap ethEnvFromStateUpdate stateUpdates
   <> (concatMap ethEnvFromStateUpdate (Right <$> initialStorage))
 
 ethEnvFromStateUpdate :: Either StorageLocation StorageUpdate -> [EthEnv]
