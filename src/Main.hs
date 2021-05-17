@@ -115,7 +115,7 @@ main = do
 
             failMsg :: [SMT.SMTResult] -> Doc
             failMsg results
-              | not . null . catUnknowns $ results = text "could not be proven due to a solver timeout"
+              | not . null . catUnknowns $ results = text "could not be proven due to a" <+> (yellow . text $ "solver timeout")
               | not . null . catErrors $ results = (red . text $ "failed") <+> "due to solver errors:" <-> ((fmap (text . show)) . catErrors $ results)
               | otherwise = (red . text $ "violated") <> colon <-> ((fmap pretty) . catModels $ results)
 
