@@ -140,9 +140,9 @@ instance Pretty Model where
       poststate' = text "poststate:" <$$> line <> (indent 2 . vsep $ fmap formatStorage poststate)
 
       formatSig iface cd = text iface <> (encloseSep lparen rparen (text ", ") $ fmap formatCalldata cd)
-      formatCalldata (Decl _ name, val) = text $ name <> " : " <> prettyReturnExp val
-      formatEnvironment (env, val) = text $ prettyEnv env <> " : " <> prettyReturnExp val
-      formatStorage (loc, val) = text $ prettyLocation loc <> " : " <> prettyReturnExp val
+      formatCalldata (Decl _ name, val) = text $ name <> " = " <> prettyReturnExp val
+      formatEnvironment (env, val) = text $ prettyEnv env <> " = " <> prettyReturnExp val
+      formatStorage (loc, val) = text $ prettyLocation loc <> " = " <> prettyReturnExp val
 
 data SolverInstance = SolverInstance
   { _type :: Solver
