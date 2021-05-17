@@ -26,9 +26,9 @@ locsFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = n
 locsFromStateUpdate :: Either StorageLocation StorageUpdate -> [StorageLocation]
 locsFromStateUpdate update = nub $ case update of
   Left loc -> [loc]
-  Right (IntUpdate item e) -> (IntLoc item) : locsFromExp e
-  Right (BoolUpdate item e) -> (BoolLoc item) : locsFromExp e
-  Right (BytesUpdate item e) -> (BytesLoc item) : locsFromExp e
+  Right (IntUpdate item e) -> IntLoc item : locsFromExp e
+  Right (BoolUpdate item e) -> BoolLoc item : locsFromExp e
+  Right (BytesUpdate item e) -> BytesLoc item : locsFromExp e
 
 locsFromReturnExp :: ReturnExp -> [StorageLocation]
 locsFromReturnExp (ExpInt e) = locsFromExp e
@@ -96,7 +96,7 @@ ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) =
   concatMap ethEnvFromExp pre
   <> concatMap ethEnvFromExp post
   <> concatMap ethEnvFromStateUpdate stateUpdates
-  <> (concatMap ethEnvFromStateUpdate (Right <$> initialStorage))
+  <> concatMap ethEnvFromStateUpdate (Right <$> initialStorage)
 
 ethEnvFromStateUpdate :: Either StorageLocation StorageUpdate -> [EthEnv]
 ethEnvFromStateUpdate update = case update of
