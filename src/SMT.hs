@@ -253,8 +253,6 @@ runSMT (SMTConfig solver timeout _) e = do
                  , "-t:" <> show timeout]
                CVC4 ->
                  [ "--lang=smt"
-                 , "--interactive"
-                 , "--no-interactive-prompt"
                  , "--tlimit=" <> show timeout]
   readProcessWithExitCode (show solver) args input
 
