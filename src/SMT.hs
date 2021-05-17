@@ -36,6 +36,7 @@ import Data.Maybe
 import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
+import Control.Monad (when, void)
 
 import RefinedAst
 import Extract hiding (getContract)
@@ -683,19 +684,19 @@ sType' (ExpBytes {}) = "String"
 
 
 nameFromItem :: When -> TStorageItem a -> Id
-nameFromItem when item = case item of
-  DirectInt c name -> c @@ name @@ show when
-  DirectBool c name -> c @@ name @@ show when
-  DirectBytes c name -> c @@ name @@ show when
-  MappedInt c name _ -> c @@ name @@ show when
-  MappedBool c name _ -> c @@ name @@ show when
-  MappedBytes c name _ -> c @@ name @@ show when
+nameFromItem whn item = case item of
+  DirectInt c name -> c @@ name @@ show whn
+  DirectBool c name -> c @@ name @@ show whn
+  DirectBytes c name -> c @@ name @@ show whn
+  MappedInt c name _ -> c @@ name @@ show whn
+  MappedBool c name _ -> c @@ name @@ show whn
+  MappedBytes c name _ -> c @@ name @@ show whn
 
 nameFromLoc :: When -> StorageLocation -> Id
-nameFromLoc when loc = case loc of
-  IntLoc item -> nameFromItem when item
-  BoolLoc item -> nameFromItem when item
-  BytesLoc item -> nameFromItem when item
+nameFromLoc whn loc = case loc of
+  IntLoc item -> nameFromItem whn item
+  BoolLoc item -> nameFromItem whn item
+  BytesLoc item -> nameFromItem whn item
 
 nameFromDecl :: Id -> Decl -> Id
 nameFromDecl ifaceName (Decl _ name) = ifaceName @@ name
