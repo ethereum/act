@@ -10,13 +10,13 @@ import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property)
 import Test.QuickCheck.Instances.ByteString()
 import Test.QuickCheck.GenT
 import Test.QuickCheck.Monadic
+import Text.PrettyPrint.ANSI.Leijen (pretty)
 
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Reader
-import Data.List
 import Data.ByteString (ByteString)
-import System.Exit (ExitCode(..))
+import Data.Maybe (isNothing)
 import qualified Data.Set as Set
 import qualified Data.Map as Map (empty)
 
@@ -70,7 +70,7 @@ main = defaultMain $ testGroup "act"
 
   , testGroup "smt"
       [ testProperty "generated smt is well typed (z3)" . noExponents $ typeCheckSMT Z3
-      , testProperty "generated smt is well typed (cvc4)" . noExponents $ typeCheckSMT CVC4
+      --, testProperty "generated smt is well typed (cvc4)" . noExponents $ typeCheckSMT CVC4 -- This test is too sloooowwww :(
       ]
   ]
 
@@ -78,12 +78,14 @@ typeCheckSMT :: Solver -> GenT (Reader Bool) Property
 typeCheckSMT solver = do
   behv <- genBehv 3
   let smtconf = SMTConfig solver 1 False
-      smt = show . getSMT <$> mkPostconditionQueries (B behv)
-  pure . monadicIO . run $ and . fmap parseOutput <$> mapM (runSMT smtconf) smt
+      smt = mkPostconditionQueries (B behv)
+  pure . monadicIO . run $ runQueries smtconf smt
     where
-      parseOutput (exitCode, stdout, _) = case exitCode of
-        ExitFailure _ -> False
-        ExitSuccess -> not . any (isPrefixOf "(error") . filter (/= "") . lines $ stdout
+      runQueries smtconf queries = do
+        solverInstance <- spawnSolver smtconf
+        all isNothing <$> mapM (askSMT solverInstance) queries
+
+      askSMT solverInstance query = sendLines solverInstance ("(reset)" : (lines . show . pretty . getSMT $ query))
 
 
 -- *** QuickCheck Generators *** --

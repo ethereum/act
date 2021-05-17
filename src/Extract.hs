@@ -3,10 +3,32 @@
 module Extract where
 
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.List
 
 import RefinedAst
 import Syntax
 import EVM.ABI (AbiType(..))
+
+locsFromBehaviour :: Behaviour -> [StorageLocation]
+locsFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
+  concatMap locsFromExp preconds
+  <> concatMap locsFromExp postconds
+  <> concatMap locsFromStateUpdate stateUpdates
+  <> maybe [] locsFromReturnExp returns
+
+locsFromConstructor :: Constructor -> [StorageLocation]
+locsFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = nub $
+  concatMap locsFromExp pre
+  <> concatMap locsFromExp post
+  <> concatMap locsFromStateUpdate stateUpdates
+  <> concatMap locsFromStateUpdate (Right <$> initialStorage)
+
+locsFromStateUpdate :: Either StorageLocation StorageUpdate -> [StorageLocation]
+locsFromStateUpdate update = nub $ case update of
+  Left loc -> [loc]
+  Right (IntUpdate item e) -> IntLoc item : locsFromExp e
+  Right (BoolUpdate item e) -> BoolLoc item : locsFromExp e
+  Right (BytesUpdate item e) -> BytesLoc item : locsFromExp e
 
 locsFromReturnExp :: ReturnExp -> [StorageLocation]
 locsFromReturnExp (ExpInt e) = locsFromExp e
@@ -14,76 +36,79 @@ locsFromReturnExp (ExpBool e) = locsFromExp e
 locsFromReturnExp (ExpBytes e) = locsFromExp e
 
 locsFromExp :: Exp a -> [StorageLocation]
-locsFromExp e = case e of
-  And a b   -> (locsFromExp a) <> (locsFromExp b)
-  Or a b    -> (locsFromExp a) <> (locsFromExp b)
-  Impl a b  -> (locsFromExp a) <> (locsFromExp b)
-  Eq a b    -> (locsFromExp a) <> (locsFromExp b)
-  LE a b    -> (locsFromExp a) <> (locsFromExp b)
-  LEQ a b   -> (locsFromExp a) <> (locsFromExp b)
-  GE a b    -> (locsFromExp a) <> (locsFromExp b)
-  GEQ a b   -> (locsFromExp a) <> (locsFromExp b)
-  NEq a b   -> (locsFromExp a) <> (locsFromExp b)
-  Neg a     -> (locsFromExp a)
-  Add a b   -> (locsFromExp a) <> (locsFromExp b)
-  Sub a b   -> (locsFromExp a) <> (locsFromExp b)
-  Mul a b   -> (locsFromExp a) <> (locsFromExp b)
-  Div a b   -> (locsFromExp a) <> (locsFromExp b)
-  Mod a b   -> (locsFromExp a) <> (locsFromExp b)
-  Exp a b   -> (locsFromExp a) <> (locsFromExp b)
-  Cat a b   -> (locsFromExp a) <> (locsFromExp b)
-  Slice a b c -> (locsFromExp a) <> (locsFromExp b) <> (locsFromExp c)
-  ByVar _ -> []
-  ByStr _ -> []
-  ByLit _ -> []
-  LitInt _  -> []
-  IntMin _  -> []
-  IntMax _  -> []
-  UIntMin _ -> []
-  UIntMax _ -> []
-  IntVar _  -> []
-  LitBool _ -> []
-  BoolVar _ -> []
-  NewAddr a b -> locsFromExp a <> locsFromExp b
-  IntEnv _ -> []
-  ByEnv _ -> []
-  ITE x y z -> locsFromExp x <> locsFromExp y <> locsFromExp z
-  TEntry a -> case a of
-    DirectInt contract name -> [IntLoc $ DirectInt contract name]
-    DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
-    DirectBytes contract slot -> [BytesLoc $ DirectBytes contract slot]
-    MappedInt contract name ixs -> [IntLoc $ MappedInt contract name ixs] <> ixLocs ixs
-    MappedBool contract name ixs -> [BoolLoc $ MappedBool contract name ixs] <> ixLocs ixs
-    MappedBytes contract name ixs -> [BytesLoc $ MappedBytes contract name ixs] <> ixLocs ixs
-    where
-      ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
-      ixLocs = concatMap locsFromReturnExp
+locsFromExp = nub . go
+  where
+    go :: Exp a -> [StorageLocation]
+    go e = case e of
+      And a b   -> go a <> go b
+      Or a b    -> go a <> go b
+      Impl a b  -> go a <> go b
+      Eq a b    -> go a <> go b
+      LE a b    -> go a <> go b
+      LEQ a b   -> go a <> go b
+      GE a b    -> go a <> go b
+      GEQ a b   -> go a <> go b
+      NEq a b   -> go a <> go b
+      Neg a     -> go a
+      Add a b   -> go a <> go b
+      Sub a b   -> go a <> go b
+      Mul a b   -> go a <> go b
+      Div a b   -> go a <> go b
+      Mod a b   -> go a <> go b
+      Exp a b   -> go a <> go b
+      Cat a b   -> go a <> go b
+      Slice a b c -> go a <> go b <> go c
+      ByVar _ -> []
+      ByStr _ -> []
+      ByLit _ -> []
+      LitInt _  -> []
+      IntMin _  -> []
+      IntMax _  -> []
+      UIntMin _ -> []
+      UIntMax _ -> []
+      IntVar _  -> []
+      LitBool _ -> []
+      BoolVar _ -> []
+      NewAddr a b -> go a <> go b
+      IntEnv _ -> []
+      ByEnv _ -> []
+      ITE x y z -> go x <> go y <> go z
+      TEntry a -> case a of
+        DirectInt contract name -> [IntLoc $ DirectInt contract name]
+        DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
+        DirectBytes contract slot -> [BytesLoc $ DirectBytes contract slot]
+        MappedInt contract name ixs -> [IntLoc $ MappedInt contract name ixs] <> ixLocs ixs
+        MappedBool contract name ixs -> [BoolLoc $ MappedBool contract name ixs] <> ixLocs ixs
+        MappedBytes contract name ixs -> [BytesLoc $ MappedBytes contract name ixs] <> ixLocs ixs
+        where
+          ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
+          ixLocs = concatMap locsFromReturnExp
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
-ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) =
-  (concatMap ethEnvFromExp preconds)
-  <> (concatMap ethEnvFromExp postconds)
-  <> (concatMap ethEnvFromStateUpdate stateUpdates)
-  <> (maybe [] ethEnvFromReturnExp returns)
+ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
+  concatMap ethEnvFromExp preconds
+  <> concatMap ethEnvFromExp postconds
+  <> concatMap ethEnvFromStateUpdate stateUpdates
+  <> maybe [] ethEnvFromReturnExp returns
 
 ethEnvFromConstructor :: Constructor -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) =
-  (concatMap ethEnvFromExp pre)
-  <> (concatMap ethEnvFromExp post)
-  <> (concatMap ethEnvFromStateUpdate stateUpdates)
-  <> (concatMap ethEnvFromStateUpdate (Right <$> initialStorage))
+ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = nub $
+  concatMap ethEnvFromExp pre
+  <> concatMap ethEnvFromExp post
+  <> concatMap ethEnvFromStateUpdate stateUpdates
+  <> concatMap ethEnvFromStateUpdate (Right <$> initialStorage)
 
 ethEnvFromStateUpdate :: Either StorageLocation StorageUpdate -> [EthEnv]
 ethEnvFromStateUpdate update = case update of
   Left (IntLoc item) -> ethEnvFromItem item
   Left (BoolLoc item) -> ethEnvFromItem item
   Left (BytesLoc item) -> ethEnvFromItem item
-  Right (IntUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
-  Right (BoolUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
-  Right (BytesUpdate item e) -> ethEnvFromItem item <> ethEnvFromExp e
+  Right (IntUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+  Right (BoolUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+  Right (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
 
 ethEnvFromItem :: TStorageItem a -> [EthEnv]
-ethEnvFromItem item = case item of
+ethEnvFromItem item = nub $ case item of
   MappedInt _ _ ixs -> concatMap ethEnvFromReturnExp ixs
   MappedBool _ _ ixs -> concatMap ethEnvFromReturnExp ixs
   MappedBytes _ _ ixs -> concatMap ethEnvFromReturnExp ixs
@@ -95,41 +120,44 @@ ethEnvFromReturnExp (ExpBool e) = ethEnvFromExp e
 ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
 
 ethEnvFromExp :: Exp a -> [EthEnv]
-ethEnvFromExp e = case e of
-  And a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Or a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  Impl a b  -> ethEnvFromExp a <> ethEnvFromExp b
-  Eq a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  LE a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  LEQ a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  GE a b    -> ethEnvFromExp a <> ethEnvFromExp b
-  GEQ a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  NEq a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Neg a     -> ethEnvFromExp a
-  Add a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Sub a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Mul a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Div a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Mod a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Exp a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Cat a b   -> ethEnvFromExp a <> ethEnvFromExp b
-  Slice a b c -> ethEnvFromExp a <> ethEnvFromExp b <> ethEnvFromExp c
-  ITE a b c -> ethEnvFromExp a <> ethEnvFromExp b <> ethEnvFromExp c
-  ByVar _ -> []
-  ByStr _ -> []
-  ByLit _ -> []
-  LitInt _  -> []
-  IntVar _  -> []
-  LitBool _ -> []
-  BoolVar _ -> []
-  IntMin _ -> []
-  IntMax _ -> []
-  UIntMin _ -> []
-  UIntMax _ -> []
-  NewAddr a b -> ethEnvFromExp a <> ethEnvFromExp b
-  IntEnv a -> [a]
-  ByEnv a -> [a]
-  TEntry a  -> ethEnvFromItem a
+ethEnvFromExp = nub . go
+  where
+    go :: Exp a -> [EthEnv]
+    go e = case e of
+      And a b   -> go a <> go b
+      Or a b    -> go a <> go b
+      Impl a b  -> go a <> go b
+      Eq a b    -> go a <> go b
+      LE a b    -> go a <> go b
+      LEQ a b   -> go a <> go b
+      GE a b    -> go a <> go b
+      GEQ a b   -> go a <> go b
+      NEq a b   -> go a <> go b
+      Neg a     -> go a
+      Add a b   -> go a <> go b
+      Sub a b   -> go a <> go b
+      Mul a b   -> go a <> go b
+      Div a b   -> go a <> go b
+      Mod a b   -> go a <> go b
+      Exp a b   -> go a <> go b
+      Cat a b   -> go a <> go b
+      Slice a b c -> go a <> go b <> go c
+      ITE a b c -> go a <> go b <> go c
+      ByVar _ -> []
+      ByStr _ -> []
+      ByLit _ -> []
+      LitInt _  -> []
+      IntVar _  -> []
+      LitBool _ -> []
+      BoolVar _ -> []
+      IntMin _ -> []
+      IntMax _ -> []
+      UIntMin _ -> []
+      UIntMax _ -> []
+      NewAddr a b -> go a <> go b
+      IntEnv a -> [a]
+      ByEnv a -> [a]
+      TEntry a  -> ethEnvFromItem a
 
 getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
 getLoc = either id mkLoc
@@ -216,3 +244,10 @@ getContainerIxs (BytesLoc (DirectBytes _ _)) = []
 getContainerIxs (IntLoc (MappedInt _ _ ixs)) = NonEmpty.toList ixs
 getContainerIxs (BoolLoc (MappedBool _ _ ixs)) = NonEmpty.toList ixs
 getContainerIxs (BytesLoc (MappedBytes _ _ ixs)) = NonEmpty.toList ixs
+
+isMapping :: StorageLocation -> Bool
+isMapping loc = case loc of
+  (IntLoc (MappedInt {})) -> True
+  (BoolLoc (MappedBool {})) -> True
+  (BytesLoc (MappedBytes {})) -> True
+  _ -> False

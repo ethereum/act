@@ -1,6 +1,6 @@
 {-# Language GADTs #-}
 
-module Print (prettyEnv, prettyExp, prettyType, prettyBehaviour, prettyItem) where
+module Print where
 
 import Data.ByteString.UTF8 (toString)
 

@@ -13,16 +13,18 @@ module Main where
 import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
 import System.Exit ( exitFailure )
-import System.IO (hPutStrLn, stderr)
+import System.IO (hPutStrLn, stderr, stdout)
 import Data.SBV hiding (preprocess, sym)
 import Data.Text (pack, unpack)
+import Data.List
 import Data.Maybe
 import Data.Tree
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
-import qualified Data.Map.Strict      as Map -- abandon in favor of [(a,b)]?
+import qualified Data.Map.Strict as Map
 import System.Environment (setEnv)
+import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 
 import qualified Data.ByteString.Lazy.Char8 as B
 
@@ -34,13 +36,12 @@ import Options.Generic
 import Parse
 import RefinedAst
 import Enrich
-import K hiding (normalize)
+import K hiding (normalize, indent)
 import SMT
 import Syntax
 import Type
-import Coq
+import Coq hiding (indent)
 import HEVM
-import Print
 
 --command line options
 data Command w
@@ -82,20 +83,20 @@ main :: IO ()
 main = do
     cmd <- unwrapRecord "Act -- Smart contract specifier"
     case cmd of
-      (Lex f) -> do contents <- readFile f
-                    print $ lexer contents
+      Lex f -> do contents <- readFile f
+                  print $ lexer contents
 
-      (Parse f) -> do contents <- readFile f
-                      case parse $ lexer contents of
-                        Bad e -> prettyErr contents e
-                        Ok x -> print x
+      Parse f -> do contents <- readFile f
+                    case parse $ lexer contents of
+                      Bad e -> prettyErr contents e
+                      Ok x -> print x
 
-      (Type f) -> do contents <- readFile f
-                     case compile contents of
-                       Ok a  -> B.putStrLn $ encode a
-                       Bad e -> prettyErr contents e
+      Type f -> do contents <- readFile f
+                   case compile contents of
+                     Ok a  -> B.putStrLn $ encode a
+                     Bad e -> prettyErr contents e
 
-      (Prove file' solver' smttimeout' debug') -> do
+      Prove file' solver' smttimeout' debug' -> do
         let
           parseSolver s = case s of
             Just "z3" -> SMT.Z3
@@ -106,32 +107,56 @@ main = do
         contents <- readFile file'
         proceed contents (compile contents) $ \claims -> do
           let
-            handleRes (query, res) = case res of
-                  Unsat -> (True, typ <> " " <> prettyExp target <> " holds :)", show $ getSMT query)
-                  Sat -> (False, typ <> " " <> prettyExp target <> " does not hold :(", show $ getSMT query)
-                  SMT.Unknown -> (False, typ <> " " <> prettyExp target <> " could not be proved due to a solver timeout :(", show $ getSMT query)
-                  SMT.Error _ str -> (False, typ <> " " <> prettyExp target <> " could not be proved to due a solver error: " <> str, show $ getSMT query)
+            catModels results = [m | Sat m <- results]
+            catErrors results = [e | e@SMT.Error {} <- results]
+            catUnknowns results = [u | u@SMT.Unknown {} <- results]
+
+            (<->) :: Doc -> [Doc] -> Doc
+            x <-> y = x <$$> line <> (indent 2 . vsep $ y)
+
+            failMsg :: [SMT.SMTResult] -> Doc
+            failMsg results
+              | not . null . catUnknowns $ results = text "could not be proven due to a" <+> (yellow . text $ "solver timeout")
+              | not . null . catErrors $ results = (red . text $ "failed") <+> "due to solver errors:" <-> ((fmap (text . show)) . catErrors $ results)
+              | otherwise = (red . text $ "violated") <> colon <-> (fmap pretty . catModels $ results)
+
+            passMsg :: Doc
+            passMsg = (green . text $ "holds") <+> (bold . text $ "∎")
+
+            accumulateResults :: (Bool, Doc) -> (Query, [SMT.SMTResult]) -> (Bool, Doc)
+            accumulateResults (status, report) (query, results) = (status && holds, report <$$> msg <$$> smt)
               where
-                target = getTarget query
-                typ = case query of
-                  Postcondition {} -> "postcondition"
-                  Inv {} -> "invariant"
+                holds = all isPass results
+                msg = identifier query <+> if holds then passMsg else failMsg results
+                smt = if debug' then line <> getSMT query else empty
 
-          pcResults <- mapM (runQuery config) (concatMap mkPostconditionQueries claims)
-          invResults <- mapM (runQuery config) (mkInvariantQueries claims)
-          let results = map handleRes (pcResults <> invResults)
-          allGood <- foldM (\acc (r, msg, smt) -> do
-            if (_debug config) then putStrLn (msg <> "\n\n" <> smt) else putStrLn msg
-            pure $ if acc == False then False else r
-            ) True results
-          unless allGood exitFailure
+          solverInstance <- spawnSolver config
+          pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
+          invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
+          stopSolver solverInstance
 
-      (Coq f) -> do
+          let
+            invTitle = line <> (underline . bold . text $ "Invariants:") <> line
+            invOutput = foldl' accumulateResults (True, empty) invResults
+
+            pcTitle = line <> (underline . bold . text $ "Postconditions:") <> line
+            pcOutput = foldl' accumulateResults (True, empty) pcResults
+
+          render $ vsep
+            [ ifExists invResults invTitle
+            , indent 2 $ snd invOutput
+            , ifExists pcResults pcTitle
+            , indent 2 $ snd pcOutput
+            ]
+
+          unless (fst invOutput && fst pcOutput) exitFailure
+
+      Coq f -> do
         contents <- readFile f
         proceed contents (compile contents) $ \claims ->
           TIO.putStr $ coq claims
 
-      (K spec' soljson' gas' storage' extractbin' out') -> do
+      K spec' soljson' gas' storage' extractbin' out' -> do
         specContents <- readFile spec'
         solContents  <- readFile soljson'
         let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
@@ -146,7 +171,7 @@ main = do
                 Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
           forM_ kSpecs printFile
 
-      (HEVM spec' soljson' solver' smttimeout' debug') -> do
+      HEVM spec' soljson' solver' smttimeout' debug' -> do
         specContents <- readFile spec'
         solContents  <- readFile soljson'
         let preprocess = do refinedSpecs  <- compile specContents
@@ -198,16 +223,16 @@ prettyErr _ (pn, msg) | pn == nowhere = do
   exitFailure
 prettyErr contents (pn, msg) | pn == lastPos = do
   let culprit = last $ lines contents
-      line = length (lines contents) - 1
+      line' = length (lines contents) - 1
       col  = length culprit
-  hPutStrLn stderr $ show line <> " | " <> culprit
-  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
+  hPutStrLn stderr $ show line' <> " | " <> culprit
+  hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
   hPutStrLn stderr msg
   exitFailure
-prettyErr contents (AlexPn _ line col, msg) = do
-  let cxt = safeDrop (line - 1) (lines contents)
-  hPutStrLn stderr $ show line <> " | " <> head cxt
-  hPutStrLn stderr $ unpack (Text.replicate (col + (length (show line <> " | ")) - 1) " " <> "^")
+prettyErr contents (AlexPn _ line' col, msg) = do
+  let cxt = safeDrop (line' - 1) (lines contents)
+  hPutStrLn stderr $ show line' <> " | " <> head cxt
+  hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
   hPutStrLn stderr msg
   exitFailure
   where
@@ -216,3 +241,7 @@ prettyErr contents (AlexPn _ line col, msg) = do
     safeDrop _ [] = []
     safeDrop _ [a] = [a]
     safeDrop n (_:xs) = safeDrop (n-1) xs
+
+-- | prints a Doc, with wider output than the built in `putDoc`
+render :: Doc -> IO ()
+render doc = displayIO stdout (renderPretty 0.9 120 doc)
