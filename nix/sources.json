@@ -5,22 +5,22 @@
         "homepage": "https://dapp.tools",
         "owner": "dapphub",
         "repo": "dapptools",
-        "rev": "932e20da95d0c470ec97795e2e461f56a9234866",
-        "sha256": "0qnasq9wb28qdnypr2v3bbdm0p0j4bkl3llyw5xkvljscq2hcpp8",
+        "rev": "6a40aabbc010af23d5c6f5dd207bd88af3c9ce8f",
+        "sha256": "03b6arn1vzq47c1mkng5q28msf52aimmqiw0sjrgqi09zg2ahzhc",
         "type": "tarball",
-        "url": "https://github.com/dapphub/dapptools/archive/932e20da95d0c470ec97795e2e461f56a9234866.tar.gz",
+        "url": "https://github.com/dapphub/dapptools/archive/6a40aabbc010af23d5c6f5dd207bd88af3c9ce8f.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
-        "branch": "nixos-20.03",
-        "description": "A read-only mirror of NixOS/nixpkgs tracking the released channels. Send issues and PRs to",
+        "branch": "20.09",
+        "description": "A Nix Packages collection",
         "homepage": "https://github.com/NixOS/nixpkgs",
         "owner": "nixos",
-        "repo": "nixpkgs-channels",
-        "rev": "eba1d0126b4e6c386d529911bbeadbea99b933d6",
-        "sha256": "0qxcsfq6x67rdk5wasafb6acag9n36cfwm7z2n24va53raddfsfz",
+        "repo": "nixpkgs",
+        "rev": "cd63096d6d887d689543a0b97743d28995bc9bc3",
+        "sha256": "1wg61h4gndm3vcprdcg7rc4s1v3jkm5xd7lw8r2f67w502y94gcy",
         "type": "tarball",
-        "url": "https://github.com/nixos/nixpkgs-channels/archive/eba1d0126b4e6c386d529911bbeadbea99b933d6.tar.gz",
+        "url": "https://github.com/nixos/nixpkgs/archive/cd63096d6d887d689543a0b97743d28995bc9bc3.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

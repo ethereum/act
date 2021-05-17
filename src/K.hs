@@ -20,7 +20,7 @@ import Data.Maybe
 import Data.ByteString hiding (group, pack, unpack, intercalate, filter, foldr, concat, head, tail)
 import qualified Data.Text as Text
 import Parse
-import EVM.Types
+import EVM.Types hiding (Whiff(..))
 
 import EVM.Solidity (SolcContract(..), StorageItem(..), SlotType(..))
 import Data.Map.Strict (Map) -- abandon in favor of [(a,b)]?
