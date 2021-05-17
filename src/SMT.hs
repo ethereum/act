@@ -287,6 +287,7 @@ mkInvariantQueries claims = fmap mkQuery gathered
 --- ** Solver Interaction ** ---
 
 
+-- | Checks the satisfiability of all smt expressions contained with a query, and returns the results as a list
 runQuery :: SolverInstance -> Query -> IO (Query, [SMTResult])
 runQuery solver query@(Postcondition trans _ smt) = do
   res <- checkSat solver (getPostconditionModel trans) smt
@@ -299,6 +300,8 @@ runQuery solver query@(Inv (Invariant _ _ _ invExp) (ctor, ctorSMT) behvs) = do
     runCtor = checkSat solver (getInvariantModel invExp ctor Nothing) ctorSMT
     runBehv (b, smt) = checkSat solver (getInvariantModel invExp ctor (Just b)) smt
 
+-- | Checks the satisfiability of a single SMT expression, and uses the
+-- provided `modelFn` to extract a model if the solver returns `sat`
 checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO SMTResult
 checkSat solver modelFn smt = do
   err <- sendLines solver ("(reset)" : (lines . show . pretty $ smt))
@@ -318,6 +321,7 @@ checkSat solver modelFn smt = do
 smtPreamble :: [SMT2]
 smtPreamble = [ "(set-logic ALL)" ]
 
+-- | Arguments used when spawing a solver instance
 solverArgs :: SMTConfig -> [String]
 solverArgs (SMTConfig solver timeout _) = case solver of
   Z3 ->
@@ -330,6 +334,7 @@ solverArgs (SMTConfig solver timeout _) = case solver of
     , "--produce-models"
     , "--tlimit-per=" <> show timeout]
 
+-- | Spawns a solver instance, and sets the various global config options that we use for our queries
 spawnSolver :: SMTConfig -> IO SolverInstance
 spawnSolver config@(SMTConfig solver _ _) = do
   let cmd = (proc (show solver) (solverArgs config)) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
@@ -342,6 +347,7 @@ spawnSolver config@(SMTConfig solver _ _) = do
     Nothing -> pure solverInstance
     Just msg -> error $ "could not spawn solver: " <> msg
 
+-- | Cleanly shutdown a running solver instnace
 stopSolver :: SolverInstance -> IO ()
 stopSolver (SolverInstance _ stdin stdout stderr process) = cleanupProcess (Just stdin, Just stdout, Just stderr, process)
 
@@ -355,6 +361,7 @@ sendLines solver smt = case smt of
        then sendLines solver tl
        else pure (Just suc)
 
+-- | Sends a single command to the solver, returns the first available line from the output buffer
 sendCommand :: SolverInstance -> SMT2 -> IO String
 sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
   if null cmd || ";" `isPrefixOf` cmd then pure "success" -- blank lines and comments do not produce any output from the solver
@@ -367,21 +374,11 @@ sendCommand (SolverInstance solver stdin stdout _ _) cmd = do
 --- ** Model Extraction ** ---
 
 
+-- | Extracts an assignment of values for the variables in the given
+-- transition. Assumes that a postcondition query for the given transition has
+-- previously been checked in the given solver instance.
 getPostconditionModel :: Transition -> SolverInstance -> IO Model
-getPostconditionModel (Ctor ctor) solver = do
-  let locs = locsFromConstructor ctor
-      env = ethEnvFromConstructor ctor
-      Interface ifaceName decls = _cinterface ctor
-  poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
-  calldata <- mapM (getCalldataValue solver ifaceName) decls
-  environment <- mapM (getEnvironmentValue solver) env
-  pure $ Model
-    { _mprestate = []
-    , _mpoststate = poststate
-    , _mcalldata = (ifaceName, calldata)
-    , _menvironment = environment
-    , _minitargs = []
-    }
+getPostconditionModel (Ctor ctor) solver = getCtorModel ctor solver
 getPostconditionModel (Behv behv) solver = do
   let locs = locsFromBehaviour behv
       env = ethEnvFromBehaviour behv
@@ -398,21 +395,11 @@ getPostconditionModel (Behv behv) solver = do
     , _minitargs = []
     }
 
+-- | Extracts an assignment of values for the variables in the given
+-- transition. Assumes that an invariant query has previously been checked
+-- in the given solver instance.
 getInvariantModel :: Exp Bool -> Constructor -> Maybe Behaviour -> SolverInstance -> IO Model
-getInvariantModel _ ctor Nothing solver = do
-  let locs = locsFromConstructor ctor
-      env = ethEnvFromConstructor ctor
-      Interface ifaceName decls = _cinterface ctor
-  poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
-  calldata <- mapM (getCalldataValue solver ifaceName) decls
-  environment <- mapM (getEnvironmentValue solver) env
-  pure $ Model
-    { _mprestate = []
-    , _mpoststate = poststate
-    , _mcalldata = (ifaceName, calldata)
-    , _menvironment = environment
-    , _minitargs = []
-    }
+getInvariantModel _ ctor Nothing solver = getCtorModel ctor solver
 getInvariantModel invExp ctor (Just behv) solver = do
   let locs = nub $ locsFromBehaviour behv <> locsFromExp invExp
       env = nub $ ethEnvFromBehaviour behv <> ethEnvFromExp invExp
@@ -432,25 +419,24 @@ getInvariantModel invExp ctor (Just behv) solver = do
     , _minitargs = ctorCalldata
     }
 
-parseSMTModel :: String -> String
-parseSMTModel s = if length s0Caps == 1
-                  then if length s1Caps == 1 then head s1Caps else head s0Caps
-                  else ""
-  where
-    -- output should be in the form "((identifier value))" for positive integers / booleans / strings
-    -- or "((identifier (value)))" for negative integers.
+-- | Extracts an assignment for the variables in the given contructor
+getCtorModel :: Constructor -> SolverInstance -> IO Model
+getCtorModel ctor solver = do
+  let locs = locsFromConstructor ctor
+      env = ethEnvFromConstructor ctor
+      Interface ifaceName decls = _cinterface ctor
+  poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
+  calldata <- mapM (getCalldataValue solver ifaceName) decls
+  environment <- mapM (getEnvironmentValue solver) env
+  pure $ Model
+    { _mprestate = []
+    , _mpoststate = poststate
+    , _mcalldata = (ifaceName, calldata)
+    , _menvironment = environment
+    , _minitargs = []
+    }
 
-    -- The stage0 regex first extracts either value or (value), and then the
-    -- stage1 regex is used to strip the additional brackets if required.
-    stage0 = "\\`\\(\\([a-zA-Z0-9_]+ ([ \"\\(\\)a-zA-Z0-9_\\-]+)\\)\\)\\'"
-    stage1 = "\\(([ a-zA-Z0-9_\\-]+)\\)"
-
-    s0Caps = getCaptures s stage0
-    s1Caps = getCaptures (head s0Caps) stage1
-
-    getCaptures str regex = captures
-      where (_, _, _, captures) = str =~ regex :: (String, String, String, [String])
-
+-- | Gets a concrete value from the solver for the given storage location
 getStorageValue :: SolverInstance -> Ctx -> StorageLocation -> IO (StorageLocation, ReturnExp)
 getStorageValue solver ctx@(Ctx _ whn) loc = do
   let name = if isMapping loc
@@ -464,6 +450,7 @@ getStorageValue solver ctx@(Ctx _ whn) loc = do
               BytesLoc {} -> parseBytesModel output
   pure (loc, val)
 
+-- | Gets a concrete value from the solver for the given calldata argument
 getCalldataValue :: SolverInstance -> Id -> Decl -> IO (Decl, ReturnExp)
 getCalldataValue solver ifaceName decl@(Decl tp _) = do
   output <- getValue solver $ nameFromDecl ifaceName decl
@@ -473,6 +460,7 @@ getCalldataValue solver ifaceName decl@(Decl tp _) = do
               ByteStr -> parseBytesModel output
   pure (decl, val)
 
+-- | Gets a concrete value from the solver for the given environment variable
 getEnvironmentValue :: SolverInstance -> EthEnv -> IO (EthEnv, ReturnExp)
 getEnvironmentValue solver env = do
   output <- getValue solver (prettyEnv env)
@@ -483,12 +471,15 @@ getEnvironmentValue solver env = do
               Nothing -> error $ "Internal Error: could not determine a type for" <> show env
   pure (env, val)
 
+-- | Calls `(get-value)` for the given identifier in the given solver instance.
 getValue :: SolverInstance -> String -> IO String
 getValue solver name = sendCommand solver $ "(get-value (" <> name <> "))"
 
+-- | Parse the result of a call to getValue as an Int
 parseIntModel :: String -> ReturnExp
 parseIntModel = ExpInt . LitInt . read . parseSMTModel
 
+-- | Parse the result of a call to getValue as a Bool
 parseBoolModel :: String -> ReturnExp
 parseBoolModel = ExpBool . LitBool . readBool . parseSMTModel
   where
@@ -496,8 +487,28 @@ parseBoolModel = ExpBool . LitBool . readBool . parseSMTModel
     readBool "false" = False
     readBool s = error ("Could not parse " <> s <> "into a bool")
 
+-- | Parse the result of a call to getValue as a Bytes
 parseBytesModel :: String -> ReturnExp
 parseBytesModel = ExpBytes . ByLit . fromString . parseSMTModel
+
+-- | Extracts a string representation of the value in the output from a call to `(get-value)`
+parseSMTModel :: String -> String
+parseSMTModel s = if length s0Caps == 1
+                  then if length s1Caps == 1 then head s1Caps else head s0Caps
+                  else ""
+  where
+    -- output should be in the form "((identifier value))" for positive integers / booleans / strings
+    -- or "((identifier (value)))" for negative integers.
+    -- The stage0 regex first extracts either value or (value), and then the
+    -- stage1 regex is used to strip the additional brackets if required.
+    stage0 = "\\`\\(\\([a-zA-Z0-9_]+ ([ \"\\(\\)a-zA-Z0-9_\\-]+)\\)\\)\\'"
+    stage1 = "\\(([ a-zA-Z0-9_\\-]+)\\)"
+
+    s0Caps = getCaptures s stage0
+    s1Caps = getCaptures (head s0Caps) stage1
+
+    getCaptures str regex = captures
+      where (_, _, _, captures) = str =~ regex :: (String, String, String, [String])
 
 
 --- ** SMT2 Generation ** ---
@@ -558,19 +569,23 @@ declareStorageLocation loc = case loc of
     mkdirect item tp = [constant (nameFromItem Pre item) tp, constant (nameFromItem Post item) tp]
     mkarray item ixs tp = [array (nameFromItem Pre item) ixs tp, array (nameFromItem Post item) ixs tp]
 
+-- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
 declareArg behvName d@(Decl typ _) = constant (nameFromDecl behvName d) (metaType typ)
 
+-- | produces an SMT2 expression declaring the given EthEnv as a symbolic constant
 declareEthEnv :: EthEnv -> SMT2
 declareEthEnv env = constant (prettyEnv env) tp
   where tp = fromJust . lookup env $ defaultStore
 
+-- | encodes the given return expression as an smt2 expression
 returnExpToSMT2 :: Ctx -> ReturnExp -> SMT2
 returnExpToSMT2 c e = case e of
   ExpInt ei -> expToSMT2 c ei
   ExpBool eb -> expToSMT2 c eb
   ExpBytes ebs -> expToSMT2 c ebs
 
+-- | encodes the given Exp as an smt2 expression
 expToSMT2 :: Ctx -> Exp a -> SMT2
 expToSMT2 ctx@(Ctx behvName whn) e = case e of
 
@@ -650,29 +665,35 @@ simplifyExponentiation a b = fromMaybe (error "Internal Error: no support for sy
   where
     evalb = eval b
 
+-- | declare a constant in smt2
 constant :: Id -> MType -> SMT2
 constant name tp = "(declare-const " <> name <> " " <> (sType tp) <> ")"
 
+-- | encode the given boolean expression as an assertion in smt2
 mkAssert :: Ctx -> Exp Bool -> SMT2
 mkAssert c e = "(assert " <> expToSMT2 c e <> ")"
 
+-- | declare a (potentially nested) array in smt2
 array :: Id -> NonEmpty ReturnExp -> MType -> SMT2
 array name (hd :| tl) ret = "(declare-const " <> name <> " (Array " <> sType' hd <> " " <> valueDecl tl <> "))"
   where
     valueDecl [] = sType ret
     valueDecl (h : t) = "(Array " <> sType' h <> " " <> valueDecl t <> ")"
 
+-- | encode an array lookup in smt2
 select :: Ctx -> String -> NonEmpty ReturnExp -> SMT2
 select ctx name (hd :| tl) = foldl' (\smt ix -> "(select " <> smt <> " " <> returnExpToSMT2 ctx ix <> ")") inner tl
   where
     inner = "(" <> "select" <> " " <> name <> " " <> returnExpToSMT2 ctx hd <> ")"
 
 
+-- | act -> smt2 type translation
 sType :: MType -> SMT2
 sType Integer = "Int"
 sType Boolean = "Bool"
 sType ByteStr = "String"
 
+-- | act -> smt2 type translation
 sType' :: ReturnExp -> SMT2
 sType' (ExpInt {}) = "Int"
 sType' (ExpBool {}) = "Bool"
@@ -681,7 +702,7 @@ sType' (ExpBytes {}) = "String"
 
 --- ** Variable Names ** ---
 
-
+-- Construct the smt2 variable name for a given storage item
 nameFromItem :: When -> TStorageItem a -> Id
 nameFromItem whn item = case item of
   DirectInt c name -> c @@ name @@ show whn
@@ -691,15 +712,18 @@ nameFromItem whn item = case item of
   MappedBool c name _ -> c @@ name @@ show whn
   MappedBytes c name _ -> c @@ name @@ show whn
 
+-- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id
 nameFromLoc whn loc = case loc of
   IntLoc item -> nameFromItem whn item
   BoolLoc item -> nameFromItem whn item
   BytesLoc item -> nameFromItem whn item
 
+-- Construct the smt2 variable name for a given decl
 nameFromDecl :: Id -> Decl -> Id
 nameFromDecl ifaceName (Decl _ name) = ifaceName @@ name
 
+-- Construct the smt2 variable name for a given act variable
 nameFromVar :: Id -> Exp a -> Id
 nameFromVar ifaceName (IntVar name) = ifaceName @@ name
 nameFromVar ifaceName (ByVar name) = ifaceName @@ name
