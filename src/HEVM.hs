@@ -28,7 +28,6 @@ import Data.SBV.String ((.++), subStr)
 import Control.Lens hiding (pre, (.>))
 import Control.Monad
 import qualified Data.Vector as Vec
-import Data.Type.Equality
 import Data.Typeable
 import Data.Tree
 
@@ -42,7 +41,7 @@ import EVM.Concrete
 import EVM.SymExec
 import EVM.Symbolic
 import EVM.Types (SymWord(..), Buffer(..), Addr(..), toSizzle, litBytes, num, var)
-import EVM.Types (w256, addressWord160, saddressWord160, SAddr(..))
+import EVM.Types (w256, SAddr(..))
 
 type SolcJson = Map Text SolcContract
 

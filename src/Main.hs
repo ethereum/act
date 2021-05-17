@@ -14,7 +14,7 @@ import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
-import Data.SBV hiding (preprocess)
+import Data.SBV hiding (preprocess, sym)
 import Data.Text (pack, unpack)
 import Data.Maybe
 import Data.Tree

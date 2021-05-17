@@ -15,7 +15,7 @@ import RefinedAst
 import Extract
 import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
 import Print (prettyEnv)
-import Type (defaultStore, metaType)
+import Type (defaultStore)
 
 import System.Process (readProcessWithExitCode)
 import System.Exit (ExitCode(..))
