@@ -35,10 +35,10 @@ locsFromReturnExp (ExpInt e) = locsFromExp e
 locsFromReturnExp (ExpBool e) = locsFromExp e
 locsFromReturnExp (ExpBytes e) = locsFromExp e
 
-locsFromExp :: Exp a -> [StorageLocation]
+locsFromExp :: Exp t a -> [StorageLocation]
 locsFromExp = nub . go
   where
-    go :: Exp a -> [StorageLocation]
+    go :: Exp t a -> [StorageLocation]
     go e = case e of
       And a b   -> go a <> go b
       Or a b    -> go a <> go b
@@ -73,16 +73,21 @@ locsFromExp = nub . go
       IntEnv _ -> []
       ByEnv _ -> []
       ITE x y z -> go x <> go y <> go z
-      TEntry a -> case a of
-        DirectInt contract name -> [IntLoc $ DirectInt contract name]
-        DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
-        DirectBytes contract slot -> [BytesLoc $ DirectBytes contract slot]
-        MappedInt contract name ixs -> [IntLoc $ MappedInt contract name ixs] <> ixLocs ixs
-        MappedBool contract name ixs -> [BoolLoc $ MappedBool contract name ixs] <> ixLocs ixs
-        MappedBytes contract name ixs -> [BytesLoc $ MappedBytes contract name ixs] <> ixLocs ixs
-        where
-          ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
-          ixLocs = concatMap locsFromReturnExp
+      UTEntry a -> locsFromStorageItem a
+      PreEntry a -> locsFromStorageItem a
+      PostEntry a -> locsFromStorageItem a
+
+locsFromStorageItem :: TStorageItem a -> [StorageLocation]
+locsFromStorageItem t = case t of
+  DirectInt contract name -> [IntLoc $ DirectInt contract name]
+  DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
+  DirectBytes contract slot -> [BytesLoc $ DirectBytes contract slot]
+  MappedInt contract name ixs -> [IntLoc $ MappedInt contract name ixs] <> ixLocs ixs
+  MappedBool contract name ixs -> [BoolLoc $ MappedBool contract name ixs] <> ixLocs ixs
+  MappedBytes contract name ixs -> [BytesLoc $ MappedBytes contract name ixs] <> ixLocs ixs
+  where
+    ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
+    ixLocs = concatMap locsFromReturnExp
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
@@ -119,10 +124,11 @@ ethEnvFromReturnExp (ExpInt e) = ethEnvFromExp e
 ethEnvFromReturnExp (ExpBool e) = ethEnvFromExp e
 ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
 
-ethEnvFromExp :: Exp a -> [EthEnv]
+
+ethEnvFromExp :: Exp t a -> [EthEnv]
 ethEnvFromExp = nub . go
   where
-    go :: Exp a -> [EthEnv]
+    go :: Exp t a -> [EthEnv]
     go e = case e of
       And a b   -> go a <> go b
       Or a b    -> go a <> go b
@@ -157,7 +163,8 @@ ethEnvFromExp = nub . go
       NewAddr a b -> go a <> go b
       IntEnv a -> [a]
       ByEnv a -> [a]
-      TEntry a  -> ethEnvFromItem a
+      PreEntry a  -> ethEnvFromItem a
+      PostEntry a  -> ethEnvFromItem a
 
 getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
 getLoc = either id mkLoc

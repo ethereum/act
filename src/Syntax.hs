@@ -96,12 +96,12 @@ data Expr
   | EMod Pn Expr Expr
   | EExp Pn Expr Expr
   | Zoom Pn Expr Expr
-  | EntryExp Pn Id [Expr]
-  | PreEntry Pn Id [Expr]
-  | PostEntry Pn Id [Expr]
---  | EntryExp Pn Entry
---  | PreEntry Pn Entry
---  | PostEntry Pn Entry
+  | EUTEntry Pn Id [Expr]
+  | EPreEntry Pn Id [Expr]
+  | EPostEntry Pn Id [Expr]
+--  | EUTEntryEntryExp Pn Entry
+--  | EPreEntry Pn Entry
+--  | EPostEntry Pn Entry
 --    | Look Pn Id [Expr]
   | Func Pn Id [Expr]
   | ListConst Expr
@@ -163,12 +163,12 @@ getPosn expr = case expr of
     EMod pn _ _ -> pn
     EExp pn _ _ -> pn
     Zoom pn _ _ -> pn
-    EntryExp pn _ _ -> pn
-    PreEntry pn _ _ -> pn
-    PostEntry pn _ _ -> pn
---    EntryExp pn _ _ -> pn
---    PreEntry pn _ _   -> pn
---    PostEntry pn _ _  -> pn
+    EUTEntry pn _ _ -> pn
+    EPreEntry pn _ _ -> pn
+    EPostEntry pn _ _ -> pn
+--    EUTEntryEntryExp pn _ _ -> pn
+--    EPreEntry pn _ _   -> pn
+--    EPostEntry pn _ _  -> pn
     Func pn _ _ -> pn
     ListConst e -> getPosn e
     ECat pn _ _ -> pn
@@ -205,12 +205,12 @@ getIds e = case e of
   EMod _ a b        -> getIds' [a,b]
   EExp _ a b        -> getIds' [a,b]
   Zoom _ a b        -> getIds' [a,b]
-  EntryExp p x es   -> insertWith (<>) x [p] $ getIds' es
-  PreEntry p x es  -> insertWith (<>) x [p] $ getIds' es
-  PostEntry p x es  -> insertWith (<>) x [p] $ getIds' es
-  --EntryExp p x es  -> insertWith (<>) x [p] $ getIds' es
-  --PreEntry p x es  -> error "getIds: PreEntry"
-  --PostEntry p x es -> error "getIds: PostEntry"
+  EUTEntry p x es   -> insertWith (<>) x [p] $ getIds' es
+  EPreEntry p x es  -> insertWith (<>) x [p] $ getIds' es
+  EPostEntry p x es -> insertWith (<>) x [p] $ getIds' es
+  --EUTEntryEntryExp p x es  -> insertWith (<>) x [p] $ getIds' es
+  --EPreEntry p x es  -> error "getIds: EPreEntry"
+  --EPostEntry p x es -> error "getIds: EPostEntry"
   Func _ _ es       -> getIds' es
   ListConst a       -> getIds a
   ECat _ a b        -> getIds' [a,b]

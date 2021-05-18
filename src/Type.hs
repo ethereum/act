@@ -99,14 +99,21 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     normalize cases' =
       let wildcard (Case _ (WildExp _) _) = True
           wildcard _ = False
-      in case findIndex wildcard cases' of
-        Nothing -> return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
-        Just ind ->
-          -- wildcard must be last element
-          if ind < length cases' - 1
-          then case cases' !! ind of
-            (Case p _ _) -> Bad (p, "Wildcard pattern must be last case")
-          else return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
+      in fromMaybe
+            (pure . snd $ mapAccumL checkCase (BoolLit nowhere False) cases')
+            $ do
+                ind <- findIndex wildcard cases'
+                Case p _ _ <- cases' !!? ind
+                pure . Bad (p, "Wildcard pattern must be last case")
+
+--        of
+--        Nothing -> return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
+--        Just ind ->
+--          -- wildcard must be last element
+--          if ind < length cases' - 1
+--          then case cases' !! ind of
+--            (Case p _ _) -> Bad (p, "Wildcard pattern must be last case")
+--          else return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
 
     checkCase :: Expr -> Case -> (Expr, Case)
     checkCase acc (Case p (WildExp _) post) =
@@ -116,7 +123,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
 
 
     -- flatten case list
-    flatten :: [Exp Bool] -> [Exp Bool] -> Cases -> Err [Claim]
+    flatten :: [Exp time Bool] -> [Exp Timed Bool] -> Cases -> Err [Claim]
     flatten iff postc (Direct post) = do
       (p, maybeReturn) <- checkPost env post
       return $ splitCase name contract iface [] iff maybeReturn p postc
@@ -155,8 +162,8 @@ mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract st
    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
 
 -- | split case into pass and fail case
-splitCase :: Id -> Id -> Interface -> [Exp Bool] -> [Exp Bool] -> Maybe ReturnExp
-          -> [Either StorageLocation StorageUpdate] -> [Exp Bool] -> [Claim]
+splitCase :: Id -> Id -> Interface -> [Exp time Bool] -> [Exp time Bool] -> Maybe ReturnExp
+          -> [Either StorageLocation StorageUpdate] -> [Exp time Bool] -> [Claim]
 splitCase name contract iface if' [] ret storage postcs =
   [ B $ Behaviour name Pass contract iface if' postcs storage ret ]
 splitCase name contract iface if' iffs ret storage postcs =
@@ -301,7 +308,7 @@ checkPattern env@(contract, ours, _, _) (PEntry p name ixs) =
     Nothing -> Bad (p, "Unknown storage variable: " <> show name)
 checkPattern _ (PWild _) = error "TODO: checkPattern for Wild storage"
 
-checkIffs :: Env -> [IffH] -> Err [Exp Bool]
+checkIffs :: Env -> [IffH] -> Err [Exp time Bool]
 checkIffs env ((Iff p exps):xs) = do
   hd <- mapM (checkBool p env) exps
   tl <- checkIffs env xs
@@ -312,16 +319,16 @@ checkIffs env ((IffIn p typ exps):xs) = do
   Ok $ map (bound typ) hd <> tl
 checkIffs _ [] = Ok []
 
-bound :: AbiType -> (Exp Integer) -> Exp Bool
+bound :: AbiType -> Exp time Integer -> Exp time Bool
 bound typ e = And (LEQ (lowerBound typ) e) $ LEQ e (upperBound typ)
 
-lowerBound :: AbiType -> Exp Integer
+lowerBound :: AbiType -> Exp time Integer
 lowerBound (AbiIntType a) = IntMin a
 -- todo: other negatives?
 lowerBound _ = LitInt 0
 
 -- todo, the rest
-upperBound :: AbiType -> Exp Integer
+upperBound :: AbiType -> Exp time Integer
 upperBound (AbiUIntType n) = UIntMax n
 upperBound (AbiIntType n) = IntMax n
 upperBound AbiAddressType = UIntMax 160
@@ -398,9 +405,9 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     EExp p v1 v2 -> intintint p Exp v1 v2
     IntLit _ n  -> Ok $ ExpInt $ LitInt n
     BoolLit _ n -> Ok $ ExpBool $ LitBool n
-    EntryExp p x e  -> entry p x e
-    PreEntry p x e  -> entry p x e
-    PostEntry p x e -> entry p x e
+    EUTEntry p x e  -> entry p x e
+    EPreEntry p x e  -> entry p x e
+    EPostEntry p x e -> entry p x e
     EnvExp p v1 -> case lookup v1 defaultStore of
       Just Integer -> Ok . ExpInt $ IntEnv v1
       Just ByteStr -> Ok . ExpBytes $ ByEnv v1
@@ -422,7 +429,7 @@ inferExpr env@(contract, ours, _,thisContext) expr =
     -- BYAbiE Expr
     -- StringLit String
 
-checkBool :: Pn -> Env -> Expr -> Err (Exp Bool)
+checkBool :: Pn -> Env -> Expr -> Err (Exp time Bool)
 checkBool p env e =
   case inferExpr env e of
     Ok (ExpInt _) -> Bad (p, "expected: bool, got: int")
@@ -430,7 +437,7 @@ checkBool p env e =
     Ok (ExpBool a) -> Ok a
     Bad err -> Bad err
 
-checkBytes :: Pn -> Env -> Expr -> Err (Exp ByteString)
+checkBytes :: Pn -> Env -> Expr -> Err (Exp time ByteString)
 checkBytes p env e =
   case inferExpr env e of
     Ok (ExpInt _) -> Bad (p, "expected: bytes, got: int")
@@ -438,7 +445,7 @@ checkBytes p env e =
     Ok (ExpBool _) -> Bad (p, "expected: bytes, got: bool")
     Bad err -> Bad err
 
-checkInt :: Pn -> Env -> Expr -> Err (Exp Integer)
+checkInt :: Pn -> Env -> Expr -> Err (Exp time Integer)
 checkInt p env e =
   case inferExpr env e of
     Ok (ExpInt a) -> Ok a

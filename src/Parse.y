@@ -278,9 +278,9 @@ Expr : '(' Expr ')'                                   { $2 }
 
   -- composites
   | 'if' Expr 'then' Expr 'else' Expr                 { EITE (posn $1) $2 $4 $6 }
-  | id list(Zoom)                                     { EntryExp (posn $1) (name $1) $2 }
-  | 'pre'  '(' id list(Zoom) ')'                      { PreEntry (posn $1) (name $3) $4 }
-  | 'post' '(' id list(Zoom) ')'                      { PostEntry (posn $1) (name $3) $4 }
+  | id list(Zoom)                                     { EUTEntry (posn $1) (name $1) $2 }
+  | 'pre'  '(' id list(Zoom) ')'                      { EPreEntry (posn $1) (name $3) $4 }
+  | 'post' '(' id list(Zoom) ')'                      { EPostEntry (posn $1) (name $3) $4 }
 --  | id list(Zoom)                                   { Look (posn $1) (name $1) $2 }
   | Expr '.' Expr                                     { Zoom (posn $2) $1 $3 }
 --  | id '(' seplist(Expr, ',') ')'                   { App    (posn $1) $1 $3 }

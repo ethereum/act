@@ -56,30 +56,30 @@ type Store = Map Id (Map Id SlotType)
 -- the constructor and behaviour claims.
 data Invariant = Invariant
   { _icontract :: Id
-  , _ipreconditions :: [Exp Bool]
-  , _istoragebounds :: [Exp Bool]
-  , _predicate :: Exp Bool
+  , _ipreconditions :: [Exp Untimed Bool]
+  , _istoragebounds :: [Exp Untimed Bool]
+  , _predicate :: Exp Untimed Bool
   } deriving (Show, Eq)
 
 data Constructor = Constructor
-  { _cname :: Id,
-    _cmode :: Mode,
-    _cinterface :: Interface,
-    _cpreconditions :: [Exp Bool],
-    _cpostconditions :: [Exp Bool],
-    _initialStorage :: [StorageUpdate],
-    _cstateUpdates :: [Either StorageLocation StorageUpdate]
+  { _cname :: Id
+  , _cmode :: Mode
+  , _cinterface :: Interface
+  , _cpreconditions :: [Exp Untimed Bool]
+  , _cpostconditions :: [Exp Timed Bool]
+  , _initialStorage :: [StorageUpdate]
+  , _cstateUpdates :: [Either StorageLocation StorageUpdate]
   } deriving (Show, Eq)
 
 data Behaviour = Behaviour
-  {_name :: Id,
-   _mode :: Mode,
-   _contract :: Id,
-   _interface :: Interface,
-   _preconditions :: [Exp Bool],
-   _postconditions :: [Exp Bool],
-   _stateUpdates :: [Either StorageLocation StorageUpdate],
-   _returns :: Maybe ReturnExp
+  { _name :: Id
+  , _mode :: Mode
+  , _contract :: Id
+  , _interface :: Interface
+  , _preconditions :: [Exp Untimed Bool]
+  , _postconditions :: [Exp Timed Bool]
+  , _stateUpdates :: [Either StorageLocation StorageUpdate]
+  , _returns :: Maybe ReturnExp
   } deriving (Show, Eq)
 
 data Mode
@@ -96,9 +96,9 @@ data MType
   deriving (Eq, Ord, Show, Read)
 
 data StorageUpdate
-  = IntUpdate (TStorageItem Integer) (Exp Integer)
-  | BoolUpdate (TStorageItem Bool) (Exp Bool)
-  | BytesUpdate (TStorageItem ByteString) (Exp ByteString)
+  = IntUpdate (TStorageItem Integer) (Exp Timed Integer)
+  | BoolUpdate (TStorageItem Bool) (Exp Timed Bool)
+  | BytesUpdate (TStorageItem ByteString) (Exp Timed ByteString)
   deriving (Show, Eq)
 
 data StorageLocation
@@ -119,52 +119,57 @@ deriving instance Show (TStorageItem a)
 deriving instance Eq (TStorageItem a)
 
 -- typed expressions
-data Exp t where
+data Exp time t where
   -- booleans
-  And  :: Exp Bool -> Exp Bool -> Exp Bool
-  Or   :: Exp Bool -> Exp Bool -> Exp Bool
-  Impl :: Exp Bool -> Exp Bool -> Exp Bool
-  Neg :: Exp Bool -> Exp Bool
-  LE :: Exp Integer -> Exp Integer -> Exp Bool
-  LEQ :: Exp Integer -> Exp Integer -> Exp Bool
-  GEQ :: Exp Integer -> Exp Integer -> Exp Bool
-  GE :: Exp Integer -> Exp Integer -> Exp Bool
-  LitBool :: Bool -> Exp Bool
-  BoolVar :: Id -> Exp Bool
+  And  :: Exp time Bool -> Exp time Bool -> Exp time Bool
+  Or   :: Exp time Bool -> Exp time Bool -> Exp time Bool
+  Impl :: Exp time Bool -> Exp time Bool -> Exp time Bool
+  Neg :: Exp time Bool -> Exp time Bool
+  LE :: Exp time Integer -> Exp time Integer -> Exp time Bool
+  LEQ :: Exp time Integer -> Exp time Integer -> Exp time Bool
+  GEQ :: Exp time Integer -> Exp time Integer -> Exp time Bool
+  GE :: Exp time Integer -> Exp time Integer -> Exp time Bool
+  LitBool :: Bool -> Exp time Bool
+  BoolVar :: Id -> Exp time Bool
   -- integers
-  Add :: Exp Integer -> Exp Integer -> Exp Integer
-  Sub :: Exp Integer -> Exp Integer -> Exp Integer
-  Mul :: Exp Integer -> Exp Integer -> Exp Integer
-  Div :: Exp Integer -> Exp Integer -> Exp Integer
-  Mod :: Exp Integer -> Exp Integer -> Exp Integer
-  Exp :: Exp Integer -> Exp Integer -> Exp Integer
-  LitInt :: Integer -> Exp Integer
-  IntVar :: Id -> Exp Integer
-  IntEnv :: EthEnv -> Exp Integer
+  Add :: Exp time Integer -> Exp time Integer -> Exp time Integer
+  Sub :: Exp time Integer -> Exp time Integer -> Exp time Integer
+  Mul :: Exp time Integer -> Exp time Integer -> Exp time Integer
+  Div :: Exp time Integer -> Exp time Integer -> Exp time Integer
+  Mod :: Exp time Integer -> Exp time Integer -> Exp time Integer
+  Exp :: Exp time Integer -> Exp time Integer -> Exp time Integer
+  LitInt :: Integer -> Exp time Integer
+  IntVar :: Id -> Exp time Integer
+  IntEnv :: EthEnv -> Exp time Integer
   -- bounds
-  IntMin :: Int -> Exp Integer
-  IntMax :: Int -> Exp Integer
-  UIntMin :: Int -> Exp Integer
-  UIntMax :: Int -> Exp Integer
+  IntMin :: Int -> Exp time Integer
+  IntMax :: Int -> Exp time Integer
+  UIntMin :: Int -> Exp time Integer
+  UIntMax :: Int -> Exp time Integer
   -- bytestrings
-  Cat :: Exp ByteString -> Exp ByteString -> Exp ByteString
-  Slice :: Exp ByteString -> Exp Integer -> Exp Integer -> Exp ByteString
-  ByVar :: Id -> Exp ByteString
-  ByStr :: String -> Exp ByteString
-  ByLit :: ByteString -> Exp ByteString
-  ByEnv :: EthEnv -> Exp ByteString
+  Cat :: Exp time ByteString -> Exp time ByteString -> Exp time ByteString
+  Slice :: Exp time ByteString -> Exp time Integer -> Exp time Integer -> Exp time ByteString
+  ByVar :: Id -> Exp time ByteString
+  ByStr :: String -> Exp time ByteString
+  ByLit :: ByteString -> Exp time ByteString
+  ByEnv :: EthEnv -> Exp time ByteString
   -- builtins
-  NewAddr :: Exp Integer -> Exp Integer -> Exp Integer
+  NewAddr :: Exp time Integer -> Exp time Integer -> Exp time Integer
 
   -- polymorphic
-  Eq  :: (Eq t, Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
-  NEq :: (Eq t, Typeable t, ToJSON (Exp t)) => Exp t -> Exp t -> Exp Bool
-  ITE :: Exp Bool -> Exp t -> Exp t -> Exp t
-  TEntry :: (TStorageItem t) -> Exp t
+  Eq  :: (Eq t, Typeable t, ToJSON (Exp time t)) => Exp time t -> Exp time t -> Exp time Bool
+  NEq :: (Eq t, Typeable t, ToJSON (Exp time t)) => Exp time t -> Exp time t -> Exp time Bool
+  ITE :: Exp time Bool -> Exp time t -> Exp time t -> Exp time t
+  UTEntry :: TStorageItem t -> Exp Untimed t
+  PreEntry :: TStorageItem t -> Exp Timed t
+  PostEntry :: TStorageItem t -> Exp Timed t
 
-deriving instance Show (Exp t)
+deriving instance Show (Exp time t)
 
-instance Eq (Exp t) where
+data Timed
+data Untimed
+
+instance Eq (Exp time t) where
   And a b == And c d = a == c && b == d
   Or a b == Or c d = a == c && b == d
   Impl a b == Impl c d = a == c && b == d
@@ -200,32 +205,34 @@ instance Eq (Exp t) where
 
   NewAddr a b == NewAddr c d = a == c && b == d
 
-  Eq (a :: Exp t1) (b :: Exp t1) == Eq (c :: Exp t2) (d :: Exp t2) = case eqT @t1 @t2 of
-    Just Refl -> a == c && b == d
-    Nothing -> False
-  NEq (a :: Exp t1) (b :: Exp t1) == NEq (c :: Exp t2) (d :: Exp t2) = case eqT @t1 @t2 of
-    Just Refl -> a == c && b == d
-    Nothing -> False
+  Eq (a :: Exp time t1) (b :: Exp time t1) == Eq (c :: Exp time t2) (d :: Exp time t2) =
+    case eqT @t1 @t2 of
+      Just Refl -> a == c && b == d
+      Nothing -> False
+  NEq (a :: Exp time t1) (b :: Exp time t1) == NEq (c :: Exp time t2) (d :: Exp time t2) =
+    case eqT @t1 @t2 of
+      Just Refl -> a == c && b == d
+      Nothing -> False
   ITE a b c == ITE d e f = a == d && b == e && c == f
-  TEntry a == TEntry b = a == b
+  UTEntry a == UTEntry b = a == b
 
   _ == _ = False
 
-instance Semigroup (Exp Bool) where
+instance Semigroup (Exp time Bool) where
   a <> b = And a b
 
-instance Monoid (Exp Bool) where
+instance Monoid (Exp time Bool) where
   mempty = LitBool True
 
 data ReturnExp
-  = ExpInt    (Exp Integer)
-  | ExpBool   (Exp Bool)
-  | ExpBytes  (Exp ByteString)
+  = ExpInt    (Exp Untimed Integer)
+  | ExpBool   (Exp Untimed Bool)
+  | ExpBytes  (Exp Untimed ByteString)
   deriving (Eq, Show)
 
 -- | Simplifies concrete expressions into literals.
 -- Returns `Nothing` if the expression contains symbols.
-eval :: Exp a -> Maybe a
+eval :: Exp t a -> Maybe a
 eval e = case e of
   And  a b    -> [a' && b' | a' <- eval a, b' <- eval b]
   Or   a b    -> [a' || b' | a' <- eval a, b' <- eval b]
@@ -267,38 +274,40 @@ eval e = case e of
   Eq a b      -> [a' == b' | a' <- eval a, b' <- eval b]
   NEq a b     -> [a' /= b' | a' <- eval a, b' <- eval b]
   ITE a b c   -> eval a >>= \cond -> if cond then eval b else eval c
-  TEntry _    -> empty
+  UTEntry _   -> empty
+  PreEntry _  -> empty
+  PostEntry _ -> empty
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
-  toJSON (S storages) = object [ "kind" .= (String "Storages")
-                                          , "storages" .= toJSON storages]
-  toJSON (I (Invariant {..})) = object [ "kind" .= (String "Invariant")
+  toJSON (S storages) = object [ "kind" .= String "Storages"
+                               , "storages" .= toJSON storages]
+  toJSON (I (Invariant {..})) = object [ "kind" .= String "Invariant"
                                        , "predicate" .= toJSON _predicate
                                        , "preconditions" .= toJSON _ipreconditions
                                        , "storagebounds" .= toJSON _istoragebounds
                                        , "contract" .= _icontract]
-  toJSON (C (Constructor {..})) = object  [ "kind" .= (String "Constructor")
+  toJSON (C (Constructor {..})) = object  [ "kind" .= String "Constructor"
                                           , "contract" .= _cname
                                           , "mode" .= (String . pack $ show _cmode)
                                           , "interface" .= (String . pack $ show _cinterface)
-                                          , "preConditions" .= (toJSON _cpreconditions)
-                                          , "postConditions" .= (toJSON _cpostconditions)
+                                          , "preConditions" .= toJSON _cpreconditions
+                                          , "postConditions" .= toJSON _cpostconditions
                                           , "storage" .= toJSON _initialStorage
                                           ]
-  toJSON (B (Behaviour {..})) = object  [ "kind" .= (String "Behaviour")
+  toJSON (B (Behaviour {..})) = object  [ "kind" .= String "Behaviour"
                                         , "name" .= _name
                                         , "contract" .= _contract
                                         , "mode" .= (String . pack $ show _mode)
                                         , "interface" .= (String . pack $ show _interface)
-                                        , "preConditions" .= (toJSON _preconditions)
-                                        , "postConditions" .= (toJSON _postconditions)
+                                        , "preConditions" .= toJSON _preconditions
+                                        , "postConditions" .= toJSON _postconditions
                                         , "stateUpdates" .= toJSON _stateUpdates
                                         , "returns" .= toJSON _returns]
 
 instance ToJSON SlotType where
   toJSON (StorageValue t) = object ["type" .= show t]
-  toJSON (StorageMapping ixTypes valType) = object [ "type" .= (String "mapping")
+  toJSON (StorageMapping ixTypes valType) = object [ "type" .= String "mapping"
                                                    , "ixTypes" .= show (toList ixTypes)
                                                    , "valType" .= show valType]
 
@@ -313,25 +322,25 @@ instance ToJSON StorageUpdate where
   toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
 instance ToJSON (TStorageItem b) where
-  toJSON (DirectInt a b) = object ["sort" .= (pack "int")
-                                  , "name" .= (String $ pack a <> "." <> pack b)]
-  toJSON (DirectBool a b) = object ["sort" .= (pack "bool")
-                                   , "name" .= (String $ pack a <> "." <> pack b)]
-  toJSON (DirectBytes a b) = object ["sort" .= (pack "bytes")
-                                    , "name" .= (String $ pack a <> "." <> pack b)]
+  toJSON (DirectInt a b) = object ["sort" .= pack "int"
+                                  , "name" .= String (pack a <> "." <> pack b)]
+  toJSON (DirectBool a b) = object ["sort" .= pack "bool"
+                                   , "name" .= String (pack a <> "." <> pack b)]
+  toJSON (DirectBytes a b) = object ["sort" .= pack "bytes"
+                                    , "name" .= String (pack a <> "." <> pack b)]
   toJSON (MappedInt a b c) = mapping a b c
   toJSON (MappedBool a b c) = mapping a b c
   toJSON (MappedBytes a b c) = mapping a b c
 
 instance ToJSON ReturnExp where
-   toJSON (ExpInt a) = object ["sort" .= (pack "int")
+   toJSON (ExpInt a) = object ["sort" .= pack "int"
                               ,"expression" .= toJSON a]
-   toJSON (ExpBool a) = object ["sort" .= (String $ pack "bool")
+   toJSON (ExpBool a) = object ["sort" .= String (pack "bool")
                                ,"expression" .= toJSON a]
-   toJSON (ExpBytes a) = object ["sort" .= (String $ pack "bytestring")
+   toJSON (ExpBytes a) = object ["sort" .= String (pack "bytestring")
                                ,"expression" .= toJSON a]
 
-instance ToJSON (Exp Integer) where
+instance ToJSON (Exp time Integer) where
   toJSON (Add a b) = symbol "+" a b
   toJSON (Sub a b) = symbol "-" a b
   toJSON (Exp a b) = symbol "^" a b
@@ -345,13 +354,13 @@ instance ToJSON (Exp Integer) where
   toJSON (UIntMin a) = toJSON $ show $ uintmin a
   toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
-  toJSON (TEntry a) = toJSON a
+  toJSON (UTEntry a) = toJSON a
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
-                              ,  "arity"    .= (Data.Aeson.Types.Number 3)
+                              ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
   toJSON v = error $ "todo: json ast for: " <> show v
 
-instance ToJSON (Exp Bool) where
+instance ToJSON (Exp time Bool) where
   toJSON (And a b)  = symbol "and" a b
   toJSON (Or a b)   = symbol "or" a b
   toJSON (LE a b)   = symbol "<" a b
@@ -364,23 +373,23 @@ instance ToJSON (Exp Bool) where
   toJSON (LitBool a) = String $ pack $ show a
   toJSON (BoolVar a) = toJSON a
   toJSON (Neg a) = object [  "symbol"   .= pack "not"
-                          ,  "arity"    .= (Data.Aeson.Types.Number 1)
-                          ,  "args"     .= (Array $ fromList [toJSON a])]
+                          ,  "arity"    .= Data.Aeson.Types.Number 1
+                          ,  "args"     .= Array (fromList [toJSON a])]
   toJSON v = error $ "todo: json ast for: " <> show v
 
-instance ToJSON (Exp ByteString) where
+instance ToJSON (Exp time ByteString) where
   toJSON a = String $ pack $ show a
 
 
 mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
 mapping c a b = object [  "symbol"   .= pack "lookup"
-                       ,  "arity"    .= (Data.Aeson.Types.Number 3)
-                       ,  "args"     .= (Array $ fromList [toJSON c, toJSON a, toJSON b])]
+                       ,  "arity"    .= Data.Aeson.Types.Number 3
+                       ,  "args"     .= Array (fromList [toJSON c, toJSON a, toJSON b])]
 
 symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
 symbol s a b = object [  "symbol"   .= pack s
-                      ,  "arity"    .= (Data.Aeson.Types.Number 2)
-                      ,  "args"     .= (Array $ fromList [toJSON a, toJSON b])]
+                      ,  "arity"    .= Data.Aeson.Types.Number 2
+                      ,  "args"     .= Array (fromList [toJSON a, toJSON b])]
 
 intmin :: Int -> Integer
 intmin a = negate $ 2 ^ (a - 1)

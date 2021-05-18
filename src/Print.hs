@@ -38,7 +38,7 @@ prettyBehaviour (Behaviour name _ contract interface preconditions postcondition
     block l = "  " <> intercalate "\n  " l
     x >-< y = x <> "\n" <> y
 
-prettyExp :: Exp a -> String
+prettyExp :: Exp time a -> String
 prettyExp e = case e of
 
   -- booleans
@@ -50,7 +50,7 @@ prettyExp e = case e of
   GEQ a b -> print2 ">=" a b
   And a b -> print2 "and" a b
   NEq a b -> print2 "=/=" a b
-  Neg a -> "(not " <> (prettyExp a) <> ")"
+  Neg a -> "(not " <> prettyExp a <> ")"
   Impl a b -> print2 "=>" a b
   LitBool b -> if b then "true" else "false"
   BoolVar b -> b
@@ -83,7 +83,9 @@ prettyExp e = case e of
 
   --polymorphic
   ITE a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  TEntry a -> prettyItem a
+  UTEntry a -> prettyItem a
+  PreEntry a -> "pre(" <> prettyItem a <> ")"
+  PostEntry a -> "post(" <> prettyItem a <> ")"
 
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
