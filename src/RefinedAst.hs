@@ -11,6 +11,7 @@
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
 {-# LANGUAGE MonadComprehensions #-}
+{-# Language DataKinds #-}
 
 module RefinedAst where
 
@@ -119,7 +120,7 @@ deriving instance Show (TStorageItem a)
 deriving instance Eq (TStorageItem a)
 
 -- typed expressions
-data Exp time t where
+data Exp :: TimeType -> * -> * where
   -- booleans
   And  :: Exp time Bool -> Exp time Bool -> Exp time Bool
   Or   :: Exp time Bool -> Exp time Bool -> Exp time Bool
@@ -130,7 +131,7 @@ data Exp time t where
   GEQ :: Exp time Integer -> Exp time Integer -> Exp time Bool
   GE :: Exp time Integer -> Exp time Integer -> Exp time Bool
   LitBool :: Bool -> Exp time Bool
-  TBoolVar :: Timed -> Id -> Exp Timed Bool
+  TBoolVar :: Timing -> Id -> Exp Timed Bool
   UTBoolVar :: Id -> Exp Untimed Bool
   -- integers
   Add :: Exp time Integer -> Exp time Integer -> Exp time Integer
@@ -140,7 +141,7 @@ data Exp time t where
   Mod :: Exp time Integer -> Exp time Integer -> Exp time Integer
   Exp :: Exp time Integer -> Exp time Integer -> Exp time Integer
   LitInt :: Integer -> Exp time Integer
-  TIntVar :: Timed -> Id -> Exp Timed Integer
+  TIntVar :: Timing -> Id -> Exp Timed Integer
   UTIntVar :: Id -> Exp Untimed Integer
   IntEnv :: EthEnv -> Exp time Integer
   -- bounds
@@ -151,7 +152,7 @@ data Exp time t where
   -- bytestrings
   Cat :: Exp time ByteString -> Exp time ByteString -> Exp time ByteString
   Slice :: Exp time ByteString -> Exp time Integer -> Exp time Integer -> Exp time ByteString
-  TByVar :: Timed -> Id -> Exp Timed ByteString
+  TByVar :: Timing -> Id -> Exp Timed ByteString
   UTByVar :: Id -> Exp Untimed ByteString
   ByStr :: String -> Exp time ByteString
   ByLit :: ByteString -> Exp time ByteString
@@ -164,16 +165,19 @@ data Exp time t where
   NEq :: (Eq t, Typeable t, ToJSON (Exp time t)) => Exp time t -> Exp time t -> Exp time Bool
   ITE :: Exp time Bool -> Exp time t -> Exp time t -> Exp time t
   UTEntry :: TStorageItem t -> Exp Untimed t
-  TEntry :: Timed -> TStorageItem t -> Exp Timed t
+  TEntry :: Timing -> TStorageItem t -> Exp Timed t
 
 deriving instance Show (Exp time t)
 
-data Untimed
+data TimeType = Timed | Untimed
   deriving Typeable
-data Timed = Pre | Post
-  deriving (Eq, Typeable)
+deriving instance Typeable Timed
+deriving instance Typeable Untimed 
 
-instance Show Timed where
+data Timing = Pre | Post
+  deriving Eq
+
+instance Show Timing where
   show Pre  = "pre"
   show Post = "post"
 
@@ -405,7 +409,7 @@ symbol s a b = object [  "symbol"   .= pack s
                       ,  "arity"    .= Data.Aeson.Types.Number 2
                       ,  "args"     .= Array (fromList [toJSON a, toJSON b])]
 
-unary :: (Show s, ToJSON a) => s -> a -> Value
+unary :: ToJSON a => String -> a -> Value
 unary s a = object [ "symbol" .= show s
                    , "arity"  .= Data.Aeson.Types.Number 1
                    , "args"   .= toJSON a]
