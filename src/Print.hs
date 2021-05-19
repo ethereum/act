@@ -53,7 +53,8 @@ prettyExp e = case e of
   Neg a -> "(not " <> prettyExp a <> ")"
   Impl a b -> print2 "=>" a b
   LitBool b -> if b then "true" else "false"
-  BoolVar b -> b
+  UTBoolVar b -> b
+  TBoolVar t b -> time t b
 
   -- integers
   Add a b -> print2 "+" a b
@@ -67,13 +68,15 @@ prettyExp e = case e of
   IntMax a -> show $ intmax a
   IntMin a -> show $ intmin a
   LitInt a -> show a
-  IntVar a -> a
+  UTIntVar a -> a
+  TIntVar t a -> time t a
   IntEnv a -> prettyEnv a
 
   -- bytestrings
   Cat a b -> print2 "++" a b
   Slice a b c -> (prettyExp a) <> "[" <> (prettyExp b) <> ":" <> (prettyExp c) <> "]"
-  ByVar a -> a
+  UTByVar a -> a
+  TByVar t a -> time t a
   ByStr a -> a
   ByLit a -> toString a
   ByEnv a -> prettyEnv a
@@ -84,11 +87,11 @@ prettyExp e = case e of
   --polymorphic
   ITE a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
   UTEntry a -> prettyItem a
-  PreEntry a -> "pre(" <> prettyItem a <> ")"
-  PostEntry a -> "post(" <> prettyItem a <> ")"
+  TEntry t a -> time t (prettyItem a)
 
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
+    time when a = show when <> "(" <> a <> ")"
 
 prettyReturnExp :: ReturnExp -> String
 prettyReturnExp e = case e of
@@ -133,9 +136,3 @@ prettyEnv e = case e of
   Timestamp -> "TIMESTAMP"
   This -> "THIS"
   Nonce -> "NONCE"
-
-prettyType :: ReturnExp -> String
-prettyType ret = case ret of
-  ExpInt _ -> "Integer"
-  ExpBool _ -> "Boolean"
-  ExpBytes _ -> "ByteString"

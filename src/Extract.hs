@@ -74,8 +74,7 @@ locsFromExp = nub . go
       ByEnv _ -> []
       ITE x y z -> go x <> go y <> go z
       UTEntry a -> locsFromStorageItem a
-      PreEntry a -> locsFromStorageItem a
-      PostEntry a -> locsFromStorageItem a
+      TEntry _ a -> locsFromStorageItem a
 
 locsFromStorageItem :: TStorageItem a -> [StorageLocation]
 locsFromStorageItem t = case t of
@@ -124,7 +123,6 @@ ethEnvFromReturnExp (ExpInt e) = ethEnvFromExp e
 ethEnvFromReturnExp (ExpBool e) = ethEnvFromExp e
 ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
 
-
 ethEnvFromExp :: Exp t a -> [EthEnv]
 ethEnvFromExp = nub . go
   where
@@ -163,8 +161,8 @@ ethEnvFromExp = nub . go
       NewAddr a b -> go a <> go b
       IntEnv a -> [a]
       ByEnv a -> [a]
-      PreEntry a  -> ethEnvFromItem a
-      PostEntry a  -> ethEnvFromItem a
+      UTEntry a  -> ethEnvFromItem a
+      TEntry _ a  -> ethEnvFromItem a
 
 getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
 getLoc = either id mkLoc

@@ -96,9 +96,9 @@ data MType
   deriving (Eq, Ord, Show, Read)
 
 data StorageUpdate
-  = IntUpdate (TStorageItem Integer) (Exp Timed Integer)
-  | BoolUpdate (TStorageItem Bool) (Exp Timed Bool)
-  | BytesUpdate (TStorageItem ByteString) (Exp Timed ByteString)
+  = IntUpdate (TStorageItem Integer) (Exp Untimed Integer)
+  | BoolUpdate (TStorageItem Bool) (Exp Untimed Bool)
+  | BytesUpdate (TStorageItem ByteString) (Exp Untimed ByteString)
   deriving (Show, Eq)
 
 data StorageLocation
@@ -130,7 +130,8 @@ data Exp time t where
   GEQ :: Exp time Integer -> Exp time Integer -> Exp time Bool
   GE :: Exp time Integer -> Exp time Integer -> Exp time Bool
   LitBool :: Bool -> Exp time Bool
-  BoolVar :: Id -> Exp time Bool
+  TBoolVar :: Timed -> Id -> Exp Timed Bool
+  UTBoolVar :: Id -> Exp Untimed Bool
   -- integers
   Add :: Exp time Integer -> Exp time Integer -> Exp time Integer
   Sub :: Exp time Integer -> Exp time Integer -> Exp time Integer
@@ -139,7 +140,8 @@ data Exp time t where
   Mod :: Exp time Integer -> Exp time Integer -> Exp time Integer
   Exp :: Exp time Integer -> Exp time Integer -> Exp time Integer
   LitInt :: Integer -> Exp time Integer
-  IntVar :: Id -> Exp time Integer
+  TIntVar :: Timed -> Id -> Exp Timed Integer
+  UTIntVar :: Id -> Exp Untimed Integer
   IntEnv :: EthEnv -> Exp time Integer
   -- bounds
   IntMin :: Int -> Exp time Integer
@@ -149,7 +151,8 @@ data Exp time t where
   -- bytestrings
   Cat :: Exp time ByteString -> Exp time ByteString -> Exp time ByteString
   Slice :: Exp time ByteString -> Exp time Integer -> Exp time Integer -> Exp time ByteString
-  ByVar :: Id -> Exp time ByteString
+  TByVar :: Timed -> Id -> Exp Timed ByteString
+  UTByVar :: Id -> Exp Untimed ByteString
   ByStr :: String -> Exp time ByteString
   ByLit :: ByteString -> Exp time ByteString
   ByEnv :: EthEnv -> Exp time ByteString
@@ -161,13 +164,18 @@ data Exp time t where
   NEq :: (Eq t, Typeable t, ToJSON (Exp time t)) => Exp time t -> Exp time t -> Exp time Bool
   ITE :: Exp time Bool -> Exp time t -> Exp time t -> Exp time t
   UTEntry :: TStorageItem t -> Exp Untimed t
-  PreEntry :: TStorageItem t -> Exp Timed t
-  PostEntry :: TStorageItem t -> Exp Timed t
+  TEntry :: Timed -> TStorageItem t -> Exp Timed t
 
 deriving instance Show (Exp time t)
 
-data Timed
 data Untimed
+  deriving Typeable
+data Timed = Pre | Post
+  deriving (Eq, Typeable)
+
+instance Show Timed where
+  show Pre  = "pre"
+  show Post = "post"
 
 instance Eq (Exp time t) where
   And a b == And c d = a == c && b == d
@@ -179,7 +187,8 @@ instance Eq (Exp time t) where
   GEQ a b == GEQ c d = a == c && b == d
   GE a b == GE c d = a == c && b == d
   LitBool a == LitBool b = a == b
-  BoolVar a == BoolVar b = a == b
+  UTBoolVar a == UTBoolVar b = a == b
+  TBoolVar t a == TBoolVar t' b = a == b && t == t'
 
   Add a b == Add c d = a == c && b == d
   Sub a b == Sub c d = a == c && b == d
@@ -188,7 +197,8 @@ instance Eq (Exp time t) where
   Mod a b == Mod c d = a == c && b == d
   Exp a b == Exp c d = a == c && b == d
   LitInt a == LitInt b = a == b
-  IntVar a == IntVar b = a == b
+  UTIntVar a == UTIntVar b = a == b
+  TIntVar t a == TIntVar t' b = a == b && t == t'
   IntEnv a == IntEnv b = a == b
 
   IntMin a == IntMin b = a == b
@@ -198,7 +208,8 @@ instance Eq (Exp time t) where
 
   Cat a b == Cat c d = a == c && b == d
   Slice a b c == Slice d e f = a == d && b == e && c == f
-  ByVar a == ByVar b = a == b
+  UTByVar a == UTByVar b = a == b
+  TByVar t a == TByVar t' b = a == b && t == t'
   ByStr a == ByStr b = a == b
   ByLit a == ByLit b = a == b
   ByEnv a == ByEnv b = a == b
@@ -215,6 +226,7 @@ instance Eq (Exp time t) where
       Nothing -> False
   ITE a b c == ITE d e f = a == d && b == e && c == f
   UTEntry a == UTEntry b = a == b
+  TEntry t a == TEntry t' b = a == b && t == t'
 
   _ == _ = False
 
@@ -347,7 +359,7 @@ instance ToJSON (Exp time Integer) where
   toJSON (Mul a b) = symbol "*" a b
   toJSON (Div a b) = symbol "/" a b
   toJSON (NewAddr a b) = symbol "newAddr" a b
-  toJSON (IntVar a) = String $ pack a
+  toJSON (UTIntVar a) = String $ pack a
   toJSON (LitInt a) = toJSON $ show a
   toJSON (IntMin a) = toJSON $ show $ intmin a
   toJSON (IntMax a) = toJSON $ show $ intmax a
@@ -355,6 +367,7 @@ instance ToJSON (Exp time Integer) where
   toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
   toJSON (UTEntry a) = toJSON a
+  toJSON (TEntry t a) = unary (show t) a
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
@@ -371,7 +384,8 @@ instance ToJSON (Exp time Bool) where
   toJSON (LEQ a b)  = symbol "<=" a b
   toJSON (GEQ a b)  = symbol ">=" a b
   toJSON (LitBool a) = String $ pack $ show a
-  toJSON (BoolVar a) = toJSON a
+  toJSON (UTBoolVar a) = toJSON a
+  toJSON (TBoolVar t a) = unary (show t) a
   toJSON (Neg a) = object [  "symbol"   .= pack "not"
                           ,  "arity"    .= Data.Aeson.Types.Number 1
                           ,  "args"     .= Array (fromList [toJSON a])]
@@ -390,6 +404,11 @@ symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
 symbol s a b = object [  "symbol"   .= pack s
                       ,  "arity"    .= Data.Aeson.Types.Number 2
                       ,  "args"     .= Array (fromList [toJSON a, toJSON b])]
+
+unary :: (Show s, ToJSON a) => s -> a -> Value
+unary s a = object [ "symbol" .= show s
+                   , "arity"  .= Data.Aeson.Types.Number 1
+                   , "args"   .= toJSON a]
 
 intmin :: Int -> Integer
 intmin a = negate $ 2 ^ (a - 1)
