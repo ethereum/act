@@ -24,6 +24,8 @@ import Data.Type.Equality
 import Data.Typeable
 import Data.Functor (($>))
 
+import Data.Coerce (coerce)
+
 import Data.ByteString (ByteString)
 
 import Control.Monad
@@ -96,9 +98,7 @@ splitBehaviour :: Store -> RawBehaviour -> Err [Claim]
 splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases posts) = do
   -- constrain integer calldata variables (TODO: other types)
   iff <- checkIffs env iffs'
-  postcondition <- forM posts $ \expr -> do
-    bexp <- checkBool (getPosn expr) env expr
-    checkTimed (getPosn expr) bexp
+  postcondition <- mapM (\expr -> checkBool (getPosn expr) env expr) posts
   flatten iff postcondition cases
   where
     env :: Env
@@ -109,21 +109,15 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
     normalize cases' =
       let wildcard (Case _ (WildExp _) _) = True
           wildcard _ = False
-      in fromMaybe
-            (pure . snd $ mapAccumL checkCase (BoolLit nowhere False) cases')
-            $ do
-                ind <- findIndex wildcard cases'
-                Case p _ _ <- _ cases' ind
-                pure $ Bad (p, "Wildcard pattern must be last case")
+      in case findIndex wildcard cases' of
+        Nothing -> return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
+        Just ind ->
+          -- wildcard must be last element
+          if ind < length cases' - 1
+          then case cases' !! ind of
+            (Case p _ _) -> Bad (p, "Wildcard pattern must be last case")
+          else return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
 
---        of
---        Nothing -> return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
---        Just ind ->
---          -- wildcard must be last element
---          if ind < length cases' - 1
---          then case cases' !! ind of
---            (Case p _ _) -> Bad (p, "Wildcard pattern must be last case")
---          else return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
 
     checkCase :: Expr -> Case -> (Expr, Case)
     checkCase acc (Case p (WildExp _) post) =
@@ -351,7 +345,10 @@ checkExpr p env e typ = case metaType typ of
   ByteStr -> ExpBytes <$> checkBytes p env e
 
 inferExpr :: Env -> Expr -> Err (TypedExp time)
-inferExpr env@(contract, ours, _,thisContext) expr =
+inferExpr env e = inferExpr' Proxy env e 
+
+inferExpr' :: Proxy time -> Env -> Expr -> Err (TypedExp time)
+inferExpr' (Proxy :: Proxy time) env@(contract, ours, _,thisContext) expr =
   let intintint p op v1 v2 = do w1 <- checkInt p env v1
                                 w2 <- checkInt p env v2
                                 Ok . EInt $ op w1 w2
@@ -369,7 +366,7 @@ inferExpr env@(contract, ours, _,thisContext) expr =
       entry pn time name es = case (Map.lookup name ours, Map.lookup name thisContext) of
         (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
         (Nothing, Just c) -> case c of
-          Integer -> Ok _
+          Integer -> Ok undefined
           --Boolean -> Ok . EBool $ UTBoolVar name
           --ByteStr -> Ok . EBy $ UTByVar name
         --(Just (StorageValue a), Nothing) -> case metaType a of
@@ -466,6 +463,8 @@ checkBool p env e =
     Ok (EBy _) -> Bad (p, "expected: bool, got: bytes")
     Ok (EBool a) -> Ok a
     Bad err -> Bad err
+  where
+    p = getPosn e
 
 checkBytes :: Pn -> Env -> Expr -> Err (Exp time ByteString)
 checkBytes p env e =
