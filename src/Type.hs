@@ -9,6 +9,7 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language KindSignatures #-}
 {-# Language ImplicitParams #-}
+{-# Language NamedFieldPuns #-}
 
 module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
 
@@ -71,8 +72,12 @@ duplicates (x:xs) =
   let e = ([x | x `elem` xs])
   in e <> duplicates xs
 
--- typing of vars: this contract name, this contract storage, other contract scopes, calldata args
-type Env = (Id, Map Id SlotType, Store, Map Id MType)
+data Env = Env
+  { contract :: Id
+  , store    :: Map Id SlotType
+  , theirs   :: Store
+  , calldata :: Map Id MType
+  }
 
 -- typing of eth env variables
 defaultStore :: [(EthEnv, MType)]
@@ -161,7 +166,12 @@ splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Create
            <> cases'
 
 mkEnv :: Id -> Store -> [Decl]-> Env
-mkEnv contract store decls = (contract, fromMaybe mempty (Map.lookup contract store), store, abiVars)
+mkEnv contract store decls = Env
+  { contract = contract
+  , store    = fromMaybe mempty (Map.lookup contract store)
+  , theirs   = store
+  , calldata = abiVars
+  }
  where
    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
 
@@ -182,7 +192,7 @@ noStorageRead store expr = forM_ (keys store) $ \name ->
   
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
-checkAssign env@(contract, store, _, _) (AssignVal (StorageVar (StorageValue typ) name) expr)
+checkAssign env@Env{contract, store} (AssignVal (StorageVar (StorageValue typ) name) expr)
   = noStorageRead store expr >>
   case metaType typ of
     Integer -> do
@@ -194,7 +204,7 @@ checkAssign env@(contract, store, _, _) (AssignVal (StorageVar (StorageValue typ
     ByteStr -> do
       val <- checkBytes (getPosn expr) env expr
       return [BytesUpdate (DirectBytes contract name) val]
-checkAssign env@(_, store, _, _) (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
+checkAssign env@Env{store} (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
   = forM defns $ \def@(Defn e1 e2) -> do
       mapM_ (noStorageRead store) [e1,e2]
       checkDefn env keyType valType name def
@@ -207,7 +217,7 @@ checkAssign _ _ = error "todo: support struct assignment in constructors"
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
 checkDefn :: Env -> AbiType -> AbiType -> Id -> Defn -> Err StorageUpdate
-checkDefn env@(contract, _, _, _) keyType valType name (Defn k v) = case metaType keyType of
+checkDefn env@Env{contract} keyType valType name (Defn k v) = case metaType keyType of
     Integer -> do
       key <- checkInt (getPosn k) env k
       checkVal (ExpInt key)
@@ -231,7 +241,7 @@ checkDefn env@(contract, _, _, _) keyType valType name (Defn k v) = case metaTyp
             return $ BytesUpdate (MappedBytes contract name (key :| [])) val
 
 checkPost :: Env -> Syntax.Post -> Err ([Either StorageLocation StorageUpdate], Maybe ReturnExp)
-checkPost (contract, _, theirs, calldata) (Syntax.Post maybeStorage extStorage maybeReturn) =
+checkPost Env{contract,theirs,calldata} (Syntax.Post maybeStorage extStorage maybeReturn) =
   do returnexp <- mapM (fmap returnExp . inferExpr scopedEnv) $ maybeReturn
      ourStorage <- case maybeStorage of
        Just entries -> checkEntries contract entries
@@ -254,7 +264,12 @@ checkPost (contract, _, theirs, calldata) (Syntax.Post maybeStorage extStorage m
 
     -- remove storage items from the env that are not mentioned on the LHS of a storage declaration
     scopedEnv :: Env
-    scopedEnv = focus contract (mempty, mempty, filtered, calldata)
+    scopedEnv = focus contract $ Env
+      { contract = mempty
+      , store    = mempty
+      , theirs   = filtered
+      , calldata = calldata
+      }
       where
         filtered = Map.mapWithKey (\name vars ->
             if (name == contract)
@@ -263,8 +278,12 @@ checkPost (contract, _, theirs, calldata) (Syntax.Post maybeStorage extStorage m
           ) theirs
 
     focus :: Id -> Env -> Env
-    focus name (_, _, theirs', calldata') =
-      (name, fromMaybe mempty (Map.lookup name theirs'), theirs', calldata')
+    focus name Env{theirs,calldata} = Env
+      { contract = name
+      , store    = fromMaybe mempty (Map.lookup name theirs)
+      , theirs   = theirs
+      , calldata = calldata
+      }
 
     localNames :: [Id]
     localNames = nameFromStorage <$> fromMaybe mempty maybeStorage
@@ -277,8 +296,8 @@ checkPost (contract, _, theirs, calldata) (Syntax.Post maybeStorage extStorage m
       ) extStorage
 
 checkStorageExpr :: Env -> Pattern -> Expr -> Err StorageUpdate
-checkStorageExpr env@(contract, ours, _, _) (PEntry p name ixs) expr =
-    case Map.lookup name ours of
+checkStorageExpr env@Env{contract,store} (PEntry p name ixs) expr =
+    case Map.lookup name store of
       Just (StorageValue t)  -> case metaType t of
           Integer -> IntUpdate (DirectInt contract name) <$> checkInt p env expr
           Boolean -> BoolUpdate (DirectBool contract name) <$> checkBool p env expr
@@ -295,8 +314,8 @@ checkStorageExpr env@(contract, ours, _, _) (PEntry p name ixs) expr =
 checkStorageExpr _ (PWild _) _ = error "TODO: add support for wild storage to checkStorageExpr"
 
 checkPattern :: Env -> Pattern -> Err StorageLocation
-checkPattern env@(contract, ours, _, _) (PEntry p name ixs) =
-  case Map.lookup name ours of
+checkPattern env@Env{contract,store} (PEntry p name ixs) =
+  case Map.lookup name store of
     Just (StorageValue t) -> case metaType t of
           Integer -> Ok $ IntLoc (DirectInt contract name)
           Boolean -> Ok $ BoolLoc (DirectBool contract name)
@@ -348,7 +367,7 @@ inferExpr :: Env -> Expr -> Err (TypedExp time)
 inferExpr env e = inferExpr' Proxy env e 
 
 inferExpr' :: Proxy time -> Env -> Expr -> Err (TypedExp time)
-inferExpr' (Proxy :: Proxy time) env@(contract, ours, _,thisContext) expr =
+inferExpr' (Proxy :: Proxy time) env@Env{contract,store,calldata} expr =
   let intintint p op v1 v2 = do w1 <- checkInt p env v1
                                 w2 <- checkInt p env v2
                                 Ok . EInt $ op w1 w2
@@ -363,7 +382,7 @@ inferExpr' (Proxy :: Proxy time) env@(contract, ours, _,thisContext) expr =
                                      Ok . EBool $ op w1 w2
 
 
-      entry pn time name es = case (Map.lookup name ours, Map.lookup name thisContext) of
+      entry pn time name es = case (Map.lookup name store, Map.lookup name calldata) of
         (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
         (Nothing, Just c) -> case c of
           Integer -> Ok undefined
@@ -380,27 +399,7 @@ inferExpr' (Proxy :: Proxy time) env@(contract, ours, _,thisContext) expr =
         --     Integer -> EInt . UTEntry . MappedInt contract name <$> indexExprs
         --     Boolean -> EBool . UTEntry . MappedBool contract name <$> indexExprs
         --     ByteStr -> EBy . UTEntry . MappedBytes contract name <$> indexExprs
-        (Just _, Just _) -> Bad (pn, "Ambiguous variable: " <> show name)
-        
-      
-{- first
-
-    | untimed var | timed var
-    |-------------+--------
-int | UTIntVar    | TIntVar 
-bool| UTBoolVar   | TBoolVar
-byte| UTByVar     | TByVar
-
-
-   last
-
-    | 
-    |--------
-int | EInt
-bool| EBool
-byte| EBy
--}
-      
+        (Just _, Just _) -> Bad (pn, "Ambiguous variable: " <> show name)   
   in case expr of
     ENot p  v1    -> EBool . Neg <$> checkBool p env v1
     EAnd p  v1 v2 -> boolboolbool p And  v1 v2
@@ -410,26 +409,26 @@ byte| EBy
       l <- inferExpr env v1
       r <- inferExpr env v2
       case (l, r) of
-        --(EInt _,  EInt _)  -> boolintint p Eq v1 v2
-        --(EBool _, EBool _) -> boolboolbool p Eq v1 v2
-        --(EBy _,   EBy _)   -> boolbytesbytes p Eq v1 v2
+        (EInt _,  EInt _)  -> boolintint p Eq v1 v2
+        (EBool _, EBool _) -> boolboolbool p Eq v1 v2
+        (EBy _,   EBy _)   -> boolbytesbytes p Eq v1 v2
         (_, _) -> Bad (p, "mismatched types: " <> prettyType l <> " == " <> prettyType r)
---    ENeq p  v1 v2 -> boolintint  p NEq v1 v2
---    ELT p   v1 v2 -> boolintint  p LE   v1 v2
---    ELEQ p  v1 v2 -> boolintint  p LEQ  v1 v2
---    EGEQ p  v1 v2 -> boolintint  p GEQ  v1 v2
---    EGT p   v1 v2 -> boolintint  p GE   v1 v2
+    ENeq p  v1 v2 -> boolintint  p NEq v1 v2
+    ELT p   v1 v2 -> boolintint  p LE   v1 v2
+    ELEQ p  v1 v2 -> boolintint  p LEQ  v1 v2
+    EGEQ p  v1 v2 -> boolintint  p GEQ  v1 v2
+    EGT p   v1 v2 -> boolintint  p GE   v1 v2
     -- TODO: make ITE polymorphic
---    EITE p v1 v2 v3 -> do w1 <- checkBool p env v1
---                          w2 <- checkInt p env v2
---                          w3 <- checkInt p env v3
---                          Ok . EInt $ ITE w1 w2 w3
---    EAdd p v1 v2 -> intintint p Add v1 v2
---    ESub p v1 v2 -> intintint p Sub v1 v2
---    EMul p v1 v2 -> intintint p Mul v1 v2
---    EDiv p v1 v2 -> intintint p Div v1 v2
---    EMod p v1 v2 -> intintint p Mod v1 v2
---    EExp p v1 v2 -> intintint p Exp v1 v2
+    EITE p v1 v2 v3 -> do w1 <- checkBool p env v1
+                          w2 <- checkInt p env v2
+                          w3 <- checkInt p env v3
+                          Ok . EInt $ ITE w1 w2 w3
+    EAdd p v1 v2 -> intintint p Add v1 v2
+    ESub p v1 v2 -> intintint p Sub v1 v2
+    EMul p v1 v2 -> intintint p Mul v1 v2
+    EDiv p v1 v2 -> intintint p Div v1 v2
+    EMod p v1 v2 -> intintint p Mod v1 v2
+    EExp p v1 v2 -> intintint p Exp v1 v2
     IntLit _ n  -> Ok . EInt $ LitInt n
     BoolLit _ n -> Ok . EBool $ LitBool n
     EUTEntry p x e  -> entry p Nothing x e
@@ -439,10 +438,6 @@ byte| EBy
       Just Integer -> Ok . EInt . IntEnv $ v1
       Just ByteStr -> Ok . EBy . ByEnv $ v1
       _            -> Bad (p, "unknown environment variable: " <> show v1)
-    -- Var p v -> case Map.lookup v thisContext of
-    --   Just Integer -> Ok $ IntVar v
-    --   _ -> Bad $ (p, "Unexpected variable: " <> show v <> " of type integer")
-
     v -> error $ "internal error: infer type of:" <> show v
     -- Wild ->
     -- Zoom Var Exp

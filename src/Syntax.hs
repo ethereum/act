@@ -99,9 +99,6 @@ data Expr
   | EUTEntry Pn Id [Expr]
   | EPreEntry Pn Id [Expr]
   | EPostEntry Pn Id [Expr]
---  | EUTEntryEntryExp Pn Entry
---  | EPreEntry Pn Entry
---  | EPostEntry Pn Entry
 --    | Look Pn Id [Expr]
   | Func Pn Id [Expr]
   | ListConst Expr
