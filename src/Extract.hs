@@ -77,7 +77,7 @@ locsFromExp = nub . go
       ByEnv _ -> []
       ITE x y z -> go x <> go y <> go z
       UTEntry a -> locsFromStorageItem a
-      TEntry _ a -> locsFromStorageItem a
+      TEntry a _ -> locsFromStorageItem a
 
 locsFromStorageItem :: TStorageItem a -> [StorageLocation]
 locsFromStorageItem t = case t of
@@ -168,7 +168,7 @@ ethEnvFromExp = nub . go
       IntEnv a -> [a]
       ByEnv a -> [a]
       UTEntry a  -> ethEnvFromItem a
-      TEntry _ a  -> ethEnvFromItem a
+      TEntry a _  -> ethEnvFromItem a
 
 getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
 getLoc = either id mkLoc

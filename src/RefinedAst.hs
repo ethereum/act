@@ -133,7 +133,7 @@ data Exp :: TimeType -> * -> * where
   GEQ :: Exp time Integer -> Exp time Integer -> Exp time Bool
   GE :: Exp time Integer -> Exp time Integer -> Exp time Bool
   LitBool :: Bool -> Exp time Bool
-  TBoolVar :: Timing -> Id -> Exp Timed Bool
+  TBoolVar :: Id -> Timing -> Exp Timed Bool
   UTBoolVar :: Id -> Exp Untimed Bool
   -- integers
   Add :: Exp time Integer -> Exp time Integer -> Exp time Integer
@@ -143,7 +143,7 @@ data Exp :: TimeType -> * -> * where
   Mod :: Exp time Integer -> Exp time Integer -> Exp time Integer
   Exp :: Exp time Integer -> Exp time Integer -> Exp time Integer
   LitInt :: Integer -> Exp time Integer
-  TIntVar :: Timing -> Id -> Exp Timed Integer
+  TIntVar :: Id -> Timing -> Exp Timed Integer
   UTIntVar :: Id -> Exp Untimed Integer
   IntEnv :: EthEnv -> Exp time Integer
   -- bounds
@@ -154,7 +154,7 @@ data Exp :: TimeType -> * -> * where
   -- bytestrings
   Cat :: Exp time ByteString -> Exp time ByteString -> Exp time ByteString
   Slice :: Exp time ByteString -> Exp time Integer -> Exp time Integer -> Exp time ByteString
-  TByVar :: Timing -> Id -> Exp Timed ByteString
+  TByVar :: Id -> Timing -> Exp Timed ByteString
   UTByVar :: Id -> Exp Untimed ByteString
   ByStr :: String -> Exp time ByteString
   ByLit :: ByteString -> Exp time ByteString
@@ -163,16 +163,11 @@ data Exp :: TimeType -> * -> * where
   NewAddr :: Exp time Integer -> Exp time Integer -> Exp time Integer
 
   -- polymorphic
--- <<<<<<< HEAD
---   Eq  :: (Eq t, Typeable t, ToJSON (Exp time t)) => Exp time t -> Exp time t -> Exp time Bool
---   NEq :: (Eq t, Typeable t, ToJSON (Exp time t)) => Exp time t -> Exp time t -> Exp time Bool
--- =======
   Eq  :: (Eq t, Typeable t) => Exp time t -> Exp time t -> Exp time Bool
   NEq :: (Eq t, Typeable t) => Exp time t -> Exp time t -> Exp time Bool
--- >>>>>>> fa37019... `polybranch` works
   ITE :: Exp time Bool -> Exp time t -> Exp time t -> Exp time t
   UTEntry :: TStorageItem t -> Exp Untimed t
-  TEntry :: Timing -> TStorageItem t -> Exp Timed t
+  TEntry :: TStorageItem t -> Timing -> Exp Timed t
 
 deriving instance Show (Exp time t)
 
@@ -380,7 +375,7 @@ instance ToJSON (Exp time Integer) where
   toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
   toJSON (UTEntry a) = toJSON a
-  toJSON (TEntry t a) = unary (show t) a
+  toJSON (TEntry a t) = unary (show t) a
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
@@ -398,7 +393,7 @@ instance ToJSON (Exp time Bool) where
   toJSON (GEQ a b)  = symbol ">=" a b
   toJSON (LitBool a) = String $ pack $ show a
   toJSON (UTBoolVar a) = toJSON a
-  toJSON (TBoolVar t a) = unary (show t) a
+  toJSON (TBoolVar a t) = unary (show t) a
   toJSON (Neg a) = object [  "symbol"   .= pack "not"
                           ,  "arity"    .= Data.Aeson.Types.Number 1
                           ,  "args"     .= Array (fromList [toJSON a])]

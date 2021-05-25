@@ -54,7 +54,7 @@ prettyExp e = case e of
   Impl a b -> print2 "=>" a b
   LitBool b -> if b then "true" else "false"
   UTBoolVar b -> b
-  TBoolVar t b -> time t b
+  TBoolVar b t -> time b t
 
   -- integers
   Add a b -> print2 "+" a b
@@ -69,14 +69,14 @@ prettyExp e = case e of
   IntMin a -> show $ intmin a
   LitInt a -> show a
   UTIntVar a -> a
-  TIntVar t a -> time t a
+  TIntVar a t -> time a t
   IntEnv a -> prettyEnv a
 
   -- bytestrings
   Cat a b -> print2 "++" a b
   Slice a b c -> (prettyExp a) <> "[" <> (prettyExp b) <> ":" <> (prettyExp c) <> "]"
   UTByVar a -> a
-  TByVar t a -> time t a
+  TByVar a t -> time a t
   ByStr a -> a
   ByLit a -> toString a
   ByEnv a -> prettyEnv a
@@ -87,11 +87,11 @@ prettyExp e = case e of
   --polymorphic
   ITE a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
   UTEntry a -> prettyItem a
-  TEntry t a -> time t (prettyItem a)
+  TEntry a t -> time (prettyItem a) t
 
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
-    time when a = show when <> "(" <> a <> ")"
+    time a when = show when <> "(" <> a <> ")"
 
 prettyReturnExp :: ReturnExp -> String
 prettyReturnExp e = case e of

@@ -11,6 +11,7 @@
 {-# Language ImplicitParams #-}
 {-# Language NamedFieldPuns #-}
 {-# Language BlockArguments #-}
+{-# Language TypeOperators #-}
 
 module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
 
@@ -369,7 +370,7 @@ inferExpr :: (Typeable a, Typeable time) => Env -> Expr -> Err (Exp time a)
 inferExpr env e = inferExpr' Proxy Proxy env e 
 
 inferExpr' :: forall t a. (Typeable t, Typeable a) => Proxy t -> Proxy a -> Env -> Expr -> Err (Exp t a)
-inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
+inferExpr' (expectedTime :: Proxy t) expectedType env@Env{contract,store,calldata} expr =
   case expr of
     ENot p  v1    -> typeLeaf Proxy p =<< inferExpr @Bool env v1
     EAnd p  v1 v2 -> branch Proxy p And v1 v2
@@ -418,13 +419,14 @@ inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
     typeLeaf actual pn e = maybe
       (Bad (pn,"Type mismatch. Expected " <> show (typeRep expectedType) <> ", got " <> show (typeRep actual)))
       pure
-      (cast e)
+      (gcast e)
 
+    -- TODO probably remove timeLeaf
     timeLeaf :: Typeable u => Proxy u -> Pn -> Exp u a -> Err (Exp t a)
     timeLeaf actual pn e = maybe
       (Bad (pn,"Time mismatch. Expected " <> show (typeRep expectedType) <> ", got " <> show (typeRep actual)))
       pure
-      (cast e)
+      (gcast0 e)
 
     branch :: (Typeable y, Typeable x)
            => Proxy x
@@ -445,7 +447,10 @@ inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
     entry :: Pn -> Maybe Timing -> Id -> [Expr] -> Err (Exp t a)
     entry pn timing name es = case (Map.lookup name store, Map.lookup name calldata) of
       (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
-      (Nothing, Just c)  -> chooseCons c <*> pure name
+      (Nothing, Just c)  -> case c of
+        Integer -> makeVar UTIntVar TIntVar
+        Boolean -> makeVar UTBoolVar TBoolVar
+        ByteStr -> makeVar UTByVar TByVar
       --(Just (StorageValue a), Nothing) -> undefined -- chooseCons p Nothing (metaType a) <*> pure name
       --(Just (StorageValue a), Nothing) -> case metaType a of
       --  Integer -> pure . UTEntry $ DirectInt contract name
@@ -458,20 +463,12 @@ inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
       --     ByteStr -> UTEntry . MappedBytes contract name <$> indexExprs
       (Just _, Just _) -> Bad (pn, "Ambiguous variable: " <> show name)   
       where
-        --chooseCons :: Pn -> Maybe Timing -> MType -> Err (Id -> Exp t a)
-        chooseCons typ = errMessage (pn, "chooseCons error, mismatched times I think? lol")
-          case timing of
-            Just time -> case typ of
-              Integer -> cast $ TIntVar time
-              Boolean -> cast $ TBoolVar time
-              ByteStr -> cast $ TByVar time
-            Nothing -> case typ of
-              Integer -> cast $ UTIntVar
-              Boolean -> cast $ UTBoolVar
-              ByteStr -> cast $ UTByVar
+        makeVar :: Typeable x => (Id -> Exp Untimed x) -> (Id -> Timing -> Exp Timed x) -> Err (Exp t a)
+        makeVar untimed timed = do
+          res <- errMessage (pn, "makeVar error: mismatched times")
+                   $ maybe (gcast0 $ untimed name)  (gcast0 . timed name)  timing
+          typeLeaf Proxy pn res
 
-    --timedEntry :: Pn -> Id -> [Expr] -> Err (Exp Timed a)
-    --timedEntry pn name es = 
 
     --entry :: Pn -> Maybe Timing -> Id -> [Expr] -> Err (Exp t a)
     --entry pn time name es = case (Map.lookup name store, Map.lookup name calldata) of
@@ -533,3 +530,6 @@ checkTimed pn (e :: Exp time t) = case cast e of
     Just e' -> Ok e'
     Nothing -> Bad (pn, "Bad timing of expression")
 
+gcast0 :: forall t t' a. (Typeable t, Typeable t')
+       => t a -> Maybe (t' a)
+gcast0 x = fmap (\Refl -> x) (eqT :: Maybe (t :~: t'))
