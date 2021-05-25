@@ -10,6 +10,7 @@
 {-# Language KindSignatures #-}
 {-# Language ImplicitParams #-}
 {-# Language NamedFieldPuns #-}
+{-# Language BlockArguments #-}
 
 module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
 
@@ -393,22 +394,9 @@ inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
     EExp p v1 v2 -> branch Proxy p Exp v1 v2
     IntLit p n  -> typeLeaf Proxy p (LitInt n)
     BoolLit p n -> typeLeaf Proxy p (LitBool n)
-    EUTEntry p name es -> case (Map.lookup name store, Map.lookup name calldata) of
-      (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> name)
-      (Nothing, Just c)  -> case c of
-        Integer -> undefined -- timeLeaf Proxy p $ UTIntVar name
-      --(Just (StorageValue a), Nothing) -> case metaType a of
-      --  Integer -> pure . UTEntry $ DirectInt contract name
-      --(Just (StorageMapping ts a), Nothing) ->
-      --   let indexExprs = forM (NonEmpty.zip (head es :| tail es) ts)
-      --                             (uncurry (checkExpr p env))
-      --   in case metaType a of
-      --     Integer -> UTEntry . MappedInt contract name <$> indexExprs
-      --     Boolean -> UTEntry . MappedBool contract name <$> indexExprs
-      --     ByteStr -> UTEntry . MappedBytes contract name <$> indexExprs
-      --(Just _, Just _) -> Bad (p, "Ambiguous variable: " <> show name)   
-    --EPreEntry p x e  -> entry p (Just Pre) x e
-    --EPostEntry p x e -> entry p (Just Post) x e
+    EUTEntry p name es -> entry p Nothing name es
+    EPreEntry p name es -> entry p (Just Pre) name es
+    EPostEntry p name es -> entry p (Just Post) name es
     --EnvExp p v1 -> case lookup v1 defaultStore of
     --  Just Integer -> Ok . IntEnv $ v1
     --  Just ByteStr -> Ok . ByEnv $ v1
@@ -453,6 +441,34 @@ inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
       <|> branch @Bool       actual pn cons e1 e2
       <|> branch @ByteString actual pn cons e1 e2
       <|> Bad (pn, "polybranch error. actual: " <> show (typeRep actual) <> ". expected: " <> show (typeRep expectedType))
+
+    entry :: Pn -> Maybe Timing -> Id -> [Expr] -> Err (Exp t a)
+    entry pn timing name es = case (Map.lookup name store, Map.lookup name calldata) of
+      (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
+      (Nothing, Just c)  -> chooseCons c <*> pure name
+      --(Just (StorageValue a), Nothing) -> undefined -- chooseCons p Nothing (metaType a) <*> pure name
+      --(Just (StorageValue a), Nothing) -> case metaType a of
+      --  Integer -> pure . UTEntry $ DirectInt contract name
+      --(Just (StorageMapping ts a), Nothing) ->
+      --   let indexExprs = forM (NonEmpty.zip (head es :| tail es) ts)
+      --                             (uncurry (checkExpr p env))
+      --   in case metaType a of
+      --     Integer -> UTEntry . MappedInt contract name <$> indexExprs
+      --     Boolean -> UTEntry . MappedBool contract name <$> indexExprs
+      --     ByteStr -> UTEntry . MappedBytes contract name <$> indexExprs
+      (Just _, Just _) -> Bad (pn, "Ambiguous variable: " <> show name)   
+      where
+        --chooseCons :: Pn -> Maybe Timing -> MType -> Err (Id -> Exp t a)
+        chooseCons typ = errMessage (pn, "chooseCons error, mismatched times I think? lol")
+          case timing of
+            Just time -> case typ of
+              Integer -> cast $ TIntVar time
+              Boolean -> cast $ TBoolVar time
+              ByteStr -> cast $ TByVar time
+            Nothing -> case typ of
+              Integer -> cast $ UTIntVar
+              Boolean -> cast $ UTBoolVar
+              ByteStr -> cast $ UTByVar
 
     --timedEntry :: Pn -> Id -> [Expr] -> Err (Exp Timed a)
     --timedEntry pn name es = 
