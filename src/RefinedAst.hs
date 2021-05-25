@@ -26,6 +26,8 @@ import Data.List.NonEmpty hiding (fromList)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.String (fromString)
+import Control.Applicative ((<|>))
+import Data.Maybe (fromMaybe)
 
 import EVM.Solidity (SlotType(..))
 
@@ -161,8 +163,13 @@ data Exp :: TimeType -> * -> * where
   NewAddr :: Exp time Integer -> Exp time Integer -> Exp time Integer
 
   -- polymorphic
-  Eq  :: (Eq t, Typeable t, ToJSON (Exp time t)) => Exp time t -> Exp time t -> Exp time Bool
-  NEq :: (Eq t, Typeable t, ToJSON (Exp time t)) => Exp time t -> Exp time t -> Exp time Bool
+-- <<<<<<< HEAD
+--   Eq  :: (Eq t, Typeable t, ToJSON (Exp time t)) => Exp time t -> Exp time t -> Exp time Bool
+--   NEq :: (Eq t, Typeable t, ToJSON (Exp time t)) => Exp time t -> Exp time t -> Exp time Bool
+-- =======
+  Eq  :: (Eq t, Typeable t) => Exp time t -> Exp time t -> Exp time Bool
+  NEq :: (Eq t, Typeable t) => Exp time t -> Exp time t -> Exp time Bool
+-- >>>>>>> fa37019... `polybranch` works
   ITE :: Exp time Bool -> Exp time t -> Exp time t -> Exp time t
   UTEntry :: TStorageItem t -> Exp Untimed t
   TEntry :: Timing -> TStorageItem t -> Exp Timed t
@@ -259,7 +266,8 @@ eval e = case e of
   GE   a b    -> [a' >  b' | a' <- eval a, b' <- eval b]
   GEQ  a b    -> [a' >= b' | a' <- eval a, b' <- eval b]
   LitBool a   -> pure a
-  BoolVar _   -> empty
+  TBoolVar _ _-> empty
+  UTBoolVar _ -> empty
 
   Add a b     -> [a' + b'     | a' <- eval a, b' <- eval b]
   Sub a b     -> [a' - b'     | a' <- eval a, b' <- eval b]
@@ -268,7 +276,8 @@ eval e = case e of
   Mod a b     -> [a' `mod` b' | a' <- eval a, b' <- eval b]
   Exp a b     -> [a' ^ b'     | a' <- eval a, b' <- eval b]
   LitInt a    -> pure a
-  IntVar _    -> empty
+  TIntVar _ _ -> empty
+  UTIntVar _  -> empty
   IntEnv _    -> empty
   IntMin  a   -> pure . negate $ 2 ^ (a - 1)
   IntMax  a   -> pure $ 2 ^ (a - 1) - 1
@@ -280,7 +289,8 @@ eval e = case e of
                            | s' <- BS.unpack <$> eval s
                            , a' <- eval a
                            , b' <- eval b]
-  ByVar _     -> empty
+  TByVar _ _  -> empty
+  UTByVar _   -> empty
   ByStr s     -> pure . fromString $ s
   ByLit s     -> pure s
   ByEnv _     -> empty
@@ -290,9 +300,8 @@ eval e = case e of
   Eq a b      -> [a' == b' | a' <- eval a, b' <- eval b]
   NEq a b     -> [a' /= b' | a' <- eval a, b' <- eval b]
   ITE a b c   -> eval a >>= \cond -> if cond then eval b else eval c
+  TEntry _ _  -> empty
   UTEntry _   -> empty
-  PreEntry _  -> empty
-  PostEntry _ -> empty
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
@@ -383,8 +392,8 @@ instance ToJSON (Exp time Bool) where
   toJSON (LE a b)   = symbol "<" a b
   toJSON (GE a b)   = symbol ">" a b
   toJSON (Impl a b) = symbol "=>" a b
-  toJSON (NEq a b)  = symbol "=/=" a b
-  toJSON (Eq a b)   = symbol "==" a b
+  toJSON (NEq a b)  = symbol "=/=" (polyToJSON a) (polyToJSON b)
+  toJSON (Eq a b)   = symbol "==" (polyToJSON a) (polyToJSON b)
   toJSON (LEQ a b)  = symbol "<=" a b
   toJSON (GEQ a b)  = symbol ">=" a b
   toJSON (LitBool a) = String $ pack $ show a
@@ -398,6 +407,13 @@ instance ToJSON (Exp time Bool) where
 instance ToJSON (Exp time ByteString) where
   toJSON a = String $ pack $ show a
 
+-- TODO delete this and make the instance general instead:
+-- instance Typeable t => ToJSON (Exp time t) where
+polyToJSON :: Typeable t => Exp time t -> Value
+polyToJSON (e :: Exp time t) = fromMaybe (error "illegal type")
+  $   toJSON @(Exp time Integer)    <$> gcast e
+  <|> toJSON @(Exp time Bool)       <$> gcast e
+  <|> toJSON @(Exp time ByteString) <$> gcast e
 
 mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
 mapping c a b = object [  "symbol"   .= pack "lookup"

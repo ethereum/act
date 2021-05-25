@@ -34,10 +34,6 @@ instance Alternative (Err e) where
 throw :: e -> Err e a
 throw e = Err $ tell [e] $> Nothing
 
-f :: Either Double Int -> Err String Int
-f (Right a) = pure a
-f (Left a)  = throw $ "got double " <> show a
-
 getErrs :: Err e a -> [e]
 getErrs = execWriter . unErr
 

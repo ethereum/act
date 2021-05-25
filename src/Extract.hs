@@ -58,7 +58,8 @@ locsFromExp = nub . go
       Exp a b   -> go a <> go b
       Cat a b   -> go a <> go b
       Slice a b c -> go a <> go b <> go c
-      ByVar _ -> []
+      UTByVar _ -> []
+      TByVar _ _ -> []
       ByStr _ -> []
       ByLit _ -> []
       LitInt _  -> []
@@ -66,9 +67,11 @@ locsFromExp = nub . go
       IntMax _  -> []
       UIntMin _ -> []
       UIntMax _ -> []
-      IntVar _  -> []
+      UTIntVar _  -> []
+      TIntVar _ _ -> []
       LitBool _ -> []
-      BoolVar _ -> []
+      UTBoolVar _ -> []
+      TBoolVar _ _ -> []
       NewAddr a b -> go a <> go b
       IntEnv _ -> []
       ByEnv _ -> []
@@ -147,13 +150,16 @@ ethEnvFromExp = nub . go
       Cat a b   -> go a <> go b
       Slice a b c -> go a <> go b <> go c
       ITE a b c -> go a <> go b <> go c
-      ByVar _ -> []
+      UTByVar _ -> []
+      TByVar _ _ -> []
       ByStr _ -> []
       ByLit _ -> []
       LitInt _  -> []
-      IntVar _  -> []
+      UTIntVar _  -> []
+      TIntVar _ _ -> []
       LitBool _ -> []
-      BoolVar _ -> []
+      UTBoolVar _ -> []
+      TBoolVar _ _ -> []
       IntMin _ -> []
       IntMax _ -> []
       UIntMin _ -> []

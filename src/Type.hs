@@ -29,6 +29,7 @@ import Data.Coerce (coerce)
 
 import Data.ByteString (ByteString)
 
+import Control.Applicative
 import Control.Monad
 
 import Syntax hiding (Storage,Post)
@@ -242,7 +243,7 @@ checkDefn env@Env{contract} keyType valType name (Defn k v) = case metaType keyT
 
 checkPost :: Env -> Syntax.Post -> Err ([Either StorageLocation StorageUpdate], Maybe ReturnExp)
 checkPost Env{contract,theirs,calldata} (Syntax.Post maybeStorage extStorage maybeReturn) =
-  do returnexp <- mapM (fmap returnExp . inferExpr scopedEnv) $ maybeReturn
+  do returnexp <- mapM undefined {- (fmap returnExp . inferExpr scopedEnv) -} maybeReturn
      ourStorage <- case maybeStorage of
        Just entries -> checkEntries contract entries
        Nothing -> Ok []
@@ -363,81 +364,55 @@ checkExpr p env e typ = case metaType typ of
   Boolean -> ExpBool <$> checkBool p env e
   ByteStr -> ExpBytes <$> checkBytes p env e
 
-inferExpr :: Env -> Expr -> Err (TypedExp time)
-inferExpr env e = inferExpr' Proxy env e 
+inferExpr :: (Typeable a, Typeable time) => Env -> Expr -> Err (Exp time a)
+inferExpr env e = inferExpr' Proxy Proxy env e 
 
-inferExpr' :: Proxy time -> Env -> Expr -> Err (TypedExp time)
-inferExpr' (Proxy :: Proxy time) env@Env{contract,store,calldata} expr =
-  let intintint p op v1 v2 = do w1 <- checkInt p env v1
-                                w2 <- checkInt p env v2
-                                Ok . EInt $ op w1 w2
-      boolintint p op v1 v2 = do w1 <- checkInt p env v1
-                                 w2 <- checkInt p env v2
-                                 Ok . EBool $ op w1 w2
-      boolboolbool p op v1 v2 = do w1 <- checkBool p env v1
-                                   w2 <- checkBool p env v2
-                                   Ok . EBool $ op w1 w2
-      boolbytesbytes p op v1 v2 = do w1 <- checkBytes p env v1
-                                     w2 <- checkBytes p env v2
-                                     Ok . EBool $ op w1 w2
-
-
-      entry pn time name es = case (Map.lookup name store, Map.lookup name calldata) of
-        (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
-        (Nothing, Just c) -> case c of
-          Integer -> Ok undefined
-          --Boolean -> Ok . EBool $ UTBoolVar name
-          --ByteStr -> Ok . EBy $ UTByVar name
-        --(Just (StorageValue a), Nothing) -> case metaType a of
-        --  Integer -> Ok . EInt . UTEntry $ DirectInt contract name
-        --  Boolean -> Ok . EBool . UTEntry $ DirectBool contract name
-        --  ByteStr -> Ok . EBy . UTEntry $ DirectBytes contract name
-        --(Just (StorageMapping ts a), Nothing) ->
-        --   let indexExprs = forM (NonEmpty.zip (head es :| tail es) ts)
-        --                             (uncurry (checkExpr pn env))
-        --   in case metaType a of
-        --     Integer -> EInt . UTEntry . MappedInt contract name <$> indexExprs
-        --     Boolean -> EBool . UTEntry . MappedBool contract name <$> indexExprs
-        --     ByteStr -> EBy . UTEntry . MappedBytes contract name <$> indexExprs
-        (Just _, Just _) -> Bad (pn, "Ambiguous variable: " <> show name)   
-  in case expr of
-    ENot p  v1    -> EBool . Neg <$> checkBool p env v1
-    EAnd p  v1 v2 -> boolboolbool p And  v1 v2
-    EOr p   v1 v2 -> boolboolbool p Or   v1 v2
-    EImpl p v1 v2 -> boolboolbool p Impl v1 v2
-    EEq p   v1 v2 -> do
-      l <- inferExpr env v1
-      r <- inferExpr env v2
-      case (l, r) of
-        (EInt _,  EInt _)  -> boolintint p Eq v1 v2
-        (EBool _, EBool _) -> boolboolbool p Eq v1 v2
-        (EBy _,   EBy _)   -> boolbytesbytes p Eq v1 v2
-        (_, _) -> Bad (p, "mismatched types: " <> prettyType l <> " == " <> prettyType r)
-    ENeq p  v1 v2 -> boolintint  p NEq v1 v2
-    ELT p   v1 v2 -> boolintint  p LE   v1 v2
-    ELEQ p  v1 v2 -> boolintint  p LEQ  v1 v2
-    EGEQ p  v1 v2 -> boolintint  p GEQ  v1 v2
-    EGT p   v1 v2 -> boolintint  p GE   v1 v2
-    -- TODO: make ITE polymorphic
-    EITE p v1 v2 v3 -> do w1 <- checkBool p env v1
-                          w2 <- checkInt p env v2
-                          w3 <- checkInt p env v3
-                          Ok . EInt $ ITE w1 w2 w3
-    EAdd p v1 v2 -> intintint p Add v1 v2
-    ESub p v1 v2 -> intintint p Sub v1 v2
-    EMul p v1 v2 -> intintint p Mul v1 v2
-    EDiv p v1 v2 -> intintint p Div v1 v2
-    EMod p v1 v2 -> intintint p Mod v1 v2
-    EExp p v1 v2 -> intintint p Exp v1 v2
-    IntLit _ n  -> Ok . EInt $ LitInt n
-    BoolLit _ n -> Ok . EBool $ LitBool n
-    EUTEntry p x e  -> entry p Nothing x e
-    EPreEntry p x e  -> entry p (Just Pre) x e
-    EPostEntry p x e -> entry p (Just Post) x e
-    EnvExp p v1 -> case lookup v1 defaultStore of
-      Just Integer -> Ok . EInt . IntEnv $ v1
-      Just ByteStr -> Ok . EBy . ByEnv $ v1
-      _            -> Bad (p, "unknown environment variable: " <> show v1)
+inferExpr' :: forall t a. (Typeable t, Typeable a) => Proxy t -> Proxy a -> Env -> Expr -> Err (Exp t a)
+inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
+  case expr of
+    ENot p  v1    -> typeLeaf Proxy p =<< inferExpr @Bool env v1
+    EAnd p  v1 v2 -> branch Proxy p And v1 v2
+    EOr p   v1 v2 -> branch Proxy p Or v1 v2
+    EImpl p v1 v2 -> branch Proxy p Impl v1 v2
+    EEq p   v1 v2 -> polybranch Proxy p Eq v1 v2
+    ENeq p  v1 v2 -> polybranch Proxy p NEq v1 v2
+    ELT p   v1 v2 -> branch Proxy p LE  v1 v2
+    ELEQ p  v1 v2 -> branch Proxy p LEQ v1 v2
+    EGEQ p  v1 v2 -> branch Proxy p GEQ v1 v2
+    EGT p   v1 v2 -> branch Proxy p GE  v1 v2
+    ---- TODO: make ITE polymorphic
+    --EITE p v1 v2 v3 -> do w1 <- checkBool p env v1
+    --                      w2 <- checkInt p env v2
+    --                      w3 <- checkInt p env v3
+    --                      Ok $ ITE w1 w2 w3
+    EAdd p v1 v2 -> branch Proxy p Add v1 v2
+    ESub p v1 v2 -> branch Proxy p Sub v1 v2
+    EMul p v1 v2 -> branch Proxy p Mul v1 v2
+    EDiv p v1 v2 -> branch Proxy p Div v1 v2
+    EMod p v1 v2 -> branch Proxy p Mod v1 v2
+    EExp p v1 v2 -> branch Proxy p Exp v1 v2
+    IntLit p n  -> typeLeaf Proxy p (LitInt n)
+    BoolLit p n -> typeLeaf Proxy p (LitBool n)
+    EUTEntry p name es -> case (Map.lookup name store, Map.lookup name calldata) of
+      (Nothing, Nothing) -> Bad (p, "Unknown variable: " <> name)
+      (Nothing, Just c)  -> case c of
+        Integer -> undefined -- timeLeaf Proxy p $ UTIntVar name
+      --(Just (StorageValue a), Nothing) -> case metaType a of
+      --  Integer -> pure . UTEntry $ DirectInt contract name
+      --(Just (StorageMapping ts a), Nothing) ->
+      --   let indexExprs = forM (NonEmpty.zip (head es :| tail es) ts)
+      --                             (uncurry (checkExpr p env))
+      --   in case metaType a of
+      --     Integer -> UTEntry . MappedInt contract name <$> indexExprs
+      --     Boolean -> UTEntry . MappedBool contract name <$> indexExprs
+      --     ByteStr -> UTEntry . MappedBytes contract name <$> indexExprs
+      --(Just _, Just _) -> Bad (p, "Ambiguous variable: " <> show name)   
+    --EPreEntry p x e  -> entry p (Just Pre) x e
+    --EPostEntry p x e -> entry p (Just Post) x e
+    --EnvExp p v1 -> case lookup v1 defaultStore of
+    --  Just Integer -> Ok . IntEnv $ v1
+    --  Just ByteStr -> Ok . ByEnv $ v1
+    --  _            -> Bad (p, "unknown environment variable: " <> show v1)
     v -> error $ "internal error: infer type of:" <> show v
     -- Wild ->
     -- Zoom Var Exp
@@ -450,49 +425,92 @@ inferExpr' (Proxy :: Proxy time) env@Env{contract,store,calldata} expr =
     -- BYHash Expr
     -- BYAbiE Expr
     -- StringLit String
-
-checkBool :: Pn -> Env -> Expr -> Err (Exp time Bool)
-checkBool p env e =
-  case inferExpr env e of
-    Ok (EInt _) -> Bad (p, "expected: bool, got: int")
-    Ok (EBy _) -> Bad (p, "expected: bool, got: bytes")
-    Ok (EBool a) -> Ok a
-    Bad err -> Bad err
   where
-    p = getPosn e
+    typeLeaf :: Typeable x => Proxy x -> Pn -> Exp t x -> Err (Exp t a)
+    typeLeaf actual pn e = maybe
+      (Bad (pn,"Type mismatch. Expected " <> show (typeRep expectedType) <> ", got " <> show (typeRep actual)))
+      pure
+      (cast e)
 
-checkBytes :: Pn -> Env -> Expr -> Err (Exp time ByteString)
-checkBytes p env e =
-  case inferExpr env e of
-    Ok (EInt _) -> Bad (p, "expected: bytes, got: int")
-    Ok (EBy a) -> Ok a
-    Ok (EBool _) -> Bad (p, "expected: bytes, got: bool")
-    Bad err -> Bad err
+    timeLeaf :: Typeable u => Proxy u -> Pn -> Exp u a -> Err (Exp t a)
+    timeLeaf actual pn e = maybe
+      (Bad (pn,"Time mismatch. Expected " <> show (typeRep expectedType) <> ", got " <> show (typeRep actual)))
+      pure
+      (cast e)
 
-checkInt :: Pn -> Env -> Expr -> Err (Exp time Integer)
-checkInt p env e =
-  case inferExpr env e of
-    Ok (EInt a) -> Ok a
-    Ok (EBy _) -> Bad (p, "expected: int, got: bytes")
-    Ok (EBool _) -> Bad (p, "expected: int, got: bool")
-    Bad err -> Bad err
+    branch :: (Typeable y, Typeable x)
+           => Proxy x
+           -> Pn -> (Exp t y -> Exp t y -> Exp t x) -> Expr -> Expr -> Err (Exp t a)
+    branch actual pn cons e1 e2 = fromMaybe
+      (Bad (pn,"expected " <> show (typeRep expectedType) <> ", got " <> show (typeRep actual)))
+      (cast $ cons <$> inferExpr env e1 <*> inferExpr env e2)
 
-data TypedExp time
-  = EInt (Exp time Integer)
-  | EBool (Exp time Bool)
-  | EBy (Exp time ByteString)
+    polybranch :: Typeable x
+               => Proxy x
+               -> Pn -> (forall y. (Eq y, Typeable y) => Exp t y -> Exp t y -> Exp t x) -> Expr -> Expr -> Err (Exp t a)
+    polybranch actual pn cons e1 e2 =
+          branch @Integer    actual pn cons e1 e2
+      <|> branch @Bool       actual pn cons e1 e2
+      <|> branch @ByteString actual pn cons e1 e2
+      <|> Bad (pn, "polybranch error. actual: " <> show (typeRep actual) <> ". expected: " <> show (typeRep expectedType))
 
-returnExp :: TypedExp Untimed -> ReturnExp
-returnExp _ = undefined {- fromMaybe (error "returnExp: no suitable type")
-  $   eqT @a @Integer    $> ExpInt e
-  <|> eqT @a @Bool       $> ExpBool e
-  <|> eqT @a @ByteString $> ExpBytes e -}
+    --timedEntry :: Pn -> Id -> [Expr] -> Err (Exp Timed a)
+    --timedEntry pn name es = 
 
-prettyType :: TypedExp time -> String
-prettyType ret = case ret of
-  EInt _ -> "Integer"
-  EBool _ -> "Boolean"
-  EBy _ -> "ByteString"
+    --entry :: Pn -> Maybe Timing -> Id -> [Expr] -> Err (Exp t a)
+    --entry pn time name es = case (Map.lookup name store, Map.lookup name calldata) of
+    --  (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
+    --  (Nothing, Just c) -> case c of
+    --    Integer -> pure $ UTIntVar name
+    --    Boolean -> pure $ UTBoolVar name
+    --    ByteStr -> pure $ UTByVar name
+      --(Just (StorageValue a), Nothing) -> case metaType a of
+      --  Integer -> Ok . EInt . UTEntry $ DirectInt contract name
+      --  Boolean -> Ok . EBool . UTEntry $ DirectBool contract name
+      --  ByteStr -> Ok . EBy . UTEntry $ DirectBytes contract name
+      --(Just (StorageMapping ts a), Nothing) ->
+      --   let indexExprs = forM (NonEmpty.zip (head es :| tail es) ts)
+      --                             (uncurry (checkExpr pn env))
+      --   in case metaType a of
+      --     Integer -> EInt . UTEntry . MappedInt contract name <$> indexExprs
+      --     Boolean -> EBool . UTEntry . MappedBool contract name <$> indexExprs
+      --     ByteStr -> EBy . UTEntry . MappedBytes contract name <$> indexExprs
+      --(Just _, Just _) -> Bad (pn, "Ambiguous variable: " <> show name)   
+
+checkBool :: Typeable time => Pn -> Env -> Expr -> Err (Exp time Bool)
+checkBool p env e = inferExpr env e
+--  case inferExpr env e of
+--    Ok (EInt _) -> Bad (p, "expected: bool, got: int")
+--    Ok (EBy _) -> Bad (p, "expected: bool, got: bytes")
+--    Ok (EBool a) -> Ok a
+--    Bad err -> Bad err
+--  where
+--    p = getPosn e
+
+checkBytes :: Typeable time => Pn -> Env -> Expr -> Err (Exp time ByteString)
+checkBytes p env e = inferExpr env e
+--  case inferExpr env e of
+--    Ok (EInt _) -> Bad (p, "expected: bytes, got: int")
+--    Ok (EBy a) -> Ok a
+--    Ok (EBool _) -> Bad (p, "expected: bytes, got: bool")
+--    Bad err -> Bad err
+
+checkInt :: Typeable time => Pn -> Env -> Expr -> Err (Exp time Integer)
+checkInt p env e = inferExpr env e
+--  case inferExpr env e of
+--    Ok (EInt a) -> Ok a
+--    Ok (EBy _) -> Bad (p, "expected: int, got: bytes")
+--    Ok (EBool _) -> Bad (p, "expected: int, got: bool")
+--    Bad err -> Bad err
+
+returnExp :: Typeable a => Exp Untimed a -> ReturnExp
+returnExp (e :: Exp Untimed a) = fromMaybe (error "returnExp: no suitable type")
+  $   pure ExpInt   <*> cast e
+  <|> pure ExpBool  <*> cast e
+  <|> pure ExpBytes <*> cast e
+
+prettyType :: (Typeable a, Typeable t) => Exp t a -> String
+prettyType = show . last . typeRepArgs . typeRep
 
 checkTimed :: (Typeable t, Typeable time', Typeable time) => Pn -> Exp (time :: TimeType) t -> Err (Exp (time' :: TimeType) t)
 checkTimed pn (e :: Exp time t) = case cast e of
