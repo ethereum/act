@@ -373,31 +373,31 @@ inferExpr env e = inferExpr' Proxy Proxy env e
 inferExpr' :: forall t a. (Typeable t, Typeable a) => Proxy t -> Proxy a -> Env -> Expr -> Err (Exp t a)
 inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
   case expr of
-    ENot p  v1    -> leaf Proxy p =<< inferExpr @Bool env v1
-    EAnd p  v1 v2 -> branch Proxy p And v1 v2
-    EOr p   v1 v2 -> branch Proxy p Or v1 v2
-    EImpl p v1 v2 -> branch Proxy p Impl v1 v2
-    EEq p   v1 v2 -> polybranch Proxy p Eq v1 v2
-    ENeq p  v1 v2 -> polybranch Proxy p NEq v1 v2
-    ELT p   v1 v2 -> branch Proxy p LE  v1 v2
-    ELEQ p  v1 v2 -> branch Proxy p LEQ v1 v2
-    EGEQ p  v1 v2 -> branch Proxy p GEQ v1 v2
-    EGT p   v1 v2 -> branch Proxy p GE  v1 v2
-    EITE p v1 v2 v3 -> ITE <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
-    EAdd p v1 v2 -> branch Proxy p Add v1 v2
-    ESub p v1 v2 -> branch Proxy p Sub v1 v2
-    EMul p v1 v2 -> branch Proxy p Mul v1 v2
-    EDiv p v1 v2 -> branch Proxy p Div v1 v2
-    EMod p v1 v2 -> branch Proxy p Mod v1 v2
-    EExp p v1 v2 -> branch Proxy p Exp v1 v2
-    IntLit p n  -> leaf Proxy p (LitInt n)
-    BoolLit p n -> leaf Proxy p (LitBool n)
-    EUTEntry p name es -> entry p Nothing name es
-    EPreEntry p name es -> entry p (Just Pre) name es
+    ENot p  v1       -> check p $ inferExpr @Bool env v1
+    EAnd p  v1 v2    -> check p $ And  <$> inferExpr env v1 <*> inferExpr env v2
+    EOr p   v1 v2    -> check p $ Or   <$> inferExpr env v1 <*> inferExpr env v2
+    EImpl p v1 v2    -> check p $ Impl <$> inferExpr env v1 <*> inferExpr env v2
+    EEq p   v1 v2    -> polycheck p Eq v1 v2
+    ENeq p  v1 v2    -> polycheck p NEq v1 v2
+    ELT p   v1 v2    -> check p $ LE   <$> inferExpr env v1 <*> inferExpr env v2
+    ELEQ p  v1 v2    -> check p $ LEQ  <$> inferExpr env v1 <*> inferExpr env v2
+    EGEQ p  v1 v2    -> check p $ GEQ  <$> inferExpr env v1 <*> inferExpr env v2
+    EGT p   v1 v2    -> check p $ GE   <$> inferExpr env v1 <*> inferExpr env v2
+    EITE p  v1 v2 v3 -> ITE <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
+    EAdd p  v1 v2    -> check p $ Add  <$> inferExpr env v1 <*> inferExpr env v2
+    ESub p  v1 v2    -> check p $ Sub  <$> inferExpr env v1 <*> inferExpr env v2
+    EMul p  v1 v2    -> check p $ Mul  <$> inferExpr env v1 <*> inferExpr env v2
+    EDiv p  v1 v2    -> check p $ Div  <$> inferExpr env v1 <*> inferExpr env v2
+    EMod p  v1 v2    -> check p $ Mod  <$> inferExpr env v1 <*> inferExpr env v2
+    EExp p  v1 v2    -> check p $ Exp  <$> inferExpr env v1 <*> inferExpr env v2
+    IntLit p     n   -> check p . pure $ LitInt n
+    BoolLit p    n   -> check p . pure $ LitBool n
+    EUTEntry p   name es -> entry p Nothing name es
+    EPreEntry p  name es -> entry p (Just Pre) name es
     EPostEntry p name es -> entry p (Just Post) name es
     EnvExp p v1 -> case lookup v1 defaultStore of
-      Just Integer -> leaf Proxy p $ IntEnv v1
-      Just ByteStr -> leaf Proxy p $ ByEnv  v1
+      Just Integer -> check p . pure $ IntEnv v1
+      Just ByteStr -> check p . pure $ ByEnv  v1
       _            -> Bad (p, "unknown environment variable: " <> show v1)
     v -> error $ "internal error: infer type of:" <> show v
     -- Wild ->
@@ -412,34 +412,32 @@ inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
     -- BYAbiE Expr
     -- StringLit String
   where
-    leaf :: Typeable x => Proxy x -> Pn -> Exp t x -> Err (Exp t a)
-    leaf actual pn e = maybe
-      (Bad (pn,"Type mismatch. Expected " <> show (typeRep expectedType) <> ", got " <> show (typeRep actual)))
-      pure
-      (gcast e)
+    check :: (Typeable x)
+           => Pn -> Err (Exp t x) -> Err (Exp t a)
+    check pn e = leaf Proxy pn =<< e
+      where
+        -- TODO use `errMessage` here and probably integrate into `check`
+        leaf :: Typeable x => Proxy x -> Pn -> Exp t x -> Err (Exp t a)
+        leaf actual pn e = maybe
+          (Bad (pn,"Type mismatch. Expected " <> show (typeRep expectedType) <> ", got " <> show (typeRep actual)))
+          pure
+          (gcast e)
 
-    branch :: (Typeable y, Typeable x)
-           => Proxy x
-           -> Pn -> (Exp t y -> Exp t y -> Exp t x) -> Expr -> Expr -> Err (Exp t a)
-    branch actual pn cons e1 e2 = leaf Proxy pn =<< cons <$> inferExpr env e1 <*> inferExpr env e2
-
-    polybranch :: Typeable x
-               => Proxy x
-               -> Pn -> (forall y. (Eq y, Typeable y) => Exp t y -> Exp t y -> Exp t x) -> Expr -> Expr -> Err (Exp t a)
-    polybranch actual pn cons e1 e2 =
-          branch @Integer    actual pn cons e1 e2
-      <|> branch @Bool       actual pn cons e1 e2
-      <|> branch @ByteString actual pn cons e1 e2
-      <|> Bad (pn, "polybranch error. actual: " <> show (typeRep actual) <> ". expected: " <> show (typeRep expectedType))
+    polycheck :: Typeable x
+               => Pn -> (forall y. (Eq y, Typeable y) => Exp t y -> Exp t y -> Exp t x) -> Expr -> Expr -> Err (Exp t a)
+    polycheck pn cons e1 e2 =
+          check pn (cons @Integer    <$> inferExpr env e1 <*> inferExpr env e2)
+      <|> check pn (cons @Bool       <$> inferExpr env e1 <*> inferExpr env e2)
+      <|> check pn (cons @ByteString <$> inferExpr env e1 <*> inferExpr env e2)
+      <|> Bad (pn, "polybranch error")
 
     entry :: Pn -> Maybe Timing -> Id -> [Expr] -> Err (Exp t a)
     entry pn timing name es =
       let
         makeVar :: Typeable x => (Id -> Exp Untimed x) -> (Id -> Timing -> Exp Timed x) -> Err (Exp t a)
-        makeVar untimed timed = do
-          timechecked <- errMessage (pn, "makeVar error: mismatched times")
-                          $ maybe (gcast0 $ untimed name) (gcast0 . timed name) timing
-          leaf Proxy pn timechecked
+        makeVar untimed timed = check pn
+                                $ errMessage (pn, "makeVar error: mismatched times")
+                                $ maybe (gcast0 $ untimed name) (gcast0 . timed name) timing
 
         makeEntry :: Typeable x => (Id -> Id -> TStorageItem x) -> Err (Exp t a)
         makeEntry maker = makeVar (UTEntry . maker contract) (TEntry . maker contract)
