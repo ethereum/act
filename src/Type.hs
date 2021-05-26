@@ -371,9 +371,9 @@ inferExpr :: (Typeable a, Typeable time) => Env -> Expr -> Err (Exp time a)
 inferExpr env e = inferExpr' Proxy Proxy env e 
 
 inferExpr' :: forall t a. (Typeable t, Typeable a) => Proxy t -> Proxy a -> Env -> Expr -> Err (Exp t a)
-inferExpr' (expectedTime :: Proxy t) expectedType env@Env{contract,store,calldata} expr =
+inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
   case expr of
-    ENot p  v1    -> typeLeaf Proxy p =<< inferExpr @Bool env v1
+    ENot p  v1    -> leaf Proxy p =<< inferExpr @Bool env v1
     EAnd p  v1 v2 -> branch Proxy p And v1 v2
     EOr p   v1 v2 -> branch Proxy p Or v1 v2
     EImpl p v1 v2 -> branch Proxy p Impl v1 v2
@@ -383,26 +383,22 @@ inferExpr' (expectedTime :: Proxy t) expectedType env@Env{contract,store,calldat
     ELEQ p  v1 v2 -> branch Proxy p LEQ v1 v2
     EGEQ p  v1 v2 -> branch Proxy p GEQ v1 v2
     EGT p   v1 v2 -> branch Proxy p GE  v1 v2
-    ---- TODO: make ITE polymorphic
-    --EITE p v1 v2 v3 -> do w1 <- checkBool p env v1
-    --                      w2 <- checkInt p env v2
-    --                      w3 <- checkInt p env v3
-    --                      Ok $ ITE w1 w2 w3
+    EITE p v1 v2 v3 -> ITE <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
     EAdd p v1 v2 -> branch Proxy p Add v1 v2
     ESub p v1 v2 -> branch Proxy p Sub v1 v2
     EMul p v1 v2 -> branch Proxy p Mul v1 v2
     EDiv p v1 v2 -> branch Proxy p Div v1 v2
     EMod p v1 v2 -> branch Proxy p Mod v1 v2
     EExp p v1 v2 -> branch Proxy p Exp v1 v2
-    IntLit p n  -> typeLeaf Proxy p (LitInt n)
-    BoolLit p n -> typeLeaf Proxy p (LitBool n)
+    IntLit p n  -> leaf Proxy p (LitInt n)
+    BoolLit p n -> leaf Proxy p (LitBool n)
     EUTEntry p name es -> entry p Nothing name es
     EPreEntry p name es -> entry p (Just Pre) name es
     EPostEntry p name es -> entry p (Just Post) name es
-    --EnvExp p v1 -> case lookup v1 defaultStore of
-    --  Just Integer -> Ok . IntEnv $ v1
-    --  Just ByteStr -> Ok . ByEnv $ v1
-    --  _            -> Bad (p, "unknown environment variable: " <> show v1)
+    EnvExp p v1 -> case lookup v1 defaultStore of
+      Just Integer -> leaf Proxy p $ IntEnv v1
+      Just ByteStr -> leaf Proxy p $ ByEnv  v1
+      _            -> Bad (p, "unknown environment variable: " <> show v1)
     v -> error $ "internal error: infer type of:" <> show v
     -- Wild ->
     -- Zoom Var Exp
@@ -416,18 +412,11 @@ inferExpr' (expectedTime :: Proxy t) expectedType env@Env{contract,store,calldat
     -- BYAbiE Expr
     -- StringLit String
   where
-    typeLeaf :: Typeable x => Proxy x -> Pn -> Exp t x -> Err (Exp t a)
-    typeLeaf actual pn e = maybe
+    leaf :: Typeable x => Proxy x -> Pn -> Exp t x -> Err (Exp t a)
+    leaf actual pn e = maybe
       (Bad (pn,"Type mismatch. Expected " <> show (typeRep expectedType) <> ", got " <> show (typeRep actual)))
       pure
       (gcast e)
-
-    -- TODO probably remove timeLeaf
-    timeLeaf :: Typeable u => Proxy u -> Pn -> Exp u a -> Err (Exp t a)
-    timeLeaf actual pn e = maybe
-      (Bad (pn,"Time mismatch. Expected " <> show (typeRep expectedType) <> ", got " <> show (typeRep actual)))
-      pure
-      (gcast0 e)
 
     branch :: (Typeable y, Typeable x)
            => Proxy x
@@ -452,7 +441,7 @@ inferExpr' (expectedTime :: Proxy t) expectedType env@Env{contract,store,calldat
         makeVar untimed timed = do
           timechecked <- errMessage (pn, "makeVar error: mismatched times")
                           $ maybe (gcast0 $ untimed name) (gcast0 . timed name) timing
-          typeLeaf Proxy pn timechecked
+          leaf Proxy pn timechecked
 
         makeEntry :: Typeable x => (Id -> Id -> TStorageItem x) -> Err (Exp t a)
         makeEntry maker = makeVar (UTEntry . maker contract) (TEntry . maker contract)
