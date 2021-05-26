@@ -421,9 +421,7 @@ inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
     branch :: (Typeable y, Typeable x)
            => Proxy x
            -> Pn -> (Exp t y -> Exp t y -> Exp t x) -> Expr -> Expr -> Err (Exp t a)
-    branch actual pn cons e1 e2 = fromMaybe
-      (Bad (pn,"expected " <> show (typeRep expectedType) <> ", got " <> show (typeRep actual)))
-      (cast $ cons <$> inferExpr env e1 <*> inferExpr env e2)
+    branch actual pn cons e1 e2 = leaf Proxy pn =<< cons <$> inferExpr env e1 <*> inferExpr env e2
 
     polybranch :: Typeable x
                => Proxy x
