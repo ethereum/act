@@ -1,16 +1,9 @@
-{-# Language DataKinds #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TupleSections #-}
 {-# Language TypeApplications #-}
 {-# Language ScopedTypeVariables #-}
-{-# Language KindSignatures #-}
-{-# Language ImplicitParams #-}
 {-# Language NamedFieldPuns #-}
-{-# Language BlockArguments #-}
 {-# Language TypeOperators #-}
 
 module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
@@ -232,7 +225,7 @@ checkDefn env@Env{contract} keyType valType name (Defn k v) = do
 
 checkPost :: Env -> Syntax.Post -> Err ([Either StorageLocation StorageUpdate], Maybe ReturnExp)
 checkPost Env{contract,theirs,calldata} (Syntax.Post maybeStorage extStorage maybeReturn) =
-  do returnexp <- mapM undefined {- (fmap returnExp . inferExpr scopedEnv) -} maybeReturn
+  do returnexp <- mapM (returnExp scopedEnv) maybeReturn
      ourStorage <- case maybeStorage of
        Just entries -> checkEntries contract entries
        Nothing -> Ok []
@@ -454,11 +447,11 @@ inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
             Boolean -> makeMapping MappedBool
             ByteStr -> makeMapping MappedBytes
 
-returnExp :: Typeable a => Exp Untimed a -> ReturnExp
-returnExp (e :: Exp Untimed a) = fromMaybe (error "returnExp: no suitable type")
-  $   pure ExpInt   <*> cast e
-  <|> pure ExpBool  <*> cast e
-  <|> pure ExpBytes <*> cast e
+returnExp :: Env -> Expr -> Err ReturnExp
+returnExp env e = ExpInt   <$> inferExpr env e
+              <|> ExpBool  <$> inferExpr env e
+              <|> ExpBytes <$> inferExpr env e
+              <|> Bad (getPosn e, "ReturnExp: no suitable type")
 
 gcast0 :: forall t t' a. (Typeable t, Typeable t') => t a -> Maybe (t' a)
 gcast0 x = fmap (\Refl -> x) (eqT :: Maybe (t :~: t'))
