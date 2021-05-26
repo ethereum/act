@@ -32,6 +32,7 @@ import Data.Coerce (coerce)
 import Data.ByteString (ByteString)
 
 import Control.Applicative
+import Data.Traversable (for)
 import Control.Monad
 
 import Syntax hiding (Storage,Post)
@@ -445,57 +446,42 @@ inferExpr' (expectedTime :: Proxy t) expectedType env@Env{contract,store,calldat
       <|> Bad (pn, "polybranch error. actual: " <> show (typeRep actual) <> ". expected: " <> show (typeRep expectedType))
 
     entry :: Pn -> Maybe Timing -> Id -> [Expr] -> Err (Exp t a)
-    entry pn timing name es = case (Map.lookup name store, Map.lookup name calldata) of
-      (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
-      (Nothing, Just c) -> case c of
-        --Integer -> makeVar (pure UTIntVar) (pure TIntVar)
-        Boolean -> makeVar UTBoolVar TBoolVar
-        --ByteStr -> makeVar UTByVar TByVar
-      (Just (StorageValue a), Nothing) -> case metaType a of
-        --Integer -> makeVar (pure $ UTEntry . DirectInt contract) (pure $ TEntry . DirectInt contract)
-        Boolean -> makeVar (UTEntry . DirectBool contract) (TEntry . DirectBool contract)
-        --ByteStr -> makeVar (UTEntry . DirectBool contract) (TEntry . DirectBool contract)
-      (Just (StorageMapping ts a), Nothing) ->
-         let indexExprs = forM (NonEmpty.zip (head es :| tail es) ts)
-                                   (uncurry (checkExpr pn env))
-
-             makeMapping :: Typeable x
-                         => (NonEmpty ReturnExp -> Id -> TStorageItem x)
-                         -> Err (Exp t a)
-             makeMapping maker = join $ makeVar
-                                          <$> (fmap UTEntry . maker <$> indexExprs)
-                                          <*> (fmap TEntry  . maker <$> indexExprs) 
-         in case metaType a of
-           --Integer -> makeVar ((\ixs var -> UTEntry $ MappedInt contract var ixs) <$> indexExprs) undefined
-           Boolean -> makeMapping ((\ixs -> flip (MappedInt contract) ixs))
---           ByteStr -> UTEntry . MappedBytes contract name <$> indexExprs
-      (Just _, Just _) -> Bad (pn, "Ambiguous variable: " <> show name)   
-      where
+    entry pn timing name es =
+      let
         makeVar :: Typeable x => (Id -> Exp Untimed x) -> (Id -> Timing -> Exp Timed x) -> Err (Exp t a)
         makeVar untimed timed = do
-          res <- errMessage (pn, "makeVar error: mismatched times")
-                   $ maybe (gcast0 $ untimed name) (gcast0 . timed name) timing
-          typeLeaf Proxy pn res
+          timechecked <- errMessage (pn, "makeVar error: mismatched times")
+                          $ maybe (gcast0 $ untimed name) (gcast0 . timed name) timing
+          typeLeaf Proxy pn timechecked
 
-    --entry :: Pn -> Maybe Timing -> Id -> [Expr] -> Err (Exp t a)
-    --entry pn time name es = case (Map.lookup name store, Map.lookup name calldata) of
-    --  (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
-    --  (Nothing, Just c) -> case c of
-    --    Integer -> pure $ UTIntVar name
-    --    Boolean -> pure $ UTBoolVar name
-    --    ByteStr -> pure $ UTByVar name
-      --(Just (StorageValue a), Nothing) -> case metaType a of
-      --  Integer -> Ok . EInt . UTEntry $ DirectInt contract name
-      --  Boolean -> Ok . EBool . UTEntry $ DirectBool contract name
-      --  ByteStr -> Ok . EBy . UTEntry $ DirectBytes contract name
-      --(Just (StorageMapping ts a), Nothing) ->
-      --   let indexExprs = forM (NonEmpty.zip (head es :| tail es) ts)
-      --                             (uncurry (checkExpr pn env))
-      --   in case metaType a of
-      --     Integer -> EInt . UTEntry . MappedInt contract name <$> indexExprs
-      --     Boolean -> EBool . UTEntry . MappedBool contract name <$> indexExprs
-      --     ByteStr -> EBy . UTEntry . MappedBytes contract name <$> indexExprs
-      --(Just _, Just _) -> Bad (pn, "Ambiguous variable: " <> show name)   
+        makeEntry :: Typeable x => (Id -> Id -> TStorageItem x) -> Err (Exp t a)
+        makeEntry maker = makeVar (UTEntry . maker contract) (TEntry . maker contract)
+      in
+      case (Map.lookup name store, Map.lookup name calldata) of
+        (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
+        (Just _, Just _)   -> Bad (pn, "Ambiguous variable: " <> name)   
+        (Nothing, Just c) -> case c of
+          Integer -> makeVar UTIntVar  TIntVar
+          Boolean -> makeVar UTBoolVar TBoolVar
+          ByteStr -> makeVar UTByVar   TByVar
+        (Just (StorageValue a), Nothing) -> case metaType a of
+          Integer -> makeEntry DirectInt  
+          Boolean -> makeEntry DirectBool 
+          ByteStr -> makeEntry DirectBytes
+        (Just (StorageMapping ts a), Nothing) ->
+          let
+            indexExprs = for (NonEmpty.zip (head es :| tail es) ts)
+                             (uncurry (checkExpr pn env))
+  
+            makeMapping :: Typeable x => (Id -> Id -> NonEmpty ReturnExp -> TStorageItem x) -> Err (Exp t a)
+            makeMapping maker = do
+              ixs <- indexExprs
+              makeEntry (\c x -> maker c x ixs)
+          in
+          case metaType a of
+            Integer -> makeMapping MappedInt
+            Boolean -> makeMapping MappedBool
+            ByteStr -> makeMapping MappedBytes
 
 checkBool :: Typeable time => Pn -> Env -> Expr -> Err (Exp time Bool)
 checkBool p env e = inferExpr env e
@@ -541,6 +527,4 @@ gcast0 :: forall t t' a. (Typeable t, Typeable t')
        => t a -> Maybe (t' a)
 gcast0 x = fmap (\Refl -> x) (eqT :: Maybe (t :~: t'))
 
-infixr 8 .:
-(.:) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
-(f .: g) x y = f (g x y)
+(.:) f g a b = f (g a b)
