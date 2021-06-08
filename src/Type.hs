@@ -405,7 +405,7 @@ inferExpr env@Env{contract,store,calldata} expr =
       let
         makeEntry :: Typeable x => (Id -> Id -> TStorageItem x) -> Err (Exp t a)
         makeEntry maker = check pn
-                        $ errMessage (pn, "Need " <> (tail . show $ typeRep @t) <> " variable here!")
+                        $ errMessage (pn, (tail . show $ typeRep @t) <> " variable needed here!")
                         $ maybe (gcast0 . UTEntry $ maker contract name) (gcast0 . TEntry (maker contract name)) timing
       in
       case (Map.lookup name store, Map.lookup name calldata) of
