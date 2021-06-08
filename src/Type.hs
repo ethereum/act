@@ -5,6 +5,7 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language NamedFieldPuns #-}
 {-# Language TypeOperators #-}
+{-# Language DataKinds #-}
 
 module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
 
@@ -410,10 +411,10 @@ inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
       <|> check pn (cons @ByteString <$> inferExpr env e1 <*> inferExpr env e2)
       <|> Bad (pn, "polybranch error")
 
-    entry :: Pn -> Maybe Timing -> Id -> [Expr] -> Err (Exp t a)
+    entry :: Pn -> Maybe When -> Id -> [Expr] -> Err (Exp t a)
     entry pn timing name es =
       let
-        makeVar :: Typeable x => (Id -> Exp Untimed x) -> (Id -> Timing -> Exp Timed x) -> Err (Exp t a)
+        makeVar :: Typeable x => (Id -> Exp Untimed x) -> (Id -> When -> Exp Timed x) -> Err (Exp t a)
         makeVar untimed timed = check pn
                                 $ errMessage (pn, "Need " <> show (typeRep expectedTime) <> " variable here!")
                                 $ maybe (gcast0 $ untimed name) (gcast0 . timed name) timing

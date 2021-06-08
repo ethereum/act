@@ -11,6 +11,8 @@ import Syntax
 import RefinedAst
 import Extract
 import ErrM
+import Control.Applicative ((<|>))
+import Data.Functor (($>))
 import Data.Text (Text, pack, unpack)
 import Data.Type.Equality
 import Data.Typeable
@@ -79,19 +81,23 @@ kCalldata (Interface a b) =
   <> (case b of
        [] -> ".IntList"
        args ->
-         intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args))
+         intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args)) -- I think this Nothing is correct?
   <> ")"
 
-kStorageName :: TStorageItem a -> String
-kStorageName (DirectInt _ name)    = kVar name
-kStorageName (DirectBool _ name)   = kVar name
-kStorageName (DirectBytes _ name)  = kVar name
-kStorageName (MappedInt _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kStorageName (MappedBool _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kStorageName (MappedBytes _ name ixs) = kVar name <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kStorageName :: TStorageItem a -> Maybe When -> String
+kStorageName (DirectInt _ name)    w = kMutableVar name w
+kStorageName (DirectBool _ name)   w = kMutableVar name w
+kStorageName (DirectBytes _ name)  w = kMutableVar name w
+kStorageName (MappedInt _ name ixs) w = kMutableVar name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kStorageName (MappedBool _ name ixs) w = kMutableVar name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kStorageName (MappedBytes _ name ixs) w = kMutableVar name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
 
 kVar :: Id -> String
-kVar a = (unpack . Text.toUpper . pack $ [head a]) <> (tail a)
+kVar a = (unpack . Text.toUpper . pack $ [head a]) <> tail a
+
+kMutableVar :: Id -> Maybe When -> String
+kMutableVar a Nothing  = kMutableVar a (Just Pre) -- When we don't care about the timing we're talking about the prestate.
+kMutableVar a (Just w) = kVar a <> "-" <> show w
 
 kAbiEncode :: Maybe ReturnExp -> String
 kAbiEncode Nothing = ".ByteArray"
@@ -101,10 +107,11 @@ kAbiEncode (Just (ExpBytes _)) = ".ByteArray"
 
 kExpr :: ReturnExp -> String
 kExpr (ExpInt a) = kExprInt a
-kExpr (ExpBool a) = kExprBool a
+kExpr (ExpBool a) = kExprInt a
 kExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
 
-kExprInt :: Exp Integer -> String
+-- TODO rename this
+kExprInt :: Exp t a -> String
 kExprInt (Add a b) = "(" <> kExprInt a <> " +Int " <> kExprInt b <> ")"
 kExprInt (Sub a b) = "(" <> kExprInt a <> " -Int " <> kExprInt b <> ")"
 kExprInt (Mul a b) = "(" <> kExprInt a <> " *Int " <> kExprInt b <> ")"
@@ -116,42 +123,41 @@ kExprInt (IntMin a) = kExprInt $ LitInt $ negate $ 2 ^ (a - 1)
 kExprInt (IntMax a) = kExprInt $ LitInt $ 2 ^ (a - 1) - 1
 kExprInt (UIntMin _) = kExprInt $ LitInt 0
 kExprInt (UIntMax a) = kExprInt $ LitInt $ 2 ^ a - 1
-kExprInt (IntVar a) = kVar a
+kExprInt (UTIntVar a) = kMutableVar a Nothing
+kExprInt (TIntVar a w) = kMutableVar a $ Just w
 kExprInt (IntEnv a) = show a
-kExprInt (TEntry a) = kStorageName a
+
+
+--kExprInt :: Exp t Bool -> String
+kExprInt (And a b) = "(" <> kExprInt a <> " andBool\n " <> kExprInt b <> ")"
+kExprInt (Or a b) = "(" <> kExprInt a <> " orBool " <> kExprInt b <> ")"
+kExprInt (Impl a b) = "(" <> kExprInt a <> " impliesBool " <> kExprInt b <> ")"
+kExprInt (Neg a) = "notBool (" <> kExprInt a <> ")"
+kExprInt (LE a b) = "(" <> kExprInt a <> " <Int " <> kExprInt b <> ")"
+kExprInt (LEQ a b) = "(" <> kExprInt a <> " <=Int " <> kExprInt b <> ")"
+kExprInt (GE a b) = "(" <> kExprInt a <> " >Int " <> kExprInt b <> ")"
+kExprInt (GEQ a b) = "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
+kExprInt (LitBool a) = show a
+kExprInt (UTBoolVar a) = kMutableVar a Nothing
+kExprInt (TBoolVar a w) = kMutableVar a $ Just w
+kExprInt (NEq a b) = "notBool (" <> kExprInt (Eq a b) <> ")"
+kExprInt (Eq (a :: Exp t a) (b :: Exp t a)) = fromMaybe (error "Internal Error: invalid expression type") $
+  let eqK typ = "(" <> kExprInt a <> " ==" <> typ <> " " <> kExprInt b <> ")"
+   in eqT @a @Integer    $> eqK "Int"
+  <|> eqT @a @Bool       $> eqK "Bool"
+  <|> eqT @a @ByteString $> eqK "K" -- TODO: Is ==K correct?
+
+--kExprInt :: Exp t ByteString -> String
+kExprInt (UTByVar name) = kMutableVar name Nothing
+kExprInt (TByVar name w) = kMutableVar name $ Just w
+kExprInt (ByStr str) = show str
+kExprInt (ByLit bs) = show bs
+kExprInt (UTEntry item) = kStorageName item Nothing
+kExprInt (TEntry item w) = kStorageName item $ Just w
 kExprInt v = error ("Internal error: TODO kExprInt of " <> show v)
-
-
-kExprBool :: Exp Bool -> String
-kExprBool (And a b) = "(" <> kExprBool a <> " andBool\n " <> kExprBool b <> ")"
-kExprBool (Or a b) = "(" <> kExprBool a <> " orBool " <> kExprBool b <> ")"
-kExprBool (Impl a b) = "(" <> kExprBool a <> " impliesBool " <> kExprBool b <> ")"
-kExprBool (Neg a) = "notBool (" <> kExprBool a <> ")"
-kExprBool (LE a b) = "(" <> kExprInt a <> " <Int " <> kExprInt b <> ")"
-kExprBool (LEQ a b) = "(" <> kExprInt a <> " <=Int " <> kExprInt b <> ")"
-kExprBool (GE a b) = "(" <> kExprInt a <> " >Int " <> kExprInt b <> ")"
-kExprBool (GEQ a b) = "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
-kExprBool (LitBool a) = show a
-kExprBool (BoolVar a) = kVar a
-kExprBool (NEq a b) = "notBool (" <> kExprBool (Eq a b) <> ")"
-kExprBool (Eq (a :: Exp t) (b :: Exp t)) = case eqT @t @Integer of
-  Just Refl -> "(" <> kExprInt a <> " ==Int " <> kExprInt b <> ")"
-  Nothing -> case eqT @t @Bool of
-    Just Refl -> "(" <> kExprBool a <> " ==Bool " <> kExprBool b <> ")"
-    Nothing -> case eqT @t @ByteString of
-      Just Refl -> "(" <> kExprBytes a <> " ==K " <> kExprBytes b <> ")" -- TODO: Is ==K correct?
-      Nothing -> error "Internal Error: invalid expression type"
-kExprBool v = error ("Internal error: TODO kExprBool of " <> show v)
-
-kExprBytes :: Exp ByteString -> String
-kExprBytes (ByVar name) = kVar name
-kExprBytes (ByStr str) = show str
-kExprBytes (ByLit bs) = show bs
-kExprBytes (TEntry item) = kStorageName item
-kExprBytes e = error $ "TODO: kExprBytes of " <> show e
---kExprBytes (Cat a b) =
---kExprBytes (Slice a start end) =
---kExprBytes (ByEnv env) =
+--kExprInt (Cat a b) =
+--kExprInt (Slice a start end) =
+--kExprInt (ByEnv env) =
 
 fst' :: (a, b, c) -> a
 fst' (x, _, _) = x
@@ -169,10 +175,10 @@ kStorageEntry storageLayout update =
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (getId update)) storageLayout)
   in case update of
-       Right (IntUpdate a b) -> (loc, (offset, kStorageName a, kExprInt b))
-       Right (BoolUpdate a b) -> (loc, (offset, kStorageName a, kExprBool b))
-       Right (BytesUpdate a b) -> (loc, (offset, kStorageName a, kExprBytes b))
-       Left (IntLoc a) -> (loc, (offset, kStorageName a, kStorageName a))
+       Right (IntUpdate a b) -> (loc, (offset, kStorageName a Nothing, kExprInt b))
+       Right (BoolUpdate a b) -> (loc, (offset, kStorageName a Nothing, kExprInt b))
+       Right (BytesUpdate a b) -> (loc, (offset, kStorageName a Nothing, kExprInt b))
+       Left (IntLoc a) -> (loc, (offset, kStorageName a Nothing, kStorageName a Nothing))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
 --  BoolUpdate (TStorageItem Bool) c ->
 --  BytesUpdate (TStorageItem ByteString) d ->  (Exp ByteString)
@@ -364,6 +370,6 @@ mkTerm this accounts Behaviour{..} = (name, term)
                   )
                <> "\nrequires "
                <> defaultConditions (kVar _contract) <> "\n andBool\n"
-               <> kExprBool (mconcat _preconditions)
+               <> kExprInt (mconcat _preconditions)
                <> "\nensures "
-               <> kExprBool (mconcat _postconditions)
+               <> kExprInt (mconcat _postconditions)

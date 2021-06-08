@@ -186,7 +186,7 @@ eqName n (BoolUpdate (MappedBool _ n' _) _)
 eqName _ _ = False
 
 -- represent mapping update with anonymous function
-lambda :: [ReturnExp] -> Int -> Exp a -> Id -> T.Text
+lambda :: [ReturnExp] -> Int -> Exp t a -> Id -> T.Text
 lambda [] _ e _ = parens $ coqexp e
 lambda (x:xs) n e m = parens $
   "fun " <> name <> " =>"
@@ -247,12 +247,13 @@ abiVal AbiStringType = strMod <> ".EmptyString"
 abiVal _ = error "TODO: missing default values"
 
 -- | coq syntax for an expression
-coqexp :: Exp a -> T.Text
+coqexp :: Exp t a -> T.Text
 
 -- booleans
 coqexp (LitBool True)  = "true"
 coqexp (LitBool False) = "false"
-coqexp (BoolVar name) = T.pack name
+coqexp (UTBoolVar name)  = mutableVar name Nothing
+coqexp (TBoolVar name w) = mutableVar name $ Just w
 coqexp (And e1 e2)  = parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
 coqexp (Or e1 e2)   = parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
 coqexp (Impl e1 e2) = parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
@@ -263,13 +264,13 @@ coqexp (LE e1 e2)   = parens $ coqexp e1 <> " <? "  <> coqexp e2
 coqexp (LEQ e1 e2)  = parens $ coqexp e1 <> " <=? " <> coqexp e2
 coqexp (GE e1 e2)   = parens $ coqexp e2 <> " <? "  <> coqexp e1
 coqexp (GEQ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
-coqexp (TEntry (DirectBool _ name)) = parens $ T.pack name <> " " <> stateVar
-coqexp (TEntry (MappedBool _ name args)) = parens $
-  T.pack name <> " s " <> coqargs args
+coqexp (UTEntry e)  = entry e Nothing
+coqexp (TEntry e w) = entry e $ Just w
 
 -- integers
 coqexp (LitInt i) = T.pack $ show i
-coqexp (IntVar name) = T.pack name
+coqexp (UTIntVar name)  = mutableVar name Nothing
+coqexp (TIntVar name w) = mutableVar name $ Just w
 coqexp (Add e1 e2) = parens $ coqexp e1 <> " + " <> coqexp e2
 coqexp (Sub e1 e2) = parens $ coqexp e1 <> " - " <> coqexp e2
 coqexp (Mul e1 e2) = parens $ coqexp e1 <> " * " <> coqexp e2
@@ -280,9 +281,9 @@ coqexp (IntMin n)  = parens $ "INT_MIN "  <> T.pack (show n)
 coqexp (IntMax n)  = parens $ "INT_MAX "  <> T.pack (show n)
 coqexp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
 coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
-coqexp (TEntry (DirectInt _ name)) = parens $ T.pack name <> " " <> stateVar
-coqexp (TEntry (MappedInt _ name args)) = parens $
-  T.pack name <> " s " <> coqargs args
+--coqexp (TEntry (DirectInt _ name)) = parens $ T.pack name <> " " <> stateVar
+--coqexp (TEntry (MappedInt _ name args)) = parens $
+--  T.pack name <> " s " <> coqargs args
 
 -- polymorphic
 coqexp (ITE b e1 e2) = parens $ "if "
@@ -296,16 +297,17 @@ coqexp (ITE b e1 e2) = parens $ "if "
 coqexp (IntEnv e) = error $ show e <> ": environment values not yet supported"
 coqexp (Cat _ _) = error "bytestrings not supported"
 coqexp (Slice _ _ _) = error "bytestrings not supported"
-coqexp (ByVar _) = error "bytestrings not supported"
+coqexp (UTByVar _) = error "bytestrings not supported"
+coqexp (TByVar _ _) = error "bytestrings not supported"
 coqexp (ByStr _) = error "bytestrings not supported"
 coqexp (ByLit _) = error "bytestrings not supported"
 coqexp (ByEnv _) = error "bytestrings not supported"
-coqexp (TEntry (DirectBytes _ _)) = error "bytestrings not supported"
-coqexp (TEntry (MappedBytes _ _ _)) = error "bytestrings not supported"
+--coqexp (TEntry (DirectBytes _ _)) = error "bytestrings not supported"
+--coqexp (TEntry (MappedBytes _ _ _)) = error "bytestrings not supported"
 coqexp (NewAddr _ _) = error "newaddr not supported"
 
 -- | coq syntax for a proposition
-coqprop :: Exp a -> T.Text
+coqprop :: Exp t a -> T.Text
 coqprop (LitBool True)  = "True"
 coqprop (LitBool False) = "False"
 coqprop (And e1 e2)  = parens $ coqprop e1 <> " /\\ " <> coqprop e2
@@ -325,6 +327,18 @@ retexp :: ReturnExp -> T.Text
 retexp (ExpInt e)   = coqexp e
 retexp (ExpBool e)  = coqexp e
 retexp (ExpBytes _) = error "bytestrings not supported"
+
+mutableVar :: Id -> Maybe When -> T.Text
+mutableVar a Nothing  = mutableVar a (Just Pre)
+mutableVar a (Just w) = T.pack $ a <> "-" <> show w
+
+entry :: TStorageItem a -> Maybe When -> T.Text
+entry (DirectBool _ name) w = parens $ mutableVar name w <> " " <> stateVar
+entry (MappedBool _ name args) w = parens $ mutableVar name w <> " s " <> coqargs args 
+entry (DirectInt _ name) w = parens $ mutableVar name w <> " " <> stateVar
+entry (MappedInt _ name args) w = parens $ mutableVar name w <> " s " <> coqargs args 
+entry (DirectBytes _ _) _ = error "bytestrings not supported"
+entry (MappedBytes _ _ _) _ = error "bytestrings not supported"
 
 -- | coq syntax for a list of arguments
 coqargs :: NE.NonEmpty ReturnExp -> T.Text

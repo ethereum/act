@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 
 module Enrich (enrich, mkStorageBounds) where
 
@@ -58,10 +59,10 @@ enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invaria
       storagebounds' = storagebounds
                        <> mkStorageBounds store (Left <$> locsFromExp predicate)
 
-mkEthEnvBounds :: [EthEnv] -> [Exp Bool]
+mkEthEnvBounds :: [EthEnv] -> [Exp t Bool]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
   where
-    mkBound :: EthEnv -> Maybe (Exp Bool)
+    mkBound :: EthEnv -> Maybe (Exp t Bool)
     mkBound e = case lookup e defaultStore of
       Just (Integer) -> Just $ bound (toAbiType e) (IntEnv e)
       _ -> Nothing
@@ -83,18 +84,18 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
       Nonce -> AbiUIntType 256
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
-mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Bool]
+mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Untimed Bool] -- is `Untimed` correct here?
 mkStorageBounds store refs
   = catMaybes $ mkBound <$> refs
   where
-    mkBound :: Either StorageLocation StorageUpdate -> Maybe (Exp Bool)
+    mkBound :: Either StorageLocation StorageUpdate -> Maybe (Exp Untimed Bool)
     mkBound (Left (IntLoc item)) = Just $ fromItem item
     mkBound (Right (IntUpdate item _)) = Just $ fromItem item
     mkBound _ = Nothing
 
-    fromItem :: TStorageItem Integer -> Exp Bool
-    fromItem item@(DirectInt contract name) = bound (abiType $ slotType contract name) (TEntry item)
-    fromItem item@(MappedInt contract name _) = bound (abiType $ slotType contract name) (TEntry item)
+    fromItem :: TStorageItem Integer -> Exp Untimed Bool
+    fromItem item@(DirectInt contract name) = bound (abiType $ slotType contract name) (UTEntry item)
+    fromItem item@(MappedInt contract name _) = bound (abiType $ slotType contract name) (UTEntry item)
 
     slotType :: Id -> Id -> SlotType
     slotType contract name = let
@@ -105,10 +106,10 @@ mkStorageBounds store refs
     abiType (StorageMapping _ typ) = typ
     abiType (StorageValue typ) = typ
 
-mkCallDataBounds :: [Decl] -> [Exp Bool]
+mkCallDataBounds :: [Decl] -> [Exp Untimed Bool] -- is `Untimed` correct here?
 mkCallDataBounds =
     concatMap
       ( \(Decl typ name) -> case metaType typ of
-          Integer -> [bound typ (IntVar name)]
+          Integer -> [bound typ (UTIntVar name)]
           _ -> []
       )

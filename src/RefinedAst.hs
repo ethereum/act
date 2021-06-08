@@ -122,7 +122,7 @@ deriving instance Show (TStorageItem a)
 deriving instance Eq (TStorageItem a)
 
 -- typed expressions
-data Exp :: TimeType -> * -> * where
+data Exp (t :: Timing) (r :: *) where
   -- booleans
   And  :: Exp time Bool -> Exp time Bool -> Exp time Bool
   Or   :: Exp time Bool -> Exp time Bool -> Exp time Bool
@@ -133,7 +133,7 @@ data Exp :: TimeType -> * -> * where
   GEQ :: Exp time Integer -> Exp time Integer -> Exp time Bool
   GE :: Exp time Integer -> Exp time Integer -> Exp time Bool
   LitBool :: Bool -> Exp time Bool
-  TBoolVar :: Id -> Timing -> Exp Timed Bool
+  TBoolVar :: Id -> When -> Exp Timed Bool
   UTBoolVar :: Id -> Exp Untimed Bool
   -- integers
   Add :: Exp time Integer -> Exp time Integer -> Exp time Integer
@@ -143,7 +143,7 @@ data Exp :: TimeType -> * -> * where
   Mod :: Exp time Integer -> Exp time Integer -> Exp time Integer
   Exp :: Exp time Integer -> Exp time Integer -> Exp time Integer
   LitInt :: Integer -> Exp time Integer
-  TIntVar :: Id -> Timing -> Exp Timed Integer
+  TIntVar :: Id -> When -> Exp Timed Integer
   UTIntVar :: Id -> Exp Untimed Integer
   IntEnv :: EthEnv -> Exp time Integer
   -- bounds
@@ -154,7 +154,7 @@ data Exp :: TimeType -> * -> * where
   -- bytestrings
   Cat :: Exp time ByteString -> Exp time ByteString -> Exp time ByteString
   Slice :: Exp time ByteString -> Exp time Integer -> Exp time Integer -> Exp time ByteString
-  TByVar :: Id -> Timing -> Exp Timed ByteString
+  TByVar :: Id -> When -> Exp Timed ByteString
   UTByVar :: Id -> Exp Untimed ByteString
   ByStr :: String -> Exp time ByteString
   ByLit :: ByteString -> Exp time ByteString
@@ -167,21 +167,26 @@ data Exp :: TimeType -> * -> * where
   NEq :: (Eq t, Typeable t) => Exp time t -> Exp time t -> Exp time Bool
   ITE :: Exp time Bool -> Exp time t -> Exp time t -> Exp time t
   UTEntry :: TStorageItem t -> Exp Untimed t
-  TEntry :: TStorageItem t -> Timing -> Exp Timed t
+  TEntry :: TStorageItem t -> When -> Exp Timed t
 
 deriving instance Show (Exp time t)
 
-data TimeType = Timed | Untimed
+data Timing = Timed | Untimed
   deriving Typeable
 deriving instance Typeable Timed
 deriving instance Typeable Untimed 
 
-data Timing = Pre | Post
+data When = Pre | Post
   deriving Eq
 
-instance Show Timing where
+instance Show When where
   show Pre  = "pre"
   show Post = "post"
+
+time :: Exp t a -> Exp Timed a
+time e = case e of
+  And a b -> And (time a) (time b)
+  UTEntry t -> TEntry t Pre
 
 instance Eq (Exp time t) where
   And a b == And c d = a == c && b == d

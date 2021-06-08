@@ -4,6 +4,7 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language DataKinds #-}
 {-# Language GADTs #-}
+{-# Language MonadComprehensions #-}
 
 module HEVM where
 
@@ -27,6 +28,7 @@ import Data.SBV
 import Data.SBV.String ((.++), subStr)
 import Control.Lens hiding (pre, (.>))
 import Control.Monad
+import Control.Applicative ((<|>))
 import qualified Data.Vector as Vec
 import Data.Typeable
 import Data.Tree
@@ -125,8 +127,8 @@ checkPostStorage ctx (Behaviour _ _ _ _ _ _ updates _) pre post contractMap solc
                  slot update' = let S _ w = calculateSlot ctx solcjson (mkLoc update')
                                in w
                  insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
-                 insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx Pre e
-                 insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ ite (symExpBool ctx Pre e) 1 0
+                 insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx e
+                 insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ ite (symExpBool ctx e) 1 0
                  insertUpdate _ _ = error "bytes unsupported"
                in post' .== foldl insertUpdate pre' insertions
               _ -> sFalse
@@ -139,14 +141,14 @@ mkPostCondition preVm postVm solcjson
   contractMap
   (ctx, vmResult) =
     let storageConstraints = checkPostStorage ctx b preVm postVm contractMap solcjson
-        preCond' = symExpBool ctx Pre (mconcat preCond)
-        postCond' = symExpBool ctx Pre (mconcat postCond)
+        preCond' = symExpBool ctx (mconcat preCond)
+        postCond' = symExpBool ctx (mconcat postCond)
         (actual, reverted) = case vmResult of
           VMSuccess (ConcreteBuffer msg) -> (litBytes msg, sFalse)
           VMSuccess (SymbolicBuffer msg) -> (msg, sFalse)
           VMFailure (Revert _) -> ([], sTrue)
           _ -> ([], sFalse)
-        expected = maybe [] (toSymBytes . symExp ctx Pre) returns
+        expected = maybe [] (toSymBytes . symExp ctx) returns
 
     in preCond' .=>
        (postCond' .&&
@@ -212,9 +214,9 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
       Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item')
 
       name :: StorageLocation -> Id
-      name (IntLoc i) = nameFromItem method i
-      name (BoolLoc i) = nameFromItem method i
-      name (BytesLoc i) = nameFromItem method i
+      name (IntLoc i) = nameFromItem method i Nothing -- I think this `Nothing` is correct..?
+      name (BoolLoc i) = nameFromItem method i Nothing -- I think this `Nothing` is correct..?
+      name (BytesLoc i) = nameFromItem method i Nothing -- I think this `Nothing` is correct..?
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 
@@ -226,7 +228,7 @@ calculateSlot ctx solcjson loc =
     layout = fromMaybe (error "internal error: no storageLayout") $ _storageLayout source
     StorageItem _ _ slot = get (pack (getContainerId loc)) layout
     slotword = sFromIntegral (literal (fromIntegral slot :: Integer))
-    indexers = symExp ctx Pre <$> getContainerIxs loc
+    indexers = symExp ctx <$> getContainerIxs loc
   in var (getContainerId loc) $
      if null indexers
      then slotword
@@ -308,88 +310,91 @@ type Method = Id
 type Args = Map Id SMType
 type Storage = Map Id (SMType, SMType)
 type Env = Map Id SMType
-data When = Pre | Post
+--data When = Pre | Post
 
-symExp :: Ctx -> When -> ReturnExp -> SMType
-symExp ctx whn ret = case ret of
-  ExpInt e -> SymInteger $ symExpInt ctx whn e
-  ExpBool e -> SymBool $ symExpBool ctx whn e
-  ExpBytes e -> SymBytes $ symExpBytes ctx whn e
+symExp :: Ctx -> ReturnExp -> SMType
+symExp ctx ret = case ret of
+  ExpInt e -> SymInteger $ symExpInt ctx e
+  ExpBool e -> SymBool $ symExpBool ctx e
+  ExpBytes e -> SymBytes $ symExpBytes ctx e
 
-symExpBool :: Ctx -> When -> Exp Bool -> SBV Bool
-symExpBool ctx@(Ctx c m args store _) w e = case e of
-  And a b   -> symExpBool ctx w a .&& symExpBool ctx w b
-  Or a b    -> symExpBool ctx w a .|| symExpBool ctx w b
-  Impl a b  -> symExpBool ctx w a .=> symExpBool ctx w b
-  LE a b    -> symExpInt ctx w a .< symExpInt ctx w b
-  LEQ a b   -> symExpInt ctx w a .<= symExpInt ctx w b
-  GE a b    -> symExpInt ctx w a .> symExpInt ctx w b
-  GEQ a b   -> symExpInt ctx w a .>= symExpInt ctx w b
-  NEq a b   -> sNot (symExpBool ctx w (Eq a b))
-  Neg a     -> sNot (symExpBool ctx w a)
+symExpBool :: Ctx -> Exp t Bool -> SBV Bool
+symExpBool ctx@(Ctx c m args store environment) e = case e of
+  And a b   -> symExpBool ctx a .&& symExpBool ctx b
+  Or a b    -> symExpBool ctx a .|| symExpBool ctx b
+  Impl a b  -> symExpBool ctx a .=> symExpBool ctx b
+  LE a b    -> symExpInt ctx a .< symExpInt ctx b
+  LEQ a b   -> symExpInt ctx a .<= symExpInt ctx b
+  GE a b    -> symExpInt ctx a .> symExpInt ctx b
+  GEQ a b   -> symExpInt ctx a .>= symExpInt ctx b
+  NEq a b   -> sNot (symExpBool ctx (Eq a b))
+  Neg a     -> sNot (symExpBool ctx a)
   LitBool a -> literal a
-  BoolVar a -> get (nameFromArg c m a) (catBools args)
-  TEntry a  -> get (nameFromItem m a) (catBools store')
-  ITE x y z -> ite (symExpBool ctx w x) (symExpBool ctx w y) (symExpBool ctx w z)
-  Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
-    Just Refl -> symExpInt ctx w a .== symExpInt ctx w b
-    Nothing -> case eqT @t @Bool of
-      Just Refl -> symExpBool ctx w a .== symExpBool ctx w b
-      Nothing -> case eqT @t @ByteString of
-        Just Refl -> symExpBytes ctx w a .== symExpBytes ctx w b
-        Nothing -> error "Internal Error: invalid expression type"
- where store' = case w of
-         Pre -> fst <$> store
-         Post -> snd <$> store
+  UTBoolVar a -> get (nameFromArg c m a $ Nothing) (catBools args)
+  TBoolVar a w -> get (nameFromArg c m a $ Just w) (catBools args)
+  UTEntry a -> get (nameFromItem m a $ Nothing) (catBools $ timeStore Nothing store)
+  TEntry a w -> get (nameFromItem m a $ Just w) (catBools $ timeStore (Just w) store)
+  ITE x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
+  Eq a b -> fromMaybe (error "Internal error: invalid expression type")
+    $   [symExpBool  ctx a' .== symExpBool  ctx b' | a' <- gcast a, b' <- gcast b]
+    <|> [symExpInt   ctx a' .== symExpInt   ctx b' | a' <- gcast a, b' <- gcast b]
+    <|> [symExpBytes ctx a' .== symExpBytes ctx b' | a' <- gcast a, b' <- gcast b]
 
-symExpInt :: Ctx -> When -> Exp Integer -> SBV Integer
-symExpInt ctx@(Ctx c m args store environment) w e = case e of
-  Add a b   -> symExpInt ctx w a + symExpInt ctx w b
-  Sub a b   -> symExpInt ctx w a - symExpInt ctx w b
-  Mul a b   -> symExpInt ctx w a * symExpInt ctx w b
-  Div a b   -> symExpInt ctx w a `sDiv` symExpInt ctx w b
-  Mod a b   -> symExpInt ctx w a `sMod` symExpInt ctx w b
-  Exp a b   -> symExpInt ctx w a .^ symExpInt ctx w b
+symExpInt :: Ctx -> Exp t Integer -> SBV Integer
+symExpInt ctx@(Ctx c m args store environment) e = case e of
+  Add a b   -> symExpInt ctx a + symExpInt ctx b
+  Sub a b   -> symExpInt ctx a - symExpInt ctx b
+  Mul a b   -> symExpInt ctx a * symExpInt ctx b
+  Div a b   -> symExpInt ctx a `sDiv` symExpInt ctx b
+  Mod a b   -> symExpInt ctx a `sMod` symExpInt ctx b
+  Exp a b   -> symExpInt ctx a .^ symExpInt ctx b
   LitInt a  -> literal a
   IntMin a  -> literal $ intmin a
   IntMax a  -> literal $ intmax a
   UIntMin a -> literal $ uintmin a
   UIntMax a -> literal $ uintmax a
-  IntVar a  -> get (nameFromArg c m a) (catInts args)
-  TEntry a  -> get (nameFromItem m a) (catInts store')
+  TIntVar w a -> undefined
+  UTIntVar a  -> get (nameFromArg c m a $ Nothing) (catInts args)
+  TEntry a w -> get (nameFromItem m a $ Just w) (catInts $ timeStore (Just w) store)
+  UTEntry a -> undefined
   IntEnv a -> get (nameFromEnv c m a) (catInts environment)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  ITE x y z -> ite (symExpBool ctx w x) (symExpInt ctx w y) (symExpInt ctx w z)
- where store' = case w of
-         Pre -> fst <$> store
-         Post -> snd <$> store
+  ITE x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
+-- where store' = case w of
+--         Pre -> fst <$> store
+--         Post -> snd <$> store
 
-symExpBytes :: Ctx -> When -> Exp ByteString -> SBV String
-symExpBytes ctx@(Ctx c m args store environment) w e = case e of
-  Cat a b -> symExpBytes ctx w a .++ symExpBytes ctx w b
-  ByVar a  -> get (nameFromArg c m a) (catBytes args)
+symExpBytes :: Ctx -> Exp t ByteString -> SBV String
+symExpBytes ctx@(Ctx c m args store environment) e = case e of
+  Cat a b -> symExpBytes ctx a .++ symExpBytes ctx b
+  UTByVar a  -> get (nameFromArg c m a $ Nothing) (catBytes args)
+  TByVar a w -> get (nameFromArg c m a $ Just w) (catBytes args)
   ByStr a -> literal a
   ByLit a -> literal $ toString a
-  TEntry a  -> get (nameFromItem m a) (catBytes store')
-  Slice a x y -> subStr (symExpBytes ctx w a) (symExpInt ctx w x) (symExpInt ctx w y)
+  TEntry a w -> get (nameFromItem m a $ Just w) (catBytes $ timeStore (Just w) store)
+  UTEntry a -> undefined
+  Slice a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
   ByEnv a -> get (nameFromEnv c m a) (catBytes environment)
-  ITE x y z -> ite (symExpBool ctx w x) (symExpBytes ctx w y) (symExpBytes ctx w z)
- where store' = case w of
-         Pre -> fst <$> store
-         Post -> snd <$> store
+  ITE x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
+-- where store' = case w of
+--         Pre -> fst <$> store
+--         Post -> snd <$> store
 
+
+timeStore (Just Post) s = snd <$> s
+timeStore _           s = fst <$> s
 
 -- *** SMT Variable Names *** --
 
 
-nameFromItem :: Method -> TStorageItem a -> Id
-nameFromItem method item = case item of
-  DirectInt c name -> c @@ method @@ name
-  DirectBool c name -> c @@ method @@ name
-  DirectBytes c name -> c @@ method @@ name
-  MappedInt c name ixs -> c @@ method @@ name >< showIxs c ixs
-  MappedBool c name ixs -> c @@ method @@ name >< showIxs c ixs
-  MappedBytes c name ixs -> c @@ method @@ name >< showIxs c ixs
+nameFromItem :: Method -> TStorageItem a -> Maybe When -> Id
+nameFromItem method item w = case item of
+  DirectInt c name -> c @@ method @@ name @@@ w
+  DirectBool c name -> c @@ method @@ name @@@ w
+  DirectBytes c name -> c @@ method @@ name @@@ w
+  MappedInt c name ixs -> c @@ method @@ name @@@ w >< showIxs c ixs
+  MappedBool c name ixs -> c @@ method @@ name @@@ w >< showIxs c ixs
+  MappedBytes c name ixs -> c @@ method @@ name @@@ w >< showIxs c ixs
   where
     x >< y = x <> "-" <> y
     showIxs c ixs = intercalate "-" (NonEmpty.toList $ nameFromExp c method <$> ixs)
@@ -400,7 +405,7 @@ nameFromExp c method e = case e of
   ExpBool e' -> nameFromExpBool c method e'
   ExpBytes e' -> nameFromExpBytes c method e'
 
-nameFromExpInt :: ContractName -> Method -> Exp Integer -> Id
+nameFromExpInt :: ContractName -> Method -> Exp t Integer -> Id
 nameFromExpInt c m e = case e of
   Add a b   -> nameFromExpInt c m a <> "+" <> nameFromExpInt c m b
   Sub a b   -> nameFromExpInt c m a <> "-" <> nameFromExpInt c m b
@@ -413,13 +418,15 @@ nameFromExpInt c m e = case e of
   IntMax a  -> show $ intmax a
   UIntMin a -> show $ uintmin a
   UIntMax a -> show $ uintmax a
-  IntVar a  -> a
-  TEntry a  -> nameFromItem m a
+  UTIntVar a -> a
+  TIntVar a w -> a @@ show w
+  UTEntry a -> nameFromItem m a Nothing
+  TEntry a w -> nameFromItem m a (Just w)
   IntEnv a -> nameFromEnv c m a
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpInt c m y <> "-else-" <> nameFromExpInt c m z
 
-nameFromExpBool :: ContractName -> Method -> Exp Bool -> Id
+nameFromExpBool :: ContractName -> Method -> Exp t Bool -> Id
 nameFromExpBool c m e = case e of
   And a b   -> nameFromExpBool c m a <> "&&" <> nameFromExpBool c m b
   Or a b    -> nameFromExpBool c m a <> "|" <> nameFromExpBool c m b
@@ -430,46 +437,64 @@ nameFromExpBool c m e = case e of
   GEQ a b   -> nameFromExpInt c m a <> ">=" <> nameFromExpInt c m b
   Neg a     -> "~" <> nameFromExpBool c m a
   LitBool a -> show a
-  BoolVar a -> nameFromArg c m a
-  TEntry a  -> nameFromItem m a
+  UTBoolVar a -> nameFromArg c m a Nothing
+  TBoolVar a w -> nameFromArg c m a (Just w)
+  UTEntry a  -> nameFromItem m a Nothing
+  TEntry a w -> nameFromItem m a (Just w)
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBool c m y <> "-else-" <> nameFromExpBool c m z
-  Eq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
-    Just Refl -> nameFromExpInt c m a <> "==" <> nameFromExpInt c m b
-    Nothing -> case eqT @t @Bool of
-      Just Refl -> nameFromExpBool c m a <> "==" <> nameFromExpBool c m b
-      Nothing -> case eqT @t @ByteString of
-        Just Refl -> nameFromExpBytes c m a <> "==" <> nameFromExpBytes c m b
-        Nothing -> error "Internal Error: invalid expression type"
-  NEq (a :: Exp t) (b :: Exp t) -> case eqT @t @Integer of
-    Just Refl -> nameFromExpInt c m a <> "=/=" <> nameFromExpInt c m b
-    Nothing -> case eqT @t @Bool of
-      Just Refl -> nameFromExpBool c m a <> "=/=" <> nameFromExpBool c m b
-      Nothing -> case eqT @t @ByteString of
-        Just Refl -> nameFromExpBytes c m a <> "=/=" <> nameFromExpBytes c m b
-        Nothing -> error "Internal Error: invalid expression type"
+  Eq a b -> fromMaybe (error "Internal error: invalid expression type")
+    $   [nameFromExpInt   c m a' <> "==" <> nameFromExpInt   c m b' | a' <- gcast a, b' <- gcast b]
+    <|> [nameFromExpBool  c m a' <> "==" <> nameFromExpBool  c m b' | a' <- gcast a, b' <- gcast b]
+    <|> [nameFromExpBytes c m a' <> "==" <> nameFromExpBytes c m b' | a' <- gcast a, b' <- gcast b]
 
-nameFromExpBytes :: ContractName -> Method -> Exp ByteString -> Id
+--    case eqT @t @Integer of
+--    Just Refl -> nameFromExpInt c m a <> "==" <> nameFromExpInt c m b
+--    Nothing -> case eqT @t @Bool of
+--      Just Refl -> nameFromExpBool c m a <> "==" <> nameFromExpBool c m b
+--      Nothing -> case eqT @t @ByteString of
+--        Just Refl -> nameFromExpBytes c m a <> "==" <> nameFromExpBytes c m b
+--        Nothing -> error "Internal Error: invalid expression type"
+
+  NEq a b -> fromMaybe (error "Internal error: invalid expression type")
+    $   [nameFromExpInt   c m a' <> "==" <> nameFromExpInt   c m b' | a' <- gcast a, b' <- gcast b]
+    <|> [nameFromExpBool  c m a' <> "==" <> nameFromExpBool  c m b' | a' <- gcast a, b' <- gcast b]
+    <|> [nameFromExpBytes c m a' <> "==" <> nameFromExpBytes c m b' | a' <- gcast a, b' <- gcast b]
+--  case eqT @t @Integer of
+--    Just Refl -> nameFromExpInt c m a <> "=/=" <> nameFromExpInt c m b
+--    Nothing -> case eqT @t @Bool of
+--      Just Refl -> nameFromExpBool c m a <> "=/=" <> nameFromExpBool c m b
+--      Nothing -> case eqT @t @ByteString of
+--        Just Refl -> nameFromExpBytes c m a <> "=/=" <> nameFromExpBytes c m b
+--        Nothing -> error "Internal Error: invalid expression type"
+
+nameFromExpBytes :: ContractName -> Method -> Exp t ByteString -> Id
 nameFromExpBytes c m e = case e of
   Cat a b -> nameFromExpBytes c m a <> "++" <> nameFromExpBytes c m b
-  ByVar a  -> nameFromArg c m a
+  UTByVar a  -> nameFromArg c m a Nothing
+  TByVar a w -> nameFromArg c m a (Just w)
   ByStr a -> show a
   ByLit a -> show a
-  TEntry a  -> nameFromItem m a
+  UTEntry a  -> nameFromItem m a Nothing
+  TEntry a w -> nameFromItem m a (Just w)
   Slice a x y -> nameFromExpBytes c m a <> "[" <> show x <> ":" <> show y <> "]"
   ByEnv a -> nameFromEnv c m a
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBytes c m y <> "-else-" <> nameFromExpBytes c m z
 
 nameFromDecl :: ContractName -> Method -> Decl -> Id
-nameFromDecl c m (Decl _ name) = nameFromArg c m name
+nameFromDecl c m (Decl _ name) = nameFromArg c m name Nothing
 
-nameFromArg :: ContractName -> Method -> Id -> Id
-nameFromArg c method name = c @@ method @@ name
+nameFromArg :: ContractName -> Method -> Id -> Maybe When -> Id
+nameFromArg c method name w = c @@ method @@ name @@@ w
 
 nameFromEnv :: ContractName -> Method -> EthEnv -> Id
 nameFromEnv c method e = c @@ method @@ (prettyEnv e)
 
 (@@) :: Id -> Id -> Id
 x @@ y = x <> "_" <> y
+
+(@@@) :: Show a => Id -> Maybe a -> Id
+x @@@ (Just y) = x <> "_" <> show y
+x @@@ Nothing  = x
 
 
 -- *** Utils *** --
