@@ -106,10 +106,10 @@ mkStorageBounds store refs
     abiType (StorageMapping _ typ) = typ
     abiType (StorageValue typ) = typ
 
-mkCallDataBounds :: [Decl] -> [Exp Untimed Bool] -- is `Untimed` correct here?
+mkCallDataBounds :: [Decl] -> [Exp t Bool]
 mkCallDataBounds =
     concatMap
       ( \(Decl typ name) -> case metaType typ of
-          Integer -> [bound typ (UTIntVar name)]
+          Integer -> [bound typ (IntVar name)]
           _ -> []
       )

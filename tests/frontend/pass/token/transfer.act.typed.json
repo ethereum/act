@@ -100,7 +100,7 @@
       "arity": 2,
       "args": [
         "UTEntry (DirectBytes \"Token\" \"name\")",
-        "UTByVar \"_name\""
+        "ByVar \"_name\""
       ],
       "symbol": "=="
     },
@@ -137,7 +137,7 @@
       "arity": 2,
       "args": [
         "UTEntry (DirectBytes \"Token\" \"symbol\")",
-        "UTByVar \"_symbol\""
+        "ByVar \"_symbol\""
       ],
       "symbol": "=="
     },
@@ -177,14 +177,14 @@
           "name": "Token.name",
           "sort": "bytes"
         },
-        "value": "UTByVar \"_name\""
+        "value": "ByVar \"_name\""
       },
       {
         "location": {
           "name": "Token.symbol",
           "sort": "bytes"
         },
-        "value": "UTByVar \"_symbol\""
+        "value": "ByVar \"_symbol\""
       },
       {
         "location": {

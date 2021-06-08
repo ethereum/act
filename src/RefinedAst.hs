@@ -133,8 +133,7 @@ data Exp (t :: Timing) (r :: *) where
   GEQ :: Exp time Integer -> Exp time Integer -> Exp time Bool
   GE :: Exp time Integer -> Exp time Integer -> Exp time Bool
   LitBool :: Bool -> Exp time Bool
-  TBoolVar :: Id -> When -> Exp Timed Bool
-  UTBoolVar :: Id -> Exp Untimed Bool
+  BoolVar :: Id -> Exp time Bool
   -- integers
   Add :: Exp time Integer -> Exp time Integer -> Exp time Integer
   Sub :: Exp time Integer -> Exp time Integer -> Exp time Integer
@@ -143,8 +142,7 @@ data Exp (t :: Timing) (r :: *) where
   Mod :: Exp time Integer -> Exp time Integer -> Exp time Integer
   Exp :: Exp time Integer -> Exp time Integer -> Exp time Integer
   LitInt :: Integer -> Exp time Integer
-  TIntVar :: Id -> When -> Exp Timed Integer
-  UTIntVar :: Id -> Exp Untimed Integer
+  IntVar :: Id -> Exp time Integer
   IntEnv :: EthEnv -> Exp time Integer
   -- bounds
   IntMin :: Int -> Exp time Integer
@@ -154,8 +152,7 @@ data Exp (t :: Timing) (r :: *) where
   -- bytestrings
   Cat :: Exp time ByteString -> Exp time ByteString -> Exp time ByteString
   Slice :: Exp time ByteString -> Exp time Integer -> Exp time Integer -> Exp time ByteString
-  TByVar :: Id -> When -> Exp Timed ByteString
-  UTByVar :: Id -> Exp Untimed ByteString
+  ByVar :: Id -> Exp time ByteString
   ByStr :: String -> Exp time ByteString
   ByLit :: ByteString -> Exp time ByteString
   ByEnv :: EthEnv -> Exp time ByteString
@@ -183,11 +180,6 @@ instance Show When where
   show Pre  = "pre"
   show Post = "post"
 
-time :: Exp t a -> Exp Timed a
-time e = case e of
-  And a b -> And (time a) (time b)
-  UTEntry t -> TEntry t Pre
-
 instance Eq (Exp time t) where
   And a b == And c d = a == c && b == d
   Or a b == Or c d = a == c && b == d
@@ -198,8 +190,7 @@ instance Eq (Exp time t) where
   GEQ a b == GEQ c d = a == c && b == d
   GE a b == GE c d = a == c && b == d
   LitBool a == LitBool b = a == b
-  UTBoolVar a == UTBoolVar b = a == b
-  TBoolVar t a == TBoolVar t' b = a == b && t == t'
+  BoolVar a == BoolVar b = a == b
 
   Add a b == Add c d = a == c && b == d
   Sub a b == Sub c d = a == c && b == d
@@ -208,8 +199,7 @@ instance Eq (Exp time t) where
   Mod a b == Mod c d = a == c && b == d
   Exp a b == Exp c d = a == c && b == d
   LitInt a == LitInt b = a == b
-  UTIntVar a == UTIntVar b = a == b
-  TIntVar t a == TIntVar t' b = a == b && t == t'
+  IntVar a == IntVar b = a == b
   IntEnv a == IntEnv b = a == b
 
   IntMin a == IntMin b = a == b
@@ -219,8 +209,7 @@ instance Eq (Exp time t) where
 
   Cat a b == Cat c d = a == c && b == d
   Slice a b c == Slice d e f = a == d && b == e && c == f
-  UTByVar a == UTByVar b = a == b
-  TByVar t a == TByVar t' b = a == b && t == t'
+  ByVar a == ByVar b = a == b
   ByStr a == ByStr b = a == b
   ByLit a == ByLit b = a == b
   ByEnv a == ByEnv b = a == b
@@ -266,8 +255,7 @@ eval e = case e of
   GE   a b    -> [a' >  b' | a' <- eval a, b' <- eval b]
   GEQ  a b    -> [a' >= b' | a' <- eval a, b' <- eval b]
   LitBool a   -> pure a
-  TBoolVar _ _-> empty
-  UTBoolVar _ -> empty
+  BoolVar _   -> empty
 
   Add a b     -> [a' + b'     | a' <- eval a, b' <- eval b]
   Sub a b     -> [a' - b'     | a' <- eval a, b' <- eval b]
@@ -276,8 +264,7 @@ eval e = case e of
   Mod a b     -> [a' `mod` b' | a' <- eval a, b' <- eval b]
   Exp a b     -> [a' ^ b'     | a' <- eval a, b' <- eval b]
   LitInt a    -> pure a
-  TIntVar _ _ -> empty
-  UTIntVar _  -> empty
+  IntVar _    -> empty
   IntEnv _    -> empty
   IntMin  a   -> pure . negate $ 2 ^ (a - 1)
   IntMax  a   -> pure $ 2 ^ (a - 1) - 1
@@ -289,8 +276,7 @@ eval e = case e of
                            | s' <- BS.unpack <$> eval s
                            , a' <- eval a
                            , b' <- eval b]
-  TByVar _ _  -> empty
-  UTByVar _   -> empty
+  ByVar _     -> empty
   ByStr s     -> pure . fromString $ s
   ByLit s     -> pure s
   ByEnv _     -> empty
@@ -372,7 +358,7 @@ instance ToJSON (Exp time Integer) where
   toJSON (Mul a b) = symbol "*" a b
   toJSON (Div a b) = symbol "/" a b
   toJSON (NewAddr a b) = symbol "newAddr" a b
-  toJSON (UTIntVar a) = String $ pack a
+  toJSON (IntVar a) = String $ pack a
   toJSON (LitInt a) = toJSON $ show a
   toJSON (IntMin a) = toJSON $ show $ intmin a
   toJSON (IntMax a) = toJSON $ show $ intmax a
@@ -397,8 +383,7 @@ instance ToJSON (Exp time Bool) where
   toJSON (LEQ a b)  = symbol "<=" a b
   toJSON (GEQ a b)  = symbol ">=" a b
   toJSON (LitBool a) = String $ pack $ show a
-  toJSON (UTBoolVar a) = toJSON a
-  toJSON (TBoolVar a t) = unary (show t) a
+  toJSON (BoolVar a) = toJSON a
   toJSON (Neg a) = object [  "symbol"   .= pack "not"
                           ,  "arity"    .= Data.Aeson.Types.Number 1
                           ,  "args"     .= Array (fromList [toJSON a])]

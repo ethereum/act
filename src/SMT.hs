@@ -67,7 +67,7 @@ type SMT2 = String
 -- | Context needed to produce SMT from an act expression
 --   - Id : The name of the interface from which calldata vars were extracted
 --   - When : Whether or not storage references should refer to the pre or post state
-data Ctx = Ctx Id -- TODO simplify this if we actually don't need `When`
+data Ctx = Ctx Id When
 
 -- | An SMTExp is a structured representation of an SMT Expression
 --   The _storage, _calldata, and _environment fields hold variable declarations
@@ -91,15 +91,9 @@ instance Pretty SMTExp where
 -- | A Query is a structured representation of an SMT query for an individual
 --   expression, along with the metadata needed to extract a model from a satisfiable query
 data Query
--- <<<<<<< HEAD
   = Postcondition Transition (Exp Timed Bool) SMTExp
   | Inv Invariant (Constructor, SMTExp) [(Behaviour, SMTExp)]
   deriving (Show)
--- =======
---   = Postcondition Claim (Exp Timed Bool) SMTExp
---   | Inv Claim Invariant SMTExp
---   deriving (Show)
--- >>>>>>> c2f32ca... adapt other modules to new AST
 
 data SMTResult
   = Sat Model
@@ -171,14 +165,14 @@ mkPostconditionQueries (B behv@(Behaviour _ Pass _ (Interface ifaceName decls) p
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
 
     -- constraints
-    pres = mkAssert (Ctx ifaceName) <$> preconds
+    pres = mkAssert (Ctx ifaceName Pre) <$> preconds
     updates = encodeUpdate ifaceName <$> stateUpdates
 
     mksmt e = SMTExp
       { _storage = storage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert (Ctx ifaceName) . Neg $ e] <> pres <> updates
+      , _assertions = [mkAssert (Ctx ifaceName Pre) . Neg $ e] <> pres <> updates -- TODO change Pre to Post here?
       }
     mkQuery e = Postcondition (Behv behv) e (mksmt e)
 mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName decls) preconds postconds initialStorage stateUpdates)) = mkQuery <$> postconds
@@ -190,7 +184,7 @@ mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName d
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
 
     -- constraints
-    pres = mkAssert (Ctx ifaceName) <$> preconds
+    pres = mkAssert (Ctx ifaceName Pre) <$> preconds
     updates = encodeUpdate ifaceName <$> stateUpdates
     initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
 
@@ -198,7 +192,7 @@ mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName d
       { _storage = localStorage <> externalStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert (Ctx ifaceName) . Neg $ e] <> pres <> updates <> initialStorage'
+      , _assertions = [mkAssert (Ctx ifaceName Pre) . Neg $ e] <> pres <> updates <> initialStorage' -- TODO change Pre to Post here?
       }
     mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
 mkPostconditionQueries _ = []
@@ -242,10 +236,10 @@ mkInvariantQueries claims = fmap mkQuery gathered
         envs = declareEthEnv <$> ethEnvFromConstructor ctor
 
         -- constraints
-        pres = (mkAssert (Ctx ifaceName)) <$> (preconds <> invConds)
+        pres = mkAssert (Ctx ifaceName Pre) <$> preconds <> invConds
         updates = encodeUpdate ifaceName <$> stateUpdates
         initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
-        postInv = mkAssert (Ctx ifaceName) . Neg $ invExp
+        postInv = mkAssert (Ctx ifaceName Post) . Neg $ invExp
 
         smt = SMTExp
           { _storage = localStorage <> externalStorage
@@ -270,10 +264,10 @@ mkInvariantQueries claims = fmap mkQuery gathered
         storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv <> implicitLocs)
 
         -- constraints
-        preInv = mkAssert (Ctx ctorIface) invExp
-        postInv = mkAssert (Ctx ctorIface) . Neg $ invExp
-        behvConds = mkAssert (Ctx behvIface) <$> (_preconditions behv)
-        invConds' = mkAssert (Ctx ctorIface) <$> (invConds <> invStorageBounds)
+        preInv = mkAssert (Ctx ctorIface Pre) invExp
+        postInv = mkAssert (Ctx ctorIface Post) . Neg $ invExp
+        behvConds = mkAssert (Ctx behvIface Pre) <$> (_preconditions behv)
+        invConds' = mkAssert (Ctx ctorIface Pre) <$> (invConds <> invStorageBounds)
         implicitLocs' = encodeUpdate ctorIface <$> implicitLocs
         updates = encodeUpdate behvIface <$> (_stateUpdates behv)
 
@@ -384,8 +378,8 @@ getPostconditionModel (Behv behv) solver = do
   let locs = locsFromBehaviour behv
       env = ethEnvFromBehaviour behv
       Interface ifaceName decls = _interface behv
-  prestate <- mapM (getStorageValue solver (Ctx ifaceName) Pre) locs
-  poststate <- mapM (getStorageValue solver (Ctx ifaceName) Post) locs
+  prestate <- mapM (getStorageValue solver (Ctx ifaceName Pre)) locs
+  poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
   calldata <- mapM (getCalldataValue solver ifaceName) decls
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
@@ -407,8 +401,8 @@ getInvariantModel invExp ctor (Just behv) solver = do
       Interface behvIface behvDecls = _interface behv
       Interface ctorIface ctorDecls = _cinterface ctor
   -- TODO: v ugly to ignore the ifaceName here, but it's safe...
-  prestate <- mapM (getStorageValue solver (Ctx "") Pre) locs
-  poststate <- mapM (getStorageValue solver (Ctx "") Post) locs
+  prestate <- mapM (getStorageValue solver (Ctx "" Pre)) locs
+  poststate <- mapM (getStorageValue solver (Ctx "" Post)) locs
   behvCalldata <- mapM (getCalldataValue solver behvIface) behvDecls
   ctorCalldata <- mapM (getCalldataValue solver ctorIface) ctorDecls
   environment <- mapM (getEnvironmentValue solver) env
@@ -426,7 +420,7 @@ getCtorModel ctor solver = do
   let locs = locsFromConstructor ctor
       env = ethEnvFromConstructor ctor
       Interface ifaceName decls = _cinterface ctor
-  poststate <- mapM (getStorageValue solver (Ctx ifaceName) Post) locs
+  poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
   calldata <- mapM (getCalldataValue solver ifaceName) decls
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
@@ -438,8 +432,8 @@ getCtorModel ctor solver = do
     }
 
 -- | Gets a concrete value from the solver for the given storage location
-getStorageValue :: SolverInstance -> Ctx -> When -> StorageLocation -> IO (StorageLocation, ReturnExp)
-getStorageValue solver ctx@(Ctx _) whn loc = do
+getStorageValue :: SolverInstance -> Ctx -> StorageLocation -> IO (StorageLocation, ReturnExp)
+getStorageValue solver ctx@(Ctx _ whn) loc = do
   let name = if isMapping loc
                 then select ctx (nameFromLoc whn loc) (NonEmpty.fromList $ getContainerIxs loc)
                 else nameFromLoc whn loc
@@ -523,7 +517,7 @@ encodeInitialStorage behvName update = case update of
   BytesUpdate item e -> encode item e
   where
     encode :: TStorageItem a -> Exp t a -> SMT2
-    encode item e = "(assert (= " <> expToSMT2 (Ctx behvName) (TEntry item Post) <> " " <> expToSMT2 (Ctx behvName) e <> "))"
+    encode item e = "(assert (= " <> expToSMT2 (Ctx behvName Post) (UTEntry item) <> " " <> expToSMT2 (Ctx behvName Pre) e <> "))"
 
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
@@ -551,7 +545,7 @@ encodeUpdate behvName (Right update) = case update of
   BytesUpdate item e -> encode item e
   where
     encode :: TStorageItem a -> Exp t a -> SMT2
-    encode item e = "(assert (= " <> expToSMT2 (Ctx behvName) (TEntry item Post) <> " " <> expToSMT2 (Ctx behvName) e <> "))"
+    encode item e = "(assert (= " <> expToSMT2 (Ctx behvName Post) (UTEntry item) <> " " <> expToSMT2 (Ctx behvName Pre) e <> "))"
 
 -- | declares a storage location that exists both in the pre state and the post
 --   state (i.e. anything except a loc created by a constructor claim)
@@ -588,7 +582,7 @@ returnExpToSMT2 c e = case e of
 
 -- | encodes the given Exp as an smt2 expression
 expToSMT2 :: Ctx -> Exp t a -> SMT2
-expToSMT2 ctx@(Ctx behvName) e = case e of
+expToSMT2 ctx@(Ctx behvName whn) e = case e of
 
   -- booleans
   And a b -> binop "and" a b
@@ -600,8 +594,7 @@ expToSMT2 ctx@(Ctx behvName) e = case e of
   GEQ a b -> binop ">=" a b
   GE a b -> binop ">" a b
   LitBool a -> if a then "true" else "false"
-  UTBoolVar a -> nameFromVar behvName a Pre
-  TBoolVar a w -> nameFromVar behvName a w
+  BoolVar a -> nameFromVar behvName a
 
   -- integers
   Add a b -> binop "+" a b
@@ -613,8 +606,7 @@ expToSMT2 ctx@(Ctx behvName) e = case e of
   LitInt a -> if a >= 0
               then show a
               else "(- " <> (show . negate $ a) <> ")" -- cvc4 does not accept negative integer literals
-  UTIntVar a -> nameFromVar behvName a Pre
-  TIntVar a w -> nameFromVar behvName a w
+  IntVar a -> nameFromVar behvName a
   IntEnv a -> prettyEnv a
 
   -- bounds
@@ -626,8 +618,7 @@ expToSMT2 ctx@(Ctx behvName) e = case e of
   -- bytestrings
   Cat a b -> binop "str.++" a b
   Slice a start end -> triop "str.substr" a start (Sub end start)
-  UTByVar a -> nameFromVar behvName a Pre
-  TByVar a w -> nameFromVar behvName a w
+  ByVar a -> nameFromVar behvName a
   ByStr a -> a
   ByLit a -> show a
   ByEnv a -> prettyEnv a
@@ -639,8 +630,8 @@ expToSMT2 ctx@(Ctx behvName) e = case e of
   Eq a b -> binop "=" a b
   NEq a b -> unop "not" (Eq a b)
   ITE a b c -> triop "ite" a b c
-  TEntry item w -> entry item $ Just w
-  UTEntry item -> entry item Nothing 
+  TEntry item w -> entry item w
+  UTEntry item -> entry item whn
   where
     asSMT2 :: Exp t a -> SMT2
     asSMT2 = expToSMT2 ctx
@@ -659,9 +650,8 @@ expToSMT2 ctx@(Ctx behvName) e = case e of
       where
         inner = "(" <> "select" <> " " <> name <> " " <> returnExpToSMT2 ctx hd <> ")"
 
-    entry :: TStorageItem a -> Maybe When -> SMT2
-    entry item Nothing = entry item $ Just Pre
-    entry item (Just whn) = case item of
+    entry :: TStorageItem a -> When -> SMT2
+    entry item whn = case item of
       DirectInt {} -> nameFromItem whn item
       DirectBool {} -> nameFromItem whn item
       DirectBytes {} -> nameFromItem whn item
@@ -736,25 +726,18 @@ nameFromLoc whn loc = case loc of
 nameFromDecl :: Id -> Decl -> Id
 nameFromDecl ifaceName (Decl _ name) = ifaceName @@ name
 
--- <<<<<<< HEAD
--- -- Construct the smt2 variable name for a given act variable
--- nameFromVar :: Id -> Exp a -> Id
--- nameFromVar ifaceName (IntVar name) = ifaceName @@ name
--- nameFromVar ifaceName (ByVar name) = ifaceName @@ name
--- nameFromVar ifaceName (BoolVar name) = ifaceName @@ name
--- nameFromVar _ _ = error "Internal Error: cannot produce a variable name for non variable expressions"
--- =======
 -- Construct the smt2 variable name for a given act variable
-nameFromVar :: Id -> Id -> When -> Id
-nameFromVar behvName name w = behvName @@ name @@ show w
---nameFromVar _ _ = error "Internal Error: cannot produce a variable name for non variable expressions"
--- >>>>>>> c2f32ca... adapt other modules to new AST
+nameFromVar :: Id -> Id -> Id
+nameFromVar behvName name = behvName @@ name
 
 (@@) :: String -> String -> String
 x @@ y = x <> "_" <> y
 
 --- ** Util ** ---
 
+-- | Applies a function to the target expression of a `Query`. Needed because `Exp Timed Bool` and `Exp Untimed Bool`
+-- are different types, so we can't return the expression as-is. The alternative would be to return
+-- `Either (Exp Timed Bool) (Exp Untimed Bool)`.
 onTarget :: Query -> (forall t. Exp t Bool -> a) -> a
 onTarget (Postcondition _ e _) f = f e
 onTarget (Inv (Invariant _ _ _ e) _ _) f = f e

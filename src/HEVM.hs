@@ -330,8 +330,7 @@ symExpBool ctx@(Ctx c m args store environment) e = case e of
   NEq a b   -> sNot (symExpBool ctx (Eq a b))
   Neg a     -> sNot (symExpBool ctx a)
   LitBool a -> literal a
-  UTBoolVar a -> get (nameFromArg c m a $ Nothing) (catBools args)
-  TBoolVar a w -> get (nameFromArg c m a $ Just w) (catBools args)
+  BoolVar a -> get (nameFromArg c m a $ Nothing) (catBools args)
   UTEntry a -> get (nameFromItem m a $ Nothing) (catBools $ timeStore Nothing store)
   TEntry a w -> get (nameFromItem m a $ Just w) (catBools $ timeStore (Just w) store)
   ITE x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
@@ -353,8 +352,7 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   IntMax a  -> literal $ intmax a
   UIntMin a -> literal $ uintmin a
   UIntMax a -> literal $ uintmax a
-  TIntVar w a -> undefined
-  UTIntVar a  -> get (nameFromArg c m a $ Nothing) (catInts args)
+  IntVar a  -> get (nameFromArg c m a $ Nothing) (catInts args)
   TEntry a w -> get (nameFromItem m a $ Just w) (catInts $ timeStore (Just w) store)
   UTEntry a -> undefined
   IntEnv a -> get (nameFromEnv c m a) (catInts environment)
@@ -367,8 +365,7 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
 symExpBytes :: Ctx -> Exp t ByteString -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
   Cat a b -> symExpBytes ctx a .++ symExpBytes ctx b
-  UTByVar a  -> get (nameFromArg c m a $ Nothing) (catBytes args)
-  TByVar a w -> get (nameFromArg c m a $ Just w) (catBytes args)
+  ByVar a  -> get (nameFromArg c m a $ Nothing) (catBytes args)
   ByStr a -> literal a
   ByLit a -> literal $ toString a
   TEntry a w -> get (nameFromItem m a $ Just w) (catBytes $ timeStore (Just w) store)
@@ -418,8 +415,7 @@ nameFromExpInt c m e = case e of
   IntMax a  -> show $ intmax a
   UIntMin a -> show $ uintmin a
   UIntMax a -> show $ uintmax a
-  UTIntVar a -> a
-  TIntVar a w -> a @@ show w
+  IntVar a -> a
   UTEntry a -> nameFromItem m a Nothing
   TEntry a w -> nameFromItem m a (Just w)
   IntEnv a -> nameFromEnv c m a
@@ -437,8 +433,7 @@ nameFromExpBool c m e = case e of
   GEQ a b   -> nameFromExpInt c m a <> ">=" <> nameFromExpInt c m b
   Neg a     -> "~" <> nameFromExpBool c m a
   LitBool a -> show a
-  UTBoolVar a -> nameFromArg c m a Nothing
-  TBoolVar a w -> nameFromArg c m a (Just w)
+  BoolVar a -> nameFromArg c m a Nothing
   UTEntry a  -> nameFromItem m a Nothing
   TEntry a w -> nameFromItem m a (Just w)
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBool c m y <> "-else-" <> nameFromExpBool c m z
@@ -470,8 +465,7 @@ nameFromExpBool c m e = case e of
 nameFromExpBytes :: ContractName -> Method -> Exp t ByteString -> Id
 nameFromExpBytes c m e = case e of
   Cat a b -> nameFromExpBytes c m a <> "++" <> nameFromExpBytes c m b
-  UTByVar a  -> nameFromArg c m a Nothing
-  TByVar a w -> nameFromArg c m a (Just w)
+  ByVar a  -> nameFromArg c m a Nothing
   ByStr a -> show a
   ByLit a -> show a
   UTEntry a  -> nameFromItem m a Nothing

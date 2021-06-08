@@ -414,21 +414,23 @@ inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
     entry :: Pn -> Maybe When -> Id -> [Expr] -> Err (Exp t a)
     entry pn timing name es =
       let
-        makeVar :: Typeable x => (Id -> Exp Untimed x) -> (Id -> When -> Exp Timed x) -> Err (Exp t a)
-        makeVar untimed timed = check pn
-                                $ errMessage (pn, "Need " <> show (typeRep expectedTime) <> " variable here!")
-                                $ maybe (gcast0 $ untimed name) (gcast0 . timed name) timing
+--        makeVar :: Typeable x => (Id -> Exp Untimed x) -> (Id -> When -> Exp Timed x) -> Err (Exp t a)
+--        makeVar untimed timed = check pn
+--                                $ errMessage (pn, "Need " <> show (typeRep expectedTime) <> " variable here!")
+--                                $ maybe (gcast0 $ untimed name) (gcast0 . timed name) timing
 
         makeEntry :: Typeable x => (Id -> Id -> TStorageItem x) -> Err (Exp t a)
-        makeEntry maker = makeVar (UTEntry . maker contract) (TEntry . maker contract)
+        makeEntry maker = check pn
+                        $ errMessage (pn, "Need " <> show (typeRep expectedTime) <> " variable here!")
+                        $ maybe (gcast0 . UTEntry $ maker contract name) (gcast0 . TEntry (maker contract name)) timing
       in
       case (Map.lookup name store, Map.lookup name calldata) of
         (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
         (Just _, Just _)   -> Bad (pn, "Ambiguous variable: " <> name)   
-        (Nothing, Just c) -> case c of
-          Integer -> makeVar UTIntVar  TIntVar
-          Boolean -> makeVar UTBoolVar TBoolVar
-          ByteStr -> makeVar UTByVar   TByVar
+        (Nothing, Just c) -> if isJust timing then Bad (pn, "Calldata var cannot be pre/post.") else case c of
+          Integer -> check pn . pure $ IntVar  name
+          Boolean -> check pn . pure $ BoolVar name
+          ByteStr -> check pn . pure $ ByVar   name
         (Just (StorageValue a), Nothing) -> case metaType a of
           Integer -> makeEntry DirectInt  
           Boolean -> makeEntry DirectBool 

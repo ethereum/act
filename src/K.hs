@@ -85,19 +85,19 @@ kCalldata (Interface a b) =
   <> ")"
 
 kStorageName :: TStorageItem a -> Maybe When -> String
-kStorageName (DirectInt _ name)    w = kMutableVar name w
-kStorageName (DirectBool _ name)   w = kMutableVar name w
-kStorageName (DirectBytes _ name)  w = kMutableVar name w
-kStorageName (MappedInt _ name ixs) w = kMutableVar name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kStorageName (MappedBool _ name ixs) w = kMutableVar name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
-kStorageName (MappedBytes _ name ixs) w = kMutableVar name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kStorageName (DirectInt _ name)    w = kMutable name w
+kStorageName (DirectBool _ name)   w = kMutable name w
+kStorageName (DirectBytes _ name)  w = kMutable name w
+kStorageName (MappedInt _ name ixs) w = kMutable name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kStorageName (MappedBool _ name ixs) w = kMutable name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
+kStorageName (MappedBytes _ name ixs) w = kMutable name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kExpr ixs)
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> tail a
 
-kMutableVar :: Id -> Maybe When -> String
-kMutableVar a Nothing  = kMutableVar a (Just Pre) -- When we don't care about the timing we're talking about the prestate.
-kMutableVar a (Just w) = kVar a <> "-" <> show w
+kMutable :: Id -> Maybe When -> String
+kMutable a Nothing  = kMutable a (Just Pre) -- When we don't care about the timing we're talking about the prestate..maybe?
+kMutable a (Just w) = kVar a <> "-" <> show w
 
 kAbiEncode :: Maybe ReturnExp -> String
 kAbiEncode Nothing = ".ByteArray"
@@ -123,8 +123,7 @@ kExprInt (IntMin a) = kExprInt $ LitInt $ negate $ 2 ^ (a - 1)
 kExprInt (IntMax a) = kExprInt $ LitInt $ 2 ^ (a - 1) - 1
 kExprInt (UIntMin _) = kExprInt $ LitInt 0
 kExprInt (UIntMax a) = kExprInt $ LitInt $ 2 ^ a - 1
-kExprInt (UTIntVar a) = kMutableVar a Nothing
-kExprInt (TIntVar a w) = kMutableVar a $ Just w
+kExprInt (IntVar a) = kVar a
 kExprInt (IntEnv a) = show a
 
 
@@ -138,8 +137,7 @@ kExprInt (LEQ a b) = "(" <> kExprInt a <> " <=Int " <> kExprInt b <> ")"
 kExprInt (GE a b) = "(" <> kExprInt a <> " >Int " <> kExprInt b <> ")"
 kExprInt (GEQ a b) = "(" <> kExprInt a <> " >=Int " <> kExprInt b <> ")"
 kExprInt (LitBool a) = show a
-kExprInt (UTBoolVar a) = kMutableVar a Nothing
-kExprInt (TBoolVar a w) = kMutableVar a $ Just w
+kExprInt (BoolVar a) = kVar a
 kExprInt (NEq a b) = "notBool (" <> kExprInt (Eq a b) <> ")"
 kExprInt (Eq (a :: Exp t a) (b :: Exp t a)) = fromMaybe (error "Internal Error: invalid expression type") $
   let eqK typ = "(" <> kExprInt a <> " ==" <> typ <> " " <> kExprInt b <> ")"
@@ -148,8 +146,7 @@ kExprInt (Eq (a :: Exp t a) (b :: Exp t a)) = fromMaybe (error "Internal Error: 
   <|> eqT @a @ByteString $> eqK "K" -- TODO: Is ==K correct?
 
 --kExprInt :: Exp t ByteString -> String
-kExprInt (UTByVar name) = kMutableVar name Nothing
-kExprInt (TByVar name w) = kMutableVar name $ Just w
+kExprInt (ByVar name) = kVar name
 kExprInt (ByStr str) = show str
 kExprInt (ByLit bs) = show bs
 kExprInt (UTEntry item) = kStorageName item Nothing

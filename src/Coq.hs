@@ -252,8 +252,7 @@ coqexp :: Exp t a -> T.Text
 -- booleans
 coqexp (LitBool True)  = "true"
 coqexp (LitBool False) = "false"
-coqexp (UTBoolVar name)  = mutableVar name Nothing
-coqexp (TBoolVar name w) = mutableVar name $ Just w
+coqexp (BoolVar name)  = T.pack name
 coqexp (And e1 e2)  = parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
 coqexp (Or e1 e2)   = parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
 coqexp (Impl e1 e2) = parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
@@ -269,8 +268,7 @@ coqexp (TEntry e w) = entry e $ Just w
 
 -- integers
 coqexp (LitInt i) = T.pack $ show i
-coqexp (UTIntVar name)  = mutableVar name Nothing
-coqexp (TIntVar name w) = mutableVar name $ Just w
+coqexp (IntVar name)  = T.pack name
 coqexp (Add e1 e2) = parens $ coqexp e1 <> " + " <> coqexp e2
 coqexp (Sub e1 e2) = parens $ coqexp e1 <> " - " <> coqexp e2
 coqexp (Mul e1 e2) = parens $ coqexp e1 <> " * " <> coqexp e2
@@ -297,8 +295,7 @@ coqexp (ITE b e1 e2) = parens $ "if "
 coqexp (IntEnv e) = error $ show e <> ": environment values not yet supported"
 coqexp (Cat _ _) = error "bytestrings not supported"
 coqexp (Slice _ _ _) = error "bytestrings not supported"
-coqexp (UTByVar _) = error "bytestrings not supported"
-coqexp (TByVar _ _) = error "bytestrings not supported"
+coqexp (ByVar _) = error "bytestrings not supported"
 coqexp (ByStr _) = error "bytestrings not supported"
 coqexp (ByLit _) = error "bytestrings not supported"
 coqexp (ByEnv _) = error "bytestrings not supported"
@@ -330,15 +327,15 @@ retexp (ExpBytes _) = error "bytestrings not supported"
 
 mutableVar :: Id -> Maybe When -> T.Text
 mutableVar a Nothing  = mutableVar a (Just Pre)
-mutableVar a (Just w) = T.pack $ a <> "-" <> show w
+mutableVar a (Just w) = T.pack $ a <> "_" <> show w
 
 entry :: TStorageItem a -> Maybe When -> T.Text
-entry (DirectBool _ name) w = parens $ mutableVar name w <> " " <> stateVar
+entry (DirectBool _ name)      w = parens $ mutableVar name w <> " "   <> stateVar
 entry (MappedBool _ name args) w = parens $ mutableVar name w <> " s " <> coqargs args 
-entry (DirectInt _ name) w = parens $ mutableVar name w <> " " <> stateVar
-entry (MappedInt _ name args) w = parens $ mutableVar name w <> " s " <> coqargs args 
-entry (DirectBytes _ _) _ = error "bytestrings not supported"
-entry (MappedBytes _ _ _) _ = error "bytestrings not supported"
+entry (DirectInt _ name)       w = parens $ mutableVar name w <> " "   <> stateVar
+entry (MappedInt _ name args)  w = parens $ mutableVar name w <> " s " <> coqargs args 
+entry (DirectBytes _ _)        _ = error "bytestrings not supported"
+entry (MappedBytes _ _ _)      _ = error "bytestrings not supported"
 
 -- | coq syntax for a list of arguments
 coqargs :: NE.NonEmpty ReturnExp -> T.Text
