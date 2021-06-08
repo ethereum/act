@@ -17,8 +17,8 @@ import Data.Maybe
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict    as Map -- abandon in favor of [(a,b)]?
-import Data.Type.Equality
-import Data.Typeable
+import Data.Typeable hiding (typeRep)
+import Type.Reflection
 import Data.Functor (($>))
 
 import Data.Coerce (coerce)
@@ -347,11 +347,8 @@ checkExpr p env e typ = case metaType typ of
   Boolean -> ExpBool <$> inferExpr env e -- TODO possibly pass p here?
   ByteStr -> ExpBytes <$> inferExpr env e -- TODO possibly pass p here?
 
-inferExpr :: (Typeable a, Typeable time) => Env -> Expr -> Err (Exp time a)
-inferExpr env e = inferExpr' Proxy Proxy env e 
-
-inferExpr' :: forall t a. (Typeable t, Typeable a) => Proxy t -> Proxy a -> Env -> Expr -> Err (Exp t a)
-inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
+inferExpr :: forall a t. (Typeable a, Typeable t) => Env -> Expr -> Err (Exp t a)
+inferExpr env@Env{contract,store,calldata} expr =
   case expr of
     ENot p  v1       -> check p $ inferExpr @Bool env v1
     EAnd p  v1 v2    -> check p $ And  <$> inferExpr env v1 <*> inferExpr env v2
@@ -392,36 +389,23 @@ inferExpr' expectedTime expectedType env@Env{contract,store,calldata} expr =
     -- BYAbiE Expr
     -- StringLit String
   where
-    check :: (Typeable x)
-           => Pn -> Err (Exp t x) -> Err (Exp t a)
-    check pn e = leaf Proxy pn =<< e
-      where
-        -- TODO use `errMessage` here and probably integrate into `check`
-        leaf :: Typeable x => Proxy x -> Pn -> Exp t x -> Err (Exp t a)
-        leaf actual pn e = maybe
-          (Bad (pn,"Type mismatch. Expected " <> show (typeRep expectedType) <> ", got " <> show (typeRep actual)))
-          pure
-          (gcast e)
+    check :: forall x. Typeable x => Pn -> Err (Exp t x) -> Err (Exp t a)
+    check pn e =
+      errMessage (pn,"Type mismatch. Expected " <> show (typeRep @a) <> ", got " <> show (typeRep @x) <> ".")
+             =<< gcast <$> e
 
-    polycheck :: Typeable x
-               => Pn -> (forall y. (Eq y, Typeable y) => Exp t y -> Exp t y -> Exp t x) -> Expr -> Expr -> Err (Exp t a)
-    polycheck pn cons e1 e2 =
-          check pn (cons @Integer    <$> inferExpr env e1 <*> inferExpr env e2)
-      <|> check pn (cons @Bool       <$> inferExpr env e1 <*> inferExpr env e2)
-      <|> check pn (cons @ByteString <$> inferExpr env e1 <*> inferExpr env e2)
-      <|> Bad (pn, "polybranch error")
+    polycheck :: Typeable x => Pn -> (forall y. (Eq y, Typeable y) => Exp t y -> Exp t y -> Exp t x) -> Expr -> Expr -> Err (Exp t a)
+    polycheck pn cons e1 e2 = check pn (cons @Integer    <$> inferExpr env e1 <*> inferExpr env e2)
+                          <|> check pn (cons @Bool       <$> inferExpr env e1 <*> inferExpr env e2)
+                          <|> check pn (cons @ByteString <$> inferExpr env e1 <*> inferExpr env e2)
+                          <|> Bad (pn, "Couldn't harmonize types!")
 
     entry :: Pn -> Maybe When -> Id -> [Expr] -> Err (Exp t a)
     entry pn timing name es =
       let
---        makeVar :: Typeable x => (Id -> Exp Untimed x) -> (Id -> When -> Exp Timed x) -> Err (Exp t a)
---        makeVar untimed timed = check pn
---                                $ errMessage (pn, "Need " <> show (typeRep expectedTime) <> " variable here!")
---                                $ maybe (gcast0 $ untimed name) (gcast0 . timed name) timing
-
         makeEntry :: Typeable x => (Id -> Id -> TStorageItem x) -> Err (Exp t a)
         makeEntry maker = check pn
-                        $ errMessage (pn, "Need " <> show (typeRep expectedTime) <> " variable here!")
+                        $ errMessage (pn, "Need " <> (tail . show $ typeRep @t) <> " variable here!")
                         $ maybe (gcast0 . UTEntry $ maker contract name) (gcast0 . TEntry (maker contract name)) timing
       in
       case (Map.lookup name store, Map.lookup name calldata) of
