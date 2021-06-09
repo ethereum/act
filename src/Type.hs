@@ -19,9 +19,6 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict    as Map -- abandon in favor of [(a,b)]?
 import Data.Typeable hiding (typeRep)
 import Type.Reflection (typeRep)
-import Data.Functor (($>))
-
-import Data.Coerce (coerce)
 
 import Data.ByteString (ByteString)
 
@@ -261,13 +258,11 @@ checkPost Env{contract,theirs,calldata} (Syntax.Post maybeStorage extStorage may
             else Map.filterWithKey (\slot _ -> slot `elem` (fromMaybe mempty $ Map.lookup name externalNames)) vars
           ) theirs
 
-    focus :: Id -> Env -> Env
-    focus name Env{theirs,calldata} = Env
-      { contract = name
-      , store    = fromMaybe mempty (Map.lookup name theirs)
-      , theirs   = theirs
-      , calldata = calldata
-      }
+      --{ contract = name
+      --, store    = fromMaybe mempty (Map.lookup name theirs)
+      --, theirs   = theirs
+      --, calldata = calldata
+      --}
 
     localNames :: [Id]
     localNames = nameFromStorage <$> fromMaybe mempty maybeStorage
@@ -279,6 +274,12 @@ checkPost Env{contract,theirs,calldata} (Syntax.Post maybeStorage extStorage may
         WildStorage -> Nothing
       ) extStorage
 
+focus :: Id -> Env -> Env
+focus name env@Env{theirs} = env
+  { contract = name
+  , store    = fromMaybe mempty (Map.lookup name theirs)
+  }
+
 checkStorageExpr :: Env -> Pattern -> Expr -> Err StorageUpdate
 checkStorageExpr env@Env{contract,store} (PEntry p name ixs) expr =
     case Map.lookup name store of
@@ -289,7 +290,7 @@ checkStorageExpr env@Env{contract,store} (PEntry p name ixs) expr =
       Just (StorageMapping argtyps  t) ->
         if length argtyps /= length ixs
         then Bad (p, "Argument mismatch for storageitem: " <> name)
-        else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr p env))
+        else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
              in case metaType t of
                   Integer -> liftM2 (IntUpdate . MappedInt contract name) indexExprs (inferExpr env expr) -- TODO possibly pass p here?
                   Boolean -> liftM2 (BoolUpdate . MappedBool contract name) indexExprs (inferExpr env expr) -- TODO possibly pass p here?
@@ -307,7 +308,7 @@ checkPattern env@Env{contract,store} (PEntry p name ixs) =
     Just (StorageMapping argtyps t) ->
       if length argtyps /= length ixs
       then Bad (p, "Argument mismatch for storageitem: " <> name)
-      else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr p env))
+      else let indexExprs = forM (NonEmpty.zip (head ixs :| tail ixs) argtyps) (uncurry (checkExpr env))
            in case metaType t of
                   Integer -> (IntLoc . MappedInt contract name) <$> indexExprs
                   Boolean -> (BoolLoc . MappedBool contract name) <$> indexExprs
@@ -316,12 +317,12 @@ checkPattern env@Env{contract,store} (PEntry p name ixs) =
 checkPattern _ (PWild _) = error "TODO: checkPattern for Wild storage"
 
 checkIffs :: Env -> [IffH] -> Err [Exp Untimed Bool]
-checkIffs env ((Iff p exps):xs) = do
-  hd <- mapM (inferExpr env) exps -- TODO possibly pass p here?
+checkIffs env ((Iff _ exps):xs) = do
+  hd <- mapM (inferExpr env) exps -- TODO possibly pass pn here?
   tl <- checkIffs env xs
   Ok $ hd <> tl
-checkIffs env ((IffIn p typ exps):xs) = do
-  hd <- mapM (inferExpr env) exps -- TODO possibly pass p here?
+checkIffs env ((IffIn _ typ exps):xs) = do
+  hd <- mapM (inferExpr env) exps -- TODO possibly pass pn here?
   tl <- checkIffs env xs
   Ok $ map (bound typ) hd <> tl
 checkIffs _ [] = Ok []
@@ -341,11 +342,11 @@ upperBound (AbiIntType n) = IntMax n
 upperBound AbiAddressType = UIntMax 160
 upperBound typ  = error $ "upperBound not implemented for " ++ show typ
 
-checkExpr :: Pn -> Env -> Expr -> AbiType -> Err ReturnExp
-checkExpr p env e typ = case metaType typ of
-  Integer -> ExpInt <$> inferExpr env e -- TODO possibly pass p here?
-  Boolean -> ExpBool <$> inferExpr env e -- TODO possibly pass p here?
-  ByteStr -> ExpBytes <$> inferExpr env e -- TODO possibly pass p here?
+checkExpr :: Env -> Expr -> AbiType -> Err ReturnExp
+checkExpr env e typ = case metaType typ of
+  Integer -> ExpInt <$> inferExpr env e
+  Boolean -> ExpBool <$> inferExpr env e
+  ByteStr -> ExpBytes <$> inferExpr env e
 
 inferExpr :: forall a t. (Typeable a, Typeable t) => Env -> Expr -> Err (Exp t a)
 inferExpr env@Env{contract,store,calldata} expr =
@@ -360,7 +361,7 @@ inferExpr env@Env{contract,store,calldata} expr =
     ELEQ p  v1 v2    -> check p $ LEQ  <$> inferExpr env v1 <*> inferExpr env v2
     EGEQ p  v1 v2    -> check p $ GEQ  <$> inferExpr env v1 <*> inferExpr env v2
     EGT p   v1 v2    -> check p $ GE   <$> inferExpr env v1 <*> inferExpr env v2
-    EITE p  v1 v2 v3 -> ITE <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
+    EITE _  v1 v2 v3 -> ITE <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
     EAdd p  v1 v2    -> check p $ Add  <$> inferExpr env v1 <*> inferExpr env v2
     ESub p  v1 v2    -> check p $ Sub  <$> inferExpr env v1 <*> inferExpr env v2
     EMul p  v1 v2    -> check p $ Mul  <$> inferExpr env v1 <*> inferExpr env v2
@@ -422,7 +423,7 @@ inferExpr env@Env{contract,store,calldata} expr =
         (Just (StorageMapping ts a), Nothing) ->
           let
             indexExprs = for (NonEmpty.zip (head es :| tail es) ts)
-                             (uncurry (checkExpr pn env))
+                             (uncurry (checkExpr env))
   
             makeMapping :: Typeable x => (Id -> Id -> NonEmpty ReturnExp -> TStorageItem x) -> Err (Exp t a)
             makeMapping maker = do

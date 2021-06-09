@@ -14,7 +14,6 @@ import ErrM
 import Control.Applicative ((<|>))
 import Data.Functor (($>))
 import Data.Text (Text, pack, unpack)
-import Data.Type.Equality
 import Data.Typeable
 import Data.List hiding (group)
 import qualified Data.List.NonEmpty as NonEmpty

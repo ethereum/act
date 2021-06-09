@@ -35,7 +35,6 @@ import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import Control.Applicative ((<|>))
 import Control.Monad.Reader
 
-import Data.Map (Map)
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe
@@ -170,8 +169,8 @@ mkPostconditionQueries (B behv@(Behaviour _ Pass _ (Interface ifaceName decls) p
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
 
     -- constraints
-    pres = mkAssert ifaceName . as Pre <$> preconds
-    updates = encodeUpdate `withInterface` ifaceName <$> stateUpdates
+    pres = mkAssert ifaceName . (`as` Pre) <$> preconds
+    updates = encodeUpdate ifaceName <$> stateUpdates
 
     mksmt e = SMTExp
       { _storage = storage
@@ -189,9 +188,9 @@ mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName d
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
 
     -- constraints
-    pres = mkAssert ifaceName . as Pre <$> preconds
-    updates = encodeUpdate `withInterface` ifaceName <$> stateUpdates
-    initialStorage' = encodeInitialStorage `withInterface` ifaceName <$> initialStorage
+    pres = mkAssert ifaceName . (`as` Pre) <$> preconds
+    updates = encodeUpdate ifaceName <$> stateUpdates
+    initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
 
     mksmt e = SMTExp
       { _storage = localStorage <> externalStorage
@@ -241,10 +240,10 @@ mkInvariantQueries claims = fmap mkQuery gathered
         envs = declareEthEnv <$> ethEnvFromConstructor ctor
 
         -- constraints
-        pres = mkAssert ifaceName . as Pre <$> preconds <> invConds
-        updates = encodeUpdate `withInterface` ifaceName <$> stateUpdates
-        initialStorage' = encodeInitialStorage `withInterface` ifaceName <$> initialStorage
-        postInv = mkAssert ifaceName . as Post . Neg $ invExp
+        pres = mkAssert ifaceName . (`as` Pre) <$> preconds <> invConds
+        updates = encodeUpdate ifaceName <$> stateUpdates
+        initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
+        postInv = mkAssert ifaceName . Neg $ invExp `as` Post
 
         smt = SMTExp
           { _storage = localStorage <> externalStorage
@@ -269,12 +268,12 @@ mkInvariantQueries claims = fmap mkQuery gathered
         storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv <> implicitLocs)
 
         -- constraints
-        preInv = mkAssert ctorIface . as Pre $ invExp
-        postInv = mkAssert ctorIface . Neg . as Post $ invExp
-        behvConds = mkAssert behvIface . as Pre <$> (_preconditions behv)
-        invConds' = mkAssert ctorIface . as Pre <$> (invConds <> invStorageBounds)
-        implicitLocs' = encodeUpdate `withInterface` ctorIface <$> implicitLocs
-        updates = encodeUpdate `withInterface` behvIface <$> (_stateUpdates behv)
+        preInv = mkAssert ctorIface $ invExp `as` Pre
+        postInv = mkAssert ctorIface . Neg $ invExp `as` Post
+        behvConds = mkAssert behvIface . (`as` Pre) <$> (_preconditions behv)
+        invConds' = mkAssert ctorIface . (`as` Pre) <$> (invConds <> invStorageBounds)
+        implicitLocs' = encodeUpdate ctorIface <$> implicitLocs
+        updates = encodeUpdate behvIface <$> (_stateUpdates behv)
 
         smt = SMTExp
           { _storage = storage
@@ -515,17 +514,18 @@ parseSMTModel s = if length s0Caps == 1
 
 
 -- | encodes a storage update from a constructor creates block as an smt assertion
-encodeInitialStorage :: StorageUpdate -> Ctx SMT2
-encodeInitialStorage update = case update of
+encodeInitialStorage :: Id -> StorageUpdate -> SMT2
+encodeInitialStorage behvName update = case update of
   IntUpdate item e -> encode item e
   BoolUpdate item e -> encode item e
   BytesUpdate item e -> encode item e
   where
-    encode :: TStorageItem a -> Exp Untimed a -> Ctx SMT2
-    encode item e = [ "(assert (= " <> postentry <> " " <> expression <> "))"
-                        | postentry  <- expToSMT2 $ TEntry item Post
-                        , expression <- expToSMT2 $ as Pre e
-                    ]
+    encode :: TStorageItem a -> Exp Untimed a -> SMT2
+    encode item e =
+      let
+        postentry  = expToSMT2 `withInterface` behvName $ TEntry item Post
+        expression = expToSMT2 `withInterface` behvName $ e `as` Pre
+      in "(assert (= " <> postentry <> " " <> expression <> "))"
 
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
@@ -545,9 +545,9 @@ declareInitialStorage update = case getLoc . Right $ update of
     mkarray item ixs tp = array (nameFromItem Post item) ixs tp
 
 -- | encodes a storge update rewrite as an smt assertion
-encodeUpdate :: Either StorageLocation StorageUpdate -> Ctx SMT2
-encodeUpdate (Left loc) = pure $ "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
-encodeUpdate (Right update) = encodeInitialStorage update
+encodeUpdate :: Id -> Either StorageLocation StorageUpdate -> SMT2
+encodeUpdate _        (Left loc)     = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
+encodeUpdate behvName (Right update) = encodeInitialStorage behvName update
 
 -- | declares a storage location that exists both in the pre state and the post
 --   state (i.e. anything except a loc created by a constructor claim)
@@ -576,65 +576,11 @@ declareEthEnv env = constant (prettyEnv env) tp
   where tp = fromJust . lookup env $ defaultStore
 
 returnExpToSMT2 :: ReturnExp -> Ctx SMT2
-returnExpToSMT2 e = case e of -- TODO decide on pre/post semantics in `returns` blocks
-  ExpInt ei -> expToSMT2 $ as Post ei
-  ExpBool eb -> expToSMT2 $ as Post eb
-  ExpBytes ebs -> expToSMT2 $ as Post ebs
+returnExpToSMT2 re = case re of -- TODO decide on pre/post semantics in `returns` blocks
+  ExpInt ei -> expToSMT2 $ ei `as` Post
+  ExpBool eb -> expToSMT2 $ eb `as` Post
+  ExpBytes ebs -> expToSMT2 $ ebs `as` Post
 
--- <<<<<<< HEAD
--- -- | encodes the given Exp as an smt2 expression
--- expToSMT2 :: Ctx -> Exp t a -> SMT2
--- expToSMT2 ctx@(Ctx behvName whn) e = case e of
--- 
---   -- booleans
---   And a b -> binop "and" a b
---   Or a b -> binop "or" a b
---   Impl a b -> binop "=>" a b
---   Neg a -> unop "not" a
---   LE a b -> binop "<" a b
---   LEQ a b -> binop "<=" a b
---   GEQ a b -> binop ">=" a b
---   GE a b -> binop ">" a b
---   LitBool a -> if a then "true" else "false"
---   BoolVar a -> nameFromVar behvName a
--- 
---   -- integers
---   Add a b -> binop "+" a b
---   Sub a b -> binop "-" a b
---   Mul a b -> binop "*" a b
---   Div a b -> binop "div" a b
---   Mod a b -> binop "mod" a b
---   Exp a b -> expToSMT2 ctx (simplifyExponentiation a b)
---   LitInt a -> if a >= 0
---               then show a
---               else "(- " <> (show . negate $ a) <> ")" -- cvc4 does not accept negative integer literals
---   IntVar a -> nameFromVar behvName a
---   IntEnv a -> prettyEnv a
--- 
---   -- bounds
---   IntMin a -> expToSMT2 ctx (LitInt $ intmin a)
---   IntMax a -> show $ intmax a
---   UIntMin a -> show $ uintmin a
---   UIntMax a -> show $ uintmax a
--- 
---   -- bytestrings
---   Cat a b -> binop "str.++" a b
---   Slice a start end -> triop "str.substr" a start (Sub end start)
---   ByVar a -> nameFromVar behvName a
---   ByStr a -> a
---   ByLit a -> show a
---   ByEnv a -> prettyEnv a
--- 
---   -- builtins
---   NewAddr {} -> error "TODO: NewAddr"
--- 
---   -- polymorphic
---   Eq a b -> binop "=" a b
---   NEq a b -> unop "not" (Eq a b)
---   ITE a b c -> triop "ite" a b c
---   TEntry item w -> entry item w
---   UTEntry item -> entry item whn
--- =======
 expToSMT2 :: Exp Timed a -> Ctx SMT2
 expToSMT2 expr = case expr of
   -- booleans

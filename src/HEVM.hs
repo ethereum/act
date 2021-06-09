@@ -319,7 +319,7 @@ symExp ctx ret = case ret of
   ExpBytes e -> SymBytes $ symExpBytes ctx e
 
 symExpBool :: Ctx -> Exp t Bool -> SBV Bool
-symExpBool ctx@(Ctx c m args store environment) e = case e of
+symExpBool ctx@(Ctx c m args store _) e = case e of
   And a b   -> symExpBool ctx a .&& symExpBool ctx b
   Or a b    -> symExpBool ctx a .|| symExpBool ctx b
   Impl a b  -> symExpBool ctx a .=> symExpBool ctx b
@@ -377,9 +377,9 @@ symExpBytes ctx@(Ctx c m args store environment) e = case e of
 --         Pre -> fst <$> store
 --         Post -> snd <$> store
 
-
+timeStore :: When -> HEVM.Storage -> Map Id SMType
+timeStore Pre  s = fst <$> s
 timeStore Post s = snd <$> s
-timeStore _    s = fst <$> s
 
 -- *** SMT Variable Names *** --
 

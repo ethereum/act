@@ -11,7 +11,6 @@ import Test.QuickCheck.Instances.ByteString()
 import Test.QuickCheck.GenT
 import Test.QuickCheck.Monadic
 import Text.PrettyPrint.ANSI.Leijen (pretty)
-import Test.QuickCheck (property, whenFail)
 
 import Control.Monad
 import Control.Monad.Trans
@@ -254,8 +253,8 @@ genNames = mkNames <$> (split <$> unique)
     split l = go (length l `div` 3) l
       where
         go _ [] = []
-        go n xs = as : go n bs
-          where (as,bs) = splitAt n xs
+        go n xs = ys : go n zs
+          where (ys,zs) = splitAt n xs
 
 
 ident :: ExpoGen String

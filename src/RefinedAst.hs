@@ -121,52 +121,59 @@ data TStorageItem a where
 deriving instance Show (TStorageItem a)
 deriving instance Eq (TStorageItem a)
 
--- typed expressions
-data Exp (t :: Timing) (r :: *) where
+-- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
+-- In a `Timed` expression, all storage entries need to be `TEntry`, which contain either one of
+-- `Pre, Post :: When`. In an `Untimed` expression, only `UTEntry` can occur, which does not contain
+-- a `When`.
+
+-- It is recommended that backends always input `Exp Timed a` to their codegens, to make it easier to
+-- generate consistent variable names. Depending on the context the expression in question occurs in,
+-- `Untimed` expressions can be given a specific timing using `as`, e.g. `expr \`as\` Pre`.
+data Exp (t :: Timing) (a :: *) where
   -- booleans
-  And  :: Exp time Bool -> Exp time Bool -> Exp time Bool
-  Or   :: Exp time Bool -> Exp time Bool -> Exp time Bool
-  Impl :: Exp time Bool -> Exp time Bool -> Exp time Bool
-  Neg :: Exp time Bool -> Exp time Bool
-  LE :: Exp time Integer -> Exp time Integer -> Exp time Bool
-  LEQ :: Exp time Integer -> Exp time Integer -> Exp time Bool
-  GEQ :: Exp time Integer -> Exp time Integer -> Exp time Bool
-  GE :: Exp time Integer -> Exp time Integer -> Exp time Bool
-  LitBool :: Bool -> Exp time Bool
-  BoolVar :: Id -> Exp time Bool
+  And  :: Exp t Bool -> Exp t Bool -> Exp t Bool
+  Or   :: Exp t Bool -> Exp t Bool -> Exp t Bool
+  Impl :: Exp t Bool -> Exp t Bool -> Exp t Bool
+  Neg :: Exp t Bool -> Exp t Bool
+  LE :: Exp t Integer -> Exp t Integer -> Exp t Bool
+  LEQ :: Exp t Integer -> Exp t Integer -> Exp t Bool
+  GEQ :: Exp t Integer -> Exp t Integer -> Exp t Bool
+  GE :: Exp t Integer -> Exp t Integer -> Exp t Bool
+  LitBool :: Bool -> Exp t Bool
+  BoolVar :: Id -> Exp t Bool
   -- integers
-  Add :: Exp time Integer -> Exp time Integer -> Exp time Integer
-  Sub :: Exp time Integer -> Exp time Integer -> Exp time Integer
-  Mul :: Exp time Integer -> Exp time Integer -> Exp time Integer
-  Div :: Exp time Integer -> Exp time Integer -> Exp time Integer
-  Mod :: Exp time Integer -> Exp time Integer -> Exp time Integer
-  Exp :: Exp time Integer -> Exp time Integer -> Exp time Integer
-  LitInt :: Integer -> Exp time Integer
-  IntVar :: Id -> Exp time Integer
-  IntEnv :: EthEnv -> Exp time Integer
+  Add :: Exp t Integer -> Exp t Integer -> Exp t Integer
+  Sub :: Exp t Integer -> Exp t Integer -> Exp t Integer
+  Mul :: Exp t Integer -> Exp t Integer -> Exp t Integer
+  Div :: Exp t Integer -> Exp t Integer -> Exp t Integer
+  Mod :: Exp t Integer -> Exp t Integer -> Exp t Integer
+  Exp :: Exp t Integer -> Exp t Integer -> Exp t Integer
+  LitInt :: Integer -> Exp t Integer
+  IntVar :: Id -> Exp t Integer
+  IntEnv :: EthEnv -> Exp t Integer
   -- bounds
-  IntMin :: Int -> Exp time Integer
-  IntMax :: Int -> Exp time Integer
-  UIntMin :: Int -> Exp time Integer
-  UIntMax :: Int -> Exp time Integer
+  IntMin :: Int -> Exp t Integer
+  IntMax :: Int -> Exp t Integer
+  UIntMin :: Int -> Exp t Integer
+  UIntMax :: Int -> Exp t Integer
   -- bytestrings
-  Cat :: Exp time ByteString -> Exp time ByteString -> Exp time ByteString
-  Slice :: Exp time ByteString -> Exp time Integer -> Exp time Integer -> Exp time ByteString
-  ByVar :: Id -> Exp time ByteString
-  ByStr :: String -> Exp time ByteString
-  ByLit :: ByteString -> Exp time ByteString
-  ByEnv :: EthEnv -> Exp time ByteString
+  Cat :: Exp t ByteString -> Exp t ByteString -> Exp t ByteString
+  Slice :: Exp t ByteString -> Exp t Integer -> Exp t Integer -> Exp t ByteString
+  ByVar :: Id -> Exp t ByteString
+  ByStr :: String -> Exp t ByteString
+  ByLit :: ByteString -> Exp t ByteString
+  ByEnv :: EthEnv -> Exp t ByteString
   -- builtins
-  NewAddr :: Exp time Integer -> Exp time Integer -> Exp time Integer
+  NewAddr :: Exp t Integer -> Exp t Integer -> Exp t Integer
 
   -- polymorphic
-  Eq  :: (Eq t, Typeable t) => Exp time t -> Exp time t -> Exp time Bool
-  NEq :: (Eq t, Typeable t) => Exp time t -> Exp time t -> Exp time Bool
-  ITE :: Exp time Bool -> Exp time t -> Exp time t -> Exp time t
-  UTEntry :: TStorageItem t -> Exp Untimed t
-  TEntry :: TStorageItem t -> When -> Exp Timed t
+  Eq  :: (Eq a, Typeable a) => Exp t a -> Exp t a -> Exp t Bool
+  NEq :: (Eq a, Typeable a) => Exp t a -> Exp t a -> Exp t Bool
+  ITE :: Exp t Bool -> Exp t a -> Exp t a -> Exp t a
+  UTEntry :: TStorageItem a -> Exp Untimed a
+  TEntry :: TStorageItem a -> When -> Exp Timed a
 
-deriving instance Show (Exp time t)
+deriving instance Show (Exp t a)
 
 data Timing = Timed | Untimed
   deriving Typeable
@@ -236,11 +243,11 @@ instance Semigroup (Exp time Bool) where
 instance Monoid (Exp time Bool) where
   mempty = LitBool True
 
-as :: When -> Exp Untimed a -> Exp Timed a
-as time e = go e
+as :: Exp Untimed a -> When -> Exp Timed a
+e `as` time = go e
   where
     go :: Exp Untimed a -> Exp Timed a
-    go exp = case exp of
+    go expr = case expr of
       And  x y -> And (go x) (go y)
       Or   x y -> Or (go x) (go y)
       Impl x y -> Impl (go x) (go y)

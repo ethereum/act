@@ -1,7 +1,6 @@
 module ErrorLogger where
 
 import Control.Applicative
-import Control.Monad (ap)
 import Control.Monad.Writer
 
 import Data.Functor (($>))

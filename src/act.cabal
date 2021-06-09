@@ -30,9 +30,9 @@ common deps
   other-modules: Lex ErrM Extract Parse RefinedAst K HEVM Coq Syntax Type Print Enrich SMT ErrorLogger
   
   if flag(ci)
-      ghc-options: -O2 -Wall -Werror -Wno-orphans
+      ghc-options: -O2 -Wall -Werror -Wno-orphans -Wno-unticked-promoted-constructors
   else
-      ghc-options: -Wall -Wno-orphans
+      ghc-options: -Wall -Wno-orphans -Wno-unticked-promoted-constructors
 
 executable act
   import:             deps
