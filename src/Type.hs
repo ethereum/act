@@ -18,7 +18,7 @@ import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict    as Map -- abandon in favor of [(a,b)]?
 import Data.Typeable hiding (typeRep)
-import Type.Reflection
+import Type.Reflection (typeRep)
 import Data.Functor (($>))
 
 import Data.Coerce (coerce)
