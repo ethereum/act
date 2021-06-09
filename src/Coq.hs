@@ -326,8 +326,8 @@ retexp (ExpBool e)  = coqexp e
 retexp (ExpBytes _) = error "bytestrings not supported"
 
 mutableVar :: Id -> Maybe When -> T.Text
-mutableVar a Nothing  = mutableVar a (Just Pre)
-mutableVar a (Just w) = T.pack $ a <> "_" <> show w
+mutableVar a Nothing  = T.pack a
+mutableVar a (Just w) = T.pack $ a <> "_" <> show w -- TODO this should probably change but we don't even generate postconds atm
 
 entry :: TStorageItem a -> Maybe When -> T.Text
 entry (DirectBool _ name)      w = parens $ mutableVar name w <> " "   <> stateVar
