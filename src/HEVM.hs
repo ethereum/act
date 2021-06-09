@@ -214,9 +214,9 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
       Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item')
 
       name :: StorageLocation -> Id
-      name (IntLoc i) = nameFromItem method i Nothing -- I think this `Nothing` is correct..?
-      name (BoolLoc i) = nameFromItem method i Nothing -- I think this `Nothing` is correct..?
-      name (BytesLoc i) = nameFromItem method i Nothing -- I think this `Nothing` is correct..?
+      name (IntLoc i) = nameFromItem method i Pre -- I think this `Pre` is correct..?
+      name (BoolLoc i) = nameFromItem method i Pre -- I think this `Pre` is correct..?
+      name (BytesLoc i) = nameFromItem method i Pre -- I think this `Pre` is correct..?
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 
@@ -330,9 +330,9 @@ symExpBool ctx@(Ctx c m args store environment) e = case e of
   NEq a b   -> sNot (symExpBool ctx (Eq a b))
   Neg a     -> sNot (symExpBool ctx a)
   LitBool a -> literal a
-  BoolVar a -> get (nameFromArg c m a $ Nothing) (catBools args)
-  UTEntry a -> get (nameFromItem m a $ Nothing) (catBools $ timeStore Nothing store)
-  TEntry a w -> get (nameFromItem m a $ Just w) (catBools $ timeStore (Just w) store)
+  BoolVar a -> get (nameFromArg c m a) (catBools args)
+  UTEntry a -> get (nameFromItem m a Pre) (catBools $ timeStore Pre store)
+  TEntry a w -> get (nameFromItem m a w) (catBools $ timeStore w store)
   ITE x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
   Eq a b -> fromMaybe (error "Internal error: invalid expression type")
     $   [symExpBool  ctx a' .== symExpBool  ctx b' | a' <- gcast a, b' <- gcast b]
@@ -352,9 +352,9 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   IntMax a  -> literal $ intmax a
   UIntMin a -> literal $ uintmin a
   UIntMax a -> literal $ uintmax a
-  IntVar a  -> get (nameFromArg c m a $ Nothing) (catInts args)
-  TEntry a w -> get (nameFromItem m a $ Just w) (catInts $ timeStore (Just w) store)
-  UTEntry a -> undefined
+  IntVar a  -> get (nameFromArg c m a) (catInts args)
+  TEntry a w -> get (nameFromItem m a w) (catInts $ timeStore w store)
+  UTEntry a -> get (nameFromItem m a Pre) (catInts $ timeStore Pre store)
   IntEnv a -> get (nameFromEnv c m a) (catInts environment)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
@@ -365,11 +365,11 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
 symExpBytes :: Ctx -> Exp t ByteString -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
   Cat a b -> symExpBytes ctx a .++ symExpBytes ctx b
-  ByVar a  -> get (nameFromArg c m a $ Nothing) (catBytes args)
+  ByVar a  -> get (nameFromArg c m a) (catBytes args)
   ByStr a -> literal a
   ByLit a -> literal $ toString a
-  TEntry a w -> get (nameFromItem m a $ Just w) (catBytes $ timeStore (Just w) store)
-  UTEntry a -> undefined
+  TEntry a w -> get (nameFromItem m a w) (catBytes $ timeStore w store)
+  UTEntry a -> get (nameFromItem m a Pre) (catBytes $ timeStore Pre store)
   Slice a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
   ByEnv a -> get (nameFromEnv c m a) (catBytes environment)
   ITE x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
@@ -378,20 +378,20 @@ symExpBytes ctx@(Ctx c m args store environment) e = case e of
 --         Post -> snd <$> store
 
 
-timeStore (Just Post) s = snd <$> s
-timeStore _           s = fst <$> s
+timeStore Post s = snd <$> s
+timeStore _    s = fst <$> s
 
 -- *** SMT Variable Names *** --
 
 
-nameFromItem :: Method -> TStorageItem a -> Maybe When -> Id
+nameFromItem :: Method -> TStorageItem a -> When -> Id
 nameFromItem method item w = case item of
-  DirectInt c name -> c @@ method @@ name @@@ w
-  DirectBool c name -> c @@ method @@ name @@@ w
-  DirectBytes c name -> c @@ method @@ name @@@ w
-  MappedInt c name ixs -> c @@ method @@ name @@@ w >< showIxs c ixs
-  MappedBool c name ixs -> c @@ method @@ name @@@ w >< showIxs c ixs
-  MappedBytes c name ixs -> c @@ method @@ name @@@ w >< showIxs c ixs
+  DirectInt c name -> c @@ method @@ name @@ w
+  DirectBool c name -> c @@ method @@ name @@ w
+  DirectBytes c name -> c @@ method @@ name @@ w
+  MappedInt c name ixs -> c @@ method @@ name @@ w >< showIxs c ixs
+  MappedBool c name ixs -> c @@ method @@ name @@ w >< showIxs c ixs
+  MappedBytes c name ixs -> c @@ method @@ name @@ w >< showIxs c ixs
   where
     x >< y = x <> "-" <> y
     showIxs c ixs = intercalate "-" (NonEmpty.toList $ nameFromExp c method <$> ixs)
@@ -416,8 +416,8 @@ nameFromExpInt c m e = case e of
   UIntMin a -> show $ uintmin a
   UIntMax a -> show $ uintmax a
   IntVar a -> a
-  UTEntry a -> nameFromItem m a Nothing
-  TEntry a w -> nameFromItem m a (Just w)
+  UTEntry a -> nameFromItem m a Pre
+  TEntry a w -> nameFromItem m a w
   IntEnv a -> nameFromEnv c m a
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpInt c m y <> "-else-" <> nameFromExpInt c m z
@@ -433,9 +433,9 @@ nameFromExpBool c m e = case e of
   GEQ a b   -> nameFromExpInt c m a <> ">=" <> nameFromExpInt c m b
   Neg a     -> "~" <> nameFromExpBool c m a
   LitBool a -> show a
-  BoolVar a -> nameFromArg c m a Nothing
-  UTEntry a  -> nameFromItem m a Nothing
-  TEntry a w -> nameFromItem m a (Just w)
+  BoolVar a -> nameFromArg c m a
+  UTEntry a  -> nameFromItem m a Pre
+  TEntry a w -> nameFromItem m a w
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBool c m y <> "-else-" <> nameFromExpBool c m z
   Eq a b -> fromMaybe (error "Internal error: invalid expression type")
     $   [nameFromExpInt   c m a' <> "==" <> nameFromExpInt   c m b' | a' <- gcast a, b' <- gcast b]
@@ -465,30 +465,26 @@ nameFromExpBool c m e = case e of
 nameFromExpBytes :: ContractName -> Method -> Exp t ByteString -> Id
 nameFromExpBytes c m e = case e of
   Cat a b -> nameFromExpBytes c m a <> "++" <> nameFromExpBytes c m b
-  ByVar a  -> nameFromArg c m a Nothing
+  ByVar a  -> nameFromArg c m a
   ByStr a -> show a
   ByLit a -> show a
-  UTEntry a  -> nameFromItem m a Nothing
-  TEntry a w -> nameFromItem m a (Just w)
+  UTEntry a  -> nameFromItem m a Pre
+  TEntry a w -> nameFromItem m a w
   Slice a x y -> nameFromExpBytes c m a <> "[" <> show x <> ":" <> show y <> "]"
   ByEnv a -> nameFromEnv c m a
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBytes c m y <> "-else-" <> nameFromExpBytes c m z
 
 nameFromDecl :: ContractName -> Method -> Decl -> Id
-nameFromDecl c m (Decl _ name) = nameFromArg c m name Nothing
+nameFromDecl c m (Decl _ name) = nameFromArg c m name
 
-nameFromArg :: ContractName -> Method -> Id -> Maybe When -> Id
-nameFromArg c method name w = c @@ method @@ name @@@ w
+nameFromArg :: ContractName -> Method -> Id -> Id
+nameFromArg c method name = c @@ method @@ name
 
 nameFromEnv :: ContractName -> Method -> EthEnv -> Id
 nameFromEnv c method e = c @@ method @@ (prettyEnv e)
 
-(@@) :: Id -> Id -> Id
-x @@ y = x <> "_" <> y
-
-(@@@) :: Show a => Id -> Maybe a -> Id
-x @@@ (Just y) = x <> "_" <> show y
-x @@@ Nothing  = x
+(@@) :: (Show a, Show b) => a -> b -> Id
+x @@ y = show x <> "_" <> show y
 
 
 -- *** Utils *** --
