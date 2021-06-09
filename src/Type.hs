@@ -350,7 +350,7 @@ checkExpr p env e typ = case metaType typ of
 inferExpr :: forall a t. (Typeable a, Typeable t) => Env -> Expr -> Err (Exp t a)
 inferExpr env@Env{contract,store,calldata} expr =
   case expr of
-    ENot p  v1       -> check p $ inferExpr @Bool env v1
+    ENot p  v1       -> check p $ Neg  <$> inferExpr @Bool env v1
     EAnd p  v1 v2    -> check p $ And  <$> inferExpr env v1 <*> inferExpr env v2
     EOr p   v1 v2    -> check p $ Or   <$> inferExpr env v1 <*> inferExpr env v2
     EImpl p v1 v2    -> check p $ Impl <$> inferExpr env v1 <*> inferExpr env v2

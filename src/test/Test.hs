@@ -65,8 +65,8 @@ main = defaultMain $ testGroup "act"
                   [ S Map.empty, B behv
                   , B $ Behaviour name Fail contract iface [Neg $ mconcat preconds] [] [] Nothing ]
           return $ case actual of
-            Ok a -> flip whenFail (a == expected) $ putStrLn $ unlines ["","actual:", show a, "", "expected:", show expected]
-            Bad _ -> property False
+            Ok a -> a == expected
+            Bad _ -> False
       ]
 
   , testGroup "smt"
