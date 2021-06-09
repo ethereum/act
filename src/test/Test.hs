@@ -11,6 +11,7 @@ import Test.QuickCheck.Instances.ByteString()
 import Test.QuickCheck.GenT
 import Test.QuickCheck.Monadic
 import Text.PrettyPrint.ANSI.Leijen (pretty)
+import Test.QuickCheck (property, whenFail)
 
 import Control.Monad
 import Control.Monad.Trans
@@ -64,8 +65,8 @@ main = defaultMain $ testGroup "act"
                   [ S Map.empty, B behv
                   , B $ Behaviour name Fail contract iface [Neg $ mconcat preconds] [] [] Nothing ]
           return $ case actual of
-            Ok a -> a == expected
-            Bad _ -> False
+            Ok a -> flip whenFail (a == expected) $ putStrLn $ unlines ["","actual:", show a, "", "expected:", show expected]
+            Bad _ -> property False
       ]
 
   , testGroup "smt"
@@ -157,14 +158,14 @@ genReturnExp names n = oneof
 
 
 -- TODO: literals, cat slice, ITE, storage, ByStr
-genExpBytes :: Names -> Int -> ExpoGen (Exp ByteString)
+genExpBytes :: Names -> Int -> ExpoGen (Exp t ByteString)
 genExpBytes names _ = oneof
   [ ByVar <$> (selectName ByteStr names)
   , return $ ByEnv Blockhash
   ]
 
 -- TODO: ITE, storage
-genExpBool :: Names -> Int -> ExpoGen (Exp Bool)
+genExpBool :: Names -> Int -> ExpoGen (Exp t Bool)
 genExpBool names 0 = oneof
   [ BoolVar <$> (selectName Boolean names)
   , LitBool <$> liftGen arbitrary
@@ -189,7 +190,7 @@ genExpBool names n = oneof
 
 
 -- TODO: storage
-genExpInt :: Names -> Int -> ExpoGen (Exp Integer)
+genExpInt :: Names -> Int -> ExpoGen (Exp t Integer)
 genExpInt names 0 = oneof
   [ LitInt <$> liftGen arbitrary
   , IntVar <$> (selectName Integer names)
