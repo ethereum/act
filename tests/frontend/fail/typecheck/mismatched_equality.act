@@ -1,0 +1,10 @@
+constructor of Fail
+interface constructor(string y)
+
+creates
+
+  uint x := 0
+
+ensures
+
+  post(x) == y
