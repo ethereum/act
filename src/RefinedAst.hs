@@ -236,6 +236,52 @@ instance Semigroup (Exp time Bool) where
 instance Monoid (Exp time Bool) where
   mempty = LitBool True
 
+as :: When -> Exp Untimed a -> Exp Timed a
+as time e = go e
+  where
+    go :: Exp Untimed a -> Exp Timed a
+    go exp = case exp of
+      And  x y -> And (go x) (go y)
+      Or   x y -> Or (go x) (go y)
+      Impl x y -> Impl (go x) (go y)
+      Neg x -> Neg (go x)
+      LE x y -> LE (go x) (go y)
+      LEQ x y -> LEQ (go x) (go y)
+      GEQ x y -> GEQ (go x) (go y)
+      GE x y -> GE (go x) (go y)
+      LitBool x -> LitBool x
+      BoolVar x -> BoolVar x
+      -- integers
+      Add x y -> Add (go x) (go y)
+      Sub x y -> Sub (go x) (go y)
+      Mul x y -> Mul (go x) (go y)
+      Div x y -> Div (go x) (go y)
+      Mod x y -> Mod (go x) (go y)
+      Exp x y -> Exp (go x) (go y)
+      LitInt x -> LitInt x
+      IntVar x -> IntVar x
+      IntEnv x -> IntEnv x
+      -- younds
+      IntMin x -> IntMin x
+      IntMax x -> IntMax x
+      UIntMin x -> UIntMin x
+      UIntMax x -> UIntMax x
+      -- yytestrings
+      Cat x y -> Cat (go x) (go y)
+      Slice x y z -> Slice (go x) (go y) (go z)
+      ByVar x -> ByVar x
+      ByStr x -> ByStr x
+      ByLit x -> ByLit x
+      ByEnv x -> ByEnv x
+      -- yuiltins
+      NewAddr x y -> NewAddr (go x) (go y)
+
+      -- polymorphic
+      Eq  x y -> Eq  (go x) (go y)
+      NEq x y -> NEq (go x) (go y)
+      ITE x y z -> ITE (go x) (go y) (go z)
+      UTEntry x -> TEntry x time
+
 data ReturnExp
   = ExpInt    (Exp Untimed Integer)
   | ExpBool   (Exp Untimed Bool)
