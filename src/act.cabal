@@ -27,7 +27,7 @@ common deps
                  process          >= 1.6.5.0,
                  ansi-wl-pprint   >= 0.6.9,
                  regex-tdfa
-  other-modules: Lex ErrM Extract Parse RefinedAst K HEVM Coq Syntax Type Print Enrich SMT ErrorLogger
+  other-modules: Lex ErrM Extract Parse RefinedAst K HEVM Coq Syntax Type Print Enrich SMT
   
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans -Wno-unticked-promoted-constructors
