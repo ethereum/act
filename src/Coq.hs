@@ -263,8 +263,6 @@ coqexp (LE e1 e2)   = parens $ coqexp e1 <> " <? "  <> coqexp e2
 coqexp (LEQ e1 e2)  = parens $ coqexp e1 <> " <=? " <> coqexp e2
 coqexp (GE e1 e2)   = parens $ coqexp e2 <> " <? "  <> coqexp e1
 coqexp (GEQ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
-coqexp (UTEntry e)  = entry e Nothing
-coqexp (TEntry e w) = entry e $ Just w
 
 -- integers
 coqexp (LitInt i) = T.pack $ show i
@@ -279,11 +277,10 @@ coqexp (IntMin n)  = parens $ "INT_MIN "  <> T.pack (show n)
 coqexp (IntMax n)  = parens $ "INT_MAX "  <> T.pack (show n)
 coqexp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
 coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
---coqexp (TEntry (DirectInt _ name)) = parens $ T.pack name <> " " <> stateVar
---coqexp (TEntry (MappedInt _ name args)) = parens $
---  T.pack name <> " s " <> coqargs args
 
 -- polymorphic
+coqexp (UTEntry e)   = entry e Nothing
+coqexp (TEntry e w)  = entry e $ Just w
 coqexp (ITE b e1 e2) = parens $ "if "
   <> coqexp b
   <> " then "
@@ -299,8 +296,6 @@ coqexp (ByVar _) = error "bytestrings not supported"
 coqexp (ByStr _) = error "bytestrings not supported"
 coqexp (ByLit _) = error "bytestrings not supported"
 coqexp (ByEnv _) = error "bytestrings not supported"
---coqexp (TEntry (DirectBytes _ _)) = error "bytestrings not supported"
---coqexp (TEntry (MappedBytes _ _ _)) = error "bytestrings not supported"
 coqexp (NewAddr _ _) = error "newaddr not supported"
 
 -- | coq syntax for a proposition

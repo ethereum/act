@@ -38,7 +38,7 @@ prettyBehaviour (Behaviour name _ contract interface preconditions postcondition
     block l = "  " <> intercalate "\n  " l
     x >-< y = x <> "\n" <> y
 
-prettyExp :: Exp time a -> String
+prettyExp :: Exp t a -> String
 prettyExp e = case e of
 
   -- booleans

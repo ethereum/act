@@ -26,8 +26,6 @@ import Data.List.NonEmpty hiding (fromList)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.String (fromString)
-import Control.Applicative ((<|>))
-import Data.Maybe (fromMaybe)
 
 import EVM.Solidity (SlotType(..))
 
@@ -126,9 +124,10 @@ deriving instance Eq (TStorageItem a)
 -- `Pre, Post :: When`. In an `Untimed` expression, only `UTEntry` can occur, which does not contain
 -- a `When`.
 
--- It is recommended that backends always input `Exp Timed a` to their codegens, to make it easier to
--- generate consistent variable names. Depending on the context the expression in question occurs in,
--- `Untimed` expressions can be given a specific timing using `as`, e.g. `expr \`as\` Pre`.
+-- It is recommended that backends always input `Exp Timed a` to their codegens (or `Exp Untimed a`
+-- if postconditions and return values are irrelevant), as this makes it easier to generate
+-- consistent variable names. `Untimed` expressions can be given a specific timing using `as`,
+-- e.g. `expr \`as\` Pre`.
 data Exp (t :: Timing) (a :: *) where
   -- booleans
   And  :: Exp t Bool -> Exp t Bool -> Exp t Bool
@@ -175,11 +174,11 @@ data Exp (t :: Timing) (a :: *) where
 
 deriving instance Show (Exp t a)
 
+-- | This will never be used as is. Its only purpose is to use with -XDataKinds, to ensure
+-- type safety of the `Exp` type.
 data Timing = Timed | Untimed
-  deriving Typeable
-deriving instance Typeable Timed
-deriving instance Typeable Untimed 
 
+-- | This is used to tag all entries in `Timed` expressions.
 data When = Pre | Post
   deriving Eq
 
@@ -187,7 +186,7 @@ instance Show When where
   show Pre  = "pre"
   show Post = "post"
 
-instance Eq (Exp time t) where
+instance Eq (Exp t a) where
   And a b == And c d = a == c && b == d
   Or a b == Or c d = a == c && b == d
   Impl a b == Impl c d = a == c && b == d
@@ -223,12 +222,12 @@ instance Eq (Exp time t) where
 
   NewAddr a b == NewAddr c d = a == c && b == d
 
-  Eq (a :: Exp time t1) (b :: Exp time t1) == Eq (c :: Exp time t2) (d :: Exp time t2) =
-    case eqT @t1 @t2 of
+  Eq (a :: Exp t x) (b :: Exp t x) == Eq (c :: Exp t y) (d :: Exp t y) =
+    case eqT @x @y of
       Just Refl -> a == c && b == d
       Nothing -> False
-  NEq (a :: Exp time t1) (b :: Exp time t1) == NEq (c :: Exp time t2) (d :: Exp time t2) =
-    case eqT @t1 @t2 of
+  NEq (a :: Exp t x) (b :: Exp t x) == NEq (c :: Exp t y) (d :: Exp t y) =
+    case eqT @x @y of
       Just Refl -> a == c && b == d
       Nothing -> False
   ITE a b c == ITE d e f = a == d && b == e && c == f
@@ -237,12 +236,14 @@ instance Eq (Exp time t) where
 
   _ == _ = False
 
-instance Semigroup (Exp time Bool) where
+instance Semigroup (Exp t Bool) where
   a <> b = And a b
 
-instance Monoid (Exp time Bool) where
+instance Monoid (Exp t Bool) where
   mempty = LitBool True
 
+-- | Give an `Untimed` expression a specific timing, i.e. `Pre` or `Post`.
+-- Useful to generate consistent storage reference names.
 as :: Exp Untimed a -> When -> Exp Timed a
 e `as` time = go e
   where
@@ -402,9 +403,9 @@ instance ToJSON ReturnExp where
    toJSON (ExpBool a) = object ["sort" .= String (pack "bool")
                                ,"expression" .= toJSON a]
    toJSON (ExpBytes a) = object ["sort" .= String (pack "bytestring")
-                               ,"expression" .= toJSON a]
+                                ,"expression" .= toJSON a]
 
-instance ToJSON (Exp time Integer) where
+instance Typeable a => ToJSON (Exp t a) where
   toJSON (Add a b) = symbol "+" a b
   toJSON (Sub a b) = symbol "-" a b
   toJSON (Exp a b) = symbol "^" a b
@@ -423,16 +424,13 @@ instance ToJSON (Exp time Integer) where
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
-  toJSON v = error $ "todo: json ast for: " <> show v
-
-instance ToJSON (Exp time Bool) where
   toJSON (And a b)  = symbol "and" a b
   toJSON (Or a b)   = symbol "or" a b
   toJSON (LE a b)   = symbol "<" a b
   toJSON (GE a b)   = symbol ">" a b
   toJSON (Impl a b) = symbol "=>" a b
-  toJSON (NEq a b)  = symbol "=/=" (polyToJSON a) (polyToJSON b)
-  toJSON (Eq a b)   = symbol "==" (polyToJSON a) (polyToJSON b)
+  toJSON (NEq a b)  = symbol "=/=" a b
+  toJSON (Eq a b)   = symbol "==" a b
   toJSON (LEQ a b)  = symbol "<=" a b
   toJSON (GEQ a b)  = symbol ">=" a b
   toJSON (LitBool a) = String $ pack $ show a
@@ -442,16 +440,7 @@ instance ToJSON (Exp time Bool) where
                           ,  "args"     .= Array (fromList [toJSON a])]
   toJSON v = error $ "todo: json ast for: " <> show v
 
-instance ToJSON (Exp time ByteString) where
-  toJSON a = String $ pack $ show a
-
--- TODO delete this and make the instance general instead:
--- instance Typeable t => ToJSON (Exp time t) where
-polyToJSON :: Typeable t => Exp time t -> Value
-polyToJSON (e :: Exp time t) = fromMaybe (error "illegal type")
-  $   toJSON @(Exp time Integer)    <$> gcast e
-  <|> toJSON @(Exp time Bool)       <$> gcast e
-  <|> toJSON @(Exp time ByteString) <$> gcast e
+--  toJSON a = String $ pack $ show a -- TODO this is for bytestrings but need to make it match somehow? why do we not handle them?
 
 mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
 mapping c a b = object [  "symbol"   .= pack "lookup"

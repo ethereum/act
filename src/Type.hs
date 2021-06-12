@@ -222,7 +222,7 @@ checkDefn env@Env{contract} keyType valType name (Defn k v) = do
     ByteStr -> BytesUpdate (MappedBytes contract name (key :| [])) <$> inferExpr env v
 
 checkPost :: Env -> Syntax.Post -> Err ([Either StorageLocation StorageUpdate], Maybe ReturnExp)
-checkPost Env{contract,theirs,calldata} (Syntax.Post maybeStorage extStorage maybeReturn) =
+checkPost env@Env{contract,calldata} (Syntax.Post maybeStorage extStorage maybeReturn) =
   do returnexp <- mapM (returnExp scopedEnv) maybeReturn
      ourStorage <- case maybeStorage of
        Just entries -> checkEntries contract entries
@@ -252,17 +252,16 @@ checkPost Env{contract,theirs,calldata} (Syntax.Post maybeStorage extStorage may
       , calldata = calldata
       }
       where
-        filtered = Map.mapWithKey (\name vars ->
+        filtered = flip Map.mapWithKey (theirs env) $ \name vars ->
             if (name == contract)
             then Map.filterWithKey (\slot _ -> slot `elem` localNames) vars
             else Map.filterWithKey (\slot _ -> slot `elem` (fromMaybe mempty $ Map.lookup name externalNames)) vars
-          ) theirs
 
-      --{ contract = name
-      --, store    = fromMaybe mempty (Map.lookup name theirs)
-      --, theirs   = theirs
-      --, calldata = calldata
-      --}
+    focus :: Id -> Env -> Env
+    focus name unfocused@Env{theirs} = unfocused
+      { contract = name
+      , store    = Map.findWithDefault mempty name theirs
+      }
 
     localNames :: [Id]
     localNames = nameFromStorage <$> fromMaybe mempty maybeStorage
@@ -273,12 +272,6 @@ checkPost Env{contract,theirs,calldata} (Syntax.Post maybeStorage extStorage may
         ExtCreates {} -> error "TODO: handle ExtCreate"
         WildStorage -> Nothing
       ) extStorage
-
-focus :: Id -> Env -> Env
-focus name env@Env{theirs} = env
-  { contract = name
-  , store    = fromMaybe mempty (Map.lookup name theirs)
-  }
 
 checkStorageExpr :: Env -> Pattern -> Expr -> Err StorageUpdate
 checkStorageExpr env@Env{contract,store} (PEntry p name ixs) expr =
@@ -327,16 +320,16 @@ checkIffs env ((IffIn _ typ exps):xs) = do
   Ok $ map (bound typ) hd <> tl
 checkIffs _ [] = Ok []
 
-bound :: AbiType -> Exp time Integer -> Exp time Bool
+bound :: AbiType -> Exp t Integer -> Exp t Bool
 bound typ e = And (LEQ (lowerBound typ) e) $ LEQ e (upperBound typ)
 
-lowerBound :: AbiType -> Exp time Integer
+lowerBound :: AbiType -> Exp t Integer
 lowerBound (AbiIntType a) = IntMin a
 -- todo: other negatives?
 lowerBound _ = LitInt 0
 
 -- todo, the rest
-upperBound :: AbiType -> Exp time Integer
+upperBound :: AbiType -> Exp t Integer
 upperBound (AbiUIntType n) = UIntMax n
 upperBound (AbiIntType n) = IntMax n
 upperBound AbiAddressType = UIntMax 160

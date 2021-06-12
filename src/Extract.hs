@@ -76,17 +76,17 @@ locsFromExp = nub . go
       UTEntry a -> locsFromStorageItem a
       TEntry a _ -> locsFromStorageItem a
 
-locsFromStorageItem :: TStorageItem a -> [StorageLocation]
-locsFromStorageItem t = case t of
-  DirectInt contract name -> [IntLoc $ DirectInt contract name]
-  DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
-  DirectBytes contract slot -> [BytesLoc $ DirectBytes contract slot]
-  MappedInt contract name ixs -> [IntLoc $ MappedInt contract name ixs] <> ixLocs ixs
-  MappedBool contract name ixs -> [BoolLoc $ MappedBool contract name ixs] <> ixLocs ixs
-  MappedBytes contract name ixs -> [BytesLoc $ MappedBytes contract name ixs] <> ixLocs ixs
-  where
-    ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
-    ixLocs = concatMap locsFromReturnExp
+    locsFromStorageItem :: TStorageItem a -> [StorageLocation]
+    locsFromStorageItem t = case t of
+      DirectInt contract name -> [IntLoc $ DirectInt contract name]
+      DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
+      DirectBytes contract slot -> [BytesLoc $ DirectBytes contract slot]
+      MappedInt contract name ixs -> [IntLoc $ MappedInt contract name ixs] <> ixLocs ixs
+      MappedBool contract name ixs -> [BoolLoc $ MappedBool contract name ixs] <> ixLocs ixs
+      MappedBytes contract name ixs -> [BytesLoc $ MappedBytes contract name ixs] <> ixLocs ixs
+      where
+        ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
+        ixLocs = concatMap locsFromReturnExp
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $

@@ -66,7 +66,6 @@ data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
 
 data Pattern
   = PEntry Pn Id [Expr]
---  = PEntry Pn Entry
   | PWild Pn
   deriving (Eq, Show)
 
@@ -163,9 +162,6 @@ getPosn expr = case expr of
     EUTEntry pn _ _ -> pn
     EPreEntry pn _ _ -> pn
     EPostEntry pn _ _ -> pn
---    EUTEntryEntryExp pn _ _ -> pn
---    EPreEntry pn _ _   -> pn
---    EPostEntry pn _ _  -> pn
     Func pn _ _ -> pn
     ListConst e -> getPosn e
     ECat pn _ _ -> pn
@@ -205,9 +201,6 @@ getIds e = case e of
   EUTEntry p x es   -> insertWith (<>) x [p] $ getIds' es
   EPreEntry p x es  -> insertWith (<>) x [p] $ getIds' es
   EPostEntry p x es -> insertWith (<>) x [p] $ getIds' es
-  --EUTEntryEntryExp p x es  -> insertWith (<>) x [p] $ getIds' es
-  --EPreEntry p x es  -> error "getIds: EPreEntry"
-  --EPostEntry p x es -> error "getIds: EPostEntry"
   Func _ _ es       -> getIds' es
   ListConst a       -> getIds a
   ECat _ a b        -> getIds' [a,b]

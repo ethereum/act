@@ -26,7 +26,7 @@ import Control.Monad.State.Strict (execState)
 import Data.SBV.Control
 import Data.SBV
 import Data.SBV.String ((.++), subStr)
-import Control.Lens hiding (pre, (.>))
+import Control.Lens hiding (op, pre, (.>))
 import Control.Monad
 import Control.Applicative ((<|>))
 import qualified Data.Vector as Vec
@@ -310,7 +310,6 @@ type Method = Id
 type Args = Map Id SMType
 type Storage = Map Id (SMType, SMType)
 type Env = Map Id SMType
---data When = Pre | Post
 
 symExp :: Ctx -> ReturnExp -> SMType
 symExp ctx ret = case ret of
@@ -358,9 +357,6 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   IntEnv a -> get (nameFromEnv c m a) (catInts environment)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
--- where store' = case w of
---         Pre -> fst <$> store
---         Post -> snd <$> store
 
 symExpBytes :: Ctx -> Exp t ByteString -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
@@ -373,16 +369,12 @@ symExpBytes ctx@(Ctx c m args store environment) e = case e of
   Slice a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
   ByEnv a -> get (nameFromEnv c m a) (catBytes environment)
   ITE x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
--- where store' = case w of
---         Pre -> fst <$> store
---         Post -> snd <$> store
 
 timeStore :: When -> HEVM.Storage -> Map Id SMType
 timeStore Pre  s = fst <$> s
 timeStore Post s = snd <$> s
 
 -- *** SMT Variable Names *** --
-
 
 nameFromItem :: Method -> TStorageItem a -> When -> Id
 nameFromItem method item w = case item of
@@ -437,30 +429,14 @@ nameFromExpBool c m e = case e of
   UTEntry a  -> nameFromItem m a Pre
   TEntry a w -> nameFromItem m a w
   ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBool c m y <> "-else-" <> nameFromExpBool c m z
-  Eq a b -> fromMaybe (error "Internal error: invalid expression type")
-    $   [nameFromExpInt   c m a' <> "==" <> nameFromExpInt   c m b' | a' <- gcast a, b' <- gcast b]
-    <|> [nameFromExpBool  c m a' <> "==" <> nameFromExpBool  c m b' | a' <- gcast a, b' <- gcast b]
-    <|> [nameFromExpBytes c m a' <> "==" <> nameFromExpBytes c m b' | a' <- gcast a, b' <- gcast b]
-
---    case eqT @t @Integer of
---    Just Refl -> nameFromExpInt c m a <> "==" <> nameFromExpInt c m b
---    Nothing -> case eqT @t @Bool of
---      Just Refl -> nameFromExpBool c m a <> "==" <> nameFromExpBool c m b
---      Nothing -> case eqT @t @ByteString of
---        Just Refl -> nameFromExpBytes c m a <> "==" <> nameFromExpBytes c m b
---        Nothing -> error "Internal Error: invalid expression type"
-
-  NEq a b -> fromMaybe (error "Internal error: invalid expression type")
-    $   [nameFromExpInt   c m a' <> "==" <> nameFromExpInt   c m b' | a' <- gcast a, b' <- gcast b]
-    <|> [nameFromExpBool  c m a' <> "==" <> nameFromExpBool  c m b' | a' <- gcast a, b' <- gcast b]
-    <|> [nameFromExpBytes c m a' <> "==" <> nameFromExpBytes c m b' | a' <- gcast a, b' <- gcast b]
---  case eqT @t @Integer of
---    Just Refl -> nameFromExpInt c m a <> "=/=" <> nameFromExpInt c m b
---    Nothing -> case eqT @t @Bool of
---      Just Refl -> nameFromExpBool c m a <> "=/=" <> nameFromExpBool c m b
---      Nothing -> case eqT @t @ByteString of
---        Just Refl -> nameFromExpBytes c m a <> "=/=" <> nameFromExpBytes c m b
---        Nothing -> error "Internal Error: invalid expression type"
+  Eq a b  -> polyname "=="  a b
+  NEq a b -> polyname "=/=" a b
+  where
+    polyname :: Typeable a => String -> Exp t a -> Exp t a -> Id
+    polyname op a b = fromMaybe (error "Internal error: invalid expression type")
+      $   [nameFromExpInt   c m a' <> op <> nameFromExpInt   c m b' | a' <- gcast a, b' <- gcast b]
+      <|> [nameFromExpBool  c m a' <> op <> nameFromExpBool  c m b' | a' <- gcast a, b' <- gcast b]
+      <|> [nameFromExpBytes c m a' <> op <> nameFromExpBytes c m b' | a' <- gcast a, b' <- gcast b]
 
 nameFromExpBytes :: ContractName -> Method -> Exp t ByteString -> Id
 nameFromExpBytes c m e = case e of

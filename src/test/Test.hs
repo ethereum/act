@@ -159,14 +159,14 @@ genReturnExp names n = oneof
 -- TODO: literals, cat slice, ITE, storage, ByStr
 genExpBytes :: Names -> Int -> ExpoGen (Exp t ByteString)
 genExpBytes names _ = oneof
-  [ ByVar <$> (selectName ByteStr names)
+  [ ByVar <$> selectName ByteStr names
   , return $ ByEnv Blockhash
   ]
 
 -- TODO: ITE, storage
 genExpBool :: Names -> Int -> ExpoGen (Exp t Bool)
 genExpBool names 0 = oneof
-  [ BoolVar <$> (selectName Boolean names)
+  [ BoolVar <$> selectName Boolean names
   , LitBool <$> liftGen arbitrary
   ]
 genExpBool names n = oneof
@@ -192,7 +192,7 @@ genExpBool names n = oneof
 genExpInt :: Names -> Int -> ExpoGen (Exp t Integer)
 genExpInt names 0 = oneof
   [ LitInt <$> liftGen arbitrary
-  , IntVar <$> (selectName Integer names)
+  , IntVar <$> selectName Integer names
   , return $ IntEnv Caller
   , return $ IntEnv Callvalue
   , return $ IntEnv Calldepth

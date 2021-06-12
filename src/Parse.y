@@ -250,7 +250,6 @@ Expr : '(' Expr ')'                                   { $2 }
 
   -- terminals
   | ilit                                              { IntLit (posn $1) (value $1) }
-  -- | '_'                                               { WildExp (posn $1) }
   -- missing string literal
   -- missing wildcard
 

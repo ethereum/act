@@ -176,7 +176,7 @@ mkPostconditionQueries (B behv@(Behaviour _ Pass _ (Interface ifaceName decls) p
       { _storage = storage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert ifaceName . Neg $ e] <> pres <> updates -- TODO change Pre to Post here?
+      , _assertions = [mkAssert ifaceName . Neg $ e] <> pres <> updates
       }
     mkQuery e = Postcondition (Behv behv) e (mksmt e)
 mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName decls) preconds postconds initialStorage stateUpdates)) = mkQuery <$> postconds
@@ -196,7 +196,7 @@ mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName d
       { _storage = localStorage <> externalStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert ifaceName . Neg $ e] <> pres <> updates <> initialStorage' -- TODO change Pre to Post here?
+      , _assertions = [mkAssert ifaceName . Neg $ e] <> pres <> updates <> initialStorage'
       }
     mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
 mkPostconditionQueries _ = []
@@ -270,10 +270,10 @@ mkInvariantQueries claims = fmap mkQuery gathered
         -- constraints
         preInv = mkAssert ctorIface $ invExp `as` Pre
         postInv = mkAssert ctorIface . Neg $ invExp `as` Post
-        behvConds = mkAssert behvIface . (`as` Pre) <$> (_preconditions behv)
-        invConds' = mkAssert ctorIface . (`as` Pre) <$> (invConds <> invStorageBounds)
+        behvConds = mkAssert behvIface . (`as` Pre) <$> _preconditions behv
+        invConds' = mkAssert ctorIface . (`as` Pre) <$> invConds <> invStorageBounds
         implicitLocs' = encodeUpdate ctorIface <$> implicitLocs
-        updates = encodeUpdate behvIface <$> (_stateUpdates behv)
+        updates = encodeUpdate behvIface <$> _stateUpdates behv
 
         smt = SMTExp
           { _storage = storage
@@ -576,7 +576,7 @@ declareEthEnv env = constant (prettyEnv env) tp
   where tp = fromJust . lookup env $ defaultStore
 
 returnExpToSMT2 :: ReturnExp -> Ctx SMT2
-returnExpToSMT2 re = case re of -- TODO decide on pre/post semantics in `returns` blocks
+returnExpToSMT2 re = case re of
   ExpInt ei -> expToSMT2 $ ei `as` Post
   ExpBool eb -> expToSMT2 $ eb `as` Post
   ExpBytes ebs -> expToSMT2 $ ebs `as` Post
@@ -636,10 +636,12 @@ expToSMT2 expr = case expr of
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
 
     binop :: String -> Exp Timed a -> Exp Timed b -> Ctx SMT2
-    binop op a b = ["(" <> op <> " " <> a' <> " " <> b' <> ")" | a' <- expToSMT2 a, b' <- expToSMT2 b]
+    binop op a b = ["(" <> op <> " " <> a' <> " " <> b' <> ")"
+                      | a' <- expToSMT2 a, b' <- expToSMT2 b]
 
     triop :: String -> Exp Timed a -> Exp Timed b -> Exp Timed c -> Ctx SMT2
-    triop op a b c = ["(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")" | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
+    triop op a b c = ["(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")"
+                        | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
 
     entry :: TStorageItem a -> When -> Ctx SMT2
     entry item whn = case item of
@@ -728,9 +730,9 @@ x @@ y = x <> "_" <> y
 -- | Applies a function to the target expression of a `Query`. Needed because `Exp Timed Bool` and `Exp Untimed Bool`
 -- are different types, so we can't return the expression as-is. The alternative would be to return
 -- `Either (Exp Timed Bool) (Exp Untimed Bool)`.
-onTarget :: Query -> (forall t. Exp t Bool -> a) -> a
-onTarget (Postcondition _ e _) f = f e
-onTarget (Inv (Invariant _ _ _ e) _ _) f = f e
+onTarget :: (forall t. Exp t Bool -> a) -> Query -> a
+onTarget f (Postcondition _ e _)         = f e
+onTarget f (Inv (Invariant _ _ _ e) _ _) = f e
 
 getContract :: Query -> String
 getContract (Postcondition (Ctor ctor) _ _) = _cname ctor
@@ -750,8 +752,8 @@ getBehvName (Postcondition (Behv behv) _ _) = (text "behaviour") <+> (bold . tex
 getBehvName (Inv {}) = error "Internal Error: invariant queries do not have an associated behaviour"
 
 identifier :: Query -> Doc
-identifier (q@Inv {}) = (onTarget q $ bold . text . prettyExp) <+> text "of" <+> (bold . text . getContract $ q)
-identifier (q@Postcondition {}) = (onTarget q $ bold . text . prettyExp) <+> text "in" <+> getBehvName q <+> text "of" <+> (bold . text . getContract $ q)
+identifier q@Inv {}           = ((bold . text . prettyExp) `onTarget` q) <+> text "of" <+> (bold . text . getContract $ q)
+identifier q@Postcondition {} = ((bold . text . prettyExp) `onTarget` q) <+> text "in" <+> getBehvName q <+> text "of" <+> (bold . text . getContract $ q)
 
 getSMT :: Query -> Doc
 getSMT (Postcondition _ _ smt) = pretty smt
