@@ -438,9 +438,17 @@ instance Typeable a => ToJSON (Exp t a) where
   toJSON (Neg a) = object [  "symbol"   .= pack "not"
                           ,  "arity"    .= Data.Aeson.Types.Number 1
                           ,  "args"     .= Array (fromList [toJSON a])]
-  toJSON v = error $ "todo: json ast for: " <> show v
 
---  toJSON a = String $ pack $ show a -- TODO this is for bytestrings but need to make it match somehow? why do we not handle them?
+  toJSON (Cat a b) = symbol "cat" a b
+  toJSON (Slice s a b) = object [ "symbol" .= pack "slice"
+                                , "arity"  .= Data.Aeson.Types.Number 3
+                                , "args"   .= Array (fromList [toJSON s, toJSON a, toJSON b])
+                                ]
+  toJSON (ByVar a) = toJSON a
+  toJSON (ByStr a) = toJSON a
+  toJSON (ByLit a) = String . pack $ show a
+  toJSON (ByEnv a) = String . pack $ show a
+  toJSON v = error $ "todo: json ast for: " <> show v
 
 mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
 mapping c a b = object [  "symbol"   .= pack "lookup"
