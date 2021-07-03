@@ -27,7 +27,7 @@ import Type (typecheck)
 import Print (prettyBehaviour)
 import Syntax (Interface(..), EthEnv(..), Decl(..))
 import SMT
-import RefinedAst hiding (Mode)
+import RefinedAst
 
 import Debug.Trace
 import Text.Pretty.Simple
@@ -91,7 +91,6 @@ typeCheckSMT solver = do
 -- *** QuickCheck Generators *** --
 
 
-data Mode = Concrete | Symbolic deriving (Eq, Show)
 data Names = Names { _ints :: [String]
                    , _bools :: [String]
                    , _bytes :: [String]
@@ -138,11 +137,13 @@ genType :: MType -> ExpoGen AbiType
 genType typ = case typ of
   Integer -> oneof [ AbiUIntType <$> validIntSize
                    , AbiIntType <$> validIntSize
-                   , return AbiAddressType ]
+                   , return AbiAddressType
+                   , AbiBytesType <$> validBytesSize
+                   ]
   Boolean -> return AbiBoolType
-  ByteStr -> oneof [ AbiBytesType <$> validBytesSize
+  ByteStr -> oneof [ return AbiStringType ]
                    --, return AbiBytesDynamicType -- TODO: needs frontend support
-                   , return AbiStringType ]
+
   where
     validIntSize = elements [ x | x <- [8..256], x `mod` 8 == 0 ]
     validBytesSize = elements [1..32]
@@ -159,9 +160,7 @@ genReturnExp names n = oneof
 -- TODO: literals, cat slice, ITE, storage, ByStr
 genExpBytes :: Names -> Int -> ExpoGen (Exp ByteString)
 genExpBytes names _ = oneof
-  [ ByVar <$> (selectName ByteStr names)
-  , return $ ByEnv Blockhash
-  ]
+  [ ByVar <$> (selectName ByteStr names) ]
 
 -- TODO: ITE, storage
 genExpBool :: Names -> Int -> ExpoGen (Exp Bool)

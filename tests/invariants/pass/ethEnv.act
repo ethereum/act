@@ -21,7 +21,7 @@ invariants
     this == THIS
     value == CALLVALUE
     depth == CALLDEPTH
-    // hash == BLOCKHASH
+    hash == BLOCKHASH
     number == BLOCKNUMBER
     difficulty == DIFFICULTY
     chainid == CHAINID
