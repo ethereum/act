@@ -14,7 +14,7 @@ common deps
   build-depends: base             >= 4.9 && < 5,
                  aeson            >= 1.0,
                  containers       >= 0.5,
-                 hevm             >= 0.45,
+                 hevm             >= 0.46.0,
                  lens             >= 4.17.1,
                  text             >= 1.2,
                  array            >= 0.5.3.0,
