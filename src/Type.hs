@@ -144,7 +144,7 @@ splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Create
 
   let cases' = if null iffs' then [C $ Constructor contract Pass iface iffs' ensures stateUpdates []]
                else [ C $ Constructor contract Pass iface iffs' ensures stateUpdates []
-                       , C $ Constructor contract Fail iface [Neg (mconcat iffs')] ensures [] []]
+                    , C $ Constructor contract Fail iface [Neg (foldl' Or (LitBool False) iffs')] ensures [] []]
 
   return $ ((I . (Invariant contract [] [])) <$> invariants)
            <> cases'
@@ -161,7 +161,7 @@ splitCase name contract iface if' [] ret storage postcs =
   [ B $ Behaviour name Pass contract iface if' postcs storage ret ]
 splitCase name contract iface if' iffs ret storage postcs =
   [ B $ Behaviour name Pass contract iface (if' <> iffs) postcs storage ret,
-    B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs)]) [] (Left . getLoc <$> storage) Nothing ]
+    B $ Behaviour name Fail contract iface (if' <> [Neg (foldl' Or (LitBool False) iffs)]) [] (Left . getLoc <$> storage) Nothing ]
 
 -- | Ensures that no of the storage variables are read in the supplied `Expr`.
 noStorageRead :: Map Id SlotType -> Expr -> Err ()

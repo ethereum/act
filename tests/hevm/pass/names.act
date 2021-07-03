@@ -1,0 +1,20 @@
+constructor of Names
+interface constructor()
+
+creates
+
+    mapping (bytes32 => address) names := []
+
+behaviour register of Names
+interface register(bytes32 hash)
+
+iff
+
+    CALLVALUE >= 10 ^ 17
+    not (CALLER == 0)
+    not (names[hash] == 0)
+
+storage
+
+    names[hash] => CALLER
+
