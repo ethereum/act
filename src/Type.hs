@@ -168,7 +168,7 @@ noStorageRead :: Map Id SlotType -> Expr -> Err ()
 noStorageRead store expr = forM_ (keys store) $ \name ->
   forM_ (findWithDefault [] name (getIds expr)) $ \pn ->
     Bad (pn,"Cannot read storage in creates block")
-  
+
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
 checkAssign env@(contract, store, _, _) (AssignVal (StorageVar (StorageValue typ) name) expr)
@@ -325,6 +325,7 @@ upperBound :: AbiType -> Exp Integer
 upperBound (AbiUIntType n) = UIntMax n
 upperBound (AbiIntType n) = IntMax n
 upperBound AbiAddressType = UIntMax 160
+upperBound (AbiBytesType n) = UIntMax (8 * n)
 upperBound typ  = error $ "upperBound not implemented for " ++ show typ
 
 
