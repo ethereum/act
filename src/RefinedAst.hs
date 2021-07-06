@@ -80,7 +80,7 @@ data Behaviour = Behaviour
   , _preconditions :: [Exp Untimed Bool]
   , _postconditions :: [Exp Timed Bool]
   , _stateUpdates :: [Either StorageLocation StorageUpdate]
-  , _returns :: Maybe ReturnExp
+  , _returns :: Maybe (ReturnExp Timed)
   } deriving (Show, Eq)
 
 data Mode
@@ -97,27 +97,27 @@ data MType
   deriving (Eq, Ord, Show, Read)
 
 data StorageUpdate
-  = IntUpdate (TStorageItem Integer) (Exp Untimed Integer)
-  | BoolUpdate (TStorageItem Bool) (Exp Untimed Bool)
-  | BytesUpdate (TStorageItem ByteString) (Exp Untimed ByteString)
+  = IntUpdate (TStorageItem Untimed Integer) (Exp Untimed Integer)
+  | BoolUpdate (TStorageItem Untimed Bool) (Exp Untimed Bool)
+  | BytesUpdate (TStorageItem Untimed ByteString) (Exp Untimed ByteString)
   deriving (Show, Eq)
 
 data StorageLocation
-  = IntLoc (TStorageItem Integer)
-  | BoolLoc (TStorageItem Bool)
-  | BytesLoc (TStorageItem ByteString)
+  = IntLoc (TStorageItem Untimed Integer)
+  | BoolLoc (TStorageItem Untimed Bool)
+  | BytesLoc (TStorageItem Untimed ByteString)
   deriving (Show, Eq)
 
-data TStorageItem a where
-  DirectInt    :: Id -> Id -> TStorageItem Integer
-  DirectBool   :: Id -> Id -> TStorageItem Bool
-  DirectBytes  :: Id -> Id -> TStorageItem ByteString
-  MappedInt    :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem Integer
-  MappedBool   :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem Bool
-  MappedBytes  :: Id -> Id -> NonEmpty ReturnExp -> TStorageItem ByteString
+data TStorageItem t a where
+  DirectInt    :: Id -> Id -> TStorageItem t Integer
+  DirectBool   :: Id -> Id -> TStorageItem t Bool
+  DirectBytes  :: Id -> Id -> TStorageItem t ByteString
+  MappedInt    :: Id -> Id -> NonEmpty (ReturnExp t) -> TStorageItem t Integer
+  MappedBool   :: Id -> Id -> NonEmpty (ReturnExp t) -> TStorageItem t Bool
+  MappedBytes  :: Id -> Id -> NonEmpty (ReturnExp t) -> TStorageItem t ByteString
 
-deriving instance Show (TStorageItem a)
-deriving instance Eq (TStorageItem a)
+deriving instance Show (TStorageItem t a)
+deriving instance Eq (TStorageItem t a)
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
 -- In a `Timed` expression, all storage entries need to be `TEntry`, which contain either one of
@@ -169,8 +169,8 @@ data Exp (t :: Timing) (a :: *) where
   Eq  :: (Eq a, Typeable a) => Exp t a -> Exp t a -> Exp t Bool
   NEq :: (Eq a, Typeable a) => Exp t a -> Exp t a -> Exp t Bool
   ITE :: Exp t Bool -> Exp t a -> Exp t a -> Exp t a
-  UTEntry :: TStorageItem a -> Exp Untimed a
-  TEntry :: TStorageItem a -> When -> Exp Timed a
+  UTEntry :: TStorageItem t a -> Exp Untimed a
+  TEntry :: TStorageItem t a -> When -> Exp Timed a
 
 deriving instance Show (Exp t a)
 
@@ -290,10 +290,10 @@ e `as` time = go e
       ITE x y z -> ITE (go x) (go y) (go z)
       UTEntry x -> TEntry x time
 
-data ReturnExp
-  = ExpInt    (Exp Untimed Integer)
-  | ExpBool   (Exp Untimed Bool)
-  | ExpBytes  (Exp Untimed ByteString)
+data ReturnExp t
+  = ExpInt    (Exp t Integer)
+  | ExpBool   (Exp t Bool)
+  | ExpBytes  (Exp t ByteString)
   deriving (Eq, Show)
 
 -- | Simplifies concrete expressions into literals.
@@ -386,7 +386,7 @@ instance ToJSON StorageUpdate where
   toJSON (BoolUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
   toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
-instance ToJSON (TStorageItem b) where
+instance ToJSON (TStorageItem t a) where
   toJSON (DirectInt a b) = object ["sort" .= pack "int"
                                   , "name" .= String (pack a <> "." <> pack b)]
   toJSON (DirectBool a b) = object ["sort" .= pack "bool"
@@ -397,7 +397,7 @@ instance ToJSON (TStorageItem b) where
   toJSON (MappedBool a b c) = mapping a b c
   toJSON (MappedBytes a b c) = mapping a b c
 
-instance ToJSON ReturnExp where
+instance ToJSON (ReturnExp t) where
    toJSON (ExpInt a) = object ["sort" .= pack "int"
                               ,"expression" .= toJSON a]
    toJSON (ExpBool a) = object ["sort" .= String (pack "bool")
