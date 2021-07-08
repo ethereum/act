@@ -5,8 +5,8 @@ module Print where
 import Data.ByteString.UTF8 (toString)
 
 import Data.List
-import Data.List.NonEmpty as NonEmpty (toList)
 
+import Extract
 import Syntax
 import RefinedAst
 
@@ -28,7 +28,7 @@ prettyBehaviour (Behaviour name _ contract interface preconditions postcondition
     prettyState (Left loc) = prettyLocation loc
     prettyState (Right update) = prettyUpdate update
 
-    prettyRet (Just ret) = header "returns" >-< "  " <> prettyReturnExp ret
+    prettyRet (Just ret) = header "returns" >-< "  " <> prettyTypedExp ret
     prettyRet Nothing = ""
 
     prettyPost [] = ""
@@ -83,29 +83,20 @@ prettyExp e = case e of
 
   --polymorphic
   ITE a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  UTEntry a -> prettyItem a
-  TEntry a t -> show t <> "(" <> prettyItem a <> ")"
-
+  TEntry a t -> timeParens t $ prettyItem a
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
-prettyReturnExp :: ReturnExp -> String
-prettyReturnExp e = case e of
+prettyTypedExp :: TypedExp t -> String
+prettyTypedExp e = case e of
   ExpInt e' -> prettyExp e'
   ExpBool e' -> prettyExp e'
   ExpBytes e' -> prettyExp e'
 
-prettyItem :: TStorageItem t -> String
-prettyItem item = case item of
-  DirectInt contract name -> contract <> "." <> name
-  DirectBool contract name -> contract <> "." <> name
-  DirectBytes contract name -> contract <> "." <> name
-  MappedInt contract name ixs -> contract <> "." <> name <> concat (NonEmpty.toList $ surround "[" "]" <$> (prettyReturnExp <$> ixs))
-  MappedBool contract name ixs -> contract <> "." <> name <> concat (NonEmpty.toList $ surround "[" "]" <$> (prettyReturnExp <$> ixs))
-  MappedBytes contract name ixs -> contract <> "." <> name <> concat (NonEmpty.toList $ surround "[" "]" <$> (prettyReturnExp <$> ixs))
+prettyItem :: TStorageItem t a -> String
+prettyItem item = getContract' item <> "." <> getId' item <> concatMap (brackets . prettyTypedExp) (getItemIxs item)
   where
-    surround :: String -> String -> String -> String
-    surround l r str = l <> str <> r
+    brackets str = "[" <> str <> "]"
 
 prettyLocation :: StorageLocation -> String
 prettyLocation (IntLoc item) = prettyItem item

@@ -46,8 +46,26 @@ import RefinedAst
 import Extract hiding (getContract)
 import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
 import Print
-import Type (defaultStore)
+-- import Type (defaultStore)
 
+-- typing of eth env variables
+defaultStore :: [(EthEnv, MType)]
+defaultStore =
+  [(Callvalue, Integer),
+   (Caller, Integer),
+   (Blockhash, ByteStr),
+   (Blocknumber, Integer),
+   (Difficulty, Integer),
+   (Timestamp, Integer),
+   (Gaslimit, Integer),
+   (Coinbase, Integer),
+   (Chainid, Integer),
+   (This, Integer),
+   (Origin, Integer),
+   (Nonce, Integer),
+   (Calldepth, Integer)
+   --others TODO
+  ]
 
 --- ** Data ** ---
 
@@ -111,12 +129,12 @@ data SMTResult
 --   variable, and the RHS is the concrete value assigned to that variable in the
 --   counterexample
 data Model = Model
-  { _mprestate :: [(StorageLocation, ReturnExp)]
-  , _mpoststate :: [(StorageLocation, ReturnExp)]
-  , _mcalldata :: (String, [(Decl, ReturnExp)])
-  , _menvironment :: [(EthEnv, ReturnExp)]
+  { _mprestate :: [(StorageLocation, TypedExp Timed)]
+  , _mpoststate :: [(StorageLocation, TypedExp Timed)]
+  , _mcalldata :: (String, [(Decl, TypedExp Untimed)])
+  , _menvironment :: [(EthEnv, TypedExp Untimed)]
   -- invariants always have access to the constructor context
-  , _minitargs :: [(Decl, ReturnExp)]
+  , _minitargs :: [(Decl, TypedExp Untimed)]
   }
   deriving (Show)
 
@@ -139,9 +157,9 @@ instance Pretty Model where
       poststate' = text "poststate:" <$$> line <> (indent 2 . vsep $ fmap formatStorage poststate)
 
       formatSig iface cd = text iface <> (encloseSep lparen rparen (text ", ") $ fmap formatCalldata cd)
-      formatCalldata (Decl _ name, val) = text $ name <> " = " <> prettyReturnExp val
-      formatEnvironment (env, val) = text $ prettyEnv env <> " = " <> prettyReturnExp val
-      formatStorage (loc, val) = text $ prettyLocation loc <> " = " <> prettyReturnExp val
+      formatCalldata (Decl _ name, val) = text $ name <> " = " <> prettyTypedExp val
+      formatEnvironment (env, val) = text $ prettyEnv env <> " = " <> prettyTypedExp val
+      formatStorage (loc, val) = text $ prettyLocation loc <> " = " <> prettyTypedExp val
 
 data SolverInstance = SolverInstance
   { _type :: Solver
@@ -362,7 +380,7 @@ sendLines solver smt = case smt of
 
 -- | Sends a single command to the solver, returns the first available line from the output buffer
 sendCommand :: SolverInstance -> SMT2 -> IO String
-sendCommand (SolverInstance _ stdin stdout _ _) cmd = do
+sendCommand (SolverInstance _ stdin stdout _ _) cmd =
   if null cmd || ";" `isPrefixOf` cmd then pure "success" -- blank lines and comments do not produce any output from the solver
   else do
     hPutStr stdin (cmd <> "\n")
@@ -436,10 +454,10 @@ getCtorModel ctor solver = do
     }
 
 -- | Gets a concrete value from the solver for the given storage location
-getStorageValue :: SolverInstance -> Id -> When -> StorageLocation -> IO (StorageLocation, ReturnExp)
+getStorageValue :: SolverInstance -> Id -> When -> StorageLocation -> IO (StorageLocation, TypedExp Timed)
 getStorageValue solver ifaceName whn loc = do
   let name = if isMapping loc
-                then uncurry select `withInterface` ifaceName $ (nameFromLoc whn loc, NonEmpty.fromList $ getContainerIxs loc)
+                then uncurry select `withInterface` ifaceName $ (nameFromLoc whn loc, fmap (timeTyped whn) . NonEmpty.fromList $ getContainerIxs loc)
                 else nameFromLoc whn loc
   output <- getValue solver name
   -- TODO: handle errors here...
@@ -450,7 +468,7 @@ getStorageValue solver ifaceName whn loc = do
   pure (loc, val)
 
 -- | Gets a concrete value from the solver for the given calldata argument
-getCalldataValue :: SolverInstance -> Id -> Decl -> IO (Decl, ReturnExp)
+getCalldataValue :: SolverInstance -> Id -> Decl -> IO (Decl, TypedExp Untimed)
 getCalldataValue solver ifaceName decl@(Decl tp _) = do
   output <- getValue solver $ nameFromDecl ifaceName decl
   let val = case metaType tp of
@@ -460,7 +478,7 @@ getCalldataValue solver ifaceName decl@(Decl tp _) = do
   pure (decl, val)
 
 -- | Gets a concrete value from the solver for the given environment variable
-getEnvironmentValue :: SolverInstance -> EthEnv -> IO (EthEnv, ReturnExp)
+getEnvironmentValue :: SolverInstance -> EthEnv -> IO (EthEnv, TypedExp Untimed)
 getEnvironmentValue solver env = do
   output <- getValue solver (prettyEnv env)
   let val = case lookup env defaultStore of
@@ -475,11 +493,11 @@ getValue :: SolverInstance -> String -> IO String
 getValue solver name = sendCommand solver $ "(get-value (" <> name <> "))"
 
 -- | Parse the result of a call to getValue as an Int
-parseIntModel :: String -> ReturnExp
+parseIntModel :: String -> TypedExp t
 parseIntModel = ExpInt . LitInt . read . parseSMTModel
 
 -- | Parse the result of a call to getValue as a Bool
-parseBoolModel :: String -> ReturnExp
+parseBoolModel :: String -> TypedExp t
 parseBoolModel = ExpBool . LitBool . readBool . parseSMTModel
   where
     readBool "true" = True
@@ -487,7 +505,7 @@ parseBoolModel = ExpBool . LitBool . readBool . parseSMTModel
     readBool s = error ("Could not parse " <> s <> "into a bool")
 
 -- | Parse the result of a call to getValue as a Bytes
-parseBytesModel :: String -> ReturnExp
+parseBytesModel :: String -> TypedExp t
 parseBytesModel = ExpBytes . ByLit . fromString . parseSMTModel
 
 -- | Extracts a string representation of the value in the output from a call to `(get-value)`
@@ -520,29 +538,24 @@ encodeInitialStorage behvName update = case update of
   BoolUpdate item e -> encode item e
   BytesUpdate item e -> encode item e
   where
-    encode :: TStorageItem a -> Exp Untimed a -> SMT2
+    encode :: TStorageItem Untimed a -> Exp Untimed a -> SMT2
     encode item e =
       let
-        postentry  = expToSMT2 `withInterface` behvName $ TEntry item Post
+        postentry  = expToSMT2 `withInterface` behvName $ TEntry item Neither `as` Post
         expression = expToSMT2 `withInterface` behvName $ e `as` Pre
       in "(assert (= " <> postentry <> " " <> expression <> "))"
 
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
 declareInitialStorage :: StorageUpdate -> SMT2
-declareInitialStorage update = case getLoc . Right $ update of
-  IntLoc item -> case item of
-    DirectInt {} -> mkdirect item Integer
-    MappedInt _ _ ixs -> mkarray item ixs Integer
-  BoolLoc item -> case item of
-    DirectBool {} -> mkdirect item Boolean
-    MappedBool _ _ ixs -> mkarray item ixs Boolean
-  BytesLoc item -> case item of
-    DirectBytes {} -> mkdirect item ByteStr
-    MappedBytes _ _ ixs -> mkarray item ixs ByteStr
+declareInitialStorage update = case mkLoc update of
+  IntLoc item -> mkItem item
+  BoolLoc item -> mkItem item
+  BytesLoc item -> mkItem item
   where
-    mkdirect item tp = constant (nameFromItem Post item) tp
-    mkarray item ixs tp = array (nameFromItem Post item) ixs tp
+    mkItem item = case getItemIxs item of
+      []       -> constant (nameFromItem Post item) (getItemType item)
+      (ix:ixs) -> array (nameFromItem Post item) (ix :| ixs) (getItemType item)
 
 -- | encodes a storge update rewrite as an smt assertion
 encodeUpdate :: Id -> Either StorageLocation StorageUpdate -> SMT2
@@ -553,18 +566,15 @@ encodeUpdate behvName (Right update) = encodeInitialStorage behvName update
 --   state (i.e. anything except a loc created by a constructor claim)
 declareStorageLocation :: StorageLocation -> [SMT2]
 declareStorageLocation loc = case loc of
-  IntLoc item -> case item of
-    DirectInt {} -> mkdirect item Integer
-    MappedInt _ _ ixs -> mkarray item ixs Integer
-  BoolLoc item -> case item of
-    DirectBool {} -> mkdirect item Boolean
-    MappedBool _ _ ixs -> mkarray item ixs Boolean
-  BytesLoc item -> case item of
-    DirectBytes {} -> mkdirect item ByteStr
-    MappedBytes _ _ ixs -> mkarray item ixs ByteStr
+  IntLoc item -> mkItem item
+  BoolLoc item -> mkItem item
+  BytesLoc item -> mkItem item
   where
-    mkdirect item tp = [constant (nameFromItem Pre item) tp, constant (nameFromItem Post item) tp]
-    mkarray item ixs tp = [array (nameFromItem Pre item) ixs tp, array (nameFromItem Post item) ixs tp]
+    mkItem item = case getItemIxs item of
+      []       -> [ constant (nameFromItem Pre item) (getItemType item)
+                  , constant (nameFromItem Post item) (getItemType item) ]
+      (ix:ixs) -> [ array (nameFromItem Pre item) (ix :| ixs) (getItemType item)
+                  , array (nameFromItem Post item) (ix :| ixs) (getItemType item) ]
 
 -- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
@@ -575,11 +585,11 @@ declareEthEnv :: EthEnv -> SMT2
 declareEthEnv env = constant (prettyEnv env) tp
   where tp = fromJust . lookup env $ defaultStore
 
-returnExpToSMT2 :: ReturnExp -> Ctx SMT2
-returnExpToSMT2 re = case re of
-  ExpInt ei -> expToSMT2 $ ei `as` Post
-  ExpBool eb -> expToSMT2 $ eb `as` Post
-  ExpBytes ebs -> expToSMT2 $ ebs `as` Post
+typedExpToSMT2 :: TypedExp Timed -> Ctx SMT2
+typedExpToSMT2 re = case re of
+  ExpInt ei -> expToSMT2 ei
+  ExpBool eb -> expToSMT2 eb
+  ExpBytes ebs -> expToSMT2 ebs
 
 expToSMT2 :: Exp Timed a -> Ctx SMT2
 expToSMT2 expr = case expr of
@@ -630,7 +640,6 @@ expToSMT2 expr = case expr of
   NEq a b -> unop "not" (Eq a b)
   ITE a b c -> triop "ite" a b c
   TEntry item w -> entry item w
-
   where
     unop :: String -> Exp Timed a -> Ctx SMT2
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
@@ -643,14 +652,10 @@ expToSMT2 expr = case expr of
     triop op a b c = ["(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")"
                         | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
 
-    entry :: TStorageItem a -> When -> Ctx SMT2
-    entry item whn = case item of
-      DirectInt {} -> pure $ nameFromItem whn item
-      DirectBool {} -> pure $ nameFromItem whn item
-      DirectBytes {} -> pure $ nameFromItem whn item
-      MappedInt _ _ ixs -> select (nameFromItem whn item) ixs
-      MappedBool _ _ ixs -> select (nameFromItem whn item) ixs
-      MappedBytes _ _ ixs -> select (nameFromItem whn item) ixs
+    entry :: TStorageItem Timed a -> When -> Ctx SMT2
+    entry item whn = case getItemIxs item of
+      []       -> pure $ nameFromItem whn item
+      (ix:ixs) -> select (nameFromItem whn item) (ix :| ixs)
 
 -- | SMT2 has no support for exponentiation, but we can do some preprocessing
 --   if the RHS is concrete to provide some limited support for exponentiation
@@ -670,17 +675,17 @@ mkAssert :: Id -> Exp Timed Bool -> SMT2
 mkAssert c e = "(assert " <> (expToSMT2 `withInterface` c) e <> ")"
 
 -- | declare a (potentially nested) array in smt2
-array :: Id -> NonEmpty ReturnExp -> MType -> SMT2
+array :: Id -> NonEmpty (TypedExp t) -> MType -> SMT2
 array name (hd :| tl) ret = "(declare-const " <> name <> " (Array " <> sType' hd <> " " <> valueDecl tl <> "))"
   where
     valueDecl [] = sType ret
     valueDecl (h : t) = "(Array " <> sType' h <> " " <> valueDecl t <> ")"
 
 -- | encode an array lookup in smt2
-select :: String -> NonEmpty ReturnExp -> Ctx SMT2
+select :: String -> NonEmpty (TypedExp Timed) -> Ctx SMT2
 select name (hd :| tl) = do
-  inner <- ["(" <> "select" <> " " <> name <> " " <> hd' <> ")" | hd' <- returnExpToSMT2 hd]
-  foldM (\smt ix -> ["(select " <> smt <> " " <> ix' <> ")" | ix' <- returnExpToSMT2 ix]) inner tl
+  inner <- ["(" <> "select" <> " " <> name <> " " <> hd' <> ")" | hd' <- typedExpToSMT2 hd]
+  foldM (\smt ix -> ["(select " <> smt <> " " <> ix' <> ")" | ix' <- typedExpToSMT2 ix]) inner tl
 
 -- | act -> smt2 type translation
 sType :: MType -> SMT2
@@ -689,7 +694,7 @@ sType Boolean = "Bool"
 sType ByteStr = "String"
 
 -- | act -> smt2 type translation
-sType' :: ReturnExp -> SMT2
+sType' :: TypedExp t -> SMT2
 sType' (ExpInt {}) = "Int"
 sType' (ExpBool {}) = "Bool"
 sType' (ExpBytes {}) = "String"
@@ -698,14 +703,11 @@ sType' (ExpBytes {}) = "String"
 --- ** Variable Names ** ---
 
 -- Construct the smt2 variable name for a given storage item
-nameFromItem :: When -> TStorageItem a -> Id
+nameFromItem :: When -> TStorageItem t a -> Id
 nameFromItem whn item = case item of
-  DirectInt c name -> c @@ name @@ show whn
-  DirectBool c name -> c @@ name @@ show whn
-  DirectBytes c name -> c @@ name @@ show whn
-  MappedInt c name _ -> c @@ name @@ show whn
-  MappedBool c name _ -> c @@ name @@ show whn
-  MappedBytes c name _ -> c @@ name @@ show whn
+  ItemInt c name _ -> c @@ name @@ show whn
+  ItemBool c name _ -> c @@ name @@ show whn
+  ItemBytes c name _ -> c @@ name @@ show whn
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id

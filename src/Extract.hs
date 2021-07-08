@@ -1,8 +1,8 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 
 module Extract where
 
-import qualified Data.List.NonEmpty as NonEmpty
 import Data.List
 
 import RefinedAst
@@ -30,7 +30,7 @@ locsFromStateUpdate update = nub $ case update of
   Right (BoolUpdate item e) -> BoolLoc item : locsFromExp e
   Right (BytesUpdate item e) -> BytesLoc item : locsFromExp e
 
-locsFromReturnExp :: ReturnExp -> [StorageLocation]
+locsFromReturnExp :: TypedExp t -> [StorageLocation]
 locsFromReturnExp (ExpInt e) = locsFromExp e
 locsFromReturnExp (ExpBool e) = locsFromExp e
 locsFromReturnExp (ExpBytes e) = locsFromExp e
@@ -73,20 +73,16 @@ locsFromExp = nub . go
       IntEnv _ -> []
       ByEnv _ -> []
       ITE x y z -> go x <> go y <> go z
-      UTEntry a -> locsFromStorageItem a
       TEntry a _ -> locsFromStorageItem a
 
-    locsFromStorageItem :: TStorageItem a -> [StorageLocation]
+    locsFromStorageItem :: TStorageItem t a -> [StorageLocation]
     locsFromStorageItem t = case t of
-      DirectInt contract name -> [IntLoc $ DirectInt contract name]
-      DirectBool contract slot -> [BoolLoc $ DirectBool contract slot]
-      DirectBytes contract slot -> [BytesLoc $ DirectBytes contract slot]
-      MappedInt contract name ixs -> [IntLoc $ MappedInt contract name ixs] <> ixLocs ixs
-      MappedBool contract name ixs -> [BoolLoc $ MappedBool contract name ixs] <> ixLocs ixs
-      MappedBytes contract name ixs -> [BytesLoc $ MappedBytes contract name ixs] <> ixLocs ixs
+      ItemInt contract name ixs -> [IntLoc $ ItemInt contract name $ untimeTyped <$> ixs] <> ixLocs ixs
+      ItemBool contract name ixs -> [BoolLoc $ ItemBool contract name $ untimeTyped <$> ixs] <> ixLocs ixs
+      ItemBytes contract name ixs -> [BytesLoc $ ItemBytes contract name $ untimeTyped <$> ixs] <> ixLocs ixs
       where
-        ixLocs :: NonEmpty.NonEmpty ReturnExp -> [StorageLocation]
-        ixLocs = concatMap locsFromReturnExp
+        ixLocs :: [TypedExp t] -> [StorageLocation]
+        ixLocs = concatMap (locsFromReturnExp . untimeTyped)
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
@@ -111,14 +107,10 @@ ethEnvFromStateUpdate update = case update of
   Right (BoolUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
   Right (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
 
-ethEnvFromItem :: TStorageItem a -> [EthEnv]
-ethEnvFromItem item = nub $ case item of
-  MappedInt _ _ ixs -> concatMap ethEnvFromReturnExp ixs
-  MappedBool _ _ ixs -> concatMap ethEnvFromReturnExp ixs
-  MappedBytes _ _ ixs -> concatMap ethEnvFromReturnExp ixs
-  _ -> []
+ethEnvFromItem :: TStorageItem t a -> [EthEnv]
+ethEnvFromItem = nub . concatMap ethEnvFromReturnExp . getItemIxs
 
-ethEnvFromReturnExp :: ReturnExp -> [EthEnv]
+ethEnvFromReturnExp :: TypedExp t -> [EthEnv]
 ethEnvFromReturnExp (ExpInt e) = ethEnvFromExp e
 ethEnvFromReturnExp (ExpBool e) = ethEnvFromExp e
 ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
@@ -161,8 +153,7 @@ ethEnvFromExp = nub . go
       NewAddr a b -> go a <> go b
       IntEnv a -> [a]
       ByEnv a -> [a]
-      UTEntry a  -> ethEnvFromItem a
-      TEntry a _  -> ethEnvFromItem a
+      TEntry a _ -> ethEnvFromItem a
 
 getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
 getLoc = either id mkLoc
@@ -192,68 +183,71 @@ nameFromStorage store = error $ "Internal error: cannot extract name from " ++ s
 
 
 getId :: Either StorageLocation StorageUpdate -> Id
-getId (Right (IntUpdate a _)) = getId' a
-getId (Right (BoolUpdate a _)) = getId' a
-getId (Right (BytesUpdate a _)) = getId' a
-getId (Left (IntLoc a)) = getId' a
-getId (Left (BoolLoc a)) = getId' a
-getId (Left (BytesLoc a)) = getId' a
+getId = either getLocationId getUpdateId
 
-getId' :: TStorageItem a -> Id
-getId' (DirectInt _ name) = name
-getId' (DirectBool _ name) = name
-getId' (DirectBytes _ name) = name
-getId' (MappedInt _ name _) = name
-getId' (MappedBool _ name _) = name
-getId' (MappedBytes _ name _) = name
+getId' :: TStorageItem t a -> Id
+getId' (ItemInt _ name _) = name
+getId' (ItemBool _ name _) = name
+getId' (ItemBytes _ name _) = name
+
+getUpdateId :: StorageUpdate -> Id
+getUpdateId (IntUpdate   item _) = getId' item
+getUpdateId (BoolUpdate  item _) = getId' item
+getUpdateId (BytesUpdate item _) = getId' item
+
+getLocationId :: StorageLocation -> Id
+getLocationId (IntLoc   item) = getId' item
+getLocationId (BoolLoc  item) = getId' item
+getLocationId (BytesLoc item) = getId' item
 
 getContract :: Either StorageLocation StorageUpdate -> Id
-getContract (Left (IntLoc item)) = getContract' item
-getContract (Left (BoolLoc item)) = getContract' item
-getContract (Left (BytesLoc item)) = getContract' item
-getContract (Right (IntUpdate item _)) = getContract' item
-getContract (Right (BoolUpdate item _)) = getContract' item
-getContract (Right (BytesUpdate item _)) = getContract' item
+getContract = either getLocationContract getUpdateContract
 
-getContract' :: TStorageItem a -> Id
-getContract' (DirectInt c _) = c
-getContract' (DirectBool c _) = c
-getContract' (DirectBytes c _) = c
-getContract' (MappedInt c _ _) = c
-getContract' (MappedBool c _ _) = c
-getContract' (MappedBytes c _ _) = c
+getContract' :: TStorageItem t a -> Id
+getContract' (ItemInt c _ _) = c
+getContract' (ItemBool c _ _) = c
+getContract' (ItemBytes c _ _) = c
+
+getItemIxs :: TStorageItem t a -> [TypedExp t]
+getItemIxs (ItemInt   _ _ ixs) = ixs
+getItemIxs (ItemBool  _ _ ixs) = ixs
+getItemIxs (ItemBytes _ _ ixs) = ixs
 
 contractsInvolved :: Behaviour -> [Id]
-contractsInvolved beh =
-  getContractId . getLoc <$> _stateUpdates beh
+contractsInvolved = fmap getContract . _stateUpdates
 
-getContractId :: StorageLocation -> Id
-getContractId (IntLoc (DirectInt a _)) = a
-getContractId (BoolLoc (DirectBool a _)) = a
-getContractId (BytesLoc (DirectBytes a _)) = a
-getContractId (IntLoc (MappedInt a _ _)) = a
-getContractId (BoolLoc (MappedBool a _ _)) = a
-getContractId (BytesLoc (MappedBytes a _ _)) = a
+getLocationContract :: StorageLocation -> Id
+getLocationContract (IntLoc item) = getContract' item
+getLocationContract (BoolLoc item) = getContract' item
+getLocationContract (BytesLoc item) = getContract' item
+
+getUpdateContract :: StorageUpdate -> Id
+getUpdateContract (IntUpdate item _) = getContract' item
+getUpdateContract (BoolUpdate item _) = getContract' item
+getUpdateContract (BytesUpdate item _) = getContract' item
 
 getContainerId :: StorageLocation -> Id
-getContainerId (IntLoc (DirectInt _ a)) = a
-getContainerId (BoolLoc (DirectBool _ a)) = a
-getContainerId (BytesLoc (DirectBytes _ a)) = a
-getContainerId (IntLoc (MappedInt _ a _)) = a
-getContainerId (BoolLoc (MappedBool _ a _)) = a
-getContainerId (BytesLoc (MappedBytes _ a _)) = a
+getContainerId (IntLoc item) = getId' item
+getContainerId (BoolLoc item) = getId' item
+getContainerId (BytesLoc item) = getId' item
 
-getContainerIxs :: StorageLocation -> [ReturnExp]
-getContainerIxs (IntLoc (DirectInt _ _)) = []
-getContainerIxs (BoolLoc (DirectBool _ _)) = []
-getContainerIxs (BytesLoc (DirectBytes _ _)) = []
-getContainerIxs (IntLoc (MappedInt _ _ ixs)) = NonEmpty.toList ixs
-getContainerIxs (BoolLoc (MappedBool _ _ ixs)) = NonEmpty.toList ixs
-getContainerIxs (BytesLoc (MappedBytes _ _ ixs)) = NonEmpty.toList ixs
+getContainerIxs :: StorageLocation -> [TypedExp Untimed]
+getContainerIxs (IntLoc item) = getItemIxs item
+getContainerIxs (BoolLoc item) = getItemIxs item
+getContainerIxs (BytesLoc item) = getItemIxs item
+
+getUpdateIxs :: StorageUpdate -> [TypedExp Untimed]
+getUpdateIxs (IntUpdate item _) = getItemIxs item
+getUpdateIxs (BoolUpdate item _) = getItemIxs item
+getUpdateIxs (BytesUpdate item _) = getItemIxs item
+
+getIxs :: Either StorageLocation StorageUpdate -> [TypedExp Untimed]
+getIxs = either getContainerIxs getUpdateIxs
+
+getItemType :: TStorageItem t a -> MType
+getItemType ItemInt{}   = Integer
+getItemType ItemBool{}  = Boolean
+getItemType ItemBytes{} = ByteStr
 
 isMapping :: StorageLocation -> Bool
-isMapping loc = case loc of
-  (IntLoc (MappedInt {})) -> True
-  (BoolLoc (MappedBool {})) -> True
-  (BytesLoc (MappedBytes {})) -> True
-  _ -> False
+isMapping = not . null . getContainerIxs

@@ -14,6 +14,7 @@
 
 module Coq where
 
+import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map.Strict    as M
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
@@ -21,6 +22,7 @@ import Data.Either (rights)
 import Data.List (find, groupBy)
 import Control.Monad.State
 
+import Extract
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import Syntax
@@ -156,37 +158,22 @@ stateval
   -> (Id -> SlotType -> T.Text)
   -> [StorageUpdate]
   -> T.Text
-stateval store handler updates =
-
-  stateConstructor <> " " <> T.intercalate " "
-    (map (valuefor updates) (M.toList store))
-
+stateval store handler updates = T.unwords (stateConstructor : fmap (valuefor updates) (M.toList store))
   where
-
   valuefor :: [StorageUpdate] -> (Id, SlotType) -> T.Text
   valuefor updates' (name, t) =
     case find (eqName name) updates' of
       Nothing -> parens $ handler name t
-      Just (IntUpdate (DirectInt _ _) e) -> parens $ coqexp e
-      Just (IntUpdate (MappedInt _ name' args) e) -> lambda (NE.toList args) 0 e name'
-      Just (BoolUpdate (DirectBool _ _) e)  -> parens $ coqexp e
-      Just (BoolUpdate (MappedBool _ name' args) e) -> lambda (NE.toList args) 0 e name'
+      Just (IntUpdate  item e) -> lambda (getItemIxs item) 0 e (getId' item)
+      Just (BoolUpdate item e) -> lambda (getItemIxs item) 0 e (getId' item)
       Just (BytesUpdate _ _) -> error "bytestrings not supported"
 
 -- | filter by name
 eqName :: Id -> StorageUpdate -> Bool
-eqName n (IntUpdate (DirectInt _ n') _)
-  | n == n' = True
-eqName n (IntUpdate (MappedInt _ n' _) _)
-  | n == n' = True
-eqName n (BoolUpdate (DirectBool _ n') _)
-  | n == n' = True
-eqName n (BoolUpdate (MappedBool _ n' _) _)
-  | n == n' = True
-eqName _ _ = False
+eqName n update = n == getUpdateId update
 
 -- represent mapping update with anonymous function
-lambda :: [ReturnExp] -> Int -> Exp t a -> Id -> T.Text
+lambda :: [TypedExp t] -> Int -> Exp t a -> Id -> T.Text
 lambda [] _ e _ = parens $ coqexp e
 lambda (x:xs) n e m = parens $
   "fun " <> name <> " =>"
@@ -194,7 +181,7 @@ lambda (x:xs) n e m = parens $
   <> " then " <> lambda xs (n + 1) e m
   <> " else " <> T.pack m <> " " <> stateVar <> " " <> lambdaArgs n where
   name = anon <> T.pack (show n)
-  lambdaArgs i = T.intercalate " " $ map (\a -> anon <> T.pack (show a)) [0..i]
+  lambdaArgs i = T.unwords $ map (\a -> anon <> T.pack (show a)) [0..i]
   eqsym (ExpInt _) = " =? "
   eqsym (ExpBool _) = " =?? "
   eqsym (ExpBytes _) = error "bytestrings not supported"
@@ -202,12 +189,12 @@ lambda (x:xs) n e m = parens $
 -- | produce a block of declarations from an interface
 interface :: Interface -> T.Text
 interface (Interface _ decls) =
-  T.intercalate " " (map decl decls) where
+  T.unwords $ map decl decls where
   decl (Decl t name) = parens $ T.pack name <> " : " <> abiType t
 
 arguments :: Interface -> T.Text
 arguments (Interface _ decls) =
-  T.intercalate " " (map (\(Decl _ name) -> T.pack name) decls)
+  T.unwords $ map (\(Decl _ name) -> T.pack name) decls
 
 -- | coq syntax for a slot type
 slotType :: SlotType -> T.Text
@@ -224,7 +211,7 @@ abiType AbiStringType = strMod <> ".string"
 abiType a = error $ show a
 
 -- | coq syntax for a return type
-returnType :: ReturnExp -> T.Text
+returnType :: TypedExp t -> T.Text
 returnType (ExpInt _) = "Z"
 returnType (ExpBool _) = "bool"
 returnType (ExpBytes _) = "bytestrings not supported"
@@ -234,7 +221,7 @@ returnType (ExpBytes _) = "bytestrings not supported"
 defaultValue :: SlotType -> T.Text
 defaultValue (StorageMapping xs t) =
   "fun "
-  <> T.intercalate " " (replicate (length (NE.toList xs)) "_")
+  <> T.unwords (replicate (length (NE.toList xs)) "_")
   <> " => "
   <> abiVal t
 defaultValue (StorageValue t) = abiVal t
@@ -279,14 +266,13 @@ coqexp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
 coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
 
 -- polymorphic
-coqexp (UTEntry e)   = entry e Nothing
-coqexp (TEntry e w)  = entry e $ Just w
+coqexp (TEntry e w) = entry e w
 coqexp (ITE b e1 e2) = parens $ "if "
-  <> coqexp b
-  <> " then "
-  <> coqexp e1
-  <> " else "
-  <> coqexp e2
+                    <> coqexp b
+                    <> " then "
+                    <> coqexp e1
+                    <> " else "
+                    <> coqexp e2
 
 -- unsupported
 coqexp (IntEnv e) = error $ show e <> ": environment values not yet supported"
@@ -315,27 +301,25 @@ coqprop (GEQ e1 e2)  = parens $ coqexp e1 <> " >= " <> coqexp e2
 coqprop _ = error "ill formed proposition"
 
 -- | coq syntax for a return expression
-retexp :: ReturnExp -> T.Text
+retexp :: TypedExp t -> T.Text
 retexp (ExpInt e)   = coqexp e
 retexp (ExpBool e)  = coqexp e
 retexp (ExpBytes _) = error "bytestrings not supported"
 
-mutableVar :: Id -> Maybe When -> T.Text
-mutableVar a Nothing  = T.pack a
-mutableVar a (Just w) = T.pack $ a <> "_" <> show w -- TODO this should probably change but we don't even generate postconds atm
+mutableVar :: Id -> Time t -> T.Text
+mutableVar a Neither  = T.pack a
+mutableVar a w        = T.pack $ a <> "_" <> show w -- TODO this should probably change but we don't even generate postconds atm
 
-entry :: TStorageItem a -> Maybe When -> T.Text
-entry (DirectBool _ name)      w = parens $ mutableVar name w <> " "   <> stateVar
-entry (MappedBool _ name args) w = parens $ mutableVar name w <> " s " <> coqargs args 
-entry (DirectInt _ name)       w = parens $ mutableVar name w <> " "   <> stateVar
-entry (MappedInt _ name args)  w = parens $ mutableVar name w <> " s " <> coqargs args 
-entry (DirectBytes _ _)        _ = error "bytestrings not supported"
-entry (MappedBytes _ _ _)      _ = error "bytestrings not supported"
+entry :: TStorageItem t a -> Time t -> T.Text
+entry item t | getItemType item == ByteStr = error "bytestrings not supported"
+             | otherwise = case getItemIxs item of
+                            []       -> parens $ mutableVar (getId' item) t <> " " <> stateVar
+                            (ix:ixs) -> parens $ mutableVar (getId' item) t <> " s " <> coqargs (ix :| ixs)
 
 -- | coq syntax for a list of arguments
-coqargs :: NE.NonEmpty ReturnExp -> T.Text
-coqargs (e NE.:| es) =
-  retexp e <> " " <> T.intercalate " " (map retexp es)
+coqargs :: NonEmpty (TypedExp t) -> T.Text
+coqargs (e :| es) =
+  retexp e <> " " <> T.unwords (map retexp es)
 
 fresh :: Id -> Fresh T.Text
 fresh name = state $ \s -> (T.pack (name <> show s), s + 1)
@@ -355,7 +339,7 @@ definition name args value = T.unlines
 inductive :: T.Text -> T.Text -> T.Text -> [T.Text] -> T.Text
 inductive name args indices constructors = T.unlines
   [ "Inductive " <> name <> " " <> args <> " : " <> indices <> " :="
-  , T.intercalate "\n" (("| " <>) <$> constructors)
+  , T.unlines (("| " <>) <$> constructors)
   , "."
   ]
 
@@ -369,7 +353,6 @@ parens s = "(" <> s <> ")"
 
 indent :: Int -> T.Text -> T.Text
 indent n text = T.unlines $ ((T.replicate n " ") <>) <$> (T.lines text)
-
 
 --- constants ---
 

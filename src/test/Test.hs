@@ -148,7 +148,7 @@ genType typ = case typ of
     validBytesSize = elements [1..32]
 
 
-genReturnExp :: Names -> Int -> ExpoGen ReturnExp
+genReturnExp :: Names -> Int -> ExpoGen (TypedExp t)
 genReturnExp names n = oneof
   [ ExpInt <$> genExpInt names n
   , ExpBool <$> genExpBool names n

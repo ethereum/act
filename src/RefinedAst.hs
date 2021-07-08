@@ -80,7 +80,7 @@ data Behaviour = Behaviour
   , _preconditions :: [Exp Untimed Bool]
   , _postconditions :: [Exp Timed Bool]
   , _stateUpdates :: [Either StorageLocation StorageUpdate]
-  , _returns :: Maybe (ReturnExp Timed)
+  , _returns :: Maybe (TypedExp Timed)
   } deriving (Show, Eq)
 
 data Mode
@@ -109,20 +109,17 @@ data StorageLocation
   deriving (Show, Eq)
 
 data TStorageItem t a where
-  DirectInt    :: Id -> Id -> TStorageItem t Integer
-  DirectBool   :: Id -> Id -> TStorageItem t Bool
-  DirectBytes  :: Id -> Id -> TStorageItem t ByteString
-  MappedInt    :: Id -> Id -> NonEmpty (ReturnExp t) -> TStorageItem t Integer
-  MappedBool   :: Id -> Id -> NonEmpty (ReturnExp t) -> TStorageItem t Bool
-  MappedBytes  :: Id -> Id -> NonEmpty (ReturnExp t) -> TStorageItem t ByteString
+  ItemInt    :: Id -> Id -> [TypedExp t] -> TStorageItem t Integer
+  ItemBool   :: Id -> Id -> [TypedExp t] -> TStorageItem t Bool
+  ItemBytes  :: Id -> Id -> [TypedExp t] -> TStorageItem t ByteString
 
 deriving instance Show (TStorageItem t a)
 deriving instance Eq (TStorageItem t a)
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
 -- In a `Timed` expression, all storage entries need to be `TEntry`, which contain either one of
--- `Pre, Post :: When`. In an `Untimed` expression, only `UTEntry` can occur, which does not contain
--- a `When`.
+-- `Pre, Post :: Time`. In an `Untimed` expression, only `UTEntry` can occur, which does not contain
+-- a `Time`.
 
 -- It is recommended that backends always input `Exp Timed a` to their codegens (or `Exp Untimed a`
 -- if postconditions and return values are irrelevant), as this makes it easier to generate
@@ -169,22 +166,38 @@ data Exp (t :: Timing) (a :: *) where
   Eq  :: (Eq a, Typeable a) => Exp t a -> Exp t a -> Exp t Bool
   NEq :: (Eq a, Typeable a) => Exp t a -> Exp t a -> Exp t Bool
   ITE :: Exp t Bool -> Exp t a -> Exp t a -> Exp t a
-  UTEntry :: TStorageItem t a -> Exp Untimed a
-  TEntry :: TStorageItem t a -> When -> Exp Timed a
-
+  TEntry :: TStorageItem t a -> Time t -> Exp t a
 deriving instance Show (Exp t a)
 
 -- | This will never be used as is. Its only purpose is to use with -XDataKinds, to ensure
 -- type safety of the `Exp` type.
 data Timing = Timed | Untimed
 
--- | This is used to tag all entries in `Timed` expressions.
-data When = Pre | Post
-  deriving Eq
+type When = Time Timed
 
-instance Show When where
-  show Pre  = "pre"
-  show Post = "post"
+data Time t where
+  Pre     :: Time Timed
+  Post    :: Time Timed
+  Neither :: Time Untimed
+deriving instance Eq (Time t)
+
+instance Show (Time t) where
+  show Pre     = "pre"
+  show Post    = "post"
+  show Neither = ""
+
+isTimed :: Time t -> Bool
+isTimed Neither = False
+isTimed _       = True
+
+timeParens :: Time t -> String -> String
+timeParens t s | isTimed t = show t <> "(" <> s <> ")"
+               | otherwise = s
+
+-- TODO this seems unnecessary, probably remove once all other modules are adapted to the new style.
+isPre :: Time t -> Bool
+isPre Pre = True
+isPre _   = False
 
 instance Eq (Exp t a) where
   And a b == And c d = a == c && b == d
@@ -231,9 +244,7 @@ instance Eq (Exp t a) where
       Just Refl -> a == c && b == d
       Nothing -> False
   ITE a b c == ITE d e f = a == d && b == e && c == f
-  UTEntry a == UTEntry b = a == b
-  TEntry t a == TEntry t' b = a == b && t == t'
-
+  TEntry a t == TEntry b u = a == b && t == u
   _ == _ = False
 
 instance Semigroup (Exp t Bool) where
@@ -244,7 +255,7 @@ instance Monoid (Exp t Bool) where
 
 -- | Give an `Untimed` expression a specific timing, i.e. `Pre` or `Post`.
 -- Useful to generate consistent storage reference names.
-as :: Exp Untimed a -> When -> Exp Timed a
+as :: Exp Untimed a -> Time Timed -> Exp Timed a
 e `as` time = go e
   where
     go :: Exp Untimed a -> Exp Timed a
@@ -288,12 +299,79 @@ e `as` time = go e
       Eq  x y -> Eq  (go x) (go y)
       NEq x y -> NEq (go x) (go y)
       ITE x y z -> ITE (go x) (go y) (go z)
-      UTEntry x -> TEntry x time
+      TEntry x _ -> TEntry (timeItem x) time
 
-data ReturnExp t
-  = ExpInt    (Exp t Integer)
-  | ExpBool   (Exp t Bool)
-  | ExpBytes  (Exp t ByteString)
+    timeItem :: TStorageItem Untimed a -> TStorageItem Timed a
+    timeItem item = case item of
+      ItemInt c x ixs -> ItemInt c x $ timeTyped time <$> ixs
+      ItemBool c x ixs -> ItemBool c x $ timeTyped time <$> ixs
+      ItemBytes c x ixs -> ItemBytes c x $ timeTyped time <$> ixs
+
+untime :: Exp t a -> Exp Untimed a
+untime e = case e of
+  And  x y -> And (untime x) (untime y)
+  Or   x y -> Or (untime x) (untime y)
+  Impl x y -> Impl (untime x) (untime y)
+  Neg x -> Neg (untime x)
+  LE x y -> LE (untime x) (untime y)
+  LEQ x y -> LEQ (untime x) (untime y)
+  GEQ x y -> GEQ (untime x) (untime y)
+  GE x y -> GE (untime x) (untime y)
+  LitBool x -> LitBool x
+  BoolVar x -> BoolVar x
+  -- integers
+  Add x y -> Add (untime x) (untime y)
+  Sub x y -> Sub (untime x) (untime y)
+  Mul x y -> Mul (untime x) (untime y)
+  Div x y -> Div (untime x) (untime y)
+  Mod x y -> Mod (untime x) (untime y)
+  Exp x y -> Exp (untime x) (untime y)
+  LitInt x -> LitInt x
+  IntVar x -> IntVar x
+  IntEnv x -> IntEnv x
+  -- younds
+  IntMin x -> IntMin x
+  IntMax x -> IntMax x
+  UIntMin x -> UIntMin x
+  UIntMax x -> UIntMax x
+  -- yytestrings
+  Cat x y -> Cat (untime x) (untime y)
+  Slice x y z -> Slice (untime x) (untime y) (untime z)
+  ByVar x -> ByVar x
+  ByStr x -> ByStr x
+  ByLit x -> ByLit x
+  ByEnv x -> ByEnv x
+  -- yuiltins
+  NewAddr x y -> NewAddr (untime x) (untime y)
+
+  -- polymorphic
+  Eq  x y -> Eq  (untime x) (untime y)
+  NEq x y -> NEq (untime x) (untime y)
+  ITE x y z -> ITE (untime x) (untime y) (untime z)
+  TEntry x _ -> TEntry (untimeItem x) Neither
+  where
+    untimeItem :: TStorageItem t a -> TStorageItem Untimed a
+    untimeItem item = case item of
+      ItemInt c x ixs -> ItemInt c x $ untimeTyped <$> ixs
+      ItemBool c x ixs -> ItemBool c x $ untimeTyped <$> ixs
+      ItemBytes c x ixs -> ItemBytes c x $ untimeTyped <$> ixs
+
+untimeTyped :: TypedExp t -> TypedExp Untimed
+untimeTyped e = case e of
+  ExpInt   e' -> ExpInt   $ untime e'
+  ExpBool  e' -> ExpBool  $ untime e'
+  ExpBytes e' -> ExpBytes $ untime e'
+
+timeTyped :: Time Timed -> TypedExp Untimed -> TypedExp Timed
+timeTyped time e = case e of
+  ExpInt   e' -> ExpInt   $ e' `as` time
+  ExpBool  e' -> ExpBool  $ e' `as` time
+  ExpBytes e' -> ExpBytes $ e' `as` time
+
+data TypedExp t
+  = ExpInt   (Exp t Integer)
+  | ExpBool  (Exp t Bool)
+  | ExpBytes (Exp t ByteString)
   deriving (Eq, Show)
 
 -- | Simplifies concrete expressions into literals.
@@ -341,7 +419,6 @@ eval e = case e of
   NEq a b     -> [a' /= b' | a' <- eval a, b' <- eval b]
   ITE a b c   -> eval a >>= \cond -> if cond then eval b else eval c
   TEntry _ _  -> empty
-  UTEntry _   -> empty
 
 -- intermediate json output helpers ---
 instance ToJSON Claim where
@@ -387,17 +464,17 @@ instance ToJSON StorageUpdate where
   toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
 instance ToJSON (TStorageItem t a) where
-  toJSON (DirectInt a b) = object ["sort" .= pack "int"
+  toJSON (ItemInt a b []) = object ["sort" .= pack "int"
                                   , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (DirectBool a b) = object ["sort" .= pack "bool"
+  toJSON (ItemBool a b []) = object ["sort" .= pack "bool"
                                    , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (DirectBytes a b) = object ["sort" .= pack "bytes"
+  toJSON (ItemBytes a b []) = object ["sort" .= pack "bytes"
                                     , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (MappedInt a b c) = mapping a b c
-  toJSON (MappedBool a b c) = mapping a b c
-  toJSON (MappedBytes a b c) = mapping a b c
+  toJSON (ItemInt a b c) = mapping a b c
+  toJSON (ItemBool a b c) = mapping a b c
+  toJSON (ItemBytes a b c) = mapping a b c
 
-instance ToJSON (ReturnExp t) where
+instance ToJSON (TypedExp t) where
    toJSON (ExpInt a) = object ["sort" .= pack "int"
                               ,"expression" .= toJSON a]
    toJSON (ExpBool a) = object ["sort" .= String (pack "bool")
@@ -419,8 +496,10 @@ instance Typeable a => ToJSON (Exp t a) where
   toJSON (UIntMin a) = toJSON $ show $ uintmin a
   toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
-  toJSON (UTEntry a) = toJSON a
-  toJSON (TEntry a t) = unary (show t) a
+  toJSON (TEntry a Neither) = toJSON a
+  toJSON (TEntry a t) = object [ "symbol" .= show t
+                                 , "arity"  .= Data.Aeson.Types.Number 1
+                                 , "args"   .= toJSON a]
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
@@ -459,11 +538,6 @@ symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
 symbol s a b = object [  "symbol"   .= pack s
                       ,  "arity"    .= Data.Aeson.Types.Number 2
                       ,  "args"     .= Array (fromList [toJSON a, toJSON b])]
-
-unary :: ToJSON a => String -> a -> Value
-unary s a = object [ "symbol" .= show s
-                   , "arity"  .= Data.Aeson.Types.Number 1
-                   , "args"   .= toJSON a]
 
 intmin :: Int -> Integer
 intmin a = negate $ 2 ^ (a - 1)

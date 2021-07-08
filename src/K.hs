@@ -7,7 +7,7 @@
 
 module K where
 
-import Syntax
+import Syntax hiding (Post)
 import RefinedAst
 import Extract
 import ErrM
@@ -16,7 +16,6 @@ import Data.Functor (($>))
 import Data.Text (Text, pack, unpack)
 import Data.Typeable
 import Data.List hiding (group)
-import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe
 import Data.ByteString hiding (group, pack, unpack, intercalate, filter, foldr, concat, head, tail)
 import qualified Data.Text as Text
@@ -83,13 +82,9 @@ kCalldata (Interface a b) =
          intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args)) -- I think this Nothing is correct?
   <> ")"
 
-kStorageName :: TStorageItem a -> Maybe When -> String
-kStorageName (DirectInt _ name)    w = kMutable name w
-kStorageName (DirectBool _ name)   w = kMutable name w
-kStorageName (DirectBytes _ name)  w = kMutable name w
-kStorageName (MappedInt _ name ixs) w = kMutable name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kRetExpr ixs)
-kStorageName (MappedBool _ name ixs) w = kMutable name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kRetExpr ixs)
-kStorageName (MappedBytes _ name ixs) w = kMutable name w <> "_" <> intercalate "_" (NonEmpty.toList $ fmap kRetExpr ixs)
+kStorageName :: TStorageItem t a -> Maybe When -> String
+kStorageName item w = kMutable (getId' item) w
+                   <> intercalate "_" ("" : (kRetExpr <$> getItemIxs item))
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> tail a
@@ -98,18 +93,17 @@ kMutable :: Id -> Maybe When -> String
 kMutable a Nothing  = kMutable a (Just Pre) -- When we don't care about the timing we're talking about the prestate..maybe?
 kMutable a (Just w) = kVar a <> "-" <> show w
 
-kAbiEncode :: Maybe ReturnExp -> String
+kAbiEncode :: Maybe (TypedExp t) -> String
 kAbiEncode Nothing = ".ByteArray"
 kAbiEncode (Just (ExpInt a)) = "#enc(#uint256" <> kExpr a <> ")"
 kAbiEncode (Just (ExpBool _)) = ".ByteArray"
 kAbiEncode (Just (ExpBytes _)) = ".ByteArray"
 
-kRetExpr :: ReturnExp -> String
+kRetExpr :: TypedExp t -> String
 kRetExpr (ExpInt a) = kExpr a
 kRetExpr (ExpBool a) = kExpr a
 kRetExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
 
--- TODO rename this
 kExpr :: Exp t a -> String
 -- integers
 kExpr (Add a b) = "(" <> kExpr a <> " +Int " <> kExpr b <> ")"
@@ -148,8 +142,8 @@ kExpr (Eq (a :: Exp t a) (b :: Exp t a)) = fromMaybe (error "Internal Error: inv
 kExpr (ByVar name) = kVar name
 kExpr (ByStr str) = show str
 kExpr (ByLit bs) = show bs
-kExpr (UTEntry item) = kStorageName item Nothing
-kExpr (TEntry item w) = kStorageName item $ Just w
+kExpr (TEntry item Neither) = kStorageName item Nothing -- TODO likely unify these cases
+kExpr (TEntry item w)       = kStorageName item $ if isPre w then Just Pre else Just Post
 kExpr v = error ("Internal error: TODO kExpr of " <> show v)
 --kExpr (Cat a b) =
 --kExpr (Slice a start end) =
@@ -176,8 +170,6 @@ kStorageEntry storageLayout update =
        Right (BytesUpdate a b) -> (loc, (offset, kStorageName a Nothing, kExpr b))
        Left (IntLoc a) -> (loc, (offset, kStorageName a Nothing, kStorageName a Nothing))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
---  BoolUpdate (TStorageItem Bool) c ->
---  BytesUpdate (TStorageItem ByteString) d ->  (Exp ByteString)
 
 --packs entries packed in one slot
 normalize :: Bool -> [(String, (Int, String, String))] -> String
@@ -207,45 +199,14 @@ normalize pass entries = foldr (\a acc -> case a of
 kSlot :: Either StorageLocation StorageUpdate -> StorageItem -> (String, Int)
 kSlot update StorageItem{..} = case _type of
   (StorageValue _) -> (show _slot, _offset)
-  (StorageMapping _ _) -> case update of
-      Right (IntUpdate (MappedInt _ _ ixs) _) ->
-        (
-          "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kRetExpr (NonEmpty.toList ixs)) <> ")"
-        , _offset
-        )
-      Left (IntLoc (MappedInt _ _ ixs)) ->
-        (
-          "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kRetExpr (NonEmpty.toList ixs)) <> ")"
-        , _offset
-        )
-      Right (BoolUpdate (MappedBool _ _ ixs) _) ->
-        (
-          "#hashedLocation(\"Solidity\", "
-              <> show _slot <> ", " <> unwords (fmap kRetExpr (NonEmpty.toList ixs)) <> ")"
-        , _offset
-        )
-      Left (BoolLoc (MappedBool _ _ ixs)) ->
-        (
-          "#hashedLocation(\"Solidity\", "
-              <> show _slot <> ", " <> unwords (fmap kRetExpr (NonEmpty.toList ixs)) <> ")"
-        , _offset
-        )
-      Right (BytesUpdate (MappedBytes _ _ ixs) _) ->
-        (
-          "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kRetExpr (NonEmpty.toList ixs)) <> ")"
-        , _offset
-        )
-      Left (BytesLoc (MappedBytes _ _ ixs)) ->
-        (
-          "#hashedLocation(\"Solidity\", "
-            <> show _slot <> ", " <> unwords (fmap kRetExpr (NonEmpty.toList ixs)) <> ")"
-        , _offset
-        )
-      s -> error $ "internal error: kSlot. Please report: " <> (show s)
-
+  (StorageMapping _ _) -> case getIxs update of
+    (ix:ixs) ->
+      (
+        "#hashedLocation(\"Solidity\", "
+          <> show _slot <> ", " <> unwords (kRetExpr <$> (ix:ixs)) <> ")"
+      , _offset
+      )
+    [] -> error $ "internal error: kSlot. Please report: " <> show update
 
 kAccount :: Bool -> Id -> SolcContract -> [Either StorageLocation StorageUpdate] -> String
 kAccount pass name source updates =
@@ -351,7 +312,7 @@ mkTerm this accounts Behaviour{..} = (name, term)
                 <> "network" |- indent 2 ("\n"
                   <> "activeAccounts" |- "_"
                   <> "accounts" |- indent 2 ("\n" <> (unpack $
-                    Text.intercalate "\n" (flip fmap (getContract <$> _stateUpdates) $ \a ->
+                    Text.unlines (flip fmap (getContract <$> _stateUpdates) $ \a ->
                       pack $
                         kAccount pass a
                          (fromMaybe

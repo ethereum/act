@@ -85,17 +85,15 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
 mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Untimed Bool] -- is `Untimed` correct here?
-mkStorageBounds store refs
-  = catMaybes $ mkBound <$> refs
+mkStorageBounds store refs = catMaybes $ mkBound <$> refs
   where
     mkBound :: Either StorageLocation StorageUpdate -> Maybe (Exp Untimed Bool)
     mkBound (Left (IntLoc item)) = Just $ fromItem item
     mkBound (Right (IntUpdate item _)) = Just $ fromItem item
     mkBound _ = Nothing
 
-    fromItem :: TStorageItem Integer -> Exp Untimed Bool
-    fromItem item@(DirectInt contract name) = bound (abiType $ slotType contract name) (UTEntry item)
-    fromItem item@(MappedInt contract name _) = bound (abiType $ slotType contract name) (UTEntry item)
+    fromItem :: TStorageItem Untimed Integer -> Exp Untimed Bool
+    fromItem item@(ItemInt contract name _) = bound (abiType $ slotType contract name) (TEntry item Neither)
 
     slotType :: Id -> Id -> SlotType
     slotType contract name = let
@@ -107,9 +105,6 @@ mkStorageBounds store refs
     abiType (StorageValue typ) = typ
 
 mkCallDataBounds :: [Decl] -> [Exp t Bool]
-mkCallDataBounds =
-    concatMap
-      ( \(Decl typ name) -> case metaType typ of
-          Integer -> [bound typ (IntVar name)]
-          _ -> []
-      )
+mkCallDataBounds = concatMap $ \(Decl typ name) -> case metaType typ of
+  Integer -> [bound typ (IntVar name)]
+  _ -> []
