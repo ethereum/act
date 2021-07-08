@@ -82,16 +82,16 @@ kCalldata (Interface a b) =
          intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args)) -- I think this Nothing is correct?
   <> ")"
 
-kStorageName :: TStorageItem t a -> Maybe When -> String
-kStorageName item w = kMutable (getId' item) w
+kStorageName :: TStorageItem t a -> Time t -> String
+kStorageName item t = kMutable (getId' item) t
                    <> intercalate "_" ("" : (kRetExpr <$> getItemIxs item))
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> tail a
 
-kMutable :: Id -> Maybe When -> String
-kMutable a Nothing  = kMutable a (Just Pre) -- When we don't care about the timing we're talking about the prestate..maybe?
-kMutable a (Just w) = kVar a <> "-" <> show w
+kMutable :: Id -> Time t -> String
+kMutable a Neither = kMutable a Pre -- When we don't care about the timing we're talking about the prestate..maybe?
+kMutable a t       = kVar a <> "-" <> show t
 
 kAbiEncode :: Maybe (TypedExp t) -> String
 kAbiEncode Nothing = ".ByteArray"
@@ -142,8 +142,7 @@ kExpr (Eq (a :: Exp t a) (b :: Exp t a)) = fromMaybe (error "Internal Error: inv
 kExpr (ByVar name) = kVar name
 kExpr (ByStr str) = show str
 kExpr (ByLit bs) = show bs
-kExpr (TEntry item Neither) = kStorageName item Nothing -- TODO likely unify these cases
-kExpr (TEntry item w)       = kStorageName item $ if isPre w then Just Pre else Just Post
+kExpr (TEntry item t) = kStorageName item t
 kExpr v = error ("Internal error: TODO kExpr of " <> show v)
 --kExpr (Cat a b) =
 --kExpr (Slice a start end) =
@@ -165,10 +164,10 @@ kStorageEntry storageLayout update =
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (getId update)) storageLayout)
   in case update of
-       Right (IntUpdate a b) -> (loc, (offset, kStorageName a Nothing, kExpr b))
-       Right (BoolUpdate a b) -> (loc, (offset, kStorageName a Nothing, kExpr b))
-       Right (BytesUpdate a b) -> (loc, (offset, kStorageName a Nothing, kExpr b))
-       Left (IntLoc a) -> (loc, (offset, kStorageName a Nothing, kStorageName a Nothing))
+       Right (IntUpdate a b) -> (loc, (offset, kStorageName a Neither, kExpr b))
+       Right (BoolUpdate a b) -> (loc, (offset, kStorageName a Neither, kExpr b))
+       Right (BytesUpdate a b) -> (loc, (offset, kStorageName a Neither, kExpr b))
+       Left (IntLoc a) -> (loc, (offset, kStorageName a Neither, kStorageName a Neither))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
 
 --packs entries packed in one slot
