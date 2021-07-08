@@ -1,0 +1,25 @@
+constructor of C
+interface constructor(uint24 _x)
+
+creates
+
+  uint24 x := _x
+
+behaviour increase of C
+interface increase(uint24 new_x)
+
+case new_x > x:
+  storage
+    x => new_x
+
+  returns post(x) - pre(x)
+
+case new_x <= x:
+  storage
+    x => x + new_x
+
+  returns post(x) - pre(x)
+
+ensures
+
+  post(x) >= pre(x)
