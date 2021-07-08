@@ -255,7 +255,7 @@ instance Monoid (Exp t Bool) where
 
 -- | Give an `Untimed` expression a specific timing, i.e. `Pre` or `Post`.
 -- Useful to generate consistent storage reference names.
-as :: Exp Untimed a -> Time Timed -> Exp Timed a
+as :: Exp Untimed a -> When -> Exp Timed a
 e `as` time = go e
   where
     go :: Exp Untimed a -> Exp Timed a
@@ -299,13 +299,7 @@ e `as` time = go e
       Eq  x y -> Eq  (go x) (go y)
       NEq x y -> NEq (go x) (go y)
       ITE x y z -> ITE (go x) (go y) (go z)
-      TEntry x _ -> TEntry (timeItem x) time
-
-    timeItem :: TStorageItem Untimed a -> TStorageItem Timed a
-    timeItem item = case item of
-      ItemInt c x ixs -> ItemInt c x $ timeTyped time <$> ixs
-      ItemBool c x ixs -> ItemBool c x $ timeTyped time <$> ixs
-      ItemBytes c x ixs -> ItemBytes c x $ timeTyped time <$> ixs
+      TEntry x _ -> TEntry (timeItem x time) time
 
 untime :: Exp t a -> Exp Untimed a
 untime e = case e of
@@ -349,12 +343,18 @@ untime e = case e of
   NEq x y -> NEq (untime x) (untime y)
   ITE x y z -> ITE (untime x) (untime y) (untime z)
   TEntry x _ -> TEntry (untimeItem x) Neither
-  where
-    untimeItem :: TStorageItem t a -> TStorageItem Untimed a
-    untimeItem item = case item of
-      ItemInt c x ixs -> ItemInt c x $ untimeTyped <$> ixs
-      ItemBool c x ixs -> ItemBool c x $ untimeTyped <$> ixs
-      ItemBytes c x ixs -> ItemBytes c x $ untimeTyped <$> ixs
+
+timeItem :: TStorageItem Untimed a -> When -> TStorageItem Timed a
+timeItem item time = case item of
+  ItemInt c x ixs -> ItemInt c x $ timeTyped time <$> ixs
+  ItemBool c x ixs -> ItemBool c x $ timeTyped time <$> ixs
+  ItemBytes c x ixs -> ItemBytes c x $ timeTyped time <$> ixs
+
+untimeItem :: TStorageItem t a -> TStorageItem Untimed a
+untimeItem item = case item of
+  ItemInt c x ixs -> ItemInt c x $ untimeTyped <$> ixs
+  ItemBool c x ixs -> ItemBool c x $ untimeTyped <$> ixs
+  ItemBytes c x ixs -> ItemBytes c x $ untimeTyped <$> ixs
 
 untimeTyped :: TypedExp t -> TypedExp Untimed
 untimeTyped e = case e of
@@ -362,7 +362,7 @@ untimeTyped e = case e of
   ExpBool  e' -> ExpBool  $ untime e'
   ExpBytes e' -> ExpBytes $ untime e'
 
-timeTyped :: Time Timed -> TypedExp Untimed -> TypedExp Timed
+timeTyped :: When -> TypedExp Untimed -> TypedExp Timed
 timeTyped time e = case e of
   ExpInt   e' -> ExpInt   $ e' `as` time
   ExpBool  e' -> ExpBool  $ e' `as` time

@@ -4,6 +4,7 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
+{-# Language DataKinds #-}
 
 module K where
 
@@ -17,7 +18,7 @@ import Data.Text (Text, pack, unpack)
 import Data.Typeable
 import Data.List hiding (group)
 import Data.Maybe
-import Data.ByteString hiding (group, pack, unpack, intercalate, filter, foldr, concat, head, tail)
+import Data.ByteString hiding (group, pack, unpack, intercalate, filter, foldr, concat, head, tail, null)
 import qualified Data.Text as Text
 import Parse
 import EVM.Types hiding (Whiff(..))
@@ -44,10 +45,8 @@ kStatus OOG = error "TODO: handle OOG specs"
 
 type KSpec = String
 
-
 getContractName :: Text -> String
 getContractName = unpack . Text.concat . Data.List.tail . Text.splitOn ":"
-
 
 data KOptions =
   KOptions {
@@ -55,7 +54,6 @@ data KOptions =
     storage :: Maybe String,
     extractbin :: Bool
     }
-
 
 makekSpec :: Map Text SolcContract -> KOptions -> Behaviour -> Err (String, String)
 makekSpec sources _ behaviour =
@@ -82,29 +80,28 @@ kCalldata (Interface a b) =
          intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args)) -- I think this Nothing is correct?
   <> ")"
 
-kStorageName :: TStorageItem t a -> Time t -> String
+kStorageName :: TStorageItem Timed a -> When -> String
 kStorageName item t = kMutable (getId' item) t
-                   <> intercalate "_" ("" : (kRetExpr <$> getItemIxs item))
+                   <> intercalate "_" ("" : (kTypedExpr <$> getItemIxs item))
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> tail a
 
-kMutable :: Id -> Time t -> String
-kMutable a Neither = kMutable a Pre -- When we don't care about the timing we're talking about the prestate..maybe?
-kMutable a t       = kVar a <> "-" <> show t
+kMutable :: Id -> When -> String
+kMutable a t = kVar a <> "-" <> show t
 
-kAbiEncode :: Maybe (TypedExp t) -> String
+kAbiEncode :: Maybe (TypedExp Timed) -> String
 kAbiEncode Nothing = ".ByteArray"
 kAbiEncode (Just (ExpInt a)) = "#enc(#uint256" <> kExpr a <> ")"
 kAbiEncode (Just (ExpBool _)) = ".ByteArray"
 kAbiEncode (Just (ExpBytes _)) = ".ByteArray"
 
-kRetExpr :: TypedExp t -> String
-kRetExpr (ExpInt a) = kExpr a
-kRetExpr (ExpBool a) = kExpr a
-kRetExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
+kTypedExpr :: TypedExp Timed -> String
+kTypedExpr (ExpInt a) = kExpr a
+kTypedExpr (ExpBool a) = kExpr a
+kTypedExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
 
-kExpr :: Exp t a -> String
+kExpr :: Exp Timed a -> String
 -- integers
 kExpr (Add a b) = "(" <> kExpr a <> " +Int " <> kExpr b <> ")"
 kExpr (Sub a b) = "(" <> kExpr a <> " -Int " <> kExpr b <> ")"
@@ -164,10 +161,10 @@ kStorageEntry storageLayout update =
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (getId update)) storageLayout)
   in case update of
-       Right (IntUpdate a b) -> (loc, (offset, kStorageName a Neither, kExpr b))
-       Right (BoolUpdate a b) -> (loc, (offset, kStorageName a Neither, kExpr b))
-       Right (BytesUpdate a b) -> (loc, (offset, kStorageName a Neither, kExpr b))
-       Left (IntLoc a) -> (loc, (offset, kStorageName a Neither, kStorageName a Neither))
+       Right (IntUpdate a b) -> (loc, (offset, kStorageName (timeItem a Pre) Pre, kExpr $ b `as` Pre))
+       Right (BoolUpdate a b) -> (loc, (offset, kStorageName (timeItem a Pre) Pre, kExpr $ b `as` Pre))
+       Right (BytesUpdate a b) -> (loc, (offset, kStorageName (timeItem a Pre) Pre, kExpr $ b `as` Pre))
+       Left (IntLoc a) -> (loc, (offset, kStorageName (timeItem a Pre) Pre, kStorageName (timeItem a Pre) Pre))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
 
 --packs entries packed in one slot
@@ -198,14 +195,11 @@ normalize pass entries = foldr (\a acc -> case a of
 kSlot :: Either StorageLocation StorageUpdate -> StorageItem -> (String, Int)
 kSlot update StorageItem{..} = case _type of
   (StorageValue _) -> (show _slot, _offset)
-  (StorageMapping _ _) -> case getIxs update of
-    (ix:ixs) ->
-      (
-        "#hashedLocation(\"Solidity\", "
-          <> show _slot <> ", " <> unwords (kRetExpr <$> (ix:ixs)) <> ")"
-      , _offset
-      )
-    [] -> error $ "internal error: kSlot. Please report: " <> show update
+  (StorageMapping _ _) -> if null (getIxs update) 
+    then error $ "internal error: kSlot. Please report: " <> show update
+    else ( "#hashedLocation(\"Solidity\", "
+             <> show _slot <> ", " <> unwords (kTypedExpr . timeTyped Pre <$> getIxs update) <> ")"
+         , _offset )
 
 kAccount :: Bool -> Id -> SolcContract -> [Either StorageLocation StorageUpdate] -> String
 kAccount pass name source updates =
@@ -326,6 +320,6 @@ mkTerm this accounts Behaviour{..} = (name, term)
                   )
                <> "\nrequires "
                <> defaultConditions (kVar _contract) <> "\n andBool\n"
-               <> kExpr (mconcat _preconditions)
+               <> kExpr (mconcat _preconditions `as` Pre)
                <> "\nensures "
                <> kExpr (mconcat _postconditions)
