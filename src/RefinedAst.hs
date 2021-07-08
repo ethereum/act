@@ -17,6 +17,7 @@ module RefinedAst where
 
 import Control.Applicative (empty)
 
+import Data.Char (toLower)
 import Data.List (genericDrop,genericTake)
 import Data.Text (pack)
 import Data.Type.Equality
@@ -180,24 +181,15 @@ data Time t where
   Post    :: Time Timed
   Neither :: Time Untimed
 deriving instance Eq (Time t)
-
-instance Show (Time t) where
-  show Pre     = "pre"
-  show Post    = "post"
-  show Neither = ""
+deriving instance Show (Time t)
 
 isTimed :: Time t -> Bool
 isTimed Neither = False
 isTimed _       = True
 
 timeParens :: Time t -> String -> String
-timeParens t s | isTimed t = show t <> "(" <> s <> ")"
+timeParens t s | isTimed t = toLower <$> show t <> "(" <> s <> ")"
                | otherwise = s
-
--- TODO this seems unnecessary, probably remove once all other modules are adapted to the new style.
-isPre :: Time t -> Bool
-isPre Pre = True
-isPre _   = False
 
 instance Eq (Exp t a) where
   And a b == And c d = a == c && b == d
