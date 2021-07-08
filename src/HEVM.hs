@@ -373,9 +373,9 @@ timeStore Post s = snd <$> s
 
 nameFromItem :: Method -> TStorageItem Timed a -> When -> Id
 nameFromItem method item t = case item of
-  ItemInt c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
-  ItemBool c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
-  ItemBytes c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
+  IntItem c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
+  BoolItem c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
+  BytesItem c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
   where
     showIxs :: ContractName -> [TypedExp Timed] -> [Char]
     showIxs c ixs = intercalate "-" $ "" : fmap (nameFromTypedExp c method) ixs

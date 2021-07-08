@@ -77,9 +77,9 @@ locsFromExp = nub . go
 
     locsFromStorageItem :: TStorageItem t a -> [StorageLocation]
     locsFromStorageItem t = case t of
-      ItemInt contract name ixs -> [IntLoc $ ItemInt contract name $ untimeTyped <$> ixs] <> ixLocs ixs
-      ItemBool contract name ixs -> [BoolLoc $ ItemBool contract name $ untimeTyped <$> ixs] <> ixLocs ixs
-      ItemBytes contract name ixs -> [BytesLoc $ ItemBytes contract name $ untimeTyped <$> ixs] <> ixLocs ixs
+      IntItem contract name ixs -> [IntLoc $ IntItem contract name $ untimeTyped <$> ixs] <> ixLocs ixs
+      BoolItem contract name ixs -> [BoolLoc $ BoolItem contract name $ untimeTyped <$> ixs] <> ixLocs ixs
+      BytesItem contract name ixs -> [BytesLoc $ BytesItem contract name $ untimeTyped <$> ixs] <> ixLocs ixs
       where
         ixLocs :: [TypedExp t] -> [StorageLocation]
         ixLocs = concatMap (locsFromReturnExp . untimeTyped)
@@ -186,9 +186,9 @@ getId :: Either StorageLocation StorageUpdate -> Id
 getId = either getLocationId getUpdateId
 
 getId' :: TStorageItem t a -> Id
-getId' (ItemInt _ name _) = name
-getId' (ItemBool _ name _) = name
-getId' (ItemBytes _ name _) = name
+getId' (IntItem _ name _) = name
+getId' (BoolItem _ name _) = name
+getId' (BytesItem _ name _) = name
 
 getUpdateId :: StorageUpdate -> Id
 getUpdateId (IntUpdate   item _) = getId' item
@@ -204,14 +204,14 @@ getContract :: Either StorageLocation StorageUpdate -> Id
 getContract = either getLocationContract getUpdateContract
 
 getContract' :: TStorageItem t a -> Id
-getContract' (ItemInt c _ _) = c
-getContract' (ItemBool c _ _) = c
-getContract' (ItemBytes c _ _) = c
+getContract' (IntItem c _ _) = c
+getContract' (BoolItem c _ _) = c
+getContract' (BytesItem c _ _) = c
 
 getItemIxs :: TStorageItem t a -> [TypedExp t]
-getItemIxs (ItemInt   _ _ ixs) = ixs
-getItemIxs (ItemBool  _ _ ixs) = ixs
-getItemIxs (ItemBytes _ _ ixs) = ixs
+getItemIxs (IntItem   _ _ ixs) = ixs
+getItemIxs (BoolItem  _ _ ixs) = ixs
+getItemIxs (BytesItem _ _ ixs) = ixs
 
 contractsInvolved :: Behaviour -> [Id]
 contractsInvolved = fmap getContract . _stateUpdates
@@ -245,9 +245,9 @@ getIxs :: Either StorageLocation StorageUpdate -> [TypedExp Untimed]
 getIxs = either getContainerIxs getUpdateIxs
 
 getItemType :: TStorageItem t a -> MType
-getItemType ItemInt{}   = Integer
-getItemType ItemBool{}  = Boolean
-getItemType ItemBytes{} = ByteStr
+getItemType IntItem{}   = Integer
+getItemType BoolItem{}  = Boolean
+getItemType BytesItem{} = ByteStr
 
 isMapping :: StorageLocation -> Bool
 isMapping = not . null . getContainerIxs

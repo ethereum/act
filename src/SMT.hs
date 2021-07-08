@@ -705,9 +705,9 @@ sType' (ExpBytes {}) = "String"
 -- Construct the smt2 variable name for a given storage item
 nameFromItem :: When -> TStorageItem t a -> Id
 nameFromItem whn item = case item of
-  ItemInt c name _ -> c @@ name @@ show whn
-  ItemBool c name _ -> c @@ name @@ show whn
-  ItemBytes c name _ -> c @@ name @@ show whn
+  IntItem c name _ -> c @@ name @@ show whn
+  BoolItem c name _ -> c @@ name @@ show whn
+  BytesItem c name _ -> c @@ name @@ show whn
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id

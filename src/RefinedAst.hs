@@ -109,9 +109,9 @@ data StorageLocation
   deriving (Show, Eq)
 
 data TStorageItem t a where
-  ItemInt    :: Id -> Id -> [TypedExp t] -> TStorageItem t Integer
-  ItemBool   :: Id -> Id -> [TypedExp t] -> TStorageItem t Bool
-  ItemBytes  :: Id -> Id -> [TypedExp t] -> TStorageItem t ByteString
+  IntItem    :: Id -> Id -> [TypedExp t] -> TStorageItem t Integer
+  BoolItem   :: Id -> Id -> [TypedExp t] -> TStorageItem t Bool
+  BytesItem  :: Id -> Id -> [TypedExp t] -> TStorageItem t ByteString
 
 deriving instance Show (TStorageItem t a)
 deriving instance Eq (TStorageItem t a)
@@ -346,15 +346,15 @@ untime e = case e of
 
 timeItem :: When -> TStorageItem Untimed a -> TStorageItem Timed a
 timeItem time item = case item of
-  ItemInt c x ixs -> ItemInt c x $ timeTyped time <$> ixs
-  ItemBool c x ixs -> ItemBool c x $ timeTyped time <$> ixs
-  ItemBytes c x ixs -> ItemBytes c x $ timeTyped time <$> ixs
+  IntItem c x ixs -> IntItem c x $ timeTyped time <$> ixs
+  BoolItem c x ixs -> BoolItem c x $ timeTyped time <$> ixs
+  BytesItem c x ixs -> BytesItem c x $ timeTyped time <$> ixs
 
 untimeItem :: TStorageItem t a -> TStorageItem Untimed a
 untimeItem item = case item of
-  ItemInt c x ixs -> ItemInt c x $ untimeTyped <$> ixs
-  ItemBool c x ixs -> ItemBool c x $ untimeTyped <$> ixs
-  ItemBytes c x ixs -> ItemBytes c x $ untimeTyped <$> ixs
+  IntItem c x ixs -> IntItem c x $ untimeTyped <$> ixs
+  BoolItem c x ixs -> BoolItem c x $ untimeTyped <$> ixs
+  BytesItem c x ixs -> BytesItem c x $ untimeTyped <$> ixs
 
 untimeTyped :: TypedExp t -> TypedExp Untimed
 untimeTyped e = case e of
@@ -464,15 +464,15 @@ instance ToJSON StorageUpdate where
   toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
 instance ToJSON (TStorageItem t a) where
-  toJSON (ItemInt a b []) = object ["sort" .= pack "int"
+  toJSON (IntItem a b []) = object ["sort" .= pack "int"
                                   , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (ItemBool a b []) = object ["sort" .= pack "bool"
+  toJSON (BoolItem a b []) = object ["sort" .= pack "bool"
                                    , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (ItemBytes a b []) = object ["sort" .= pack "bytes"
+  toJSON (BytesItem a b []) = object ["sort" .= pack "bytes"
                                     , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (ItemInt a b c) = mapping a b c
-  toJSON (ItemBool a b c) = mapping a b c
-  toJSON (ItemBytes a b c) = mapping a b c
+  toJSON (IntItem a b c) = mapping a b c
+  toJSON (BoolItem a b c) = mapping a b c
+  toJSON (BytesItem a b c) = mapping a b c
 
 instance ToJSON (TypedExp t) where
    toJSON (ExpInt a) = object ["sort" .= pack "int"

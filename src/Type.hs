@@ -189,9 +189,9 @@ checkAssign :: Env -> Assign -> Err [StorageUpdate]
 checkAssign env@Env{contract, store} (AssignVal (StorageVar (StorageValue typ) name) expr) = do
   noStorageRead store expr
   case metaType typ of
-    Integer -> return . IntUpdate   (ItemInt contract name [])   <$> inferExpr env expr
-    Boolean -> return . BoolUpdate  (ItemBool contract name [])  <$> inferExpr env expr
-    ByteStr -> return . BytesUpdate (ItemBytes contract name []) <$> inferExpr env expr
+    Integer -> return . IntUpdate   (IntItem contract name [])   <$> inferExpr env expr
+    Boolean -> return . BoolUpdate  (BoolItem contract name [])  <$> inferExpr env expr
+    ByteStr -> return . BytesUpdate (BytesItem contract name []) <$> inferExpr env expr
 checkAssign env@Env{store} (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
   = forM defns $ \def@(Defn e1 e2) -> do
       mapM_ (noStorageRead store) [e1,e2]
@@ -211,9 +211,9 @@ checkDefn env@Env{contract} keyType valType name (Defn k v) = do
     Boolean -> ExpBool  <$> inferExpr env k
     ByteStr -> ExpBytes <$> inferExpr env k
   case metaType valType of
-    Integer -> IntUpdate   (ItemInt   contract name [key]) <$> inferExpr env v
-    Boolean -> BoolUpdate  (ItemBool  contract name [key]) <$> inferExpr env v
-    ByteStr -> BytesUpdate (ItemBytes contract name [key]) <$> inferExpr env v
+    Integer -> IntUpdate   (IntItem   contract name [key]) <$> inferExpr env v
+    Boolean -> BoolUpdate  (BoolItem  contract name [key]) <$> inferExpr env v
+    ByteStr -> BytesUpdate (BytesItem contract name [key]) <$> inferExpr env v
 
 checkPost :: Env -> Syntax.Post -> Err ([Either StorageLocation StorageUpdate], Maybe (TypedExp Timed))
 checkPost env@Env{contract,calldata} (Syntax.Post maybeStorage extStorage maybeReturn) =
@@ -280,25 +280,25 @@ checkStorageExpr env@Env{contract,store} (PEntry p name ixs) expr = case Map.loo
     makeUpdate typ argtyps = do
       indexExprs <- for (ixs `zip` argtyps) (uncurry $ checkExpr env)
       case metaType typ of
-        Integer -> IntUpdate (ItemInt contract name indexExprs) <$> inferExpr env expr
-        Boolean -> BoolUpdate (ItemBool contract name indexExprs) <$> inferExpr env expr
-        ByteStr -> BytesUpdate (ItemBytes contract name indexExprs) <$> inferExpr env expr
+        Integer -> IntUpdate (IntItem contract name indexExprs) <$> inferExpr env expr
+        Boolean -> BoolUpdate (BoolItem contract name indexExprs) <$> inferExpr env expr
+        ByteStr -> BytesUpdate (BytesItem contract name indexExprs) <$> inferExpr env expr
 
 checkPattern :: Env -> Pattern -> Err StorageLocation
 checkPattern env@Env{contract,store} (PEntry p name ixs) =
   case Map.lookup name store of
     Just (StorageValue t) -> case metaType t of
-          Integer -> Ok $ IntLoc (ItemInt contract name [])
-          Boolean -> Ok $ BoolLoc (ItemBool contract name [])
-          ByteStr -> Ok $ BytesLoc (ItemBytes contract name [])
+          Integer -> Ok $ IntLoc (IntItem contract name [])
+          Boolean -> Ok $ BoolLoc (BoolItem contract name [])
+          ByteStr -> Ok $ BytesLoc (BytesItem contract name [])
     Just (StorageMapping argtyps t) ->
       if length argtyps /= length ixs
       then Bad (p, "Argument mismatch for storageitem: " <> name)
       else let indexExprs = for (ixs `zip` NonEmpty.toList argtyps) (uncurry $ checkExpr env)
            in case metaType t of
-                  Integer -> (IntLoc . ItemInt contract name) <$> indexExprs
-                  Boolean -> (BoolLoc . ItemBool contract name) <$> indexExprs
-                  ByteStr -> (BytesLoc . ItemBytes contract name) <$> indexExprs
+                  Integer -> (IntLoc . IntItem contract name) <$> indexExprs
+                  Boolean -> (BoolLoc . BoolItem contract name) <$> indexExprs
+                  ByteStr -> (BytesLoc . BytesItem contract name) <$> indexExprs
     Nothing -> Bad (p, "Unknown storage variable: " <> show name)
 checkPattern _ (PWild _) = error "TODO: checkPattern for Wild storage"
 
@@ -399,9 +399,9 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
       where
         makeEntry :: AbiType -> [AbiType] -> Err (Exp t a)
         makeEntry a ts = case metaType a of
-          Integer -> makeItem ItemInt
-          Boolean -> makeItem ItemBool
-          ByteStr -> makeItem ItemBytes
+          Integer -> makeItem IntItem
+          Boolean -> makeItem BoolItem
+          ByteStr -> makeItem BytesItem
           where
             makeItem :: Typeable x => (forall t0. Id -> Id -> [TypedExp t0] -> TStorageItem t0 x) -> Err (Exp t a)
             makeItem maker = do
