@@ -125,8 +125,8 @@ checkPostStorage ctx (Behaviour _ _ _ _ _ _ updates _) pre post contractMap solc
                  slot update' = let S _ w = calculateSlot ctx solcjson (mkLoc update')
                                in w
                  insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
-                 insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx e
-                 insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ ite (symExpBool ctx e) 1 0
+                 insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx (e `as` Pre)
+                 insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ ite (symExpBool ctx $ e `as` Pre) 1 0
                  insertUpdate _ _ = error "bytes unsupported"
                in post' .== foldl insertUpdate pre' insertions
               _ -> sFalse
@@ -139,7 +139,7 @@ mkPostCondition preVm postVm solcjson
   contractMap
   (ctx, vmResult) =
     let storageConstraints = checkPostStorage ctx b preVm postVm contractMap solcjson
-        preCond' = symExpBool ctx (mconcat preCond)
+        preCond' = symExpBool ctx (mconcat preCond `as` Pre)
         postCond' = symExpBool ctx (mconcat postCond)
         (actual, reverted) = case vmResult of
           VMSuccess (ConcreteBuffer msg) -> (litBytes msg, sFalse)
@@ -212,9 +212,9 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
       Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item')
 
       name :: StorageLocation -> Id
-      name (IntLoc i) = nameFromItem method i Pre -- I think this `Pre` is correct..?
-      name (BoolLoc i) = nameFromItem method i Pre -- I think this `Pre` is correct..?
-      name (BytesLoc i) = nameFromItem method i Pre -- I think this `Pre` is correct..?
+      name (IntLoc i) = nameFromItem method (timeItem Pre i) Pre -- I think this `Pre` is correct..?
+      name (BoolLoc i) = nameFromItem method (timeItem Pre i) Pre -- I think this `Pre` is correct..?
+      name (BytesLoc i) = nameFromItem method (timeItem Pre i) Pre -- I think this `Pre` is correct..?
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 
@@ -226,7 +226,7 @@ calculateSlot ctx solcjson loc =
     layout = fromMaybe (error "internal error: no storageLayout") $ _storageLayout source
     StorageItem _ _ slot = get (pack (getContainerId loc)) layout
     slotword = sFromIntegral (literal (fromIntegral slot :: Integer))
-    indexers = symExp ctx <$> getContainerIxs loc
+    indexers = symExp ctx . timeTyped Pre <$> getContainerIxs loc
   in var (getContainerId loc) $
      if null indexers
      then slotword
@@ -309,13 +309,13 @@ type Args = Map Id SMType
 type Storage = Map Id (SMType, SMType)
 type Env = Map Id SMType
 
-symExp :: Ctx -> TypedExp t -> SMType
+symExp :: Ctx -> TypedExp Timed -> SMType
 symExp ctx ret = case ret of
   ExpInt e -> SymInteger $ symExpInt ctx e
   ExpBool e -> SymBool $ symExpBool ctx e
   ExpBytes e -> SymBytes $ symExpBytes ctx e
 
-symExpBool :: Ctx -> Exp t Bool -> SBV Bool
+symExpBool :: Ctx -> Exp Timed Bool -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) e = case e of
   And a b   -> symExpBool ctx a .&& symExpBool ctx b
   Or a b    -> symExpBool ctx a .|| symExpBool ctx b
@@ -335,7 +335,7 @@ symExpBool ctx@(Ctx c m args store _) e = case e of
     <|> [symExpInt   ctx a' .== symExpInt   ctx b' | a' <- gcast a, b' <- gcast b]
     <|> [symExpBytes ctx a' .== symExpBytes ctx b' | a' <- gcast a, b' <- gcast b]
 
-symExpInt :: Ctx -> Exp t Integer -> SBV Integer
+symExpInt :: Ctx -> Exp Timed Integer -> SBV Integer
 symExpInt ctx@(Ctx c m args store environment) e = case e of
   Add a b   -> symExpInt ctx a + symExpInt ctx b
   Sub a b   -> symExpInt ctx a - symExpInt ctx b
@@ -354,7 +354,7 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
 
-symExpBytes :: Ctx -> Exp t ByteString -> SBV String
+symExpBytes :: Ctx -> Exp Timed ByteString -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
   Cat a b -> symExpBytes ctx a .++ symExpBytes ctx b
   ByVar a  -> get (nameFromArg c m a) (catBytes args)
@@ -365,81 +365,66 @@ symExpBytes ctx@(Ctx c m args store environment) e = case e of
   ByEnv a -> get (nameFromEnv c m a) (catBytes environment)
   ITE x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
 
-timeStore :: Time t -> HEVM.Storage -> Map Id SMType
-timeStore Pre     s = fst <$> s
-timeStore Post    s = snd <$> s
-timeStore Neither s = fst <$> s
+timeStore :: When -> HEVM.Storage -> Map Id SMType
+timeStore Pre  s = fst <$> s
+timeStore Post s = snd <$> s
 
 -- *** SMT Variable Names *** --
 
-nameFromItem :: Method -> TStorageItem t a -> Time u -> Id
-nameFromItem method item Neither = nameFromItem method item Pre
-nameFromItem method item w = case item of
-  ItemInt c name ixs -> c @@ method @@ name @@ w <> showIxs c ixs
-  ItemBool c name ixs -> c @@ method @@ name @@ w <> showIxs c ixs
-  ItemBytes c name ixs -> c @@ method @@ name @@ w <> showIxs c ixs
+nameFromItem :: Method -> TStorageItem Timed a -> When -> Id
+nameFromItem method item t = case item of
+  ItemInt c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
+  ItemBool c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
+  ItemBytes c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
   where
-    showIxs :: ContractName -> [TypedExp t] -> [Char]
-    showIxs c ixs = intercalate "-" $ "" : fmap (nameFromExp c method) ixs
+    showIxs :: ContractName -> [TypedExp Timed] -> [Char]
+    showIxs c ixs = intercalate "-" $ "" : fmap (nameFromTypedExp c method) ixs
 
-nameFromExp :: ContractName -> Method -> TypedExp t -> Id
-nameFromExp c method e = case e of
-  ExpInt e' -> nameFromExpInt c method e'
-  ExpBool e' -> nameFromExpBool c method e'
-  ExpBytes e' -> nameFromExpBytes c method e'
+nameFromTypedExp :: ContractName -> Method -> TypedExp Timed -> Id
+nameFromTypedExp c method e = case e of
+  ExpInt e' -> nameFromExp c method e'
+  ExpBool e' -> nameFromExp c method e'
+  ExpBytes e' -> nameFromExp c method e'
 
-nameFromExpInt :: ContractName -> Method -> Exp t Integer -> Id
-nameFromExpInt c m e = case e of
-  Add a b   -> nameFromExpInt c m a <> "+" <> nameFromExpInt c m b
-  Sub a b   -> nameFromExpInt c m a <> "-" <> nameFromExpInt c m b
-  Mul a b   -> nameFromExpInt c m a <> "*" <> nameFromExpInt c m b
-  Div a b   -> nameFromExpInt c m a <> "/" <> nameFromExpInt c m b
-  Mod a b   -> nameFromExpInt c m a <> "%" <> nameFromExpInt c m b
-  Exp a b   -> nameFromExpInt c m a <> "^" <> nameFromExpInt c m b
+nameFromExp :: ContractName -> Method -> Exp Timed a -> Id
+nameFromExp c m e = case e of
+  Add a b   -> nameFromExp c m a <> "+" <> nameFromExp c m b
+  Sub a b   -> nameFromExp c m a <> "-" <> nameFromExp c m b
+  Mul a b   -> nameFromExp c m a <> "*" <> nameFromExp c m b
+  Div a b   -> nameFromExp c m a <> "/" <> nameFromExp c m b
+  Mod a b   -> nameFromExp c m a <> "%" <> nameFromExp c m b
+  Exp a b   -> nameFromExp c m a <> "^" <> nameFromExp c m b
   LitInt a  -> show a
   IntMin a  -> show $ intmin a
   IntMax a  -> show $ intmax a
   UIntMin a -> show $ uintmin a
   UIntMax a -> show $ uintmax a
   IntVar a -> a
-  TEntry a t -> nameFromItem m a t
   IntEnv a -> nameFromEnv c m a
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpInt c m y <> "-else-" <> nameFromExpInt c m z
 
-nameFromExpBool :: ContractName -> Method -> Exp t Bool -> Id
-nameFromExpBool c m e = case e of
-  And a b   -> nameFromExpBool c m a <> "&&" <> nameFromExpBool c m b
-  Or a b    -> nameFromExpBool c m a <> "|" <> nameFromExpBool c m b
-  Impl a b  -> nameFromExpBool c m a <> "=>" <> nameFromExpBool c m b
-  LE a b    -> nameFromExpInt c m a <> "<" <> nameFromExpInt c m b
-  LEQ a b   -> nameFromExpInt c m a <> "<=" <> nameFromExpInt c m b
-  GE a b    -> nameFromExpInt c m a <> ">" <> nameFromExpInt c m b
-  GEQ a b   -> nameFromExpInt c m a <> ">=" <> nameFromExpInt c m b
-  Neg a     -> "~" <> nameFromExpBool c m a
+  And a b   -> nameFromExp c m a <> "&&" <> nameFromExp c m b
+  Or a b    -> nameFromExp c m a <> "|" <> nameFromExp c m b
+  Impl a b  -> nameFromExp c m a <> "=>" <> nameFromExp c m b
+  LE a b    -> nameFromExp c m a <> "<" <> nameFromExp c m b
+  LEQ a b   -> nameFromExp c m a <> "<=" <> nameFromExp c m b
+  GE a b    -> nameFromExp c m a <> ">" <> nameFromExp c m b
+  GEQ a b   -> nameFromExp c m a <> ">=" <> nameFromExp c m b
+  Neg a     -> "~" <> nameFromExp c m a
   LitBool a -> show a
   BoolVar a -> nameFromArg c m a
-  TEntry a t -> nameFromItem m a t
-  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBool c m y <> "-else-" <> nameFromExpBool c m z
-  Eq a b  -> polyname "=="  a b
-  NEq a b -> polyname "=/=" a b
-  where
-    polyname :: Typeable a => String -> Exp t a -> Exp t a -> Id
-    polyname op a b = fromMaybe (error "Internal error: invalid expression type")
-      $   [nameFromExpInt   c m a' <> op <> nameFromExpInt   c m b' | a' <- gcast a, b' <- gcast b]
-      <|> [nameFromExpBool  c m a' <> op <> nameFromExpBool  c m b' | a' <- gcast a, b' <- gcast b]
-      <|> [nameFromExpBytes c m a' <> op <> nameFromExpBytes c m b' | a' <- gcast a, b' <- gcast b]
-
-nameFromExpBytes :: ContractName -> Method -> Exp t ByteString -> Id
-nameFromExpBytes c m e = case e of
-  Cat a b -> nameFromExpBytes c m a <> "++" <> nameFromExpBytes c m b
+  Eq a b    -> nameFromExp c m a <> "=="  <> nameFromExp c m b
+  NEq a b   -> nameFromExp c m a <> "=/=" <> nameFromExp c m b
+  
+  Cat a b -> nameFromExp c m a <> "++" <> nameFromExp c m b
   ByVar a  -> nameFromArg c m a
   ByStr a -> show a
   ByLit a -> show a
-  TEntry a t -> nameFromItem m a t
-  Slice a x y -> nameFromExpBytes c m a <> "[" <> show x <> ":" <> show y <> "]"
+  Slice a x y -> nameFromExp c m a <> "[" <> show x <> ":" <> show y <> "]"
   ByEnv a -> nameFromEnv c m a
-  ITE x y z -> "if-" <> nameFromExpBool c m x <> "-then-" <> nameFromExpBytes c m y <> "-else-" <> nameFromExpBytes c m z
+
+  TEntry a t -> nameFromItem m a t
+  ITE x y z -> "if-" <> nameFromExp c m x <> "-then-" <> nameFromExp c m y <> "-else-" <> nameFromExp c m z
 
 nameFromDecl :: ContractName -> Method -> Decl -> Id
 nameFromDecl c m (Decl _ name) = nameFromArg c m name

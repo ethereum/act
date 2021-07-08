@@ -299,7 +299,7 @@ e `as` time = go e
       Eq  x y -> Eq  (go x) (go y)
       NEq x y -> NEq (go x) (go y)
       ITE x y z -> ITE (go x) (go y) (go z)
-      TEntry x _ -> TEntry (timeItem x time) time
+      TEntry x _ -> TEntry (timeItem time x) time
 
 untime :: Exp t a -> Exp Untimed a
 untime e = case e of
@@ -344,8 +344,8 @@ untime e = case e of
   ITE x y z -> ITE (untime x) (untime y) (untime z)
   TEntry x _ -> TEntry (untimeItem x) Neither
 
-timeItem :: TStorageItem Untimed a -> When -> TStorageItem Timed a
-timeItem item time = case item of
+timeItem :: When -> TStorageItem Untimed a -> TStorageItem Timed a
+timeItem time item = case item of
   ItemInt c x ixs -> ItemInt c x $ timeTyped time <$> ixs
   ItemBool c x ixs -> ItemBool c x $ timeTyped time <$> ixs
   ItemBytes c x ixs -> ItemBytes c x $ timeTyped time <$> ixs
