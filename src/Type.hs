@@ -247,9 +247,11 @@ checkPost env@Env{contract,calldata} (Syntax.Post maybeStorage extStorage maybeR
       }
       where
         filtered = flip Map.mapWithKey (theirs env) $ \name vars ->
-            if (name == contract)
+          if name == contract
             then Map.filterWithKey (\slot _ -> slot `elem` localNames) vars
-            else Map.filterWithKey (\slot _ -> slot `elem` (fromMaybe mempty $ Map.lookup name externalNames)) vars
+            else Map.filterWithKey
+                  (\slot _ -> slot `elem` Map.findWithDefault [] name externalNames)
+                  vars
 
     focus :: Id -> Env -> Env
     focus name unfocused@Env{theirs} = unfocused
@@ -288,9 +290,9 @@ checkPattern :: Env -> Pattern -> Err StorageLocation
 checkPattern env@Env{contract,store} (PEntry p name ixs) =
   case Map.lookup name store of
     Just (StorageValue t) -> case metaType t of
-          Integer -> Ok $ IntLoc (IntItem contract name [])
-          Boolean -> Ok $ BoolLoc (BoolItem contract name [])
-          ByteStr -> Ok $ BytesLoc (BytesItem contract name [])
+          Integer -> Ok . IntLoc   $ IntItem   contract name []
+          Boolean -> Ok . BoolLoc  $ BoolItem  contract name []
+          ByteStr -> Ok . BytesLoc $ BytesItem contract name []
     Just (StorageMapping argtyps t) ->
       if length argtyps /= length ixs
       then Bad (p, "Argument mismatch for storageitem: " <> name)
@@ -328,6 +330,8 @@ upperBound (AbiIntType n) = IntMax n
 upperBound AbiAddressType = UIntMax 160
 upperBound typ  = error $ "upperBound not implemented for " ++ show typ
 
+-- | Attempt to construct a `TypedExp` whose type matches the supplied `AbiType`.
+-- The target timing parameter will be whatever is required by the caller.
 checkExpr :: Typeable t => Env -> Expr -> AbiType -> Err (TypedExp t)
 checkExpr env e typ = case metaType typ of
   Integer -> ExpInt <$> inferExpr env e

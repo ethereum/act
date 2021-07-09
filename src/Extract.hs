@@ -14,7 +14,7 @@ locsFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = 
   concatMap locsFromExp preconds
   <> concatMap locsFromExp postconds
   <> concatMap locsFromStateUpdate stateUpdates
-  <> maybe [] locsFromReturnExp returns
+  <> maybe [] locsFromTypedExp returns
 
 locsFromConstructor :: Constructor -> [StorageLocation]
 locsFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = nub $
@@ -30,10 +30,10 @@ locsFromStateUpdate update = nub $ case update of
   Right (BoolUpdate item e) -> BoolLoc item : locsFromExp e
   Right (BytesUpdate item e) -> BytesLoc item : locsFromExp e
 
-locsFromReturnExp :: TypedExp t -> [StorageLocation]
-locsFromReturnExp (ExpInt e) = locsFromExp e
-locsFromReturnExp (ExpBool e) = locsFromExp e
-locsFromReturnExp (ExpBytes e) = locsFromExp e
+locsFromTypedExp :: TypedExp t -> [StorageLocation]
+locsFromTypedExp (ExpInt e) = locsFromExp e
+locsFromTypedExp (ExpBool e) = locsFromExp e
+locsFromTypedExp (ExpBytes e) = locsFromExp e
 
 locsFromExp :: Exp t a -> [StorageLocation]
 locsFromExp = nub . go
@@ -82,7 +82,7 @@ locsFromExp = nub . go
       BytesItem contract name ixs -> [BytesLoc $ BytesItem contract name $ untimeTyped <$> ixs] <> ixLocs ixs
       where
         ixLocs :: [TypedExp t] -> [StorageLocation]
-        ixLocs = concatMap (locsFromReturnExp . untimeTyped)
+        ixLocs = concatMap (locsFromTypedExp . untimeTyped)
 
         untimeTyped :: TypedExp t -> TypedExp Untimed
         untimeTyped (ExpInt   e) = ExpInt   $ forceTime Neither e
@@ -94,7 +94,7 @@ ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) 
   concatMap ethEnvFromExp preconds
   <> concatMap ethEnvFromExp postconds
   <> concatMap ethEnvFromStateUpdate stateUpdates
-  <> maybe [] ethEnvFromReturnExp returns
+  <> maybe [] ethEnvFromTypedExp returns
 
 ethEnvFromConstructor :: Constructor -> [EthEnv]
 ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = nub $
@@ -113,12 +113,12 @@ ethEnvFromStateUpdate update = case update of
   Right (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
 
 ethEnvFromItem :: TStorageItem t a -> [EthEnv]
-ethEnvFromItem = nub . concatMap ethEnvFromReturnExp . getItemIxs
+ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . getItemIxs
 
-ethEnvFromReturnExp :: TypedExp t -> [EthEnv]
-ethEnvFromReturnExp (ExpInt e) = ethEnvFromExp e
-ethEnvFromReturnExp (ExpBool e) = ethEnvFromExp e
-ethEnvFromReturnExp (ExpBytes e) = ethEnvFromExp e
+ethEnvFromTypedExp :: TypedExp t -> [EthEnv]
+ethEnvFromTypedExp (ExpInt e) = ethEnvFromExp e
+ethEnvFromTypedExp (ExpBool e) = ethEnvFromExp e
+ethEnvFromTypedExp (ExpBytes e) = ethEnvFromExp e
 
 ethEnvFromExp :: Exp t a -> [EthEnv]
 ethEnvFromExp = nub . go

@@ -201,20 +201,18 @@ makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
 locateStorage :: Ctx -> SolcJson -> Map Id Addr -> Method -> (VM,VM) -> Either StorageLocation StorageUpdate -> (Id, (SMType, SMType))
 locateStorage ctx solcjson contractMap method (pre, post) item =
   let item' = getLoc item
-      contractId = getContract item
-      addr = get contractId contractMap
+      addr = get (getContract item) contractMap
 
       Just preContract = view (env . contracts . at addr) pre
       Just postContract = view (env . contracts . at addr) post
-
 
       Just (S _ preValue) = readStorage (view storage preContract) (calculateSlot ctx solcjson item')
       Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item')
 
       name :: StorageLocation -> Id
-      name (IntLoc i) = nameFromItem method (i `as` Pre) Pre -- I think this `Pre` is correct..?
-      name (BoolLoc i) = nameFromItem method (i `as` Pre) Pre -- I think this `Pre` is correct..?
-      name (BytesLoc i) = nameFromItem method (i `as` Pre) Pre -- I think this `Pre` is correct..?
+      name (IntLoc   i) = nameFromItem method (i `as` Pre) Pre -- I think this `Pre` is correct for these..?
+      name (BoolLoc  i) = nameFromItem method (i `as` Pre) Pre -- The tests pass at least!
+      name (BytesLoc i) = nameFromItem method (i `as` Pre) Pre
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 
@@ -331,7 +329,7 @@ symExpBool ctx@(Ctx c m args store _) e = case e of
   TEntry a t -> get (nameFromItem m a t) (catBools $ timeStore t store)
   ITE x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
   Eq a b -> fromMaybe (error "Internal error: invalid expression type")
-    $   [symExpBool  ctx a' .== symExpBool  ctx b' | a' <- gcast a, b' <- gcast b]
+      $ [symExpBool  ctx a' .== symExpBool  ctx b' | a' <- gcast a, b' <- gcast b]
     <|> [symExpInt   ctx a' .== symExpInt   ctx b' | a' <- gcast a, b' <- gcast b]
     <|> [symExpBytes ctx a' .== symExpBytes ctx b' | a' <- gcast a, b' <- gcast b]
 

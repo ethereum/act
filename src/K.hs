@@ -71,13 +71,11 @@ makekSpec sources _ behaviour =
     else Bad (nowhere, "No storagelayout found")
 
 kCalldata :: Interface -> String
-kCalldata (Interface a b) =
+kCalldata (Interface a args) =
   "#abiCallData("
   <> show a <> ", "
-  <> (case b of
-       [] -> ".IntList"
-       args ->
-         intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args)) -- I think this Nothing is correct?
+  <> if null args then ".IntList"
+     else intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args)
   <> ")"
 
 kStorageName :: TStorageItem Timed a -> When -> String

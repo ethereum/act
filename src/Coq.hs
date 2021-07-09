@@ -146,7 +146,7 @@ retVal (Behaviour name _ _ i conds _ _ (Just r)) =
     retname = name' <> returnSuffix
     body = indent 2 . implication . concat $
       [ coqprop <$> conds
-      , [retname <> " " <> stateVar <> " " <> arguments i <> " " <> retexp r]
+      , [retname <> " " <> stateVar <> " " <> arguments i <> " " <> typedexp r]
       ]
 
 retVal _ = return ""
@@ -177,7 +177,7 @@ lambda :: [TypedExp t] -> Int -> Exp t a -> Id -> T.Text
 lambda [] _ e _ = parens $ coqexp e
 lambda (x:xs) n e m = parens $
   "fun " <> name <> " =>"
-  <> " if " <> name <> eqsym x <> retexp x
+  <> " if " <> name <> eqsym x <> typedexp x
   <> " then " <> lambda xs (n + 1) e m
   <> " else " <> T.pack m <> " " <> stateVar <> " " <> lambdaArgs n where
   name = anon <> T.pack (show n)
@@ -300,11 +300,11 @@ coqprop (GE e1 e2)   = parens $ coqexp e1 <> " > "  <> coqexp e2
 coqprop (GEQ e1 e2)  = parens $ coqexp e1 <> " >= " <> coqexp e2
 coqprop _ = error "ill formed proposition"
 
--- | coq syntax for a return expression
-retexp :: TypedExp t -> T.Text
-retexp (ExpInt e)   = coqexp e
-retexp (ExpBool e)  = coqexp e
-retexp (ExpBytes _) = error "bytestrings not supported"
+-- | coq syntax for a typed expression
+typedexp :: TypedExp t -> T.Text
+typedexp (ExpInt e)   = coqexp e
+typedexp (ExpBool e)  = coqexp e
+typedexp (ExpBytes _) = error "bytestrings not supported"
 
 mutableVar :: Id -> Time t -> T.Text
 mutableVar a Neither  = T.pack a
@@ -319,7 +319,7 @@ entry item t | getItemType item == ByteStr = error "bytestrings not supported"
 -- | coq syntax for a list of arguments
 coqargs :: NonEmpty (TypedExp t) -> T.Text
 coqargs (e :| es) =
-  retexp e <> " " <> T.unwords (map retexp es)
+  typedexp e <> " " <> T.unwords (map typedexp es)
 
 fresh :: Id -> Fresh T.Text
 fresh name = state $ \s -> (T.pack (name <> show s), s + 1)

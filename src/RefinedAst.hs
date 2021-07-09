@@ -12,23 +12,23 @@
 {-# Language TypeApplications #-}
 {-# LANGUAGE MonadComprehensions #-}
 {-# Language DataKinds #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module RefinedAst where
 
 import Control.Applicative (empty)
 
 import Data.Char (toLower)
-import Data.List (genericDrop,genericTake,nub)
+import Data.List (genericDrop,genericTake)
 import Data.Text (pack)
 import Data.Type.Equality
 import Data.Typeable
 import Data.Map.Strict (Map)
-import Data.List.NonEmpty hiding (fromList,nub)
+import Data.List.NonEmpty hiding (fromList)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.String (fromString)
 
-import EVM.ABI (AbiType(..))
 import EVM.Solidity (SlotType(..))
 
 import Syntax (Id, Interface, EthEnv)
@@ -233,6 +233,13 @@ instance Semigroup (Exp t Bool) where
 instance Monoid (Exp t Bool) where
   mempty = LitBool True
 
+-- | Expressions for which the return type is known.
+data TypedExp t
+  = ExpInt   (Exp t Integer)
+  | ExpBool  (Exp t Bool)
+  | ExpBytes (Exp t ByteString)
+  deriving (Eq, Show)
+
 -- | Simplifies concrete expressions into literals.
 -- Returns `Nothing` if the expression contains symbols.
 eval :: Exp t a -> Maybe a
@@ -271,13 +278,6 @@ eval e = case e of
   NEq a b     -> [a' /= b' | a' <- eval a, b' <- eval b]
   ITE a b c   -> eval a >>= \cond -> if cond then eval b else eval c
   _           -> empty
-
--- | Expressions for which the return type is known.
-data TypedExp t
-  = ExpInt   (Exp t Integer)
-  | ExpBool  (Exp t Bool)
-  | ExpBytes (Exp t ByteString)
-  deriving (Eq, Show)
 
 --------------------------
 -- * Timing machinery * --
@@ -380,10 +380,17 @@ instance Timeable Exp where
     TEntry item _ -> TEntry (forceTime time item) time
 
 instance Timeable TStorageItem where
+  forceTime :: forall t t0 a. Time t -> TStorageItem t0 a -> TStorageItem t a
   forceTime time item = case item of
-    IntItem c   x ixs -> IntItem   c x $ undefined time <$> ixs
-    BoolItem c  x ixs -> BoolItem  c x $ undefined time <$> ixs
-    BytesItem c x ixs -> BytesItem c x $ undefined time <$> ixs
+    IntItem   c x ixs -> IntItem   c x $ forceTyped <$> ixs
+    BoolItem  c x ixs -> BoolItem  c x $ forceTyped <$> ixs
+    BytesItem c x ixs -> BytesItem c x $ forceTyped <$> ixs
+    where
+      forceTyped :: TypedExp t0 -> TypedExp t
+      forceTyped e = case e of
+        ExpInt   e' -> ExpInt   $ forceTime time e'
+        ExpBool  e' -> ExpBool  $ forceTime time e'
+        ExpBytes e' -> ExpBytes $ forceTime time e'
 
 -- | Give a specific timing to a `TypedExp Untimed`, analogously to `setTime`.
 -- (Unfortunately `TypedExp` cannot be given a `Timeable` instance so we need
@@ -476,8 +483,8 @@ instance Typeable a => ToJSON (Exp t a) where
   toJSON (IntEnv a) = String $ pack $ show a
   toJSON (TEntry a Neither) = toJSON a
   toJSON (TEntry a t) = object [ "symbol" .= show t
-                                 , "arity"  .= Data.Aeson.Types.Number 1
-                                 , "args"   .= toJSON a]
+                               , "arity"  .= Data.Aeson.Types.Number 1
+                               , "args"   .= toJSON a]
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
