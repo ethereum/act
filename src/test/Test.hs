@@ -112,7 +112,7 @@ genBehv n = do
   ifname <- ident
   abiNames <- genNames
   preconditions <- listOf $ genExpBool abiNames n
-  returns <- Just <$> genReturnExp abiNames n
+  returns <- Just <$> genTypedExp abiNames n
   postconditions <- listOf $ genExpBool abiNames n
   iface <- Interface ifname <$> mkDecls abiNames
   return Behaviour { _name = name
