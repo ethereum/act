@@ -217,7 +217,7 @@ checkDefn env@Env{contract} keyType valType name (Defn k v) = do
 
 checkPost :: Env -> Syntax.Post -> Err ([Either StorageLocation StorageUpdate], Maybe (TypedExp Timed))
 checkPost env@Env{contract,calldata} (Syntax.Post maybeStorage extStorage maybeReturn) =
-  do returnexp <- mapM (returnExp scopedEnv) maybeReturn
+  do returnexp <- mapM (typedExp scopedEnv) maybeReturn
      ourStorage <- case maybeStorage of
        Just entries -> checkEntries contract entries
        Nothing -> Ok []
@@ -304,11 +304,11 @@ checkPattern _ (PWild _) = error "TODO: checkPattern for Wild storage"
 
 checkIffs :: Env -> [IffH] -> Err [Exp Untimed Bool]
 checkIffs env ((Iff _ exps):xs) = do
-  hd <- mapM (inferExpr env) exps -- TODO possibly pass pn here?
+  hd <- mapM (inferExpr env) exps
   tl <- checkIffs env xs
   Ok $ hd <> tl
 checkIffs env ((IffIn _ typ exps):xs) = do
-  hd <- mapM (inferExpr env) exps -- TODO possibly pass pn here?
+  hd <- mapM (inferExpr env) exps
   tl <- checkIffs env xs
   Ok $ map (bound typ) hd <> tl
 checkIffs _ [] = Ok []
@@ -334,6 +334,8 @@ checkExpr env e typ = case metaType typ of
   Boolean -> ExpBool <$> inferExpr env e
   ByteStr -> ExpBytes <$> inferExpr env e
 
+-- | Attempts to construct an expression with the type and timing required by
+-- the caller. If this is impossible, an error is thrown instead.
 inferExpr :: forall a t. (Typeable a, Typeable t) => Env -> Expr -> Err (Exp t a)
 inferExpr env@Env{contract,store,calldata} expr = case expr of
   ENot p  v1       -> check p $ Neg  <$> inferExpr @Bool env v1
@@ -375,22 +377,29 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
   -- BYAbiE Expr
   -- StringLit String
   where
+    -- Try to cast the last type parameter of an expression to the goal of `inferExpr`.
+    -- The cast only succeeds if they already are the same.
     check :: forall x. Typeable x => Pn -> Err (Exp t x) -> Err (Exp t a)
     check pn e =
       errMessage (pn,"Type mismatch. Expected " <> show (typeRep @a) <> ", got " <> show (typeRep @x) <> ".")
         =<< gcast <$> e
 
+    -- Takes a polymorphic binary AST constructor and specializes it to each of
+    -- our types. Those specializations are used in order to guide the
+    -- typechecking of the two supplied expressions. Returns at first success.
     polycheck :: Typeable x => Pn -> (forall y. (Eq y, Typeable y) => Exp t y -> Exp t y -> Exp t x) -> Expr -> Expr -> Err (Exp t a)
     polycheck pn cons e1 e2 = check pn (cons @Integer    <$> inferExpr env e1 <*> inferExpr env e2)
                           <|> check pn (cons @Bool       <$> inferExpr env e1 <*> inferExpr env e2)
                           <|> check pn (cons @ByteString <$> inferExpr env e1 <*> inferExpr env e2)
-                          <|> Bad (pn, "Couldn't harmonize types!")
+                          <|> Bad (pn, "Couldn't harmonize types!") -- TODO improve error handling once we've merged the unified stuff!
 
+    -- Try to construct a reference to a calldata variable or an item in storage.
     entry :: Typeable t0 => Pn -> Time t0 -> Id -> [Expr] -> Err (Exp t a)
     entry pn timing name es = case (Map.lookup name store, Map.lookup name calldata) of
       (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
       (Just _, Just _)   -> Bad (pn, "Ambiguous variable: " <> name)   
       (Nothing, Just c) -> if isTimed timing then Bad (pn, "Calldata var cannot be pre/post.") else case c of
+        -- Create a calldata reference and typecheck it as with normal expressions.
         Integer -> check pn . pure $ IntVar  name
         Boolean -> check pn . pure $ BoolVar name
         ByteStr -> check pn . pure $ ByVar   name
@@ -403,18 +412,25 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
           Boolean -> makeItem BoolItem
           ByteStr -> makeItem BytesItem
           where
+            -- Given that the indices used in the expression agree with the storage,
+            -- create a `TStorageItem` using the supplied constructor, place it
+            -- in a `TEntry` and then attempt to cast its timing parameter to the
+            -- target timing of `inferExpr`. Finally, `check` the type parameter as
+            -- with all other expressions.
             makeItem :: Typeable x => (forall t0. Id -> Id -> [TypedExp t0] -> TStorageItem t0 x) -> Err (Exp t a)
             makeItem maker = do
+              when (length ts /= length es) $ Bad (pn, "Index mismatch for entry!")
               ixs <- for (es `zip` ts) (uncurry $ checkExpr env)
               check pn
                 $ errMessage (pn, (tail . show $ typeRep @t) <> " variable needed here!")
                 $ gcast0 (TEntry (maker contract name ixs) timing)
 
-returnExp :: Env -> Expr -> Err (TypedExp Timed)
-returnExp env e = ExpInt   <$> inferExpr env e
-              <|> ExpBool  <$> inferExpr env e
-              <|> ExpBytes <$> inferExpr env e
-              <|> Bad (getPosn e, "TypedExp: no suitable type")
+-- | Attempt to typecheck an untyped expression as any possible type.
+typedExp :: Env -> Expr -> Err (TypedExp Timed)
+typedExp env e = ExpInt   <$> inferExpr env e
+             <|> ExpBool  <$> inferExpr env e
+             <|> ExpBytes <$> inferExpr env e
+             <|> Bad (getPosn e, "TypedExp: no suitable type") -- TODO improve error handling once we've merged the unified stuff!
 
 -- | Analogous to `gcast1` and `gcast2` from `Data.Typeable`. We *could* technically use `cast` instead
 -- but then we would catch too many errors at once, so we couldn't emit informative error messages.

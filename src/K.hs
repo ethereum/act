@@ -161,10 +161,10 @@ kStorageEntry storageLayout update =
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (getId update)) storageLayout)
   in case update of
-       Right (IntUpdate a b) -> (loc, (offset, kStorageName (timeItem Pre a) Pre, kExpr $ b `as` Pre))
-       Right (BoolUpdate a b) -> (loc, (offset, kStorageName (timeItem Pre a) Pre, kExpr $ b `as` Pre))
-       Right (BytesUpdate a b) -> (loc, (offset, kStorageName (timeItem Pre a) Pre, kExpr $ b `as` Pre))
-       Left (IntLoc a) -> (loc, (offset, kStorageName (timeItem Pre a) Pre, kStorageName (timeItem Pre a) Pre))
+       Right (IntUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
+       Right (BoolUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
+       Right (BytesUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
+       Left (IntLoc a) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kStorageName (a `as` Pre) Pre))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
 
 --packs entries packed in one slot
@@ -198,7 +198,7 @@ kSlot update StorageItem{..} = case _type of
   (StorageMapping _ _) -> if null (getIxs update) 
     then error $ "internal error: kSlot. Please report: " <> show update
     else ( "#hashedLocation(\"Solidity\", "
-             <> show _slot <> ", " <> unwords (kTypedExpr . timeTyped Pre <$> getIxs update) <> ")"
+             <> show _slot <> ", " <> unwords (kTypedExpr . setTyped Pre <$> getIxs update) <> ")"
          , _offset )
 
 kAccount :: Bool -> Id -> SolcContract -> [Either StorageLocation StorageUpdate] -> String

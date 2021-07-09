@@ -84,6 +84,11 @@ locsFromExp = nub . go
         ixLocs :: [TypedExp t] -> [StorageLocation]
         ixLocs = concatMap (locsFromReturnExp . untimeTyped)
 
+        untimeTyped :: TypedExp t -> TypedExp Untimed
+        untimeTyped (ExpInt   e) = ExpInt   $ forceTime Neither e
+        untimeTyped (ExpBool  e) = ExpBool  $ forceTime Neither e
+        untimeTyped (ExpBytes e) = ExpBytes $ forceTime Neither e
+
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
   concatMap ethEnvFromExp preconds

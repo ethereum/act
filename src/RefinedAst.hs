@@ -18,16 +18,17 @@ module RefinedAst where
 import Control.Applicative (empty)
 
 import Data.Char (toLower)
-import Data.List (genericDrop,genericTake)
+import Data.List (genericDrop,genericTake,nub)
 import Data.Text (pack)
 import Data.Type.Equality
 import Data.Typeable
 import Data.Map.Strict (Map)
-import Data.List.NonEmpty hiding (fromList)
+import Data.List.NonEmpty hiding (fromList,nub)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.String (fromString)
 
+import EVM.ABI (AbiType(..))
 import EVM.Solidity (SlotType(..))
 
 import Syntax (Id, Interface, EthEnv)
@@ -109,18 +110,26 @@ data StorageLocation
   | BytesLoc (TStorageItem Untimed ByteString)
   deriving (Show, Eq)
 
-data TStorageItem t a where
+-- | References to items in storage, either as a map lookup or as a reading of
+-- a simple variable. The third argument is a list of indices; it is empty iff
+-- the item is referenced as a simple variable. The type is parametrized on a
+-- timing `t` and a type `a`. `t` can be either `Timed` or `Untimed` and
+-- indicate whether any indices that reference items in storage explicitly
+-- refer to the pre-/post-state, or not. `a` is the type of the item that is
+-- referenced.
+data TStorageItem (t :: Timing) (a :: *) where
   IntItem    :: Id -> Id -> [TypedExp t] -> TStorageItem t Integer
   BoolItem   :: Id -> Id -> [TypedExp t] -> TStorageItem t Bool
   BytesItem  :: Id -> Id -> [TypedExp t] -> TStorageItem t ByteString
-
 deriving instance Show (TStorageItem t a)
 deriving instance Eq (TStorageItem t a)
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
--- In a `Timed` expression, all storage entries need to be `TEntry`, which contain either one of
--- `Pre, Post :: Time`. In an `Untimed` expression, only `UTEntry` can occur, which does not contain
--- a `Time`.
+-- All storage entries within an `Exp t a` contain a value of type `Time t`.
+-- If `t ~ Timed`, the only possible such values are `Pre, Post :: Time Timed`, so each storage entry
+-- will refer to either the prestate or the poststate.
+-- In `t ~ Untimed`, the only possible such value is `Neither :: Time Untimed`, so all storage entries
+-- will not explicitly refer any particular state.
 
 -- It is recommended that backends always input `Exp Timed a` to their codegens (or `Exp Untimed a`
 -- if postconditions and return values are irrelevant), as this makes it easier to generate
@@ -169,27 +178,6 @@ data Exp (t :: Timing) (a :: *) where
   ITE :: Exp t Bool -> Exp t a -> Exp t a -> Exp t a
   TEntry :: TStorageItem t a -> Time t -> Exp t a
 deriving instance Show (Exp t a)
-
--- | This will never be used as is. Its only purpose is to use with -XDataKinds, to ensure
--- type safety of the `Exp` type.
-data Timing = Timed | Untimed
-
-type When = Time Timed
-
-data Time t where
-  Pre     :: Time Timed
-  Post    :: Time Timed
-  Neither :: Time Untimed
-deriving instance Eq (Time t)
-deriving instance Show (Time t)
-
-isTimed :: Time t -> Bool
-isTimed Neither = False
-isTimed _       = True
-
-timeParens :: Time t -> String -> String
-timeParens t s | isTimed t = toLower <$> show t <> "(" <> s <> ")"
-               | otherwise = s
 
 instance Eq (Exp t a) where
   And a b == And c d = a == c && b == d
@@ -245,127 +233,6 @@ instance Semigroup (Exp t Bool) where
 instance Monoid (Exp t Bool) where
   mempty = LitBool True
 
--- | Give an `Untimed` expression a specific timing, i.e. `Pre` or `Post`.
--- Useful to generate consistent storage reference names.
-as :: Exp Untimed a -> When -> Exp Timed a
-e `as` time = go e
-  where
-    go :: Exp Untimed a -> Exp Timed a
-    go expr = case expr of
-      And  x y -> And (go x) (go y)
-      Or   x y -> Or (go x) (go y)
-      Impl x y -> Impl (go x) (go y)
-      Neg x -> Neg (go x)
-      LE x y -> LE (go x) (go y)
-      LEQ x y -> LEQ (go x) (go y)
-      GEQ x y -> GEQ (go x) (go y)
-      GE x y -> GE (go x) (go y)
-      LitBool x -> LitBool x
-      BoolVar x -> BoolVar x
-      -- integers
-      Add x y -> Add (go x) (go y)
-      Sub x y -> Sub (go x) (go y)
-      Mul x y -> Mul (go x) (go y)
-      Div x y -> Div (go x) (go y)
-      Mod x y -> Mod (go x) (go y)
-      Exp x y -> Exp (go x) (go y)
-      LitInt x -> LitInt x
-      IntVar x -> IntVar x
-      IntEnv x -> IntEnv x
-      -- younds
-      IntMin x -> IntMin x
-      IntMax x -> IntMax x
-      UIntMin x -> UIntMin x
-      UIntMax x -> UIntMax x
-      -- yytestrings
-      Cat x y -> Cat (go x) (go y)
-      Slice x y z -> Slice (go x) (go y) (go z)
-      ByVar x -> ByVar x
-      ByStr x -> ByStr x
-      ByLit x -> ByLit x
-      ByEnv x -> ByEnv x
-      -- yuiltins
-      NewAddr x y -> NewAddr (go x) (go y)
-
-      -- polymorphic
-      Eq  x y -> Eq  (go x) (go y)
-      NEq x y -> NEq (go x) (go y)
-      ITE x y z -> ITE (go x) (go y) (go z)
-      TEntry x _ -> TEntry (timeItem time x) time
-
-untime :: Exp t a -> Exp Untimed a
-untime e = case e of
-  And  x y -> And (untime x) (untime y)
-  Or   x y -> Or (untime x) (untime y)
-  Impl x y -> Impl (untime x) (untime y)
-  Neg x -> Neg (untime x)
-  LE x y -> LE (untime x) (untime y)
-  LEQ x y -> LEQ (untime x) (untime y)
-  GEQ x y -> GEQ (untime x) (untime y)
-  GE x y -> GE (untime x) (untime y)
-  LitBool x -> LitBool x
-  BoolVar x -> BoolVar x
-  -- integers
-  Add x y -> Add (untime x) (untime y)
-  Sub x y -> Sub (untime x) (untime y)
-  Mul x y -> Mul (untime x) (untime y)
-  Div x y -> Div (untime x) (untime y)
-  Mod x y -> Mod (untime x) (untime y)
-  Exp x y -> Exp (untime x) (untime y)
-  LitInt x -> LitInt x
-  IntVar x -> IntVar x
-  IntEnv x -> IntEnv x
-  -- younds
-  IntMin x -> IntMin x
-  IntMax x -> IntMax x
-  UIntMin x -> UIntMin x
-  UIntMax x -> UIntMax x
-  -- yytestrings
-  Cat x y -> Cat (untime x) (untime y)
-  Slice x y z -> Slice (untime x) (untime y) (untime z)
-  ByVar x -> ByVar x
-  ByStr x -> ByStr x
-  ByLit x -> ByLit x
-  ByEnv x -> ByEnv x
-  -- yuiltins
-  NewAddr x y -> NewAddr (untime x) (untime y)
-
-  -- polymorphic
-  Eq  x y -> Eq  (untime x) (untime y)
-  NEq x y -> NEq (untime x) (untime y)
-  ITE x y z -> ITE (untime x) (untime y) (untime z)
-  TEntry x _ -> TEntry (untimeItem x) Neither
-
-timeItem :: When -> TStorageItem Untimed a -> TStorageItem Timed a
-timeItem time item = case item of
-  IntItem c x ixs -> IntItem c x $ timeTyped time <$> ixs
-  BoolItem c x ixs -> BoolItem c x $ timeTyped time <$> ixs
-  BytesItem c x ixs -> BytesItem c x $ timeTyped time <$> ixs
-
-untimeItem :: TStorageItem t a -> TStorageItem Untimed a
-untimeItem item = case item of
-  IntItem c x ixs -> IntItem c x $ untimeTyped <$> ixs
-  BoolItem c x ixs -> BoolItem c x $ untimeTyped <$> ixs
-  BytesItem c x ixs -> BytesItem c x $ untimeTyped <$> ixs
-
-untimeTyped :: TypedExp t -> TypedExp Untimed
-untimeTyped e = case e of
-  ExpInt   e' -> ExpInt   $ untime e'
-  ExpBool  e' -> ExpBool  $ untime e'
-  ExpBytes e' -> ExpBytes $ untime e'
-
-timeTyped :: When -> TypedExp Untimed -> TypedExp Timed
-timeTyped time e = case e of
-  ExpInt   e' -> ExpInt   $ e' `as` time
-  ExpBool  e' -> ExpBool  $ e' `as` time
-  ExpBytes e' -> ExpBytes $ e' `as` time
-
-data TypedExp t
-  = ExpInt   (Exp t Integer)
-  | ExpBool  (Exp t Bool)
-  | ExpBytes (Exp t ByteString)
-  deriving (Eq, Show)
-
 -- | Simplifies concrete expressions into literals.
 -- Returns `Nothing` if the expression contains symbols.
 eval :: Exp t a -> Maybe a
@@ -379,7 +246,6 @@ eval e = case e of
   GE   a b    -> [a' >  b' | a' <- eval a, b' <- eval b]
   GEQ  a b    -> [a' >= b' | a' <- eval a, b' <- eval b]
   LitBool a   -> pure a
-  BoolVar _   -> empty
 
   Add a b     -> [a' + b'     | a' <- eval a, b' <- eval b]
   Sub a b     -> [a' - b'     | a' <- eval a, b' <- eval b]
@@ -388,8 +254,6 @@ eval e = case e of
   Mod a b     -> [a' `mod` b' | a' <- eval a, b' <- eval b]
   Exp a b     -> [a' ^ b'     | a' <- eval a, b' <- eval b]
   LitInt a    -> pure a
-  IntVar _    -> empty
-  IntEnv _    -> empty
   IntMin  a   -> pure . negate $ 2 ^ (a - 1)
   IntMax  a   -> pure $ 2 ^ (a - 1) - 1
   UIntMin _   -> pure 0
@@ -400,19 +264,141 @@ eval e = case e of
                            | s' <- BS.unpack <$> eval s
                            , a' <- eval a
                            , b' <- eval b]
-  ByVar _     -> empty
   ByStr s     -> pure . fromString $ s
   ByLit s     -> pure s
-  ByEnv _     -> empty
-
-  NewAddr _ _ -> empty
 
   Eq a b      -> [a' == b' | a' <- eval a, b' <- eval b]
   NEq a b     -> [a' /= b' | a' <- eval a, b' <- eval b]
   ITE a b c   -> eval a >>= \cond -> if cond then eval b else eval c
-  TEntry _ _  -> empty
+  _           -> empty
 
--- intermediate json output helpers ---
+-- | Expressions for which the return type is known.
+data TypedExp t
+  = ExpInt   (Exp t Integer)
+  | ExpBool  (Exp t Bool)
+  | ExpBytes (Exp t ByteString)
+  deriving (Eq, Show)
+
+--------------------------
+-- * Timing machinery * --
+--------------------------
+
+-- | This will never be used as-is. Its only purpose is to use with -XDataKinds,
+-- to ensure type safety of the `Exp` and `TStorageItem` types.
+data Timing = Timed | Untimed
+
+-- | Encodes choice between explicitly referring to the pre-/post-state, or not.
+data Time t where
+  Pre     :: Time Timed
+  Post    :: Time Timed
+  Neither :: Time Untimed
+deriving instance Eq (Time t)
+deriving instance Show (Time t)
+
+-- | In cases when the only choice is between the pre-/post-state, this alias can be used.
+type When = Time Timed
+
+-- | True iff the input is `Pre` or `Post`.
+isTimed :: Time t -> Bool
+isTimed Neither = False
+isTimed _       = True
+
+-- | If the supplied time is `Pre`, this returns `pre(input)` (and analogously for `Post`).
+-- Otherwise returns the untouched `String`.
+timeParens :: Time t -> String -> String
+timeParens t s | isTimed t = toLower <$> show t <> "(" <> s <> ")"
+               | otherwise = s
+
+-- | Types that are parametrized on a `Timing` and a normal type.
+-- The most notable example is `Exp :: Timing -> * -> *`.
+class Timeable c where
+  -- | Takes an `Untimed` `Timeable` thing and points it towards the supplied time.
+  setTime :: When -> c Untimed a -> c Timed a
+  setTime = forceTime
+
+  -- | Takes an `Untimed` `Timeable` thing and points it towards the prestate.
+  setPre :: c Untimed a -> c Timed a
+  setPre = forceTime Pre
+
+  -- | Takes an `Untimed` `Timeable` thing and points it towards the poststate.
+  setPost :: c Untimed a -> c Timed a
+  setPost = forceTime Post
+
+  -- | This is `setTime` with the arguments flipped.
+  -- Allows writing e.g. "c `as` Pre".
+  as :: c Untimed a -> When -> c Timed a
+  as = flip forceTime
+
+  -- | Dangerous! Do not use this during code generation, as doing so
+  -- may damage your AST by replacing valid `Post` entries with `Pre`
+  -- or vice versa. Instead, use `as`, which provides "the same"
+  -- functionality but restricted to be type safe.
+  -- If we had an explicit export list, this wouldn't be exported.
+  forceTime :: Time t -> c t0 a -> c t a
+
+instance Timeable Exp where
+  forceTime time expr = case expr of
+    And  x y -> And (forceTime time x) (forceTime time y)
+    Or   x y -> Or (forceTime time x) (forceTime time y)
+    Impl x y -> Impl (forceTime time x) (forceTime time y)
+    Neg x -> Neg (forceTime time x)
+    LE x y -> LE (forceTime time x) (forceTime time y)
+    LEQ x y -> LEQ (forceTime time x) (forceTime time y)
+    GEQ x y -> GEQ (forceTime time x) (forceTime time y)
+    GE x y -> GE (forceTime time x) (forceTime time y)
+    LitBool x -> LitBool x
+    BoolVar x -> BoolVar x
+    -- integers
+    Add x y -> Add (forceTime time x) (forceTime time y)
+    Sub x y -> Sub (forceTime time x) (forceTime time y)
+    Mul x y -> Mul (forceTime time x) (forceTime time y)
+    Div x y -> Div (forceTime time x) (forceTime time y)
+    Mod x y -> Mod (forceTime time x) (forceTime time y)
+    Exp x y -> Exp (forceTime time x) (forceTime time y)
+    LitInt x -> LitInt x
+    IntVar x -> IntVar x
+    IntEnv x -> IntEnv x
+    -- younds
+    IntMin x -> IntMin x
+    IntMax x -> IntMax x
+    UIntMin x -> UIntMin x
+    UIntMax x -> UIntMax x
+    -- yytestrings
+    Cat x y -> Cat (forceTime time x) (forceTime time y)
+    Slice x y z -> Slice (forceTime time x) (forceTime time y) (forceTime time z)
+    ByVar x -> ByVar x
+    ByStr x -> ByStr x
+    ByLit x -> ByLit x
+    ByEnv x -> ByEnv x
+    -- yuiltins
+    NewAddr x y -> NewAddr (forceTime time x) (forceTime time y)
+
+    -- polymorphic
+    Eq  x y -> Eq  (forceTime time x) (forceTime time y)
+    NEq x y -> NEq (forceTime time x) (forceTime time y)
+    ITE x y z -> ITE (forceTime time x) (forceTime time y) (forceTime time z)
+    TEntry item _ -> TEntry (forceTime time item) time
+
+instance Timeable TStorageItem where
+  forceTime time item = case item of
+    IntItem c   x ixs -> IntItem   c x $ undefined time <$> ixs
+    BoolItem c  x ixs -> BoolItem  c x $ undefined time <$> ixs
+    BytesItem c x ixs -> BytesItem c x $ undefined time <$> ixs
+
+-- | Give a specific timing to a `TypedExp Untimed`, analogously to `setTime`.
+-- (Unfortunately `TypedExp` cannot be given a `Timeable` instance so we need
+-- to keep this as a standalone function. Ideas for how to make this cleaner
+-- would be nice.)
+setTyped :: When -> TypedExp Untimed -> TypedExp Timed
+setTyped time e = case e of
+  ExpInt   e' -> ExpInt   $ e' `as` time
+  ExpBool  e' -> ExpBool  $ e' `as` time
+  ExpBytes e' -> ExpBytes $ e' `as` time
+
+------------------------
+-- * JSON machinery * --
+------------------------
+
 instance ToJSON Claim where
   toJSON (S storages) = object [ "kind" .= String "Storages"
                                , "storages" .= toJSON storages]

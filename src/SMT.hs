@@ -46,26 +46,7 @@ import RefinedAst
 import Extract hiding (getContract)
 import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
 import Print
--- import Type (defaultStore)
-
--- typing of eth env variables
-defaultStore :: [(EthEnv, MType)]
-defaultStore =
-  [(Callvalue, Integer),
-   (Caller, Integer),
-   (Blockhash, ByteStr),
-   (Blocknumber, Integer),
-   (Difficulty, Integer),
-   (Timestamp, Integer),
-   (Gaslimit, Integer),
-   (Coinbase, Integer),
-   (Chainid, Integer),
-   (This, Integer),
-   (Origin, Integer),
-   (Nonce, Integer),
-   (Calldepth, Integer)
-   --others TODO
-  ]
+import Type (defaultStore)
 
 --- ** Data ** ---
 
@@ -187,7 +168,7 @@ mkPostconditionQueries (B behv@(Behaviour _ Pass _ (Interface ifaceName decls) p
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
 
     -- constraints
-    pres = mkAssert ifaceName . (`as` Pre) <$> preconds
+    pres = mkAssert ifaceName . setTime Pre <$> preconds
     updates = encodeUpdate ifaceName <$> stateUpdates
 
     mksmt e = SMTExp
@@ -206,7 +187,7 @@ mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName d
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
 
     -- constraints
-    pres = mkAssert ifaceName . (`as` Pre) <$> preconds
+    pres = mkAssert ifaceName . setTime Pre <$> preconds
     updates = encodeUpdate ifaceName <$> stateUpdates
     initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
 
@@ -258,7 +239,7 @@ mkInvariantQueries claims = fmap mkQuery gathered
         envs = declareEthEnv <$> ethEnvFromConstructor ctor
 
         -- constraints
-        pres = mkAssert ifaceName . (`as` Pre) <$> preconds <> invConds
+        pres = mkAssert ifaceName . setTime Pre <$> preconds <> invConds
         updates = encodeUpdate ifaceName <$> stateUpdates
         initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
         postInv = mkAssert ifaceName . Neg $ invExp `as` Post
@@ -288,8 +269,8 @@ mkInvariantQueries claims = fmap mkQuery gathered
         -- constraints
         preInv = mkAssert ctorIface $ invExp `as` Pre
         postInv = mkAssert ctorIface . Neg $ invExp `as` Post
-        behvConds = mkAssert behvIface . (`as` Pre) <$> _preconditions behv
-        invConds' = mkAssert ctorIface . (`as` Pre) <$> invConds <> invStorageBounds
+        behvConds = mkAssert behvIface . setPre <$> _preconditions behv
+        invConds' = mkAssert ctorIface . setPre <$> invConds <> invStorageBounds
         implicitLocs' = encodeUpdate ctorIface <$> implicitLocs
         updates = encodeUpdate behvIface <$> _stateUpdates behv
 
@@ -457,7 +438,8 @@ getCtorModel ctor solver = do
 getStorageValue :: SolverInstance -> Id -> When -> StorageLocation -> IO (StorageLocation, TypedExp Timed)
 getStorageValue solver ifaceName whn loc = do
   let name = if isMapping loc
-                then uncurry select `withInterface` ifaceName $ (nameFromLoc whn loc, fmap (timeTyped whn) . NonEmpty.fromList $ getContainerIxs loc)
+                then uncurry select `withInterface` ifaceName
+                   $ (nameFromLoc whn loc, fmap (setTyped whn) . NonEmpty.fromList $ getContainerIxs loc)
                 else nameFromLoc whn loc
   output <- getValue solver name
   -- TODO: handle errors here...

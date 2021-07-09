@@ -212,9 +212,9 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
       Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item')
 
       name :: StorageLocation -> Id
-      name (IntLoc i) = nameFromItem method (timeItem Pre i) Pre -- I think this `Pre` is correct..?
-      name (BoolLoc i) = nameFromItem method (timeItem Pre i) Pre -- I think this `Pre` is correct..?
-      name (BytesLoc i) = nameFromItem method (timeItem Pre i) Pre -- I think this `Pre` is correct..?
+      name (IntLoc i) = nameFromItem method (i `as` Pre) Pre -- I think this `Pre` is correct..?
+      name (BoolLoc i) = nameFromItem method (i `as` Pre) Pre -- I think this `Pre` is correct..?
+      name (BytesLoc i) = nameFromItem method (i `as` Pre) Pre -- I think this `Pre` is correct..?
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 
@@ -226,7 +226,7 @@ calculateSlot ctx solcjson loc =
     layout = fromMaybe (error "internal error: no storageLayout") $ _storageLayout source
     StorageItem _ _ slot = get (pack (getContainerId loc)) layout
     slotword = sFromIntegral (literal (fromIntegral slot :: Integer))
-    indexers = symExp ctx . timeTyped Pre <$> getContainerIxs loc
+    indexers = symExp ctx . setTyped Pre <$> getContainerIxs loc
   in var (getContainerId loc) $
      if null indexers
      then slotword

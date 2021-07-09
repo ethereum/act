@@ -144,7 +144,7 @@ retVal (Behaviour name _ _ i conds _ _ (Just r)) =
     [retname <> introSuffix <> " :\n" <> body] where
 
     retname = name' <> returnSuffix
-    body = (indent 2) . implication . concat $
+    body = indent 2 . implication . concat $
       [ coqprop <$> conds
       , [retname <> " " <> stateVar <> " " <> arguments i <> " " <> retexp r]
       ]
@@ -268,11 +268,11 @@ coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
 -- polymorphic
 coqexp (TEntry e w) = entry e w
 coqexp (ITE b e1 e2) = parens $ "if "
-                    <> coqexp b
-                    <> " then "
-                    <> coqexp e1
-                    <> " else "
-                    <> coqexp e2
+                             <> coqexp b
+                             <> " then "
+                             <> coqexp e1
+                             <> " else "
+                             <> coqexp e2
 
 -- unsupported
 coqexp (IntEnv e) = error $ show e <> ": environment values not yet supported"
@@ -308,7 +308,7 @@ retexp (ExpBytes _) = error "bytestrings not supported"
 
 mutableVar :: Id -> Time t -> T.Text
 mutableVar a Neither  = T.pack a
-mutableVar a w        = T.pack $ a <> "_" <> show w -- TODO this should probably change but we don't even generate postconds atm
+mutableVar a w        = T.pack $ a <> "_" <> show w
 
 entry :: TStorageItem t a -> Time t -> T.Text
 entry item t | getItemType item == ByteStr = error "bytestrings not supported"
