@@ -121,7 +121,7 @@ checkPostStorage ctx (Behaviour _ _ _ _ _ _ updates _) pre post contractMap solc
               (Concrete pre', Concrete post') -> literal $ pre' == post'
               (Symbolic _ pre', Symbolic _ post') ->
                let
-                 insertions = rights $ filter (\a -> addr == get (getContract a) contractMap) updates
+                 insertions = rights $ filter (\a -> addr == get (contractFromRewrite a) contractMap) updates
                  slot update' = let S _ w = calculateSlot ctx solcjson (mkLoc update')
                                in w
                  insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
@@ -201,7 +201,7 @@ makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
 locateStorage :: Ctx -> SolcJson -> Map Id Addr -> Method -> (VM,VM) -> Either StorageLocation StorageUpdate -> (Id, (SMType, SMType))
 locateStorage ctx solcjson contractMap method (pre, post) item =
   let item' = getLoc item
-      addr = get (getContract item) contractMap
+      addr = get (contractFromRewrite item) contractMap
 
       Just preContract = view (env . contracts . at addr) pre
       Just postContract = view (env . contracts . at addr) post
@@ -220,12 +220,12 @@ calculateSlot :: Ctx -> SolcJson -> StorageLocation -> SymWord
 calculateSlot ctx solcjson loc =
   -- TODO: packing with offset
   let
-    source = get (pack (getLocationContract loc)) solcjson
+    source = get (pack (contractFromLoc loc)) solcjson
     layout = fromMaybe (error "internal error: no storageLayout") $ _storageLayout source
-    StorageItem _ _ slot = get (pack (getContainerId loc)) layout
+    StorageItem _ _ slot = get (pack (idFromLocation loc)) layout
     slotword = sFromIntegral (literal (fromIntegral slot :: Integer))
-    indexers = symExp ctx . setTyped Pre <$> getContainerIxs loc
-  in var (getContainerId loc) $
+    indexers = symExp ctx . setTyped Pre <$> ixsFromLocation loc
+  in var (idFromLocation loc) $
      if null indexers
      then slotword
      else foldl (\a b -> keccak' (SymbolicBuffer (toBytes a <> (toSymBytes b)))) slotword indexers

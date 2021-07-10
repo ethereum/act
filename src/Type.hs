@@ -36,7 +36,7 @@ import RefinedAst
 typecheck :: [RawBehaviour] -> Err [Claim]
 typecheck behvs = do store <- lookupVars behvs
                      bs <- mapM (splitBehaviour store) behvs
-                     return $ (S store):(join bs)
+                     return $ S store : join bs
 
 --- Finds storage declarations from constructors
 lookupVars :: [RawBehaviour] -> Err Store
@@ -63,7 +63,7 @@ fromAssign (AssignStruct _ _) = error "TODO: assignstruct"
 duplicates :: Eq a => [a] -> [a]
 duplicates [] = []
 duplicates (x:xs) =
-  let e = ([x | x `elem` xs])
+  let e = [x | x `elem` xs]
   in e <> duplicates xs
 
 data Env = Env
@@ -135,8 +135,8 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
       cases' <- forM branches' $ \(Case _ cond post) -> do
         if' <- inferExpr env cond
         (post', ret) <- checkPost env post
-        return (if', post', ret)
-
+        return $ (if', post', ret)
+      
       pure $
         (\(ifcond, stateUpdates, ret)
             -> splitCase name contract iface [ifcond] iff ret stateUpdates postc)
@@ -178,10 +178,10 @@ splitCase name contract iface if' iffs ret storage postcs =
   [ B $ Behaviour name Pass contract iface (if' <> iffs) postcs storage ret,
     B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs)]) [] (Left . getLoc <$> storage) Nothing ]
 
--- | Ensures that no of the storage variables are read in the supplied `Expr`.
+-- | Ensures that none of the storage variables are read in the supplied `Expr`.
 noStorageRead :: Map Id SlotType -> Expr -> Err ()
 noStorageRead store expr = forM_ (keys store) $ \name ->
-  forM_ (findWithDefault [] name (getIds expr)) $ \pn ->
+  forM_ (findWithDefault [] name (idFromRewrites expr)) $ \pn ->
     Bad (pn,"Cannot read storage in creates block")
   
 -- ensures that key types match value types in an Assign

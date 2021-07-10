@@ -178,41 +178,41 @@ getPosn expr = case expr of
 
 -- | Returns all the identifiers used in an expression,
 -- as well all of the positions they're used in.
-getIds :: Expr -> Map Id [Pn]
-getIds e = case e of
-  EAnd _ a b        -> getIds' [a,b]
-  EOr _ a b         -> getIds' [a,b]
-  ENot _ a          -> getIds a
-  EImpl _ a b       -> getIds' [a,b]
-  EEq _ a b         -> getIds' [a,b]
-  ENeq _ a b        -> getIds' [a,b]
-  ELEQ _ a b        -> getIds' [a,b]
-  ELT _ a b         -> getIds' [a,b]
-  EGEQ _ a b        -> getIds' [a,b]
-  EGT _ a b         -> getIds' [a,b]
-  EAdd _ a b        -> getIds' [a,b]
-  ESub _ a b        -> getIds' [a,b]
-  EITE _ a b c      -> getIds' [a,b,c]
-  EMul _ a b        -> getIds' [a,b]
-  EDiv _ a b        -> getIds' [a,b]
-  EMod _ a b        -> getIds' [a,b]
-  EExp _ a b        -> getIds' [a,b]
-  Zoom _ a b        -> getIds' [a,b]
-  EUTEntry p x es   -> insertWith (<>) x [p] $ getIds' es
-  EPreEntry p x es  -> insertWith (<>) x [p] $ getIds' es
-  EPostEntry p x es -> insertWith (<>) x [p] $ getIds' es
-  Func _ _ es       -> getIds' es
-  ListConst a       -> getIds a
-  ECat _ a b        -> getIds' [a,b]
-  ESlice _ a b c    -> getIds' [a,b,c]
-  ENewaddr _ a b    -> getIds' [a,b]
-  ENewaddr2 _ a b c -> getIds' [a,b,c]
-  BYHash _ a        -> getIds a
-  BYAbiE _ a        -> getIds a
+idFromRewrites :: Expr -> Map Id [Pn]
+idFromRewrites e = case e of
+  EAnd _ a b        -> idFromRewrites' [a,b]
+  EOr _ a b         -> idFromRewrites' [a,b]
+  ENot _ a          -> idFromRewrites a
+  EImpl _ a b       -> idFromRewrites' [a,b]
+  EEq _ a b         -> idFromRewrites' [a,b]
+  ENeq _ a b        -> idFromRewrites' [a,b]
+  ELEQ _ a b        -> idFromRewrites' [a,b]
+  ELT _ a b         -> idFromRewrites' [a,b]
+  EGEQ _ a b        -> idFromRewrites' [a,b]
+  EGT _ a b         -> idFromRewrites' [a,b]
+  EAdd _ a b        -> idFromRewrites' [a,b]
+  ESub _ a b        -> idFromRewrites' [a,b]
+  EITE _ a b c      -> idFromRewrites' [a,b,c]
+  EMul _ a b        -> idFromRewrites' [a,b]
+  EDiv _ a b        -> idFromRewrites' [a,b]
+  EMod _ a b        -> idFromRewrites' [a,b]
+  EExp _ a b        -> idFromRewrites' [a,b]
+  Zoom _ a b        -> idFromRewrites' [a,b]
+  EUTEntry p x es   -> insertWith (<>) x [p] $ idFromRewrites' es
+  EPreEntry p x es  -> insertWith (<>) x [p] $ idFromRewrites' es
+  EPostEntry p x es -> insertWith (<>) x [p] $ idFromRewrites' es
+  Func _ _ es       -> idFromRewrites' es
+  ListConst a       -> idFromRewrites a
+  ECat _ a b        -> idFromRewrites' [a,b]
+  ESlice _ a b c    -> idFromRewrites' [a,b,c]
+  ENewaddr _ a b    -> idFromRewrites' [a,b]
+  ENewaddr2 _ a b c -> idFromRewrites' [a,b,c]
+  BYHash _ a        -> idFromRewrites a
+  BYAbiE _ a        -> idFromRewrites a
   StringLit {}      -> empty
   WildExp {}        -> empty
   EnvExp {}         -> empty
   IntLit {}         -> empty
   BoolLit {}        -> empty
   where
-    getIds' = unionsWith (<>) . fmap getIds
+    idFromRewrites' = unionsWith (<>) . fmap idFromRewrites

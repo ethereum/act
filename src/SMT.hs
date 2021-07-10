@@ -443,7 +443,7 @@ getStorageValue solver ifaceName whn loc = do
                 then withInterface ifaceName
                      $ select
                         (nameFromLoc whn loc)
-                        (fmap (setTyped whn) . NonEmpty.fromList $ getContainerIxs loc)
+                        (fmap (setTyped whn) . NonEmpty.fromList $ ixsFromLocation loc)
                 else nameFromLoc whn loc
   output <- getValue solver name
   -- TODO: handle errors here...
@@ -539,9 +539,9 @@ declareInitialStorage update = case mkLoc update of
   BoolLoc item -> mkItem item
   BytesLoc item -> mkItem item
   where
-    mkItem item = case getItemIxs item of
-      []       -> constant (nameFromItem Post item) (getItemType item)
-      (ix:ixs) -> array (nameFromItem Post item) (ix :| ixs) (getItemType item)
+    mkItem item = case ixsFromItem item of
+      []       -> constant (nameFromItem Post item) (itemType item)
+      (ix:ixs) -> array (nameFromItem Post item) (ix :| ixs) (itemType item)
 
 -- | encodes a storge update rewrite as an smt assertion
 encodeUpdate :: Id -> Either StorageLocation StorageUpdate -> SMT2
@@ -556,11 +556,11 @@ declareStorageLocation loc = case loc of
   BoolLoc item -> mkItem item
   BytesLoc item -> mkItem item
   where
-    mkItem item = case getItemIxs item of
-      []       -> [ constant (nameFromItem Pre item) (getItemType item)
-                  , constant (nameFromItem Post item) (getItemType item) ]
-      (ix:ixs) -> [ array (nameFromItem Pre item) (ix :| ixs) (getItemType item)
-                  , array (nameFromItem Post item) (ix :| ixs) (getItemType item) ]
+    mkItem item = case ixsFromItem item of
+      []       -> [ constant (nameFromItem Pre item) (itemType item)
+                  , constant (nameFromItem Post item) (itemType item) ]
+      (ix:ixs) -> [ array (nameFromItem Pre item) (ix :| ixs) (itemType item)
+                  , array (nameFromItem Post item) (ix :| ixs) (itemType item) ]
 
 -- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
@@ -641,7 +641,7 @@ expToSMT2 expr = case expr of
                         | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
 
     entry :: TStorageItem Timed a -> When -> Ctx SMT2
-    entry item whn = case getItemIxs item of
+    entry item whn = case ixsFromItem item of
       []       -> pure $ nameFromItem whn item
       (ix:ixs) -> select (nameFromItem whn item) (ix :| ixs)
 

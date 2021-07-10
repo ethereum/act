@@ -94,7 +94,7 @@ prettyTypedExp e = case e of
   ExpBytes e' -> prettyExp e'
 
 prettyItem :: TStorageItem t a -> String
-prettyItem item = getContract' item <> "." <> getId' item <> concatMap (brackets . prettyTypedExp) (getItemIxs item)
+prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
   where
     brackets str = "[" <> str <> "]"
 

@@ -79,8 +79,8 @@ kCalldata (Interface a args) =
   <> ")"
 
 kStorageName :: TStorageItem Timed a -> When -> String
-kStorageName item t = kMutable (getId' item) t
-                   <> intercalate "_" ("" : (kTypedExpr <$> getItemIxs item))
+kStorageName item t = kMutable (idFromItem item) t
+                   <> intercalate "_" ("" : (kTypedExpr <$> ixsFromItem item))
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> tail a
@@ -157,7 +157,7 @@ kStorageEntry storageLayout update =
   let (loc, offset) = kSlot update $
         fromMaybe
          (error "Internal error: storageVar not found, please report this error")
-         (Map.lookup (pack (getId update)) storageLayout)
+         (Map.lookup (pack (idFromRewrite update)) storageLayout)
   in case update of
        Right (IntUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
        Right (BoolUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
@@ -193,10 +193,10 @@ normalize pass entries = foldr (\a acc -> case a of
 kSlot :: Either StorageLocation StorageUpdate -> StorageItem -> (String, Int)
 kSlot update StorageItem{..} = case _type of
   (StorageValue _) -> (show _slot, _offset)
-  (StorageMapping _ _) -> if null (getIxs update) 
+  (StorageMapping _ _) -> if null (ixsFromRewrite update) 
     then error $ "internal error: kSlot. Please report: " <> show update
     else ( "#hashedLocation(\"Solidity\", "
-             <> show _slot <> ", " <> unwords (kTypedExpr . setTyped Pre <$> getIxs update) <> ")"
+             <> show _slot <> ", " <> unwords (kTypedExpr . setTyped Pre <$> ixsFromRewrite update) <> ")"
          , _offset )
 
 kAccount :: Bool -> Id -> SolcContract -> [Either StorageLocation StorageUpdate] -> String
@@ -303,14 +303,14 @@ mkTerm this accounts Behaviour{..} = (name, term)
                 <> "network" |- indent 2 ("\n"
                   <> "activeAccounts" |- "_"
                   <> "accounts" |- indent 2 ("\n" <> (unpack $
-                    Text.unlines (flip fmap (getContract <$> _stateUpdates) $ \a ->
+                    Text.unlines (flip fmap (contractFromRewrite <$> _stateUpdates) $ \a ->
                       pack $
                         kAccount pass a
                          (fromMaybe
                            (error $ show a ++ " not found in accounts: " ++ show accounts)
                            $ Map.lookup a accounts
                          )
-                         (filter (\u -> getContract u == a) _stateUpdates)
+                         (filter (\u -> contractFromRewrite u == a) _stateUpdates)
                          )))
                   <> "txOrder" |- "_"
                   <> "txPending" |- "_"

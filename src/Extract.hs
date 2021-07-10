@@ -113,7 +113,7 @@ ethEnvFromStateUpdate update = case update of
   Right (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
 
 ethEnvFromItem :: TStorageItem t a -> [EthEnv]
-ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . getItemIxs
+ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
 
 ethEnvFromTypedExp :: TypedExp t -> [EthEnv]
 ethEnvFromTypedExp (ExpInt e) = ethEnvFromExp e
@@ -186,73 +186,67 @@ nameFromStorage (Rewrite (PEntry _ x _) _) = x
 nameFromStorage (Constant (PEntry _ x _)) = x
 nameFromStorage store = error $ "Internal error: cannot extract name from " ++ show store
 
+idFromRewrite :: Either StorageLocation StorageUpdate -> Id
+idFromRewrite = either idFromLocation idFromUpdate
 
-getId :: Either StorageLocation StorageUpdate -> Id
-getId = either getLocationId getUpdateId
+idFromItem :: TStorageItem t a -> Id
+idFromItem (IntItem _ name _) = name
+idFromItem (BoolItem _ name _) = name
+idFromItem (BytesItem _ name _) = name
 
-getId' :: TStorageItem t a -> Id
-getId' (IntItem _ name _) = name
-getId' (BoolItem _ name _) = name
-getId' (BytesItem _ name _) = name
+idFromUpdate :: StorageUpdate -> Id
+idFromUpdate (IntUpdate   item _) = idFromItem item
+idFromUpdate (BoolUpdate  item _) = idFromItem item
+idFromUpdate (BytesUpdate item _) = idFromItem item
 
-getUpdateId :: StorageUpdate -> Id
-getUpdateId (IntUpdate   item _) = getId' item
-getUpdateId (BoolUpdate  item _) = getId' item
-getUpdateId (BytesUpdate item _) = getId' item
+idFromLocation :: StorageLocation -> Id
+idFromLocation (IntLoc   item) = idFromItem item
+idFromLocation (BoolLoc  item) = idFromItem item
+idFromLocation (BytesLoc item) = idFromItem item
 
-getLocationId :: StorageLocation -> Id
-getLocationId (IntLoc   item) = getId' item
-getLocationId (BoolLoc  item) = getId' item
-getLocationId (BytesLoc item) = getId' item
+contractFromRewrite :: Either StorageLocation StorageUpdate -> Id
+contractFromRewrite = either contractFromLoc contractFromUpdate
 
-getContract :: Either StorageLocation StorageUpdate -> Id
-getContract = either getLocationContract getUpdateContract
+contractFromItem :: TStorageItem t a -> Id
+contractFromItem (IntItem c _ _) = c
+contractFromItem (BoolItem c _ _) = c
+contractFromItem (BytesItem c _ _) = c
 
-getContract' :: TStorageItem t a -> Id
-getContract' (IntItem c _ _) = c
-getContract' (BoolItem c _ _) = c
-getContract' (BytesItem c _ _) = c
-
-getItemIxs :: TStorageItem t a -> [TypedExp t]
-getItemIxs (IntItem   _ _ ixs) = ixs
-getItemIxs (BoolItem  _ _ ixs) = ixs
-getItemIxs (BytesItem _ _ ixs) = ixs
+ixsFromItem :: TStorageItem t a -> [TypedExp t]
+ixsFromItem (IntItem   _ _ ixs) = ixs
+ixsFromItem (BoolItem  _ _ ixs) = ixs
+ixsFromItem (BytesItem _ _ ixs) = ixs
 
 contractsInvolved :: Behaviour -> [Id]
-contractsInvolved = fmap getContract . _stateUpdates
+contractsInvolved = fmap contractFromRewrite . _stateUpdates
 
-getLocationContract :: StorageLocation -> Id
-getLocationContract (IntLoc item) = getContract' item
-getLocationContract (BoolLoc item) = getContract' item
-getLocationContract (BytesLoc item) = getContract' item
+contractFromLoc :: StorageLocation -> Id
+contractFromLoc (IntLoc item) = contractFromItem item
+contractFromLoc (BoolLoc item) = contractFromItem item
+contractFromLoc (BytesLoc item) = contractFromItem item
 
-getUpdateContract :: StorageUpdate -> Id
-getUpdateContract (IntUpdate item _) = getContract' item
-getUpdateContract (BoolUpdate item _) = getContract' item
-getUpdateContract (BytesUpdate item _) = getContract' item
+contractFromUpdate :: StorageUpdate -> Id
+contractFromUpdate (IntUpdate item _) = contractFromItem item
+contractFromUpdate (BoolUpdate item _) = contractFromItem item
+contractFromUpdate (BytesUpdate item _) = contractFromItem item
 
-getContainerId :: StorageLocation -> Id
-getContainerId (IntLoc item) = getId' item
-getContainerId (BoolLoc item) = getId' item
-getContainerId (BytesLoc item) = getId' item
+ixsFromLocation :: StorageLocation -> [TypedExp Untimed]
+ixsFromLocation (IntLoc item) = ixsFromItem item
+ixsFromLocation (BoolLoc item) = ixsFromItem item
+ixsFromLocation (BytesLoc item) = ixsFromItem item
 
-getContainerIxs :: StorageLocation -> [TypedExp Untimed]
-getContainerIxs (IntLoc item) = getItemIxs item
-getContainerIxs (BoolLoc item) = getItemIxs item
-getContainerIxs (BytesLoc item) = getItemIxs item
+ixsFromUpdate :: StorageUpdate -> [TypedExp Untimed]
+ixsFromUpdate (IntUpdate item _) = ixsFromItem item
+ixsFromUpdate (BoolUpdate item _) = ixsFromItem item
+ixsFromUpdate (BytesUpdate item _) = ixsFromItem item
 
-getUpdateIxs :: StorageUpdate -> [TypedExp Untimed]
-getUpdateIxs (IntUpdate item _) = getItemIxs item
-getUpdateIxs (BoolUpdate item _) = getItemIxs item
-getUpdateIxs (BytesUpdate item _) = getItemIxs item
+ixsFromRewrite :: Either StorageLocation StorageUpdate -> [TypedExp Untimed]
+ixsFromRewrite = either ixsFromLocation ixsFromUpdate
 
-getIxs :: Either StorageLocation StorageUpdate -> [TypedExp Untimed]
-getIxs = either getContainerIxs getUpdateIxs
-
-getItemType :: TStorageItem t a -> MType
-getItemType IntItem{}   = Integer
-getItemType BoolItem{}  = Boolean
-getItemType BytesItem{} = ByteStr
+itemType :: TStorageItem t a -> MType
+itemType IntItem{}   = Integer
+itemType BoolItem{}  = Boolean
+itemType BytesItem{} = ByteStr
 
 isMapping :: StorageLocation -> Bool
-isMapping = not . null . getContainerIxs
+isMapping = not . null . ixsFromLocation

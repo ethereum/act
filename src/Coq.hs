@@ -164,13 +164,13 @@ stateval store handler updates = T.unwords (stateConstructor : fmap (valuefor up
   valuefor updates' (name, t) =
     case find (eqName name) updates' of
       Nothing -> parens $ handler name t
-      Just (IntUpdate  item e) -> lambda (getItemIxs item) 0 e (getId' item)
-      Just (BoolUpdate item e) -> lambda (getItemIxs item) 0 e (getId' item)
+      Just (IntUpdate  item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
+      Just (BoolUpdate item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
       Just (BytesUpdate _ _) -> error "bytestrings not supported"
 
 -- | filter by name
 eqName :: Id -> StorageUpdate -> Bool
-eqName n update = n == getUpdateId update
+eqName n update = n == idFromUpdate update
 
 -- represent mapping update with anonymous function
 lambda :: [TypedExp t] -> Int -> Exp t a -> Id -> T.Text
@@ -311,10 +311,10 @@ mutableVar a Neither  = T.pack a
 mutableVar a w        = T.pack $ a <> "_" <> show w
 
 entry :: TStorageItem t a -> Time t -> T.Text
-entry item t | getItemType item == ByteStr = error "bytestrings not supported"
-             | otherwise = case getItemIxs item of
-                            []       -> parens $ mutableVar (getId' item) t <> " " <> stateVar
-                            (ix:ixs) -> parens $ mutableVar (getId' item) t <> " s " <> coqargs (ix :| ixs)
+entry item t | itemType item == ByteStr = error "bytestrings not supported"
+             | otherwise = case ixsFromItem item of
+                            []       -> parens $ mutableVar (idFromItem item) t <> " " <> stateVar
+                            (ix:ixs) -> parens $ mutableVar (idFromItem item) t <> " s " <> coqargs (ix :| ixs)
 
 -- | coq syntax for a list of arguments
 coqargs :: NonEmpty (TypedExp t) -> T.Text
