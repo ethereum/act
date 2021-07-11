@@ -338,6 +338,13 @@ checkExpr env e typ = case metaType typ of
   Boolean -> ExpBool <$> inferExpr env e
   ByteStr -> ExpBytes <$> inferExpr env e
 
+-- | Attempt to typecheck an untyped expression as any possible type.
+typedExp :: Env -> Expr -> Err (TypedExp Timed)
+typedExp env e = ExpInt   <$> inferExpr env e
+             <|> ExpBool  <$> inferExpr env e
+             <|> ExpBytes <$> inferExpr env e
+             <|> Bad (getPosn e, "TypedExp: no suitable type") -- TODO improve error handling once we've merged the unified stuff!
+
 -- | Attempts to construct an expression with the type and timing required by
 -- the caller. If this is impossible, an error is thrown instead.
 inferExpr :: forall a t. (Typeable a, Typeable t) => Env -> Expr -> Err (Exp t a)
@@ -428,13 +435,6 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
               check pn
                 $ errMessage (pn, (tail . show $ typeRep @t) <> " variable needed here!")
                 $ gcast0 (TEntry (maker contract name ixs) timing)
-
--- | Attempt to typecheck an untyped expression as any possible type.
-typedExp :: Env -> Expr -> Err (TypedExp Timed)
-typedExp env e = ExpInt   <$> inferExpr env e
-             <|> ExpBool  <$> inferExpr env e
-             <|> ExpBytes <$> inferExpr env e
-             <|> Bad (getPosn e, "TypedExp: no suitable type") -- TODO improve error handling once we've merged the unified stuff!
 
 -- | Analogous to `gcast1` and `gcast2` from `Data.Typeable`. We *could* technically use `cast` instead
 -- but then we would catch too many errors at once, so we couldn't emit informative error messages.
