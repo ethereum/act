@@ -339,7 +339,7 @@ checkExpr env e typ = case metaType typ of
   ByteStr -> ExpBytes <$> inferExpr env e
 
 -- | Attempt to typecheck an untyped expression as any possible type.
-typedExp :: Env -> Expr -> Err (TypedExp t)
+typedExp :: Typeable t => Env -> Expr -> Err (TypedExp t)
 typedExp env e = ExpInt   <$> inferExpr env e
              <|> ExpBool  <$> inferExpr env e
              <|> ExpBytes <$> inferExpr env e
