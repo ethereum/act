@@ -165,7 +165,7 @@ mkPostconditionQueries :: Claim -> [Query]
 mkPostconditionQueries (B behv@(Behaviour _ Pass _ (Interface ifaceName decls) preconds postconds stateUpdates _)) = mkQuery <$> postconds
   where
     -- declare vars
-    storage = concatMap (declareStorageLocation . getLoc) stateUpdates
+    storage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
 
@@ -184,7 +184,7 @@ mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName d
   where
     -- declare vars
     localStorage = declareInitialStorage <$> initialStorage
-    externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
+    externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
 
@@ -236,7 +236,7 @@ mkInvariantQueries claims = fmap mkQuery gathered
       where
         -- declare vars
         localStorage = declareInitialStorage <$> initialStorage
-        externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
+        externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
         args = declareArg ifaceName <$> decls
         envs = declareEthEnv <$> ethEnvFromConstructor ctor
 
@@ -259,14 +259,14 @@ mkInvariantQueries claims = fmap mkQuery gathered
         (Interface ctorIface ctorDecls) = _cinterface ctor
         (Interface behvIface behvDecls) = _interface behv
         -- storage locs mentioned in the invariant but not in the behaviour
-        implicitLocs = Left <$> (locsFromExp invExp \\ (getLoc <$> _stateUpdates behv))
+        implicitLocs = Left <$> (locsFromExp invExp \\ (locFromRewrite <$> _stateUpdates behv))
 
         -- declare vars
         invEnv = declareEthEnv <$> ethEnvFromExp invExp
         behvEnv = declareEthEnv <$> ethEnvFromBehaviour behv
         initArgs = declareArg ctorIface <$> ctorDecls
         behvArgs = declareArg behvIface <$> behvDecls
-        storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv <> implicitLocs)
+        storage = concatMap (declareStorageLocation . locFromRewrite) (_stateUpdates behv <> implicitLocs)
 
         -- constraints
         preInv = mkAssert ctorIface $ invExp `as` Pre
@@ -534,7 +534,7 @@ encodeInitialStorage behvName update = case update of
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
 declareInitialStorage :: StorageUpdate -> SMT2
-declareInitialStorage update = case mkLoc update of
+declareInitialStorage update = case locFromUpdate update of
   IntLoc item -> mkItem item
   BoolLoc item -> mkItem item
   BytesLoc item -> mkItem item

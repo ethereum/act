@@ -122,7 +122,7 @@ checkPostStorage ctx (Behaviour _ _ _ _ _ _ updates _) pre post contractMap solc
               (Symbolic _ pre', Symbolic _ post') ->
                let
                  insertions = rights $ filter (\a -> addr == get (contractFromRewrite a) contractMap) updates
-                 slot update' = let S _ w = calculateSlot ctx solcjson (mkLoc update')
+                 slot update' = let S _ w = calculateSlot ctx solcjson (locFromUpdate update')
                                in w
                  insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
                  insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx $ e `as` Pre
@@ -200,7 +200,7 @@ makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
 -- | Locate the variables refered to in the act-spec in the vm
 locateStorage :: Ctx -> SolcJson -> Map Id Addr -> Method -> (VM,VM) -> Either StorageLocation StorageUpdate -> (Id, (SMType, SMType))
 locateStorage ctx solcjson contractMap method (pre, post) item =
-  let item' = getLoc item
+  let item' = locFromRewrite item
       addr = get (contractFromRewrite item) contractMap
 
       Just preContract = view (env . contracts . at addr) pre

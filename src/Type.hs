@@ -176,7 +176,7 @@ splitCase name contract iface if' [] ret storage postcs =
   [ B $ Behaviour name Pass contract iface if' postcs storage ret ]
 splitCase name contract iface if' iffs ret storage postcs =
   [ B $ Behaviour name Pass contract iface (if' <> iffs) postcs storage ret,
-    B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs)]) [] (Left . getLoc <$> storage) Nothing ]
+    B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs)]) [] (Left . locFromRewrite <$> storage) Nothing ]
 
 -- | Ensures that none of the storage variables are read in the supplied `Expr`.
 noStorageRead :: Map Id SlotType -> Expr -> Err ()

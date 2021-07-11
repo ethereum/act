@@ -13,18 +13,18 @@ locsFromBehaviour :: Behaviour -> [StorageLocation]
 locsFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
   concatMap locsFromExp preconds
   <> concatMap locsFromExp postconds
-  <> concatMap locsFromStateUpdate stateUpdates
+  <> concatMap locsFromRewrite stateUpdates
   <> maybe [] locsFromTypedExp returns
 
 locsFromConstructor :: Constructor -> [StorageLocation]
 locsFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = nub $
   concatMap locsFromExp pre
   <> concatMap locsFromExp post
-  <> concatMap locsFromStateUpdate stateUpdates
-  <> concatMap locsFromStateUpdate (Right <$> initialStorage)
+  <> concatMap locsFromRewrite stateUpdates
+  <> concatMap locsFromRewrite (Right <$> initialStorage)
 
-locsFromStateUpdate :: Either StorageLocation StorageUpdate -> [StorageLocation]
-locsFromStateUpdate update = nub $ case update of
+locsFromRewrite :: Either StorageLocation StorageUpdate -> [StorageLocation]
+locsFromRewrite update = nub $ case update of
   Left loc -> [loc]
   Right (IntUpdate item e) -> IntLoc item : locsFromExp e
   Right (BoolUpdate item e) -> BoolLoc item : locsFromExp e
@@ -160,13 +160,13 @@ ethEnvFromExp = nub . go
       ByEnv a -> [a]
       TEntry a _ -> ethEnvFromItem a
 
-getLoc :: Either StorageLocation StorageUpdate -> StorageLocation
-getLoc = either id mkLoc
+locFromRewrite :: Either StorageLocation StorageUpdate -> StorageLocation
+locFromRewrite = either id locFromUpdate
 
-mkLoc :: StorageUpdate -> StorageLocation
-mkLoc (IntUpdate item _) = IntLoc item
-mkLoc (BoolUpdate item _) = BoolLoc item
-mkLoc (BytesUpdate item _) = BytesLoc item
+locFromUpdate :: StorageUpdate -> StorageLocation
+locFromUpdate (IntUpdate item _) = IntLoc item
+locFromUpdate (BoolUpdate item _) = BoolLoc item
+locFromUpdate (BytesUpdate item _) = BytesLoc item
 
 metaType :: AbiType -> MType
 metaType (AbiUIntType _)     = Integer
