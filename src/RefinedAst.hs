@@ -306,7 +306,7 @@ isTimed _       = True
 -- | If the supplied time is `Pre`, this returns `pre(input)` (and analogously for `Post`).
 -- Otherwise returns the untouched `String`.
 timeParens :: Time t -> String -> String
-timeParens t s | isTimed t = toLower <$> show t <> "(" <> s <> ")"
+timeParens t s | isTimed t = fmap toLower (show t) <> "(" <> s <> ")"
                | otherwise = s
 
 -- | Types that are parametrized on a `Timing` and a normal type.
