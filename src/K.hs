@@ -79,14 +79,11 @@ kCalldata (Interface a args) =
   <> ")"
 
 kStorageName :: TStorageItem Timed a -> When -> String
-kStorageName item t = kMutable (idFromItem item) t
-                   <> intercalate "_" ("" : (kTypedExpr <$> ixsFromItem item))
+kStorageName item t = kVar (idFromItem item) <> "-" <> show t
+                   <> intercalate "_" ("" : fmap kTypedExpr (ixsFromItem item))
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> tail a
-
-kMutable :: Id -> When -> String
-kMutable a t = kVar a <> "-" <> show t
 
 kAbiEncode :: Maybe (TypedExp Timed) -> String
 kAbiEncode Nothing = ".ByteArray"
@@ -306,12 +303,12 @@ mkTerm this accounts Behaviour{..} = (name, term)
                     Text.unlines (flip fmap (contractFromRewrite <$> _stateUpdates) $ \a ->
                       pack $
                         kAccount pass a
-                         (fromMaybe
-                           (error $ show a ++ " not found in accounts: " ++ show accounts)
-                           $ Map.lookup a accounts
-                         )
-                         (filter (\u -> contractFromRewrite u == a) _stateUpdates)
-                         )))
+                          (fromMaybe
+                            (error $ show a ++ " not found in accounts: " ++ show accounts)
+                            $ Map.lookup a accounts
+                          )
+                          (filter (\u -> contractFromRewrite u == a) _stateUpdates)
+                          )))
                   <> "txOrder" |- "_"
                   <> "txPending" |- "_"
                   <> "messages" |- "_"

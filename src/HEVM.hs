@@ -125,7 +125,7 @@ checkPostStorage ctx (Behaviour _ _ _ _ _ _ updates _) pre post contractMap solc
                  slot update' = let S _ w = calculateSlot ctx solcjson (mkLoc update')
                                in w
                  insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
-                 insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx (e `as` Pre)
+                 insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx $ e `as` Pre
                  insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ ite (symExpBool ctx $ e `as` Pre) 1 0
                  insertUpdate _ _ = error "bytes unsupported"
                in post' .== foldl insertUpdate pre' insertions
@@ -210,7 +210,7 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
       Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item')
 
       name :: StorageLocation -> Id
-      name (IntLoc   i) = nameFromItem method (i `as` Pre) Pre -- I think this `Pre` is correct for these..?
+      name (IntLoc   i) = nameFromItem method (i `as` Pre) Pre -- I think these `Pre` are correct..?
       name (BoolLoc  i) = nameFromItem method (i `as` Pre) Pre -- The tests pass at least!
       name (BytesLoc i) = nameFromItem method (i `as` Pre) Pre
 
@@ -228,7 +228,7 @@ calculateSlot ctx solcjson loc =
   in var (idFromLocation loc) $
      if null indexers
      then slotword
-     else foldl (\a b -> keccak' (SymbolicBuffer (toBytes a <> (toSymBytes b)))) slotword indexers
+     else foldl (\a b -> keccak' . SymbolicBuffer $ toBytes a <> toSymBytes b) slotword indexers
 
 
 locateCalldata :: Behaviour -> [Decl] -> Buffer -> Decl -> (Id, SMType)
@@ -239,10 +239,10 @@ locateCalldata b decls calldata' d@(Decl typ name) =
 
   where
     -- every argument is static right now; length is always 32
-    offset = w256 $ fromIntegral $ 4 + 32 * (fromMaybe
-       (error ("internal error: could not find calldata var: " ++
-        name ++ " in interface declaration"))
-        (elemIndex d decls))
+    offset = w256 . fromIntegral $ 4 + 32 * fromMaybe
+          (error ("internal error: could not find calldata var: "
+              ++ name ++ " in interface declaration"))
+          (elemIndex d decls)
 
     val = case metaType typ of
       -- all integers are 32 bytes

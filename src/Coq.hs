@@ -158,7 +158,7 @@ stateval
   -> (Id -> SlotType -> T.Text)
   -> [StorageUpdate]
   -> T.Text
-stateval store handler updates = T.unwords (stateConstructor : fmap (valuefor updates) (M.toList store))
+stateval store handler updates = T.unwords $ stateConstructor : fmap (valuefor updates) (M.toList store)
   where
   valuefor :: [StorageUpdate] -> (Id, SlotType) -> T.Text
   valuefor updates' (name, t) =
@@ -339,7 +339,7 @@ definition name args value = T.unlines
 inductive :: T.Text -> T.Text -> T.Text -> [T.Text] -> T.Text
 inductive name args indices constructors = T.unlines
   [ "Inductive " <> name <> " " <> args <> " : " <> indices <> " :="
-  , T.unlines (("| " <>) <$> constructors)
+  , T.unlines $ ("| " <>) <$> constructors
   , "."
   ]
 
@@ -352,7 +352,7 @@ parens :: T.Text -> T.Text
 parens s = "(" <> s <> ")"
 
 indent :: Int -> T.Text -> T.Text
-indent n text = T.unlines $ ((T.replicate n " ") <>) <$> (T.lines text)
+indent n = T.unlines . fmap (T.replicate n " " <>) . T.lines
 
 --- constants ---
 

@@ -111,10 +111,10 @@ data StorageLocation
   deriving (Show, Eq)
 
 -- | References to items in storage, either as a map lookup or as a reading of
--- a simple variable. The third argument is a list of indices; it is empty iff
--- the item is referenced as a simple variable. The type is parametrized on a
+-- a simple variable. The third argument is a list of indices; it has entries iff
+-- the item is referenced as a map lookup. The type is parametrized on a
 -- timing `t` and a type `a`. `t` can be either `Timed` or `Untimed` and
--- indicate whether any indices that reference items in storage explicitly
+-- indicates whether any indices that reference items in storage explicitly
 -- refer to the pre-/post-state, or not. `a` is the type of the item that is
 -- referenced.
 data TStorageItem (t :: Timing) (a :: *) where
