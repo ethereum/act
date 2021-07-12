@@ -66,11 +66,12 @@ duplicates (x:xs) =
   let e = [x | x `elem` xs]
   in e <> duplicates xs
 
+-- | The type checking environment. 
 data Env = Env
-  { contract :: Id
-  , store    :: Map Id SlotType
-  , theirs   :: Store
-  , calldata :: Map Id MType
+  { contract :: Id              -- ^ The name of the current contract.
+  , store    :: Map Id SlotType -- ^ This contract's storage entry names and their types.
+  , theirs   :: Store           -- ^ Mapping from contract names to a map of their entry names and their types.
+  , calldata :: Map Id MType    -- ^ The calldata var names and their types.
   }
 
 -- typing of eth env variables
