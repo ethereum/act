@@ -366,7 +366,7 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
   EExp    p v1 v2 -> check p $ Exp  <$> inferExpr env v1 <*> inferExpr env v2
   IntLit  p v1    -> check p . pure $ LitInt v1
   BoolLit p v1    -> check p . pure $ LitBool v1
-  EITE    _ v1 v2 v3   -> ITE <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
+  EITE    _ v1 v2 v3 -> ITE <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
   EUTEntry   p name es -> entry p Neither name es
   EPreEntry  p name es -> entry p Pre     name es
   EPostEntry p name es -> entry p Post    name es
