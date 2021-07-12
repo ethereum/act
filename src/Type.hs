@@ -407,7 +407,7 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
     entry :: Typeable t0 => Pn -> Time t0 -> Id -> [Expr] -> Err (Exp t a)
     entry pn timing name es = case (Map.lookup name store, Map.lookup name calldata) of
       (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
-      (Just _, Just _)   -> Bad (pn, "Ambiguous variable: " <> name)   
+      (Just _, Just _)   -> Bad (pn, "Ambiguous variable: " <> name)
       (Nothing, Just c) -> if isTimed timing then Bad (pn, "Calldata var cannot be pre/post.") else case c of
         -- Create a calldata reference and typecheck it as with normal expressions.
         Integer -> check pn . pure $ IntVar  name
