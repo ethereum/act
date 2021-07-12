@@ -183,7 +183,6 @@ noStorageRead :: Map Id SlotType -> Expr -> Err ()
 noStorageRead store expr = forM_ (keys store) $ \name ->
   forM_ (findWithDefault [] name (idFromRewrites expr)) $ \pn ->
     Bad (pn,"Cannot read storage in creates block")
-  
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
 checkAssign env@Env{contract, store} (AssignVal (StorageVar (StorageValue typ) name) expr) = do
