@@ -137,7 +137,6 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
         if' <- inferExpr env cond
         (post', ret) <- checkPost env post
         return (if', post', ret)
-      
       pure $
         (\(ifcond, stateUpdates, ret)
             -> splitCase name contract iface [ifcond] iff ret stateUpdates postc)
