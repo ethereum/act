@@ -2,6 +2,8 @@
 
 module Enrich (enrich, mkStorageBounds) where
 
+import Debug.Trace
+
 import Data.Maybe
 import Data.List (nub)
 import qualified Data.Map.Strict as Map (lookup)
@@ -13,6 +15,7 @@ import RefinedAst
 import Type (bound, defaultStore)
 import Syntax (EthEnv(..), Id, Decl(..), Interface(..))
 import Extract
+import Print
 
 -- | Adds extra preconditions to non constructor behaviours based on the types of their variables
 enrich :: [Claim] -> [Claim]
@@ -36,16 +39,19 @@ enrichConstructor store ctor@(Constructor _ _ (Interface _ decls) pre _ _ storag
              <> mkCallDataBounds decls
              <> mkStorageBounds store storageUpdates
              <> mkEthEnvBounds (ethEnvFromConstructor ctor)
+             <> mkEthEnvAssumptions (ethEnvFromConstructor ctor)
 
 -- | Adds type bounds for calldata, environment vars, and storage vars as preconditions
 enrichBehaviour :: Store -> Behaviour -> Behaviour
 enrichBehaviour store behv@(Behaviour _ _ _ (Interface _ decls) pre _ stateUpdates _) =
-  behv { _preconditions = pre' }
+  behv { _preconditions = pre'' }
     where
+      pre'' = trace (show $ fmap prettyExp pre') pre'
       pre' = pre
              <> mkCallDataBounds decls
              <> mkStorageBounds store stateUpdates
              <> mkEthEnvBounds (ethEnvFromBehaviour behv)
+             <> mkEthEnvAssumptions (ethEnvFromBehaviour behv)
 
 -- | Adds type bounds for calldata, environment vars, and storage vars
 enrichInvariant :: Store -> Constructor -> Invariant -> Invariant
@@ -55,6 +61,7 @@ enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invaria
       preconds' = preconds
                   <> mkCallDataBounds decls
                   <> mkEthEnvBounds (ethEnvFromExp predicate)
+                  <> mkEthEnvAssumptions (ethEnvFromExp predicate)
       storagebounds' = storagebounds
                        <> mkStorageBounds store (Left <$> locsFromExp predicate)
 
@@ -81,6 +88,14 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
       Timestamp -> AbiUIntType 256
       This -> AbiAddressType
       Nonce -> AbiUIntType 256
+
+-- | we assume certain facts about some environment variables
+mkEthEnvAssumptions :: [EthEnv] -> [Exp Bool]
+mkEthEnvAssumptions vars = concatMap mkAssumptions (nub vars)
+  where
+    mkAssumptions :: EthEnv -> [Exp Bool]
+    mkAssumptions Caller = [ NEq (IntEnv Caller) (LitInt 0) ]
+    mkAssumptions _ = []
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
 mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Bool]

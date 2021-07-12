@@ -1,15 +1,16 @@
 {
     "dapptools": {
-        "branch": "fix-storage-layout-parsing",
+        "branch": "act",
         "description": "Dapp, Seth, Hevm, and more",
         "homepage": "https://dapp.tools",
         "owner": "dapphub",
         "repo": "dapptools",
-        "rev": "147813262941b925171a6393b1545c5c24dbb04a",
-        "sha256": "06lr2np3vizxj0gfybjzzkjb4nm059dxgwjn683vb1hhs5c63yj8",
+        "rev": "df6d61548df1f17a5f1387dd6a4d46bc76643a00",
+        "sha256": "1w86g8ar5ir7jbr2j6rnynik4zgrgs1a9pc3ik7gpnhlpjskd5mm",
         "type": "tarball",
-        "url": "https://github.com/dapphub/dapptools/archive/147813262941b925171a6393b1545c5c24dbb04a.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+        "url": "https://github.com/dapphub/dapptools/archive/df6d61548df1f17a5f1387dd6a4d46bc76643a00.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz",
+        "version": "act"
     },
     "nixpkgs": {
         "branch": "21.05",
