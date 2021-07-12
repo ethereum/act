@@ -348,27 +348,27 @@ typedExp env e = ExpInt   <$> inferExpr env e
 -- the caller. If this is impossible, an error is thrown instead.
 inferExpr :: forall a t. (Typeable a, Typeable t) => Env -> Expr -> Err (Exp t a)
 inferExpr env@Env{contract,store,calldata} expr = case expr of
-  ENot p  v1       -> check p $ Neg  <$> inferExpr env v1
-  EAnd p  v1 v2    -> check p $ And  <$> inferExpr env v1 <*> inferExpr env v2
-  EOr p   v1 v2    -> check p $ Or   <$> inferExpr env v1 <*> inferExpr env v2
-  EImpl p v1 v2    -> check p $ Impl <$> inferExpr env v1 <*> inferExpr env v2
-  EEq p   v1 v2    -> polycheck p Eq v1 v2
-  ENeq p  v1 v2    -> polycheck p NEq v1 v2
-  ELT p   v1 v2    -> check p $ LE   <$> inferExpr env v1 <*> inferExpr env v2
-  ELEQ p  v1 v2    -> check p $ LEQ  <$> inferExpr env v1 <*> inferExpr env v2
-  EGEQ p  v1 v2    -> check p $ GEQ  <$> inferExpr env v1 <*> inferExpr env v2
-  EGT p   v1 v2    -> check p $ GE   <$> inferExpr env v1 <*> inferExpr env v2
-  EITE _  v1 v2 v3 -> ITE <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
-  EAdd p  v1 v2    -> check p $ Add  <$> inferExpr env v1 <*> inferExpr env v2
-  ESub p  v1 v2    -> check p $ Sub  <$> inferExpr env v1 <*> inferExpr env v2
-  EMul p  v1 v2    -> check p $ Mul  <$> inferExpr env v1 <*> inferExpr env v2
-  EDiv p  v1 v2    -> check p $ Div  <$> inferExpr env v1 <*> inferExpr env v2
-  EMod p  v1 v2    -> check p $ Mod  <$> inferExpr env v1 <*> inferExpr env v2
-  EExp p  v1 v2    -> check p $ Exp  <$> inferExpr env v1 <*> inferExpr env v2
-  IntLit p     n   -> check p . pure $ LitInt n
-  BoolLit p    n   -> check p . pure $ LitBool n
-  EUTEntry p   name es -> entry p Neither name es
-  EPreEntry p  name es -> entry p Pre     name es
+  ENot    p v1    -> check p $ Neg  <$> inferExpr env v1
+  EAnd    p v1 v2 -> check p $ And  <$> inferExpr env v1 <*> inferExpr env v2
+  EOr     p v1 v2 -> check p $ Or   <$> inferExpr env v1 <*> inferExpr env v2
+  EImpl   p v1 v2 -> check p $ Impl <$> inferExpr env v1 <*> inferExpr env v2
+  EEq     p v1 v2 -> polycheck p Eq v1 v2
+  ENeq    p v1 v2 -> polycheck p NEq v1 v2
+  ELT     p v1 v2 -> check p $ LE   <$> inferExpr env v1 <*> inferExpr env v2
+  ELEQ    p v1 v2 -> check p $ LEQ  <$> inferExpr env v1 <*> inferExpr env v2
+  EGEQ    p v1 v2 -> check p $ GEQ  <$> inferExpr env v1 <*> inferExpr env v2
+  EGT     p v1 v2 -> check p $ GE   <$> inferExpr env v1 <*> inferExpr env v2
+  EAdd    p v1 v2 -> check p $ Add  <$> inferExpr env v1 <*> inferExpr env v2
+  ESub    p v1 v2 -> check p $ Sub  <$> inferExpr env v1 <*> inferExpr env v2
+  EMul    p v1 v2 -> check p $ Mul  <$> inferExpr env v1 <*> inferExpr env v2
+  EDiv    p v1 v2 -> check p $ Div  <$> inferExpr env v1 <*> inferExpr env v2
+  EMod    p v1 v2 -> check p $ Mod  <$> inferExpr env v1 <*> inferExpr env v2
+  EExp    p v1 v2 -> check p $ Exp  <$> inferExpr env v1 <*> inferExpr env v2
+  IntLit  p v1    -> check p . pure $ LitInt v1
+  BoolLit p v1    -> check p . pure $ LitBool v1
+  EITE    _ v1 v2 v3   -> ITE <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
+  EUTEntry   p name es -> entry p Neither name es
+  EPreEntry  p name es -> entry p Pre     name es
   EPostEntry p name es -> entry p Post    name es
   EnvExp p v1 -> case lookup v1 defaultStore of
     Just Integer -> check p . pure $ IntEnv v1
