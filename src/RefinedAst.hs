@@ -134,7 +134,7 @@ deriving instance Eq (TStorageItem t a)
 -- It is recommended that backends always input `Exp Timed a` to their codegens (or `Exp Untimed a`
 -- if postconditions and return values are irrelevant), as this makes it easier to generate
 -- consistent variable names. `Untimed` expressions can be given a specific timing using `as`,
--- e.g. `expr \`as\` Pre`.
+-- e.g. ``expr `as` Pre``.
 data Exp (t :: Timing) (a :: *) where
   -- booleans
   And  :: Exp t Bool -> Exp t Bool -> Exp t Bool
@@ -325,7 +325,7 @@ class Timeable c where
   setPost = forceTime Post
 
   -- | This is `setTime` with the arguments flipped.
-  -- Allows writing e.g. "c `as` Pre".
+  -- Allows writing e.g. ``c `as` Pre``.
   as :: c Untimed a -> When -> c Timed a
   as = flip forceTime
 
