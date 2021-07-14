@@ -413,7 +413,6 @@ nameFromExp c m e = case e of
   BoolVar a -> nameFromArg c m a
   Eq a b    -> nameFromExp c m a <> "=="  <> nameFromExp c m b
   NEq a b   -> nameFromExp c m a <> "=/=" <> nameFromExp c m b
-  
   Cat a b -> nameFromExp c m a <> "++" <> nameFromExp c m b
   ByVar a  -> nameFromArg c m a
   ByStr a -> show a
