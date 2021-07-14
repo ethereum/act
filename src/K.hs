@@ -8,7 +8,6 @@
 
 module K where
 
-import Syntax hiding (Post)
 import RefinedAst
 import Extract
 import ErrM
@@ -149,17 +148,17 @@ snd' (_, y, _) = y
 trd' :: (a, b, c) -> c
 trd' (_, _, z) = z
 
-kStorageEntry :: Map Text StorageItem -> Either StorageLocation StorageUpdate -> (String, (Int, String, String))
+kStorageEntry :: Map Text StorageItem -> Rewrite -> (String, (Int, String, String))
 kStorageEntry storageLayout update =
   let (loc, offset) = kSlot update $
         fromMaybe
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (idFromRewrite update)) storageLayout)
   in case update of
-       Right (IntUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
-       Right (BoolUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
-       Right (BytesUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
-       Left (IntLoc a) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kStorageName (a `as` Pre) Pre))
+       Rewrite (IntUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
+       Rewrite (BoolUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
+       Rewrite (BytesUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
+       Constant (IntLoc a) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kStorageName (a `as` Pre) Pre))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
 
 --packs entries packed in one slot
@@ -187,7 +186,7 @@ normalize pass entries = foldr (\a acc -> case a of
         showSList :: [String] -> String
         showSList = unwords
 
-kSlot :: Either StorageLocation StorageUpdate -> StorageItem -> (String, Int)
+kSlot :: Rewrite -> StorageItem -> (String, Int)
 kSlot update StorageItem{..} = case _type of
   (StorageValue _) -> (show _slot, _offset)
   (StorageMapping _ _) -> if null (ixsFromRewrite update) 
@@ -196,7 +195,7 @@ kSlot update StorageItem{..} = case _type of
              <> show _slot <> ", " <> unwords (kTypedExpr . setTyped Pre <$> ixsFromRewrite update) <> ")"
          , _offset )
 
-kAccount :: Bool -> Id -> SolcContract -> [Either StorageLocation StorageUpdate] -> String
+kAccount :: Bool -> Id -> SolcContract -> [Rewrite] -> String
 kAccount pass name source updates =
   "account" |- ("\n"
    <> "acctID" |- kVar name

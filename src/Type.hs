@@ -26,7 +26,7 @@ import Control.Applicative
 import Data.Traversable (for)
 import Control.Monad
 
-import Syntax hiding (Storage,Post)
+import Syntax hiding (Storage,Post,Constant,Rewrite)
 import qualified Syntax
 import ErrM
 import Parse
@@ -171,12 +171,12 @@ mkEnv contract store decls = Env
 
 -- | split case into pass and fail case
 splitCase :: Id -> Id -> Interface -> [Exp Untimed Bool] -> [Exp Untimed Bool] -> Maybe (TypedExp Timed)
-          -> [Either StorageLocation StorageUpdate] -> [Exp Timed Bool] -> [Claim]
+          -> [Rewrite] -> [Exp Timed Bool] -> [Claim]
 splitCase name contract iface if' [] ret storage postcs =
   [ B $ Behaviour name Pass contract iface if' postcs storage ret ]
 splitCase name contract iface if' iffs ret storage postcs =
   [ B $ Behaviour name Pass contract iface (if' <> iffs) postcs storage ret,
-    B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs)]) [] (Left . locFromRewrite <$> storage) Nothing ]
+    B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs)]) [] (Constant . locFromRewrite <$> storage) Nothing ]
 
 -- | Ensures that none of the storage variables are read in the supplied `Expr`.
 noStorageRead :: Map Id SlotType -> Expr -> Err ()
@@ -215,7 +215,7 @@ checkDefn env@Env{contract} keyType valType name (Defn k v) = do
     Boolean -> BoolUpdate  (BoolItem  contract name [key]) <$> inferExpr env v
     ByteStr -> BytesUpdate (BytesItem contract name [key]) <$> inferExpr env v
 
-checkPost :: Env -> Syntax.Post -> Err ([Either StorageLocation StorageUpdate], Maybe (TypedExp Timed))
+checkPost :: Env -> Syntax.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
 checkPost env@Env{contract,calldata} (Syntax.Post maybeStorage extStorage maybeReturn) =
   do returnexp <- mapM (typedExp scopedEnv) maybeReturn
      ourStorage <- case maybeStorage of
@@ -224,13 +224,13 @@ checkPost env@Env{contract,calldata} (Syntax.Post maybeStorage extStorage maybeR
      otherStorage <- checkStorages extStorage
      return (ourStorage <> otherStorage, returnexp)
   where
-    checkEntries :: Id -> [Syntax.Storage] -> Err [Either StorageLocation StorageUpdate]
+    checkEntries :: Id -> [Syntax.Storage] -> Err [Rewrite]
     checkEntries name entries =
       forM entries $ \case
-        Constant loc -> Left <$> checkPattern (focus name scopedEnv) loc
-        Rewrite loc val -> Right <$> checkStorageExpr (focus name scopedEnv) loc val
+        Syntax.Constant loc -> Constant <$> checkPattern (focus name scopedEnv) loc
+        Syntax.Rewrite loc val -> Rewrite <$> checkStorageExpr (focus name scopedEnv) loc val
 
-    checkStorages :: [ExtStorage] -> Err [Either StorageLocation StorageUpdate]
+    checkStorages :: [ExtStorage] -> Err [Rewrite]
     checkStorages [] = Ok []
     checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries
                                                       ps <- checkStorages xs

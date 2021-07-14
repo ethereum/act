@@ -270,7 +270,7 @@
   {
     "stateUpdates": [
       {
-        "Right": {
+        "Rewrite": {
           "location": {
             "arity": 3,
             "args": [
@@ -309,7 +309,7 @@
         }
       },
       {
-        "Right": {
+        "Rewrite": {
           "location": {
             "arity": 3,
             "args": [
@@ -634,7 +634,7 @@
   {
     "stateUpdates": [
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -652,7 +652,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -978,7 +978,7 @@
   {
     "stateUpdates": [
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -996,7 +996,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -1300,7 +1300,7 @@
   {
     "stateUpdates": [
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -1318,7 +1318,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -1644,7 +1644,7 @@
   {
     "stateUpdates": [
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -1662,7 +1662,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -1684,7 +1684,7 @@
         }
       },
       {
-        "Right": {
+        "Rewrite": {
           "location": {
             "arity": 3,
             "args": [
@@ -1723,7 +1723,7 @@
         }
       },
       {
-        "Right": {
+        "Rewrite": {
           "location": {
             "arity": 3,
             "args": [
@@ -2234,7 +2234,7 @@
   {
     "stateUpdates": [
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -2252,7 +2252,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -2274,7 +2274,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -2292,7 +2292,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -2810,7 +2810,7 @@
   {
     "stateUpdates": [
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -2828,7 +2828,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -2850,7 +2850,7 @@
         }
       },
       {
-        "Right": {
+        "Rewrite": {
           "location": {
             "arity": 3,
             "args": [
@@ -2889,7 +2889,7 @@
         }
       },
       {
-        "Right": {
+        "Rewrite": {
           "location": {
             "arity": 3,
             "args": [
@@ -3445,7 +3445,7 @@
   {
     "stateUpdates": [
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -3463,7 +3463,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -3485,7 +3485,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -3503,7 +3503,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -4066,7 +4066,7 @@
   {
     "stateUpdates": [
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -4084,7 +4084,7 @@
         }
       },
       {
-        "Right": {
+        "Rewrite": {
           "location": {
             "arity": 3,
             "args": [
@@ -4131,7 +4131,7 @@
         }
       },
       {
-        "Right": {
+        "Rewrite": {
           "location": {
             "arity": 3,
             "args": [
@@ -4170,7 +4170,7 @@
         }
       },
       {
-        "Right": {
+        "Rewrite": {
           "location": {
             "arity": 3,
             "args": [
@@ -4726,7 +4726,7 @@
   {
     "stateUpdates": [
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -4744,7 +4744,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -4766,7 +4766,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -4784,7 +4784,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -5347,7 +5347,7 @@
   {
     "stateUpdates": [
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -5365,7 +5365,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -5387,7 +5387,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -5405,7 +5405,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -5881,7 +5881,7 @@
   {
     "stateUpdates": [
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -5899,7 +5899,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -5921,7 +5921,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [
@@ -5939,7 +5939,7 @@
         }
       },
       {
-        "Left": {
+        "Constant": {
           "location": {
             "arity": 3,
             "args": [

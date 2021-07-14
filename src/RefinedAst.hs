@@ -14,7 +14,7 @@
 {-# Language DataKinds #-}
 {-# LANGUAGE InstanceSigs #-}
 
-module RefinedAst where
+module RefinedAst (module RefinedAst) where
 
 import Control.Applicative (empty)
 
@@ -31,7 +31,7 @@ import Data.String (fromString)
 
 import EVM.Solidity (SlotType(..))
 
-import Syntax (Id, Interface, EthEnv)
+import Syntax as RefinedAst (Id, Interface(..), EthEnv(..), Decl(..)) -- Allows reexporting the essentials.
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Vector (fromList)
@@ -71,7 +71,7 @@ data Constructor = Constructor
   , _cpreconditions :: [Exp Untimed Bool]
   , _cpostconditions :: [Exp Timed Bool]
   , _initialStorage :: [StorageUpdate]
-  , _cstateUpdates :: [Either StorageLocation StorageUpdate]
+  , _cstateUpdates :: [Rewrite]
   } deriving (Show, Eq)
 
 data Behaviour = Behaviour
@@ -81,7 +81,7 @@ data Behaviour = Behaviour
   , _interface :: Interface
   , _preconditions :: [Exp Untimed Bool]
   , _postconditions :: [Exp Timed Bool]
-  , _stateUpdates :: [Either StorageLocation StorageUpdate]
+  , _stateUpdates :: [Rewrite]
   , _returns :: Maybe (TypedExp Timed)
   } deriving (Show, Eq)
 
@@ -97,6 +97,11 @@ data MType
   | Boolean
   | ByteStr
   deriving (Eq, Ord, Show, Read)
+
+data Rewrite
+  = Constant StorageLocation
+  | Rewrite StorageUpdate
+  deriving (Show, Eq)
 
 data StorageUpdate
   = IntUpdate (TStorageItem Untimed Integer) (Exp Untimed Integer)
@@ -437,6 +442,10 @@ instance ToJSON SlotType where
   toJSON (StorageMapping ixTypes valType) = object [ "type" .= String "mapping"
                                                    , "ixTypes" .= show (toList ixTypes)
                                                    , "valType" .= show valType]
+
+instance ToJSON Rewrite where
+  toJSON (Constant a) = object [ "Constant" .= toJSON a ]
+  toJSON (Rewrite a) = object [ "Rewrite" .= toJSON a ]
 
 instance ToJSON StorageLocation where
   toJSON (IntLoc a) = object ["location" .= toJSON a]

@@ -18,14 +18,12 @@ import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map.Strict    as M
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
-import Data.Either (rights)
 import Data.List (find, groupBy)
 import Control.Monad.State
 
 import Extract
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
-import Syntax
 import RefinedAst hiding (Store)
 
 type Store = M.Map Id SlotType
@@ -127,10 +125,10 @@ base store (Constructor name _ i _ _ updates _) = do
     stateval store (\_ t -> defaultValue t) updates
 
 claim :: Store -> Behaviour -> Fresh T.Text
-claim store (Behaviour name _ _ i _ _ updates _) = do
+claim store (Behaviour name _ _ i _ _ rewrites _) = do
   name' <- fresh name
   return $ definition name' (stateDecl <> " " <> interface i) $
-    stateval store (\n _ -> T.pack n <> " " <> stateVar) (rights updates)
+    stateval store (\n _ -> T.pack n <> " " <> stateVar) (updatesFromRewrites rewrites)
 
 -- | inductive definition of a return claim
 -- ignores claims that do not specify a return value

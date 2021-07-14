@@ -8,7 +8,6 @@
 module HEVM where
 
 import Prelude hiding (lookup)
-import Syntax hiding (Post)
 import RefinedAst hiding (S)
 import Extract
 
@@ -16,7 +15,6 @@ import Data.ByteString (ByteString)
 import Data.ByteString.UTF8 (toString)
 import Data.Text (Text, pack, splitOn)
 import Data.Maybe
-import Data.Either
 import Data.List hiding (lookup)
 import Data.Map hiding (drop, null, findIndex, splitAt, foldl, foldr, filter)
 import qualified Data.Map as Map
@@ -107,7 +105,7 @@ initialVm sources Behaviour{..} contractMap = do
   return $ initTx $ execState (loadContract addr) vm
 
 checkPostStorage :: Ctx -> Behaviour -> VM -> VM -> Map Id Addr -> SolcJson -> SBV Bool
-checkPostStorage ctx (Behaviour _ _ _ _ _ _ updates _) pre post contractMap solcjson =
+checkPostStorage ctx (Behaviour _ _ _ _ _ _ rewrites _) pre post contractMap solcjson =
   sAnd $ flip fmap (keys (view (EVM.env . EVM.contracts) post)) $
     \addr ->
       case view (EVM.env . EVM.contracts . at addr) pre of
@@ -121,7 +119,7 @@ checkPostStorage ctx (Behaviour _ _ _ _ _ _ updates _) pre post contractMap solc
               (Concrete pre', Concrete post') -> literal $ pre' == post'
               (Symbolic _ pre', Symbolic _ post') ->
                let
-                 insertions = rights $ filter (\a -> addr == get (contractFromRewrite a) contractMap) updates
+                 insertions = updatesFromRewrites $ filter (\a -> addr == get (contractFromRewrite a) contractMap) rewrites
                  slot update' = let S _ w = calculateSlot ctx solcjson (locFromUpdate update')
                                in w
                  insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
@@ -198,7 +196,7 @@ makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
     (|-) a b = (nameFromEnv c1 method a, b)
 
 -- | Locate the variables refered to in the act-spec in the vm
-locateStorage :: Ctx -> SolcJson -> Map Id Addr -> Method -> (VM,VM) -> Either StorageLocation StorageUpdate -> (Id, (SMType, SMType))
+locateStorage :: Ctx -> SolcJson -> Map Id Addr -> Method -> (VM,VM) -> Rewrite -> (Id, (SMType, SMType))
 locateStorage ctx solcjson contractMap method (pre, post) item =
   let item' = locFromRewrite item
       addr = get (contractFromRewrite item) contractMap

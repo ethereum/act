@@ -12,7 +12,6 @@ import EVM.Solidity (SlotType(..))
 
 import RefinedAst
 import Type (bound, defaultStore)
-import Syntax (EthEnv(..), Id, Decl(..), Interface(..))
 import Extract
 
 -- | Adds extra preconditions to non constructor behaviours based on the types of their variables
@@ -57,7 +56,7 @@ enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invaria
                   <> mkCallDataBounds decls
                   <> mkEthEnvBounds (ethEnvFromExp predicate)
       storagebounds' = storagebounds
-                       <> mkStorageBounds store (Left <$> locsFromExp predicate)
+                       <> mkStorageBounds store (Constant <$> locsFromExp predicate)
 
 mkEthEnvBounds :: [EthEnv] -> [Exp t Bool]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
@@ -84,12 +83,12 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
       Nonce -> AbiUIntType 256
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
-mkStorageBounds :: Store -> [Either StorageLocation StorageUpdate] -> [Exp Untimed Bool] -- is `Untimed` correct here?
+mkStorageBounds :: Store -> [Rewrite] -> [Exp Untimed Bool]
 mkStorageBounds store refs = catMaybes $ mkBound <$> refs
   where
-    mkBound :: Either StorageLocation StorageUpdate -> Maybe (Exp Untimed Bool)
-    mkBound (Left (IntLoc item)) = Just $ fromItem item
-    mkBound (Right (IntUpdate item _)) = Just $ fromItem item
+    mkBound :: Rewrite -> Maybe (Exp Untimed Bool)
+    mkBound (Constant (IntLoc item)) = Just $ fromItem item
+    mkBound (Rewrite (IntUpdate item _)) = Just $ fromItem item
     mkBound _ = Nothing
 
     fromItem :: TStorageItem Untimed Integer -> Exp Untimed Bool

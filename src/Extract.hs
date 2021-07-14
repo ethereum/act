@@ -6,29 +6,30 @@ module Extract where
 import Data.List
 
 import RefinedAst
-import Syntax
+import Syntax hiding (Constant,Rewrite)
+import qualified Syntax
 import EVM.ABI (AbiType(..))
 
 locsFromBehaviour :: Behaviour -> [StorageLocation]
-locsFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
+locsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
   concatMap locsFromExp preconds
   <> concatMap locsFromExp postconds
-  <> concatMap locsFromRewrite stateUpdates
+  <> concatMap locsFromRewrite rewrites
   <> maybe [] locsFromTypedExp returns
 
 locsFromConstructor :: Constructor -> [StorageLocation]
-locsFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = nub $
+locsFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
   concatMap locsFromExp pre
   <> concatMap locsFromExp post
-  <> concatMap locsFromRewrite stateUpdates
-  <> concatMap locsFromRewrite (Right <$> initialStorage)
+  <> concatMap locsFromRewrite rewrites
+  <> concatMap locsFromRewrite (Rewrite <$> initialStorage)
 
-locsFromRewrite :: Either StorageLocation StorageUpdate -> [StorageLocation]
+locsFromRewrite :: Rewrite -> [StorageLocation]
 locsFromRewrite update = nub $ case update of
-  Left loc -> [loc]
-  Right (IntUpdate item e) -> IntLoc item : locsFromExp e
-  Right (BoolUpdate item e) -> BoolLoc item : locsFromExp e
-  Right (BytesUpdate item e) -> BytesLoc item : locsFromExp e
+  Constant loc -> [loc]
+  Rewrite (IntUpdate item e) -> IntLoc item : locsFromExp e
+  Rewrite (BoolUpdate item e) -> BoolLoc item : locsFromExp e
+  Rewrite (BytesUpdate item e) -> BytesLoc item : locsFromExp e
 
 locsFromTypedExp :: TypedExp t -> [StorageLocation]
 locsFromTypedExp (ExpInt e) = locsFromExp e
@@ -90,27 +91,27 @@ locsFromExp = nub . go
         untimeTyped (ExpBytes e) = ExpBytes $ forceTime Neither e
 
 ethEnvFromBehaviour :: Behaviour -> [EthEnv]
-ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds stateUpdates returns) = nub $
+ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
   concatMap ethEnvFromExp preconds
   <> concatMap ethEnvFromExp postconds
-  <> concatMap ethEnvFromStateUpdate stateUpdates
+  <> concatMap ethEnvFromRewrite rewrites
   <> maybe [] ethEnvFromTypedExp returns
 
 ethEnvFromConstructor :: Constructor -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage stateUpdates) = nub $
+ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
   concatMap ethEnvFromExp pre
   <> concatMap ethEnvFromExp post
-  <> concatMap ethEnvFromStateUpdate stateUpdates
-  <> concatMap ethEnvFromStateUpdate (Right <$> initialStorage)
+  <> concatMap ethEnvFromRewrite rewrites
+  <> concatMap ethEnvFromRewrite (Rewrite <$> initialStorage)
 
-ethEnvFromStateUpdate :: Either StorageLocation StorageUpdate -> [EthEnv]
-ethEnvFromStateUpdate update = case update of
-  Left (IntLoc item) -> ethEnvFromItem item
-  Left (BoolLoc item) -> ethEnvFromItem item
-  Left (BytesLoc item) -> ethEnvFromItem item
-  Right (IntUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
-  Right (BoolUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
-  Right (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+ethEnvFromRewrite :: Rewrite -> [EthEnv]
+ethEnvFromRewrite rewrite = case rewrite of
+  Constant (IntLoc item) -> ethEnvFromItem item
+  Constant (BoolLoc item) -> ethEnvFromItem item
+  Constant (BytesLoc item) -> ethEnvFromItem item
+  Rewrite (IntUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+  Rewrite (BoolUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+  Rewrite (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
 
 ethEnvFromItem :: TStorageItem t a -> [EthEnv]
 ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
@@ -160,8 +161,8 @@ ethEnvFromExp = nub . go
       ByEnv a -> [a]
       TEntry a _ -> ethEnvFromItem a
 
-locFromRewrite :: Either StorageLocation StorageUpdate -> StorageLocation
-locFromRewrite = either id locFromUpdate
+locFromRewrite :: Rewrite -> StorageLocation
+locFromRewrite = onRewrite id locFromUpdate
 
 locFromUpdate :: StorageUpdate -> StorageLocation
 locFromUpdate (IntUpdate item _) = IntLoc item
@@ -182,12 +183,12 @@ metaType AbiStringType       = ByteStr
 metaType _ = error "Extract.metaType: TODO"
 
 nameFromStorage :: Syntax.Storage -> Id
-nameFromStorage (Rewrite (PEntry _ x _) _) = x
-nameFromStorage (Constant (PEntry _ x _)) = x
+nameFromStorage (Syntax.Rewrite (PEntry _ x _) _) = x
+nameFromStorage (Syntax.Constant (PEntry _ x _)) = x
 nameFromStorage store = error $ "Internal error: cannot extract name from " ++ show store
 
-idFromRewrite :: Either StorageLocation StorageUpdate -> Id
-idFromRewrite = either idFromLocation idFromUpdate
+idFromRewrite :: Rewrite -> Id
+idFromRewrite = onRewrite idFromLocation idFromUpdate
 
 idFromItem :: TStorageItem t a -> Id
 idFromItem (IntItem _ name _) = name
@@ -204,8 +205,8 @@ idFromLocation (IntLoc   item) = idFromItem item
 idFromLocation (BoolLoc  item) = idFromItem item
 idFromLocation (BytesLoc item) = idFromItem item
 
-contractFromRewrite :: Either StorageLocation StorageUpdate -> Id
-contractFromRewrite = either contractFromLoc contractFromUpdate
+contractFromRewrite :: Rewrite -> Id
+contractFromRewrite = onRewrite contractFromLoc contractFromUpdate
 
 contractFromItem :: TStorageItem t a -> Id
 contractFromItem (IntItem c _ _) = c
@@ -240,8 +241,8 @@ ixsFromUpdate (IntUpdate item _) = ixsFromItem item
 ixsFromUpdate (BoolUpdate item _) = ixsFromItem item
 ixsFromUpdate (BytesUpdate item _) = ixsFromItem item
 
-ixsFromRewrite :: Either StorageLocation StorageUpdate -> [TypedExp Untimed]
-ixsFromRewrite = either ixsFromLocation ixsFromUpdate
+ixsFromRewrite :: Rewrite -> [TypedExp Untimed]
+ixsFromRewrite = onRewrite ixsFromLocation ixsFromUpdate
 
 itemType :: TStorageItem t a -> MType
 itemType IntItem{}   = Integer
@@ -250,3 +251,13 @@ itemType BytesItem{} = ByteStr
 
 isMapping :: StorageLocation -> Bool
 isMapping = not . null . ixsFromLocation
+
+onRewrite :: (StorageLocation -> a) -> (StorageUpdate -> a) -> Rewrite -> a
+onRewrite f _ (Constant  a) = f a
+onRewrite _ g (Rewrite a) = g a
+
+updatesFromRewrites :: [Rewrite] -> [StorageUpdate]
+updatesFromRewrites rs = [u | Rewrite u <- rs]
+
+locsFromRewrites :: [Rewrite] -> [StorageLocation]
+locsFromRewrites rs = [l | Constant l <- rs]

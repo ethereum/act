@@ -44,7 +44,6 @@ import Data.ByteString.UTF8 (fromString)
 
 import RefinedAst
 import Extract
-import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
 import Print
 import Type (defaultStore)
 
@@ -259,7 +258,7 @@ mkInvariantQueries claims = fmap mkQuery gathered
         (Interface ctorIface ctorDecls) = _cinterface ctor
         (Interface behvIface behvDecls) = _interface behv
         -- storage locs mentioned in the invariant but not in the behaviour
-        implicitLocs = Left <$> (locsFromExp invExp \\ (locFromRewrite <$> _stateUpdates behv))
+        implicitLocs = Constant <$> (locsFromExp invExp \\ (locFromRewrite <$> _stateUpdates behv))
 
         -- declare vars
         invEnv = declareEthEnv <$> ethEnvFromExp invExp
@@ -544,9 +543,9 @@ declareInitialStorage update = case locFromUpdate update of
       (ix:ixs) -> array (nameFromItem Post item) (ix :| ixs) (itemType item)
 
 -- | encodes a storge update rewrite as an smt assertion
-encodeUpdate :: Id -> Either StorageLocation StorageUpdate -> SMT2
-encodeUpdate _        (Left loc)     = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
-encodeUpdate behvName (Right update) = encodeInitialStorage behvName update
+encodeUpdate :: Id -> Rewrite -> SMT2
+encodeUpdate _        (Constant loc)   = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
+encodeUpdate behvName (Rewrite update) = encodeInitialStorage behvName update
 
 -- | declares a storage location that exists both in the pre state and the post
 --   state (i.e. anything except a loc created by a constructor claim)

@@ -25,7 +25,6 @@ import Lex (lexer)
 import Parse (parse)
 import Type (typecheck)
 import Print (prettyBehaviour)
-import Syntax (Interface(..), EthEnv(..), Decl(..))
 import SMT
 import RefinedAst hiding (Mode)
 

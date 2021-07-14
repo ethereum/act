@@ -7,7 +7,6 @@ import Data.ByteString.UTF8 (toString)
 import Data.List
 
 import Extract
-import Syntax
 import RefinedAst
 
 prettyBehaviour :: Behaviour -> String
@@ -25,8 +24,8 @@ prettyBehaviour (Behaviour name _ contract interface preconditions postcondition
     prettyStorage [] = ""
     prettyStorage s = header "storage" >-< block (prettyState <$> s)
 
-    prettyState (Left loc) = prettyLocation loc
-    prettyState (Right update) = prettyUpdate update
+    prettyState (Constant loc) = prettyLocation loc
+    prettyState (Rewrite  rew) = prettyUpdate rew
 
     prettyRet (Just ret) = header "returns" >-< "  " <> prettyTypedExp ret
     prettyRet Nothing = ""
