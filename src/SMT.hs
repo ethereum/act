@@ -72,7 +72,7 @@ type Ctx = Reader Id
 
 -- | Specify the name to use as the current interface when creating SMT-code.
 withInterface :: Id -> Ctx SMT2 -> SMT2
-withInterface = flip runReader 
+withInterface = flip runReader
 
 -- | An SMTExp is a structured representation of an SMT Expression
 --   The _storage, _calldata, and _environment fields hold variable declarations
