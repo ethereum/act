@@ -1,49 +1,50 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MonadComprehensions #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
-
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 {-|
 Module      : Syntax.TimeAgnostic
-Description : AST data types which are agnostic to the timing used.
+Description : AST data types where implicit timings may or may not have been made explicit.
 
 This module only exists to increase code reuse; the types defined here won't
 be used directly, but will be instantiated with different timing parameters
 at different steps in the AST refinement process. This way we don't have to
 update mirrored types, instances and functions in lockstep.
+
+Some terms in here are always 'Timed'. This indicates that their timing must
+*always* be explicit. For the rest, all timings must be implicit in source files
+(i.e. 'Untimed'), but will be made explicit (i.e. 'Timed') during refinement.
 -}
+
 module Syntax.TimeAgnostic (module Syntax.TimeAgnostic) where
 
 import Control.Applicative (empty)
 
+import Data.Aeson
+import Data.Aeson.Types
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.List (genericDrop,genericTake,nub)
+import Data.List (genericTake,genericDrop)
 import Data.Map.Strict (Map)
 import Data.String (fromString)
+import Data.Text (pack)
 import Data.Typeable
+import Data.Vector (fromList)
 
-import EVM.ABI (AbiType(..))
 import EVM.Solidity (SlotType(..))
 
---import Syntax.Timing as Syntax.TimeAgnostic hiding (forceTime) -- These two avoid reexporting `forceTime`
---import Syntax.Timing (forceTime)                    -- without using an unmaintainable export list.
-import Syntax.Timing -- as Syntax.TimeAgnostic
-
+-- Reexports
+import Syntax.Timing  as Syntax.TimeAgnostic
 import Syntax.Untyped as Syntax.TimeAgnostic (Id, Interface(..), EthEnv(..), Decl(..))
 
 -- AST post typechecking
@@ -86,12 +87,11 @@ deriving instance Eq   (InvariantPred t) => Eq   (Invariant t)
 
 -- | Invariant predicates are either a single predicate without explicit timing or
 -- two predicates which explicitly reference the pre- and the post-state, respectively.
-type family InvariantPred t where
+-- Furthermore, if we know the predicate type we can always deduce the timing, not
+-- only vice versa.
+type family InvariantPred (t :: Timing) = (pred :: *) | pred -> t where
   InvariantPred Untimed = Exp Bool Untimed
   InvariantPred Timed   = (Exp Bool Timed, Exp Bool Timed)
-
-invExp :: InvariantPred Timed -> Exp Bool Timed
-invExp = uncurry (<>)
 
 data Constructor t = Constructor
   { _cname :: Id
@@ -274,6 +274,208 @@ instance Semigroup (Exp Bool t) where
 instance Monoid (Exp Bool t) where
   mempty = LitBool True
 
+instance Timable StorageLocation where
+  setTime time location = case location of
+    IntLoc item -> IntLoc $ setTime time item
+    BoolLoc item -> BoolLoc $ setTime time item
+    BytesLoc item -> BytesLoc $ setTime time item
+
+instance Timable TypedExp where
+  setTime time texp = case texp of
+    ExpInt expr -> ExpInt $ setTime time expr
+    ExpBool expr -> ExpBool $ setTime time expr
+    ExpBytes expr -> ExpBytes $ setTime time expr
+
+instance Timable (Exp a) where
+  setTime time expr = case expr of
+    -- booleans
+    And  x y -> And (go x) (go y)
+    Or   x y -> Or (go x) (go y)
+    Impl x y -> Impl (go x) (go y)
+    Neg x -> Neg (go x)
+    LE x y -> LE (go x) (go y)
+    LEQ x y -> LEQ (go x) (go y)
+    GEQ x y -> GEQ (go x) (go y)
+    GE x y -> GE (go x) (go y)
+    LitBool x -> LitBool x
+    BoolVar x -> BoolVar x
+    -- integers
+    Add x y -> Add (go x) (go y)
+    Sub x y -> Sub (go x) (go y)
+    Mul x y -> Mul (go x) (go y)
+    Div x y -> Div (go x) (go y)
+    Mod x y -> Mod (go x) (go y)
+    Exp x y -> Exp (go x) (go y)
+    LitInt x -> LitInt x
+    IntVar x -> IntVar x
+    IntEnv x -> IntEnv x
+    -- bounds
+    IntMin x -> IntMin x
+    IntMax x -> IntMax x
+    UIntMin x -> UIntMin x
+    UIntMax x -> UIntMax x
+    -- bytestrings
+    Cat x y -> Cat (go x) (go y)
+    Slice x y z -> Slice (go x) (go y) (go z)
+    ByVar x -> ByVar x
+    ByStr x -> ByStr x
+    ByLit x -> ByLit x
+    ByEnv x -> ByEnv x
+    -- builtins
+    NewAddr x y -> NewAddr (go x) (go y) 
+    -- polymorphic
+    Eq  x y -> Eq  (go x) (go y)
+    NEq x y -> NEq (go x) (go y)
+    ITE x y z -> ITE (go x) (go y) (go z)
+    TEntry item _ -> TEntry (go item) time
+    where
+      go :: Timable c => c Untimed -> c Timed
+      go = setTime time
+
+instance Timable (TStorageItem a) where
+  setTime time item = case item of
+    IntItem   c x ixs -> IntItem   c x $ setTime time <$> ixs
+    BoolItem  c x ixs -> BoolItem  c x $ setTime time <$> ixs
+    BytesItem c x ixs -> BytesItem c x $ setTime time <$> ixs
+
+------------------------
+-- * JSON instances * --
+------------------------
+
+-- TODO dual instances are ugly! But at least it works for now.
+-- It was difficult to construct a function with type:
+-- `InvPredicate t -> Either (Exp Bool Timed,Exp Bool Timed) (Exp Bool Untimed)`
+instance ToJSON (Claim Timed) where
+  toJSON (S storages)          = storeJSON storages
+  toJSON (I inv@Invariant{..}) = invariantJSON inv _predicate
+  toJSON (C ctor)              = toJSON ctor
+  toJSON (B behv)              = toJSON behv
+
+instance ToJSON (Claim Untimed) where
+  toJSON (S storages)          = storeJSON storages
+  toJSON (I inv@Invariant{..}) = invariantJSON inv _predicate
+  toJSON (C ctor)              = toJSON ctor
+  toJSON (B behv)              = toJSON behv 
+
+storeJSON :: Store -> Value
+storeJSON storages = object [ "kind" .= String "Storages"
+                            , "storages" .= toJSON storages]
+
+invariantJSON :: ToJSON pred => Invariant t -> pred -> Value
+invariantJSON Invariant{..} predicate = object [ "kind" .= String "Invariant"
+                                               , "predicate" .= toJSON predicate
+                                               , "preconditions" .= toJSON _ipreconditions
+                                               , "storagebounds" .= toJSON _istoragebounds
+                                               , "contract" .= _icontract]
+
+instance ToJSON (Constructor t) where
+  toJSON Constructor{..} = object [ "kind" .= String "Constructor"
+                                  , "contract" .= _cname
+                                  , "mode" .= (String . pack $ show _cmode)
+                                  , "interface" .= (String . pack $ show _cinterface)
+                                  , "preConditions" .= toJSON _cpreconditions
+                                  , "postConditions" .= toJSON _cpostconditions
+                                  , "storage" .= toJSON _initialStorage
+                                  ]
+
+instance ToJSON (Behaviour t) where
+  toJSON Behaviour{..} = object [ "kind" .= String "Behaviour"
+                                , "name" .= _name
+                                , "contract" .= _contract
+                                , "mode" .= (String . pack $ show _mode)
+                                , "interface" .= (String . pack $ show _interface)
+                                , "preConditions" .= toJSON _preconditions
+                                , "postConditions" .= toJSON _postconditions
+                                , "stateUpdates" .= toJSON _stateUpdates
+                                , "returns" .= toJSON _returns]
+
+instance ToJSON (Rewrite t) where
+  toJSON (Constant a) = object [ "Constant" .= toJSON a ]
+  toJSON (Rewrite a) = object [ "Rewrite" .= toJSON a ]
+
+instance ToJSON (StorageLocation t) where
+  toJSON (IntLoc a) = object ["location" .= toJSON a]
+  toJSON (BoolLoc a) = object ["location" .= toJSON a]
+  toJSON (BytesLoc a) = object ["location" .= toJSON a]
+
+instance ToJSON (StorageUpdate t) where
+  toJSON (IntUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
+  toJSON (BoolUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
+  toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
+
+instance ToJSON (TStorageItem a t) where
+  toJSON (IntItem a b []) = object ["sort" .= pack "int"
+                                  , "name" .= String (pack a <> "." <> pack b)]
+  toJSON (BoolItem a b []) = object ["sort" .= pack "bool"
+                                   , "name" .= String (pack a <> "." <> pack b)]
+  toJSON (BytesItem a b []) = object ["sort" .= pack "bytes"
+                                    , "name" .= String (pack a <> "." <> pack b)]
+  toJSON (IntItem a b c) = mapping a b c
+  toJSON (BoolItem a b c) = mapping a b c
+  toJSON (BytesItem a b c) = mapping a b c
+
+mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
+mapping c a b = object [  "symbol"   .= pack "lookup"
+                       ,  "arity"    .= Data.Aeson.Types.Number 3
+                       ,  "args"     .= Array (fromList [toJSON c, toJSON a, toJSON b])]
+
+instance ToJSON (TypedExp t) where
+   toJSON (ExpInt a) = object ["sort" .= pack "int"
+                              ,"expression" .= toJSON a]
+   toJSON (ExpBool a) = object ["sort" .= String (pack "bool")
+                               ,"expression" .= toJSON a]
+   toJSON (ExpBytes a) = object ["sort" .= String (pack "bytestring")
+                                ,"expression" .= toJSON a]
+
+instance Typeable a => ToJSON (Exp a t) where
+  toJSON (Add a b) = symbol "+" a b
+  toJSON (Sub a b) = symbol "-" a b
+  toJSON (Exp a b) = symbol "^" a b
+  toJSON (Mul a b) = symbol "*" a b
+  toJSON (Div a b) = symbol "/" a b
+  toJSON (NewAddr a b) = symbol "newAddr" a b
+  toJSON (IntVar a) = String $ pack a
+  toJSON (LitInt a) = toJSON $ show a
+  toJSON (IntMin a) = toJSON $ show $ intmin a
+  toJSON (IntMax a) = toJSON $ show $ intmax a
+  toJSON (UIntMin a) = toJSON $ show $ uintmin a
+  toJSON (UIntMax a) = toJSON $ show $ uintmax a
+  toJSON (IntEnv a) = String $ pack $ show a
+  toJSON (TEntry a t) = object [ pack (show t) .= toJSON a ]
+  toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
+                              ,  "arity"    .= Data.Aeson.Types.Number 3
+                              ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
+  toJSON (And a b)  = symbol "and" a b
+  toJSON (Or a b)   = symbol "or" a b
+  toJSON (LE a b)   = symbol "<" a b
+  toJSON (GE a b)   = symbol ">" a b
+  toJSON (Impl a b) = symbol "=>" a b
+  toJSON (NEq a b)  = symbol "=/=" a b
+  toJSON (Eq a b)   = symbol "==" a b
+  toJSON (LEQ a b)  = symbol "<=" a b
+  toJSON (GEQ a b)  = symbol ">=" a b
+  toJSON (LitBool a) = String $ pack $ show a
+  toJSON (BoolVar a) = toJSON a
+  toJSON (Neg a) = object [  "symbol"   .= pack "not"
+                          ,  "arity"    .= Data.Aeson.Types.Number 1
+                          ,  "args"     .= Array (fromList [toJSON a])]
+
+  toJSON (Cat a b) = symbol "cat" a b
+  toJSON (Slice s a b) = object [ "symbol" .= pack "slice"
+                                , "arity"  .= Data.Aeson.Types.Number 3
+                                , "args"   .= Array (fromList [toJSON s, toJSON a, toJSON b])
+                                ]
+  toJSON (ByVar a) = toJSON a
+  toJSON (ByStr a) = toJSON a
+  toJSON (ByLit a) = String . pack $ show a
+  toJSON (ByEnv a) = String . pack $ show a
+  toJSON v = error $ "todo: json ast for: " <> show v
+
+symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
+symbol s a b = object [  "symbol"   .= pack s
+                      ,  "arity"    .= Data.Aeson.Types.Number 2
+                      ,  "args"     .= Array (fromList [toJSON a, toJSON b])]
+
 -- | Simplifies concrete expressions into literals.
 -- Returns `Nothing` if the expression contains symbols.
 eval :: Exp a t -> Maybe a
@@ -295,10 +497,10 @@ eval e = case e of
   Mod a b     -> [a' `mod` b' | a' <- eval a, b' <- eval b]
   Exp a b     -> [a' ^ b'     | a' <- eval a, b' <- eval b]
   LitInt a    -> pure a
-  IntMin  a   -> pure . negate $ 2 ^ (a - 1)
-  IntMax  a   -> pure $ 2 ^ (a - 1) - 1
-  UIntMin _   -> pure 0
-  UIntMax a   -> pure $ 2 ^ a - 1
+  IntMin  a   -> pure $ intmin  a
+  IntMax  a   -> pure $ intmax  a
+  UIntMin a   -> pure $ uintmin a
+  UIntMax a   -> pure $ uintmax a
 
   Cat s t     -> [s' <> t' | s' <- eval s, t' <- eval t]
   Slice s a b -> [BS.pack . genericDrop a' . genericTake b' $ s'
@@ -313,443 +515,19 @@ eval e = case e of
   ITE a b c   -> eval a >>= \cond -> if cond then eval b else eval c
   _           -> empty
 
--- instance Timeable Claim where
---   forceTime time claim = case claim of
---     C cstor -> C $ forceTime time cstor
---     B behvr -> B $ forceTime time behvr
---     I invar -> I $ forceTime time invar
---     S store -> S store
+intmin :: Int -> Integer
+intmin a = negate $ 2 ^ (a - 1)
 
--- instance Timeable Transition where
---   forceTime time trans = case trans of
---     Ctor ctor -> Ctor $ forceTime time ctor
---     Behv behv -> Behv $ forceTime time behv
+intmax :: Int -> Integer
+intmax a = 2 ^ (a - 1) - 1
 
--- instance Timeable Invariant where
---   forceTime time inv@Invariant{..} = inv
---     { _ipreconditions = forceTime time <$> _ipreconditions
---     , _istoragebounds = forceTime time <$> _istoragebounds
---     , _predicate      = forceTime time _predicate
---     }
+uintmin :: Int -> Integer
+uintmin _ = 0
 
--- instance Timeable InvariantPred where
---   forceTime time invexp = either mkDouble mkSingle (proveTiming time)
---     where
---       mkDouble Refl = case invexp of
---         d@Double{} -> d
---         Single{..} -> Double { _prestate = setPre _agnostic, _poststate = setPost _agnostic }
---       mkSingle Refl = case invexp of
---         s@Single{} -> s
---         Double{..} -> Single { _agnostic = forceTime Neither _prestate }
+uintmax :: Int -> Integer
+uintmax a = 2 ^ a - 1
 
--- instance Timeable Constructor where
---   forceTime time ctor@Constructor{..} = ctor
---     { _cpreconditions = forceTime time <$> _cpreconditions
---     , _initialStorage = forceTime time <$> _initialStorage
---     , _cstateUpdates  = forceTime time <$> _cstateUpdates
---     }
-
--- instance Timeable Behaviour where
---   forceTime time behv@Behaviour{..} = behv
---     { _preconditions = forceTime time <$> _preconditions
---     , _stateUpdates  = forceTime time <$> _stateUpdates
---     }
-
--- instance Timeable Rewrite where
---   forceTime time (Constant location) = Constant $ forceTime time location
---   forceTime time (Rewrite  update)   = Rewrite  $ forceTime time update
-
--- instance Timeable StorageUpdate where
---   forceTime time update = case update of
---     IntUpdate item expr -> IntUpdate (forceTime time item) (forceTime time expr)
---     BoolUpdate item expr -> BoolUpdate (forceTime time item) (forceTime time expr)
---     BytesUpdate item expr -> BytesUpdate (forceTime time item) (forceTime time expr)
-
--- instance Timeable StorageLocation where
---   forceTime time location = case location of
---     IntLoc item -> IntLoc $ forceTime time item
---     BoolLoc item -> BoolLoc $ forceTime time item
---     BytesLoc item -> BytesLoc $ forceTime time item
-
--- instance Timeable TypedExp where
---   forceTime time texp = case texp of
---     ExpInt exp -> ExpInt $ forceTime time exp
---     ExpBool exp -> ExpBool $ forceTime time exp
---     ExpBytes exp -> ExpBytes $ forceTime time exp
-
--- instance Timeable (Exp a) where
---   forceTime time expr = case expr of
---     And  x y -> And (forceTime time x) (forceTime time y)
---     Or   x y -> Or (forceTime time x) (forceTime time y)
---     Impl x y -> Impl (forceTime time x) (forceTime time y)
---     Neg x -> Neg (forceTime time x)
---     LE x y -> LE (forceTime time x) (forceTime time y)
---     LEQ x y -> LEQ (forceTime time x) (forceTime time y)
---     GEQ x y -> GEQ (forceTime time x) (forceTime time y)
---     GE x y -> GE (forceTime time x) (forceTime time y)
---     LitBool x -> LitBool x
---     BoolVar x -> BoolVar x
---     -- integers
---     Add x y -> Add (forceTime time x) (forceTime time y)
---     Sub x y -> Sub (forceTime time x) (forceTime time y)
---     Mul x y -> Mul (forceTime time x) (forceTime time y)
---     Div x y -> Div (forceTime time x) (forceTime time y)
---     Mod x y -> Mod (forceTime time x) (forceTime time y)
---     Exp x y -> Exp (forceTime time x) (forceTime time y)
---     LitInt x -> LitInt x
---     IntVar x -> IntVar x
---     IntEnv x -> IntEnv x
---     -- younds
---     IntMin x -> IntMin x
---     IntMax x -> IntMax x
---     UIntMin x -> UIntMin x
---     UIntMax x -> UIntMax x
---     -- yytestrings
---     Cat x y -> Cat (forceTime time x) (forceTime time y)
---     Slice x y z -> Slice (forceTime time x) (forceTime time y) (forceTime time z)
---     ByVar x -> ByVar x
---     ByStr x -> ByStr x
---     ByLit x -> ByLit x
---     ByEnv x -> ByEnv x
---     -- yuiltins
---     NewAddr x y -> NewAddr (forceTime time x) (forceTime time y)
-
---     -- polymorphic
---     Eq  x y -> Eq  (forceTime time x) (forceTime time y)
---     NEq x y -> NEq (forceTime time x) (forceTime time y)
---     ITE x y z -> ITE (forceTime time x) (forceTime time y) (forceTime time z)
---     TEntry item _ -> TEntry (forceTime time item) time
-
--- instance Timeable (TStorageItem a) where
---   forceTime time item = case item of
---     IntItem   c x ixs -> IntItem   c x $ forceTime time <$> ixs
---     BoolItem  c x ixs -> BoolItem  c x $ forceTime time <$> ixs
---     BytesItem c x ixs -> BytesItem c x $ forceTime time <$> ixs
-
--------------------------
--- * Data extraction * --
--------------------------
-
--- locsFromBehaviour :: Behaviour t -> [StorageLocation Untimed]
--- locsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
---   concatMap locsFromExp preconds
---   <> concatMap locsFromExp postconds
---   <> concatMap locsFromRewrite rewrites
---   <> maybe [] locsFromTypedExp (forceTime Neither <$> returns)
-
--- locsFromConstructor :: Constructor t -> [StorageLocation Untimed]
--- locsFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
---   concatMap locsFromExp pre
---   <> concatMap locsFromExp post
---   <> concatMap locsFromRewrite rewrites
---   <> concatMap locsFromRewrite (Rewrite <$> initialStorage)
-
--- locsFromRewrite :: Rewrite t -> [StorageLocation Untimed]
--- locsFromRewrite update = nub $ case update of
---   Constant loc -> [forceTime Neither loc]
---   Rewrite (IntUpdate item e) -> locsFromItem item <> locsFromExp e
---   Rewrite (BoolUpdate item e) -> locsFromItem item <> locsFromExp e
---   Rewrite (BytesUpdate item e) -> locsFromItem item <> locsFromExp e
-
-locsFromTypedExp :: TypedExp t -> [StorageLocation t]
-locsFromTypedExp (ExpInt e) = locsFromExp e
-locsFromTypedExp (ExpBool e) = locsFromExp e
-locsFromTypedExp (ExpBytes e) = locsFromExp e
-
-locsFromExp :: Exp a t -> [StorageLocation t]
-locsFromExp = nub . go
-  where
-    go :: Exp a t -> [StorageLocation t]
-    go e = case e of
-      And a b   -> go a <> go b
-      Or a b    -> go a <> go b
-      Impl a b  -> go a <> go b
-      Eq a b    -> go a <> go b
-      LE a b    -> go a <> go b
-      LEQ a b   -> go a <> go b
-      GE a b    -> go a <> go b
-      GEQ a b   -> go a <> go b
-      NEq a b   -> go a <> go b
-      Neg a     -> go a
-      Add a b   -> go a <> go b
-      Sub a b   -> go a <> go b
-      Mul a b   -> go a <> go b
-      Div a b   -> go a <> go b
-      Mod a b   -> go a <> go b
-      Exp a b   -> go a <> go b
-      Cat a b   -> go a <> go b
-      Slice a b c -> go a <> go b <> go c
-      ByVar _ -> []
-      ByStr _ -> []
-      ByLit _ -> []
-      LitInt _  -> []
-      IntMin _  -> []
-      IntMax _  -> []
-      UIntMin _ -> []
-      UIntMax _ -> []
-      IntVar _  -> []
-      LitBool _ -> []
-      BoolVar _ -> []
-      NewAddr a b -> go a <> go b
-      IntEnv _ -> []
-      ByEnv _ -> []
-      ITE x y z -> go x <> go y <> go z
-      TEntry a _ -> locsFromItem a
-
-locsFromItem :: TStorageItem a t -> [StorageLocation t]
-locsFromItem t = case t of
-  IntItem   contract name ixs -> (IntLoc   $ IntItem   contract name ixs) : ixLocs ixs
-  BoolItem  contract name ixs -> (BoolLoc  $ BoolItem  contract name ixs) : ixLocs ixs
-  BytesItem contract name ixs -> (BytesLoc $ BytesItem contract name ixs) : ixLocs ixs
-  where
-    ixLocs :: [TypedExp t] -> [StorageLocation t]
-    ixLocs = concatMap locsFromTypedExp
-
-ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
-ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
-  concatMap ethEnvFromExp preconds
-  <> concatMap ethEnvFromExp postconds
-  <> concatMap ethEnvFromRewrite rewrites
-  <> maybe [] ethEnvFromTypedExp returns
-
-ethEnvFromConstructor :: Constructor t -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
-  concatMap ethEnvFromExp pre
-  <> concatMap ethEnvFromExp post
-  <> concatMap ethEnvFromRewrite rewrites
-  <> concatMap ethEnvFromRewrite (Rewrite <$> initialStorage)
-
-ethEnvFromRewrite :: Rewrite t -> [EthEnv]
-ethEnvFromRewrite rewrite = case rewrite of
-  Constant (IntLoc item) -> ethEnvFromItem item
-  Constant (BoolLoc item) -> ethEnvFromItem item
-  Constant (BytesLoc item) -> ethEnvFromItem item
-  Rewrite (IntUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
-  Rewrite (BoolUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
-  Rewrite (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
-
-ethEnvFromItem :: TStorageItem a t -> [EthEnv]
-ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
-
-ethEnvFromTypedExp :: TypedExp t -> [EthEnv]
-ethEnvFromTypedExp (ExpInt e) = ethEnvFromExp e
-ethEnvFromTypedExp (ExpBool e) = ethEnvFromExp e
-ethEnvFromTypedExp (ExpBytes e) = ethEnvFromExp e
-
-ethEnvFromExp :: Exp a t -> [EthEnv]
-ethEnvFromExp = nub . go
-  where
-    go :: Exp a t -> [EthEnv]
-    go e = case e of
-      And a b   -> go a <> go b
-      Or a b    -> go a <> go b
-      Impl a b  -> go a <> go b
-      Eq a b    -> go a <> go b
-      LE a b    -> go a <> go b
-      LEQ a b   -> go a <> go b
-      GE a b    -> go a <> go b
-      GEQ a b   -> go a <> go b
-      NEq a b   -> go a <> go b
-      Neg a     -> go a
-      Add a b   -> go a <> go b
-      Sub a b   -> go a <> go b
-      Mul a b   -> go a <> go b
-      Div a b   -> go a <> go b
-      Mod a b   -> go a <> go b
-      Exp a b   -> go a <> go b
-      Cat a b   -> go a <> go b
-      Slice a b c -> go a <> go b <> go c
-      ITE a b c -> go a <> go b <> go c
-      ByVar _ -> []
-      ByStr _ -> []
-      ByLit _ -> []
-      LitInt _  -> []
-      IntVar _  -> []
-      LitBool _ -> []
-      BoolVar _ -> []
-      IntMin _ -> []
-      IntMax _ -> []
-      UIntMin _ -> []
-      UIntMax _ -> []
-      NewAddr a b -> go a <> go b
-      IntEnv a -> [a]
-      ByEnv a -> [a]
-      TEntry a _ -> ethEnvFromItem a
-
-locFromRewrite :: Rewrite t -> StorageLocation t
-locFromRewrite = onRewrite id locFromUpdate
-
-locFromUpdate :: StorageUpdate t -> StorageLocation t
-locFromUpdate update = case update of
-  IntUpdate item _ -> IntLoc item
-  BoolUpdate item _ -> BoolLoc item
-  BytesUpdate item _ -> BytesLoc item
-
-metaType :: AbiType -> MType
-metaType (AbiUIntType _)     = Integer
-metaType (AbiIntType  _)     = Integer
-metaType AbiAddressType      = Integer
-metaType AbiBoolType         = Boolean
-metaType (AbiBytesType _)    = ByteStr
-metaType AbiBytesDynamicType = ByteStr
-metaType AbiStringType       = ByteStr
---metaType (AbiArrayDynamicType a) =
---metaType (AbiArrayType        Int AbiType
---metaType (AbiTupleType        (Vector AbiType)
-metaType _ = error "Syntax.TimeAgnostic.metaType: TODO"
-
-ixsFromItem :: TStorageItem a t -> [TypedExp t]
-ixsFromItem (IntItem   _ _ ixs) = ixs
-ixsFromItem (BoolItem  _ _ ixs) = ixs
-ixsFromItem (BytesItem _ _ ixs) = ixs
-
-onRewrite :: (StorageLocation t -> a) -> (StorageUpdate t -> a) -> Rewrite t -> a
-onRewrite f _ (Constant  a) = f a
-onRewrite _ g (Rewrite a) = g a
-
--- ------------------------
--- -- * JSON machinery * --
--- ------------------------
-
--- instance ToJSON (Claim t) where
---   toJSON (S storages) = object [ "kind" .= String "Storages"
---                                , "storages" .= toJSON storages]
---   toJSON (I (Invariant {..})) = object [ "kind" .= String "Invariant"
---                                        , "predicate" .= toJSON _predicate
---                                        , "preconditions" .= toJSON _ipreconditions
---                                        , "storagebounds" .= toJSON _istoragebounds
---                                        , "contract" .= _icontract]
---   toJSON (C (Constructor {..})) = object  [ "kind" .= String "Constructor"
---                                           , "contract" .= _cname
---                                           , "mode" .= (String . pack $ show _cmode)
---                                           , "interface" .= (String . pack $ show _cinterface)
---                                           , "preConditions" .= toJSON _cpreconditions
---                                           , "postConditions" .= toJSON _cpostconditions
---                                           , "storage" .= toJSON _initialStorage
---                                           ]
---   toJSON (B (Behaviour {..})) = object  [ "kind" .= String "Behaviour"
---                                         , "name" .= _name
---                                         , "contract" .= _contract
---                                         , "mode" .= (String . pack $ show _mode)
---                                         , "interface" .= (String . pack $ show _interface)
---                                         , "preConditions" .= toJSON _preconditions
---                                         , "postConditions" .= toJSON _postconditions
---                                         , "stateUpdates" .= toJSON _stateUpdates
---                                         , "returns" .= toJSON _returns]
-
--- instance ToJSON (InvariantPred t) where
---   toJSON (Single e) = toJSON e
---   toJSON (Double e _) = toJSON (forceTime Neither e)
-
--- instance ToJSON SlotType where
---   toJSON (StorageValue t) = object ["type" .= show t]
---   toJSON (StorageMapping ixTypes valType) = object [ "type" .= String "mapping"
---                                                    , "ixTypes" .= show (toList ixTypes)
---                                                    , "valType" .= show valType]
-
--- instance ToJSON (Rewrite t) where
---   toJSON (Constant a) = object [ "Constant" .= toJSON a ]
---   toJSON (Rewrite a) = object [ "Rewrite" .= toJSON a ]
-
--- instance ToJSON (StorageLocation t) where
---   toJSON (IntLoc a) = object ["location" .= toJSON a]
---   toJSON (BoolLoc a) = object ["location" .= toJSON a]
---   toJSON (BytesLoc a) = object ["location" .= toJSON a]
-
--- instance ToJSON (StorageUpdate t) where
---   toJSON (IntUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
---   toJSON (BoolUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
---   toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
-
--- instance ToJSON (TStorageItem a t) where
---   toJSON (IntItem a b []) = object ["sort" .= pack "int"
---                                   , "name" .= String (pack a <> "." <> pack b)]
---   toJSON (BoolItem a b []) = object ["sort" .= pack "bool"
---                                    , "name" .= String (pack a <> "." <> pack b)]
---   toJSON (BytesItem a b []) = object ["sort" .= pack "bytes"
---                                     , "name" .= String (pack a <> "." <> pack b)]
---   toJSON (IntItem a b c) = mapping a b c
---   toJSON (BoolItem a b c) = mapping a b c
---   toJSON (BytesItem a b c) = mapping a b c
-
--- instance ToJSON (TypedExp t) where
---    toJSON (ExpInt a) = object ["sort" .= pack "int"
---                               ,"expression" .= toJSON a]
---    toJSON (ExpBool a) = object ["sort" .= String (pack "bool")
---                                ,"expression" .= toJSON a]
---    toJSON (ExpBytes a) = object ["sort" .= String (pack "bytestring")
---                                 ,"expression" .= toJSON a]
-
--- instance Typeable a => ToJSON (Exp a t) where
---   toJSON (Add a b) = symbol "+" a b
---   toJSON (Sub a b) = symbol "-" a b
---   toJSON (Exp a b) = symbol "^" a b
---   toJSON (Mul a b) = symbol "*" a b
---   toJSON (Div a b) = symbol "/" a b
---   toJSON (NewAddr a b) = symbol "newAddr" a b
---   toJSON (IntVar a) = String $ pack a
---   toJSON (LitInt a) = toJSON $ show a
---   toJSON (IntMin a) = toJSON $ show $ intmin a
---   toJSON (IntMax a) = toJSON $ show $ intmax a
---   toJSON (UIntMin a) = toJSON $ show $ uintmin a
---   toJSON (UIntMax a) = toJSON $ show $ uintmax a
---   toJSON (IntEnv a) = String $ pack $ show a
---   toJSON (TEntry a Neither) = toJSON a
---   toJSON (TEntry a t) = object [ "symbol" .= show t
---                                , "arity"  .= Data.Aeson.Types.Number 1
---                                , "args"   .= toJSON a]
---   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
---                               ,  "arity"    .= Data.Aeson.Types.Number 3
---                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
---   toJSON (And a b)  = symbol "and" a b
---   toJSON (Or a b)   = symbol "or" a b
---   toJSON (LE a b)   = symbol "<" a b
---   toJSON (GE a b)   = symbol ">" a b
---   toJSON (Impl a b) = symbol "=>" a b
---   toJSON (NEq a b)  = symbol "=/=" a b
---   toJSON (Eq a b)   = symbol "==" a b
---   toJSON (LEQ a b)  = symbol "<=" a b
---   toJSON (GEQ a b)  = symbol ">=" a b
---   toJSON (LitBool a) = String $ pack $ show a
---   toJSON (BoolVar a) = toJSON a
---   toJSON (Neg a) = object [  "symbol"   .= pack "not"
---                           ,  "arity"    .= Data.Aeson.Types.Number 1
---                           ,  "args"     .= Array (fromList [toJSON a])]
-
---   toJSON (Cat a b) = symbol "cat" a b
---   toJSON (Slice s a b) = object [ "symbol" .= pack "slice"
---                                 , "arity"  .= Data.Aeson.Types.Number 3
---                                 , "args"   .= Array (fromList [toJSON s, toJSON a, toJSON b])
---                                 ]
---   toJSON (ByVar a) = toJSON a
---   toJSON (ByStr a) = toJSON a
---   toJSON (ByLit a) = String . pack $ show a
---   toJSON (ByEnv a) = String . pack $ show a
---   toJSON v = error $ "todo: json ast for: " <> show v
-
--- mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
--- mapping c a b = object [  "symbol"   .= pack "lookup"
---                        ,  "arity"    .= Data.Aeson.Types.Number 3
---                        ,  "args"     .= Array (fromList [toJSON c, toJSON a, toJSON b])]
-
--- symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
--- symbol s a b = object [  "symbol"   .= pack s
---                       ,  "arity"    .= Data.Aeson.Types.Number 2
---                       ,  "args"     .= Array (fromList [toJSON a, toJSON b])]
-
--- intmin :: Int -> Integer
--- intmin a = negate $ 2 ^ (a - 1)
-
--- intmax :: Int -> Integer
--- intmax a = 2 ^ (a - 1) - 1
-
--- uintmin :: Int -> Integer
--- uintmin _ = 0
-
--- uintmax :: Int -> Integer
--- uintmax a = 2 ^ a - 1
-
-castTime :: (Typeable t, Typeable t0) => Exp a t0 -> Maybe (Exp a t)
+castTime :: (Typeable t, Typeable u) => Exp a u -> Maybe (Exp a t)
 castTime = gcast
 
 castType :: (Typeable a, Typeable x) => Exp x t -> Maybe (Exp a t)

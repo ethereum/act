@@ -8,7 +8,6 @@ module Syntax.Untyped where
 import Data.Aeson
 import Data.List (intercalate)
 import Data.List.NonEmpty (toList)
-import Data.Map (Map,empty,insertWith,unionsWith)
 
 import EVM.ABI (AbiType)
 import EVM.Solidity (SlotType(..))
@@ -143,89 +142,6 @@ data Decl = Decl AbiType Id
 
 instance Show Decl where
   show (Decl t a) = show t <> " " <> a
-
-getPosn :: Expr -> Pn
-getPosn expr = case expr of
-    EAnd pn  _ _ -> pn
-    EOr pn _ _ -> pn
-    ENot pn _ -> pn
-    EImpl pn _ _ -> pn
-    EEq pn _ _ -> pn
-    ENeq pn _ _ -> pn
-    ELEQ pn _ _ -> pn
-    ELT pn _ _ -> pn
-    EGEQ pn _ _ -> pn
-    EGT pn _ _ -> pn
-    EAdd pn _ _ -> pn
-    ESub pn _ _ -> pn
-    EITE pn _ _ _ -> pn
-    EMul pn _ _ -> pn
-    EDiv pn _ _ -> pn
-    EMod pn _ _ -> pn
-    EExp pn _ _ -> pn
-    Zoom pn _ _ -> pn
-    EUTEntry pn _ _ -> pn
-    EPreEntry pn _ _ -> pn
-    EPostEntry pn _ _ -> pn
-    Func pn _ _ -> pn
-    ListConst e -> getPosn e
-    ECat pn _ _ -> pn
-    ESlice pn _ _ _ -> pn
-    ENewaddr pn _ _ -> pn
-    ENewaddr2 pn _ _ _ -> pn
-    BYHash pn _ -> pn
-    BYAbiE pn _ -> pn
-    StringLit pn _ -> pn
-    WildExp pn -> pn
-    EnvExp pn _ -> pn
-    IntLit pn _ -> pn
-    BoolLit pn _ -> pn
-
--- | Returns all the identifiers used in an expression,
--- as well all of the positions they're used in.
-idFromRewrites :: Expr -> Map Id [Pn]
-idFromRewrites e = case e of
-  EAnd _ a b        -> idFromRewrites' [a,b]
-  EOr _ a b         -> idFromRewrites' [a,b]
-  ENot _ a          -> idFromRewrites a
-  EImpl _ a b       -> idFromRewrites' [a,b]
-  EEq _ a b         -> idFromRewrites' [a,b]
-  ENeq _ a b        -> idFromRewrites' [a,b]
-  ELEQ _ a b        -> idFromRewrites' [a,b]
-  ELT _ a b         -> idFromRewrites' [a,b]
-  EGEQ _ a b        -> idFromRewrites' [a,b]
-  EGT _ a b         -> idFromRewrites' [a,b]
-  EAdd _ a b        -> idFromRewrites' [a,b]
-  ESub _ a b        -> idFromRewrites' [a,b]
-  EITE _ a b c      -> idFromRewrites' [a,b,c]
-  EMul _ a b        -> idFromRewrites' [a,b]
-  EDiv _ a b        -> idFromRewrites' [a,b]
-  EMod _ a b        -> idFromRewrites' [a,b]
-  EExp _ a b        -> idFromRewrites' [a,b]
-  Zoom _ a b        -> idFromRewrites' [a,b]
-  EUTEntry p x es   -> insertWith (<>) x [p] $ idFromRewrites' es
-  EPreEntry p x es  -> insertWith (<>) x [p] $ idFromRewrites' es
-  EPostEntry p x es -> insertWith (<>) x [p] $ idFromRewrites' es
-  Func _ _ es       -> idFromRewrites' es
-  ListConst a       -> idFromRewrites a
-  ECat _ a b        -> idFromRewrites' [a,b]
-  ESlice _ a b c    -> idFromRewrites' [a,b,c]
-  ENewaddr _ a b    -> idFromRewrites' [a,b]
-  ENewaddr2 _ a b c -> idFromRewrites' [a,b,c]
-  BYHash _ a        -> idFromRewrites a
-  BYAbiE _ a        -> idFromRewrites a
-  StringLit {}      -> empty
-  WildExp {}        -> empty
-  EnvExp {}         -> empty
-  IntLit {}         -> empty
-  BoolLit {}        -> empty
-  where
-    idFromRewrites' = unionsWith (<>) . fmap idFromRewrites
-
-nameFromStorage :: Storage -> Id
-nameFromStorage (Rewrite (PEntry _ x _) _) = x
-nameFromStorage (Constant (PEntry _ x _)) = x
-nameFromStorage store = error $ "Internal error: cannot extract name from " ++ show store
 
 instance ToJSON SlotType where
   toJSON (StorageValue t) = object ["type" .= show t]

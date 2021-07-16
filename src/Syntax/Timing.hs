@@ -1,23 +1,18 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ConstrainedClassMethods #-}
 
 {-|
 Module      : Syntax.Timing
 Description : Stuff relating to explicit and implicit references to pre-/post-states.
-
-Do not import directly! If you're doing AST refinement, everything you need is
-reexported by "Syntax.TimingAgnostic". If you're doing code generation, everything
-you need is reexported by "Syntax.Refined".
 -}
 module Syntax.Timing where
 
 import Data.Char (toLower)
 
 -- | This will never be used as-is. Its only purpose is to use with -XDataKinds,
--- to ensure type safety of the `Exp` and `TStorageItem` types.
+-- to distinguish between those AST terms which have fully explicit timings ('Timed')
+-- and those which have implicit timings.
 data Timing = Timed | Untimed
 
 -- | Encodes choice between explicitly referring to the pre-/post-state, or not.
@@ -47,26 +42,16 @@ class Refinable c where
   -- | Defines how an 'Untimed' thing should be given explicit timings.
   refine :: c Untimed -> c Timed
 
--- | Types for which all implicit timings can freely be given any explicit timing.
+-- | Types for which all implicit timings can freely be given any explicit timing,
+-- i.e. we need context to decide which time it refers to.
 class Timable c where
-  -- | Takes an `Untimed` `Timeable` thing and points it towards the prestate.
+  -- | Takes an 'Untimed' 'Timable' thing and points it towards the prestate.
   setPre :: c Untimed -> c Timed
   setPre = setTime Pre
 
-  -- | Takes an `Untimed` `Timeable` thing and points it towards the poststate.
+  -- | Takes an 'Untimed' 'Timeable' thing and points it towards the poststate.
   setPost :: c Untimed -> c Timed
   setPost = setTime Post
 
-  -- | Takes an `Untimed` `Timeable` thing and points it towards the given state.
+  -- | Takes an 'Untimed' 'Timeable' thing and points it towards the given state.
   setTime :: When -> c Untimed -> c Timed
-
-  -- -- | Dangerous! Do not use this during code generation, as doing so
-  -- -- may damage your AST by replacing valid 'Post' entries with 'Pre'
-  -- -- or vice versa. Instead, use 'as' or 'setTime', which provide
-  -- -- "the same" functionality but restricted to be type safe.
-  -- -- This is the reason why you shouldn't import this module directly.
-  -- forceTime :: Time t -> c t0 -> c t
-
-  -- -- | Compare two timeable things for equality while ignoring their timings.
-  -- eqModTime :: Eq (c Untimed) => c t -> c u -> Bool
-  -- eqModTime a b = forceTime Neither a == forceTime Neither b

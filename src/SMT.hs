@@ -1,9 +1,5 @@
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE MonadComprehensions #-}
 
 module SMT (
@@ -42,7 +38,9 @@ import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
 
+import Syntax
 import Syntax.Refined
+
 import Print
 import Type (defaultStore)
 

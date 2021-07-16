@@ -5,7 +5,6 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language NamedFieldPuns #-}
 {-# Language DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 
 module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
 
@@ -26,14 +25,13 @@ import Control.Applicative
 import Data.Traversable (for)
 import Control.Monad
 
+import Syntax
 import Syntax.Timing
 import Syntax.Untyped hiding (Post,Constant,Rewrite)
 import qualified Syntax.Untyped as Untyped
 import Syntax.Typed
 import ErrM
 import Parse
---import Extract
---import RefinedAst
 
 typecheck :: [RawBehaviour] -> Err [Claim]
 typecheck behvs = do store <- lookupVars behvs

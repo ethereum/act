@@ -8,6 +8,8 @@
 module HEVM where
 
 import Prelude hiding (lookup)
+
+import Syntax
 import Syntax.Refined as Refined hiding (S)
 
 import Data.ByteString (ByteString)

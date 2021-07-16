@@ -6,9 +6,10 @@ import Data.ByteString.UTF8 (toString)
 
 import Data.List
 
-import Syntax.Refined
+import Syntax
+import Syntax.TimeAgnostic
 
-prettyBehaviour :: Behaviour -> String
+prettyBehaviour :: Behaviour t -> String
 prettyBehaviour (Behaviour name _ contract interface preconditions postconditions stateUpdates returns)
   =   "behaviour " <> name <> " of " <> contract
   >-< "interface " <> (show interface)
@@ -36,7 +37,7 @@ prettyBehaviour (Behaviour name _ contract interface preconditions postcondition
     block l = "  " <> intercalate "\n  " l
     x >-< y = x <> "\n" <> y
 
-prettyExp :: Exp a -> String
+prettyExp :: Exp a t -> String
 prettyExp e = case e of
 
   -- booleans
@@ -85,23 +86,23 @@ prettyExp e = case e of
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
-prettyTypedExp :: TypedExp -> String
+prettyTypedExp :: TypedExp t -> String
 prettyTypedExp e = case e of
   ExpInt e' -> prettyExp e'
   ExpBool e' -> prettyExp e'
   ExpBytes e' -> prettyExp e'
 
-prettyItem :: TStorageItem a -> String
+prettyItem :: TStorageItem a t -> String
 prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
   where
     brackets str = "[" <> str <> "]"
 
-prettyLocation :: StorageLocation -> String
+prettyLocation :: StorageLocation t -> String
 prettyLocation (IntLoc item) = prettyItem item
 prettyLocation (BoolLoc item) = prettyItem item
 prettyLocation (BytesLoc item) = prettyItem item
 
-prettyUpdate :: StorageUpdate -> String
+prettyUpdate :: StorageUpdate t -> String
 prettyUpdate (IntUpdate item e) = prettyItem item <> " => " <> prettyExp e
 prettyUpdate (BoolUpdate item e) = prettyItem item <> " => " <> prettyExp e
 prettyUpdate (BytesUpdate item e) = prettyItem item <> " => " <> prettyExp e

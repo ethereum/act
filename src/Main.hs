@@ -6,7 +6,6 @@
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# Language TypeOperators #-}
-{-# LANGUAGE RankNTypes #-}
 
 module Main where
 

@@ -10,6 +10,7 @@ import qualified Data.Map.Strict as Map (lookup)
 import EVM.ABI (AbiType(..))
 import EVM.Solidity (SlotType(..))
 
+import Syntax
 import Syntax.Typed
 import Type (bound, defaultStore)
 

@@ -2,13 +2,13 @@
 {-# Language GADTs #-}
 {-# Language OverloadedStrings #-}
 {-# Language ScopedTypeVariables #-}
-{-# Language TypeFamilies #-}
 {-# Language TypeApplications #-}
-{-# Language DataKinds #-}
 
 module K where
 
+import Syntax
 import Syntax.Refined
+
 import ErrM
 import Control.Applicative ((<|>))
 import Data.Functor (($>))
