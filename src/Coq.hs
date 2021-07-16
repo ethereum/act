@@ -303,14 +303,12 @@ typedexp (ExpInt e)   = coqexp e
 typedexp (ExpBool e)  = coqexp e
 typedexp (ExpBytes _) = error "bytestrings not supported"
 
-mutableVar :: Id -> When -> T.Text
-mutableVar a w = T.pack $ a <> "_" <> show w
-
 entry :: TStorageItem a -> When -> T.Text
-entry item t | itemType item == ByteStr = error "bytestrings not supported"
-             | otherwise = case ixsFromItem item of
-                            []       -> parens $ mutableVar (idFromItem item) t <> " " <> stateVar
-                            (ix:ixs) -> parens $ mutableVar (idFromItem item) t <> " s " <> coqargs (ix :| ixs)
+entry BytesItem{} _    = error "bytestrings not supported"
+entry _           Post = error "TODO: missing support for poststate references in coq backend"
+entry item        Pre  = case ixsFromItem item of
+  []       -> parens $ T.pack (idFromItem item) <> " " <> stateVar
+  (ix:ixs) -> parens $ T.pack (idFromItem item) <> " s " <> coqargs (ix :| ixs)
 
 -- | coq syntax for a list of arguments
 coqargs :: NonEmpty TypedExp -> T.Text

@@ -56,7 +56,7 @@ main = defaultMain $ testGroup "act"
       -}
       [ testProperty "roundtrip" . withExponents $ do
           behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
-          let actual = parse (lexer $ prettyBehaviour behv) >>= typecheck
+          let actual = pure . fmap refine <=< typecheck <=< parse . lexer $ prettyBehaviour behv
               expected = if null preconds then
                   [ S Map.empty, B behv ]
                 else
