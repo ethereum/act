@@ -37,20 +37,17 @@ module Syntax.Typed (module Syntax.Typed) where
 -- import Data.Vector (fromList)
 
 -- import Syntax.TimingAgnostic hiding (Claim,Transition,Invariant,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation)
-import Syntax.TimeAgnostic as Syntax.Typed hiding (Claim,Transition,Invariant,InvariantExp,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp)
-import Syntax.TimeAgnostic as Syntax.Typed (pattern Invariant, pattern Constructor, pattern Behaviour, pattern Rewrite, pattern Exp)
+import Syntax.TimeAgnostic as Syntax.Typed hiding (Claim,Transition,Invariant,InvariantPred,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation)
+import Syntax.TimeAgnostic as Syntax.Typed (pattern Invariant, pattern Constructor, pattern Behaviour, pattern Rewrite)
 import qualified Syntax.TimeAgnostic as Agnostic
+
+import Syntax.Timing as Syntax.Typed
 
 type Claim           = Agnostic.Claim           Untimed
 type Transition      = Agnostic.Transition      Untimed
 type Invariant       = Agnostic.Invariant       Untimed
-type InvariantExp    = Agnostic.InvariantExp    Untimed
 type Constructor     = Agnostic.Constructor     Untimed
 type Behaviour       = Agnostic.Behaviour       Untimed
 type Rewrite         = Agnostic.Rewrite         Untimed
 type StorageUpdate   = Agnostic.StorageUpdate   Untimed
 type StorageLocation = Agnostic.StorageLocation Untimed
-
-type TStorageItem    = Agnostic.TStorageItem
-type TypedExp        = Agnostic.TypedExp
-type Exp             = Agnostic.Exp

@@ -8,7 +8,7 @@
 --{-# Language MultiParamTypeClasses #-}
 --{-# Language FlexibleContexts #-}
 --{-# Language ScopedTypeVariables #-}
---{-# Language TypeFamilies #-}
+--{-# LANGUAGE TypeFamilies #-}
 --{-# Language TypeApplications #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -20,34 +20,37 @@ module Syntax.Refined (module Syntax.Refined) where
 
 import Data.Aeson
 import Data.Aeson.Types
-import Data.List (nub,nubBy)
+import Data.List (nub)
 import Data.Text (pack)
 import Data.Typeable
 import Data.Vector (fromList)
 
-import Syntax.TimeAgnostic as Syntax.Refined hiding (Claim,Transition,Invariant,InvariantExp,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp)
+import Syntax.TimeAgnostic as Syntax.Refined hiding (Claim,Transition,Invariant,InvariantPred,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp)
 import Syntax.TimeAgnostic as Syntax.Refined (pattern Invariant, pattern Constructor, pattern Behaviour, pattern Rewrite, pattern Exp)
 import qualified Syntax.TimeAgnostic as Agnostic
 
-type Claim           = Agnostic.Claim             Timed
-type Transition      = Agnostic.Transition        Timed
-type Invariant       = Agnostic.Invariant         Timed
-type InvariantExp    = Agnostic.InvariantExp      Timed
-type Constructor     = Agnostic.Constructor       Timed
-type Behaviour       = Agnostic.Behaviour         Timed
-type Rewrite         = Agnostic.Rewrite           Timed
-type StorageUpdate   = Agnostic.StorageUpdate     Timed
-type StorageLocation = Agnostic.StorageLocation   Timed
-type TStorageItem a  = Agnostic.TStorageItem    a Timed
-type Exp          a  = Agnostic.Exp             a Timed
-type TypedExp        = Agnostic.TypedExp          Timed
+import Syntax.Timing as Syntax.Refined hiding (Timing(..),Timable,Time)
+import Syntax.Timing
+
+type Claim           = Agnostic.Claim           Timed
+type Transition      = Agnostic.Transition      Timed
+type Invariant       = Agnostic.Invariant       Timed
+type InvariantPred   = Agnostic.InvariantPred   Timed
+type Constructor     = Agnostic.Constructor     Timed
+type Behaviour       = Agnostic.Behaviour       Timed
+type Rewrite         = Agnostic.Rewrite         Timed
+type StorageUpdate   = Agnostic.StorageUpdate   Timed
+type StorageLocation = Agnostic.StorageLocation Timed
+type TStorageItem a  = Agnostic.TStorageItem  a Timed
+type Exp          a  = Agnostic.Exp           a Timed
+type TypedExp        = Agnostic.TypedExp        Timed
 
 instance Refinable Agnostic.Claim where
   refine claim = case claim of
-    C cstor -> C $ refine cstor
-    B behvr -> B $ refine behvr
-    I invar -> I $ refine invar
-    S store -> S store
+    C ctor -> C $ refine ctor
+    B behv -> B $ refine behv
+    I invr -> I $ refine invr
+    S stor -> S stor
 
 instance Refinable Agnostic.Transition where
   refine trans = case trans of
@@ -58,11 +61,8 @@ instance Refinable Agnostic.Invariant where
   refine inv@Invariant{..} = inv
     { _ipreconditions = setPre <$> _ipreconditions
     , _istoragebounds = setPre <$> _istoragebounds -- not 100% on this `setPre`
-    , _predicate      = refine _predicate
+    , _predicate      = (setPre _predicate, setPost _predicate)
     }
-
-instance Refinable Agnostic.InvariantExp where
-  refine Single{..} = Double { _prestate = setPre _agnostic, _poststate = setPost _agnostic }
 
 instance Refinable Agnostic.Constructor where
   refine ctor@Constructor{..} = ctor
@@ -95,9 +95,9 @@ instance Timable Agnostic.StorageLocation where
 
 instance Timable Agnostic.TypedExp where
   setTime time texp = case texp of
-    ExpInt exp -> ExpInt $ setTime time exp
-    ExpBool exp -> ExpBool $ setTime time exp
-    ExpBytes exp -> ExpBytes $ setTime time exp
+    ExpInt expr -> ExpInt $ setTime time expr
+    ExpBool expr -> ExpBool $ setTime time expr
+    ExpBytes expr -> ExpBytes $ setTime time expr
 
 instance Timable (Agnostic.Exp a) where
   setTime time expr = case expr of
@@ -176,130 +176,130 @@ locsFromRewrite update = nub $ case update of
   Rewrite (BoolUpdate item e) -> BoolLoc item : locsFromExp e
   Rewrite (BytesUpdate item e) -> BytesLoc item : locsFromExp e
 
-locsFromTypedExp :: TypedExp -> [StorageLocation]
-locsFromTypedExp (ExpInt e) = locsFromExp e
-locsFromTypedExp (ExpBool e) = locsFromExp e
-locsFromTypedExp (ExpBytes e) = locsFromExp e
+-- locsFromTypedExp :: TypedExp -> [StorageLocation]
+-- locsFromTypedExp (ExpInt e) = locsFromExp e
+-- locsFromTypedExp (ExpBool e) = locsFromExp e
+-- locsFromTypedExp (ExpBytes e) = locsFromExp e
 
-locsFromExp :: Exp a -> [StorageLocation]
-locsFromExp = nub . go
-  where
-    go :: Exp a -> [StorageLocation]
-    go e = case e of
-      And a b   -> go a <> go b
-      Or a b    -> go a <> go b
-      Impl a b  -> go a <> go b
-      Eq a b    -> go a <> go b
-      LE a b    -> go a <> go b
-      LEQ a b   -> go a <> go b
-      GE a b    -> go a <> go b
-      GEQ a b   -> go a <> go b
-      NEq a b   -> go a <> go b
-      Neg a     -> go a
-      Add a b   -> go a <> go b
-      Sub a b   -> go a <> go b
-      Mul a b   -> go a <> go b
-      Div a b   -> go a <> go b
-      Mod a b   -> go a <> go b
-      Exp a b   -> go a <> go b
-      Cat a b   -> go a <> go b
-      Slice a b c -> go a <> go b <> go c
-      ByVar _ -> []
-      ByStr _ -> []
-      ByLit _ -> []
-      LitInt _  -> []
-      IntMin _  -> []
-      IntMax _  -> []
-      UIntMin _ -> []
-      UIntMax _ -> []
-      IntVar _  -> []
-      LitBool _ -> []
-      BoolVar _ -> []
-      NewAddr a b -> go a <> go b
-      IntEnv _ -> []
-      ByEnv _ -> []
-      ITE x y z -> go x <> go y <> go z
-      TEntry a _ -> locsFromStorageItem a
+-- locsFromExp :: Exp a -> [StorageLocation]
+-- locsFromExp = nub . go
+--   where
+--     go :: Exp a -> [StorageLocation]
+--     go e = case e of
+--       And a b   -> go a <> go b
+--       Or a b    -> go a <> go b
+--       Impl a b  -> go a <> go b
+--       Eq a b    -> go a <> go b
+--       LE a b    -> go a <> go b
+--       LEQ a b   -> go a <> go b
+--       GE a b    -> go a <> go b
+--       GEQ a b   -> go a <> go b
+--       NEq a b   -> go a <> go b
+--       Neg a     -> go a
+--       Add a b   -> go a <> go b
+--       Sub a b   -> go a <> go b
+--       Mul a b   -> go a <> go b
+--       Div a b   -> go a <> go b
+--       Mod a b   -> go a <> go b
+--       Exp a b   -> go a <> go b
+--       Cat a b   -> go a <> go b
+--       Slice a b c -> go a <> go b <> go c
+--       ByVar _ -> []
+--       ByStr _ -> []
+--       ByLit _ -> []
+--       LitInt _  -> []
+--       IntMin _  -> []
+--       IntMax _  -> []
+--       UIntMin _ -> []
+--       UIntMax _ -> []
+--       IntVar _  -> []
+--       LitBool _ -> []
+--       BoolVar _ -> []
+--       NewAddr a b -> go a <> go b
+--       IntEnv _ -> []
+--       ByEnv _ -> []
+--       ITE x y z -> go x <> go y <> go z
+--       TEntry a _ -> locsFromStorageItem a
 
-    locsFromStorageItem :: TStorageItem a -> [StorageLocation]
-    locsFromStorageItem t = case t of
-      IntItem contract name ixs -> [IntLoc $ IntItem contract name $ ixs] <> ixLocs ixs
-      BoolItem contract name ixs -> [BoolLoc $ BoolItem contract name $ ixs] <> ixLocs ixs
-      BytesItem contract name ixs -> [BytesLoc $ BytesItem contract name $ ixs] <> ixLocs ixs
-      where
-        ixLocs :: [TypedExp] -> [StorageLocation]
-        ixLocs = concatMap locsFromTypedExp
+--     locsFromStorageItem :: TStorageItem a -> [StorageLocation]
+--     locsFromStorageItem t = case t of
+--       IntItem contract name ixs -> [IntLoc $ IntItem contract name $ ixs] <> ixLocs ixs
+--       BoolItem contract name ixs -> [BoolLoc $ BoolItem contract name $ ixs] <> ixLocs ixs
+--       BytesItem contract name ixs -> [BytesLoc $ BytesItem contract name $ ixs] <> ixLocs ixs
+--       where
+--         ixLocs :: [TypedExp] -> [StorageLocation]
+--         ixLocs = concatMap locsFromTypedExp
 
-ethEnvFromBehaviour :: Behaviour -> [EthEnv]
-ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
-  concatMap ethEnvFromExp preconds
-  <> concatMap ethEnvFromExp postconds
-  <> concatMap ethEnvFromRewrite rewrites
-  <> maybe [] ethEnvFromTypedExp returns
+-- ethEnvFromBehaviour :: Behaviour -> [EthEnv]
+-- ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+--   concatMap ethEnvFromExp preconds
+--   <> concatMap ethEnvFromExp postconds
+--   <> concatMap ethEnvFromRewrite rewrites
+--   <> maybe [] ethEnvFromTypedExp returns
 
-ethEnvFromConstructor :: Constructor -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
-  concatMap ethEnvFromExp pre
-  <> concatMap ethEnvFromExp post
-  <> concatMap ethEnvFromRewrite rewrites
-  <> concatMap ethEnvFromRewrite (Rewrite <$> initialStorage)
+-- ethEnvFromConstructor :: Constructor -> [EthEnv]
+-- ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
+--   concatMap ethEnvFromExp pre
+--   <> concatMap ethEnvFromExp post
+--   <> concatMap ethEnvFromRewrite rewrites
+--   <> concatMap ethEnvFromRewrite (Rewrite <$> initialStorage)
 
-ethEnvFromRewrite :: Rewrite -> [EthEnv]
-ethEnvFromRewrite rewrite = case rewrite of
-  Constant (IntLoc item) -> ethEnvFromItem item
-  Constant (BoolLoc item) -> ethEnvFromItem item
-  Constant (BytesLoc item) -> ethEnvFromItem item
-  Rewrite (IntUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
-  Rewrite (BoolUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
-  Rewrite (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+-- ethEnvFromRewrite :: Rewrite -> [EthEnv]
+-- ethEnvFromRewrite rewrite = case rewrite of
+--   Constant (IntLoc item) -> ethEnvFromItem item
+--   Constant (BoolLoc item) -> ethEnvFromItem item
+--   Constant (BytesLoc item) -> ethEnvFromItem item
+--   Rewrite (IntUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+--   Rewrite (BoolUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+--   Rewrite (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
 
-ethEnvFromItem :: TStorageItem a -> [EthEnv]
-ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
+-- ethEnvFromItem :: TStorageItem a -> [EthEnv]
+-- ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
 
-ethEnvFromTypedExp :: TypedExp -> [EthEnv]
-ethEnvFromTypedExp (ExpInt e) = ethEnvFromExp e
-ethEnvFromTypedExp (ExpBool e) = ethEnvFromExp e
-ethEnvFromTypedExp (ExpBytes e) = ethEnvFromExp e
+-- ethEnvFromTypedExp :: TypedExp -> [EthEnv]
+-- ethEnvFromTypedExp (ExpInt e) = ethEnvFromExp e
+-- ethEnvFromTypedExp (ExpBool e) = ethEnvFromExp e
+-- ethEnvFromTypedExp (ExpBytes e) = ethEnvFromExp e
 
-ethEnvFromExp :: Exp a -> [EthEnv]
-ethEnvFromExp = nub . go
-  where
-    go :: Exp a -> [EthEnv]
-    go e = case e of
-      And a b   -> go a <> go b
-      Or a b    -> go a <> go b
-      Impl a b  -> go a <> go b
-      Eq a b    -> go a <> go b
-      LE a b    -> go a <> go b
-      LEQ a b   -> go a <> go b
-      GE a b    -> go a <> go b
-      GEQ a b   -> go a <> go b
-      NEq a b   -> go a <> go b
-      Neg a     -> go a
-      Add a b   -> go a <> go b
-      Sub a b   -> go a <> go b
-      Mul a b   -> go a <> go b
-      Div a b   -> go a <> go b
-      Mod a b   -> go a <> go b
-      Exp a b   -> go a <> go b
-      Cat a b   -> go a <> go b
-      Slice a b c -> go a <> go b <> go c
-      ITE a b c -> go a <> go b <> go c
-      ByVar _ -> []
-      ByStr _ -> []
-      ByLit _ -> []
-      LitInt _  -> []
-      IntVar _  -> []
-      LitBool _ -> []
-      BoolVar _ -> []
-      IntMin _ -> []
-      IntMax _ -> []
-      UIntMin _ -> []
-      UIntMax _ -> []
-      NewAddr a b -> go a <> go b
-      IntEnv a -> [a]
-      ByEnv a -> [a]
-      TEntry a _ -> ethEnvFromItem a
+-- ethEnvFromExp :: Exp a -> [EthEnv]
+-- ethEnvFromExp = nub . go
+--   where
+--     go :: Exp a -> [EthEnv]
+--     go e = case e of
+--       And a b   -> go a <> go b
+--       Or a b    -> go a <> go b
+--       Impl a b  -> go a <> go b
+--       Eq a b    -> go a <> go b
+--       LE a b    -> go a <> go b
+--       LEQ a b   -> go a <> go b
+--       GE a b    -> go a <> go b
+--       GEQ a b   -> go a <> go b
+--       NEq a b   -> go a <> go b
+--       Neg a     -> go a
+--       Add a b   -> go a <> go b
+--       Sub a b   -> go a <> go b
+--       Mul a b   -> go a <> go b
+--       Div a b   -> go a <> go b
+--       Mod a b   -> go a <> go b
+--       Exp a b   -> go a <> go b
+--       Cat a b   -> go a <> go b
+--       Slice a b c -> go a <> go b <> go c
+--       ITE a b c -> go a <> go b <> go c
+--       ByVar _ -> []
+--       ByStr _ -> []
+--       ByLit _ -> []
+--       LitInt _  -> []
+--       IntVar _  -> []
+--       LitBool _ -> []
+--       BoolVar _ -> []
+--       IntMin _ -> []
+--       IntMax _ -> []
+--       UIntMin _ -> []
+--       UIntMax _ -> []
+--       NewAddr a b -> go a <> go b
+--       IntEnv a -> [a]
+--       ByEnv a -> [a]
+--       TEntry a _ -> ethEnvFromItem a
 
 idFromRewrite :: Rewrite -> Id
 idFromRewrite = onRewrite idFromLocation idFromUpdate
@@ -327,10 +327,10 @@ contractFromItem (IntItem c _ _) = c
 contractFromItem (BoolItem c _ _) = c
 contractFromItem (BytesItem c _ _) = c
 
-ixsFromItem :: TStorageItem a -> [TypedExp]
-ixsFromItem (IntItem   _ _ ixs) = ixs
-ixsFromItem (BoolItem  _ _ ixs) = ixs
-ixsFromItem (BytesItem _ _ ixs) = ixs
+-- ixsFromItem :: TStorageItem a -> [TypedExp]
+-- ixsFromItem (IntItem   _ _ ixs) = ixs
+-- ixsFromItem (BoolItem  _ _ ixs) = ixs
+-- ixsFromItem (BytesItem _ _ ixs) = ixs
 
 contractsInvolved :: Behaviour -> [Id]
 contractsInvolved = fmap contractFromRewrite . _stateUpdates
@@ -402,8 +402,8 @@ instance ToJSON Claim where
                                         , "stateUpdates" .= toJSON _stateUpdates
                                         , "returns" .= toJSON _returns]
 
-instance ToJSON InvariantExp where
-  toJSON (Double a b) = toJSON $ a <> b
+--instance ToJSON InvariantPred where
+--  toJSON = toJSON . predicate
 
 instance ToJSON Rewrite where
   toJSON (Constant a) = object [ "Constant" .= toJSON a ]
@@ -452,9 +452,8 @@ instance Typeable a => ToJSON (Exp a) where
   toJSON (UIntMin a) = toJSON $ show $ uintmin a
   toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
-  toJSON (TEntry a t) = object [ "symbol" .= show t
-                               , "arity"  .= Data.Aeson.Types.Number 1
-                               , "args"   .= toJSON a]
+  toJSON (TEntry a t) = object [ "when".= show t
+                               , "ref" .= toJSON a ]
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]

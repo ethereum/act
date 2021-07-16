@@ -1,5 +1,3 @@
-module Syntax (module Refined, module Typed, module Untyped) where
+module Syntax (module Agnostic) where
 
-import Syntax.Refined as Refined
-import Syntax.Typed   as Typed
-import Syntax.Untyped as Untyped
+import Syntax.TimeAgnostic as Agnostic

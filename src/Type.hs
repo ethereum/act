@@ -4,10 +4,8 @@
 {-# Language TypeApplications #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language NamedFieldPuns #-}
-{-# Language TypeOperators #-}
 {-# Language DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE PolyKinds #-}
 
 module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
 
@@ -28,6 +26,7 @@ import Control.Applicative
 import Data.Traversable (for)
 import Control.Monad
 
+import Syntax.Timing
 import Syntax.Untyped hiding (Post,Constant,Rewrite)
 import qualified Syntax.Untyped as Untyped
 import Syntax.Typed
@@ -159,7 +158,7 @@ splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Create
                else [ C $ Constructor contract Pass iface iffs' ensures stateUpdates []
                        , C $ Constructor contract Fail iface [Neg (mconcat iffs')] ensures [] []]
 
-  return $ ((I . Invariant contract [] [] . Single) <$> invariants)
+  return $ ((I . Invariant contract [] []) <$> invariants)
            <> cases'
 
 mkEnv :: Id -> Store -> [Decl]-> Env
@@ -396,7 +395,7 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
     check :: forall x. Typeable x => Pn -> Err (Exp x t) -> Err (Exp a t)
     check pn e =
       errMessage (pn,"Type mismatch. Expected " <> show (typeRep @a) <> ", got " <> show (typeRep @x) <> ".")
-        =<< gcast0 <$> e
+        =<< castType <$> e
 
     -- Takes a polymorphic binary AST constructor and specializes it to each of
     -- our types. Those specializations are used in order to guide the
@@ -437,9 +436,4 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
               ixs <- for (es `zip` ts) (uncurry $ checkExpr env)
               check pn
                 $ errMessage (pn, (tail . show $ typeRep @t) <> " variable needed here!")
-                $ gcast (TEntry (maker contract name ixs) timing)
-
--- | Analogous to `gcast1` and `gcast2` from `Data.Typeable`. We *could* technically use `cast` instead
--- but then we would catch too many errors at once, so we couldn't emit informative error messages.
-gcast0 :: forall t t' a. (Typeable t, Typeable t') => t a -> Maybe (t' a)
-gcast0 x = fmap (\Refl -> x) (eqT :: Maybe (t :~: t'))
+                $ castTime (TEntry (maker contract name ixs) timing)

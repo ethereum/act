@@ -21,10 +21,9 @@ import qualified Data.Text          as T
 import Data.List (find, groupBy)
 import Control.Monad.State
 
-import Extract
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
-import RefinedAst hiding (Store)
+import Syntax.Refined hiding (Store)
 
 type Store = M.Map Id SlotType
 type Fresh = State Int
@@ -171,7 +170,7 @@ eqName :: Id -> StorageUpdate -> Bool
 eqName n update = n == idFromUpdate update
 
 -- represent mapping update with anonymous function
-lambda :: [TypedExp t] -> Int -> Exp t a -> Id -> T.Text
+lambda :: [TypedExp] -> Int -> Exp a -> Id -> T.Text
 lambda [] _ e _ = parens $ coqexp e
 lambda (x:xs) n e m = parens $
   "fun " <> name <> " =>"
@@ -209,7 +208,7 @@ abiType AbiStringType = strMod <> ".string"
 abiType a = error $ show a
 
 -- | coq syntax for a return type
-returnType :: TypedExp t -> T.Text
+returnType :: TypedExp -> T.Text
 returnType (ExpInt _) = "Z"
 returnType (ExpBool _) = "bool"
 returnType (ExpBytes _) = "bytestrings not supported"
@@ -232,7 +231,7 @@ abiVal AbiStringType = strMod <> ".EmptyString"
 abiVal _ = error "TODO: missing default values"
 
 -- | coq syntax for an expression
-coqexp :: Exp t a -> T.Text
+coqexp :: Exp a -> T.Text
 
 -- booleans
 coqexp (LitBool True)  = "true"
@@ -283,7 +282,7 @@ coqexp (ByEnv _) = error "bytestrings not supported"
 coqexp (NewAddr _ _) = error "newaddr not supported"
 
 -- | coq syntax for a proposition
-coqprop :: Exp t a -> T.Text
+coqprop :: Exp a -> T.Text
 coqprop (LitBool True)  = "True"
 coqprop (LitBool False) = "False"
 coqprop (And e1 e2)  = parens $ coqprop e1 <> " /\\ " <> coqprop e2
@@ -299,23 +298,22 @@ coqprop (GEQ e1 e2)  = parens $ coqexp e1 <> " >= " <> coqexp e2
 coqprop _ = error "ill formed proposition"
 
 -- | coq syntax for a typed expression
-typedexp :: TypedExp t -> T.Text
+typedexp :: TypedExp -> T.Text
 typedexp (ExpInt e)   = coqexp e
 typedexp (ExpBool e)  = coqexp e
 typedexp (ExpBytes _) = error "bytestrings not supported"
 
-mutableVar :: Id -> Time t -> T.Text
-mutableVar a Neither  = T.pack a
-mutableVar a w        = T.pack $ a <> "_" <> show w
+mutableVar :: Id -> When -> T.Text
+mutableVar a w = T.pack $ a <> "_" <> show w
 
-entry :: TStorageItem t a -> Time t -> T.Text
+entry :: TStorageItem a -> When -> T.Text
 entry item t | itemType item == ByteStr = error "bytestrings not supported"
              | otherwise = case ixsFromItem item of
                             []       -> parens $ mutableVar (idFromItem item) t <> " " <> stateVar
                             (ix:ixs) -> parens $ mutableVar (idFromItem item) t <> " s " <> coqargs (ix :| ixs)
 
 -- | coq syntax for a list of arguments
-coqargs :: NonEmpty (TypedExp t) -> T.Text
+coqargs :: NonEmpty TypedExp -> T.Text
 coqargs (e :| es) =
   typedexp e <> " " <> T.unwords (map typedexp es)
 

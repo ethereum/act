@@ -15,7 +15,6 @@ you need is reexported by "Syntax.Refined".
 module Syntax.Timing where
 
 import Data.Char (toLower)
-import Data.Typeable ((:~:)(..))
 
 -- | This will never be used as-is. Its only purpose is to use with -XDataKinds,
 -- to ensure type safety of the `Exp` and `TStorageItem` types.
@@ -36,11 +35,6 @@ type When = Time Timed
 isTimed :: Time t -> Bool
 isTimed Neither = False
 isTimed _       = True
-
-proveTiming :: Time t -> Either (t :~: Timed) (t :~: Untimed)
-proveTiming Neither = Right Refl
-proveTiming Pre     = Left  Refl
-proveTiming Post    = Left  Refl
 
 -- | If the supplied time is `Pre`, this returns `pre(input)` (and analogously for `Post`).
 -- Otherwise returns the untouched `String`.

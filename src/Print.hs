@@ -36,7 +36,7 @@ prettyBehaviour (Behaviour name _ contract interface preconditions postcondition
     block l = "  " <> intercalate "\n  " l
     x >-< y = x <> "\n" <> y
 
-prettyExp :: Exp t a -> String
+prettyExp :: Exp a -> String
 prettyExp e = case e of
 
   -- booleans
@@ -85,13 +85,13 @@ prettyExp e = case e of
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
-prettyTypedExp :: TypedExp t -> String
+prettyTypedExp :: TypedExp -> String
 prettyTypedExp e = case e of
   ExpInt e' -> prettyExp e'
   ExpBool e' -> prettyExp e'
   ExpBytes e' -> prettyExp e'
 
-prettyItem :: TStorageItem t a -> String
+prettyItem :: TStorageItem a -> String
 prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
   where
     brackets str = "[" <> str <> "]"

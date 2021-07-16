@@ -8,8 +8,7 @@
 module HEVM where
 
 import Prelude hiding (lookup)
-import RefinedAst hiding (S)
-import Extract
+import Syntax.Refined as Refined hiding (S)
 
 import Data.ByteString (ByteString)
 import Data.ByteString.UTF8 (toString)
@@ -26,7 +25,6 @@ import Control.Lens hiding (op, pre, (.>))
 import Control.Monad
 import Control.Applicative ((<|>))
 import qualified Data.Vector as Vec
-import Data.Typeable
 import Data.Tree
 
 import Print
@@ -61,7 +59,7 @@ proveBehaviour sources behaviour = do
      -- create new addresses for each contract involved
      -- in the future addresses could be passed through the cli
      contractMap = fromList $ zipWith
-       (\id' i -> (id', createAddress (Addr 0) i)) (nub $ (RefinedAst._contract behaviour):(contractsInvolved behaviour)) [0..]
+       (\id' i -> (id', createAddress (Addr 0) i)) (nub $ (Refined._contract behaviour):(contractsInvolved behaviour)) [0..]
 
      ctx = mkVmContext sources' behaviour contractMap
 
@@ -123,8 +121,8 @@ checkPostStorage ctx (Behaviour _ _ _ _ _ _ rewrites _) pre post contractMap sol
                  slot update' = let S _ w = calculateSlot ctx solcjson (locFromUpdate update')
                                in w
                  insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
-                 insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx $ e `as` Pre
-                 insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ ite (symExpBool ctx $ e `as` Pre) 1 0
+                 insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx e
+                 insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ ite (symExpBool ctx e) 1 0
                  insertUpdate _ _ = error "bytes unsupported"
                in post' .== foldl insertUpdate pre' insertions
               _ -> sFalse
@@ -137,7 +135,7 @@ mkPostCondition preVm postVm solcjson
   contractMap
   (ctx, vmResult) =
     let storageConstraints = checkPostStorage ctx b preVm postVm contractMap solcjson
-        preCond' = symExpBool ctx (mconcat preCond `as` Pre)
+        preCond' = symExpBool ctx (mconcat preCond)
         postCond' = symExpBool ctx (mconcat postCond)
         (actual, reverted) = case vmResult of
           VMSuccess (ConcreteBuffer msg) -> (litBytes msg, sFalse)
@@ -208,9 +206,9 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
       Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item')
 
       name :: StorageLocation -> Id
-      name (IntLoc   i) = nameFromItem method (i `as` Pre) Pre -- I think these `Pre` are correct..?
-      name (BoolLoc  i) = nameFromItem method (i `as` Pre) Pre -- The tests pass at least!
-      name (BytesLoc i) = nameFromItem method (i `as` Pre) Pre
+      name (IntLoc   i) = nameFromItem method i Pre -- I think these `Pre` are correct..?
+      name (BoolLoc  i) = nameFromItem method i Pre -- The tests pass at least!
+      name (BytesLoc i) = nameFromItem method i Pre
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 
@@ -222,7 +220,7 @@ calculateSlot ctx solcjson loc =
     layout = fromMaybe (error "internal error: no storageLayout") $ _storageLayout source
     StorageItem _ _ slot = get (pack (idFromLocation loc)) layout
     slotword = sFromIntegral (literal (fromIntegral slot :: Integer))
-    indexers = symExp ctx . setTyped Pre <$> ixsFromLocation loc
+    indexers = symExp ctx <$> ixsFromLocation loc
   in var (idFromLocation loc) $
      if null indexers
      then slotword
@@ -233,7 +231,7 @@ locateCalldata :: Behaviour -> [Decl] -> Buffer -> Decl -> (Id, SMType)
 locateCalldata b decls calldata' d@(Decl typ name) =
   if any (\(Decl typ' _) -> abiKind typ' /= Static) decls
   then error "dynamic calldata args currently unsupported"
-  else (nameFromDecl (RefinedAst._contract b) (_name b) d, val)
+  else (nameFromDecl (Refined._contract b) (_name b) d, val)
 
   where
     -- every argument is static right now; length is always 32
@@ -305,13 +303,13 @@ type Args = Map Id SMType
 type Storage = Map Id (SMType, SMType)
 type Env = Map Id SMType
 
-symExp :: Ctx -> TypedExp Timed -> SMType
+symExp :: Ctx -> TypedExp -> SMType
 symExp ctx ret = case ret of
   ExpInt e -> SymInteger $ symExpInt ctx e
   ExpBool e -> SymBool $ symExpBool ctx e
   ExpBytes e -> SymBytes $ symExpBytes ctx e
 
-symExpBool :: Ctx -> Exp Timed Bool -> SBV Bool
+symExpBool :: Ctx -> Exp Bool -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) e = case e of
   And a b   -> symExpBool ctx a .&& symExpBool ctx b
   Or a b    -> symExpBool ctx a .|| symExpBool ctx b
@@ -327,11 +325,11 @@ symExpBool ctx@(Ctx c m args store _) e = case e of
   TEntry a t -> get (nameFromItem m a t) (catBools $ timeStore t store)
   ITE x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
   Eq a b -> fromMaybe (error "Internal error: invalid expression type")
-      $ [symExpBool  ctx a' .== symExpBool  ctx b' | a' <- gcast a, b' <- gcast b]
-    <|> [symExpInt   ctx a' .== symExpInt   ctx b' | a' <- gcast a, b' <- gcast b]
-    <|> [symExpBytes ctx a' .== symExpBytes ctx b' | a' <- gcast a, b' <- gcast b]
+      $ [symExpBool  ctx a' .== symExpBool  ctx b' | a' <- castType a, b' <- castType b]
+    <|> [symExpInt   ctx a' .== symExpInt   ctx b' | a' <- castType a, b' <- castType b]
+    <|> [symExpBytes ctx a' .== symExpBytes ctx b' | a' <- castType a, b' <- castType b]
 
-symExpInt :: Ctx -> Exp Timed Integer -> SBV Integer
+symExpInt :: Ctx -> Exp Integer -> SBV Integer
 symExpInt ctx@(Ctx c m args store environment) e = case e of
   Add a b   -> symExpInt ctx a + symExpInt ctx b
   Sub a b   -> symExpInt ctx a - symExpInt ctx b
@@ -350,7 +348,7 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
 
-symExpBytes :: Ctx -> Exp Timed ByteString -> SBV String
+symExpBytes :: Ctx -> Exp ByteString -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
   Cat a b -> symExpBytes ctx a .++ symExpBytes ctx b
   ByVar a  -> get (nameFromArg c m a) (catBytes args)
@@ -367,22 +365,22 @@ timeStore Post s = snd <$> s
 
 -- *** SMT Variable Names *** --
 
-nameFromItem :: Method -> TStorageItem Timed a -> When -> Id
+nameFromItem :: Method -> TStorageItem a -> When -> Id
 nameFromItem method item t = case item of
   IntItem c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
   BoolItem c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
   BytesItem c name ixs -> c @@ method @@ name @@ t <> showIxs c ixs
   where
-    showIxs :: ContractName -> [TypedExp Timed] -> [Char]
+    showIxs :: ContractName -> [TypedExp] -> [Char]
     showIxs c ixs = intercalate "-" $ "" : fmap (nameFromTypedExp c method) ixs
 
-nameFromTypedExp :: ContractName -> Method -> TypedExp Timed -> Id
+nameFromTypedExp :: ContractName -> Method -> TypedExp -> Id
 nameFromTypedExp c method e = case e of
   ExpInt e' -> nameFromExp c method e'
   ExpBool e' -> nameFromExp c method e'
   ExpBytes e' -> nameFromExp c method e'
 
-nameFromExp :: ContractName -> Method -> Exp Timed a -> Id
+nameFromExp :: ContractName -> Method -> Exp a -> Id
 nameFromExp c m e = case e of
   Add a b   -> nameFromExp c m a <> "+" <> nameFromExp c m b
   Sub a b   -> nameFromExp c m a <> "-" <> nameFromExp c m b

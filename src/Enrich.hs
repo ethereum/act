@@ -10,7 +10,7 @@ import qualified Data.Map.Strict as Map (lookup)
 import EVM.ABI (AbiType(..))
 import EVM.Solidity (SlotType(..))
 
-import Syntax.Refined
+import Syntax.Typed
 import Type (bound, defaultStore)
 
 -- | Adds extra preconditions to non constructor behaviours based on the types of their variables
@@ -57,10 +57,10 @@ enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invaria
       storagebounds' = storagebounds
                        <> mkStorageBounds store (Constant <$> locsFromExp predicate)
 
-mkEthEnvBounds :: [EthEnv] -> [Exp t Bool]
+mkEthEnvBounds :: [EthEnv] -> [Exp Bool t]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
   where
-    mkBound :: EthEnv -> Maybe (Exp t Bool)
+    mkBound :: EthEnv -> Maybe (Exp Bool t)
     mkBound e = case lookup e defaultStore of
       Just (Integer) -> Just $ bound (toAbiType e) (IntEnv e)
       _ -> Nothing
@@ -82,15 +82,15 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
       Nonce -> AbiUIntType 256
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
-mkStorageBounds :: Store -> [Rewrite] -> [Exp Untimed Bool]
+mkStorageBounds :: Store -> [Rewrite] -> [Exp Bool Untimed]
 mkStorageBounds store refs = catMaybes $ mkBound <$> refs
   where
-    mkBound :: Rewrite -> Maybe (Exp Untimed Bool)
+    mkBound :: Rewrite -> Maybe (Exp Bool Untimed)
     mkBound (Constant (IntLoc item)) = Just $ fromItem item
     mkBound (Rewrite (IntUpdate item _)) = Just $ fromItem item
     mkBound _ = Nothing
 
-    fromItem :: TStorageItem Untimed Integer -> Exp Untimed Bool
+    fromItem :: TStorageItem Integer Untimed -> Exp Bool Untimed
     fromItem item@(IntItem contract name _) = bound (abiType $ slotType contract name) (TEntry item Neither)
 
     slotType :: Id -> Id -> SlotType
@@ -102,7 +102,7 @@ mkStorageBounds store refs = catMaybes $ mkBound <$> refs
     abiType (StorageMapping _ typ) = typ
     abiType (StorageValue typ) = typ
 
-mkCallDataBounds :: [Decl] -> [Exp t Bool]
+mkCallDataBounds :: [Decl] -> [Exp Bool t]
 mkCallDataBounds = concatMap $ \(Decl typ name) -> case metaType typ of
   Integer -> [bound typ (IntVar name)]
   _ -> []

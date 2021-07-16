@@ -8,8 +8,7 @@
 
 module K where
 
-import RefinedAst
-import Extract
+import Syntax.Refined
 import ErrM
 import Control.Applicative ((<|>))
 import Data.Functor (($>))
@@ -77,25 +76,25 @@ kCalldata (Interface a args) =
      else intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args)
   <> ")"
 
-kStorageName :: TStorageItem Timed a -> When -> String
+kStorageName :: TStorageItem a -> When -> String
 kStorageName item t = kVar (idFromItem item) <> "-" <> show t
                    <> intercalate "_" ("" : fmap kTypedExpr (ixsFromItem item))
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> tail a
 
-kAbiEncode :: Maybe (TypedExp Timed) -> String
+kAbiEncode :: Maybe TypedExp -> String
 kAbiEncode Nothing = ".ByteArray"
 kAbiEncode (Just (ExpInt a)) = "#enc(#uint256" <> kExpr a <> ")"
 kAbiEncode (Just (ExpBool _)) = ".ByteArray"
 kAbiEncode (Just (ExpBytes _)) = ".ByteArray"
 
-kTypedExpr :: TypedExp Timed -> String
+kTypedExpr :: TypedExp -> String
 kTypedExpr (ExpInt a) = kExpr a
 kTypedExpr (ExpBool a) = kExpr a
 kTypedExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
 
-kExpr :: Exp Timed a -> String
+kExpr :: Exp a -> String
 -- integers
 kExpr (Add a b) = "(" <> kExpr a <> " +Int " <> kExpr b <> ")"
 kExpr (Sub a b) = "(" <> kExpr a <> " -Int " <> kExpr b <> ")"
@@ -123,7 +122,7 @@ kExpr (GEQ a b) = "(" <> kExpr a <> " >=Int " <> kExpr b <> ")"
 kExpr (LitBool a) = show a
 kExpr (BoolVar a) = kVar a
 kExpr (NEq a b) = "notBool (" <> kExpr (Eq a b) <> ")"
-kExpr (Eq (a :: Exp t a) (b :: Exp t a)) = fromMaybe (error "Internal Error: invalid expression type") $
+kExpr (Eq (a :: Exp a) (b :: Exp a)) = fromMaybe (error "Internal Error: invalid expression type") $
   let eqK typ = "(" <> kExpr a <> " ==" <> typ <> " " <> kExpr b <> ")"
    in eqT @a @Integer    $> eqK "Int"
   <|> eqT @a @Bool       $> eqK "Bool"
@@ -155,10 +154,10 @@ kStorageEntry storageLayout update =
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (idFromRewrite update)) storageLayout)
   in case update of
-       Rewrite (IntUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
-       Rewrite (BoolUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
-       Rewrite (BytesUpdate a b) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kExpr $ b `as` Pre))
-       Constant (IntLoc a) -> (loc, (offset, kStorageName (a `as` Pre) Pre, kStorageName (a `as` Pre) Pre))
+       Rewrite (IntUpdate a b) -> (loc, (offset, kStorageName a Pre, kExpr b))
+       Rewrite (BoolUpdate a b) -> (loc, (offset, kStorageName a Pre, kExpr b))
+       Rewrite (BytesUpdate a b) -> (loc, (offset, kStorageName a Pre, kExpr b))
+       Constant (IntLoc a) -> (loc, (offset, kStorageName a Pre, kStorageName a Pre))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
 
 --packs entries packed in one slot
@@ -192,7 +191,7 @@ kSlot update StorageItem{..} = case _type of
   (StorageMapping _ _) -> if null (ixsFromRewrite update) 
     then error $ "internal error: kSlot. Please report: " <> show update
     else ( "#hashedLocation(\"Solidity\", "
-             <> show _slot <> ", " <> unwords (kTypedExpr . setTyped Pre <$> ixsFromRewrite update) <> ")"
+             <> show _slot <> ", " <> unwords (kTypedExpr <$> ixsFromRewrite update) <> ")"
          , _offset )
 
 kAccount :: Bool -> Id -> SolcContract -> [Rewrite] -> String
@@ -314,6 +313,6 @@ mkTerm this accounts Behaviour{..} = (name, term)
                   )
                <> "\nrequires "
                <> defaultConditions (kVar _contract) <> "\n andBool\n"
-               <> kExpr (mconcat _preconditions `as` Pre)
+               <> kExpr (mconcat _preconditions)
                <> "\nensures "
                <> kExpr (mconcat _postconditions)

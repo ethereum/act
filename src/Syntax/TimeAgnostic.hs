@@ -10,6 +10,12 @@
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 
 {-|
 Module      : Syntax.TimeAgnostic
@@ -24,24 +30,19 @@ module Syntax.TimeAgnostic (module Syntax.TimeAgnostic) where
 
 import Control.Applicative (empty)
 
-import Data.Aeson
-import Data.Aeson.Types
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.List (genericDrop,genericTake,nub)
-import Data.List.NonEmpty (toList)
 import Data.Map.Strict (Map)
 import Data.String (fromString)
-import Data.Text (pack)
 import Data.Typeable
-import Data.Vector (fromList)
 
-import EVM.ABI as Syntax.TimeAgnostic (AbiType(..))
-import EVM.Solidity as Syntax.TimeAgnostic (SlotType(..))
+import EVM.ABI (AbiType(..))
+import EVM.Solidity (SlotType(..))
 
 --import Syntax.Timing as Syntax.TimeAgnostic hiding (forceTime) -- These two avoid reexporting `forceTime`
 --import Syntax.Timing (forceTime)                    -- without using an unmaintainable export list.
-import Syntax.Timing as Syntax.TimeAgnostic
+import Syntax.Timing -- as Syntax.TimeAgnostic
 
 import Syntax.Untyped as Syntax.TimeAgnostic (Id, Interface(..), EthEnv(..), Decl(..))
 
@@ -51,7 +52,8 @@ data Claim t
   | B (Behaviour t)
   | I (Invariant t)
   | S Store
-  deriving (Show, Eq)
+deriving instance Show (InvariantPred t) => Show (Claim t)
+deriving instance Eq   (InvariantPred t) => Eq   (Claim t)
 
 data Transition t
   = Ctor (Constructor t)
@@ -77,17 +79,19 @@ data Invariant t = Invariant
   { _icontract :: Id
   , _ipreconditions :: [Exp Bool t]
   , _istoragebounds :: [Exp Bool t]
-  , _predicate :: InvariantExp t
-  } deriving (Show, Eq)
+  , _predicate :: InvariantPred t
+  }
+deriving instance Show (InvariantPred t) => Show (Invariant t)
+deriving instance Eq   (InvariantPred t) => Eq   (Invariant t)
 
--- | Invariant expressions are either a single predicate without explicit timing or
+-- | Invariant predicates are either a single predicate without explicit timing or
 -- two predicates which explicitly reference the pre- and the post-state, respectively.
-data InvariantExp (t :: Timing) where
-  Single :: { _agnostic  :: Exp Bool Untimed } -> InvariantExp Untimed
-  Double :: { _prestate  :: Exp Bool Timed  
-            , _poststate :: Exp Bool Timed   } -> InvariantExp Timed
-deriving instance Show (InvariantExp t)
-deriving instance Eq (InvariantExp t)
+type family InvariantPred t where
+  InvariantPred Untimed = Exp Bool Untimed
+  InvariantPred Timed   = (Exp Bool Timed, Exp Bool Timed)
+
+invExp :: InvariantPred Timed -> Exp Bool Timed
+invExp = uncurry (<>)
 
 data Constructor t = Constructor
   { _cname :: Id
@@ -328,7 +332,7 @@ eval e = case e of
 --     , _predicate      = forceTime time _predicate
 --     }
 
--- instance Timeable InvariantExp where
+-- instance Timeable InvariantPred where
 --   forceTime time invexp = either mkDouble mkSingle (proveTiming time)
 --     where
 --       mkDouble Refl = case invexp of
@@ -447,59 +451,130 @@ eval e = case e of
 --   Rewrite (BoolUpdate item e) -> locsFromItem item <> locsFromExp e
 --   Rewrite (BytesUpdate item e) -> locsFromItem item <> locsFromExp e
 
--- locsFromTypedExp :: TypedExp t -> [StorageLocation Untimed]
--- locsFromTypedExp (ExpInt e) = locsFromExp e
--- locsFromTypedExp (ExpBool e) = locsFromExp e
--- locsFromTypedExp (ExpBytes e) = locsFromExp e
+locsFromTypedExp :: TypedExp t -> [StorageLocation t]
+locsFromTypedExp (ExpInt e) = locsFromExp e
+locsFromTypedExp (ExpBool e) = locsFromExp e
+locsFromTypedExp (ExpBytes e) = locsFromExp e
 
--- locsFromExp :: Exp a t -> [StorageLocation Untimed]
--- locsFromExp = nub . go
---   where
---     go :: Exp a t -> [StorageLocation Untimed]
---     go e = case e of
---       And a b   -> go a <> go b
---       Or a b    -> go a <> go b
---       Impl a b  -> go a <> go b
---       Eq a b    -> go a <> go b
---       LE a b    -> go a <> go b
---       LEQ a b   -> go a <> go b
---       GE a b    -> go a <> go b
---       GEQ a b   -> go a <> go b
---       NEq a b   -> go a <> go b
---       Neg a     -> go a
---       Add a b   -> go a <> go b
---       Sub a b   -> go a <> go b
---       Mul a b   -> go a <> go b
---       Div a b   -> go a <> go b
---       Mod a b   -> go a <> go b
---       Exp a b   -> go a <> go b
---       Cat a b   -> go a <> go b
---       Slice a b c -> go a <> go b <> go c
---       ByVar _ -> []
---       ByStr _ -> []
---       ByLit _ -> []
---       LitInt _  -> []
---       IntMin _  -> []
---       IntMax _  -> []
---       UIntMin _ -> []
---       UIntMax _ -> []
---       IntVar _  -> []
---       LitBool _ -> []
---       BoolVar _ -> []
---       NewAddr a b -> go a <> go b
---       IntEnv _ -> []
---       ByEnv _ -> []
---       ITE x y z -> go x <> go y <> go z
---       TEntry a _ -> locsFromItem a
+locsFromExp :: Exp a t -> [StorageLocation t]
+locsFromExp = nub . go
+  where
+    go :: Exp a t -> [StorageLocation t]
+    go e = case e of
+      And a b   -> go a <> go b
+      Or a b    -> go a <> go b
+      Impl a b  -> go a <> go b
+      Eq a b    -> go a <> go b
+      LE a b    -> go a <> go b
+      LEQ a b   -> go a <> go b
+      GE a b    -> go a <> go b
+      GEQ a b   -> go a <> go b
+      NEq a b   -> go a <> go b
+      Neg a     -> go a
+      Add a b   -> go a <> go b
+      Sub a b   -> go a <> go b
+      Mul a b   -> go a <> go b
+      Div a b   -> go a <> go b
+      Mod a b   -> go a <> go b
+      Exp a b   -> go a <> go b
+      Cat a b   -> go a <> go b
+      Slice a b c -> go a <> go b <> go c
+      ByVar _ -> []
+      ByStr _ -> []
+      ByLit _ -> []
+      LitInt _  -> []
+      IntMin _  -> []
+      IntMax _  -> []
+      UIntMin _ -> []
+      UIntMax _ -> []
+      IntVar _  -> []
+      LitBool _ -> []
+      BoolVar _ -> []
+      NewAddr a b -> go a <> go b
+      IntEnv _ -> []
+      ByEnv _ -> []
+      ITE x y z -> go x <> go y <> go z
+      TEntry a _ -> locsFromItem a
 
--- locsFromItem :: TStorageItem a t -> [StorageLocation Untimed]
--- locsFromItem t = case t of
---   IntItem   contract name ixs -> (IntLoc   . IntItem   contract name . fmap (forceTime Neither) $ ixs) : ixLocs ixs
---   BoolItem  contract name ixs -> (BoolLoc  . BoolItem  contract name . fmap (forceTime Neither) $ ixs) : ixLocs ixs
---   BytesItem contract name ixs -> (BytesLoc . BytesItem contract name . fmap (forceTime Neither) $ ixs) : ixLocs ixs
---   where
---     ixLocs :: [TypedExp t] -> [StorageLocation Untimed]
---     ixLocs = concatMap locsFromTypedExp
+locsFromItem :: TStorageItem a t -> [StorageLocation t]
+locsFromItem t = case t of
+  IntItem   contract name ixs -> (IntLoc   $ IntItem   contract name ixs) : ixLocs ixs
+  BoolItem  contract name ixs -> (BoolLoc  $ BoolItem  contract name ixs) : ixLocs ixs
+  BytesItem contract name ixs -> (BytesLoc $ BytesItem contract name ixs) : ixLocs ixs
+  where
+    ixLocs :: [TypedExp t] -> [StorageLocation t]
+    ixLocs = concatMap locsFromTypedExp
+
+ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
+ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+  concatMap ethEnvFromExp preconds
+  <> concatMap ethEnvFromExp postconds
+  <> concatMap ethEnvFromRewrite rewrites
+  <> maybe [] ethEnvFromTypedExp returns
+
+ethEnvFromConstructor :: Constructor t -> [EthEnv]
+ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
+  concatMap ethEnvFromExp pre
+  <> concatMap ethEnvFromExp post
+  <> concatMap ethEnvFromRewrite rewrites
+  <> concatMap ethEnvFromRewrite (Rewrite <$> initialStorage)
+
+ethEnvFromRewrite :: Rewrite t -> [EthEnv]
+ethEnvFromRewrite rewrite = case rewrite of
+  Constant (IntLoc item) -> ethEnvFromItem item
+  Constant (BoolLoc item) -> ethEnvFromItem item
+  Constant (BytesLoc item) -> ethEnvFromItem item
+  Rewrite (IntUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+  Rewrite (BoolUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+  Rewrite (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+
+ethEnvFromItem :: TStorageItem a t -> [EthEnv]
+ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
+
+ethEnvFromTypedExp :: TypedExp t -> [EthEnv]
+ethEnvFromTypedExp (ExpInt e) = ethEnvFromExp e
+ethEnvFromTypedExp (ExpBool e) = ethEnvFromExp e
+ethEnvFromTypedExp (ExpBytes e) = ethEnvFromExp e
+
+ethEnvFromExp :: Exp a t -> [EthEnv]
+ethEnvFromExp = nub . go
+  where
+    go :: Exp a t -> [EthEnv]
+    go e = case e of
+      And a b   -> go a <> go b
+      Or a b    -> go a <> go b
+      Impl a b  -> go a <> go b
+      Eq a b    -> go a <> go b
+      LE a b    -> go a <> go b
+      LEQ a b   -> go a <> go b
+      GE a b    -> go a <> go b
+      GEQ a b   -> go a <> go b
+      NEq a b   -> go a <> go b
+      Neg a     -> go a
+      Add a b   -> go a <> go b
+      Sub a b   -> go a <> go b
+      Mul a b   -> go a <> go b
+      Div a b   -> go a <> go b
+      Mod a b   -> go a <> go b
+      Exp a b   -> go a <> go b
+      Cat a b   -> go a <> go b
+      Slice a b c -> go a <> go b <> go c
+      ITE a b c -> go a <> go b <> go c
+      ByVar _ -> []
+      ByStr _ -> []
+      ByLit _ -> []
+      LitInt _  -> []
+      IntVar _  -> []
+      LitBool _ -> []
+      BoolVar _ -> []
+      IntMin _ -> []
+      IntMax _ -> []
+      UIntMin _ -> []
+      UIntMax _ -> []
+      NewAddr a b -> go a <> go b
+      IntEnv a -> [a]
+      ByEnv a -> [a]
+      TEntry a _ -> ethEnvFromItem a
 
 locFromRewrite :: Rewrite t -> StorageLocation t
 locFromRewrite = onRewrite id locFromUpdate
@@ -522,6 +597,11 @@ metaType AbiStringType       = ByteStr
 --metaType (AbiArrayType        Int AbiType
 --metaType (AbiTupleType        (Vector AbiType)
 metaType _ = error "Syntax.TimeAgnostic.metaType: TODO"
+
+ixsFromItem :: TStorageItem a t -> [TypedExp t]
+ixsFromItem (IntItem   _ _ ixs) = ixs
+ixsFromItem (BoolItem  _ _ ixs) = ixs
+ixsFromItem (BytesItem _ _ ixs) = ixs
 
 onRewrite :: (StorageLocation t -> a) -> (StorageUpdate t -> a) -> Rewrite t -> a
 onRewrite f _ (Constant  a) = f a
@@ -557,7 +637,7 @@ onRewrite _ g (Rewrite a) = g a
 --                                         , "stateUpdates" .= toJSON _stateUpdates
 --                                         , "returns" .= toJSON _returns]
 
--- instance ToJSON (InvariantExp t) where
+-- instance ToJSON (InvariantPred t) where
 --   toJSON (Single e) = toJSON e
 --   toJSON (Double e _) = toJSON (forceTime Neither e)
 
@@ -668,3 +748,14 @@ onRewrite _ g (Rewrite a) = g a
 
 -- uintmax :: Int -> Integer
 -- uintmax a = 2 ^ a - 1
+
+castTime :: (Typeable t, Typeable t0) => Exp a t0 -> Maybe (Exp a t)
+castTime = gcast
+
+castType :: (Typeable a, Typeable x) => Exp x t -> Maybe (Exp a t)
+castType = gcast0
+
+-- | Analogous to `gcast1` and `gcast2` from `Data.Typeable`. We *could* technically use `cast` instead
+-- but then we would catch too many errors at once, so we couldn't emit informative error messages.
+gcast0 :: forall t t' a. (Typeable t, Typeable t') => t a -> Maybe (t' a)
+gcast0 x = fmap (\Refl -> x) (eqT :: Maybe (t :~: t'))

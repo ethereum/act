@@ -26,7 +26,7 @@ import Parse (parse)
 import Type (typecheck)
 import Print (prettyBehaviour)
 import SMT
-import RefinedAst hiding (Mode)
+import Syntax.Refined hiding (Mode)
 
 import Debug.Trace
 import Text.Pretty.Simple
@@ -147,7 +147,7 @@ genType typ = case typ of
     validBytesSize = elements [1..32]
 
 
-genTypedExp :: Names -> Int -> ExpoGen (TypedExp t)
+genTypedExp :: Names -> Int -> ExpoGen TypedExp
 genTypedExp names n = oneof
   [ ExpInt <$> genExpInt names n
   , ExpBool <$> genExpBool names n
@@ -156,14 +156,14 @@ genTypedExp names n = oneof
 
 
 -- TODO: literals, cat slice, ITE, storage, ByStr
-genExpBytes :: Names -> Int -> ExpoGen (Exp t ByteString)
+genExpBytes :: Names -> Int -> ExpoGen (Exp ByteString)
 genExpBytes names _ = oneof
   [ ByVar <$> selectName ByteStr names
   , return $ ByEnv Blockhash
   ]
 
 -- TODO: ITE, storage
-genExpBool :: Names -> Int -> ExpoGen (Exp t Bool)
+genExpBool :: Names -> Int -> ExpoGen (Exp Bool)
 genExpBool names 0 = oneof
   [ BoolVar <$> selectName Boolean names
   , LitBool <$> liftGen arbitrary
@@ -188,7 +188,7 @@ genExpBool names n = oneof
 
 
 -- TODO: storage
-genExpInt :: Names -> Int -> ExpoGen (Exp t Integer)
+genExpInt :: Names -> Int -> ExpoGen (Exp Integer)
 genExpInt names 0 = oneof
   [ LitInt <$> liftGen arbitrary
   , IntVar <$> selectName Integer names

@@ -1,7 +1,6 @@
 -- data types for the parsed syntax.
 -- Has the correct basic structure, but doesn't necessarily type check
 -- It is also equipped with position information for extra debugging xp
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Syntax.Untyped where
