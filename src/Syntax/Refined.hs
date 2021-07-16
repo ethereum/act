@@ -17,10 +17,8 @@ import Syntax.TimeAgnostic (Timing(..),setPre,setPost)
 import Syntax.TimeAgnostic as Syntax.Refined hiding (Timing(..),Timable,setTime,setPre,setPost,Time,Neither,Claim,Transition,Invariant,InvariantPred,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp)
 import Syntax.TimeAgnostic as Syntax.Refined (pattern Invariant, pattern Constructor, pattern Behaviour, pattern Rewrite, pattern Exp)
 
-------------------------------------------
--- * Shadow timing agnostic AST types * --
-------------------------------------------
 
+-- We shadow all timing-agnostic AST types with explicitly timed versions.
 type Claim           = Agnostic.Claim           Timed
 type Transition      = Agnostic.Transition      Timed
 type Invariant       = Agnostic.Invariant       Timed

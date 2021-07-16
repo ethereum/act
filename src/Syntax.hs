@@ -1,5 +1,9 @@
 {-# LANGUAGE GADTs #-}
 
+{-|
+Module      : Syntax
+Description : Functions for manipulating and collapsing all our different ASTs.
+-}
 module Syntax where
 
 import Data.List
@@ -266,9 +270,9 @@ updatesFromRewrites rs = [u | Rewrite u <- rs]
 locsFromRewrites :: [Rewrite t] -> [StorageLocation t]
 locsFromRewrites rs = [l | Constant l <- rs]
 
-------------------------------------------
--- * Extraction from 'Syntax.Untyped' * --
-------------------------------------------
+--------------------------------------
+-- * Extraction from untyped ASTs * --
+--------------------------------------
 
 nameFromStorage :: Untyped.Storage -> Id
 nameFromStorage (Untyped.Rewrite (PEntry _ x _) _) = x
