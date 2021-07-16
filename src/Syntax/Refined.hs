@@ -60,7 +60,7 @@ instance Refinable Agnostic.Transition where
 instance Refinable Agnostic.Invariant where
   refine inv@Invariant{..} = inv
     { _ipreconditions = setPre <$> _ipreconditions
-    , _istoragebounds = setPre <$> _istoragebounds -- not 100% on this `setPre`
+    , _istoragebounds = setPre <$> _istoragebounds
     , _predicate      = (setPre _predicate, setPost _predicate)
     }
 
@@ -402,9 +402,6 @@ instance ToJSON Claim where
                                         , "stateUpdates" .= toJSON _stateUpdates
                                         , "returns" .= toJSON _returns]
 
---instance ToJSON InvariantPred where
---  toJSON = toJSON . predicate
-
 instance ToJSON Rewrite where
   toJSON (Constant a) = object [ "Constant" .= toJSON a ]
   toJSON (Rewrite a) = object [ "Rewrite" .= toJSON a ]
@@ -452,8 +449,7 @@ instance Typeable a => ToJSON (Exp a) where
   toJSON (UIntMin a) = toJSON $ show $ uintmin a
   toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
-  toJSON (TEntry a t) = object [ "when".= show t
-                               , "ref" .= toJSON a ]
+  toJSON (TEntry a t) = object [ pack (show t) .= toJSON a ]
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
