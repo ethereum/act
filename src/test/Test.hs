@@ -141,7 +141,7 @@ genType typ = case typ of
                    , AbiBytesType <$> validBytesSize
                    ]
   Boolean -> return AbiBoolType
-  ByteStr -> oneof [ return AbiStringType ]
+  ByteStr -> return AbiStringType
                    --, return AbiBytesDynamicType -- TODO: needs frontend support
 
   where
@@ -159,8 +159,7 @@ genReturnExp names n = oneof
 
 -- TODO: literals, cat slice, ITE, storage, ByStr
 genExpBytes :: Names -> Int -> ExpoGen (Exp ByteString)
-genExpBytes names _ = oneof
-  [ ByVar <$> (selectName ByteStr names) ]
+genExpBytes names _ = ByVar <$> selectName ByteStr names
 
 -- TODO: ITE, storage
 genExpBool :: Names -> Int -> ExpoGen (Exp Bool)
