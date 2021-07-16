@@ -10,9 +10,8 @@ import qualified Data.Map.Strict as Map (lookup)
 import EVM.ABI (AbiType(..))
 import EVM.Solidity (SlotType(..))
 
-import RefinedAst
+import Syntax.Refined
 import Type (bound, defaultStore)
-import Extract
 
 -- | Adds extra preconditions to non constructor behaviours based on the types of their variables
 enrich :: [Claim] -> [Claim]

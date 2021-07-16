@@ -6,6 +6,8 @@
 {-# Language NamedFieldPuns #-}
 {-# Language TypeOperators #-}
 {-# Language DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
 
 module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
 
@@ -26,12 +28,13 @@ import Control.Applicative
 import Data.Traversable (for)
 import Control.Monad
 
-import Syntax hiding (Storage,Post,Constant,Rewrite)
-import qualified Syntax
+import Syntax.Untyped hiding (Post,Constant,Rewrite)
+import qualified Syntax.Untyped as Untyped
+import Syntax.Typed
 import ErrM
 import Parse
-import Extract
-import RefinedAst
+--import Extract
+--import RefinedAst
 
 typecheck :: [RawBehaviour] -> Err [Claim]
 typecheck behvs = do store <- lookupVars behvs
@@ -127,7 +130,7 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
 
 
     -- flatten case list
-    flatten :: [Exp Untimed Bool] -> [Exp Timed Bool] -> Cases -> Err [Claim]
+    flatten :: [Exp Bool Untimed] -> [Exp Bool Timed] -> Cases -> Err [Claim]
     flatten iff postc (Direct post) = do
       (p, maybeReturn) <- checkPost env post
       return $ splitCase name contract iface [] iff maybeReturn p postc
@@ -156,7 +159,7 @@ splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Create
                else [ C $ Constructor contract Pass iface iffs' ensures stateUpdates []
                        , C $ Constructor contract Fail iface [Neg (mconcat iffs')] ensures [] []]
 
-  return $ ((I . (Invariant contract [] [])) <$> invariants)
+  return $ ((I . Invariant contract [] [] . Single) <$> invariants)
            <> cases'
 
 mkEnv :: Id -> Store -> [Decl]-> Env
@@ -170,8 +173,8 @@ mkEnv contract store decls = Env
    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
 
 -- | split case into pass and fail case
-splitCase :: Id -> Id -> Interface -> [Exp Untimed Bool] -> [Exp Untimed Bool] -> Maybe (TypedExp Timed)
-          -> [Rewrite] -> [Exp Timed Bool] -> [Claim]
+splitCase :: Id -> Id -> Interface -> [Exp Bool Untimed] -> [Exp Bool Untimed] -> Maybe (TypedExp Timed)
+          -> [Rewrite] -> [Exp Bool Timed] -> [Claim]
 splitCase name contract iface if' [] ret storage postcs =
   [ B $ Behaviour name Pass contract iface if' postcs storage ret ]
 splitCase name contract iface if' iffs ret storage postcs =
@@ -215,8 +218,8 @@ checkDefn env@Env{contract} keyType valType name (Defn k v) = do
     Boolean -> BoolUpdate  (BoolItem  contract name [key]) <$> inferExpr env v
     ByteStr -> BytesUpdate (BytesItem contract name [key]) <$> inferExpr env v
 
-checkPost :: Env -> Syntax.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
-checkPost env@Env{contract,calldata} (Syntax.Post maybeStorage extStorage maybeReturn) =
+checkPost :: Env -> Untyped.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
+checkPost env@Env{contract,calldata} (Untyped.Post maybeStorage extStorage maybeReturn) =
   do returnexp <- mapM (typedExp scopedEnv) maybeReturn
      ourStorage <- case maybeStorage of
        Just entries -> checkEntries contract entries
@@ -224,11 +227,11 @@ checkPost env@Env{contract,calldata} (Syntax.Post maybeStorage extStorage maybeR
      otherStorage <- checkStorages extStorage
      return (ourStorage <> otherStorage, returnexp)
   where
-    checkEntries :: Id -> [Syntax.Storage] -> Err [Rewrite]
+    checkEntries :: Id -> [Untyped.Storage] -> Err [Rewrite]
     checkEntries name entries =
       forM entries $ \case
-        Syntax.Constant loc -> Constant <$> checkPattern (focus name scopedEnv) loc
-        Syntax.Rewrite loc val -> Rewrite <$> checkStorageExpr (focus name scopedEnv) loc val
+        Untyped.Constant loc -> Constant <$> checkPattern (focus name scopedEnv) loc
+        Untyped.Rewrite loc val -> Rewrite <$> checkStorageExpr (focus name scopedEnv) loc val
 
     checkStorages :: [ExtStorage] -> Err [Rewrite]
     checkStorages [] = Ok []
@@ -304,7 +307,7 @@ checkPattern env@Env{contract,store} (PEntry p name ixs) =
     Nothing -> Bad (p, "Unknown storage variable: " <> show name)
 checkPattern _ (PWild _) = error "TODO: checkPattern for Wild storage"
 
-checkIffs :: Env -> [IffH] -> Err [Exp Untimed Bool]
+checkIffs :: Env -> [IffH] -> Err [Exp Bool Untimed]
 checkIffs env ((Iff _ exps):xs) = do
   hd <- mapM (inferExpr env) exps
   tl <- checkIffs env xs
@@ -315,16 +318,16 @@ checkIffs env ((IffIn _ typ exps):xs) = do
   Ok $ map (bound typ) hd <> tl
 checkIffs _ [] = Ok []
 
-bound :: AbiType -> Exp t Integer -> Exp t Bool
+bound :: AbiType -> Exp Integer t -> Exp Bool t
 bound typ e = And (LEQ (lowerBound typ) e) $ LEQ e (upperBound typ)
 
-lowerBound :: AbiType -> Exp t Integer
+lowerBound :: AbiType -> Exp Integer t
 lowerBound (AbiIntType a) = IntMin a
 -- todo: other negatives?
 lowerBound _ = LitInt 0
 
 -- todo, the rest
-upperBound :: AbiType -> Exp t Integer
+upperBound :: AbiType -> Exp Integer t
 upperBound (AbiUIntType n) = UIntMax n
 upperBound (AbiIntType n) = IntMax n
 upperBound AbiAddressType = UIntMax 160
@@ -347,7 +350,7 @@ typedExp env e = ExpInt   <$> inferExpr env e
 
 -- | Attempts to construct an expression with the type and timing required by
 -- the caller. If this is impossible, an error is thrown instead.
-inferExpr :: forall a t. (Typeable a, Typeable t) => Env -> Expr -> Err (Exp t a)
+inferExpr :: forall a t. (Typeable a, Typeable t) => Env -> Expr -> Err (Exp a t)
 inferExpr env@Env{contract,store,calldata} expr = case expr of
   ENot    p v1    -> check p $ Neg  <$> inferExpr env v1
   EAnd    p v1 v2 -> check p $ And  <$> inferExpr env v1 <*> inferExpr env v2
@@ -388,24 +391,24 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
   -- BYAbiE Expr
   -- StringLit String
   where
-    -- Try to cast the last type parameter of an expression to the goal of `inferExpr`.
+    -- Try to cast the type parameter of an expression to the goal of `inferExpr`.
     -- The cast only succeeds if they already are the same.
-    check :: forall x. Typeable x => Pn -> Err (Exp t x) -> Err (Exp t a)
+    check :: forall x. Typeable x => Pn -> Err (Exp x t) -> Err (Exp a t)
     check pn e =
       errMessage (pn,"Type mismatch. Expected " <> show (typeRep @a) <> ", got " <> show (typeRep @x) <> ".")
-        =<< gcast <$> e
+        =<< gcast0 <$> e
 
     -- Takes a polymorphic binary AST constructor and specializes it to each of
     -- our types. Those specializations are used in order to guide the
     -- typechecking of the two supplied expressions. Returns at first success.
-    polycheck :: Typeable x => Pn -> (forall y. (Eq y, Typeable y) => Exp t y -> Exp t y -> Exp t x) -> Expr -> Expr -> Err (Exp t a)
+    polycheck :: Typeable x => Pn -> (forall y. (Eq y, Typeable y) => Exp y t -> Exp y t -> Exp x t) -> Expr -> Expr -> Err (Exp a t)
     polycheck pn cons e1 e2 = check pn (cons @Integer    <$> inferExpr env e1 <*> inferExpr env e2)
                           <|> check pn (cons @Bool       <$> inferExpr env e1 <*> inferExpr env e2)
                           <|> check pn (cons @ByteString <$> inferExpr env e1 <*> inferExpr env e2)
                           <|> Bad (pn, "Couldn't harmonize types!") -- TODO improve error handling once we've merged the unified stuff!
 
     -- Try to construct a reference to a calldata variable or an item in storage.
-    entry :: Typeable t0 => Pn -> Time t0 -> Id -> [Expr] -> Err (Exp t a)
+    entry :: Typeable t0 => Pn -> Time t0 -> Id -> [Expr] -> Err (Exp a t)
     entry pn timing name es = case (Map.lookup name store, Map.lookup name calldata) of
       (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
       (Just _, Just _)   -> Bad (pn, "Ambiguous variable: " <> name)
@@ -417,7 +420,7 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
       (Just (StorageValue a), Nothing)      -> makeEntry a []
       (Just (StorageMapping ts a), Nothing) -> makeEntry a $ NonEmpty.toList ts
       where
-        makeEntry :: AbiType -> [AbiType] -> Err (Exp t a)
+        makeEntry :: AbiType -> [AbiType] -> Err (Exp a t)
         makeEntry a ts = case metaType a of
           Integer -> makeItem IntItem
           Boolean -> makeItem BoolItem
@@ -428,13 +431,13 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
             -- in a `TEntry` and then attempt to cast its timing parameter to the
             -- target timing of `inferExpr`. Finally, `check` the type parameter as
             -- with all other expressions.
-            makeItem :: Typeable x => (forall t0. Id -> Id -> [TypedExp t0] -> TStorageItem t0 x) -> Err (Exp t a)
+            makeItem :: Typeable x => (forall t0. Id -> Id -> [TypedExp t0] -> TStorageItem x t0) -> Err (Exp a t)
             makeItem maker = do
               when (length ts /= length es) $ Bad (pn, "Index mismatch for entry!")
               ixs <- for (es `zip` ts) (uncurry $ checkExpr env)
               check pn
                 $ errMessage (pn, (tail . show $ typeRep @t) <> " variable needed here!")
-                $ gcast0 (TEntry (maker contract name ixs) timing)
+                $ gcast (TEntry (maker contract name ixs) timing)
 
 -- | Analogous to `gcast1` and `gcast2` from `Data.Typeable`. We *could* technically use `cast` instead
 -- but then we would catch too many errors at once, so we couldn't emit informative error messages.

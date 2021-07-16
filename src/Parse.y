@@ -5,7 +5,7 @@ import Lex
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import qualified Data.List.NonEmpty as NonEmpty
-import Syntax
+import Syntax.Untyped
 import ErrM
 }
 

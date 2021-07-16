@@ -6,8 +6,7 @@ import Data.ByteString.UTF8 (toString)
 
 import Data.List
 
-import Extract
-import RefinedAst
+import Syntax.Refined
 
 prettyBehaviour :: Behaviour -> String
 prettyBehaviour (Behaviour name _ contract interface preconditions postconditions stateUpdates returns)
