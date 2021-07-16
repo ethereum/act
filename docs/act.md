@@ -116,13 +116,15 @@ contract C
 
 ### Ensures (optional)
 
-A list of predicates that should hold over the poststate.
+A list of predicates that should hold over the poststate. All references to storage
+variables in `ensures` sections need to specify whether they talk about the variable's
+value in the pre- or the poststate, by using `pre(x)` or `post(x)`.
 Example:
 ```act
 
 ensures
 
-   x == _x
+   (post(x) == _x) or (pre(x) == _x)
 ```
 
 ### Invariants (optional)
@@ -174,6 +176,9 @@ iff
 
 Each behaviour must specify the state changes that happens a result of
 a valid call to the method, and its return argument, if any.
+All references to storage variables in `returns` arguments need to
+specify whether they talk about the variable's
+value in the pre- or the poststate, by using `pre(x)` or `post(x)`.
 
 This can be specified in two ways. Either directly, as in:
 
@@ -184,7 +189,7 @@ storage
   balanceOf[CALLER] => balanceOf[CALLER] - value
   balanceOf[to] => balanceOf[to] + value
 
-returns 1
+returns post(balanceOf[CALLER])
 ```
 
 or split between a number of cases, as in:
@@ -192,7 +197,7 @@ or split between a number of cases, as in:
 ```act
 case to == CALLER:
 
-   returns 1
+   returns -1
 
 case to =/= CALLER:
 
@@ -200,7 +205,7 @@ case to =/= CALLER:
      balanceOf[CALLER] => balanceOf[CALLER] - value
      balanceOf[to] => balanceOf[to] + value
 
-   returns 1
+   returns post(balanceOf[CALLER])
 ```
 
 Note that currently, either a `storage` or `returns` section, or both is required in every spec.
