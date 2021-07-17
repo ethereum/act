@@ -69,7 +69,7 @@ instance Refinable Agnostic.Behaviour where
     }
 
 instance Refinable Agnostic.Rewrite where
-  refine (Constant location) = Constant $ setPre location
+  refine (Constant location) = Constant $ setPre location -- not 100% on this `setPre`?
   refine (Rewrite  update)   = Rewrite  $ refine update
 
 instance Refinable Agnostic.StorageUpdate where
