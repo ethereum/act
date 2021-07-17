@@ -74,6 +74,6 @@ instance Refinable Agnostic.Rewrite where
 
 instance Refinable Agnostic.StorageUpdate where
   refine update = case update of
-    IntUpdate item expr -> IntUpdate (setPost item) (setPre expr) -- not 100% on these `setPost`?
+    IntUpdate item expr -> IntUpdate (setPost item) (setPre expr)
     BoolUpdate item expr -> BoolUpdate (setPost item) (setPre expr)
     BytesUpdate item expr -> BytesUpdate (setPost item) (setPre expr)
