@@ -5,22 +5,22 @@
         "homepage": "https://dapp.tools",
         "owner": "dapphub",
         "repo": "dapptools",
-        "rev": "6a40aabbc010af23d5c6f5dd207bd88af3c9ce8f",
-        "sha256": "03b6arn1vzq47c1mkng5q28msf52aimmqiw0sjrgqi09zg2ahzhc",
+        "rev": "401f0485d3434c7d58991a80bb64e802b09015fe",
+        "sha256": "1kv8nis3vnfp83vb0c0xz4y2nwssgy2gvbw7ccnr58rw0aa7wv4i",
         "type": "tarball",
-        "url": "https://github.com/dapphub/dapptools/archive/6a40aabbc010af23d5c6f5dd207bd88af3c9ce8f.tar.gz",
+        "url": "https://github.com/dapphub/dapptools/archive/401f0485d3434c7d58991a80bb64e802b09015fe.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
-        "branch": "20.09",
+        "branch": "21.05",
         "description": "A Nix Packages collection",
         "homepage": "https://github.com/NixOS/nixpkgs",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "cd63096d6d887d689543a0b97743d28995bc9bc3",
-        "sha256": "1wg61h4gndm3vcprdcg7rc4s1v3jkm5xd7lw8r2f67w502y94gcy",
+        "rev": "7e9b0dff974c89e070da1ad85713ff3c20b0ca97",
+        "sha256": "1ckzhh24mgz6jd1xhfgx0i9mijk6xjqxwsshnvq789xsavrmsc36",
         "type": "tarball",
-        "url": "https://github.com/nixos/nixpkgs/archive/cd63096d6d887d689543a0b97743d28995bc9bc3.tar.gz",
+        "url": "https://github.com/nixos/nixpkgs/archive/7e9b0dff974c89e070da1ad85713ff3c20b0ca97.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
