@@ -25,9 +25,8 @@ import Lex (lexer)
 import Parse (parse)
 import Type (typecheck)
 import Print (prettyBehaviour)
-import Syntax (Interface(..), EthEnv(..), Decl(..))
 import SMT
-import RefinedAst hiding (Mode)
+import Syntax.Refined hiding (Mode)
 
 import Debug.Trace
 import Text.Pretty.Simple
@@ -57,7 +56,7 @@ main = defaultMain $ testGroup "act"
       -}
       [ testProperty "roundtrip" . withExponents $ do
           behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
-          let actual = parse (lexer $ prettyBehaviour behv) >>= typecheck
+          let actual = pure . fmap refine <=< typecheck <=< parse . lexer $ prettyBehaviour behv
               expected = if null preconds then
                   [ S Map.empty, B behv ]
                 else
@@ -112,7 +111,7 @@ genBehv n = do
   ifname <- ident
   abiNames <- genNames
   preconditions <- listOf $ genExpBool abiNames n
-  returns <- Just <$> genReturnExp abiNames n
+  returns <- Just <$> genTypedExp abiNames n
   postconditions <- listOf $ genExpBool abiNames n
   iface <- Interface ifname <$> mkDecls abiNames
   return Behaviour { _name = name
@@ -148,8 +147,8 @@ genType typ = case typ of
     validBytesSize = elements [1..32]
 
 
-genReturnExp :: Names -> Int -> ExpoGen ReturnExp
-genReturnExp names n = oneof
+genTypedExp :: Names -> Int -> ExpoGen TypedExp
+genTypedExp names n = oneof
   [ ExpInt <$> genExpInt names n
   , ExpBool <$> genExpBool names n
   , ExpBytes <$> genExpBytes names n
@@ -159,14 +158,14 @@ genReturnExp names n = oneof
 -- TODO: literals, cat slice, ITE, storage, ByStr
 genExpBytes :: Names -> Int -> ExpoGen (Exp ByteString)
 genExpBytes names _ = oneof
-  [ ByVar <$> (selectName ByteStr names)
+  [ ByVar <$> selectName ByteStr names
   , return $ ByEnv Blockhash
   ]
 
 -- TODO: ITE, storage
 genExpBool :: Names -> Int -> ExpoGen (Exp Bool)
 genExpBool names 0 = oneof
-  [ BoolVar <$> (selectName Boolean names)
+  [ BoolVar <$> selectName Boolean names
   , LitBool <$> liftGen arbitrary
   ]
 genExpBool names n = oneof
@@ -192,7 +191,7 @@ genExpBool names n = oneof
 genExpInt :: Names -> Int -> ExpoGen (Exp Integer)
 genExpInt names 0 = oneof
   [ LitInt <$> liftGen arbitrary
-  , IntVar <$> (selectName Integer names)
+  , IntVar <$> selectName Integer names
   , return $ IntEnv Caller
   , return $ IntEnv Callvalue
   , return $ IntEnv Calldepth
@@ -253,8 +252,8 @@ genNames = mkNames <$> (split <$> unique)
     split l = go (length l `div` 3) l
       where
         go _ [] = []
-        go n xs = as : go n bs
-          where (as,bs) = splitAt n xs
+        go n xs = ys : go n zs
+          where (ys,zs) = splitAt n xs
 
 
 ident :: ExpoGen String

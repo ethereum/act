@@ -15,4 +15,3 @@ creates
     // this is 0. TODO (is this annoying?)
     uint x := 1
     address y := CALLER
-

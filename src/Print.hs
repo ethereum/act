@@ -5,12 +5,11 @@ module Print where
 import Data.ByteString.UTF8 (toString)
 
 import Data.List
-import Data.List.NonEmpty as NonEmpty (toList)
 
 import Syntax
-import RefinedAst
+import Syntax.TimeAgnostic
 
-prettyBehaviour :: Behaviour -> String
+prettyBehaviour :: Behaviour t -> String
 prettyBehaviour (Behaviour name _ contract interface preconditions postconditions stateUpdates returns)
   =   "behaviour " <> name <> " of " <> contract
   >-< "interface " <> (show interface)
@@ -25,10 +24,10 @@ prettyBehaviour (Behaviour name _ contract interface preconditions postcondition
     prettyStorage [] = ""
     prettyStorage s = header "storage" >-< block (prettyState <$> s)
 
-    prettyState (Left loc) = prettyLocation loc
-    prettyState (Right update) = prettyUpdate update
+    prettyState (Constant loc) = prettyLocation loc
+    prettyState (Rewrite  rew) = prettyUpdate rew
 
-    prettyRet (Just ret) = header "returns" >-< "  " <> prettyReturnExp ret
+    prettyRet (Just ret) = header "returns" >-< "  " <> prettyTypedExp ret
     prettyRet Nothing = ""
 
     prettyPost [] = ""
@@ -38,7 +37,7 @@ prettyBehaviour (Behaviour name _ contract interface preconditions postcondition
     block l = "  " <> intercalate "\n  " l
     x >-< y = x <> "\n" <> y
 
-prettyExp :: Exp a -> String
+prettyExp :: Exp a t -> String
 prettyExp e = case e of
 
   -- booleans
@@ -50,7 +49,7 @@ prettyExp e = case e of
   GEQ a b -> print2 ">=" a b
   And a b -> print2 "and" a b
   NEq a b -> print2 "=/=" a b
-  Neg a -> "(not " <> (prettyExp a) <> ")"
+  Neg a -> "(not " <> prettyExp a <> ")"
   Impl a b -> print2 "=>" a b
   LitBool b -> if b then "true" else "false"
   BoolVar b -> b
@@ -83,35 +82,27 @@ prettyExp e = case e of
 
   --polymorphic
   ITE a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  TEntry a -> prettyItem a
-
+  TEntry a t -> timeParens t $ prettyItem a
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
-prettyReturnExp :: ReturnExp -> String
-prettyReturnExp e = case e of
+prettyTypedExp :: TypedExp t -> String
+prettyTypedExp e = case e of
   ExpInt e' -> prettyExp e'
   ExpBool e' -> prettyExp e'
   ExpBytes e' -> prettyExp e'
 
-prettyItem :: TStorageItem t -> String
-prettyItem item = case item of
-  DirectInt contract name -> contract <> "." <> name
-  DirectBool contract name -> contract <> "." <> name
-  DirectBytes contract name -> contract <> "." <> name
-  MappedInt contract name ixs -> contract <> "." <> name <> concat (NonEmpty.toList $ surround "[" "]" <$> (prettyReturnExp <$> ixs))
-  MappedBool contract name ixs -> contract <> "." <> name <> concat (NonEmpty.toList $ surround "[" "]" <$> (prettyReturnExp <$> ixs))
-  MappedBytes contract name ixs -> contract <> "." <> name <> concat (NonEmpty.toList $ surround "[" "]" <$> (prettyReturnExp <$> ixs))
+prettyItem :: TStorageItem a t -> String
+prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
   where
-    surround :: String -> String -> String -> String
-    surround l r str = l <> str <> r
+    brackets str = "[" <> str <> "]"
 
-prettyLocation :: StorageLocation -> String
+prettyLocation :: StorageLocation t -> String
 prettyLocation (IntLoc item) = prettyItem item
 prettyLocation (BoolLoc item) = prettyItem item
 prettyLocation (BytesLoc item) = prettyItem item
 
-prettyUpdate :: StorageUpdate -> String
+prettyUpdate :: StorageUpdate t -> String
 prettyUpdate (IntUpdate item e) = prettyItem item <> " => " <> prettyExp e
 prettyUpdate (BoolUpdate item e) = prettyItem item <> " => " <> prettyExp e
 prettyUpdate (BytesUpdate item e) = prettyItem item <> " => " <> prettyExp e
@@ -131,9 +122,3 @@ prettyEnv e = case e of
   Timestamp -> "TIMESTAMP"
   This -> "THIS"
   Nonce -> "NONCE"
-
-prettyType :: ReturnExp -> String
-prettyType ret = case ret of
-  ExpInt _ -> "Integer"
-  ExpBool _ -> "Boolean"
-  ExpBytes _ -> "ByteString"

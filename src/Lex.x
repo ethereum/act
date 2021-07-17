@@ -51,6 +51,8 @@ tokens :-
   then                                  { mk THEN }
   else                                  { mk ELSE }
   at                                    { mk AT }
+  pre                                   { mk PRE }
+  post                                  { mk POST }
 
   -- builtin types
   uint $digit+                          { \ p s -> L (UINT (read (drop 4 s))) p }
@@ -142,6 +144,8 @@ data LEX =
   | THEN
   | ELSE
   | AT
+  | PRE
+  | POST
 
   -- builtin types
   | UINT  Int

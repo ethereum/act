@@ -67,7 +67,7 @@ case x == 0:
 		x => 1
 
 ensures
-	(x == 0) or (x == 1)
+	(post(x) == 0) or (post(x) == 1)
 
 
 behaviour g of StateMachine
@@ -78,15 +78,19 @@ case x == 1:
 		x => 0
 
 ensures
-	(x == 1) or (x == 0)
+	(post(x) == 1) or (post(x) == 0)
 ```
 
 The `case`s of a `behaviour` specify how storage changes as a result of calling
 the function, and its return argument, if present. They make up the lowest
-level description of the specification. Functions pre and post conditions are
+level description of the specification. Functions' pre and post conditions are
 described in the `iff` and `ensures` sections, respectively. Contract
 invariants specify relations between its storage variables that should remain
-true for the entire lifetime of the contract.
+true for the entire lifetime of the contract. Return values can be specified
+in `returns` sections. In `ensures` and `returns` sections, every name `x` which
+reference a position in storage needs to be specified as either `pre(x)` or
+`post(x)`, depending on whether the value of `x` before or after the transition
+is meant.
 
 More examples can be found in the `examples` directory.
 

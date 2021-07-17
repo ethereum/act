@@ -1,0 +1,10 @@
+constructor of Fail
+interface constructor(uint y)
+
+creates
+
+  uint x := y
+
+ensures
+
+  post(x) >= pre(y)
