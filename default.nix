@@ -11,12 +11,9 @@ let
     overrides = hself: hsuper: {
       hevm = dapptools.sharedHaskellPackages.hevm;
       sbv = dapptools.sharedHaskellPackages.sbv;
-      act =
-        pkgs.haskell.lib.dontCheck (hself.callCabal2nixWithOptions
-          "act"
-          (gitignore ./src)
-          "-fci"
-          {});
+      act = (hself.callCabal2nixWithOptions "act" (gitignore ./src) "-fci" {}).overrideAttrs (attrs : {
+        buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc4 ];
+      });
     };
   };
 
