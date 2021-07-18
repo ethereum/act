@@ -92,4 +92,4 @@ tests/hevm/fail/%.act.hevm.fail:
 	./bin/act hevm --spec tests/hevm/fail/$*.act --soljson tests/hevm/fail/$*.sol.json && exit 1 || echo 0
 	rm tests/hevm/fail/$*.sol.json
 
-test: test-parse test-type test-invariant test-coq test-hevm test-cabal
+test: test-parse test-type test-invariant test-coq test-hevm
