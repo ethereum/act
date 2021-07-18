@@ -23,6 +23,7 @@ let
   shell = myHaskellPackages.shellFor {
     packages = p: [
       p.act
+      p.hevm
     ];
     buildInputs = with pkgs.haskellPackages; [
       cabal-install
