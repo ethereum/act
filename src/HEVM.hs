@@ -10,7 +10,7 @@ module HEVM where
 import Prelude hiding (lookup)
 
 import Syntax
-import Syntax.Refined as Refined hiding (S)
+import Syntax.Annotated as Annotated hiding (S)
 
 import Data.ByteString (ByteString)
 import Data.ByteString.UTF8 (toString)
@@ -61,7 +61,7 @@ proveBehaviour sources behaviour = do
      -- create new addresses for each contract involved
      -- in the future addresses could be passed through the cli
      contractMap = fromList $ zipWith
-       (\id' i -> (id', createAddress (Addr 0) i)) (nub $ (Refined._contract behaviour):(contractsInvolved behaviour)) [0..]
+       (\id' i -> (id', createAddress (Addr 0) i)) (nub $ (Annotated._contract behaviour):(contractsInvolved behaviour)) [0..]
 
      ctx = mkVmContext sources' behaviour contractMap
 
@@ -233,7 +233,7 @@ locateCalldata :: Behaviour -> [Decl] -> Buffer -> Decl -> (Id, SMType)
 locateCalldata b decls calldata' d@(Decl typ name) =
   if any (\(Decl typ' _) -> abiKind typ' /= Static) decls
   then error "dynamic calldata args currently unsupported"
-  else (nameFromDecl (Refined._contract b) (_name b) d, val)
+  else (nameFromDecl (Annotated._contract b) (_name b) d, val)
 
   where
     -- every argument is static right now; length is always 32

@@ -39,7 +39,7 @@ import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
 
 import Syntax
-import Syntax.Refined
+import Syntax.Annotated
 
 import Print
 import Type (defaultStore)

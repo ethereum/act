@@ -37,10 +37,10 @@ timeParens :: Time t -> String -> String
 timeParens t s | isTimed t = fmap toLower (show t) <> "(" <> s <> ")"
                | otherwise = s
 
--- | Types for which any implicit timings are always known and can be made explicit.
-class Refinable c where
+-- | Types which we can always annotate with explicit timings without needing context.
+class Annotatable c where
   -- | Defines how an 'Untimed' thing should be given explicit timings.
-  refine :: c Untimed -> c Timed
+  annotate :: c Untimed -> c Timed
 
 -- | Types for which all implicit timings can freely be given any explicit timing,
 -- i.e. we need context to decide which time it refers to.

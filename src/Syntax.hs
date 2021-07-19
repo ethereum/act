@@ -12,7 +12,7 @@ import Data.Map (Map,empty,insertWith,unionsWith)
 import EVM.ABI (AbiType(..))
 
 import Syntax.TimeAgnostic as Agnostic
-import qualified Syntax.Refined as Refined
+import qualified Syntax.Annotated as Annotated
 import           Syntax.Untyped hiding (Constant,Rewrite)
 import qualified Syntax.Untyped as Untyped
 
@@ -21,17 +21,17 @@ import qualified Syntax.Untyped as Untyped
 -----------------------------------------
 
 -- | Invariant predicates can always be expressed as a single expression.
-invExp :: Refined.InvariantPred -> Refined.Exp Bool
+invExp :: Annotated.InvariantPred -> Annotated.Exp Bool
 invExp = uncurry (<>)
 
-locsFromBehaviour :: Refined.Behaviour -> [Refined.StorageLocation]
+locsFromBehaviour :: Annotated.Behaviour -> [Annotated.StorageLocation]
 locsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
   concatMap locsFromExp preconds
   <> concatMap locsFromExp postconds
   <> concatMap locsFromRewrite rewrites
   <> maybe [] locsFromTypedExp returns
 
-locsFromConstructor :: Refined.Constructor -> [Refined.StorageLocation]
+locsFromConstructor :: Annotated.Constructor -> [Annotated.StorageLocation]
 locsFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
   concatMap locsFromExp pre
   <> concatMap locsFromExp post

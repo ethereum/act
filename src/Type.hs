@@ -156,7 +156,7 @@ splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Create
                else [ C $ Constructor contract Pass iface iffs' ensures stateUpdates []
                        , C $ Constructor contract Fail iface [Neg (mconcat iffs')] ensures [] []]
 
-  return $ ((I . Invariant contract [] []) <$> invariants)
+  return $ (I . Invariant contract [] [] <$> invariants)
            <> cases'
 
 mkEnv :: Id -> Store -> [Decl]-> Env

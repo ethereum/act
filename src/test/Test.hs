@@ -26,7 +26,7 @@ import Parse (parse)
 import Type (typecheck)
 import Print (prettyBehaviour)
 import SMT
-import Syntax.Refined hiding (Mode)
+import Syntax.Annotated hiding (Mode)
 
 import Debug.Trace
 import Text.Pretty.Simple
@@ -56,7 +56,7 @@ main = defaultMain $ testGroup "act"
       -}
       [ testProperty "roundtrip" . withExponents $ do
           behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
-          let actual = pure . fmap refine <=< typecheck <=< parse . lexer $ prettyBehaviour behv
+          let actual = pure . fmap annotate <=< typecheck <=< parse . lexer $ prettyBehaviour behv
               expected = if null preconds then
                   [ S Map.empty, B behv ]
                 else

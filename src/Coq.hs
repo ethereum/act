@@ -24,7 +24,7 @@ import Control.Monad.State
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import Syntax
-import Syntax.Refined hiding (Store)
+import Syntax.Annotated hiding (Store)
 
 type Store = M.Map Id SlotType
 type Fresh = State Int

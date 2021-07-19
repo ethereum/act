@@ -7,7 +7,7 @@
 module K where
 
 import Syntax
-import Syntax.Refined
+import Syntax.Annotated
 
 import ErrM
 import Control.Applicative ((<|>))

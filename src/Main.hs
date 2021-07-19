@@ -33,7 +33,7 @@ import ErrM
 import Lex (lexer, AlexPosn(..))
 import Options.Generic
 import Parse
-import Syntax.Refined
+import Syntax.Annotated
 import Syntax.Untyped
 import Enrich
 import K hiding (normalize, indent)
@@ -213,7 +213,7 @@ proceed contents (Bad e) _ = prettyErr contents e
 proceed _ (Ok a) continue = continue a
 
 compile :: String -> Err [Claim]
-compile = pure . fmap refine . enrich <=< typecheck <=< parse . lexer
+compile = pure . fmap annotate . enrich <=< typecheck <=< parse . lexer
 
 prettyErr :: String -> (Pn, String) -> IO ()
 prettyErr _ (pn, msg) | pn == nowhere = do
