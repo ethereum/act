@@ -13,12 +13,12 @@ import EVM.ABI (AbiType(..))
 
 import Syntax.TimeAgnostic as Agnostic
 import qualified Syntax.Annotated as Annotated
-import           Syntax.Untyped hiding (Constant,Rewrite)
+import           Syntax.Untyped hiding (Constant,Rewrite,Post)
 import qualified Syntax.Untyped as Untyped
 
------------------------------------------
--- * Extract from fully refined ASTs * --
------------------------------------------
+-------------------------------------------
+-- * Extract from fully annotated ASTs * --
+-------------------------------------------
 
 -- | Invariant predicates can always be expressed as a single expression.
 invExp :: Annotated.InvariantPred -> Annotated.Exp Bool
@@ -37,6 +37,12 @@ locsFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
   <> concatMap locsFromExp post
   <> concatMap locsFromRewrite rewrites
   <> concatMap locsFromRewrite (Rewrite <$> initialStorage)
+
+isPre :: Annotated.StorageLocation -> Bool
+isPre = isTime Pre
+
+isPost :: Annotated.StorageLocation -> Bool
+isPost = isTime Post
 
 ------------------------------------
 -- * Extract from any typed AST * --
@@ -59,9 +65,9 @@ locFromUpdate (BytesUpdate item _) = BytesLoc item
 
 locsFromItem :: TStorageItem a t -> [StorageLocation t]
 locsFromItem t = case t of
-  IntItem   contract name ixs -> IntLoc   (IntItem   contract name ixs) : ixLocs ixs
-  BoolItem  contract name ixs -> BoolLoc  (BoolItem  contract name ixs) : ixLocs ixs
-  BytesItem contract name ixs -> BytesLoc (BytesItem contract name ixs) : ixLocs ixs
+  IntItem   time contract name ixs -> IntLoc   (IntItem   time contract name ixs) : ixLocs ixs
+  BoolItem  time contract name ixs -> BoolLoc  (BoolItem  time contract name ixs) : ixLocs ixs
+  BytesItem time contract name ixs -> BytesLoc (BytesItem time contract name ixs) : ixLocs ixs
   where
     ixLocs :: [TypedExp t] -> [StorageLocation t]
     ixLocs = concatMap locsFromTypedExp
@@ -109,7 +115,7 @@ locsFromExp = nub . go
       IntEnv _ -> []
       ByEnv _ -> []
       ITE x y z -> go x <> go y <> go z
-      TEntry a _ -> locsFromItem a
+      TEntry a -> locsFromItem a
 
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
@@ -180,7 +186,7 @@ ethEnvFromExp = nub . go
       NewAddr a b -> go a <> go b
       IntEnv a -> [a]
       ByEnv a -> [a]
-      TEntry a _ -> ethEnvFromItem a
+      TEntry a -> ethEnvFromItem a
 
 metaType :: AbiType -> MType
 metaType (AbiUIntType _)     = Integer
@@ -199,9 +205,9 @@ idFromRewrite :: Rewrite t -> Id
 idFromRewrite = onRewrite idFromLocation idFromUpdate
 
 idFromItem :: TStorageItem a t -> Id
-idFromItem (IntItem _ name _) = name
-idFromItem (BoolItem _ name _) = name
-idFromItem (BytesItem _ name _) = name
+idFromItem (IntItem _ _ name _) = name
+idFromItem (BoolItem _ _ name _) = name
+idFromItem (BytesItem _ _ name _) = name
 
 idFromUpdate :: StorageUpdate t -> Id
 idFromUpdate (IntUpdate   item _) = idFromItem item
@@ -217,14 +223,14 @@ contractFromRewrite :: Rewrite t -> Id
 contractFromRewrite = onRewrite contractFromLoc contractFromUpdate
 
 contractFromItem :: TStorageItem a t -> Id
-contractFromItem (IntItem   c _ _) = c
-contractFromItem (BoolItem  c _ _) = c
-contractFromItem (BytesItem c _ _) = c
+contractFromItem (IntItem   _ c _ _) = c
+contractFromItem (BoolItem  _ c _ _) = c
+contractFromItem (BytesItem _ c _ _) = c
 
 ixsFromItem :: TStorageItem a t -> [TypedExp t]
-ixsFromItem (IntItem   _ _ ixs) = ixs
-ixsFromItem (BoolItem  _ _ ixs) = ixs
-ixsFromItem (BytesItem _ _ ixs) = ixs
+ixsFromItem (IntItem   _ _ _ ixs) = ixs
+ixsFromItem (BoolItem  _ _ _ ixs) = ixs
+ixsFromItem (BytesItem _ _ _ ixs) = ixs
 
 contractsInvolved :: Behaviour t -> [Id]
 contractsInvolved = fmap contractFromRewrite . _stateUpdates
@@ -269,6 +275,16 @@ updatesFromRewrites rs = [u | Rewrite u <- rs]
 
 locsFromRewrites :: [Rewrite t] -> [StorageLocation t]
 locsFromRewrites rs = [l | Constant l <- rs]
+
+timeFromItem :: TStorageItem a t -> Time t
+timeFromItem (IntItem   t _ _ _) = t
+timeFromItem (BoolItem  t _ _ _) = t
+timeFromItem (BytesItem t _ _ _) = t
+
+isTime :: Time t -> StorageLocation t -> Bool
+isTime time (IntLoc   item) = timeFromItem item == time
+isTime time (BoolLoc  item) = timeFromItem item == time
+isTime time (BytesLoc item) = timeFromItem item == time
 
 --------------------------------------
 -- * Extraction from untyped ASTs * --

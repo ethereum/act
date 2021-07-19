@@ -21,7 +21,8 @@
       {
         "location": {
           "name": "a.x",
-          "sort": "int"
+          "sort": "int",
+          "pre-post": "Post"
         },
         "value": "0"
       }
@@ -38,7 +39,8 @@
       {
         "location": {
           "name": "B.y",
-          "sort": "int"
+          "sort": "int",
+          "pre-post": "Post"
         },
         "value": "0"
       }
@@ -54,7 +56,8 @@
         "Rewrite": {
           "location": {
             "name": "a.x",
-            "sort": "int"
+            "sort": "int",
+            "pre-post": "Post"
           },
           "value": "z"
         }
@@ -102,10 +105,9 @@
             "args": [
               "0",
               {
-                "Pre": {
-                  "name": "a.x",
-                  "sort": "int"
-                }
+                "name": "a.x",
+                "sort": "int",
+                "pre-post": "Pre"
               }
             ],
             "symbol": "<="
@@ -114,10 +116,9 @@
             "arity": 2,
             "args": [
               {
-                "Pre": {
-                  "name": "a.x",
-                  "sort": "int"
-                }
+                "name": "a.x",
+                "sort": "int",
+                "pre-post": "Pre"
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -160,7 +161,8 @@
         "Constant": {
           "location": {
             "name": "a.x",
-            "sort": "int"
+            "sort": "int",
+            "pre-post": "Pre"
           }
         }
       }
@@ -220,10 +222,9 @@
             "args": [
               "0",
               {
-                "Pre": {
-                  "name": "a.x",
-                  "sort": "int"
-                }
+                "name": "a.x",
+                "sort": "int",
+                "pre-post": "Pre"
               }
             ],
             "symbol": "<="
@@ -232,10 +233,9 @@
             "arity": 2,
             "args": [
               {
-                "Pre": {
-                  "name": "a.x",
-                  "sort": "int"
-                }
+                "name": "a.x",
+                "sort": "int",
+                "pre-post": "Pre"
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -278,7 +278,8 @@
         "Rewrite": {
           "location": {
             "name": "B.y",
-            "sort": "int"
+            "sort": "int",
+            "pre-post": "Post"
           },
           "value": "1"
         }
@@ -287,7 +288,8 @@
         "Rewrite": {
           "location": {
             "name": "a.x",
-            "sort": "int"
+            "sort": "int",
+            "pre-post": "Post"
           },
           "value": "z"
         }
@@ -335,10 +337,9 @@
             "args": [
               "0",
               {
-                "Pre": {
-                  "name": "B.y",
-                  "sort": "int"
-                }
+                "name": "B.y",
+                "sort": "int",
+                "pre-post": "Pre"
               }
             ],
             "symbol": "<="
@@ -347,10 +348,9 @@
             "arity": 2,
             "args": [
               {
-                "Pre": {
-                  "name": "B.y",
-                  "sort": "int"
-                }
+                "name": "B.y",
+                "sort": "int",
+                "pre-post": "Pre"
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -367,10 +367,9 @@
             "args": [
               "0",
               {
-                "Pre": {
-                  "name": "a.x",
-                  "sort": "int"
-                }
+                "name": "a.x",
+                "sort": "int",
+                "pre-post": "Pre"
               }
             ],
             "symbol": "<="
@@ -379,10 +378,9 @@
             "arity": 2,
             "args": [
               {
-                "Pre": {
-                  "name": "a.x",
-                  "sort": "int"
-                }
+                "name": "a.x",
+                "sort": "int",
+                "pre-post": "Pre"
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -425,7 +423,8 @@
         "Constant": {
           "location": {
             "name": "B.y",
-            "sort": "int"
+            "sort": "int",
+            "pre-post": "Pre"
           }
         }
       },
@@ -433,7 +432,8 @@
         "Constant": {
           "location": {
             "name": "a.x",
-            "sort": "int"
+            "sort": "int",
+            "pre-post": "Pre"
           }
         }
       }
@@ -493,10 +493,9 @@
             "args": [
               "0",
               {
-                "Pre": {
-                  "name": "B.y",
-                  "sort": "int"
-                }
+                "name": "B.y",
+                "sort": "int",
+                "pre-post": "Pre"
               }
             ],
             "symbol": "<="
@@ -505,10 +504,9 @@
             "arity": 2,
             "args": [
               {
-                "Pre": {
-                  "name": "B.y",
-                  "sort": "int"
-                }
+                "name": "B.y",
+                "sort": "int",
+                "pre-post": "Pre"
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -525,10 +523,9 @@
             "args": [
               "0",
               {
-                "Pre": {
-                  "name": "a.x",
-                  "sort": "int"
-                }
+                "name": "a.x",
+                "sort": "int",
+                "pre-post": "Pre"
               }
             ],
             "symbol": "<="
@@ -537,10 +534,9 @@
             "arity": 2,
             "args": [
               {
-                "Pre": {
-                  "name": "a.x",
-                  "sort": "int"
-                }
+                "name": "a.x",
+                "sort": "int",
+                "pre-post": "Pre"
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],

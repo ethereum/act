@@ -76,9 +76,9 @@ kCalldata (Interface a args) =
      else intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args)
   <> ")"
 
-kStorageName :: TStorageItem a -> When -> String
-kStorageName item t = kVar (idFromItem item) <> "-" <> show t
-                   <> intercalate "_" ("" : fmap kTypedExpr (ixsFromItem item))
+kStorageName :: TStorageItem a -> String
+kStorageName item = kVar (idFromItem item) <> "-" <> show (timeFromItem item)
+                 <> intercalate "_" ("" : fmap kTypedExpr (ixsFromItem item))
 
 kVar :: Id -> String
 kVar a = (unpack . Text.toUpper . pack $ [head a]) <> tail a
@@ -132,7 +132,7 @@ kExpr (Eq (a :: Exp a) (b :: Exp a)) = fromMaybe (error "Internal Error: invalid
 kExpr (ByVar name) = kVar name
 kExpr (ByStr str) = show str
 kExpr (ByLit bs) = show bs
-kExpr (TEntry item t) = kStorageName item t
+kExpr (TEntry item) = kStorageName item
 kExpr v = error ("Internal error: TODO kExpr of " <> show v)
 --kExpr (Cat a b) =
 --kExpr (Slice a start end) =
@@ -154,10 +154,10 @@ kStorageEntry storageLayout update =
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (idFromRewrite update)) storageLayout)
   in case update of
-       Rewrite (IntUpdate a b) -> (loc, (offset, kStorageName a Pre, kExpr b))
-       Rewrite (BoolUpdate a b) -> (loc, (offset, kStorageName a Pre, kExpr b))
-       Rewrite (BytesUpdate a b) -> (loc, (offset, kStorageName a Pre, kExpr b))
-       Constant (IntLoc a) -> (loc, (offset, kStorageName a Pre, kStorageName a Pre))
+       Rewrite (IntUpdate a b) -> (loc, (offset, kStorageName a, kExpr b))
+       Rewrite (BoolUpdate a b) -> (loc, (offset, kStorageName a, kExpr b))
+       Rewrite (BytesUpdate a b) -> (loc, (offset, kStorageName a, kExpr b))
+       Constant (IntLoc a) -> (loc, (offset, kStorageName a, kStorageName a))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
 
 --packs entries packed in one slot

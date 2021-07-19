@@ -256,7 +256,7 @@ mkInvariantQueries claims = fmap mkQuery gathered
         (Interface ctorIface ctorDecls) = _cinterface ctor
         (Interface behvIface behvDecls) = _interface behv
         -- storage locs mentioned in the invariant but not in the behaviour
-        implicitLocs = Constant <$> (locsFromExp invPre \\ (locFromRewrite <$> _stateUpdates behv))
+        implicitLocs = Constant <$> (locsFromExp (invPre <> invPost) \\ (locFromRewrite <$> _stateUpdates behv))
 
         -- declare vars
         invEnv = declareEthEnv <$> ethEnvFromExp invPre
@@ -380,8 +380,8 @@ getPostconditionModel (Behv behv) solver = do
   let locs = locsFromBehaviour behv
       env = ethEnvFromBehaviour behv
       Interface ifaceName decls = _interface behv
-  prestate <- mapM (getStorageValue solver ifaceName Pre) locs
-  poststate <- mapM (getStorageValue solver ifaceName Post) locs
+  prestate <- mapM (getStorageValue solver ifaceName) $ filter isPre locs
+  poststate <- mapM (getStorageValue solver ifaceName) $ filter isPost locs
   calldata <- mapM (getCalldataValue solver ifaceName) decls
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
@@ -403,8 +403,8 @@ getInvariantModel predicate ctor (Just behv) solver = do
       Interface behvIface behvDecls = _interface behv
       Interface ctorIface ctorDecls = _cinterface ctor
   -- TODO: v ugly to ignore the ifaceName here, but it's safe...
-  prestate <- mapM (getStorageValue solver "" Pre) locs
-  poststate <- mapM (getStorageValue solver "" Post) locs
+  prestate <- mapM (getStorageValue solver "") $ filter isPre locs
+  poststate <- mapM (getStorageValue solver "") $ filter isPost locs
   behvCalldata <- mapM (getCalldataValue solver behvIface) behvDecls
   ctorCalldata <- mapM (getCalldataValue solver ctorIface) ctorDecls
   environment <- mapM (getEnvironmentValue solver) env
@@ -422,7 +422,7 @@ getCtorModel ctor solver = do
   let locs = locsFromConstructor ctor
       env = ethEnvFromConstructor ctor
       Interface ifaceName decls = _cinterface ctor
-  poststate <- mapM (getStorageValue solver ifaceName Post) locs
+  poststate <- mapM (getStorageValue solver ifaceName) $ filter isPost locs
   calldata <- mapM (getCalldataValue solver ifaceName) decls
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
@@ -434,14 +434,14 @@ getCtorModel ctor solver = do
     }
 
 -- | Gets a concrete value from the solver for the given storage location
-getStorageValue :: SolverInstance -> Id -> When -> StorageLocation -> IO (StorageLocation, TypedExp)
-getStorageValue solver ifaceName whn loc = do
+getStorageValue :: SolverInstance -> Id -> StorageLocation -> IO (StorageLocation, TypedExp)
+getStorageValue solver ifaceName loc = do
   let name = if isMapping loc
                 then withInterface ifaceName
                      $ select
-                        (nameFromLoc whn loc)
+                        (nameFromLoc loc)
                         (NonEmpty.fromList $ ixsFromLocation loc)
-                else nameFromLoc whn loc
+                else nameFromLoc loc
   output <- getValue solver name
   -- TODO: handle errors here...
   let val = case loc of
@@ -524,8 +524,8 @@ encodeInitialStorage behvName update = case update of
     encode :: TStorageItem a -> Exp a -> SMT2
     encode item e =
       let
-        postentry  = withInterface behvName $ expToSMT2 (TEntry item Post)
-        expression = withInterface behvName $ expToSMT2 (e)
+        postentry  = withInterface behvName . expToSMT2 $ TEntry item
+        expression = withInterface behvName . expToSMT2 $ e
       in "(assert (= " <> postentry <> " " <> expression <> "))"
 
 -- | declares a storage location that is created by the constructor, these
@@ -537,12 +537,12 @@ declareInitialStorage update = case locFromUpdate update of
   BytesLoc item -> mkItem item
   where
     mkItem item = case ixsFromItem item of
-      []       -> constant (nameFromItem Post item) (itemType item)
-      (ix:ixs) -> array (nameFromItem Post item) (ix :| ixs) (itemType item)
+      []       -> constant (nameFromItem item) (itemType item)
+      (ix:ixs) -> array (nameFromItem item) (ix :| ixs) (itemType item)
 
 -- | encodes a storge update rewrite as an smt assertion
 encodeUpdate :: Id -> Rewrite -> SMT2
-encodeUpdate _        (Constant loc)   = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
+encodeUpdate _        (Constant loc)   = "(assert (= " <> nameFromLoc loc <> " " <> nameFromLoc loc <> "))"
 encodeUpdate behvName (Rewrite update) = encodeInitialStorage behvName update
 
 -- | declares a storage location that exists both in the pre state and the post
@@ -554,10 +554,10 @@ declareStorageLocation loc = case loc of
   BytesLoc item -> mkItem item
   where
     mkItem item = case ixsFromItem item of
-      []       -> [ constant (nameFromItem Pre item) (itemType item)
-                  , constant (nameFromItem Post item) (itemType item) ]
-      (ix:ixs) -> [ array (nameFromItem Pre item) (ix :| ixs) (itemType item)
-                  , array (nameFromItem Post item) (ix :| ixs) (itemType item) ]
+      []       -> [ constant (nameFromItem item) (itemType item)
+                  , constant (nameFromItem item) (itemType item) ]
+      (ix:ixs) -> [ array (nameFromItem item) (ix :| ixs) (itemType item)
+                  , array (nameFromItem item) (ix :| ixs) (itemType item) ]
 
 -- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
@@ -624,7 +624,7 @@ expToSMT2 expr = case expr of
   Eq a b -> binop "=" a b
   NEq a b -> unop "not" (Eq a b)
   ITE a b c -> triop "ite" a b c
-  TEntry item w -> entry item w
+  TEntry item -> entry item
   where
     unop :: String -> Exp a -> Ctx SMT2
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
@@ -637,10 +637,10 @@ expToSMT2 expr = case expr of
     triop op a b c = ["(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")"
                         | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
 
-    entry :: TStorageItem a -> When -> Ctx SMT2
-    entry item whn = case ixsFromItem item of
-      []       -> pure $ nameFromItem whn item
-      (ix:ixs) -> select (nameFromItem whn item) (ix :| ixs)
+    entry :: TStorageItem a -> Ctx SMT2
+    entry item = case ixsFromItem item of
+      []       -> pure $ nameFromItem item
+      (ix:ixs) -> select (nameFromItem item) (ix :| ixs)
 
 -- | SMT2 has no support for exponentiation, but we can do some preprocessing
 --   if the RHS is concrete to provide some limited support for exponentiation
@@ -688,18 +688,18 @@ sType' (ExpBytes {}) = "String"
 --- ** Variable Names ** ---
 
 -- Construct the smt2 variable name for a given storage item
-nameFromItem :: When -> TStorageItem a -> Id
-nameFromItem whn item = case item of
-  IntItem c name _ -> c @@ name @@ show whn
-  BoolItem c name _ -> c @@ name @@ show whn
-  BytesItem c name _ -> c @@ name @@ show whn
+nameFromItem :: TStorageItem a -> Id
+nameFromItem item = case item of
+  IntItem   whn c name _ -> c @@ name @@ show whn
+  BoolItem  whn c name _ -> c @@ name @@ show whn
+  BytesItem whn c name _ -> c @@ name @@ show whn
 
 -- Construct the smt2 variable name for a given storage location
-nameFromLoc :: When -> StorageLocation -> Id
-nameFromLoc whn loc = case loc of
-  IntLoc item -> nameFromItem whn item
-  BoolLoc item -> nameFromItem whn item
-  BytesLoc item -> nameFromItem whn item
+nameFromLoc :: StorageLocation -> Id
+nameFromLoc loc = case loc of
+  IntLoc   item -> nameFromItem item
+  BoolLoc  item -> nameFromItem item
+  BytesLoc item -> nameFromItem item
 
 -- Construct the smt2 variable name for a given decl
 nameFromDecl :: Id -> Decl -> Id

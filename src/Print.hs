@@ -82,7 +82,7 @@ prettyExp e = case e of
 
   --polymorphic
   ITE a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  TEntry a t -> timeParens t $ prettyItem a
+  TEntry a -> prettyItem a
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
@@ -93,7 +93,10 @@ prettyTypedExp e = case e of
   ExpBytes e' -> prettyExp e'
 
 prettyItem :: TStorageItem a t -> String
-prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
+prettyItem item = timeParens (timeFromItem item)
+                $ contractFromItem item <> "."
+                <> idFromItem item
+                <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
   where
     brackets str = "[" <> str <> "]"
 

@@ -324,7 +324,7 @@ symExpBool ctx@(Ctx c m args store _) e = case e of
   Neg a     -> sNot (symExpBool ctx a)
   LitBool a -> literal a
   BoolVar a -> get (nameFromArg c m a) (catBools args)
-  TEntry a t -> get (nameFromItem m a) (catBools $ timeStore t store)
+  TEntry a  -> get (nameFromItem m a) (catBools $ timeStore (timeFromItem a) store)
   ITE x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
   Eq a b -> fromMaybe (error "Internal error: invalid expression type")
       $ [symExpBool  ctx a' .== symExpBool  ctx b' | a' <- castType a, b' <- castType b]
@@ -345,7 +345,7 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   UIntMin a -> literal $ uintmin a
   UIntMax a -> literal $ uintmax a
   IntVar a  -> get (nameFromArg c m a) (catInts args)
-  TEntry a t -> get (nameFromItem m a) (catInts $ timeStore t store)
+  TEntry a  -> get (nameFromItem m a) (catInts $ timeStore (timeFromItem a) store)
   IntEnv a -> get (nameFromEnv c m a) (catInts environment)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
@@ -356,7 +356,7 @@ symExpBytes ctx@(Ctx c m args store environment) e = case e of
   ByVar a  -> get (nameFromArg c m a) (catBytes args)
   ByStr a -> literal a
   ByLit a -> literal $ toString a
-  TEntry a t -> get (nameFromItem m a) (catBytes $ timeStore t store)
+  TEntry a -> get (nameFromItem m a) (catBytes $ timeStore (timeFromItem a) store)
   Slice a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
   ByEnv a -> get (nameFromEnv c m a) (catBytes environment)
   ITE x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
@@ -369,9 +369,9 @@ timeStore Post s = snd <$> s
 
 nameFromItem :: Method -> TStorageItem a -> Id
 nameFromItem method item = case item of
-  IntItem c name ixs -> c @@ method @@ name <> showIxs c ixs
-  BoolItem c name ixs -> c @@ method @@ name <> showIxs c ixs
-  BytesItem c name ixs -> c @@ method @@ name <> showIxs c ixs
+  IntItem _ c name ixs -> c @@ method @@ name <> showIxs c ixs
+  BoolItem _ c name ixs -> c @@ method @@ name <> showIxs c ixs
+  BytesItem _ c name ixs -> c @@ method @@ name <> showIxs c ixs
   where
     showIxs :: ContractName -> [TypedExp] -> [Char]
     showIxs c ixs = intercalate "-" $ "" : fmap (nameFromTypedExp c method) ixs
@@ -418,7 +418,7 @@ nameFromExp c m e = case e of
   Slice a x y -> nameFromExp c m a <> "[" <> show x <> ":" <> show y <> "]"
   ByEnv a -> nameFromEnv c m a
 
-  TEntry a _ -> nameFromItem m a
+  TEntry a -> nameFromItem m a
   ITE x y z -> "if-" <> nameFromExp c m x <> "-then-" <> nameFromExp c m y <> "-else-" <> nameFromExp c m z
 
 nameFromDecl :: ContractName -> Method -> Decl -> Id
