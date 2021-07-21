@@ -14,3 +14,4 @@ tests/**/*.out
 **/CoqMakefile.conf
 *.aux
 **/.coqdeps.d
+src/dist/
