@@ -145,18 +145,16 @@ data StorageLocation t
   deriving (Show, Eq)
 
 -- | References to items in storage, either as a map lookup or as a reading of
--- a simple variable. The type is parametrized on a type `a`, which is is the
--- Act type of the item that is referenced.
--- The second parameter is a timing `t`, which can be either `Timed` or `Untimed`
--- and indicates whether the first argument needs to be `Pre`/`Post` or if it
--- can only be `Neither`. The fourth argument is a list of indices, all of which
--- have to share the same `t`.
--- The second argument is the contract name and the thrid argument is the
--- variable name.
+-- a simple variable. The third argument is a list of indices; it has entries iff
+-- the item is referenced as a map lookup. The type is parametrized on a
+-- timing `t` and a type `a`. `t` can be either `Timed` or `Untimed` and
+-- indicates whether any indices that reference items in storage explicitly
+-- refer to the pre-/post-state, or not. `a` is the type of the item that is
+-- referenced.
 data TStorageItem (a :: *) (t :: Timing) where
-  IntItem    :: Time t -> Id -> Id -> [TypedExp t] -> TStorageItem Integer t
-  BoolItem   :: Time t -> Id -> Id -> [TypedExp t] -> TStorageItem Bool t
-  BytesItem  :: Time t -> Id -> Id -> [TypedExp t] -> TStorageItem ByteString t
+  IntItem    :: Id -> Id -> [TypedExp t] -> TStorageItem Integer t
+  BoolItem   :: Id -> Id -> [TypedExp t] -> TStorageItem Bool t
+  BytesItem  :: Id -> Id -> [TypedExp t] -> TStorageItem ByteString t
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
@@ -168,11 +166,16 @@ data TypedExp t
   deriving (Eq, Show)
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
--- All storage items within an `Exp a t` contain a value of type `Time t`.
--- If `t ~ Timed`, the only possible such values are `Pre, Post :: Time Timed`, so each storage item
+-- All storage entries within an `Exp a t` contain a value of type `Time t`.
+-- If `t ~ Timed`, the only possible such values are `Pre, Post :: Time Timed`, so each storage entry
 -- will refer to either the prestate or the poststate.
--- In `t ~ Untimed`, the only possible such value is `Neither :: Time Untimed`, so all storage items
+-- In `t ~ Untimed`, the only possible such value is `Neither :: Time Untimed`, so all storage entries
 -- will not explicitly refer any particular state.
+
+-- It is recommended that backends always input `Exp Timed a` to their codegens (or `Exp Untimed a`
+-- if postconditions and return values are irrelevant), as this makes it easier to generate
+-- consistent variable names. `Untimed` expressions can be given a specific timing using `as`,
+-- e.g. ``expr `as` Pre``.
 data Exp (a :: *) (t :: Timing) where
   -- booleans
   And  :: Exp Bool t -> Exp Bool t -> Exp Bool t
@@ -214,7 +217,7 @@ data Exp (a :: *) (t :: Timing) where
   Eq  :: (Eq a, Typeable a) => Exp a t -> Exp a t -> Exp Bool t
   NEq :: (Eq a, Typeable a) => Exp a t -> Exp a t -> Exp Bool t
   ITE :: Exp Bool t -> Exp a t -> Exp a t -> Exp a t
-  TEntry :: TStorageItem a t -> Exp a t
+  TEntry :: TStorageItem a t -> Time t -> Exp a t
 deriving instance Show (Exp a t)
 
 instance Eq (Exp a t) where
@@ -262,7 +265,7 @@ instance Eq (Exp a t) where
       Just Refl -> a == c && b == d
       Nothing -> False
   ITE a b c == ITE d e f = a == d && b == e && c == f
-  TEntry a == TEntry b = a == b
+  TEntry a t == TEntry b u = a == b && t == u
   _ == _ = False
 
 instance Semigroup (Exp Bool t) where
@@ -324,16 +327,16 @@ instance Timable (Exp a) where
     Eq  x y -> Eq  (go x) (go y)
     NEq x y -> NEq (go x) (go y)
     ITE x y z -> ITE (go x) (go y) (go z)
-    TEntry item -> TEntry (go item)
+    TEntry item _ -> TEntry (go item) time
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
 
 instance Timable (TStorageItem a) where
   setTime time item = case item of
-    IntItem   _ c x ixs -> IntItem   time c x $ setTime time <$> ixs
-    BoolItem  _ c x ixs -> BoolItem  time c x $ setTime time <$> ixs
-    BytesItem _ c x ixs -> BytesItem time c x $ setTime time <$> ixs
+    IntItem   c x ixs -> IntItem   c x $ setTime time <$> ixs
+    BoolItem  c x ixs -> BoolItem  c x $ setTime time <$> ixs
+    BytesItem c x ixs -> BytesItem c x $ setTime time <$> ixs
 
 ------------------------
 -- * JSON instances * --
@@ -401,24 +404,20 @@ instance ToJSON (StorageUpdate t) where
   toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
 instance ToJSON (TStorageItem a t) where
-  toJSON (IntItem t a b []) = object [ "sort" .= pack "int"
-                                     , "pre-post" .= pack (show t)
-                                     , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (BoolItem t a b []) = object [ "sort" .= pack "bool"
-                                      , "pre-post" .= pack (show t)
-                                      , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (BytesItem t a b []) = object [ "sort" .= pack "bytes"
-                                       , "pre-post" .= pack (show t)
-                                       , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (IntItem t a b c) = mapping t a b c
-  toJSON (BoolItem t a b c) = mapping t a b c
-  toJSON (BytesItem t a b c) = mapping t a b c
+  toJSON (IntItem a b []) = object ["sort" .= pack "int"
+                                  , "name" .= String (pack a <> "." <> pack b)]
+  toJSON (BoolItem a b []) = object ["sort" .= pack "bool"
+                                   , "name" .= String (pack a <> "." <> pack b)]
+  toJSON (BytesItem a b []) = object ["sort" .= pack "bytes"
+                                    , "name" .= String (pack a <> "." <> pack b)]
+  toJSON (IntItem a b c) = mapping a b c
+  toJSON (BoolItem a b c) = mapping a b c
+  toJSON (BytesItem a b c) = mapping a b c
 
-mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => Time t -> a1 -> a2 -> a3 -> Value
-mapping t c a b = object [  "symbol"   .= pack "lookup"
-                         ,  "pre-post"  .= pack (show t)
-                         ,  "arity"    .= Data.Aeson.Types.Number 3
-                         ,  "args"     .= Array (fromList [toJSON c, toJSON a, toJSON b])]
+mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
+mapping c a b = object [  "symbol"   .= pack "lookup"
+                       ,  "arity"    .= Data.Aeson.Types.Number 3
+                       ,  "args"     .= Array (fromList [toJSON c, toJSON a, toJSON b])]
 
 instance ToJSON (TypedExp t) where
    toJSON (ExpInt a) = object ["sort" .= pack "int"
@@ -442,7 +441,7 @@ instance Typeable a => ToJSON (Exp a t) where
   toJSON (UIntMin a) = toJSON $ show $ uintmin a
   toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
-  toJSON (TEntry a) = toJSON a
+  toJSON (TEntry a t) = object [ pack (show t) .= toJSON a ]
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]

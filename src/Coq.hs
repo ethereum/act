@@ -264,7 +264,7 @@ coqexp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
 coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
 
 -- polymorphic
-coqexp (TEntry e) = entry e
+coqexp (TEntry e w) = entry e w
 coqexp (ITE b e1 e2) = parens $ "if "
                              <> coqexp b
                              <> " then "
@@ -304,10 +304,10 @@ typedexp (ExpInt e)   = coqexp e
 typedexp (ExpBool e)  = coqexp e
 typedexp (ExpBytes _) = error "bytestrings not supported"
 
-entry :: TStorageItem a -> T.Text
-entry BytesItem{} = error "bytestrings not supported"
-entry item | timeFromItem item == Post = error "TODO: missing support for poststate references in coq backend"
-entry item | otherwise                 = case ixsFromItem item of
+entry :: TStorageItem a -> When -> T.Text
+entry BytesItem{} _    = error "bytestrings not supported"
+entry _           Post = error "TODO: missing support for poststate references in coq backend"
+entry item        Pre  = case ixsFromItem item of
   []       -> parens $ T.pack (idFromItem item) <> " " <> stateVar
   (ix:ixs) -> parens $ T.pack (idFromItem item) <> " s " <> coqargs (ix :| ixs)
 

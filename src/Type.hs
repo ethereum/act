@@ -189,9 +189,9 @@ checkAssign :: Env -> Assign -> Err [StorageUpdate]
 checkAssign env@Env{contract, store} (AssignVal (StorageVar (StorageValue typ) name) expr) = do
   noStorageRead store expr
   case metaType typ of
-    Integer -> return . IntUpdate   (IntItem   Neither contract name []) <$> inferExpr env expr
-    Boolean -> return . BoolUpdate  (BoolItem  Neither contract name []) <$> inferExpr env expr
-    ByteStr -> return . BytesUpdate (BytesItem Neither contract name []) <$> inferExpr env expr
+    Integer -> return . IntUpdate   (IntItem contract name [])   <$> inferExpr env expr
+    Boolean -> return . BoolUpdate  (BoolItem contract name [])  <$> inferExpr env expr
+    ByteStr -> return . BytesUpdate (BytesItem contract name []) <$> inferExpr env expr
 checkAssign env@Env{store} (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
   = forM defns $ \def@(Defn e1 e2) -> do
       mapM_ (noStorageRead store) [e1,e2]
@@ -211,9 +211,9 @@ checkDefn env@Env{contract} keyType valType name (Defn k v) = do
     Boolean -> ExpBool  <$> inferExpr env k
     ByteStr -> ExpBytes <$> inferExpr env k
   case metaType valType of
-    Integer -> IntUpdate   (IntItem   Neither contract name [key]) <$> inferExpr env v
-    Boolean -> BoolUpdate  (BoolItem  Neither contract name [key]) <$> inferExpr env v
-    ByteStr -> BytesUpdate (BytesItem Neither contract name [key]) <$> inferExpr env v
+    Integer -> IntUpdate   (IntItem   contract name [key]) <$> inferExpr env v
+    Boolean -> BoolUpdate  (BoolItem  contract name [key]) <$> inferExpr env v
+    ByteStr -> BytesUpdate (BytesItem contract name [key]) <$> inferExpr env v
 
 checkPost :: Env -> Untyped.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
 checkPost env@Env{contract,calldata} (Untyped.Post maybeStorage extStorage maybeReturn) =
@@ -282,25 +282,25 @@ checkStorageExpr env@Env{contract,store} (PEntry p name ixs) expr = case Map.loo
     makeUpdate typ argtyps = do
       indexExprs <- for (ixs `zip` argtyps) (uncurry $ checkExpr env)
       case metaType typ of
-        Integer -> IntUpdate   (IntItem   Neither contract name indexExprs) <$> inferExpr env expr
-        Boolean -> BoolUpdate  (BoolItem  Neither contract name indexExprs) <$> inferExpr env expr
-        ByteStr -> BytesUpdate (BytesItem Neither contract name indexExprs) <$> inferExpr env expr
+        Integer -> IntUpdate (IntItem contract name indexExprs) <$> inferExpr env expr
+        Boolean -> BoolUpdate (BoolItem contract name indexExprs) <$> inferExpr env expr
+        ByteStr -> BytesUpdate (BytesItem contract name indexExprs) <$> inferExpr env expr
 
 checkPattern :: Env -> Pattern -> Err StorageLocation
 checkPattern env@Env{contract,store} (PEntry p name ixs) =
   case Map.lookup name store of
     Just (StorageValue t) -> case metaType t of
-          Integer -> Ok . IntLoc   $ IntItem   Neither contract name []
-          Boolean -> Ok . BoolLoc  $ BoolItem  Neither contract name []
-          ByteStr -> Ok . BytesLoc $ BytesItem Neither contract name []
+          Integer -> Ok . IntLoc   $ IntItem   contract name []
+          Boolean -> Ok . BoolLoc  $ BoolItem  contract name []
+          ByteStr -> Ok . BytesLoc $ BytesItem contract name []
     Just (StorageMapping argtyps t) ->
       if length argtyps /= length ixs
       then Bad (p, "Argument mismatch for storageitem: " <> name)
       else let indexExprs = for (ixs `zip` NonEmpty.toList argtyps) (uncurry $ checkExpr env)
            in case metaType t of
-                  Integer -> (IntLoc   . IntItem   Neither contract name) <$> indexExprs
-                  Boolean -> (BoolLoc  . BoolItem  Neither contract name) <$> indexExprs
-                  ByteStr -> (BytesLoc . BytesItem Neither contract name) <$> indexExprs
+                  Integer -> (IntLoc . IntItem contract name) <$> indexExprs
+                  Boolean -> (BoolLoc . BoolItem contract name) <$> indexExprs
+                  ByteStr -> (BytesLoc . BytesItem contract name) <$> indexExprs
     Nothing -> Bad (p, "Unknown storage variable: " <> show name)
 checkPattern _ (PWild _) = error "TODO: checkPattern for Wild storage"
 
@@ -428,10 +428,10 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
             -- in a `TEntry` and then attempt to cast its timing parameter to the
             -- target timing of `inferExpr`. Finally, `check` the type parameter as
             -- with all other expressions.
-            makeItem :: Typeable x => (forall t0. Time t0 -> Id -> Id -> [TypedExp t0] -> TStorageItem x t0) -> Err (Exp a t)
-            makeItem cons = do
+            makeItem :: Typeable x => (forall t0. Id -> Id -> [TypedExp t0] -> TStorageItem x t0) -> Err (Exp a t)
+            makeItem maker = do
               when (length ts /= length es) $ Bad (pn, "Index mismatch for entry!")
               ixs <- for (es `zip` ts) (uncurry $ checkExpr env)
               check pn
                 $ errMessage (pn, (tail . show $ typeRep @t) <> " variable needed here!")
-                $ castTime (TEntry $ cons timing contract name ixs)
+                $ castTime (TEntry (maker contract name ixs) timing)

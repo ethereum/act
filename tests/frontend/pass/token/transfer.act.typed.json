@@ -32,9 +32,10 @@
         "arity": 2,
         "args": [
           {
-            "name": "Token.totalSupply",
-            "sort": "int",
-            "pre-post": "Pre"
+            "Pre": {
+              "name": "Token.totalSupply",
+              "sort": "int"
+            }
           },
           "_totalSupply"
         ],
@@ -44,9 +45,10 @@
         "arity": 2,
         "args": [
           {
-            "name": "Token.totalSupply",
-            "sort": "int",
-            "pre-post": "Post"
+            "Post": {
+              "name": "Token.totalSupply",
+              "sort": "int"
+            }
           },
           "_totalSupply"
         ],
@@ -87,9 +89,10 @@
             "args": [
               "0",
               {
-                "name": "Token.totalSupply",
-                "sort": "int",
-                "pre-post": "Pre"
+                "Pre": {
+                  "name": "Token.totalSupply",
+                  "sort": "int"
+                }
               }
             ],
             "symbol": "<="
@@ -98,9 +101,10 @@
             "arity": 2,
             "args": [
               {
-                "name": "Token.totalSupply",
-                "sort": "int",
-                "pre-post": "Pre"
+                "Pre": {
+                  "name": "Token.totalSupply",
+                  "sort": "int"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -118,9 +122,10 @@
         "arity": 2,
         "args": [
           {
-            "name": "Token.name",
-            "sort": "bytes",
-            "pre-post": "Pre"
+            "Pre": {
+              "name": "Token.name",
+              "sort": "bytes"
+            }
           },
           "_name"
         ],
@@ -130,9 +135,10 @@
         "arity": 2,
         "args": [
           {
-            "name": "Token.name",
-            "sort": "bytes",
-            "pre-post": "Post"
+            "Post": {
+              "name": "Token.name",
+              "sort": "bytes"
+            }
           },
           "_name"
         ],
@@ -173,9 +179,10 @@
         "arity": 2,
         "args": [
           {
-            "name": "Token.symbol",
-            "sort": "bytes",
-            "pre-post": "Pre"
+            "Pre": {
+              "name": "Token.symbol",
+              "sort": "bytes"
+            }
           },
           "_symbol"
         ],
@@ -185,9 +192,10 @@
         "arity": 2,
         "args": [
           {
-            "name": "Token.symbol",
-            "sort": "bytes",
-            "pre-post": "Post"
+            "Post": {
+              "name": "Token.symbol",
+              "sort": "bytes"
+            }
           },
           "_symbol"
         ],
@@ -228,24 +236,21 @@
       {
         "location": {
           "name": "Token.name",
-          "sort": "bytes",
-          "pre-post": "Post"
+          "sort": "bytes"
         },
         "value": "_name"
       },
       {
         "location": {
           "name": "Token.symbol",
-          "sort": "bytes",
-          "pre-post": "Post"
+          "sort": "bytes"
         },
         "value": "_symbol"
       },
       {
         "location": {
           "name": "Token.totalSupply",
-          "sort": "int",
-          "pre-post": "Post"
+          "sort": "int"
         },
         "value": "_totalSupply"
       },
@@ -262,8 +267,7 @@
               }
             ]
           ],
-          "symbol": "lookup",
-          "pre-post": "Post"
+          "symbol": "lookup"
         },
         "value": "_totalSupply"
       }
@@ -334,26 +338,26 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Post"
+            "symbol": "lookup"
           },
           "value": {
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "value"
             ],
@@ -375,26 +379,26 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Post"
+            "symbol": "lookup"
           },
           "value": {
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "to",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "to",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "value"
             ],
@@ -428,19 +432,20 @@
         "args": [
           "value",
           {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "Pre": {
+              "arity": 3,
+              "args": [
+                "Token",
+                "balanceOf",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         ],
         "symbol": "<="
@@ -463,19 +468,20 @@
                 "arity": 2,
                 "args": [
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "to",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "to",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   },
                   "value"
                 ],
@@ -547,19 +553,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -568,19 +575,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -597,19 +605,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "to",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "to",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -618,19 +627,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "to",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "to",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -708,8 +718,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -727,8 +736,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       }
@@ -767,19 +775,20 @@
                     "args": [
                       "value",
                       {
-                        "arity": 3,
-                        "args": [
-                          "Token",
-                          "balanceOf",
-                          [
-                            {
-                              "expression": "Caller",
-                              "sort": "int"
-                            }
-                          ]
-                        ],
-                        "symbol": "lookup",
-                        "pre-post": "Pre"
+                        "Pre": {
+                          "arity": 3,
+                          "args": [
+                            "Token",
+                            "balanceOf",
+                            [
+                              {
+                                "expression": "Caller",
+                                "sort": "int"
+                              }
+                            ]
+                          ],
+                          "symbol": "lookup"
+                        }
                       }
                     ],
                     "symbol": "<="
@@ -805,19 +814,20 @@
                                 "arity": 2,
                                 "args": [
                                   {
-                                    "arity": 3,
-                                    "args": [
-                                      "Token",
-                                      "balanceOf",
-                                      [
-                                        {
-                                          "expression": "to",
-                                          "sort": "int"
-                                        }
-                                      ]
-                                    ],
-                                    "symbol": "lookup",
-                                    "pre-post": "Pre"
+                                    "Pre": {
+                                      "arity": 3,
+                                      "args": [
+                                        "Token",
+                                        "balanceOf",
+                                        [
+                                          {
+                                            "expression": "to",
+                                            "sort": "int"
+                                          }
+                                        ]
+                                      ],
+                                      "symbol": "lookup"
+                                    }
                                   },
                                   "value"
                                 ],
@@ -902,19 +912,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -923,19 +934,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -952,19 +964,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "to",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "to",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -973,19 +986,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "to",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "to",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -1060,8 +1074,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -1079,8 +1092,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       }
@@ -1110,19 +1122,20 @@
         "args": [
           "value",
           {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "Pre": {
+              "arity": 3,
+              "args": [
+                "Token",
+                "balanceOf",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         ],
         "symbol": "<="
@@ -1145,19 +1158,20 @@
                 "arity": 2,
                 "args": [
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "to",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "to",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   },
                   "value"
                 ],
@@ -1229,19 +1243,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -1250,19 +1265,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -1279,19 +1295,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "to",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "to",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -1300,19 +1317,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "to",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "to",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -1390,8 +1408,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -1409,8 +1426,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       }
@@ -1449,19 +1465,20 @@
                     "args": [
                       "value",
                       {
-                        "arity": 3,
-                        "args": [
-                          "Token",
-                          "balanceOf",
-                          [
-                            {
-                              "expression": "Caller",
-                              "sort": "int"
-                            }
-                          ]
-                        ],
-                        "symbol": "lookup",
-                        "pre-post": "Pre"
+                        "Pre": {
+                          "arity": 3,
+                          "args": [
+                            "Token",
+                            "balanceOf",
+                            [
+                              {
+                                "expression": "Caller",
+                                "sort": "int"
+                              }
+                            ]
+                          ],
+                          "symbol": "lookup"
+                        }
                       }
                     ],
                     "symbol": "<="
@@ -1487,19 +1504,20 @@
                                 "arity": 2,
                                 "args": [
                                   {
-                                    "arity": 3,
-                                    "args": [
-                                      "Token",
-                                      "balanceOf",
-                                      [
-                                        {
-                                          "expression": "to",
-                                          "sort": "int"
-                                        }
-                                      ]
-                                    ],
-                                    "symbol": "lookup",
-                                    "pre-post": "Pre"
+                                    "Pre": {
+                                      "arity": 3,
+                                      "args": [
+                                        "Token",
+                                        "balanceOf",
+                                        [
+                                          {
+                                            "expression": "to",
+                                            "sort": "int"
+                                          }
+                                        ]
+                                      ],
+                                      "symbol": "lookup"
+                                    }
                                   },
                                   "value"
                                 ],
@@ -1584,19 +1602,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -1605,19 +1624,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -1634,19 +1654,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "to",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "to",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -1655,19 +1676,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "to",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "to",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -1742,8 +1764,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -1765,8 +1786,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -1784,26 +1804,26 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Post"
+            "symbol": "lookup"
           },
           "value": {
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "amount"
             ],
@@ -1825,26 +1845,26 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Post"
+            "symbol": "lookup"
           },
           "value": {
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "amount"
             ],
@@ -1884,19 +1904,20 @@
         "args": [
           "amount",
           {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "Pre": {
+              "arity": 3,
+              "args": [
+                "Token",
+                "balanceOf",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         ],
         "symbol": "<="
@@ -1919,19 +1940,20 @@
                 "arity": 2,
                 "args": [
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "dst",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   },
                   "amount"
                 ],
@@ -1970,23 +1992,24 @@
                 "arity": 2,
                 "args": [
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "allowance",
+                        [
+                          {
+                            "expression": "src",
+                            "sort": "int"
+                          },
+                          {
+                            "expression": "Caller",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   },
                   "amount"
                 ],
@@ -2080,19 +2103,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -2101,19 +2125,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -2130,23 +2155,24 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -2155,23 +2181,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -2188,19 +2215,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -2209,19 +2237,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -2238,19 +2267,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -2259,19 +2289,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -2349,8 +2380,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -2372,8 +2402,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -2391,8 +2420,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -2410,8 +2438,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       }
@@ -2453,19 +2480,20 @@
                 "args": [
                   "amount",
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "Caller",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   }
                 ],
                 "symbol": "<="
@@ -2491,19 +2519,20 @@
                             "arity": 2,
                             "args": [
                               {
-                                "arity": 3,
-                                "args": [
-                                  "Token",
-                                  "balanceOf",
-                                  [
-                                    {
-                                      "expression": "dst",
-                                      "sort": "int"
-                                    }
-                                  ]
-                                ],
-                                "symbol": "lookup",
-                                "pre-post": "Pre"
+                                "Pre": {
+                                  "arity": 3,
+                                  "args": [
+                                    "Token",
+                                    "balanceOf",
+                                    [
+                                      {
+                                        "expression": "dst",
+                                        "sort": "int"
+                                      }
+                                    ]
+                                  ],
+                                  "symbol": "lookup"
+                                }
                               },
                               "amount"
                             ],
@@ -2545,23 +2574,24 @@
                                 "arity": 2,
                                 "args": [
                                   {
-                                    "arity": 3,
-                                    "args": [
-                                      "Token",
-                                      "allowance",
-                                      [
-                                        {
-                                          "expression": "src",
-                                          "sort": "int"
-                                        },
-                                        {
-                                          "expression": "Caller",
-                                          "sort": "int"
-                                        }
-                                      ]
-                                    ],
-                                    "symbol": "lookup",
-                                    "pre-post": "Pre"
+                                    "Pre": {
+                                      "arity": 3,
+                                      "args": [
+                                        "Token",
+                                        "allowance",
+                                        [
+                                          {
+                                            "expression": "src",
+                                            "sort": "int"
+                                          },
+                                          {
+                                            "expression": "Caller",
+                                            "sort": "int"
+                                          }
+                                        ]
+                                      ],
+                                      "symbol": "lookup"
+                                    }
                                   },
                                   "amount"
                                 ],
@@ -2674,19 +2704,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -2695,19 +2726,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -2724,23 +2756,24 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -2749,23 +2782,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -2782,19 +2816,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -2803,19 +2838,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -2832,19 +2868,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -2853,19 +2890,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -2940,8 +2978,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -2963,8 +3000,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -2982,26 +3018,26 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Post"
+            "symbol": "lookup"
           },
           "value": {
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "amount"
             ],
@@ -3023,26 +3059,26 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Post"
+            "symbol": "lookup"
           },
           "value": {
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "amount"
             ],
@@ -3084,23 +3120,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               {
                 "arity": 2,
@@ -3128,19 +3165,20 @@
         "args": [
           "amount",
           {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "Pre": {
+              "arity": 3,
+              "args": [
+                "Token",
+                "balanceOf",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         ],
         "symbol": "<="
@@ -3163,19 +3201,20 @@
                 "arity": 2,
                 "args": [
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "dst",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   },
                   "amount"
                 ],
@@ -3214,23 +3253,24 @@
                 "arity": 2,
                 "args": [
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "allowance",
+                        [
+                          {
+                            "expression": "src",
+                            "sort": "int"
+                          },
+                          {
+                            "expression": "Caller",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   },
                   "amount"
                 ],
@@ -3324,19 +3364,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -3345,19 +3386,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -3374,23 +3416,24 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -3399,23 +3442,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -3432,19 +3476,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -3453,19 +3498,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -3482,19 +3528,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -3503,19 +3550,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -3593,8 +3641,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -3616,8 +3663,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -3635,8 +3681,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -3654,8 +3699,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       }
@@ -3693,23 +3737,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               {
                 "arity": 2,
@@ -3743,19 +3788,20 @@
                 "args": [
                   "amount",
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "Caller",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   }
                 ],
                 "symbol": "<="
@@ -3781,19 +3827,20 @@
                             "arity": 2,
                             "args": [
                               {
-                                "arity": 3,
-                                "args": [
-                                  "Token",
-                                  "balanceOf",
-                                  [
-                                    {
-                                      "expression": "dst",
-                                      "sort": "int"
-                                    }
-                                  ]
-                                ],
-                                "symbol": "lookup",
-                                "pre-post": "Pre"
+                                "Pre": {
+                                  "arity": 3,
+                                  "args": [
+                                    "Token",
+                                    "balanceOf",
+                                    [
+                                      {
+                                        "expression": "dst",
+                                        "sort": "int"
+                                      }
+                                    ]
+                                  ],
+                                  "symbol": "lookup"
+                                }
                               },
                               "amount"
                             ],
@@ -3835,23 +3882,24 @@
                                 "arity": 2,
                                 "args": [
                                   {
-                                    "arity": 3,
-                                    "args": [
-                                      "Token",
-                                      "allowance",
-                                      [
-                                        {
-                                          "expression": "src",
-                                          "sort": "int"
-                                        },
-                                        {
-                                          "expression": "Caller",
-                                          "sort": "int"
-                                        }
-                                      ]
-                                    ],
-                                    "symbol": "lookup",
-                                    "pre-post": "Pre"
+                                    "Pre": {
+                                      "arity": 3,
+                                      "args": [
+                                        "Token",
+                                        "allowance",
+                                        [
+                                          {
+                                            "expression": "src",
+                                            "sort": "int"
+                                          },
+                                          {
+                                            "expression": "Caller",
+                                            "sort": "int"
+                                          }
+                                        ]
+                                      ],
+                                      "symbol": "lookup"
+                                    }
                                   },
                                   "amount"
                                 ],
@@ -3964,19 +4012,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -3985,19 +4034,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -4014,23 +4064,24 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -4039,23 +4090,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -4072,19 +4124,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -4093,19 +4146,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -4122,19 +4176,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -4143,19 +4198,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -4230,8 +4286,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -4253,30 +4308,30 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Post"
+            "symbol": "lookup"
           },
           "value": {
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "amount"
             ],
@@ -4298,26 +4353,26 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Post"
+            "symbol": "lookup"
           },
           "value": {
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "amount"
             ],
@@ -4339,26 +4394,26 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Post"
+            "symbol": "lookup"
           },
           "value": {
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "amount"
             ],
@@ -4400,23 +4455,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               {
                 "arity": 2,
@@ -4444,19 +4500,20 @@
         "args": [
           "amount",
           {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "Pre": {
+              "arity": 3,
+              "args": [
+                "Token",
+                "balanceOf",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         ],
         "symbol": "<="
@@ -4479,19 +4536,20 @@
                 "arity": 2,
                 "args": [
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "dst",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   },
                   "amount"
                 ],
@@ -4530,23 +4588,24 @@
                 "arity": 2,
                 "args": [
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "allowance",
+                        [
+                          {
+                            "expression": "src",
+                            "sort": "int"
+                          },
+                          {
+                            "expression": "Caller",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   },
                   "amount"
                 ],
@@ -4640,19 +4699,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -4661,19 +4721,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -4690,23 +4751,24 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -4715,23 +4777,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -4748,19 +4811,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -4769,19 +4833,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -4798,19 +4863,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -4819,19 +4885,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -4909,8 +4976,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -4932,8 +4998,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -4951,8 +5016,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -4970,8 +5034,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       }
@@ -5009,23 +5072,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               {
                 "arity": 2,
@@ -5059,19 +5123,20 @@
                 "args": [
                   "amount",
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "Caller",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   }
                 ],
                 "symbol": "<="
@@ -5097,19 +5162,20 @@
                             "arity": 2,
                             "args": [
                               {
-                                "arity": 3,
-                                "args": [
-                                  "Token",
-                                  "balanceOf",
-                                  [
-                                    {
-                                      "expression": "dst",
-                                      "sort": "int"
-                                    }
-                                  ]
-                                ],
-                                "symbol": "lookup",
-                                "pre-post": "Pre"
+                                "Pre": {
+                                  "arity": 3,
+                                  "args": [
+                                    "Token",
+                                    "balanceOf",
+                                    [
+                                      {
+                                        "expression": "dst",
+                                        "sort": "int"
+                                      }
+                                    ]
+                                  ],
+                                  "symbol": "lookup"
+                                }
                               },
                               "amount"
                             ],
@@ -5151,23 +5217,24 @@
                                 "arity": 2,
                                 "args": [
                                   {
-                                    "arity": 3,
-                                    "args": [
-                                      "Token",
-                                      "allowance",
-                                      [
-                                        {
-                                          "expression": "src",
-                                          "sort": "int"
-                                        },
-                                        {
-                                          "expression": "Caller",
-                                          "sort": "int"
-                                        }
-                                      ]
-                                    ],
-                                    "symbol": "lookup",
-                                    "pre-post": "Pre"
+                                    "Pre": {
+                                      "arity": 3,
+                                      "args": [
+                                        "Token",
+                                        "allowance",
+                                        [
+                                          {
+                                            "expression": "src",
+                                            "sort": "int"
+                                          },
+                                          {
+                                            "expression": "Caller",
+                                            "sort": "int"
+                                          }
+                                        ]
+                                      ],
+                                      "symbol": "lookup"
+                                    }
                                   },
                                   "amount"
                                 ],
@@ -5280,19 +5347,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -5301,19 +5369,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -5330,23 +5399,24 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -5355,23 +5425,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -5388,19 +5459,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -5409,19 +5481,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -5438,19 +5511,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -5459,19 +5533,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -5546,8 +5621,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -5569,8 +5643,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -5588,8 +5661,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -5607,8 +5679,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       }
@@ -5630,19 +5701,20 @@
         "args": [
           "amount",
           {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "Pre": {
+              "arity": 3,
+              "args": [
+                "Token",
+                "balanceOf",
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         ],
         "symbol": "<="
@@ -5665,19 +5737,20 @@
                 "arity": 2,
                 "args": [
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "dst",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "dst",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   },
                   "amount"
                 ],
@@ -5716,23 +5789,24 @@
                 "arity": 2,
                 "args": [
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "allowance",
-                      [
-                        {
-                          "expression": "src",
-                          "sort": "int"
-                        },
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "allowance",
+                        [
+                          {
+                            "expression": "src",
+                            "sort": "int"
+                          },
+                          {
+                            "expression": "Caller",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   },
                   "amount"
                 ],
@@ -5826,19 +5900,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -5847,19 +5922,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -5876,23 +5952,24 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -5901,23 +5978,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -5934,19 +6012,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -5955,19 +6034,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -5984,19 +6064,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -6005,19 +6086,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -6095,8 +6177,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -6118,8 +6199,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -6137,8 +6217,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       },
@@ -6156,8 +6235,7 @@
                 }
               ]
             ],
-            "symbol": "lookup",
-            "pre-post": "Pre"
+            "symbol": "lookup"
           }
         }
       }
@@ -6185,19 +6263,20 @@
                 "args": [
                   "amount",
                   {
-                    "arity": 3,
-                    "args": [
-                      "Token",
-                      "balanceOf",
-                      [
-                        {
-                          "expression": "Caller",
-                          "sort": "int"
-                        }
-                      ]
-                    ],
-                    "symbol": "lookup",
-                    "pre-post": "Pre"
+                    "Pre": {
+                      "arity": 3,
+                      "args": [
+                        "Token",
+                        "balanceOf",
+                        [
+                          {
+                            "expression": "Caller",
+                            "sort": "int"
+                          }
+                        ]
+                      ],
+                      "symbol": "lookup"
+                    }
                   }
                 ],
                 "symbol": "<="
@@ -6223,19 +6302,20 @@
                             "arity": 2,
                             "args": [
                               {
-                                "arity": 3,
-                                "args": [
-                                  "Token",
-                                  "balanceOf",
-                                  [
-                                    {
-                                      "expression": "dst",
-                                      "sort": "int"
-                                    }
-                                  ]
-                                ],
-                                "symbol": "lookup",
-                                "pre-post": "Pre"
+                                "Pre": {
+                                  "arity": 3,
+                                  "args": [
+                                    "Token",
+                                    "balanceOf",
+                                    [
+                                      {
+                                        "expression": "dst",
+                                        "sort": "int"
+                                      }
+                                    ]
+                                  ],
+                                  "symbol": "lookup"
+                                }
                               },
                               "amount"
                             ],
@@ -6277,23 +6357,24 @@
                                 "arity": 2,
                                 "args": [
                                   {
-                                    "arity": 3,
-                                    "args": [
-                                      "Token",
-                                      "allowance",
-                                      [
-                                        {
-                                          "expression": "src",
-                                          "sort": "int"
-                                        },
-                                        {
-                                          "expression": "Caller",
-                                          "sort": "int"
-                                        }
-                                      ]
-                                    ],
-                                    "symbol": "lookup",
-                                    "pre-post": "Pre"
+                                    "Pre": {
+                                      "arity": 3,
+                                      "args": [
+                                        "Token",
+                                        "allowance",
+                                        [
+                                          {
+                                            "expression": "src",
+                                            "sort": "int"
+                                          },
+                                          {
+                                            "expression": "Caller",
+                                            "sort": "int"
+                                          }
+                                        ]
+                                      ],
+                                      "symbol": "lookup"
+                                    }
                                   },
                                   "amount"
                                 ],
@@ -6406,19 +6487,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -6427,19 +6509,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -6456,23 +6539,24 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -6481,23 +6565,24 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "allowance",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    },
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "allowance",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      },
+                      {
+                        "expression": "Caller",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -6514,19 +6599,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -6535,19 +6621,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "src",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "src",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],
@@ -6564,19 +6651,20 @@
             "args": [
               "0",
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               }
             ],
             "symbol": "<="
@@ -6585,19 +6673,20 @@
             "arity": 2,
             "args": [
               {
-                "arity": 3,
-                "args": [
-                  "Token",
-                  "balanceOf",
-                  [
-                    {
-                      "expression": "dst",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "symbol": "lookup",
-                "pre-post": "Pre"
+                "Pre": {
+                  "arity": 3,
+                  "args": [
+                    "Token",
+                    "balanceOf",
+                    [
+                      {
+                        "expression": "dst",
+                        "sort": "int"
+                      }
+                    ]
+                  ],
+                  "symbol": "lookup"
+                }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
             ],

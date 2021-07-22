@@ -19,16 +19,14 @@
       {
         "location": {
           "name": "Modest.x",
-          "sort": "int",
-          "pre-post": "Post"
+          "sort": "int"
         },
         "value": "1"
       },
       {
         "location": {
           "name": "Modest.y",
-          "sort": "int",
-          "pre-post": "Post"
+          "sort": "int"
         },
         "value": "Caller"
       }

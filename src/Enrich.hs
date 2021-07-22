@@ -92,7 +92,7 @@ mkStorageBounds store refs = catMaybes $ mkBound <$> refs
     mkBound _ = Nothing
 
     fromItem :: TStorageItem Integer Untimed -> Exp Bool Untimed
-    fromItem item@(IntItem _ contract name _) = bound (abiType $ slotType contract name) (TEntry item)
+    fromItem item@(IntItem contract name _) = bound (abiType $ slotType contract name) (TEntry item Neither)
 
     slotType :: Id -> Id -> SlotType
     slotType contract name = let
