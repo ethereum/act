@@ -5,7 +5,7 @@ import Lex
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import qualified Data.List.NonEmpty as NonEmpty
-import Syntax
+import Syntax.Untyped
 import ErrM
 }
 
@@ -40,6 +40,8 @@ import ErrM
   'then'                      { L THEN _ }
   'else'                      { L ELSE _ }
   'at'                        { L AT _ }
+  'pre'                       { L PRE _ }
+  'post'                      { L POST _ }
 
   -- builtin types
   'uint'                      { L (UINT $$) _ }
@@ -202,11 +204,11 @@ ExtStorage : 'storage' 'of' id nonempty(Store)        { ExtStorage (name $3) $4 
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
              | 'iff in range' Type nonempty(Expr)     { IffIn (posn $1) $2 $3 }
 
-Store : Entry '=>' Expr                               { Rewrite $1 $3 }
-      | Entry                                         { Constant $1 }
+Store : Pattern '=>' Expr                             { Rewrite $1 $3 }
+      | Pattern                                       { Constant $1 }
 
-Entry : id list(Zoom)                                 { Entry (posn $1) (name $1) $2 }
-      | '_'                                           { Wild }
+Pattern : id list(Zoom)                               { PEntry (posn $1) (name $1) $2 }
+        | '_'                                         { PWild (posn $1) }
 
 Zoom : '[' Expr ']'                                   { $2 }
      | '.' Expr                                       { $2 }
@@ -248,7 +250,6 @@ Expr : '(' Expr ')'                                   { $2 }
 
   -- terminals
   | ilit                                              { IntLit (posn $1) (value $1) }
-  | '_'                                               { WildExp (posn $1) }
   -- missing string literal
   -- missing wildcard
 
@@ -276,7 +277,9 @@ Expr : '(' Expr ')'                                   { $2 }
 
   -- composites
   | 'if' Expr 'then' Expr 'else' Expr                 { EITE (posn $1) $2 $4 $6 }
-  | id list(Zoom)                                     { EntryExp (posn $1) (name $1) $2 }
+  | id list(Zoom)                                     { EUTEntry (posn $1) (name $1) $2 }
+  | 'pre'  '(' id list(Zoom) ')'                      { EPreEntry (posn $1) (name $3) $4 }
+  | 'post' '(' id list(Zoom) ')'                      { EPostEntry (posn $1) (name $3) $4 }
 --  | id list(Zoom)                                   { Look (posn $1) (name $1) $2 }
   | Expr '.' Expr                                     { Zoom (posn $2) $1 $3 }
 --  | id '(' seplist(Expr, ',') ')'                   { App    (posn $1) $1 $3 }

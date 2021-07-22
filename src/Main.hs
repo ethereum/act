@@ -6,7 +6,6 @@
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# Language TypeOperators #-}
-{-# LANGUAGE RankNTypes #-}
 
 module Main where
 
@@ -34,11 +33,11 @@ import ErrM
 import Lex (lexer, AlexPosn(..))
 import Options.Generic
 import Parse
-import RefinedAst
+import Syntax.Annotated
+import Syntax.Untyped
 import Enrich
 import K hiding (normalize, indent)
 import SMT
-import Syntax
 import Type
 import Coq hiding (indent)
 import HEVM
@@ -252,7 +251,7 @@ proceed contents (Bad e) _ = prettyErr contents e
 proceed _ (Ok a) continue = continue a
 
 compile :: String -> Err [Claim]
-compile contents = enrich <$> ((parse (lexer contents)) >>= typecheck)
+compile = pure . fmap annotate . enrich <=< typecheck <=< parse . lexer
 
 prettyErr :: String -> (Pn, String) -> IO ()
 prettyErr _ (pn, msg) | pn == nowhere = do

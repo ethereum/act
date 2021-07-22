@@ -1,0 +1,17 @@
+constructor of C
+interface constructor(uint24 _x)
+
+creates
+
+  uint24 x := _x
+
+behaviour f of C
+interface f(uint24 y)
+
+storage
+
+  x => x + y
+
+ensures
+
+  pre(x) == post(x) + y

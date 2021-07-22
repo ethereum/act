@@ -1,7 +1,6 @@
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE MonadComprehensions #-}
 
 module SMT (
   Solver(..),
@@ -14,8 +13,8 @@ module SMT (
   runQuery,
   mkPostconditionQueries,
   mkInvariantQueries,
-  getTarget,
-  getContract,
+  target,
+  getQueryContract,
   isFail,
   isPass,
   ifExists,
@@ -30,6 +29,8 @@ import Text.Regex.TDFA hiding (empty)
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 
 import Control.Applicative ((<|>))
+import Control.Monad.Reader
+
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe
@@ -37,12 +38,11 @@ import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
 
-import RefinedAst
-import Extract hiding (getContract)
-import Syntax (Id, EthEnv(..), Interface(..), Decl(..))
+import Syntax
+import Syntax.Annotated
+
 import Print
 import Type (defaultStore)
-
 
 --- ** Data ** ---
 
@@ -62,16 +62,13 @@ data SMTConfig = SMTConfig
 
 type SMT2 = String
 
--- | Context needed to produce SMT from an act expression
---   - Id : The name of the interface from which calldata vars were extracted
---   - When : Whether or not storage references should refer to the pre or post state
-data Ctx = Ctx Id When
+-- | The context is a `Reader` monad which allows us to read
+-- the name of the current interface.
+type Ctx = Reader Id
 
-data When = Pre | Post
-
-instance Show When where
-  show Pre = "pre"
-  show Post = "post"
+-- | Specify the name to use as the current interface when creating SMT-code.
+withInterface :: Id -> Ctx SMT2 -> SMT2
+withInterface = flip runReader
 
 -- | An SMTExp is a structured representation of an SMT Expression
 --   The _storage, _calldata, and _environment fields hold variable declarations
@@ -111,12 +108,12 @@ data SMTResult
 --   variable, and the RHS is the concrete value assigned to that variable in the
 --   counterexample
 data Model = Model
-  { _mprestate :: [(StorageLocation, ReturnExp)]
-  , _mpoststate :: [(StorageLocation, ReturnExp)]
-  , _mcalldata :: (String, [(Decl, ReturnExp)])
-  , _menvironment :: [(EthEnv, ReturnExp)]
+  { _mprestate :: [(StorageLocation, TypedExp)]
+  , _mpoststate :: [(StorageLocation, TypedExp)]
+  , _mcalldata :: (String, [(Decl, TypedExp)])
+  , _menvironment :: [(EthEnv, TypedExp)]
   -- invariants always have access to the constructor context
-  , _minitargs :: [(Decl, ReturnExp)]
+  , _minitargs :: [(Decl, TypedExp)]
   }
   deriving (Show)
 
@@ -139,9 +136,9 @@ instance Pretty Model where
       poststate' = text "poststate:" <$$> line <> (indent 2 . vsep $ fmap formatStorage poststate)
 
       formatSig iface cd = text iface <> (encloseSep lparen rparen (text ", ") $ fmap formatCalldata cd)
-      formatCalldata (Decl _ name, val) = text $ name <> " = " <> prettyReturnExp val
-      formatEnvironment (env, val) = text $ prettyEnv env <> " = " <> prettyReturnExp val
-      formatStorage (loc, val) = text $ prettyLocation loc <> " = " <> prettyReturnExp val
+      formatCalldata (Decl _ name, val) = text $ name <> " = " <> prettyTypedExp val
+      formatEnvironment (env, val) = text $ prettyEnv env <> " = " <> prettyTypedExp val
+      formatStorage (loc, val) = text $ prettyLocation loc <> " = " <> prettyTypedExp val
 
 data SolverInstance = SolverInstance
   { _type :: Solver
@@ -164,31 +161,31 @@ mkPostconditionQueries :: Claim -> [Query]
 mkPostconditionQueries (B behv@(Behaviour _ Pass _ (Interface ifaceName decls) preconds postconds stateUpdates _)) = mkQuery <$> postconds
   where
     -- declare vars
-    storage = concatMap (declareStorageLocation . getLoc) stateUpdates
+    storage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
 
     -- constraints
-    pres = mkAssert (Ctx ifaceName Pre) <$> preconds
+    pres = mkAssert ifaceName <$> preconds
     updates = encodeUpdate ifaceName <$> stateUpdates
 
     mksmt e = SMTExp
       { _storage = storage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert (Ctx ifaceName Pre) . Neg $ e] <> pres <> updates
+      , _assertions = [mkAssert ifaceName . Neg $ e] <> pres <> updates
       }
     mkQuery e = Postcondition (Behv behv) e (mksmt e)
 mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName decls) preconds postconds initialStorage stateUpdates)) = mkQuery <$> postconds
   where
     -- declare vars
     localStorage = declareInitialStorage <$> initialStorage
-    externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
+    externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
 
     -- constraints
-    pres = mkAssert (Ctx ifaceName Pre) <$> preconds
+    pres = mkAssert ifaceName <$> preconds
     updates = encodeUpdate ifaceName <$> stateUpdates
     initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
 
@@ -196,7 +193,7 @@ mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName d
       { _storage = localStorage <> externalStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert (Ctx ifaceName Pre) . Neg $ e] <> pres <> updates <> initialStorage'
+      , _assertions = [mkAssert ifaceName . Neg $ e] <> pres <> updates <> initialStorage'
       }
     mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
 mkPostconditionQueries _ = []
@@ -231,19 +228,19 @@ mkInvariantQueries claims = fmap mkQuery gathered
     matchConstructor contract defn = _cmode defn == Pass && _cname defn == contract
 
     mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
-    mkInit (Invariant _ invConds _ invExp) ctor@(Constructor _ _ (Interface ifaceName decls) preconds _ initialStorage stateUpdates) = (ctor, smt)
+    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ _ (Interface ifaceName decls) preconds _ initialStorage stateUpdates) = (ctor, smt)
       where
         -- declare vars
         localStorage = declareInitialStorage <$> initialStorage
-        externalStorage = concatMap (declareStorageLocation . getLoc) stateUpdates
+        externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
         args = declareArg ifaceName <$> decls
         envs = declareEthEnv <$> ethEnvFromConstructor ctor
 
         -- constraints
-        pres = (mkAssert (Ctx ifaceName Pre)) <$> (preconds <> invConds)
+        pres = mkAssert ifaceName <$> preconds <> invConds
         updates = encodeUpdate ifaceName <$> stateUpdates
         initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
-        postInv = mkAssert (Ctx ifaceName Post) . Neg $ invExp
+        postInv = mkAssert ifaceName $ Neg invPost
 
         smt = SMTExp
           { _storage = localStorage <> externalStorage
@@ -253,27 +250,28 @@ mkInvariantQueries claims = fmap mkQuery gathered
           }
 
     mkBehv :: Invariant -> Constructor -> Behaviour -> (Behaviour, SMTExp)
-    mkBehv (Invariant _ invConds invStorageBounds invExp) ctor behv = (behv, smt)
+    mkBehv (Invariant _ invConds invStorageBounds (invPre,invPost)) ctor behv = (behv, smt)
       where
+
         (Interface ctorIface ctorDecls) = _cinterface ctor
         (Interface behvIface behvDecls) = _interface behv
         -- storage locs mentioned in the invariant but not in the behaviour
-        implicitLocs = Left <$> (locsFromExp invExp \\ (getLoc <$> _stateUpdates behv))
+        implicitLocs = Constant <$> (locsFromExp invPre \\ (locFromRewrite <$> _stateUpdates behv))
 
         -- declare vars
-        invEnv = declareEthEnv <$> ethEnvFromExp invExp
+        invEnv = declareEthEnv <$> ethEnvFromExp invPre
         behvEnv = declareEthEnv <$> ethEnvFromBehaviour behv
         initArgs = declareArg ctorIface <$> ctorDecls
         behvArgs = declareArg behvIface <$> behvDecls
-        storage = concatMap (declareStorageLocation . getLoc) (_stateUpdates behv <> implicitLocs)
+        storage = concatMap (declareStorageLocation . locFromRewrite) (_stateUpdates behv <> implicitLocs)
 
         -- constraints
-        preInv = mkAssert (Ctx ctorIface Pre) invExp
-        postInv = mkAssert (Ctx ctorIface Post) . Neg $ invExp
-        behvConds = mkAssert (Ctx behvIface Pre) <$> (_preconditions behv)
-        invConds' = mkAssert (Ctx ctorIface Pre) <$> (invConds <> invStorageBounds)
+        preInv = mkAssert ctorIface $ invPre
+        postInv = mkAssert ctorIface . Neg $ invPost
+        behvConds = mkAssert behvIface <$> _preconditions behv
+        invConds' = mkAssert ctorIface <$> invConds <> invStorageBounds
         implicitLocs' = encodeUpdate ctorIface <$> implicitLocs
-        updates = encodeUpdate behvIface <$> (_stateUpdates behv)
+        updates = encodeUpdate behvIface <$> _stateUpdates behv
 
         smt = SMTExp
           { _storage = storage
@@ -291,13 +289,13 @@ runQuery :: SolverInstance -> Query -> IO (Query, [SMTResult])
 runQuery solver query@(Postcondition trans _ smt) = do
   res <- checkSat solver (getPostconditionModel trans) smt
   pure (query, [res])
-runQuery solver query@(Inv (Invariant _ _ _ invExp) (ctor, ctorSMT) behvs) = do
+runQuery solver query@(Inv (Invariant _ _ _ predicate) (ctor, ctorSMT) behvs) = do
   ctorRes <- runCtor
   behvRes <- mapM runBehv behvs
   pure (query, ctorRes : behvRes)
   where
-    runCtor = checkSat solver (getInvariantModel invExp ctor Nothing) ctorSMT
-    runBehv (b, smt) = checkSat solver (getInvariantModel invExp ctor (Just b)) smt
+    runCtor = checkSat solver (getInvariantModel predicate ctor Nothing) ctorSMT
+    runBehv (b, smt) = checkSat solver (getInvariantModel predicate ctor (Just b)) smt
 
 -- | Checks the satisfiability of a single SMT expression, and uses the
 -- provided `modelFn` to extract a model if the solver returns `sat`
@@ -362,7 +360,7 @@ sendLines solver smt = case smt of
 
 -- | Sends a single command to the solver, returns the first available line from the output buffer
 sendCommand :: SolverInstance -> SMT2 -> IO String
-sendCommand (SolverInstance _ stdin stdout _ _) cmd = do
+sendCommand (SolverInstance _ stdin stdout _ _) cmd =
   if null cmd || ";" `isPrefixOf` cmd then pure "success" -- blank lines and comments do not produce any output from the solver
   else do
     hPutStr stdin (cmd <> "\n")
@@ -382,8 +380,8 @@ getPostconditionModel (Behv behv) solver = do
   let locs = locsFromBehaviour behv
       env = ethEnvFromBehaviour behv
       Interface ifaceName decls = _interface behv
-  prestate <- mapM (getStorageValue solver (Ctx ifaceName Pre)) locs
-  poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
+  prestate <- mapM (getStorageValue solver ifaceName Pre) locs
+  poststate <- mapM (getStorageValue solver ifaceName Post) locs
   calldata <- mapM (getCalldataValue solver ifaceName) decls
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
@@ -397,16 +395,16 @@ getPostconditionModel (Behv behv) solver = do
 -- | Extracts an assignment of values for the variables in the given
 -- transition. Assumes that an invariant query has previously been checked
 -- in the given solver instance.
-getInvariantModel :: Exp Bool -> Constructor -> Maybe Behaviour -> SolverInstance -> IO Model
+getInvariantModel :: InvariantPred -> Constructor -> Maybe Behaviour -> SolverInstance -> IO Model
 getInvariantModel _ ctor Nothing solver = getCtorModel ctor solver
-getInvariantModel invExp ctor (Just behv) solver = do
-  let locs = nub $ locsFromBehaviour behv <> locsFromExp invExp
-      env = nub $ ethEnvFromBehaviour behv <> ethEnvFromExp invExp
+getInvariantModel predicate ctor (Just behv) solver = do
+  let locs = nub $ locsFromBehaviour behv <> locsFromExp (invExp predicate)
+      env = nub $ ethEnvFromBehaviour behv <> ethEnvFromExp (invExp predicate)
       Interface behvIface behvDecls = _interface behv
       Interface ctorIface ctorDecls = _cinterface ctor
   -- TODO: v ugly to ignore the ifaceName here, but it's safe...
-  prestate <- mapM (getStorageValue solver (Ctx "" Pre)) locs
-  poststate <- mapM (getStorageValue solver (Ctx "" Post)) locs
+  prestate <- mapM (getStorageValue solver "" Pre) locs
+  poststate <- mapM (getStorageValue solver "" Post) locs
   behvCalldata <- mapM (getCalldataValue solver behvIface) behvDecls
   ctorCalldata <- mapM (getCalldataValue solver ctorIface) ctorDecls
   environment <- mapM (getEnvironmentValue solver) env
@@ -424,7 +422,7 @@ getCtorModel ctor solver = do
   let locs = locsFromConstructor ctor
       env = ethEnvFromConstructor ctor
       Interface ifaceName decls = _cinterface ctor
-  poststate <- mapM (getStorageValue solver (Ctx ifaceName Post)) locs
+  poststate <- mapM (getStorageValue solver ifaceName Post) locs
   calldata <- mapM (getCalldataValue solver ifaceName) decls
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
@@ -436,10 +434,13 @@ getCtorModel ctor solver = do
     }
 
 -- | Gets a concrete value from the solver for the given storage location
-getStorageValue :: SolverInstance -> Ctx -> StorageLocation -> IO (StorageLocation, ReturnExp)
-getStorageValue solver ctx@(Ctx _ whn) loc = do
+getStorageValue :: SolverInstance -> Id -> When -> StorageLocation -> IO (StorageLocation, TypedExp)
+getStorageValue solver ifaceName whn loc = do
   let name = if isMapping loc
-                then select ctx (nameFromLoc whn loc) (NonEmpty.fromList $ getContainerIxs loc)
+                then withInterface ifaceName
+                     $ select
+                        (nameFromLoc whn loc)
+                        (NonEmpty.fromList $ ixsFromLocation loc)
                 else nameFromLoc whn loc
   output <- getValue solver name
   -- TODO: handle errors here...
@@ -450,7 +451,7 @@ getStorageValue solver ctx@(Ctx _ whn) loc = do
   pure (loc, val)
 
 -- | Gets a concrete value from the solver for the given calldata argument
-getCalldataValue :: SolverInstance -> Id -> Decl -> IO (Decl, ReturnExp)
+getCalldataValue :: SolverInstance -> Id -> Decl -> IO (Decl, TypedExp)
 getCalldataValue solver ifaceName decl@(Decl tp _) = do
   output <- getValue solver $ nameFromDecl ifaceName decl
   let val = case metaType tp of
@@ -460,7 +461,7 @@ getCalldataValue solver ifaceName decl@(Decl tp _) = do
   pure (decl, val)
 
 -- | Gets a concrete value from the solver for the given environment variable
-getEnvironmentValue :: SolverInstance -> EthEnv -> IO (EthEnv, ReturnExp)
+getEnvironmentValue :: SolverInstance -> EthEnv -> IO (EthEnv, TypedExp)
 getEnvironmentValue solver env = do
   output <- getValue solver (prettyEnv env)
   let val = case lookup env defaultStore of
@@ -475,11 +476,11 @@ getValue :: SolverInstance -> String -> IO String
 getValue solver name = sendCommand solver $ "(get-value (" <> name <> "))"
 
 -- | Parse the result of a call to getValue as an Int
-parseIntModel :: String -> ReturnExp
+parseIntModel :: String -> TypedExp
 parseIntModel = ExpInt . LitInt . read . parseSMTModel
 
 -- | Parse the result of a call to getValue as a Bool
-parseBoolModel :: String -> ReturnExp
+parseBoolModel :: String -> TypedExp
 parseBoolModel = ExpBool . LitBool . readBool . parseSMTModel
   where
     readBool "true" = True
@@ -487,7 +488,7 @@ parseBoolModel = ExpBool . LitBool . readBool . parseSMTModel
     readBool s = error ("Could not parse " <> s <> "into a bool")
 
 -- | Parse the result of a call to getValue as a Bytes
-parseBytesModel :: String -> ReturnExp
+parseBytesModel :: String -> TypedExp
 parseBytesModel = ExpBytes . ByLit . fromString . parseSMTModel
 
 -- | Extracts a string representation of the value in the output from a call to `(get-value)`
@@ -521,52 +522,42 @@ encodeInitialStorage behvName update = case update of
   BytesUpdate item e -> encode item e
   where
     encode :: TStorageItem a -> Exp a -> SMT2
-    encode item e = "(assert (= " <> expToSMT2 (Ctx behvName Post) (TEntry item) <> " " <> expToSMT2 (Ctx behvName Pre) e <> "))"
+    encode item e =
+      let
+        postentry  = withInterface behvName $ expToSMT2 (TEntry item Post)
+        expression = withInterface behvName $ expToSMT2 (e)
+      in "(assert (= " <> postentry <> " " <> expression <> "))"
 
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
 declareInitialStorage :: StorageUpdate -> SMT2
-declareInitialStorage update = case getLoc . Right $ update of
-  IntLoc item -> case item of
-    DirectInt {} -> mkdirect item Integer
-    MappedInt _ _ ixs -> mkarray item ixs Integer
-  BoolLoc item -> case item of
-    DirectBool {} -> mkdirect item Boolean
-    MappedBool _ _ ixs -> mkarray item ixs Boolean
-  BytesLoc item -> case item of
-    DirectBytes {} -> mkdirect item ByteStr
-    MappedBytes _ _ ixs -> mkarray item ixs ByteStr
+declareInitialStorage update = case locFromUpdate update of
+  IntLoc item -> mkItem item
+  BoolLoc item -> mkItem item
+  BytesLoc item -> mkItem item
   where
-    mkdirect item tp = constant (nameFromItem Post item) tp
-    mkarray item ixs tp = array (nameFromItem Post item) ixs tp
+    mkItem item = case ixsFromItem item of
+      []       -> constant (nameFromItem Post item) (itemType item)
+      (ix:ixs) -> array (nameFromItem Post item) (ix :| ixs) (itemType item)
 
 -- | encodes a storge update rewrite as an smt assertion
-encodeUpdate :: Id -> Either StorageLocation StorageUpdate -> SMT2
-encodeUpdate _ (Left loc) = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
-encodeUpdate behvName (Right update) = case update of
-  IntUpdate item e -> encode item e
-  BoolUpdate item e -> encode item e
-  BytesUpdate item e -> encode item e
-  where
-    encode :: TStorageItem a -> Exp a -> SMT2
-    encode item e = "(assert (= " <> expToSMT2 (Ctx behvName Post) (TEntry item) <> " " <> expToSMT2 (Ctx behvName Pre) e <> "))"
+encodeUpdate :: Id -> Rewrite -> SMT2
+encodeUpdate _        (Constant loc)   = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
+encodeUpdate behvName (Rewrite update) = encodeInitialStorage behvName update
 
 -- | declares a storage location that exists both in the pre state and the post
 --   state (i.e. anything except a loc created by a constructor claim)
 declareStorageLocation :: StorageLocation -> [SMT2]
 declareStorageLocation loc = case loc of
-  IntLoc item -> case item of
-    DirectInt {} -> mkdirect item Integer
-    MappedInt _ _ ixs -> mkarray item ixs Integer
-  BoolLoc item -> case item of
-    DirectBool {} -> mkdirect item Boolean
-    MappedBool _ _ ixs -> mkarray item ixs Boolean
-  BytesLoc item -> case item of
-    DirectBytes {} -> mkdirect item ByteStr
-    MappedBytes _ _ ixs -> mkarray item ixs ByteStr
+  IntLoc item -> mkItem item
+  BoolLoc item -> mkItem item
+  BytesLoc item -> mkItem item
   where
-    mkdirect item tp = [constant (nameFromItem Pre item) tp, constant (nameFromItem Post item) tp]
-    mkarray item ixs tp = [array (nameFromItem Pre item) ixs tp, array (nameFromItem Post item) ixs tp]
+    mkItem item = case ixsFromItem item of
+      []       -> [ constant (nameFromItem Pre item) (itemType item)
+                  , constant (nameFromItem Post item) (itemType item) ]
+      (ix:ixs) -> [ array (nameFromItem Pre item) (ix :| ixs) (itemType item)
+                  , array (nameFromItem Post item) (ix :| ixs) (itemType item) ]
 
 -- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
@@ -577,17 +568,16 @@ declareEthEnv :: EthEnv -> SMT2
 declareEthEnv env = constant (prettyEnv env) tp
   where tp = fromJust . lookup env $ defaultStore
 
--- | encodes the given return expression as an smt2 expression
-returnExpToSMT2 :: Ctx -> ReturnExp -> SMT2
-returnExpToSMT2 c e = case e of
-  ExpInt ei -> expToSMT2 c ei
-  ExpBool eb -> expToSMT2 c eb
-  ExpBytes ebs -> expToSMT2 c ebs
+-- | encodes a typed expression as an smt2 expression
+typedExpToSMT2 :: TypedExp -> Ctx SMT2
+typedExpToSMT2 re = case re of
+  ExpInt ei -> expToSMT2 ei
+  ExpBool eb -> expToSMT2 eb
+  ExpBytes ebs -> expToSMT2 ebs
 
 -- | encodes the given Exp as an smt2 expression
-expToSMT2 :: Ctx -> Exp a -> SMT2
-expToSMT2 ctx@(Ctx behvName whn) e = case e of
-
+expToSMT2 :: Exp a -> Ctx SMT2
+expToSMT2 expr = case expr of
   -- booleans
   And a b -> binop "and" a b
   Or a b -> binop "or" a b
@@ -597,8 +587,8 @@ expToSMT2 ctx@(Ctx behvName whn) e = case e of
   LEQ a b -> binop "<=" a b
   GEQ a b -> binop ">=" a b
   GE a b -> binop ">" a b
-  LitBool a -> if a then "true" else "false"
-  BoolVar _ -> nameFromVar behvName e
+  LitBool a -> pure $ if a then "true" else "false"
+  BoolVar a -> nameFromVarId a
 
   -- integers
   Add a b -> binop "+" a b
@@ -606,26 +596,26 @@ expToSMT2 ctx@(Ctx behvName whn) e = case e of
   Mul a b -> binop "*" a b
   Div a b -> binop "div" a b
   Mod a b -> binop "mod" a b
-  Exp a b -> expToSMT2 ctx (simplifyExponentiation a b)
-  LitInt a -> if a >= 0
-              then show a
-              else "(- " <> (show . negate $ a) <> ")" -- cvc4 does not accept negative integer literals
-  IntVar _ -> nameFromVar behvName e
-  IntEnv a -> prettyEnv a
+  Exp a b -> expToSMT2 $ simplifyExponentiation a b
+  LitInt a -> pure $ if a >= 0
+                      then show a
+                      else "(- " <> (show . negate $ a) <> ")" -- cvc4 does not accept negative integer literals
+  IntVar a -> nameFromVarId a
+  IntEnv a -> pure $ prettyEnv a
 
   -- bounds
-  IntMin a -> expToSMT2 ctx (LitInt $ intmin a)
-  IntMax a -> show $ intmax a
-  UIntMin a -> show $ uintmin a
-  UIntMax a -> show $ uintmax a
+  IntMin a -> expToSMT2 . LitInt $ intmin a
+  IntMax a -> pure . show $ intmax a
+  UIntMin a -> pure . show $ uintmin a
+  UIntMax a -> pure . show $ uintmax a
 
   -- bytestrings
   Cat a b -> binop "str.++" a b
   Slice a start end -> triop "str.substr" a start (Sub end start)
-  ByVar _ -> nameFromVar behvName e
-  ByStr a -> a
-  ByLit a -> show a
-  ByEnv a -> prettyEnv a
+  ByVar a -> nameFromVarId a
+  ByStr a -> pure a
+  ByLit a -> pure $ show a
+  ByEnv a -> pure $ prettyEnv a
 
   -- builtins
   NewAddr {} -> error "TODO: NewAddr"
@@ -634,57 +624,53 @@ expToSMT2 ctx@(Ctx behvName whn) e = case e of
   Eq a b -> binop "=" a b
   NEq a b -> unop "not" (Eq a b)
   ITE a b c -> triop "ite" a b c
-  TEntry item -> case item of
-    DirectInt {} -> nameFromItem whn item
-    DirectBool {} -> nameFromItem whn item
-    DirectBytes {} -> nameFromItem whn item
-    MappedInt _ _ ixs -> select ctx (nameFromItem whn item) ixs
-    MappedBool _ _ ixs -> select ctx (nameFromItem whn item) ixs
-    MappedBytes _ _ ixs -> select ctx (nameFromItem whn item) ixs
-
+  TEntry item w -> entry item w
   where
-    asSMT2 :: Exp a -> SMT2
-    asSMT2 = expToSMT2 ctx
+    unop :: String -> Exp a -> Ctx SMT2
+    unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
 
-    unop :: String -> Exp a -> SMT2
-    unop op a = "(" <> op <> " " <> asSMT2 a <> ")"
+    binop :: String -> Exp a -> Exp b -> Ctx SMT2
+    binop op a b = ["(" <> op <> " " <> a' <> " " <> b' <> ")"
+                      | a' <- expToSMT2 a, b' <- expToSMT2 b]
 
-    binop :: String -> Exp a -> Exp b -> SMT2
-    binop op a b = "(" <> op <> " " <> asSMT2 a <> " " <> asSMT2 b <> ")"
+    triop :: String -> Exp a -> Exp b -> Exp c -> Ctx SMT2
+    triop op a b c = ["(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")"
+                        | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
 
-    triop :: String -> Exp a -> Exp b -> Exp c -> SMT2
-    triop op a b c = "(" <> op <> " " <> asSMT2 a <> " " <> asSMT2 b <> " " <> asSMT2 c <> ")"
+    entry :: TStorageItem a -> When -> Ctx SMT2
+    entry item whn = case ixsFromItem item of
+      []       -> pure $ nameFromItem whn item
+      (ix:ixs) -> select (nameFromItem whn item) (ix :| ixs)
 
 -- | SMT2 has no support for exponentiation, but we can do some preprocessing
 --   if the RHS is concrete to provide some limited support for exponentiation
 simplifyExponentiation :: Exp Integer -> Exp Integer -> Exp Integer
 simplifyExponentiation a b = fromMaybe (error "Internal Error: no support for symbolic exponents in SMT lib")
-                             $   [LitInt $ a' ^ b'               | a' <- eval a, b' <- evalb]
-                             <|> [foldr Mul (LitInt 1) (genericReplicate b' a) | b' <- evalb]
+                           $ [LitInt $ a' ^ b'               | a' <- eval a, b' <- evalb]
+                         <|> [foldr Mul (LitInt 1) (genericReplicate b' a) | b' <- evalb]
   where
-    evalb = eval b
+    evalb = eval b -- TODO is this actually necessary to prevent double evaluation?
 
 -- | declare a constant in smt2
 constant :: Id -> MType -> SMT2
-constant name tp = "(declare-const " <> name <> " " <> (sType tp) <> ")"
+constant name tp = "(declare-const " <> name <> " " <> sType tp <> ")"
 
 -- | encode the given boolean expression as an assertion in smt2
-mkAssert :: Ctx -> Exp Bool -> SMT2
-mkAssert c e = "(assert " <> expToSMT2 c e <> ")"
+mkAssert :: Id -> Exp Bool -> SMT2
+mkAssert c e = "(assert " <> withInterface c (expToSMT2 e) <> ")"
 
 -- | declare a (potentially nested) array in smt2
-array :: Id -> NonEmpty ReturnExp -> MType -> SMT2
+array :: Id -> NonEmpty TypedExp -> MType -> SMT2
 array name (hd :| tl) ret = "(declare-const " <> name <> " (Array " <> sType' hd <> " " <> valueDecl tl <> "))"
   where
     valueDecl [] = sType ret
     valueDecl (h : t) = "(Array " <> sType' h <> " " <> valueDecl t <> ")"
 
 -- | encode an array lookup in smt2
-select :: Ctx -> String -> NonEmpty ReturnExp -> SMT2
-select ctx name (hd :| tl) = foldl' (\smt ix -> "(select " <> smt <> " " <> returnExpToSMT2 ctx ix <> ")") inner tl
-  where
-    inner = "(" <> "select" <> " " <> name <> " " <> returnExpToSMT2 ctx hd <> ")"
-
+select :: String -> NonEmpty TypedExp -> Ctx SMT2
+select name (hd :| tl) = do
+  inner <- ["(" <> "select" <> " " <> name <> " " <> hd' <> ")" | hd' <- typedExpToSMT2 hd]
+  foldM (\smt ix -> ["(select " <> smt <> " " <> ix' <> ")" | ix' <- typedExpToSMT2 ix]) inner tl
 
 -- | act -> smt2 type translation
 sType :: MType -> SMT2
@@ -693,7 +679,7 @@ sType Boolean = "Bool"
 sType ByteStr = "String"
 
 -- | act -> smt2 type translation
-sType' :: ReturnExp -> SMT2
+sType' :: TypedExp -> SMT2
 sType' (ExpInt {}) = "Int"
 sType' (ExpBool {}) = "Bool"
 sType' (ExpBytes {}) = "String"
@@ -704,12 +690,9 @@ sType' (ExpBytes {}) = "String"
 -- Construct the smt2 variable name for a given storage item
 nameFromItem :: When -> TStorageItem a -> Id
 nameFromItem whn item = case item of
-  DirectInt c name -> c @@ name @@ show whn
-  DirectBool c name -> c @@ name @@ show whn
-  DirectBytes c name -> c @@ name @@ show whn
-  MappedInt c name _ -> c @@ name @@ show whn
-  MappedBool c name _ -> c @@ name @@ show whn
-  MappedBytes c name _ -> c @@ name @@ show whn
+  IntItem c name _ -> c @@ name @@ show whn
+  BoolItem c name _ -> c @@ name @@ show whn
+  BytesItem c name _ -> c @@ name @@ show whn
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id
@@ -723,27 +706,23 @@ nameFromDecl :: Id -> Decl -> Id
 nameFromDecl ifaceName (Decl _ name) = ifaceName @@ name
 
 -- Construct the smt2 variable name for a given act variable
-nameFromVar :: Id -> Exp a -> Id
-nameFromVar ifaceName (IntVar name) = ifaceName @@ name
-nameFromVar ifaceName (ByVar name) = ifaceName @@ name
-nameFromVar ifaceName (BoolVar name) = ifaceName @@ name
-nameFromVar _ _ = error "Internal Error: cannot produce a variable name for non variable expressions"
+nameFromVarId :: Id -> Ctx Id
+nameFromVarId name = [behvName @@ name | behvName <- ask]
 
 (@@) :: String -> String -> String
 x @@ y = x <> "_" <> y
 
-
 --- ** Util ** ---
 
+-- | The target expression of a query.
+target :: Query -> Exp Bool
+target (Postcondition _ e _)         = e
+target (Inv (Invariant _ _ _ e) _ _) = invExp e
 
-getTarget :: Query -> Exp Bool
-getTarget (Postcondition _ t _) = t
-getTarget (Inv (Invariant _ _ _ t) _ _) = t
-
-getContract :: Query -> String
-getContract (Postcondition (Ctor ctor) _ _) = _cname ctor
-getContract (Postcondition (Behv behv) _ _) = _contract behv
-getContract (Inv (Invariant c _ _ _) _ _) = c
+getQueryContract :: Query -> Id
+getQueryContract (Postcondition (Ctor ctor) _ _) = _cname ctor
+getQueryContract (Postcondition (Behv behv) _ _) = _contract behv
+getQueryContract (Inv (Invariant c _ _ _) _ _) = c
 
 isFail :: SMTResult -> Bool
 isFail Unsat = False
@@ -758,8 +737,8 @@ getBehvName (Postcondition (Behv behv) _ _) = (text "behaviour") <+> (bold . tex
 getBehvName (Inv {}) = error "Internal Error: invariant queries do not have an associated behaviour"
 
 identifier :: Query -> Doc
-identifier (q@Inv {}) = (bold . text. prettyExp . getTarget $ q) <+> text "of" <+> (bold . text . getContract $ q)
-identifier (q@Postcondition {}) = (bold . text. prettyExp . getTarget $ q) <+> text "in" <+> getBehvName q <+> text "of" <+> (bold . text . getContract $ q)
+identifier q@Inv {}           = (bold . text . prettyExp . target $ q) <+> text "of" <+> (bold . text . getQueryContract $ q)
+identifier q@Postcondition {} = (bold . text . prettyExp . target $ q) <+> text "in" <+> getBehvName q <+> text "of" <+> (bold . text . getQueryContract $ q)
 
 getSMT :: Query -> Doc
 getSMT (Postcondition _ _ smt) = pretty smt

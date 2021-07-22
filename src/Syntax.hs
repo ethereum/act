@@ -1,136 +1,283 @@
--- data types for the parsed syntax.
--- Has the correct basic structure, but doesn't necessarily type check
--- It is also equipped with position information for extra debugging xp
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
+
+{-|
+Module      : Syntax
+Description : Functions for manipulating and collapsing all our different ASTs.
+-}
 module Syntax where
-import Data.List (intercalate)
+
+import Data.List
 import Data.Map (Map,empty,insertWith,unionsWith)
-import EVM.ABI (AbiType)
-import EVM.Solidity (SlotType)
-import Lex
 
-type Pn = AlexPosn
+import EVM.ABI (AbiType(..))
 
-type Id = String
+import Syntax.TimeAgnostic as Agnostic
+import qualified Syntax.Annotated as Annotated
+import           Syntax.Untyped hiding (Constant,Rewrite)
+import qualified Syntax.Untyped as Untyped
 
-newtype Act = Main [RawBehaviour]
-  deriving (Eq, Show)
+-----------------------------------------
+-- * Extract from fully refined ASTs * --
+-----------------------------------------
 
-data RawBehaviour
-    = Transition Id Id Interface [IffH] Cases Ensures
-    | Definition Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
-  deriving (Eq, Show)
+-- | Invariant predicates can always be expressed as a single expression.
+invExp :: Annotated.InvariantPred -> Annotated.Exp Bool
+invExp = uncurry (<>)
 
-type Ensures = [Expr]
+locsFromBehaviour :: Annotated.Behaviour -> [Annotated.StorageLocation]
+locsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+  concatMap locsFromExp preconds
+  <> concatMap locsFromExp postconds
+  <> concatMap locsFromRewrite rewrites
+  <> maybe [] locsFromTypedExp returns
 
-type Invariants = [Expr]
+locsFromConstructor :: Annotated.Constructor -> [Annotated.StorageLocation]
+locsFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
+  concatMap locsFromExp pre
+  <> concatMap locsFromExp post
+  <> concatMap locsFromRewrite rewrites
+  <> concatMap locsFromRewrite (Rewrite <$> initialStorage)
 
-data Interface = Interface Id [Decl]
-  deriving (Eq)
+------------------------------------
+-- * Extract from any typed AST * --
+------------------------------------
 
-instance Show Interface where
-  show (Interface a d) = a <> "(" <> intercalate ", " (fmap show d) <> ")"
+locsFromRewrite :: Rewrite t -> [StorageLocation t]
+locsFromRewrite update = nub $ case update of
+  Constant loc -> [loc]
+  Rewrite (IntUpdate   item e) -> locsFromItem item <> locsFromExp e
+  Rewrite (BoolUpdate  item e) -> locsFromItem item <> locsFromExp e
+  Rewrite (BytesUpdate item e) -> locsFromItem item <> locsFromExp e
 
-data Cases =
-  Direct Post
-  | Branches [Case]
-  deriving (Eq, Show)
+locFromRewrite :: Rewrite t -> StorageLocation t
+locFromRewrite = onRewrite id locFromUpdate
 
-data Case = Case Pn Expr Post
-  deriving (Eq, Show)
+locFromUpdate :: StorageUpdate t -> StorageLocation t
+locFromUpdate (IntUpdate   item _) = IntLoc item
+locFromUpdate (BoolUpdate  item _) = BoolLoc item
+locFromUpdate (BytesUpdate item _) = BytesLoc item
 
-data Post
-    = Post (Maybe [Storage]) [ExtStorage] (Maybe Expr)
-  deriving (Eq, Show)
+locsFromItem :: TStorageItem a t -> [StorageLocation t]
+locsFromItem t = case t of
+  IntItem   contract name ixs -> IntLoc   (IntItem   contract name ixs) : ixLocs ixs
+  BoolItem  contract name ixs -> BoolLoc  (BoolItem  contract name ixs) : ixLocs ixs
+  BytesItem contract name ixs -> BytesLoc (BytesItem contract name ixs) : ixLocs ixs
+  where
+    ixLocs :: [TypedExp t] -> [StorageLocation t]
+    ixLocs = concatMap locsFromTypedExp
 
-newtype Creates = Creates [Assign]
-  deriving (Eq, Show)
+locsFromTypedExp :: TypedExp t -> [StorageLocation t]
+locsFromTypedExp (ExpInt e) = locsFromExp e
+locsFromTypedExp (ExpBool e) = locsFromExp e
+locsFromTypedExp (ExpBytes e) = locsFromExp e
 
-data Storage = Rewrite Entry Expr
-             | Constant Entry
-  deriving (Eq, Show)
+locsFromExp :: Exp a t -> [StorageLocation t]
+locsFromExp = nub . go
+  where
+    go :: Exp a t -> [StorageLocation t]
+    go e = case e of
+      And a b   -> go a <> go b
+      Or a b    -> go a <> go b
+      Impl a b  -> go a <> go b
+      Eq a b    -> go a <> go b
+      LE a b    -> go a <> go b
+      LEQ a b   -> go a <> go b
+      GE a b    -> go a <> go b
+      GEQ a b   -> go a <> go b
+      NEq a b   -> go a <> go b
+      Neg a     -> go a
+      Add a b   -> go a <> go b
+      Sub a b   -> go a <> go b
+      Mul a b   -> go a <> go b
+      Div a b   -> go a <> go b
+      Mod a b   -> go a <> go b
+      Exp a b   -> go a <> go b
+      Cat a b   -> go a <> go b
+      Slice a b c -> go a <> go b <> go c
+      ByVar _ -> []
+      ByStr _ -> []
+      ByLit _ -> []
+      LitInt _  -> []
+      IntMin _  -> []
+      IntMax _  -> []
+      UIntMin _ -> []
+      UIntMax _ -> []
+      IntVar _  -> []
+      LitBool _ -> []
+      BoolVar _ -> []
+      NewAddr a b -> go a <> go b
+      IntEnv _ -> []
+      ByEnv _ -> []
+      ITE x y z -> go x <> go y <> go z
+      TEntry a _ -> locsFromItem a
 
-data ExtStorage
-    = ExtStorage Id [Storage]
-    | ExtCreates Id Expr [Assign]
-    | WildStorage
-  deriving (Eq, Show)
+ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
+ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+  concatMap ethEnvFromExp preconds
+  <> concatMap ethEnvFromExp postconds
+  <> concatMap ethEnvFromRewrite rewrites
+  <> maybe [] ethEnvFromTypedExp returns
 
-data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignStruct StorageVar [Defn]
-  deriving (Eq, Show)
+ethEnvFromConstructor :: Constructor t -> [EthEnv]
+ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
+  concatMap ethEnvFromExp pre
+  <> concatMap ethEnvFromExp post
+  <> concatMap ethEnvFromRewrite rewrites
+  <> concatMap ethEnvFromRewrite (Rewrite <$> initialStorage)
 
-data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
-  deriving (Eq, Show)
+ethEnvFromRewrite :: Rewrite t -> [EthEnv]
+ethEnvFromRewrite rewrite = case rewrite of
+  Constant (IntLoc item) -> ethEnvFromItem item
+  Constant (BoolLoc item) -> ethEnvFromItem item
+  Constant (BytesLoc item) -> ethEnvFromItem item
+  Rewrite (IntUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+  Rewrite (BoolUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+  Rewrite (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
 
-data Entry
-  = Entry Pn Id [Expr]
-  | Wild
-  deriving (Eq, Show)
+ethEnvFromItem :: TStorageItem a t -> [EthEnv]
+ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
 
-data Defn = Defn Expr Expr
-  deriving (Eq, Show)
+ethEnvFromTypedExp :: TypedExp t -> [EthEnv]
+ethEnvFromTypedExp (ExpInt e) = ethEnvFromExp e
+ethEnvFromTypedExp (ExpBool e) = ethEnvFromExp e
+ethEnvFromTypedExp (ExpBytes e) = ethEnvFromExp e
 
-data Expr
-    = EAnd Pn Expr Expr
-    | EOr Pn Expr Expr
-    | ENot Pn Expr
-    | EImpl Pn Expr Expr
-    | EEq Pn Expr Expr
-    | ENeq Pn Expr Expr
-    | ELEQ Pn Expr Expr
-    | ELT Pn Expr Expr
-    | EGEQ Pn Expr Expr
-    | EGT Pn Expr Expr
-    | EAdd Pn Expr Expr
-    | ESub Pn Expr Expr
-    | EITE Pn Expr Expr Expr
-    | EMul Pn Expr Expr
-    | EDiv Pn Expr Expr
-    | EMod Pn Expr Expr
-    | EExp Pn Expr Expr
-    | Zoom Pn Expr Expr
-    | EntryExp Pn Id [Expr]
---    | Look Pn Id [Expr]
-    | Func Pn Id [Expr]
-    | ListConst Expr
-    | ECat Pn Expr Expr
-    | ESlice Pn Expr Expr Expr
-    | ENewaddr Pn Expr Expr
-    | ENewaddr2 Pn Expr Expr Expr
-    | BYHash Pn Expr
-    | BYAbiE Pn Expr
-    | StringLit Pn String
-    | WildExp Pn
-    | EnvExp Pn EthEnv
-    | IntLit Pn Integer
-    | BoolLit Pn Bool
-  deriving (Eq, Show)
+ethEnvFromExp :: Exp a t -> [EthEnv]
+ethEnvFromExp = nub . go
+  where
+    go :: Exp a t -> [EthEnv]
+    go e = case e of
+      And a b   -> go a <> go b
+      Or a b    -> go a <> go b
+      Impl a b  -> go a <> go b
+      Eq a b    -> go a <> go b
+      LE a b    -> go a <> go b
+      LEQ a b   -> go a <> go b
+      GE a b    -> go a <> go b
+      GEQ a b   -> go a <> go b
+      NEq a b   -> go a <> go b
+      Neg a     -> go a
+      Add a b   -> go a <> go b
+      Sub a b   -> go a <> go b
+      Mul a b   -> go a <> go b
+      Div a b   -> go a <> go b
+      Mod a b   -> go a <> go b
+      Exp a b   -> go a <> go b
+      Cat a b   -> go a <> go b
+      Slice a b c -> go a <> go b <> go c
+      ITE a b c -> go a <> go b <> go c
+      ByVar _ -> []
+      ByStr _ -> []
+      ByLit _ -> []
+      LitInt _  -> []
+      IntVar _  -> []
+      LitBool _ -> []
+      BoolVar _ -> []
+      IntMin _ -> []
+      IntMax _ -> []
+      UIntMin _ -> []
+      UIntMax _ -> []
+      NewAddr a b -> go a <> go b
+      IntEnv a -> [a]
+      ByEnv a -> [a]
+      TEntry a _ -> ethEnvFromItem a
 
-data EthEnv
-   = Caller
-   | Callvalue
-   | Calldepth
-   | Origin
-   | Blockhash
-   | Blocknumber
-   | Difficulty
-   | Chainid
-   | Gaslimit
-   | Coinbase
-   | Timestamp
-   | This
-   | Nonce
-  deriving (Show, Eq)
+metaType :: AbiType -> MType
+metaType (AbiUIntType _)     = Integer
+metaType (AbiIntType  _)     = Integer
+metaType AbiAddressType      = Integer
+metaType AbiBoolType         = Boolean
+metaType (AbiBytesType n)    = if n <= 32 then Integer else ByteStr
+metaType AbiBytesDynamicType = ByteStr
+metaType AbiStringType       = ByteStr
+--metaType (AbiArrayDynamicType a) =
+--metaType (AbiArrayType        Int AbiType
+--metaType (AbiTupleType        (Vector AbiType)
+metaType _ = error "Extract.metaType: TODO"
 
-data StorageVar = StorageVar SlotType Id
-  deriving (Eq, Show)
+idFromRewrite :: Rewrite t -> Id
+idFromRewrite = onRewrite idFromLocation idFromUpdate
 
-data Decl = Decl AbiType Id
-  deriving (Eq)
+idFromItem :: TStorageItem a t -> Id
+idFromItem (IntItem _ name _) = name
+idFromItem (BoolItem _ name _) = name
+idFromItem (BytesItem _ name _) = name
 
-instance Show Decl where
-  show (Decl t a) = show t <> " " <> a
+idFromUpdate :: StorageUpdate t -> Id
+idFromUpdate (IntUpdate   item _) = idFromItem item
+idFromUpdate (BoolUpdate  item _) = idFromItem item
+idFromUpdate (BytesUpdate item _) = idFromItem item
+
+idFromLocation :: StorageLocation t -> Id
+idFromLocation (IntLoc   item) = idFromItem item
+idFromLocation (BoolLoc  item) = idFromItem item
+idFromLocation (BytesLoc item) = idFromItem item
+
+contractFromRewrite :: Rewrite t -> Id
+contractFromRewrite = onRewrite contractFromLoc contractFromUpdate
+
+contractFromItem :: TStorageItem a t -> Id
+contractFromItem (IntItem   c _ _) = c
+contractFromItem (BoolItem  c _ _) = c
+contractFromItem (BytesItem c _ _) = c
+
+ixsFromItem :: TStorageItem a t -> [TypedExp t]
+ixsFromItem (IntItem   _ _ ixs) = ixs
+ixsFromItem (BoolItem  _ _ ixs) = ixs
+ixsFromItem (BytesItem _ _ ixs) = ixs
+
+contractsInvolved :: Behaviour t -> [Id]
+contractsInvolved = fmap contractFromRewrite . _stateUpdates
+
+contractFromLoc :: StorageLocation t -> Id
+contractFromLoc (IntLoc   item) = contractFromItem item
+contractFromLoc (BoolLoc  item) = contractFromItem item
+contractFromLoc (BytesLoc item) = contractFromItem item
+
+contractFromUpdate :: StorageUpdate t -> Id
+contractFromUpdate (IntUpdate   item _) = contractFromItem item
+contractFromUpdate (BoolUpdate  item _) = contractFromItem item
+contractFromUpdate (BytesUpdate item _) = contractFromItem item
+
+ixsFromLocation :: StorageLocation t -> [TypedExp t]
+ixsFromLocation (IntLoc item) = ixsFromItem item
+ixsFromLocation (BoolLoc item) = ixsFromItem item
+ixsFromLocation (BytesLoc item) = ixsFromItem item
+
+ixsFromUpdate :: StorageUpdate t -> [TypedExp t]
+ixsFromUpdate (IntUpdate   item _) = ixsFromItem item
+ixsFromUpdate (BoolUpdate  item _) = ixsFromItem item
+ixsFromUpdate (BytesUpdate item _) = ixsFromItem item
+
+ixsFromRewrite :: Rewrite t -> [TypedExp t]
+ixsFromRewrite = onRewrite ixsFromLocation ixsFromUpdate
+
+itemType :: TStorageItem a t -> MType
+itemType IntItem{}   = Integer
+itemType BoolItem{}  = Boolean
+itemType BytesItem{} = ByteStr
+
+isMapping :: StorageLocation t -> Bool
+isMapping = not . null . ixsFromLocation
+
+onRewrite :: (StorageLocation t -> a) -> (StorageUpdate t -> a) -> Rewrite t -> a
+onRewrite f _ (Constant  a) = f a
+onRewrite _ g (Rewrite a) = g a
+
+updatesFromRewrites :: [Rewrite t] -> [StorageUpdate t]
+updatesFromRewrites rs = [u | Rewrite u <- rs]
+
+locsFromRewrites :: [Rewrite t] -> [StorageLocation t]
+locsFromRewrites rs = [l | Constant l <- rs]
+
+--------------------------------------
+-- * Extraction from untyped ASTs * --
+--------------------------------------
+
+nameFromStorage :: Untyped.Storage -> Id
+nameFromStorage (Untyped.Rewrite (PEntry _ x _) _) = x
+nameFromStorage (Untyped.Constant (PEntry _ x _)) = x
+nameFromStorage store = error $ "Internal error: cannot extract name from " ++ show store
 
 getPosn :: Expr -> Pn
 getPosn expr = case expr of
@@ -152,7 +299,9 @@ getPosn expr = case expr of
     EMod pn _ _ -> pn
     EExp pn _ _ -> pn
     Zoom pn _ _ -> pn
-    EntryExp pn _ _ -> pn
+    EUTEntry pn _ _ -> pn
+    EPreEntry pn _ _ -> pn
+    EPostEntry pn _ _ -> pn
     Func pn _ _ -> pn
     ListConst e -> getPosn e
     ECat pn _ _ -> pn
@@ -169,39 +318,41 @@ getPosn expr = case expr of
 
 -- | Returns all the identifiers used in an expression,
 -- as well all of the positions they're used in.
-getIds :: Expr -> Map Id [Pn]
-getIds e = case e of
-  EAnd _ a b        -> getIds' [a,b]
-  EOr _ a b         -> getIds' [a,b]
-  ENot _ a          -> getIds a
-  EImpl _ a b       -> getIds' [a,b]
-  EEq _ a b         -> getIds' [a,b]
-  ENeq _ a b        -> getIds' [a,b]
-  ELEQ _ a b        -> getIds' [a,b]
-  ELT _ a b         -> getIds' [a,b]
-  EGEQ _ a b        -> getIds' [a,b]
-  EGT _ a b         -> getIds' [a,b]
-  EAdd _ a b        -> getIds' [a,b]
-  ESub _ a b        -> getIds' [a,b]
-  EITE _ a b c      -> getIds' [a,b,c]
-  EMul _ a b        -> getIds' [a,b]
-  EDiv _ a b        -> getIds' [a,b]
-  EMod _ a b        -> getIds' [a,b]
-  EExp _ a b        -> getIds' [a,b]
-  Zoom _ a b        -> getIds' [a,b]
-  EntryExp p x es   -> insertWith (<>) x [p] $ getIds' es
-  Func _ _ es       -> getIds' es
-  ListConst a       -> getIds a
-  ECat _ a b        -> getIds' [a,b]
-  ESlice _ a b c    -> getIds' [a,b,c]
-  ENewaddr _ a b    -> getIds' [a,b]
-  ENewaddr2 _ a b c -> getIds' [a,b,c]
-  BYHash _ a        -> getIds a
-  BYAbiE _ a        -> getIds a
+idFromRewrites :: Expr -> Map Id [Pn]
+idFromRewrites e = case e of
+  EAnd _ a b        -> idFromRewrites' [a,b]
+  EOr _ a b         -> idFromRewrites' [a,b]
+  ENot _ a          -> idFromRewrites a
+  EImpl _ a b       -> idFromRewrites' [a,b]
+  EEq _ a b         -> idFromRewrites' [a,b]
+  ENeq _ a b        -> idFromRewrites' [a,b]
+  ELEQ _ a b        -> idFromRewrites' [a,b]
+  ELT _ a b         -> idFromRewrites' [a,b]
+  EGEQ _ a b        -> idFromRewrites' [a,b]
+  EGT _ a b         -> idFromRewrites' [a,b]
+  EAdd _ a b        -> idFromRewrites' [a,b]
+  ESub _ a b        -> idFromRewrites' [a,b]
+  EITE _ a b c      -> idFromRewrites' [a,b,c]
+  EMul _ a b        -> idFromRewrites' [a,b]
+  EDiv _ a b        -> idFromRewrites' [a,b]
+  EMod _ a b        -> idFromRewrites' [a,b]
+  EExp _ a b        -> idFromRewrites' [a,b]
+  Zoom _ a b        -> idFromRewrites' [a,b]
+  EUTEntry p x es   -> insertWith (<>) x [p] $ idFromRewrites' es
+  EPreEntry p x es  -> insertWith (<>) x [p] $ idFromRewrites' es
+  EPostEntry p x es -> insertWith (<>) x [p] $ idFromRewrites' es
+  Func _ _ es       -> idFromRewrites' es
+  ListConst a       -> idFromRewrites a
+  ECat _ a b        -> idFromRewrites' [a,b]
+  ESlice _ a b c    -> idFromRewrites' [a,b,c]
+  ENewaddr _ a b    -> idFromRewrites' [a,b]
+  ENewaddr2 _ a b c -> idFromRewrites' [a,b,c]
+  BYHash _ a        -> idFromRewrites a
+  BYAbiE _ a        -> idFromRewrites a
   StringLit {}      -> empty
   WildExp {}        -> empty
   EnvExp {}         -> empty
   IntLit {}         -> empty
   BoolLit {}        -> empty
   where
-    getIds' = unionsWith (<>) . fmap getIds
+    idFromRewrites' = unionsWith (<>) . fmap idFromRewrites

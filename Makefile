@@ -3,7 +3,7 @@
 
 parser: src/Lex.hs src/Parse.hs
 
-src/Parse.hs: src/Parse.y src/Syntax.hs
+src/Parse.hs: src/Parse.y src/Syntax/Untyped.hs
 	happy src/Parse.y
 
 
@@ -11,7 +11,7 @@ src/Lex.hs: src/Lex.x
 	alex src/Lex.x
 
 # builds the rest of the haskell files (compiler)
-bin/act: src/*.hs
+bin/act: src/*.hs src/*/*.hs
 	cd src && cabal v2-install --installdir=../bin --overwrite-policy=always && cd ..
 
 repl: src/Lex.hs src/Parse.hs
@@ -32,6 +32,10 @@ invariant_specs=$(wildcard tests/invariants/*/*.act)
 invariant_pass=$(wildcard tests/invariants/pass/*.act) $(typing_pass)
 invariant_fail=$(wildcard tests/invariants/fail/*.act)
 
+postcondition_specs=$(wildcard tests/postconditions/*/*.act)
+postcondition_pass=$(wildcard tests/postconditions/pass/*.act) $(typing_pass)
+postcondition_fail=$(wildcard tests/postconditions/fail/*.act)
+
 # supposed to pass, but timeout
 hevm_buggy=tests/hevm/pass/safemath/safemath.act tests/hevm/pass/transfer/transfer.act
 # supposed to pass
@@ -48,11 +52,13 @@ coq-examples = tests/coq/transitions tests/coq/safemath tests/coq/exponent
 .PHONY: test-coq $(coq-examples)
 test-coq: compiler $(coq-examples)
 $(coq-examples):
+	make -C $@ clean
 	make -C $@
 
 test-parse: parser compiler $(parser_pass:=.parse.pass) $(parser_fail:=.parse.fail)
 test-type: parser compiler $(typing_pass:=.type.pass) $(typing_fail:=.type.fail)
 test-invariant: parser compiler $(invariant_pass:=.invariant.pass) $(invariant_fail:=.invariant.fail)
+test-postcondition: parser compiler $(postcondition_pass:=.postcondition.pass) $(postcondition_fail:=.postcondition.fail)
 test-hevm: parser compiler $(hevm_pass:=.hevm.pass) $(hevm_fail:=.hevm.fail)
 test-cabal: src/*.hs
 	cd src && cabal v2-run test
@@ -82,6 +88,14 @@ tests/%.invariant.fail:
 	./bin/act prove --file tests/$* && exit 1 || echo 0
 	./bin/act prove --solver cvc4 --file tests/$* && exit 1 || echo 0
 
+tests/%.postcondition.pass:
+	./bin/act prove --file tests/$*
+	./bin/act prove --solver cvc4 --file tests/$*
+
+tests/%.postcondition.fail:
+	./bin/act prove --file tests/$* && exit 1 || echo 0
+	./bin/act prove --solver cvc4 --file tests/$* && exit 1 || echo 0
+
 tests/hevm/pass/%.act.hevm.pass:
 	solc --combined-json=bin,bin-runtime,ast,metadata,abi,srcmap,srcmap-runtime,storage-layout tests/hevm/pass/$*.sol > tests/hevm/pass/$*.sol.json
 	./bin/act hevm --spec tests/hevm/pass/$*.act --soljson tests/hevm/pass/$*.sol.json
@@ -92,4 +106,4 @@ tests/hevm/fail/%.act.hevm.fail:
 	./bin/act hevm --spec tests/hevm/fail/$*.act --soljson tests/hevm/fail/$*.sol.json && exit 1 || echo 0
 	rm tests/hevm/fail/$*.sol.json
 
-test: test-parse test-type test-invariant test-coq test-hevm
+test: test-parse test-type test-invariant test-postcondition test-coq test-hevm test-cabal

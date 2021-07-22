@@ -4,7 +4,7 @@
 -- This file comes with NO WARRANTY and may be used FOR ANY PURPOSE.
 module ErrM where
 import Lex (AlexPosn (..))
-import Syntax
+import Syntax.Untyped
 -- the Error monad: like Maybe type with error msgs
 
 import Control.Monad (MonadPlus(..), liftM)
