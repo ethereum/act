@@ -21,7 +21,7 @@ invariants
     this == THIS
     value == CALLVALUE
     depth == CALLDEPTH
-    // hash == BLOCKHASH
+    hash == BLOCKHASH
     number == BLOCKNUMBER
     difficulty == DIFFICULTY
     chainid == CHAINID
@@ -45,4 +45,4 @@ storage
     coinbase => 1
     timestamp => 1
     nonce => 1
-    // hash => (hash ++ BLOCKHASH)
+    hash => 1

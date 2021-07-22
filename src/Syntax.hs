@@ -187,7 +187,7 @@ metaType (AbiUIntType _)     = Integer
 metaType (AbiIntType  _)     = Integer
 metaType AbiAddressType      = Integer
 metaType AbiBoolType         = Boolean
-metaType (AbiBytesType _)    = ByteStr
+metaType (AbiBytesType n)    = if n <= 32 then Integer else ByteStr
 metaType AbiBytesDynamicType = ByteStr
 metaType AbiStringType       = ByteStr
 --metaType (AbiArrayDynamicType a) =

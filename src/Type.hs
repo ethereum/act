@@ -79,7 +79,7 @@ defaultStore :: [(EthEnv, MType)]
 defaultStore =
   [(Callvalue, Integer),
    (Caller, Integer),
-   (Blockhash, ByteStr),
+   (Blockhash, Integer),
    (Blocknumber, Integer),
    (Difficulty, Integer),
    (Timestamp, Integer),
@@ -328,6 +328,7 @@ upperBound :: AbiType -> Exp Integer t
 upperBound (AbiUIntType n) = UIntMax n
 upperBound (AbiIntType n) = IntMax n
 upperBound AbiAddressType = UIntMax 160
+upperBound (AbiBytesType n) = UIntMax (8 * n)
 upperBound typ  = error $ "upperBound not implemented for " ++ show typ
 
 -- | Attempt to construct a `TypedExp` whose type matches the supplied `AbiType`.
