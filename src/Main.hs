@@ -10,6 +10,7 @@
 module Main where
 
 import Data.Aeson hiding (Bool, Number)
+import EVM.SymExec (ProofResult(..))
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr, stdout)
@@ -216,12 +217,15 @@ hevm spec' soljson' solver' smttimeout' smtdebug' = do
     passes <- forM specs $ \behv -> do
       res <- runSMTWithTimeOut solver' smttimeout' smtdebug' $ proveBehaviour sources behv
       case res of
-        Left posts -> do
+        Qed posts -> do
            putStrLn $ "Successfully proved " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
              <> ", " <> show (length $ last $ levels posts) <> " cases."
            return True
-        Right _ -> do
+        Cex _ -> do
            putStrLn $ "Failed to prove " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
+           return False
+        Timeout _ -> do
+           putStrLn $ "Solver timeout when attempting to prove " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
            return False
     unless (and passes) exitFailure
 
