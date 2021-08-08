@@ -10,8 +10,6 @@ import Data.List
 import Syntax
 import Syntax.TimeAgnostic
 
-import qualified Syntax.Annotated as Annotated
-import qualified Syntax.TimeAgnostic as Agnostic
 
 prettyBehaviour :: Behaviour t -> String
 prettyBehaviour (Behaviour name _ contract interface preconditions postconditions stateUpdates returns)
@@ -137,13 +135,13 @@ prettyEnv e = case e of
 prettyInvPred :: InvariantPred Timed -> String
 prettyInvPred = prettyExp . stripTime . fst
   where
-    stripTimeTyped :: Annotated.TypedExp -> Agnostic.TypedExp Untimed
+    stripTimeTyped :: TypedExp t -> TypedExp Untimed
     stripTimeTyped (ExpInt e) = ExpInt (stripTime e)
     stripTimeTyped (ExpBool e) = ExpBool (stripTime e)
     stripTimeTyped (ExpBytes e) = ExpBytes (stripTime e)
 
     -- | Strip timing from an annotated expression, sometimes useful for display in the ui
-    stripTime :: Annotated.Exp a -> Agnostic.Exp a Untimed
+    stripTime :: Exp a t -> Exp a Untimed
     stripTime e = case e of
       And a b   -> And (stripTime a) (stripTime b)
       Or a b    -> Or (stripTime a) (stripTime b)
@@ -181,4 +179,3 @@ prettyInvPred = prettyExp . stripTime . fst
       TEntry (IntItem a b c) _ -> TEntry (IntItem a b (fmap stripTimeTyped c)) Neither
       TEntry (BoolItem a b c) _ -> TEntry (BoolItem a b (fmap stripTimeTyped c)) Neither
       TEntry (BytesItem a b c) _ -> TEntry (BytesItem a b (fmap stripTimeTyped c)) Neither
-

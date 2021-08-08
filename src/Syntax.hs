@@ -1,5 +1,4 @@
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
 
 {-|
 Module      : Syntax

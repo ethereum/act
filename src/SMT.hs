@@ -1,7 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MonadComprehensions #-}
-{-# LANGUAGE DataKinds #-}
 
 module SMT (
   Solver(..),
