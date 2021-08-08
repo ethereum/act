@@ -133,33 +133,32 @@ prettyEnv e = case e of
 -- invariant in a way that is easily digestible by humans, requiring a less
 -- elegant implementation here than might be hoped for...
 prettyInvPred :: InvariantPred Timed -> String
-prettyInvPred = prettyExp . stripTime . fst
+prettyInvPred = prettyExp . untime . fst
   where
-    stripTimeTyped :: TypedExp t -> TypedExp Untimed
-    stripTimeTyped (ExpInt e) = ExpInt (stripTime e)
-    stripTimeTyped (ExpBool e) = ExpBool (stripTime e)
-    stripTimeTyped (ExpBytes e) = ExpBytes (stripTime e)
+    untimeTyped :: TypedExp t -> TypedExp Untimed
+    untimeTyped (ExpInt e) = ExpInt (untime e)
+    untimeTyped (ExpBool e) = ExpBool (untime e)
+    untimeTyped (ExpBytes e) = ExpBytes (untime e)
 
-    -- | Strip timing from an annotated expression, sometimes useful for display in the ui
-    stripTime :: Exp a t -> Exp a Untimed
-    stripTime e = case e of
-      And a b   -> And (stripTime a) (stripTime b)
-      Or a b    -> Or (stripTime a) (stripTime b)
-      Impl a b  -> Impl (stripTime a) (stripTime b)
-      Eq a b    -> Eq (stripTime a) (stripTime b)
-      LE a b    -> LE (stripTime a) (stripTime b)
-      LEQ a b   -> LEQ (stripTime a) (stripTime b)
-      GE a b    -> GE (stripTime a) (stripTime b)
-      GEQ a b   -> GEQ (stripTime a) (stripTime b)
-      NEq a b   -> NEq (stripTime a) (stripTime b)
-      Neg a     -> Neg (stripTime a)
-      Add a b   -> Add (stripTime a) (stripTime b)
-      Sub a b   -> Sub (stripTime a) (stripTime b)
-      Mul a b   -> Mul (stripTime a) (stripTime b)
-      Div a b   -> Div (stripTime a) (stripTime b)
-      Mod a b   -> Mod (stripTime a) (stripTime b)
-      Exp a b   -> Exp (stripTime a) (stripTime b)
-      Cat a b   -> Cat (stripTime a) (stripTime b)
+    untime :: Exp a t -> Exp a Untimed
+    untime e = case e of
+      And a b   -> And (untime a) (untime b)
+      Or a b    -> Or (untime a) (untime b)
+      Impl a b  -> Impl (untime a) (untime b)
+      Eq a b    -> Eq (untime a) (untime b)
+      LE a b    -> LE (untime a) (untime b)
+      LEQ a b   -> LEQ (untime a) (untime b)
+      GE a b    -> GE (untime a) (untime b)
+      GEQ a b   -> GEQ (untime a) (untime b)
+      NEq a b   -> NEq (untime a) (untime b)
+      Neg a     -> Neg (untime a)
+      Add a b   -> Add (untime a) (untime b)
+      Sub a b   -> Sub (untime a) (untime b)
+      Mul a b   -> Mul (untime a) (untime b)
+      Div a b   -> Div (untime a) (untime b)
+      Mod a b   -> Mod (untime a) (untime b)
+      Exp a b   -> Exp (untime a) (untime b)
+      Cat a b   -> Cat (untime a) (untime b)
       ByVar a   -> ByVar a
       ByStr a   -> ByStr a
       ByLit a   -> ByLit a
@@ -173,9 +172,9 @@ prettyInvPred = prettyExp . stripTime . fst
       BoolVar a -> BoolVar a
       IntEnv a  -> IntEnv a
       ByEnv a   -> ByEnv a
-      ITE x y z -> ITE (stripTime x) (stripTime y) (stripTime z)
-      NewAddr a b -> NewAddr (stripTime a) (stripTime b)
-      Slice a b c -> Slice (stripTime a) (stripTime b) (stripTime c)
-      TEntry (IntItem a b c) _ -> TEntry (IntItem a b (fmap stripTimeTyped c)) Neither
-      TEntry (BoolItem a b c) _ -> TEntry (BoolItem a b (fmap stripTimeTyped c)) Neither
-      TEntry (BytesItem a b c) _ -> TEntry (BytesItem a b (fmap stripTimeTyped c)) Neither
+      ITE x y z -> ITE (untime x) (untime y) (untime z)
+      NewAddr a b -> NewAddr (untime a) (untime b)
+      Slice a b c -> Slice (untime a) (untime b) (untime c)
+      TEntry (IntItem a b c) _ -> TEntry (IntItem a b (fmap untimeTyped c)) Neither
+      TEntry (BoolItem a b c) _ -> TEntry (BoolItem a b (fmap untimeTyped c)) Neither
+      TEntry (BytesItem a b c) _ -> TEntry (BytesItem a b (fmap untimeTyped c)) Neither
