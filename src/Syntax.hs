@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 
 {-|
 Module      : Syntax
@@ -19,6 +20,51 @@ import qualified Syntax.Untyped as Untyped
 -----------------------------------------
 -- * Extract from fully refined ASTs * --
 -----------------------------------------
+
+stripTimeTyped :: Annotated.TypedExp -> Agnostic.TypedExp Untimed
+stripTimeTyped (ExpInt e) = ExpInt (stripTime e)
+stripTimeTyped (ExpBool e) = ExpBool (stripTime e)
+stripTimeTyped (ExpBytes e) = ExpBytes (stripTime e)
+
+-- | Strip timing from an annotated expression, sometimes useful for display in the ui
+stripTime :: Annotated.Exp a -> Agnostic.Exp a Untimed
+stripTime e = case e of
+  And a b   -> And (stripTime a) (stripTime b)
+  Or a b    -> Or (stripTime a) (stripTime b)
+  Impl a b    -> Impl (stripTime a) (stripTime b)
+  Eq a b    -> Eq (stripTime a) (stripTime b)
+  LE a b    -> LE (stripTime a) (stripTime b)
+  LEQ a b    -> LEQ (stripTime a) (stripTime b)
+  GE a b    -> GE (stripTime a) (stripTime b)
+  GEQ a b    -> GEQ (stripTime a) (stripTime b)
+  NEq a b    -> NEq (stripTime a) (stripTime b)
+  Neg a  -> Neg (stripTime a)
+  Add a b    -> Add (stripTime a) (stripTime b)
+  Sub a b    -> Sub (stripTime a) (stripTime b)
+  Mul a b    -> Mul (stripTime a) (stripTime b)
+  Div a b    -> Div (stripTime a) (stripTime b)
+  Mod a b    -> Mod (stripTime a) (stripTime b)
+  Exp a b    -> Exp (stripTime a) (stripTime b)
+  Cat a b    -> Cat (stripTime a) (stripTime b)
+  Slice a b c    -> Slice (stripTime a) (stripTime b) (stripTime c)
+  ByVar a -> ByVar a
+  ByStr a -> ByStr a
+  ByLit a -> ByLit a
+  LitInt a -> LitInt a
+  IntMin a -> IntMin a
+  IntMax a -> IntMax a
+  UIntMin a -> UIntMin a
+  UIntMax a -> UIntMax a
+  IntVar a -> IntVar a
+  LitBool a -> LitBool a
+  BoolVar a -> BoolVar a
+  IntEnv a -> IntEnv a
+  ByEnv a -> ByEnv a
+  NewAddr a b -> NewAddr (stripTime a) (stripTime b)
+  ITE x y z -> ITE (stripTime x) (stripTime y) (stripTime z)
+  TEntry (IntItem a b c) _ -> TEntry (IntItem a b (fmap stripTimeTyped c)) Neither
+  TEntry (BoolItem a b c) _ -> TEntry (BoolItem a b (fmap stripTimeTyped c)) Neither
+  TEntry (BytesItem a b c) _ -> TEntry (BytesItem a b (fmap stripTimeTyped c)) Neither
 
 -- | Invariant predicates can always be expressed as a single expression.
 invExp :: Annotated.InvariantPred -> Annotated.Exp Bool

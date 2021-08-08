@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE DataKinds #-}
 
 module SMT (
   Solver(..),
@@ -40,6 +41,8 @@ import Data.ByteString.UTF8 (fromString)
 
 import Syntax
 import Syntax.Annotated
+import Syntax.Timing
+import qualified Syntax.TimeAgnostic as Agnostic
 
 import Print
 import Type (defaultStore)
@@ -719,6 +722,9 @@ target :: Query -> Exp Bool
 target (Postcondition _ e _)         = e
 target (Inv (Invariant _ _ _ e) _ _) = invExp e
 
+untimedInvExp :: Invariant -> Agnostic.Exp Bool Untimed
+untimedInvExp (Invariant _ _ _ e) = stripTime . fst $ e
+
 getQueryContract :: Query -> Id
 getQueryContract (Postcondition (Ctor ctor) _ _) = _cname ctor
 getQueryContract (Postcondition (Behv behv) _ _) = _contract behv
@@ -737,7 +743,7 @@ getBehvName (Postcondition (Behv behv) _ _) = (text "behaviour") <+> (bold . tex
 getBehvName (Inv {}) = error "Internal Error: invariant queries do not have an associated behaviour"
 
 identifier :: Query -> Doc
-identifier q@Inv {}           = (bold . text . prettyExp . target $ q) <+> text "of" <+> (bold . text . getQueryContract $ q)
+identifier q@(Inv i _ _)    = (bold . text . prettyExp . untimedInvExp $ i) <+> text "of" <+> (bold . text . getQueryContract $ q)
 identifier q@Postcondition {} = (bold . text . prettyExp . target $ q) <+> text "in" <+> getBehvName q <+> text "of" <+> (bold . text . getQueryContract $ q)
 
 getSMT :: Query -> Doc
