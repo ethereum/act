@@ -1,4 +1,5 @@
 {-# Language GADTs #-}
+{-# Language DataKinds #-}
 
 module Print where
 
@@ -8,6 +9,7 @@ import Data.List
 
 import Syntax
 import Syntax.TimeAgnostic
+
 
 prettyBehaviour :: Behaviour t -> String
 prettyBehaviour (Behaviour name _ contract interface preconditions postconditions stateUpdates returns)
@@ -122,3 +124,57 @@ prettyEnv e = case e of
   Timestamp -> "TIMESTAMP"
   This -> "THIS"
   Nonce -> "NONCE"
+
+-- | Invariant predicates are represented internally as a pair of timed
+-- expressions, one over the prestate and one over the poststate.  This is good
+-- since it keeps untimed expressions away from the various backends, and
+-- maintains a nice seperation between the various compilation passes, but
+-- unfortunately requires us to strip the timing out if we want to print the
+-- invariant in a way that is easily digestible by humans, requiring a less
+-- elegant implementation here than might be hoped for...
+prettyInvPred :: InvariantPred Timed -> String
+prettyInvPred = prettyExp . untime . fst
+  where
+    untimeTyped :: TypedExp t -> TypedExp Untimed
+    untimeTyped (ExpInt e) = ExpInt (untime e)
+    untimeTyped (ExpBool e) = ExpBool (untime e)
+    untimeTyped (ExpBytes e) = ExpBytes (untime e)
+
+    untime :: Exp a t -> Exp a Untimed
+    untime e = case e of
+      And a b   -> And (untime a) (untime b)
+      Or a b    -> Or (untime a) (untime b)
+      Impl a b  -> Impl (untime a) (untime b)
+      Eq a b    -> Eq (untime a) (untime b)
+      LE a b    -> LE (untime a) (untime b)
+      LEQ a b   -> LEQ (untime a) (untime b)
+      GE a b    -> GE (untime a) (untime b)
+      GEQ a b   -> GEQ (untime a) (untime b)
+      NEq a b   -> NEq (untime a) (untime b)
+      Neg a     -> Neg (untime a)
+      Add a b   -> Add (untime a) (untime b)
+      Sub a b   -> Sub (untime a) (untime b)
+      Mul a b   -> Mul (untime a) (untime b)
+      Div a b   -> Div (untime a) (untime b)
+      Mod a b   -> Mod (untime a) (untime b)
+      Exp a b   -> Exp (untime a) (untime b)
+      Cat a b   -> Cat (untime a) (untime b)
+      ByVar a   -> ByVar a
+      ByStr a   -> ByStr a
+      ByLit a   -> ByLit a
+      LitInt a  -> LitInt a
+      IntMin a  -> IntMin a
+      IntMax a  -> IntMax a
+      UIntMin a -> UIntMin a
+      UIntMax a -> UIntMax a
+      IntVar a  -> IntVar a
+      LitBool a -> LitBool a
+      BoolVar a -> BoolVar a
+      IntEnv a  -> IntEnv a
+      ByEnv a   -> ByEnv a
+      ITE x y z -> ITE (untime x) (untime y) (untime z)
+      NewAddr a b -> NewAddr (untime a) (untime b)
+      Slice a b c -> Slice (untime a) (untime b) (untime c)
+      TEntry (IntItem a b c) _ -> TEntry (IntItem a b (fmap untimeTyped c)) Neither
+      TEntry (BoolItem a b c) _ -> TEntry (BoolItem a b (fmap untimeTyped c)) Neither
+      TEntry (BytesItem a b c) _ -> TEntry (BytesItem a b (fmap untimeTyped c)) Neither
