@@ -237,7 +237,7 @@ hevm spec' soljson' solver' smttimeout' smtdebug' = do
         else [ "Failure!"
              , unwords [show . length $ failures, "out of", show . length $ passes, "claims unproven:"]
              , ""
-             , unlines $ zipWith (\i msg -> show i <> "\t" <> msg) [1..] failures
+             , unlines $ zipWith (\i msg -> show (i::Int) <> "\t" <> msg) [1..] failures
              ]
     unless (null failures) exitFailure
   where
