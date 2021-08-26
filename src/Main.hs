@@ -225,19 +225,21 @@ hevm spec' soljson' solver' smttimeout' smtdebug' = do
                       in putStrLn msg >> return (Left msg)
         Timeout _ -> let msg = "Solver timeout when attempting to prove " <> showBehv behv
                       in putStrLn msg >> return (Left msg)
-    let fails = lefts passes
+    let failures = lefts passes
 
     putStrLn "\n==== RESULT ===="
     putStrLn . unlines $
-      if null fails
+      if null failures
         then [ "Success!"
              , ""
-             , soljson' <> " fully satisfies " <> spec' <> "." ]
+             , soljson' <> " fully satisfies " <> spec' <> "."
+             ]
         else [ "Failure!"
+             , unwords [show . length $ failures, "out of", show . length $ passes, "claims unproven:"]
              , ""
-             , unwords [show . length $ fails, "out", "of", show . length $ passes, "claims", "unproven:"]
-             , unlines fails ]
-    unless (null fails) exitFailure
+             , unlines $ zipWith (\i msg -> show i <> "\t" <> msg) [1..] failures
+             ]
+    unless (null failures) exitFailure
   where
     showBehv behv = _name behv <> "(" <> show (_mode behv) <> ")"
 
