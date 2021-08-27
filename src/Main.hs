@@ -231,7 +231,7 @@ hevm spec' soljson' solver' smttimeout' smtdebug' = do
     putStrLn . unlines $
       if null failures
         then [ "==== SUCCESS ===="
-             , takeFileName soljson' <> " fully satisfies " <> takeFileName spec' <> "."
+             "All behaviours implemented as specified ∎."
              ]
         else [ "==== FAILURE ===="
              , show (length failures) <> " out of " <> show (length passes) <> " claims unproven:"
