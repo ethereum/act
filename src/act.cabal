@@ -26,7 +26,8 @@ common deps
                  utf8-string      >= 1.0.1.1,
                  process          >= 1.6.5.0,
                  ansi-wl-pprint   >= 0.6.9,
-                 regex-tdfa
+                 regex-tdfa,
+                 filepath
   other-modules: Lex ErrM Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Annotated Syntax.Timing Syntax.TimeAgnostic Type Print Enrich SMT
   
   if flag(ci)
