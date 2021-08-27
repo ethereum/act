@@ -17,6 +17,7 @@ import System.IO (hPutStrLn, stderr, stdout)
 import Data.SBV hiding (preprocess, sym, prove)
 import Data.Text (pack, unpack)
 import Data.List
+import Data.Either (lefts)
 import Data.Maybe
 import Data.Tree
 import qualified EVM.Solidity as Solidity
@@ -217,18 +218,28 @@ hevm spec' soljson' solver' smttimeout' smtdebug' = do
     passes <- forM specs $ \behv -> do
       res <- runSMTWithTimeOut solver' smttimeout' smtdebug' $ proveBehaviour sources behv
       case res of
-        Qed posts -> do
-           putStrLn $ "Successfully proved " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
-             <> ", " <> show (length $ last $ levels posts) <> " cases."
-           return True
-        Cex _ -> do
-           putStrLn $ "Failed to prove " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
-           return False
-        Timeout _ -> do
-           putStrLn $ "Solver timeout when attempting to prove " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
-           return False
-    unless (and passes) exitFailure
+        Qed posts -> let msg = "Successfully proved " <> showBehv behv <> ", "
+                            <> show (length $ last $ levels posts) <> " cases."
+                      in putStrLn msg >> return (Right msg)
+        Cex _     -> let msg = "Failed to prove " <> showBehv behv
+                      in putStrLn msg >> return (Left msg)
+        Timeout _ -> let msg = "Solver timeout when attempting to prove " <> showBehv behv
+                      in putStrLn msg >> return (Left msg)
+    let failures = lefts passes
 
+    putStrLn . unlines $
+      if null failures
+        then [ "==== SUCCESS ===="
+             , "All behaviours implemented as specified ∎."
+             ]
+        else [ "==== FAILURE ===="
+             , show (length failures) <> " out of " <> show (length passes) <> " claims unproven:"
+             , ""
+             ]
+          <> zipWith (\i msg -> show (i::Int) <> "\t" <> msg) [1..] failures
+    unless (null failures) exitFailure
+  where
+    showBehv behv = _name behv <> "(" <> show (_mode behv) <> ")"
 
 -------------------
 -- *** Util *** ---
