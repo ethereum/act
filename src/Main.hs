@@ -227,18 +227,17 @@ hevm spec' soljson' solver' smttimeout' smtdebug' = do
                       in putStrLn msg >> return (Left msg)
     let failures = lefts passes
 
-    putStrLn "\n==== RESULT ===="
     putStrLn . unlines $
       if null failures
-        then [ "Success!"
+        then [ "==== SUCCESS ===="
              , ""
              , soljson' <> " fully satisfies " <> spec' <> "."
              ]
-        else [ "Failure!"
-             , unwords [show . length $ failures, "out of", show . length $ passes, "claims unproven:"]
+        else [ "==== FAILURE ===="
              , ""
-             , unlines $ zipWith (\i msg -> show (i::Int) <> "\t" <> msg) [1..] failures
+             , show (length failures) <> " out of " <> show (length passes) <> " claims unproven:"
              ]
+          <> zipWith (\i msg -> show (i::Int) <> "\t" <> msg) [1..] failures
     unless (null failures) exitFailure
   where
     showBehv behv = _name behv <> "(" <> show (_mode behv) <> ")"
