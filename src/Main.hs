@@ -230,12 +230,11 @@ hevm spec' soljson' solver' smttimeout' smtdebug' = do
     putStrLn . unlines $
       if null failures
         then [ "==== SUCCESS ===="
-             , ""
              , soljson' <> " fully satisfies " <> spec' <> "."
              ]
         else [ "==== FAILURE ===="
-             , ""
              , show (length failures) <> " out of " <> show (length passes) <> " claims unproven:"
+             , ""
              ]
           <> zipWith (\i msg -> show (i::Int) <> "\t" <> msg) [1..] failures
     unless (null failures) exitFailure
