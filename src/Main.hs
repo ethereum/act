@@ -25,7 +25,6 @@ import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import qualified Data.Map.Strict as Map
 import System.Environment (setEnv)
-import System.FilePath.Posix (takeFileName)
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 
 import qualified Data.ByteString.Lazy.Char8 as B
@@ -231,7 +230,7 @@ hevm spec' soljson' solver' smttimeout' smtdebug' = do
     putStrLn . unlines $
       if null failures
         then [ "==== SUCCESS ===="
-             "All behaviours implemented as specified ∎."
+             , "All behaviours implemented as specified ∎."
              ]
         else [ "==== FAILURE ===="
              , show (length failures) <> " out of " <> show (length passes) <> " claims unproven:"

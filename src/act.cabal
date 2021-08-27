@@ -14,7 +14,11 @@ common deps
   build-depends: base             >= 4.9 && < 5,
                  aeson            >= 1.0,
                  containers       >= 0.5,
-                 hevm             >= 0.47.1 && < 0.48, -- Ugly upper bound to force usage of version from nix-shell.
+                 hevm             >= 0.47.1 && < 0.48,
+                 -- hevm version has an ugly upper bound to
+                 -- force usage of version from nix-shell,
+                 -- which avoids weird missing deps when
+                 -- pulling it from hackage.
                  lens             >= 4.17.1,
                  text             >= 1.2,
                  array            >= 0.5.3.0,
@@ -26,8 +30,7 @@ common deps
                  utf8-string      >= 1.0.1.1,
                  process          >= 1.6.5.0,
                  ansi-wl-pprint   >= 0.6.9,
-                 regex-tdfa,
-                 filepath
+                 regex-tdfa
   other-modules: Lex ErrM Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Annotated Syntax.Timing Syntax.TimeAgnostic Type Print Enrich SMT
   
   if flag(ci)
