@@ -3,6 +3,6 @@ interface constructor()
 
 creates
 
-    uint x := y
-    uint y := x
-    uint z := x
+  uint x := 2
+  bool x := false
+  uint x := 3

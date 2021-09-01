@@ -1,52 +1,27 @@
-module ErrorLogger where
+{-# LANGUAGE OverloadedLists #-}
 
-import Control.Applicative
+module ErrorLogger (module ErrorLogger) where
+
+import Control.Lens as ErrorLogger ((#))
 import Control.Monad.Writer
+import Data.Functor
+import Data.List.NonEmpty
+import Data.Validation as ErrorLogger
 
-import Data.Functor (($>))
-import Data.Maybe
+import Syntax.Untyped (Pn)
 
--- Experimental error logging/handling
+type Error e a = Validation (NonEmpty (Pn,e)) a
 
-newtype Err e a = Err { unErr :: Writer [e] (Maybe a) }
+throw :: (Pn,e) -> Error e a
+throw err = _Failure # [err]
 
-instance Functor (Err e) where
-  fmap f (Err w) = Err $ fmap f <$> w
+bindDummy :: (Monoid a, Semigroup e) => Validation e a -> (a -> Validation e b) -> Validation e b
+bindDummy val cont = validation (\e -> cont mempty <* Failure e) cont val
 
-instance Applicative (Err e) where
-  pure a              = Err . pure . pure $ a
-  (Err f) <*> (Err a) = Err $ fmap ap f <*> a
+(>>=?) :: (Monoid a, Semigroup e) => Validation e a -> (a -> Validation e b) -> Validation e b
+(>>=?) = bindDummy
 
-instance Alternative (Err e) where
-  empty = Err $ pure Nothing
-  a <|> b | succeeds a = a
-          | otherwise  = b
-
---instance Monad (Err e) where
---  return = pure
---  (Err wA) >>= f = Err $ let (a, w1) = runWriter wA
---                    in case f <$> a of
---                      Nothing -> writer (Nothing,w1)
---                      Just eB -> writer . fmap (w1 <>) . runWriter . unErr $ eB
-
-
-throw :: e -> Err e a
-throw e = Err $ tell [e] $> Nothing
-
-getErrs :: Err e a -> [e]
-getErrs = execWriter . unErr
-
-runErr :: Err e a -> (Maybe a, [e])
-runErr = runWriter . unErr
-
-getResult :: Err e a -> Maybe a
-getResult = fst . runErr
-
-fails :: Err e a -> Bool
-fails = isNothing . getResult
-
-succeeds :: Err e a -> Bool
-succeeds = isJust . getResult
-
-maybeThrow :: e -> Maybe a -> Err e a
-maybeThrow e = maybe (throw e) pure
+liftWriter :: Writer [(Pn,e)] a -> Error e a
+liftWriter writer = case runWriter writer of
+  (res, []) -> pure res
+  (_,   es) -> _Failure # fromList es

@@ -14,7 +14,7 @@ common deps
   build-depends: base             >= 4.9 && < 5,
                  aeson            >= 1.0,
                  containers       >= 0.5,
-                 hevm             >= 0.47.1,
+                 hevm             >= 0.47.1 && < 0.48,
                  lens             >= 4.17.1,
                  text             >= 1.2,
                  array            >= 0.5.3.0,
@@ -26,8 +26,9 @@ common deps
                  utf8-string      >= 1.0.1.1,
                  process          >= 1.6.5.0,
                  ansi-wl-pprint   >= 0.6.9,
-                 regex-tdfa
-  other-modules: Lex ErrM Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Annotated Syntax.Timing Syntax.TimeAgnostic Type Print Enrich SMT
+                 regex-tdfa,
+                 validation       >= 1.1.1
+  other-modules: Lex ErrM ErrorLogger Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Annotated Syntax.Timing Syntax.TimeAgnostic Type Print Enrich SMT
   
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans -Wno-unticked-promoted-constructors

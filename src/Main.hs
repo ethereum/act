@@ -30,6 +30,7 @@ import qualified Data.ByteString.Lazy.Char8 as B
 import Control.Monad
 
 import ErrM
+import qualified ErrorLogger as Logger
 import Lex (lexer, AlexPosn(..))
 import Options.Generic
 import Parse
@@ -38,9 +39,10 @@ import Syntax.Untyped
 import Enrich
 import K hiding (normalize, indent)
 import SMT
-import Type
+import Type hiding (Err)
+import qualified Type
 import Coq hiding (indent)
-import HEVM
+--import HEVM
 
 --command line options
 data Command w
@@ -93,8 +95,8 @@ main = do
       Type f -> type' f
       Prove file' solver' smttimeout' debug' -> prove file' solver' smttimeout' debug'
       Coq f -> coq' f
-      K spec' soljson' gas' storage' extractbin' out' -> k spec' soljson' gas' storage' extractbin' out'
-      HEVM spec' soljson' solver' smttimeout' debug' -> hevm spec' soljson' solver' smttimeout' debug'
+      --K spec' soljson' gas' storage' extractbin' out' -> k spec' soljson' gas' storage' extractbin' out'
+      --HEVM spec' soljson' solver' smttimeout' debug' -> hevm spec' soljson' solver' smttimeout' debug'
 
 
 ---------------------------------
@@ -118,8 +120,8 @@ type' :: FilePath -> IO ()
 type' f = do
   contents <- readFile f
   case compile contents of
-    Ok a  -> B.putStrLn $ encode a
-    Bad e -> prettyErr contents e
+    Logger.Success a -> B.putStrLn (encode a)
+    Logger.Failure e -> mapM_ (prettyErr contents) e >> exitFailure
 
 prove :: FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
 prove file' solver' smttimeout' debug' = do
@@ -187,43 +189,43 @@ coq' f = do
   proceed contents (compile contents) $ \claims ->
     TIO.putStr $ coq claims
 
-k :: FilePath -> FilePath -> Maybe [(Id, String)] -> Maybe String -> Bool -> Maybe String -> IO ()
-k spec' soljson' gas' storage' extractbin' out' = do
-  specContents <- readFile spec'
-  solContents  <- readFile soljson'
-  let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
-      errKSpecs = do refinedSpecs <- compile specContents
-                     (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
-                       $ Solidity.readJSON $ pack solContents
-                     forM [b | B b <- refinedSpecs]
-                       $ makekSpec sources kOpts
-  proceed specContents errKSpecs $ \kSpecs -> do
-    let printFile (filename, content) = case out' of
-          Nothing -> putStrLn (filename <> ".k") >> putStrLn content
-          Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
-    forM_ kSpecs printFile
+-- k :: FilePath -> FilePath -> Maybe [(Id, String)] -> Maybe String -> Bool -> Maybe String -> IO ()
+-- k spec' soljson' gas' storage' extractbin' out' = do
+--   specContents <- readFile spec'
+--   solContents  <- readFile soljson'
+--   let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
+--       errKSpecs = do refinedSpecs <- compile specContents
+--                      (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
+--                        $ Solidity.readJSON $ pack solContents
+--                      forM [b | B b <- refinedSpecs]
+--                        $ makekSpec sources kOpts
+--   proceed specContents errKSpecs $ \kSpecs -> do
+--     let printFile (filename, content) = case out' of
+--           Nothing -> putStrLn (filename <> ".k") >> putStrLn content
+--           Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
+--     forM_ kSpecs printFile
 
-hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
-hevm spec' soljson' solver' smttimeout' smtdebug' = do
-  specContents <- readFile spec'
-  solContents  <- readFile soljson'
-  let preprocess = do refinedSpecs  <- compile specContents
-                      (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
-                        $ Solidity.readJSON $ pack solContents
-                      return ([b | B b <- refinedSpecs], sources)
-  proceed specContents preprocess $ \(specs, sources) -> do
-    -- TODO: prove constructor too
-    passes <- forM specs $ \behv -> do
-      res <- runSMTWithTimeOut solver' smttimeout' smtdebug' $ proveBehaviour sources behv
-      case res of
-        Left posts -> do
-           putStrLn $ "Successfully proved " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
-             <> ", " <> show (length $ last $ levels posts) <> " cases."
-           return True
-        Right _ -> do
-           putStrLn $ "Failed to prove " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
-           return False
-    unless (and passes) exitFailure
+-- hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
+-- hevm spec' soljson' solver' smttimeout' smtdebug' = do
+--   specContents <- readFile spec'
+--   solContents  <- readFile soljson'
+--   let preprocess = do refinedSpecs  <- compile specContents
+--                       (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
+--                         $ Solidity.readJSON $ pack solContents
+--                       return ([b | B b <- refinedSpecs], sources)
+--   proceed specContents preprocess $ \(specs, sources) -> do
+--     -- TODO: prove constructor too
+--     passes <- forM specs $ \behv -> do
+--       res <- runSMTWithTimeOut solver' smttimeout' smtdebug' $ proveBehaviour sources behv
+--       case res of
+--         Left posts -> do
+--            putStrLn $ "Successfully proved " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
+--              <> ", " <> show (length $ last $ levels posts) <> " cases."
+--            return True
+--         Right _ -> do
+--            putStrLn $ "Failed to prove " <> (_name behv) <> "(" <> show (_mode behv) <> ")"
+--            return False
+--     unless (and passes) exitFailure
 
 
 -------------------
@@ -246,18 +248,22 @@ runSMTWithTimeOut solver' maybeTimeout debug' sym
        runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
 
 -- | Fail on error, or proceed with continuation
-proceed :: String -> Err a -> (a -> IO ()) -> IO ()
-proceed contents (Bad e) _ = prettyErr contents e
-proceed _ (Ok a) continue = continue a
+proceed :: String -> Type.Err a -> (a -> IO ()) -> IO ()
+proceed contents comp continue = Logger.validation (mapM_ $ prettyErr contents) continue comp
 
-compile :: String -> Err [Claim]
-compile = pure . fmap annotate . enrich <=< typecheck <=< parse . lexer
+--compile :: String -> Err [Claim]
+--compile = pure . fmap annotate . enrich <=< typecheck <=< parse . lexer
+
+compile :: String -> Type.Err [Claim]
+compile source = case parse . lexer $ source of
+  Bad e -> Logger.throw e
+  Ok a  -> fmap annotate . enrich <$> typecheck a
 
 prettyErr :: String -> (Pn, String) -> IO ()
 prettyErr _ (pn, msg) | pn == nowhere = do
   hPutStrLn stderr "Internal error:"
   hPutStrLn stderr msg
-  exitFailure
+--  exitFailure
 prettyErr contents (pn, msg) | pn == lastPos = do
   let culprit = last $ lines contents
       line' = length (lines contents) - 1
@@ -265,13 +271,13 @@ prettyErr contents (pn, msg) | pn == lastPos = do
   hPutStrLn stderr $ show line' <> " | " <> culprit
   hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
   hPutStrLn stderr msg
-  exitFailure
+--  exitFailure
 prettyErr contents (AlexPn _ line' col, msg) = do
   let cxt = safeDrop (line' - 1) (lines contents)
   hPutStrLn stderr $ show line' <> " | " <> head cxt
   hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
   hPutStrLn stderr msg
-  exitFailure
+--  exitFailure
   where
     safeDrop :: Int -> [a] -> [a]
     safeDrop 0 a = a

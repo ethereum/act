@@ -5,8 +5,9 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language NamedFieldPuns #-}
 {-# Language DataKinds #-}
+{-# LANGUAGE ApplicativeDo, OverloadedLists #-}
 
-module Type (typecheck, bound, lookupVars, defaultStore, metaType) where
+module Type (typecheck, bound, lookupVars, defaultStore, metaType, Err) where
 
 import Data.List
 import EVM.ABI
@@ -22,49 +23,52 @@ import Type.Reflection (typeRep)
 import Data.ByteString (ByteString)
 
 import Control.Applicative
-import Data.Traversable (for)
-import Control.Monad
+import Control.Monad (join,unless)
+import Control.Monad.Writer
+import Data.Functor
+import Data.Functor.Alt
+import Data.Foldable
+import Data.Traversable
 
 import Syntax
 import Syntax.Timing
 import Syntax.Untyped hiding (Post,Constant,Rewrite)
 import qualified Syntax.Untyped as Untyped
 import Syntax.Typed
-import ErrM
+import ErrorLogger
 import Parse
 
+type Err a = Error TypeErr a
+
+type TypeErr = String
+
 typecheck :: [RawBehaviour] -> Err [Claim]
-typecheck behvs = do store <- lookupVars behvs
-                     bs <- mapM (splitBehaviour store) behvs
-                     return $ S store : join bs
+typecheck behvs = do
+  let (store,errs) = runWriter $ lookupVars behvs
+  traverse throw errs
+  bs <- traverse (splitBehaviour store) behvs
+  pure $ S store : concat bs
 
 --- Finds storage declarations from constructors
-lookupVars :: [RawBehaviour] -> Err Store
+lookupVars :: [RawBehaviour] -> Writer [(Pn,TypeErr)] Store
 lookupVars ((Transition {}):bs) = lookupVars bs
-lookupVars ((Definition contract _ _ (Creates assigns) _ _ _):bs) =
-  let assignments = fromAssign <$> assigns
-  in case duplicates $ fst <$> assignments of
-        [] ->
-          let new' = Map.singleton contract (Map.fromList assignments)
-           in do old <- lookupVars bs
-                 if null (Map.intersection new' old)
-                 then pure $ new' <> old
-                 else Bad (nowhere, "Multiple definitions given of contract: " <> contract)
-        vs -> Bad (nowhere,
-                   concatMap (\v -> "Multiple definitions given of state variable: " <> v <> "\n") vs)
+lookupVars ((Definition pn contract _ _ (Creates assigns) _ _ _):bs) = do
+  let assignments = Map.fromListWith (<>) $ fromAssign <$> assigns
+
+  allVars <- lookupVars bs
+  newVars <- flip Map.traverseWithKey assignments $ \var ((p,typ) :| rest) -> pure typ
+                      <* for rest (\(pn,_) ->
+                            tell [(pn, var <> " already defined at " <> showposn p <> ".")])
+
+  if contract `Map.member` allVars
+    then allVars <$ tell [(pn, "Conflicting definitions for " <> contract <> ".")]
+    else pure $ Map.insert contract newVars allVars
 lookupVars [] = pure mempty
 
-fromAssign :: Assign -> (Id, SlotType)
-fromAssign (AssignVal (StorageVar typ var) _) = (var, typ)
-fromAssign (AssignMany (StorageVar typ var) _) = (var, typ)
+fromAssign :: Assign -> (Id, NonEmpty (Pn, SlotType))
+fromAssign (AssignVal (StorageVar pn typ var) _) = (var, [(pn, typ)])
+fromAssign (AssignMany (StorageVar pn typ var) _) = (var, [(pn, typ)])
 fromAssign (AssignStruct _ _) = error "TODO: assignstruct"
-
--- | filters out duplicate entries in list
-duplicates :: Eq a => [a] -> [a]
-duplicates [] = []
-duplicates (x:xs) =
-  let e = [x | x `elem` xs]
-  in e <> duplicates xs
 
 -- | The type checking environment. 
 data Env = Env
@@ -95,10 +99,10 @@ defaultStore =
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> RawBehaviour -> Err [Claim]
-splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' cases posts) = do
+splitBehaviour store (Transition pn name contract iface@(Interface _ decls) iffs' cases posts) = -- do
   -- constrain integer calldata variables (TODO: other types)
-  iff <- checkIffs env iffs'
-  postcondition <- mapM (inferExpr env) posts
+  checkIffs env iffs' >>=? \iff ->
+  traverse (inferExpr env) posts >>=? \postcondition ->
   flatten iff postcondition cases
   where
     env :: Env
@@ -110,13 +114,13 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
       let wildcard (Case _ (WildExp _) _) = True
           wildcard _ = False
       in case findIndex wildcard cases' of
-        Nothing -> return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
+        Nothing -> pure $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
         Just ind ->
           -- wildcard must be last element
           if ind < length cases' - 1
           then case cases' !! ind of
-            (Case p _ _) -> Bad (p, "Wildcard pattern must be last case")
-          else return $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
+            (Case p _ _) -> throw (p, "Wildcard pattern must be last case")
+          else pure $ snd $ mapAccumL checkCase (BoolLit nowhere False) cases'
 
 
     checkCase :: Expr -> Case -> (Expr, Case)
@@ -128,36 +132,34 @@ splitBehaviour store (Transition name contract iface@(Interface _ decls) iffs' c
 
     -- flatten case list
     flatten :: [Exp Bool Untimed] -> [Exp Bool Timed] -> Cases -> Err [Claim]
-    flatten iff postc (Direct post) = do
-      (p, maybeReturn) <- checkPost env post
-      return $ splitCase name contract iface [] iff maybeReturn p postc
-    flatten iff postc (Branches branches) = do
-      branches' <- normalize branches
-      cases' <- forM branches' $ \(Case _ cond post) -> do
+    flatten iff postc (Direct post) = 
+      (\(p, maybeReturn) -> splitCase name contract iface [] iff maybeReturn p postc) <$> checkPost env post
+    flatten iff postc (Branches branches) = --do
+      normalize branches >>=? \branches' -> do
+      cases' <- for branches' $ \(Case _ cond post) -> do
         if' <- inferExpr env cond
         (post', ret) <- checkPost env post
-        return (if', post', ret)
-      pure $
-        (\(ifcond, stateUpdates, ret)
-            -> splitCase name contract iface [ifcond] iff ret stateUpdates postc)
-           =<< cases'
+        pure (if', post', ret)
+      pure $ concatMap
+              (\(ifcond, stateUpdates, ret)-> splitCase name contract iface [ifcond] iff ret stateUpdates postc)
+              cases'
 
-splitBehaviour store (Definition contract iface@(Interface _ decls) iffs (Creates assigns) extStorage postcs invs) = do
-  unless (null extStorage) $ error "TODO: support extStorage in constructor"
+splitBehaviour store (Definition pn contract iface@(Interface _ decls) iffs (Creates assigns) extStorage postcs invs) =
+  if not . null $ extStorage then error "TODO: support extStorage in constructor"
+  else let env = mkEnv contract store decls
+  in do
+    stateUpdates <- concat <$> traverse (checkAssign env) assigns
+    iffs' <- checkIffs env iffs
+    invariants <- traverse (inferExpr env) invs
+    ensures <- traverse (inferExpr env) postcs
 
-  let env = mkEnv contract store decls
-  stateUpdates <- concat <$> mapM (checkAssign env) assigns
-  iffs' <- checkIffs env iffs
-
-  invariants <- mapM (inferExpr env) invs
-  ensures <- mapM (inferExpr env) postcs
-
-  let cases' = if null iffs' then [C $ Constructor contract Pass iface iffs' ensures stateUpdates []]
-               else [ C $ Constructor contract Pass iface iffs' ensures stateUpdates []
-                       , C $ Constructor contract Fail iface [Neg (mconcat iffs')] ensures [] []]
-
-  return $ (I . Invariant contract [] [] <$> invariants)
-           <> cases'
+    pure $ invrClaims invariants <> ctorClaims stateUpdates iffs' ensures
+  where
+    invrClaims invariants = I . Invariant contract [] [] <$> invariants
+    ctorClaims updates iffs' ensures
+      | null iffs' = [ C $ Constructor contract Pass iface []                    ensures updates [] ]
+      | otherwise  = [ C $ Constructor contract Pass iface iffs'                 ensures updates []
+                     , C $ Constructor contract Fail iface [Neg (mconcat iffs')] ensures []      [] ]
 
 mkEnv :: Id -> Store -> [Decl]-> Env
 mkEnv contract store decls = Env
@@ -180,61 +182,59 @@ splitCase name contract iface if' iffs ret storage postcs =
 
 -- | Ensures that none of the storage variables are read in the supplied `Expr`.
 noStorageRead :: Map Id SlotType -> Expr -> Err ()
-noStorageRead store expr = forM_ (keys store) $ \name ->
-  forM_ (findWithDefault [] name (idFromRewrites expr)) $ \pn ->
-    Bad (pn,"Cannot read storage in creates block")
+noStorageRead store expr = for_ (keys store) $ \name ->
+  for_ (findWithDefault [] name (idFromRewrites expr)) $ \pn ->
+    throw (pn,"Cannot read storage in creates block")
+
+checkUpdate :: Env -> AbiType -> Id -> [TypedExp Untimed] -> Expr -> Err StorageUpdate
+checkUpdate env@Env{contract} typ name ixs newVal =
+  case metaType typ of
+    Integer -> IntUpdate   (IntItem   contract name ixs) <$> inferExpr env newVal
+    Boolean -> BoolUpdate  (BoolItem  contract name ixs) <$> inferExpr env newVal
+    ByteStr -> BytesUpdate (BytesItem contract name ixs) <$> inferExpr env newVal
 
 -- ensures that key types match value types in an Assign
 checkAssign :: Env -> Assign -> Err [StorageUpdate]
-checkAssign env@Env{contract, store} (AssignVal (StorageVar (StorageValue typ) name) expr) = do
-  noStorageRead store expr
-  case metaType typ of
-    Integer -> return . IntUpdate   (IntItem contract name [])   <$> inferExpr env expr
-    Boolean -> return . BoolUpdate  (BoolItem contract name [])  <$> inferExpr env expr
-    ByteStr -> return . BytesUpdate (BytesItem contract name []) <$> inferExpr env expr
-checkAssign env@Env{store} (AssignMany (StorageVar (StorageMapping (keyType :| _) valType) name) defns)
-  = forM defns $ \def@(Defn e1 e2) -> do
-      mapM_ (noStorageRead store) [e1,e2]
-      checkDefn env keyType valType name def
-checkAssign _ (AssignVal (StorageVar (StorageMapping _ _) _) expr)
-  = Bad (getPosn expr, "Cannot assign a single expression to a composite type")
-checkAssign _ (AssignMany (StorageVar (StorageValue _) _) _)
-  = Bad (nowhere, "Cannot assign multiple values to an atomic type")
+checkAssign env@Env{contract, store} (AssignVal (StorageVar pn (StorageValue typ) name) expr)
+  = sequenceA [checkUpdate env typ name [] expr]
+    <* noStorageRead store expr
+checkAssign env@Env{store} (AssignMany (StorageVar pn (StorageMapping (keyType :| _) valType) name) defns)
+  = for defns $ \def@(Defn e1 e2) -> checkDefn env keyType valType name def
+                                     <* noStorageRead store e1
+                                     <* noStorageRead store e2
+checkAssign _ (AssignVal (StorageVar pn (StorageMapping _ _) _) expr)
+  = throw (getPosn expr, "Cannot assign a single expression to a composite type")
+checkAssign _ (AssignMany (StorageVar pn (StorageValue _) _) _)
+  = throw (pn, "Cannot assign multiple values to an atomic type")
 checkAssign _ _ = error "todo: support struct assignment in constructors"
 
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
 checkDefn :: Env -> AbiType -> AbiType -> Id -> Defn -> Err StorageUpdate
-checkDefn env@Env{contract} keyType valType name (Defn k v) = do
-  key <- case metaType keyType of
-    Integer -> ExpInt   <$> inferExpr env k
-    Boolean -> ExpBool  <$> inferExpr env k
-    ByteStr -> ExpBytes <$> inferExpr env k
-  case metaType valType of
-    Integer -> IntUpdate   (IntItem   contract name [key]) <$> inferExpr env v
-    Boolean -> BoolUpdate  (BoolItem  contract name [key]) <$> inferExpr env v
-    ByteStr -> BytesUpdate (BytesItem contract name [key]) <$> inferExpr env v
+checkDefn env@Env{contract} keyType valType name (Defn k val) = 
+  sequenceA [checkExpr env k keyType] >>=? \keys ->
+  checkUpdate env valType name keys val -- TODO really make sure to test this!!
 
 checkPost :: Env -> Untyped.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
 checkPost env@Env{contract,calldata} (Untyped.Post maybeStorage extStorage maybeReturn) =
-  do returnexp <- mapM (typedExp scopedEnv) maybeReturn
+  do returnexp <- traverse (typedExp scopedEnv) maybeReturn
      ourStorage <- case maybeStorage of
        Just entries -> checkEntries contract entries
-       Nothing -> Ok []
+       Nothing -> pure []
      otherStorage <- checkStorages extStorage
-     return (ourStorage <> otherStorage, returnexp)
+     pure (ourStorage <> otherStorage, returnexp)
   where
     checkEntries :: Id -> [Untyped.Storage] -> Err [Rewrite]
     checkEntries name entries =
-      forM entries $ \case
+      for entries $ \case
         Untyped.Constant loc -> Constant <$> checkPattern (focus name scopedEnv) loc
         Untyped.Rewrite loc val -> Rewrite <$> checkStorageExpr (focus name scopedEnv) loc val
 
     checkStorages :: [ExtStorage] -> Err [Rewrite]
-    checkStorages [] = Ok []
+    checkStorages [] = pure []
     checkStorages ((ExtStorage name entries):xs) = do p <- checkEntries name entries
                                                       ps <- checkStorages xs
-                                                      Ok $ p <> ps
+                                                      pure $ p <> ps
     checkStorages _ = error "TODO: check other storages"
 
     -- remove storage items from the env that are not mentioned on the LHS of a storage declaration
@@ -271,49 +271,40 @@ checkPost env@Env{contract,calldata} (Untyped.Post maybeStorage extStorage maybe
 
 checkStorageExpr :: Env -> Pattern -> Expr -> Err StorageUpdate
 checkStorageExpr _ (PWild _) _ = error "TODO: add support for wild storage to checkStorageExpr"
-checkStorageExpr env@Env{contract,store} (PEntry p name ixs) expr = case Map.lookup name store of
-  Just (StorageValue t)  -> makeUpdate t []
-  Just (StorageMapping argtyps t) ->
-    if length argtyps /= length ixs
-      then Bad (p, "Argument mismatch for storageitem: " <> name)
-      else makeUpdate t (NonEmpty.toList argtyps)
-  Nothing -> Bad (p, "Unknown storage variable: " <> show name)
-  where
-    makeUpdate typ argtyps = do
-      indexExprs <- for (ixs `zip` argtyps) (uncurry $ checkExpr env)
-      case metaType typ of
-        Integer -> IntUpdate (IntItem contract name indexExprs) <$> inferExpr env expr
-        Boolean -> BoolUpdate (BoolItem contract name indexExprs) <$> inferExpr env expr
-        ByteStr -> BytesUpdate (BytesItem contract name indexExprs) <$> inferExpr env expr
+checkStorageExpr env@Env{contract,store} (PEntry p name args) expr = case Map.lookup name store of
+  Just (StorageValue typ) -> checkUpdate env typ name [] expr
+  Just (StorageMapping argtyps typ) ->
+    makeIxs env p args (NonEmpty.toList argtyps) >>=? \indexExprs ->
+    checkUpdate env typ name indexExprs expr
+  Nothing -> throw (p, "Unknown storage variable: " <> show name)
 
 checkPattern :: Env -> Pattern -> Err StorageLocation
-checkPattern env@Env{contract,store} (PEntry p name ixs) =
-  case Map.lookup name store of
-    Just (StorageValue t) -> case metaType t of
-          Integer -> Ok . IntLoc   $ IntItem   contract name []
-          Boolean -> Ok . BoolLoc  $ BoolItem  contract name []
-          ByteStr -> Ok . BytesLoc $ BytesItem contract name []
-    Just (StorageMapping argtyps t) ->
-      if length argtyps /= length ixs
-      then Bad (p, "Argument mismatch for storageitem: " <> name)
-      else let indexExprs = for (ixs `zip` NonEmpty.toList argtyps) (uncurry $ checkExpr env)
-           in case metaType t of
-                  Integer -> (IntLoc . IntItem contract name) <$> indexExprs
-                  Boolean -> (BoolLoc . BoolItem contract name) <$> indexExprs
-                  ByteStr -> (BytesLoc . BytesItem contract name) <$> indexExprs
-    Nothing -> Bad (p, "Unknown storage variable: " <> show name)
 checkPattern _ (PWild _) = error "TODO: checkPattern for Wild storage"
+checkPattern env@Env{contract,store} (PEntry p name args) =
+  case Map.lookup name store of
+    Just (StorageValue t) -> makeLocation t []
+    Just (StorageMapping argtyps t) -> makeLocation t (NonEmpty.toList argtyps)
+    Nothing -> throw (p, "Unknown storage variable: " <> show name)
+  where
+    makeLocation :: AbiType -> [AbiType] -> Err StorageLocation
+    makeLocation locType argTypes = do
+      indexExprs <- makeIxs env p args argTypes -- TODO possibly output errormsg with `name`
+      pure $ case metaType locType of
+        Integer -> IntLoc   $ IntItem   contract name indexExprs
+        Boolean -> BoolLoc  $ BoolItem  contract name indexExprs
+        ByteStr -> BytesLoc $ BytesItem contract name indexExprs
+
 
 checkIffs :: Env -> [IffH] -> Err [Exp Bool Untimed]
 checkIffs env ((Iff _ exps):xs) = do
-  hd <- mapM (inferExpr env) exps
+  hd <- traverse (inferExpr env) exps
   tl <- checkIffs env xs
-  Ok $ hd <> tl
+  pure $ hd <> tl
 checkIffs env ((IffIn _ typ exps):xs) = do
-  hd <- mapM (inferExpr env) exps
+  hd <- traverse (inferExpr env) exps
   tl <- checkIffs env xs
-  Ok $ map (bound typ) hd <> tl
-checkIffs _ [] = Ok []
+  pure $ map (bound typ) hd <> tl
+checkIffs _ [] = pure []
 
 bound :: AbiType -> Exp Integer t -> Exp Bool t
 bound typ e = And (LEQ (lowerBound typ) e) $ LEQ e (upperBound typ)
@@ -342,9 +333,9 @@ checkExpr env e typ = case metaType typ of
 -- | Attempt to typecheck an untyped expression as any possible type.
 typedExp :: Typeable t => Env -> Expr -> Err (TypedExp t)
 typedExp env e = ExpInt   <$> inferExpr env e
-             <|> ExpBool  <$> inferExpr env e
-             <|> ExpBytes <$> inferExpr env e
-             <|> Bad (getPosn e, "TypedExp: no suitable type") -- TODO improve error handling once we've merged the unified stuff!
+             <!> ExpBool  <$> inferExpr env e
+             <!> ExpBytes <$> inferExpr env e
+             <!> throw (getPosn e, "TypedExp: no suitable type") -- TODO improve error handling once we've merged the unified stuff!
 
 -- | Attempts to construct an expression with the type and timing required by
 -- the caller. If this is impossible, an error is thrown instead.
@@ -369,13 +360,13 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
   IntLit  p v1    -> check p . pure $ LitInt v1
   BoolLit p v1    -> check p . pure $ LitBool v1
   EITE    _ v1 v2 v3 -> ITE <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
-  EUTEntry   p name es -> entry p Neither name es
-  EPreEntry  p name es -> entry p Pre     name es
-  EPostEntry p name es -> entry p Post    name es
+  EUTEntry   p name es -> checkTime p $ entry p Neither name es
+  EPreEntry  p name es -> checkTime p $ entry p Pre     name es
+  EPostEntry p name es -> checkTime p $ entry p Post    name es
   EnvExp p v1 -> case lookup v1 defaultStore of
     Just Integer -> check p . pure $ IntEnv v1
     Just ByteStr -> check p . pure $ ByEnv  v1
-    _            -> Bad (p, "unknown environment variable: " <> show v1)
+    _            -> throw (p, "unknown environment variable: " <> show v1)
   v -> error $ "internal error: infer type of:" <> show v
   -- Wild ->
   -- Zoom Var Exp
@@ -391,26 +382,31 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
   where
     -- Try to cast the type parameter of an expression to the goal of `inferExpr`.
     -- The cast only succeeds if they already are the same.
-    check :: forall x. Typeable x => Pn -> Err (Exp x t) -> Err (Exp a t)
-    check pn e =
-      errMessage (pn,"Type mismatch. Expected " <> show (typeRep @a) <> ", got " <> show (typeRep @x) <> ".")
-        =<< castType <$> e
+    check :: forall x t0. Typeable x => Pn -> Err (Exp x t0) -> Err (Exp a t0)
+    check pn = ensure
+                [(pn,"Type mismatch. Expected " <> show (typeRep @a) <> ", got " <> show (typeRep @x) <> ".")]
+                castType
+              
+    checkTime :: forall x t0. Typeable t0 => Pn -> Err (Exp x t0) -> Err (Exp x t)
+    checkTime pn = ensure
+                    [(pn, (tail . show $ typeRep @t) <> " variable needed here!")]
+                    castTime
 
     -- Takes a polymorphic binary AST constructor and specializes it to each of
     -- our types. Those specializations are used in order to guide the
     -- typechecking of the two supplied expressions. Returns at first success.
     polycheck :: Typeable x => Pn -> (forall y. (Eq y, Typeable y) => Exp y t -> Exp y t -> Exp x t) -> Expr -> Expr -> Err (Exp a t)
     polycheck pn cons e1 e2 = check pn (cons @Integer    <$> inferExpr env e1 <*> inferExpr env e2)
-                          <|> check pn (cons @Bool       <$> inferExpr env e1 <*> inferExpr env e2)
-                          <|> check pn (cons @ByteString <$> inferExpr env e1 <*> inferExpr env e2)
-                          <|> Bad (pn, "Couldn't harmonize types!") -- TODO improve error handling once we've merged the unified stuff!
+                          <!> check pn (cons @Bool       <$> inferExpr env e1 <*> inferExpr env e2)
+                          <!> check pn (cons @ByteString <$> inferExpr env e1 <*> inferExpr env e2)
+                          <!> throw (pn, "Couldn't harmonize types!") -- TODO improve error handling once we've merged the unified stuff!
 
     -- Try to construct a reference to a calldata variable or an item in storage.
-    entry :: Typeable t0 => Pn -> Time t0 -> Id -> [Expr] -> Err (Exp a t)
+    entry :: forall t0. Typeable t0 => Pn -> Time t0 -> Id -> [Expr] -> Err (Exp a t0)
     entry pn timing name es = case (Map.lookup name store, Map.lookup name calldata) of
-      (Nothing, Nothing) -> Bad (pn, "Unknown variable: " <> name)
-      (Just _, Just _)   -> Bad (pn, "Ambiguous variable: " <> name)
-      (Nothing, Just c) -> if isTimed timing then Bad (pn, "Calldata var cannot be pre/post.") else case c of
+      (Nothing, Nothing) -> throw (pn, "Unknown variable: " <> name)
+      (Just _, Just _)   -> throw (pn, "Ambiguous variable: " <> name)
+      (Nothing, Just c) -> if isTimed timing then throw (pn, "Calldata var cannot be pre/post.") else case c of
         -- Create a calldata reference and typecheck it as with normal expressions.
         Integer -> check pn . pure $ IntVar  name
         Boolean -> check pn . pure $ BoolVar name
@@ -418,21 +414,23 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
       (Just (StorageValue a), Nothing)      -> makeEntry a []
       (Just (StorageMapping ts a), Nothing) -> makeEntry a $ NonEmpty.toList ts
       where
-        makeEntry :: AbiType -> [AbiType] -> Err (Exp a t)
+        makeEntry :: AbiType -> [AbiType] -> Err (Exp a t0)
         makeEntry a ts = case metaType a of
-          Integer -> makeItem IntItem
-          Boolean -> makeItem BoolItem
-          ByteStr -> makeItem BytesItem
+          Integer -> check pn $ makeItem IntItem
+          Boolean -> check pn $ makeItem BoolItem
+          ByteStr -> check pn $ makeItem BytesItem
           where
             -- Given that the indices used in the expression agree with the storage,
             -- create a `TStorageItem` using the supplied constructor, place it
             -- in a `TEntry` and then attempt to cast its timing parameter to the
             -- target timing of `inferExpr`. Finally, `check` the type parameter as
             -- with all other expressions.
-            makeItem :: Typeable x => (forall t0. Id -> Id -> [TypedExp t0] -> TStorageItem x t0) -> Err (Exp a t)
-            makeItem maker = do
-              when (length ts /= length es) $ Bad (pn, "Index mismatch for entry!")
-              ixs <- for (es `zip` ts) (uncurry $ checkExpr env)
-              check pn
-                $ errMessage (pn, (tail . show $ typeRep @t) <> " variable needed here!")
-                $ castTime (TEntry (maker contract name ixs) timing)
+            makeItem :: Typeable x => (Id -> Id -> [TypedExp t0] -> TStorageItem x t0) -> Err (Exp x t0)
+            makeItem cons = do
+              ixs <- makeIxs env pn es ts
+              pure $ TEntry (cons contract name ixs) timing
+
+makeIxs :: Typeable t => Env -> Pn -> [Expr] -> [AbiType] -> Err [TypedExp t]
+makeIxs env pn exprs types = if length exprs /= length types
+                              then throw (pn, "Index mismatch for entry!")
+                              else traverse (uncurry $ checkExpr env) (exprs `zip` types)

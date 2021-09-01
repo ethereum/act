@@ -1,5 +1,5 @@
 {
-module Parse where
+module Parse (module Parse, showposn) where
 import Prelude hiding (EQ, GT, LT)
 import Lex
 import EVM.ABI
@@ -162,7 +162,7 @@ Transition : 'behaviour' id 'of' id
              Interface
              list(Precondition)
              Cases
-             Ensures                                  { Transition (name $2) (name $4)
+             Ensures                                  { Transition (posn $2) (name $2) (name $4)
                                                         $5 $6 $7 $8 }
 
 Constructor : 'constructor' 'of' id
@@ -171,7 +171,7 @@ Constructor : 'constructor' 'of' id
               Creation
               list(ExtStorage)
               Ensures
-              Invariants                              { Definition (name $3)
+              Invariants                              { Definition (posn $3) (name $3)
                                                          $4 $5 $6 $7 $8 $9 }
 
 Ensures : optblock('ensures', Expr)                   { $1 }
@@ -221,7 +221,7 @@ Assign : StorageVar ':=' Expr                         { AssignVal $1 $3 }
 Defn : Expr ':=' Expr                                 { Defn $1 $3 }
 Decl : Type id                                        { Decl $1 (name $2) }
 
-StorageVar : SlotType id                              { StorageVar $1 (name $2) }
+StorageVar : SlotType id                              { StorageVar (posn $2) $1 (name $2) }
 
 Type : 'uint'
        { case validsize $1 of

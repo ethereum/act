@@ -316,6 +316,9 @@ getPosn expr = case expr of
     IntLit pn _ -> pn
     BoolLit pn _ -> pn
 
+posFromDef :: Defn -> Pn
+posFromDef (Defn e _) = getPosn e
+
 -- | Returns all the identifiers used in an expression,
 -- as well all of the positions they're used in.
 idFromRewrites :: Expr -> Map Id [Pn]
