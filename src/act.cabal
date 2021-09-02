@@ -27,7 +27,8 @@ common deps
                  process          >= 1.6.5.0,
                  ansi-wl-pprint   >= 0.6.9,
                  regex-tdfa,
-                 validation       >= 1.1.1
+                 validation       >= 1.1.1,
+                 semigroupoids    >= 5.2.2
   other-modules: Lex ErrM ErrorLogger Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Annotated Syntax.Timing Syntax.TimeAgnostic Type Print Enrich SMT
   
   if flag(ci)
