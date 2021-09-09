@@ -105,7 +105,7 @@ defaultStore =
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> RawBehaviour -> Err [Claim]
-splitBehaviour store (Transition pn name contract iface@(Interface _ decls) iffs' cases posts) = do
+splitBehaviour store (Transition pn name contract iface@(Interface _ decls) iffs' cases posts) =
   -- constrain integer calldata variables (TODO: other types)
   checkIffs env iffs' >>=? \iff ->
   traverse (inferExpr env) posts >>=? \postcondition ->
