@@ -109,7 +109,7 @@ locsFromExp = nub . go
       IntEnv _ -> []
       ByEnv _ -> []
       ITE x y z -> go x <> go y <> go z
-      TEntry a _ -> locsFromItem a
+      TEntry _ a -> locsFromItem a
 
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
@@ -180,7 +180,7 @@ ethEnvFromExp = nub . go
       NewAddr a b -> go a <> go b
       IntEnv a -> [a]
       ByEnv a -> [a]
-      TEntry a _ -> ethEnvFromItem a
+      TEntry _ a -> ethEnvFromItem a
 
 metaType :: AbiType -> MType
 metaType (AbiUIntType _)     = Integer
@@ -359,3 +359,8 @@ idFromRewrites e = case e of
   BoolLit {}        -> empty
   where
     idFromRewrites' = unionsWith (<>) . fmap idFromRewrites
+
+-- | True iff the case is a wildcard.
+wildcard :: Case -> Bool
+wildcard (Case _ (WildExp _) _) = True
+wildcard _                      = False

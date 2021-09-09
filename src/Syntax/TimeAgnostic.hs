@@ -12,6 +12,9 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+
+{-# LANGUAGE RankNTypes, StandaloneKindSignatures #-}
+
 {-|
 Module      : Syntax.TimeAgnostic
 Description : AST data types where implicit timings may or may not have been made explicit.
@@ -42,10 +45,50 @@ import Data.Typeable
 import Data.Vector (fromList)
 
 import EVM.Solidity (SlotType(..))
+import EVM.ABI (AbiType(..))
 
 -- Reexports
 import Syntax.Timing  as Syntax.TimeAgnostic
 import Syntax.Untyped as Syntax.TimeAgnostic (Id, Interface(..), EthEnv(..), Decl(..))
+
+
+import Data.Singletons
+
+data SType :: * -> * where
+  SInteger :: SType Integer
+  SBoolean :: SType Bool
+  SByteStr :: SType ByteString
+
+type instance Sing = SType
+
+instance SingI Integer where sing = SInteger
+instance SingI Bool where sing = SBoolean
+instance SingI ByteString where sing = SByteStr
+
+instance SingKind * where
+  type Demote * = MType
+
+  fromSing SInteger = Integer
+  fromSing SBoolean = Boolean
+  fromSing SByteStr = ByteStr
+
+  toSing Integer = SomeSing SInteger
+  toSing Boolean = SomeSing SBoolean
+  toSing ByteStr = SomeSing SByteStr
+
+
+class TypeableSing k where
+  isTypeableSing :: Sing (a :: k) -> (Typeable a => r) -> r
+
+instance TypeableSing * where
+  isTypeableSing SInteger r = r
+  isTypeableSing SBoolean r = r
+  isTypeableSing SByteStr r = r
+
+withSomeType :: forall k r. (SingKind k, TypeableSing k)
+                     => Demote k -> (forall (a :: k). Typeable a => Sing a -> r) -> r
+withSomeType x f = withSomeSing x $ \s -> isTypeableSing s (f s)
+
 
 -- AST post typechecking
 data Claim t
@@ -217,7 +260,7 @@ data Exp (a :: *) (t :: Timing) where
   Eq  :: (Eq a, Typeable a) => Exp a t -> Exp a t -> Exp Bool t
   NEq :: (Eq a, Typeable a) => Exp a t -> Exp a t -> Exp Bool t
   ITE :: Exp Bool t -> Exp a t -> Exp a t -> Exp a t
-  TEntry :: TStorageItem a t -> Time t -> Exp a t
+  TEntry :: Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
 
 instance Eq (Exp a t) where
@@ -327,7 +370,7 @@ instance Timable (Exp a) where
     Eq  x y -> Eq  (go x) (go y)
     NEq x y -> NEq (go x) (go y)
     ITE x y z -> ITE (go x) (go y) (go z)
-    TEntry item _ -> TEntry (go item) time
+    TEntry _ item -> TEntry time (go item)
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
@@ -441,7 +484,7 @@ instance Typeable a => ToJSON (Exp a t) where
   toJSON (UIntMin a) = toJSON $ show $ uintmin a
   toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
-  toJSON (TEntry a t) = object [ pack (show t) .= toJSON a ]
+  toJSON (TEntry t a) = object [ pack (show t) .= toJSON a ]
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
