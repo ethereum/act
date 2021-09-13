@@ -58,10 +58,10 @@ locFromUpdate (BoolUpdate  item _) = BoolLoc item
 locFromUpdate (BytesUpdate item _) = BytesLoc item
 
 locsFromItem :: TStorageItem a t -> [StorageLocation t]
-locsFromItem t = case t of
-  IntItem   contract name ixs -> IntLoc   (IntItem   contract name ixs) : ixLocs ixs
-  BoolItem  contract name ixs -> BoolLoc  (BoolItem  contract name ixs) : ixLocs ixs
-  BytesItem contract name ixs -> BytesLoc (BytesItem contract name ixs) : ixLocs ixs
+locsFromItem item@(Item typ _ _ ixs) = case typ of
+  SInteger -> IntLoc   item : ixLocs ixs
+  SBoolean -> BoolLoc  item : ixLocs ixs
+  SByteStr -> BytesLoc item : ixLocs ixs
   where
     ixLocs :: [TypedExp t] -> [StorageLocation t]
     ixLocs = concatMap locsFromTypedExp
@@ -94,7 +94,7 @@ locsFromExp = nub . go
       Exp a b   -> go a <> go b
       Cat a b   -> go a <> go b
       Slice a b c -> go a <> go b <> go c
-      ByVar _ -> []
+      --ByVar _ -> []
       ByStr _ -> []
       ByLit _ -> []
       LitInt _  -> []
@@ -102,14 +102,15 @@ locsFromExp = nub . go
       IntMax _  -> []
       UIntMin _ -> []
       UIntMax _ -> []
-      IntVar _  -> []
+      --IntVar _  -> []
       LitBool _ -> []
-      BoolVar _ -> []
+      --BoolVar _ -> []
       NewAddr a b -> go a <> go b
       IntEnv _ -> []
       ByEnv _ -> []
       ITE x y z -> go x <> go y <> go z
       TEntry _ a -> locsFromItem a
+      Var _ _ -> []
 
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
@@ -166,13 +167,13 @@ ethEnvFromExp = nub . go
       Cat a b   -> go a <> go b
       Slice a b c -> go a <> go b <> go c
       ITE a b c -> go a <> go b <> go c
-      ByVar _ -> []
+      --ByVar _ -> []
       ByStr _ -> []
       ByLit _ -> []
       LitInt _  -> []
-      IntVar _  -> []
+      --IntVar _  -> []
       LitBool _ -> []
-      BoolVar _ -> []
+      --BoolVar _ -> []
       IntMin _ -> []
       IntMax _ -> []
       UIntMin _ -> []
@@ -181,6 +182,7 @@ ethEnvFromExp = nub . go
       IntEnv a -> [a]
       ByEnv a -> [a]
       TEntry _ a -> ethEnvFromItem a
+      Var _ _ -> []
 
 metaType :: AbiType -> MType
 metaType (AbiUIntType _)     = Integer
@@ -199,9 +201,7 @@ idFromRewrite :: Rewrite t -> Id
 idFromRewrite = onRewrite idFromLocation idFromUpdate
 
 idFromItem :: TStorageItem a t -> Id
-idFromItem (IntItem _ name _) = name
-idFromItem (BoolItem _ name _) = name
-idFromItem (BytesItem _ name _) = name
+idFromItem (Item _ _ name _) = name
 
 idFromUpdate :: StorageUpdate t -> Id
 idFromUpdate (IntUpdate   item _) = idFromItem item
@@ -217,14 +217,14 @@ contractFromRewrite :: Rewrite t -> Id
 contractFromRewrite = onRewrite contractFromLoc contractFromUpdate
 
 contractFromItem :: TStorageItem a t -> Id
-contractFromItem (IntItem   c _ _) = c
-contractFromItem (BoolItem  c _ _) = c
-contractFromItem (BytesItem c _ _) = c
+contractFromItem (Item _ c _ _) = c
+--contractFromItem (BoolItem  c _ _) = c
+--contractFromItem (BytesItem c _ _) = c
 
 ixsFromItem :: TStorageItem a t -> [TypedExp t]
-ixsFromItem (IntItem   _ _ ixs) = ixs
-ixsFromItem (BoolItem  _ _ ixs) = ixs
-ixsFromItem (BytesItem _ _ ixs) = ixs
+ixsFromItem (Item _ _ _ ixs) = ixs
+--ixsFromItem (BoolItem  _ _ ixs) = ixs
+--ixsFromItem (BytesItem _ _ ixs) = ixs
 
 contractsInvolved :: Behaviour t -> [Id]
 contractsInvolved = fmap contractFromRewrite . _stateUpdates
@@ -252,10 +252,10 @@ ixsFromUpdate (BytesUpdate item _) = ixsFromItem item
 ixsFromRewrite :: Rewrite t -> [TypedExp t]
 ixsFromRewrite = onRewrite ixsFromLocation ixsFromUpdate
 
-itemType :: TStorageItem a t -> MType
-itemType IntItem{}   = Integer
-itemType BoolItem{}  = Boolean
-itemType BytesItem{} = ByteStr
+--itemType :: TStorageItem a t -> MType
+--itemType IntItem{}   = Integer
+--itemType BoolItem{}  = Boolean
+--itemType BytesItem{} = ByteStr
 
 isMapping :: StorageLocation t -> Bool
 isMapping = not . null . ixsFromLocation

@@ -5,7 +5,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MonadComprehensions #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -60,6 +59,12 @@ data SType a where
   SByteStr :: SType ByteString
 deriving instance Show (SType a)
 deriving instance Eq (SType a)
+
+(~==) :: SType a -> SType b -> Bool
+SInteger ~== SInteger = True
+SBoolean ~== SBoolean = True
+SByteStr ~== SByteStr = True
+_        ~== _        = False
 
 type instance Sing = SType
 
@@ -196,9 +201,10 @@ data StorageLocation t
 -- refer to the pre-/post-state, or not. `a` is the type of the item that is
 -- referenced.
 data TStorageItem (a :: *) (t :: Timing) where
-  IntItem    :: Id -> Id -> [TypedExp t] -> TStorageItem Integer t
-  BoolItem   :: Id -> Id -> [TypedExp t] -> TStorageItem Bool t
-  BytesItem  :: Id -> Id -> [TypedExp t] -> TStorageItem ByteString t
+  Item :: Sing a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
+--  IntItem    :: Id -> Id -> [TypedExp t] -> TStorageItem Integer t
+--  BoolItem   :: Id -> Id -> [TypedExp t] -> TStorageItem Bool t
+--  BytesItem  :: Id -> Id -> [TypedExp t] -> TStorageItem ByteString t
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
@@ -231,7 +237,7 @@ data Exp (a :: *) (t :: Timing) where
   GEQ :: Exp Integer t -> Exp Integer t -> Exp Bool t
   GE :: Exp Integer t -> Exp Integer t -> Exp Bool t
   LitBool :: Bool -> Exp Bool t
-  BoolVar :: Id -> Exp Bool t
+  Var :: Sing a -> Id -> Exp a t
   -- integers
   Add :: Exp Integer t -> Exp Integer t -> Exp Integer t
   Sub :: Exp Integer t -> Exp Integer t -> Exp Integer t
@@ -240,7 +246,7 @@ data Exp (a :: *) (t :: Timing) where
   Mod :: Exp Integer t -> Exp Integer t -> Exp Integer t
   Exp :: Exp Integer t -> Exp Integer t -> Exp Integer t
   LitInt :: Integer -> Exp Integer t
-  IntVar :: Id -> Exp Integer t
+  --IntVar :: Id -> Exp Integer t
   IntEnv :: EthEnv -> Exp Integer t
   -- bounds
   IntMin :: Int -> Exp Integer t
@@ -250,7 +256,7 @@ data Exp (a :: *) (t :: Timing) where
   -- bytestrings
   Cat :: Exp ByteString t -> Exp ByteString t -> Exp ByteString t
   Slice :: Exp ByteString t -> Exp Integer t -> Exp Integer t -> Exp ByteString t
-  ByVar :: Id -> Exp ByteString t
+  --ByVar :: Id -> Exp ByteString t
   ByStr :: String -> Exp ByteString t
   ByLit :: ByteString -> Exp ByteString t
   ByEnv :: EthEnv -> Exp ByteString t
@@ -274,7 +280,7 @@ instance Eq (Exp a t) where
   GEQ a b == GEQ c d = a == c && b == d
   GE a b == GE c d = a == c && b == d
   LitBool a == LitBool b = a == b
-  BoolVar a == BoolVar b = a == b
+  --BoolVar a == BoolVar b = a == b
 
   Add a b == Add c d = a == c && b == d
   Sub a b == Sub c d = a == c && b == d
@@ -283,7 +289,7 @@ instance Eq (Exp a t) where
   Mod a b == Mod c d = a == c && b == d
   Exp a b == Exp c d = a == c && b == d
   LitInt a == LitInt b = a == b
-  IntVar a == IntVar b = a == b
+  --IntVar a == IntVar b = a == b
   IntEnv a == IntEnv b = a == b
 
   IntMin a == IntMin b = a == b
@@ -293,7 +299,7 @@ instance Eq (Exp a t) where
 
   Cat a b == Cat c d = a == c && b == d
   Slice a b c == Slice d e f = a == d && b == e && c == f
-  ByVar a == ByVar b = a == b
+  --ByVar a == ByVar b = a == b
   ByStr a == ByStr b = a == b
   ByLit a == ByLit b = a == b
   ByEnv a == ByEnv b = a == b
@@ -310,6 +316,7 @@ instance Eq (Exp a t) where
       Nothing -> False
   ITE a b c == ITE d e f = a == d && b == e && c == f
   TEntry a t == TEntry b u = a == b && t == u
+  Var _ a == Var _ b = a == b
   _ == _ = False
 
 instance Semigroup (Exp Bool t) where
@@ -342,7 +349,7 @@ instance Timable (Exp a) where
     GEQ x y -> GEQ (go x) (go y)
     GE x y -> GE (go x) (go y)
     LitBool x -> LitBool x
-    BoolVar x -> BoolVar x
+    --BoolVar x -> BoolVar x
     -- integers
     Add x y -> Add (go x) (go y)
     Sub x y -> Sub (go x) (go y)
@@ -351,7 +358,7 @@ instance Timable (Exp a) where
     Mod x y -> Mod (go x) (go y)
     Exp x y -> Exp (go x) (go y)
     LitInt x -> LitInt x
-    IntVar x -> IntVar x
+    --IntVar x -> IntVar x
     IntEnv x -> IntEnv x
     -- bounds
     IntMin x -> IntMin x
@@ -361,7 +368,7 @@ instance Timable (Exp a) where
     -- bytestrings
     Cat x y -> Cat (go x) (go y)
     Slice x y z -> Slice (go x) (go y) (go z)
-    ByVar x -> ByVar x
+    --ByVar x -> ByVar x
     ByStr x -> ByStr x
     ByLit x -> ByLit x
     ByEnv x -> ByEnv x
@@ -372,15 +379,13 @@ instance Timable (Exp a) where
     NEq x y -> NEq (go x) (go y)
     ITE x y z -> ITE (go x) (go y) (go z)
     TEntry _ item -> TEntry time (go item)
+    Var t x -> Var t x
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
 
 instance Timable (TStorageItem a) where
-  setTime time item = case item of
-    IntItem   c x ixs -> IntItem   c x $ setTime time <$> ixs
-    BoolItem  c x ixs -> BoolItem  c x $ setTime time <$> ixs
-    BytesItem c x ixs -> BytesItem c x $ setTime time <$> ixs
+  setTime time (Item typ c x ixs) = Item typ c x $ setTime time <$> ixs
 
 ------------------------
 -- * JSON instances * --
@@ -448,15 +453,15 @@ instance ToJSON (StorageUpdate t) where
   toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
 instance ToJSON (TStorageItem a t) where
-  toJSON (IntItem a b []) = object ["sort" .= pack "int"
+  toJSON (Item SInteger a b []) = object ["sort" .= pack "int"
                                   , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (BoolItem a b []) = object ["sort" .= pack "bool"
+  toJSON (Item SBoolean a b []) = object ["sort" .= pack "bool"
                                    , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (BytesItem a b []) = object ["sort" .= pack "bytes"
+  toJSON (Item SByteStr a b []) = object ["sort" .= pack "bytes"
                                     , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (IntItem a b c) = mapping a b c
-  toJSON (BoolItem a b c) = mapping a b c
-  toJSON (BytesItem a b c) = mapping a b c
+  toJSON (Item SInteger a b c) = mapping a b c
+  toJSON (Item SBoolean a b c) = mapping a b c
+  toJSON (Item SByteStr a b c) = mapping a b c
 
 mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
 mapping c a b = object [  "symbol"   .= pack "lookup"
@@ -478,7 +483,7 @@ instance Typeable a => ToJSON (Exp a t) where
   toJSON (Mul a b) = symbol "*" a b
   toJSON (Div a b) = symbol "/" a b
   toJSON (NewAddr a b) = symbol "newAddr" a b
-  toJSON (IntVar a) = String $ pack a
+  --toJSON (IntVar a) = String $ pack a
   toJSON (LitInt a) = toJSON $ show a
   toJSON (IntMin a) = toJSON $ show $ intmin a
   toJSON (IntMax a) = toJSON $ show $ intmax a
@@ -486,6 +491,7 @@ instance Typeable a => ToJSON (Exp a t) where
   toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
   toJSON (TEntry t a) = object [ pack (show t) .= toJSON a ]
+  toJSON (Var _ a) = toJSON a
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
@@ -499,7 +505,7 @@ instance Typeable a => ToJSON (Exp a t) where
   toJSON (LEQ a b)  = symbol "<=" a b
   toJSON (GEQ a b)  = symbol ">=" a b
   toJSON (LitBool a) = String $ pack $ show a
-  toJSON (BoolVar a) = toJSON a
+  --toJSON (BoolVar a) = toJSON a
   toJSON (Neg a) = object [  "symbol"   .= pack "not"
                           ,  "arity"    .= Data.Aeson.Types.Number 1
                           ,  "args"     .= Array (fromList [toJSON a])]
@@ -509,7 +515,7 @@ instance Typeable a => ToJSON (Exp a t) where
                                 , "arity"  .= Data.Aeson.Types.Number 3
                                 , "args"   .= Array (fromList [toJSON s, toJSON a, toJSON b])
                                 ]
-  toJSON (ByVar a) = toJSON a
+  --toJSON (ByVar a) = toJSON a
   toJSON (ByStr a) = toJSON a
   toJSON (ByLit a) = String . pack $ show a
   toJSON (ByEnv a) = String . pack $ show a
@@ -571,13 +577,16 @@ uintmin _ = 0
 uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
-castTime :: (Typeable t, Typeable u) => Exp a u -> Maybe (Exp a t)
-castTime = gcast
+mkVar :: SingI a => Id -> Exp a t
+mkVar name = Var sing name
 
-castType :: (Typeable a, Typeable x) => Exp x t -> Maybe (Exp a t)
-castType = gcast0
+-- castTime :: (Typeable t, Typeable u) => Exp a u -> Maybe (Exp a t)
+-- castTime = gcast
 
--- | Analogous to `gcast1` and `gcast2` from `Data.Typeable`. We *could* technically use `cast` instead
--- but then we would catch too many errors at once, so we couldn't emit informative error messages.
-gcast0 :: forall t t' a. (Typeable t, Typeable t') => t a -> Maybe (t' a)
-gcast0 x = fmap (\Refl -> x) (eqT :: Maybe (t :~: t'))
+-- castType :: (Typeable a, Typeable x) => Exp x t -> Maybe (Exp a t)
+-- castType = gcast0
+
+-- -- | Analogous to `gcast1` and `gcast2` from `Data.Typeable`. We *could* technically use `cast` instead
+-- -- but then we would catch too many errors at once, so we couldn't emit informative error messages.
+-- gcast0 :: forall t t' a. (Typeable t, Typeable t') => t a -> Maybe (t' a)
+-- gcast0 x = fmap (\Refl -> x) (eqT :: Maybe (t :~: t'))

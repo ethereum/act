@@ -37,11 +37,11 @@ import Parse
 import Syntax.Annotated
 import Syntax.Untyped
 import Enrich
-import K hiding (normalize, indent)
-import SMT
+--import K hiding (normalize, indent)
+--import SMT
 import Type hiding (Err)
 import qualified Type
-import Coq hiding (indent)
+--import Coq hiding (indent)
 --import HEVM
 
 --command line options
@@ -93,8 +93,8 @@ main = do
       Lex f -> lex' f
       Parse f -> parse' f
       Type f -> type' f
-      Prove file' solver' smttimeout' debug' -> prove file' solver' smttimeout' debug'
-      Coq f -> coq' f
+      --Prove file' solver' smttimeout' debug' -> prove file' solver' smttimeout' debug'
+      --Coq f -> coq' f
       --K spec' soljson' gas' storage' extractbin' out' -> k spec' soljson' gas' storage' extractbin' out'
       --HEVM spec' soljson' solver' smttimeout' debug' -> hevm spec' soljson' solver' smttimeout' debug'
 
@@ -123,71 +123,71 @@ type' f = do
     Logger.Success a -> B.putStrLn (encode a)
     Logger.Failure e -> mapM_ (prettyErr contents) e >> exitFailure
 
-prove :: FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
-prove file' solver' smttimeout' debug' = do
-  let
-    parseSolver s = case s of
-      Just "z3" -> SMT.Z3
-      Just "cvc4" -> SMT.CVC4
-      Nothing -> SMT.Z3
-      Just _ -> error "unrecognized solver"
-    config = SMT.SMTConfig (parseSolver solver') (fromMaybe 20000 smttimeout') debug'
-  contents <- readFile file'
-  proceed contents (compile contents) $ \claims -> do
-    let
-      catModels results = [m | Sat m <- results]
-      catErrors results = [e | e@SMT.Error {} <- results]
-      catUnknowns results = [u | u@SMT.Unknown {} <- results]
+-- prove :: FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
+-- prove file' solver' smttimeout' debug' = do
+--   let
+--     parseSolver s = case s of
+--       Just "z3" -> SMT.Z3
+--       Just "cvc4" -> SMT.CVC4
+--       Nothing -> SMT.Z3
+--       Just _ -> error "unrecognized solver"
+--     config = SMT.SMTConfig (parseSolver solver') (fromMaybe 20000 smttimeout') debug'
+--   contents <- readFile file'
+--   proceed contents (compile contents) $ \claims -> do
+--     let
+--       catModels results = [m | Sat m <- results]
+--       catErrors results = [e | e@SMT.Error {} <- results]
+--       catUnknowns results = [u | u@SMT.Unknown {} <- results]
 
-      (<->) :: Doc -> [Doc] -> Doc
-      x <-> y = x <$$> line <> (indent 2 . vsep $ y)
+--       (<->) :: Doc -> [Doc] -> Doc
+--       x <-> y = x <$$> line <> (indent 2 . vsep $ y)
 
-      failMsg :: [SMT.SMTResult] -> Doc
-      failMsg results
-        | not . null . catUnknowns $ results
-            = text "could not be proven due to a" <+> (yellow . text $ "solver timeout")
-        | not . null . catErrors $ results
-            = (red . text $ "failed") <+> "due to solver errors:" <-> ((fmap (text . show)) . catErrors $ results)
-        | otherwise
-            = (red . text $ "violated") <> colon <-> (fmap pretty . catModels $ results)
+--       failMsg :: [SMT.SMTResult] -> Doc
+--       failMsg results
+--         | not . null . catUnknowns $ results
+--             = text "could not be proven due to a" <+> (yellow . text $ "solver timeout")
+--         | not . null . catErrors $ results
+--             = (red . text $ "failed") <+> "due to solver errors:" <-> ((fmap (text . show)) . catErrors $ results)
+--         | otherwise
+--             = (red . text $ "violated") <> colon <-> (fmap pretty . catModels $ results)
 
-      passMsg :: Doc
-      passMsg = (green . text $ "holds") <+> (bold . text $ "∎")
+--       passMsg :: Doc
+--       passMsg = (green . text $ "holds") <+> (bold . text $ "∎")
 
-      accumulateResults :: (Bool, Doc) -> (Query, [SMT.SMTResult]) -> (Bool, Doc)
-      accumulateResults (status, report) (query, results) = (status && holds, report <$$> msg <$$> smt)
-        where
-          holds = all isPass results
-          msg = identifier query <+> if holds then passMsg else failMsg results
-          smt = if debug' then line <> getSMT query else empty
+--       accumulateResults :: (Bool, Doc) -> (Query, [SMT.SMTResult]) -> (Bool, Doc)
+--       accumulateResults (status, report) (query, results) = (status && holds, report <$$> msg <$$> smt)
+--         where
+--           holds = all isPass results
+--           msg = identifier query <+> if holds then passMsg else failMsg results
+--           smt = if debug' then line <> getSMT query else empty
 
-    solverInstance <- spawnSolver config
-    pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
-    invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
-    stopSolver solverInstance
+--     solverInstance <- spawnSolver config
+--     pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
+--     invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
+--     stopSolver solverInstance
 
-    let
-      invTitle = line <> (underline . bold . text $ "Invariants:") <> line
-      invOutput = foldl' accumulateResults (True, empty) invResults
+--     let
+--       invTitle = line <> (underline . bold . text $ "Invariants:") <> line
+--       invOutput = foldl' accumulateResults (True, empty) invResults
 
-      pcTitle = line <> (underline . bold . text $ "Postconditions:") <> line
-      pcOutput = foldl' accumulateResults (True, empty) pcResults
+--       pcTitle = line <> (underline . bold . text $ "Postconditions:") <> line
+--       pcOutput = foldl' accumulateResults (True, empty) pcResults
 
-    render $ vsep
-      [ ifExists invResults invTitle
-      , indent 2 $ snd invOutput
-      , ifExists pcResults pcTitle
-      , indent 2 $ snd pcOutput
-      ]
+--     render $ vsep
+--       [ ifExists invResults invTitle
+--       , indent 2 $ snd invOutput
+--       , ifExists pcResults pcTitle
+--       , indent 2 $ snd pcOutput
+--       ]
 
-    unless (fst invOutput && fst pcOutput) exitFailure
+--     unless (fst invOutput && fst pcOutput) exitFailure
 
 
-coq' :: FilePath -> IO()
-coq' f = do
-  contents <- readFile f
-  proceed contents (compile contents) $ \claims ->
-    TIO.putStr $ coq claims
+-- coq' :: FilePath -> IO()
+-- coq' f = do
+--   contents <- readFile f
+--   proceed contents (compile contents) $ \claims ->
+--     TIO.putStr $ coq claims
 
 -- k :: FilePath -> FilePath -> Maybe [(Id, String)] -> Maybe String -> Bool -> Maybe String -> IO ()
 -- k spec' soljson' gas' storage' extractbin' out' = do
@@ -274,9 +274,9 @@ prettyErr contents (pn, msg) | pn == lastPos = do
 --  exitFailure
 prettyErr contents (AlexPn _ line' col, msg) = do
   let cxt = safeDrop (line' - 1) (lines contents)
+  hPutStrLn stderr $ msg <> ":"
   hPutStrLn stderr $ show line' <> " | " <> head cxt
   hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
-  hPutStrLn stderr msg
 --  exitFailure
   where
     safeDrop :: Int -> [a] -> [a]

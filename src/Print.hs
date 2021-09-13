@@ -82,7 +82,7 @@ prettyExp e = case e of
 
   --polymorphic
   ITE a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  TEntry a t -> timeParens t $ prettyItem a
+  TEntry t a -> timeParens t $ prettyItem a
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
