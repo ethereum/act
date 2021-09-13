@@ -188,10 +188,10 @@ Cases : Post                                          { Direct $1 }
 Case : 'case' Expr ':' Post                           { Case (posn $1) $2 $4 }
 
 
-Post  : Storage list(ExtStorage)                      { Post (Just $1) $2 Nothing }
-      | list(ExtStorage) Returns                      { Post Nothing $1 (Just $2) }
-      | nonempty(ExtStorage)                          { Post Nothing $1 Nothing }
-      | Storage list(ExtStorage) Returns              { Post (Just $1) $2 (Just $3) }
+Post  : Storage list(ExtStorage)                      { Post $1 $2 Nothing }
+      | list(ExtStorage) Returns                      { Post [] $1 (Just $2) }
+      | nonempty(ExtStorage)                          { Post [] $1 Nothing }
+      | Storage list(ExtStorage) Returns              { Post $1 $2 (Just $3) }
 
 Returns : 'returns' Expr                              { $2 }
 

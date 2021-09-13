@@ -54,10 +54,12 @@ import Syntax.Untyped as Syntax.TimeAgnostic (Id, Interface(..), EthEnv(..), Dec
 
 import Data.Singletons
 
-data SType :: * -> * where
+data SType a where
   SInteger :: SType Integer
   SBoolean :: SType Bool
   SByteStr :: SType ByteString
+deriving instance Show (SType a)
+deriving instance Eq (SType a)
 
 type instance Sing = SType
 
@@ -86,9 +88,8 @@ instance TypeableSing * where
   isTypeableSing SByteStr r = r
 
 withSomeType :: forall k r. (SingKind k, TypeableSing k)
-                     => Demote k -> (forall (a :: k). Typeable a => Sing a -> r) -> r
+             => Demote k -> (forall (a :: k). Typeable a => Sing a -> r) -> r
 withSomeType x f = withSomeSing x $ \s -> isTypeableSing s (f s)
-
 
 -- AST post typechecking
 data Claim t

@@ -45,7 +45,7 @@ data Case = Case Pn Expr Post
   deriving (Eq, Show)
 
 data Post
-  = Post (Maybe [Storage]) [ExtStorage] (Maybe Expr)
+  = Post [Storage] [ExtStorage] (Maybe Expr)
   deriving (Eq, Show)
 
 newtype Creates = Creates [Assign]

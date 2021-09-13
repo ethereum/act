@@ -361,6 +361,6 @@ idFromRewrites e = case e of
     idFromRewrites' = unionsWith (<>) . fmap idFromRewrites
 
 -- | True iff the case is a wildcard.
-wildcard :: Case -> Bool
-wildcard (Case _ (WildExp _) _) = True
-wildcard _                      = False
+isWild :: Case -> Bool
+isWild (Case _ (WildExp _) _) = True
+isWild _                      = False
