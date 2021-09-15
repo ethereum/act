@@ -1,5 +1,7 @@
 {-# LANGUAGE GADTs #-}
 
+{-# LANGUAGE PatternSynonyms #-}
+
 {-|
 Module      : Syntax
 Description : Functions for manipulating and collapsing all our different ASTs.
@@ -8,8 +10,6 @@ module Syntax where
 
 import Data.List
 import Data.Map (Map,empty,insertWith,unionsWith)
-
-import EVM.ABI (AbiType(..))
 
 import Syntax.TimeAgnostic as Agnostic
 import qualified Syntax.Annotated as Annotated
@@ -183,19 +183,6 @@ ethEnvFromExp = nub . go
       ByEnv a -> [a]
       TEntry _ a -> ethEnvFromItem a
       Var _ _ -> []
-
-metaType :: AbiType -> MType
-metaType (AbiUIntType _)     = Integer
-metaType (AbiIntType  _)     = Integer
-metaType AbiAddressType      = Integer
-metaType AbiBoolType         = Boolean
-metaType (AbiBytesType n)    = if n <= 32 then Integer else ByteStr
-metaType AbiBytesDynamicType = ByteStr
-metaType AbiStringType       = ByteStr
---metaType (AbiArrayDynamicType a) =
---metaType (AbiArrayType        Int AbiType
---metaType (AbiTupleType        (Vector AbiType)
-metaType _ = error "Extract.metaType: TODO"
 
 idFromRewrite :: Rewrite t -> Id
 idFromRewrite = onRewrite idFromLocation idFromUpdate

@@ -12,7 +12,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 
-{-# LANGUAGE RankNTypes, StandaloneKindSignatures #-}
+{-# LANGUAGE RankNTypes, StandaloneKindSignatures, PatternSynonyms, ViewPatterns #-}
 
 {-|
 Module      : Syntax.TimeAgnostic
@@ -50,8 +50,30 @@ import EVM.ABI (AbiType(..))
 import Syntax.Timing  as Syntax.TimeAgnostic
 import Syntax.Untyped as Syntax.TimeAgnostic (Id, Interface(..), EthEnv(..), Decl(..))
 
-
 import Data.Singletons
+
+--types understood by proving tools
+data MType
+  = Integer
+  | Boolean
+  | ByteStr
+  deriving (Eq, Ord, Show, Read)
+
+metaType :: AbiType -> MType
+metaType (AbiUIntType _)     = Integer
+metaType (AbiIntType  _)     = Integer
+metaType AbiAddressType      = Integer
+metaType AbiBoolType         = Boolean
+metaType (AbiBytesType n)    = if n <= 32 then Integer else ByteStr
+metaType AbiBytesDynamicType = ByteStr
+metaType AbiStringType       = ByteStr
+--metaType (AbiArrayDynamicType a) =
+--metaType (AbiArrayType        Int AbiType
+--metaType (AbiTupleType        (Vector AbiType)
+metaType _ = error "Extract.metaType: TODO"
+
+pattern FromAbi t <- (metaType -> FromSing (STypeable t))
+pattern FromMeta t <- FromSing (STypeable t)
 
 data SType a where
   SInteger :: SType Integer
@@ -60,41 +82,27 @@ data SType a where
 deriving instance Show (SType a)
 deriving instance Eq (SType a)
 
-(~==) :: SType a -> SType b -> Bool
-SInteger ~== SInteger = True
-SBoolean ~== SBoolean = True
-SByteStr ~== SByteStr = True
-_        ~== _        = False
+data STypeable a where
+  STypeable :: Typeable a => SType a -> STypeable a
+deriving instance Show (STypeable a)
+deriving instance Eq (STypeable a)
 
-type instance Sing = SType
+type instance Sing = STypeable
 
-instance SingI Integer where sing = SInteger
-instance SingI Bool where sing = SBoolean
-instance SingI ByteString where sing = SByteStr
+instance SingI Integer    where sing = STypeable SInteger
+instance SingI Bool       where sing = STypeable SBoolean
+instance SingI ByteString where sing = STypeable SByteStr
 
 instance SingKind * where
   type Demote * = MType
 
-  fromSing SInteger = Integer
-  fromSing SBoolean = Boolean
-  fromSing SByteStr = ByteStr
+  fromSing (STypeable SInteger) = Integer
+  fromSing (STypeable SBoolean) = Boolean
+  fromSing (STypeable SByteStr) = ByteStr
 
-  toSing Integer = SomeSing SInteger
-  toSing Boolean = SomeSing SBoolean
-  toSing ByteStr = SomeSing SByteStr
-
-
-class TypeableSing k where
-  isTypeableSing :: Sing (a :: k) -> (Typeable a => r) -> r
-
-instance TypeableSing * where
-  isTypeableSing SInteger r = r
-  isTypeableSing SBoolean r = r
-  isTypeableSing SByteStr r = r
-
-withSomeType :: forall k r. (SingKind k, TypeableSing k)
-             => Demote k -> (forall (a :: k). Typeable a => Sing a -> r) -> r
-withSomeType x f = withSomeSing x $ \s -> isTypeableSing s (f s)
+  toSing Integer = SomeSing (STypeable SInteger)
+  toSing Boolean = SomeSing (STypeable SBoolean)
+  toSing ByteStr = SomeSing (STypeable SByteStr)
 
 -- AST post typechecking
 data Claim t
@@ -169,13 +177,6 @@ data Mode
   | OOG
   deriving (Eq, Show)
 
---types understood by proving tools
-data MType
-  = Integer
-  | Boolean
-  | ByteStr
-  deriving (Eq, Ord, Show, Read)
-
 data Rewrite t
   = Constant (StorageLocation t)
   | Rewrite (StorageUpdate t)
@@ -201,7 +202,7 @@ data StorageLocation t
 -- refer to the pre-/post-state, or not. `a` is the type of the item that is
 -- referenced.
 data TStorageItem (a :: *) (t :: Timing) where
-  Item :: Sing a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
+  Item :: SType a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
 --  IntItem    :: Id -> Id -> [TypedExp t] -> TStorageItem Integer t
 --  BoolItem   :: Id -> Id -> [TypedExp t] -> TStorageItem Bool t
 --  BytesItem  :: Id -> Id -> [TypedExp t] -> TStorageItem ByteString t
@@ -237,7 +238,7 @@ data Exp (a :: *) (t :: Timing) where
   GEQ :: Exp Integer t -> Exp Integer t -> Exp Bool t
   GE :: Exp Integer t -> Exp Integer t -> Exp Bool t
   LitBool :: Bool -> Exp Bool t
-  Var :: Sing a -> Id -> Exp a t
+  Var :: SType a -> Id -> Exp a t
   -- integers
   Add :: Exp Integer t -> Exp Integer t -> Exp Integer t
   Sub :: Exp Integer t -> Exp Integer t -> Exp Integer t
@@ -578,7 +579,7 @@ uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
 mkVar :: SingI a => Id -> Exp a t
-mkVar name = Var sing name
+mkVar name = let STypeable t = sing in Var t name
 
 -- castTime :: (Typeable t, Typeable u) => Exp a u -> Maybe (Exp a t)
 -- castTime = gcast

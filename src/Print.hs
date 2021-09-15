@@ -52,7 +52,6 @@ prettyExp e = case e of
   Neg a -> "(not " <> prettyExp a <> ")"
   Impl a b -> print2 "=>" a b
   LitBool b -> if b then "true" else "false"
-  BoolVar b -> b
 
   -- integers
   Add a b -> print2 "+" a b
@@ -66,13 +65,11 @@ prettyExp e = case e of
   IntMax a -> show $ intmax a
   IntMin a -> show $ intmin a
   LitInt a -> show a
-  IntVar a -> a
   IntEnv a -> prettyEnv a
 
   -- bytestrings
   Cat a b -> print2 "++" a b
   Slice a b c -> (prettyExp a) <> "[" <> (prettyExp b) <> ":" <> (prettyExp c) <> "]"
-  ByVar a -> a
   ByStr a -> a
   ByLit a -> toString a
   ByEnv a -> prettyEnv a
@@ -83,6 +80,7 @@ prettyExp e = case e of
   --polymorphic
   ITE a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
   TEntry t a -> timeParens t $ prettyItem a
+  Var _ x -> x
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
