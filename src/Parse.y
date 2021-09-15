@@ -6,11 +6,12 @@ import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Syntax.Untyped
-import ErrM
+import Error
+import Data.Validation
 }
 
 %name parse
-%monad { Err } { (>>=) } { return }
+%monad { Error String } { bindValidation } { pure }
 %tokentype { Lexeme }
 %error { parseError }
 
@@ -309,10 +310,10 @@ lastPos = AlexPn (-1) (-1) (-1)
 validsize :: Int -> Bool
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
-parseError :: [Lexeme] -> Err a
-parseError [] = Bad (lastPos, "Expected more tokens")
+parseError :: [Lexeme] -> Error String a
+parseError [] = throw (lastPos, "Expected more tokens")
 parseError ((L token pn):_) =
-  Bad $ (pn, concat [
+  throw (pn, concat [
     "parsing error at token ",
     show token])
 }

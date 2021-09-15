@@ -1,12 +1,12 @@
 {-# LANGUAGE OverloadedLists,TypeOperators, LambdaCase, AllowAmbiguousTypes, TypeApplications, TypeFamilies, DeriveFunctor, ConstraintKinds, UndecidableInstances, FlexibleContexts, FlexibleInstances, RankNTypes, KindSignatures, ApplicativeDo, MultiParamTypeClasses, ScopedTypeVariables, InstanceSigs #-}
 
-module Error where
+module Error (module Error) where
 
 import Control.Monad.Writer hiding (Alt)
 import Data.Functor
 import Data.Functor.Alt
 import Data.List.NonEmpty as NE
-import Data.Validation
+import Data.Validation as Error
 import Data.Proxy
 import Data.Reflection
 import GHC.Generics
@@ -17,6 +17,15 @@ type Error e = Validation (NonEmpty (Pn,e))
 
 throw :: (Pn,e) -> Error e a
 throw msg = Failure [msg]
+
+infixr 1 <==<, >==>
+
+-- These allow us to chain error-prone computations without a @Monad@ instance.
+(<==<) :: (b -> Error e c) -> (a -> Error e b) -> a -> Error e c
+f <==< g = fromEither . (toEither . f <=< toEither . g)
+
+(>==>) :: (a -> Error e b) -> (b -> Error e c) -> a -> Error e c
+(>==>) = flip (<==<)
 
 -- | If there is no error at the supplied position, we accept this result and
 -- do not attempt to run any later branches, even if there were other errors.
@@ -43,3 +52,4 @@ instance (Functor f, Reifies s (Alt_ f)) => Alt (A s f) where
 -- a functor wrapped in 'A'.
 withAlt :: (forall a. f a -> f a -> f a) -> (forall s. Reifies s (Alt_ f) => A s f b) -> f b
 withAlt alt_ comp = reify (Alt_ alt_) $ \(_ :: Proxy s) -> runA @s comp
+

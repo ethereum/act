@@ -9,7 +9,7 @@
 
 module Main where
 
-import Data.Aeson hiding (Bool, Number)
+import Data.Aeson hiding (Bool, Number, Success)
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr, stdout)
@@ -30,7 +30,7 @@ import qualified Data.ByteString.Lazy.Char8 as B
 import Control.Monad
 
 import ErrM
-import qualified ErrorLogger as Logger
+import Error
 import Lex (lexer, AlexPosn(..))
 import Options.Generic
 import Parse
@@ -43,6 +43,8 @@ import Type hiding (Err)
 import qualified Type
 --import Coq hiding (indent)
 --import HEVM
+
+import Data.List.NonEmpty (NonEmpty)
 
 --command line options
 data Command w
@@ -112,16 +114,12 @@ lex' f = do
 parse' :: FilePath -> IO ()
 parse' f = do
   contents <- readFile f
-  case parse $ lexer contents of
-    Bad e -> prettyErr contents e
-    Ok x -> print x
+  validation (prettyErrs contents) print (parse $ lexer contents)
 
 type' :: FilePath -> IO ()
 type' f = do
   contents <- readFile f
-  case compile contents of
-    Logger.Success a -> B.putStrLn (encode a)
-    Logger.Failure e -> mapM_ (prettyErr contents) e >> exitFailure
+  validation (prettyErrs contents) (B.putStrLn . encode) (compile contents)
 
 -- prove :: FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
 -- prove file' solver' smttimeout' debug' = do
@@ -249,41 +247,35 @@ runSMTWithTimeOut solver' maybeTimeout debug' sym
 
 -- | Fail on error, or proceed with continuation
 proceed :: String -> Type.Err a -> (a -> IO ()) -> IO ()
-proceed contents comp continue = Logger.validation (mapM_ $ prettyErr contents) continue comp
-
---compile :: String -> Err [Claim]
---compile = pure . fmap annotate . enrich <=< typecheck <=< parse . lexer
+proceed contents comp continue = validation (prettyErrs contents) continue comp
 
 compile :: String -> Type.Err [Claim]
-compile source = case parse . lexer $ source of
-  Bad e -> Logger.throw e
-  Ok a  -> fmap annotate . enrich <$> typecheck a
+compile = pure . fmap annotate . enrich <==< typecheck <==< parse . lexer
 
-prettyErr :: String -> (Pn, String) -> IO ()
-prettyErr _ (pn, msg) | pn == nowhere = do
-  hPutStrLn stderr "Internal error:"
-  hPutStrLn stderr msg
---  exitFailure
-prettyErr contents (pn, msg) | pn == lastPos = do
-  let culprit = last $ lines contents
-      line' = length (lines contents) - 1
-      col  = length culprit
-  hPutStrLn stderr $ show line' <> " | " <> culprit
-  hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
-  hPutStrLn stderr msg
---  exitFailure
-prettyErr contents (AlexPn _ line' col, msg) = do
-  let cxt = safeDrop (line' - 1) (lines contents)
-  hPutStrLn stderr $ msg <> ":"
-  hPutStrLn stderr $ show line' <> " | " <> head cxt
-  hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
---  exitFailure
+prettyErrs :: Traversable t => String -> t (Pn, String) -> IO ()
+prettyErrs contents errs = mapM_ prettyErr errs >> exitFailure
   where
-    safeDrop :: Int -> [a] -> [a]
-    safeDrop 0 a = a
-    safeDrop _ [] = []
-    safeDrop _ [a] = [a]
-    safeDrop n (_:xs) = safeDrop (n-1) xs
+  prettyErr (pn, msg) | pn == nowhere = do
+    hPutStrLn stderr "Internal error:"
+    hPutStrLn stderr msg
+  prettyErr (pn, msg) | pn == lastPos = do
+    let culprit = last $ lines contents
+        line' = length (lines contents) - 1
+        col  = length culprit
+    hPutStrLn stderr $ show line' <> " | " <> culprit
+    hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
+    hPutStrLn stderr msg
+  prettyErr (AlexPn _ line' col, msg) = do
+    let cxt = safeDrop (line' - 1) (lines contents)
+    hPutStrLn stderr $ msg <> ":"
+    hPutStrLn stderr $ show line' <> " | " <> head cxt
+    hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
+    where
+      safeDrop :: Int -> [a] -> [a]
+      safeDrop 0 a = a
+      safeDrop _ [] = []
+      safeDrop _ [a] = [a]
+      safeDrop n (_:xs) = safeDrop (n-1) xs
 
 -- | prints a Doc, with wider output than the built in `putDoc`
 render :: Doc -> IO ()
