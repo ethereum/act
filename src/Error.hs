@@ -13,9 +13,9 @@ import GHC.Generics
 
 import Syntax.Untyped (Pn)
 
-type Error e = Validation (NonEmpty (Pn,e))
+type Error e = Validation (NonEmpty e)
 
-throw :: (Pn,e) -> Error e a
+throw :: e -> Error e a
 throw msg = Failure [msg]
 
 infixr 1 <==<, >==>
@@ -31,7 +31,7 @@ f <==< g = fromEither . (toEither . f <=< toEither . g)
 -- do not attempt to run any later branches, even if there were other errors.
 -- (The second argument looks intimidating but it simply demands that each
 -- @'Error' e a@ branch is wrapped in 'A' before being passed to '(<!>)'.)
-notAtPosn :: Pn -> (forall s. Reifies s (Alt_ (Error e)) => A s (Error e) a) -> Error e a
+notAtPosn :: Pn -> (forall s. Reifies s (Alt_ (Error (Pn,e))) => A s (Error (Pn,e)) a) -> Error (Pn,e) a
 notAtPosn p = withAlt $ \case
   Failure err -> if any ((p ==) . fst) err then id else const $ Failure err
   res         -> const res

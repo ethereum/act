@@ -45,9 +45,7 @@ import Syntax.Typed
 import Error
 import Parse
 
-type Err a = Error TypeErr a
-
-type TypeErr = String
+type Err = Error (Pn,String)
 
 typecheck :: [U.RawBehaviour] -> Err [Claim]
 typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
