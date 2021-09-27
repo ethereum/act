@@ -11,7 +11,7 @@ import Data.Validation
 }
 
 %name parse
-%monad { Error (Pn,String) } { bindValidation } { pure }
+%monad { Error String } { bindValidation } { pure }
 %tokentype { Lexeme }
 %error { parseError }
 
@@ -310,7 +310,7 @@ lastPos = AlexPn (-1) (-1) (-1)
 validsize :: Int -> Bool
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
-parseError :: [Lexeme] -> Error (Pn,String) a
+parseError :: [Lexeme] -> Error String a
 parseError [] = throw (lastPos, "Expected more tokens")
 parseError ((L token pn):_) =
   throw (pn, concat [

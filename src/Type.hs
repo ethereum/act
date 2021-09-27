@@ -39,13 +39,12 @@ import Data.Singletons
 import Syntax
 import Syntax.Timing
 import Syntax.Untyped (Pn)
---import Syntax.Untyped hiding (Post,Constant,Rewrite)
 import qualified Syntax.Untyped as U
 import Syntax.Typed
 import Error
 import Parse
 
-type Err = Error (Pn,String)
+type Err = Error String
 
 typecheck :: [U.RawBehaviour] -> Err [Claim]
 typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
@@ -124,12 +123,12 @@ mkEnv contract store decls = Env
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> U.RawBehaviour -> Err [Claim]
 splitBehaviour store (U.Transition pn name contract iface@(Interface _ decls) iffs cases posts) =
+  noIllegalWilds *>
   -- constrain integer calldata variables (TODO: other types)
   fmap concatMap (caseClaims
                     <$> checkIffs env iffs
                     <*> traverse (inferExpr env) posts)
     <*> traverse (checkCase env) normalizedCases
-  <* noIllegalWilds
   where
     env :: Env
     env = mkEnv contract store decls

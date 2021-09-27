@@ -11,6 +11,8 @@ module Syntax where
 import Data.List
 import Data.Map (Map,empty,insertWith,unionsWith)
 
+import Error
+
 import Syntax.TimeAgnostic as Agnostic
 import qualified Syntax.Annotated as Annotated
 import           Syntax.Untyped hiding (Constant,Rewrite)
@@ -41,6 +43,18 @@ locsFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
 ------------------------------------
 -- * Extract from any typed AST * --
 ------------------------------------
+
+constructors :: [Claim t] -> [Constructor t]
+constructors claims = [c | C c <- claims]
+
+behaviours :: [Claim t] -> [Behaviour t]
+behaviours claims = [b | B b <- claims]
+
+invariants :: [Claim t] -> [Invariant t]
+invariants claims = [i | I i <- claims]
+
+stores :: [Claim t] -> [Store]
+stores claims = [s | S s <- claims]
 
 locsFromRewrite :: Rewrite t -> [StorageLocation t]
 locsFromRewrite update = nub $ case update of

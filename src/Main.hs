@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# Language TypeOperators #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module Main where
 
@@ -18,6 +19,7 @@ import Data.Text (pack, unpack)
 import Data.List
 import Data.Maybe
 import Data.Tree
+import Data.Traversable
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
@@ -28,23 +30,25 @@ import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import Control.Monad
+import Control.Lens.Getter
 
 import ErrM
 import Error
 import Lex (lexer, AlexPosn(..))
 import Options.Generic
 import Parse
+import Syntax
 import Syntax.Annotated
 import Syntax.Untyped
 import Enrich
---import K hiding (normalize, indent)
+import K hiding (normalize, indent)
 --import SMT
 import Type hiding (Err)
 import qualified Type
 --import Coq hiding (indent)
 --import HEVM
 
-import Data.List.NonEmpty (NonEmpty)
+import Data.Validation
 
 --command line options
 data Command w
@@ -97,7 +101,7 @@ main = do
       Type f -> type' f
       --Prove file' solver' smttimeout' debug' -> prove file' solver' smttimeout' debug'
       --Coq f -> coq' f
-      --K spec' soljson' gas' storage' extractbin' out' -> k spec' soljson' gas' storage' extractbin' out'
+      K spec' soljson' gas' storage' extractbin' out' -> k spec' soljson' gas' storage' extractbin' out'
       --HEVM spec' soljson' solver' smttimeout' debug' -> hevm spec' soljson' solver' smttimeout' debug'
 
 
@@ -187,21 +191,21 @@ type' f = do
 --   proceed contents (compile contents) $ \claims ->
 --     TIO.putStr $ coq claims
 
--- k :: FilePath -> FilePath -> Maybe [(Id, String)] -> Maybe String -> Bool -> Maybe String -> IO ()
--- k spec' soljson' gas' storage' extractbin' out' = do
---   specContents <- readFile spec'
---   solContents  <- readFile soljson'
---   let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
---       errKSpecs = do refinedSpecs <- compile specContents
---                      (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
---                        $ Solidity.readJSON $ pack solContents
---                      forM [b | B b <- refinedSpecs]
---                        $ makekSpec sources kOpts
---   proceed specContents errKSpecs $ \kSpecs -> do
---     let printFile (filename, content) = case out' of
---           Nothing -> putStrLn (filename <> ".k") >> putStrLn content
---           Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
---     forM_ kSpecs printFile
+k :: FilePath -> FilePath -> Maybe [(Id, String)] -> Maybe String -> Bool -> Maybe String -> IO ()
+k spec' soljson' gas' storage' extractbin' out' = do
+  specContents <- readFile spec'
+  solContents  <- readFile soljson'
+  let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
+      errKSpecs = do
+        refinedSpecs <- toEither $ behaviours <$> compile specContents
+        (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
+                              (Solidity.readJSON . pack) solContents
+        for refinedSpecs (makekSpec sources kOpts) ^. _Either
+  proceed specContents errKSpecs $ \kSpecs -> do
+    let printFile (filename, content) = case out' of
+          Nothing -> putStrLn (filename <> ".k") >> putStrLn content
+          Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
+    forM_ kSpecs printFile
 
 -- hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
 -- hevm spec' soljson' solver' smttimeout' smtdebug' = do
@@ -246,10 +250,10 @@ runSMTWithTimeOut solver' maybeTimeout debug' sym
        runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
 
 -- | Fail on error, or proceed with continuation
-proceed :: String -> Type.Err a -> (a -> IO ()) -> IO ()
-proceed contents comp continue = validation (prettyErrs contents) continue comp
+proceed :: Validate err => String -> err (NonEmpty (Pn, String)) a -> (a -> IO ()) -> IO ()
+proceed contents comp continue = validation (prettyErrs contents) continue (comp ^. revalidate)
 
-compile :: String -> Type.Err [Claim]
+compile :: String -> Error String [Claim]
 compile = pure . fmap annotate . enrich <==< typecheck <==< parse . lexer
 
 prettyErrs :: Traversable t => String -> t (Pn, String) -> IO ()

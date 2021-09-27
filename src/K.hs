@@ -3,13 +3,14 @@
 {-# Language OverloadedStrings #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeApplications #-}
+{-# LANGUAGE ApplicativeDo, OverloadedLists #-}
 
 module K where
 
 import Syntax
 import Syntax.Annotated
 
-import ErrM
+import Error
 import Control.Applicative ((<|>))
 import Data.Functor (($>))
 import Data.Text (Text, pack, unpack)
@@ -27,6 +28,8 @@ import qualified Data.Map.Strict as Map -- abandon in favor of [(a,b)]?
 
 -- Transforms a RefinedSyntax.Behaviour
 -- to a k spec.
+
+type Err = Error String
 
 cell :: String -> String -> String
 cell key value = "<" <> key <> "> " <> value <> " </" <> key <> "> \n"
@@ -60,13 +63,12 @@ makekSpec sources _ behaviour =
       hasLayout = Map.foldr ((&&) . isJust . _storageLayout) True sources
   in
     if hasLayout then do
-      thisSource <- errMessage
-            (nowhere, "err: " <> show this <> "Bytecode not found\nSources available: " <> show (Map.keys sources))
-            (Map.lookup this names)
+      thisSource <- validate
+        [(nowhere, unlines ["Bytecode not found for:", show this, "Sources available:", show $ Map.keys sources])]
+        (Map.lookup this) names
+      pure $ mkTerm thisSource names behaviour
 
-      return $ mkTerm thisSource names behaviour
-
-    else Bad (nowhere, "No storagelayout found")
+    else throw (nowhere, "No storagelayout found")
 
 kCalldata :: Interface -> String
 kCalldata (Interface a args) =
@@ -76,8 +78,8 @@ kCalldata (Interface a args) =
      else intercalate ", " (fmap (\(Decl typ varname) -> "#" <> show typ <> "(" <> kVar varname <> ")") args)
   <> ")"
 
-kStorageName :: TStorageItem a -> When -> String
-kStorageName item t = kVar (idFromItem item) <> "-" <> show t
+kStorageName :: When -> TStorageItem a -> String
+kStorageName t item = kVar (idFromItem item) <> "-" <> show t
                    <> intercalate "_" ("" : fmap kTypedExpr (ixsFromItem item))
 
 kVar :: Id -> String
@@ -107,7 +109,6 @@ kExpr (IntMin a) = kExpr $ LitInt $ negate $ 2 ^ (a - 1)
 kExpr (IntMax a) = kExpr $ LitInt $ 2 ^ (a - 1) - 1
 kExpr (UIntMin _) = kExpr $ LitInt 0
 kExpr (UIntMax a) = kExpr $ LitInt $ 2 ^ a - 1
-kExpr (IntVar a) = kVar a
 kExpr (IntEnv a) = show a
 
 -- booleans
@@ -120,7 +121,6 @@ kExpr (LEQ a b) = "(" <> kExpr a <> " <=Int " <> kExpr b <> ")"
 kExpr (GE a b) = "(" <> kExpr a <> " >Int " <> kExpr b <> ")"
 kExpr (GEQ a b) = "(" <> kExpr a <> " >=Int " <> kExpr b <> ")"
 kExpr (LitBool a) = show a
-kExpr (BoolVar a) = kVar a
 kExpr (NEq a b) = "notBool (" <> kExpr (Eq a b) <> ")"
 kExpr (Eq (a :: Exp a) (b :: Exp a)) = fromMaybe (error "Internal Error: invalid expression type") $
   let eqK typ = "(" <> kExpr a <> " ==" <> typ <> " " <> kExpr b <> ")"
@@ -129,10 +129,10 @@ kExpr (Eq (a :: Exp a) (b :: Exp a)) = fromMaybe (error "Internal Error: invalid
   <|> eqT @a @ByteString $> eqK "K" -- TODO: Is ==K correct?
 
 -- bytestrings
-kExpr (ByVar name) = kVar name
 kExpr (ByStr str) = show str
 kExpr (ByLit bs) = show bs
-kExpr (TEntry item t) = kStorageName item t
+kExpr (TEntry t item) = kStorageName t item
+kExpr (Var _ a) = kVar a
 kExpr v = error ("Internal error: TODO kExpr of " <> show v)
 --kExpr (Cat a b) =
 --kExpr (Slice a start end) =
@@ -154,10 +154,10 @@ kStorageEntry storageLayout update =
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (idFromRewrite update)) storageLayout)
   in case update of
-       Rewrite (IntUpdate a b) -> (loc, (offset, kStorageName a Pre, kExpr b))
-       Rewrite (BoolUpdate a b) -> (loc, (offset, kStorageName a Pre, kExpr b))
-       Rewrite (BytesUpdate a b) -> (loc, (offset, kStorageName a Pre, kExpr b))
-       Constant (IntLoc a) -> (loc, (offset, kStorageName a Pre, kStorageName a Pre))
+       Rewrite (IntUpdate a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
+       Rewrite (BoolUpdate a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
+       Rewrite (BytesUpdate a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
+       Constant (IntLoc a) -> (loc, (offset, kStorageName Pre a, kStorageName Pre a))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v
 
 --packs entries packed in one slot
