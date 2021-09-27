@@ -32,7 +32,7 @@ common deps
                  extra,
                  singletons,
                  reflection       >= 2.1.6
-  
+--  other-modules: CLI Error Print SMT Syntax.Annotated Lex Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Types Syntax.Timing Syntax.TimeAgnostic Type Enrich
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans -Wno-unticked-promoted-constructors
   else
@@ -49,7 +49,7 @@ library act-internal
 executable act
   import:             deps
   main-is:            Main.hs
-  hs-source-dirs:     .
+  hs-source-dirs:     main
   default-language:   Haskell2010
   build-depends:      act-internal
 
