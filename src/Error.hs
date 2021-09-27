@@ -2,14 +2,11 @@
 
 module Error (module Error) where
 
-import Control.Monad.Writer hiding (Alt)
-import Data.Functor
 import Data.Functor.Alt
 import Data.List.NonEmpty as NE
 import Data.Validation as Error
 import Data.Proxy
 import Data.Reflection
-import GHC.Generics
 
 import Syntax.Untyped (Pn)
 

@@ -32,7 +32,7 @@ common deps
                  extra,
                  singletons,
                  reflection       >= 2.1.6
-  other-modules: Lex ErrM Error Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Annotated Syntax.Timing Syntax.TimeAgnostic Type Print Enrich SMT
+  other-modules: CLI Lex Error Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Types Syntax.Annotated Syntax.Timing Syntax.TimeAgnostic Type Print Enrich SMT
   
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans -Wno-unticked-promoted-constructors

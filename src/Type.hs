@@ -9,7 +9,6 @@
 
 module Type (typecheck, bound, lookupVars, defaultStore, metaType, Err) where
 
-import Data.List
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import Data.Map.Strict    (Map,keys,findWithDefault)
@@ -22,19 +21,13 @@ import Type.Reflection (typeRep)
 
 import Data.ByteString (ByteString)
 
-import Control.Applicative
 import Control.Lens.Operators ((??))
-import Control.Monad (join,unless)
 import Control.Monad.Writer
 import Data.List.Extra (snoc,unsnoc)
 import Data.Function (on)
-import Data.Functor
 import Data.Functor.Alt
 import Data.Foldable
 import Data.Traversable
-import Data.Tuple.Extra (uncurry3)
-
-import Data.Singletons
 
 import Syntax
 import Syntax.Timing
@@ -78,7 +71,7 @@ fromAssign (U.AssignStruct _ _) = error "TODO: assignstruct"
 
 -- | filters out duplicate entries in list
 duplicatesBy :: (a -> a -> Bool) -> [a] -> [a]
-duplicatesBy f [] = []
+duplicatesBy _ [] = []
 duplicatesBy f (x:xs) =
   let e = [x | any (f x) xs]
   in e <> duplicatesBy f xs
@@ -122,7 +115,7 @@ mkEnv contract store decls = Env
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> U.RawBehaviour -> Err [Claim]
-splitBehaviour store (U.Transition pn name contract iface@(Interface _ decls) iffs cases posts) =
+splitBehaviour store (U.Transition _ name contract iface@(Interface _ decls) iffs cases posts) =
   noIllegalWilds *>
   -- constrain integer calldata variables (TODO: other types)
   fmap concatMap (caseClaims
@@ -145,20 +138,20 @@ splitBehaviour store (U.Transition pn name contract iface@(Interface _ decls) if
       U.Direct   post -> [U.Case nowhere (U.WildExp nowhere) post]
       U.Branches bs ->
         let
-          Just (rest, last@(U.Case pn _ post)) = unsnoc bs
+          Just (rest, lastCase@(U.Case pn _ post)) = unsnoc bs
           negation = U.ENot nowhere $
                         foldl (\acc (U.Case _ e _) -> U.EOr nowhere e acc) (U.BoolLit nowhere False) rest
-        in rest `snoc` (if isWild last then U.Case pn negation post else last)
+        in rest `snoc` (if isWild lastCase then U.Case pn negation post else lastCase)
 
     -- | split case into pass and fail case
     caseClaims :: [Exp Bool Untimed] -> [Exp Bool Timed] -> ([Exp Bool Untimed], [Rewrite], Maybe (TypedExp Timed)) -> [Claim]
     caseClaims []   postcs (if',storage,ret) =
       [ B $ Behaviour name Pass contract iface if' postcs storage ret ]
-    caseClaims iffs postcs (if',storage,ret) =
-      [ B $ Behaviour name Pass contract iface (if' <> iffs) postcs storage ret,
-        B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs)]) [] (Constant . locFromRewrite <$> storage) Nothing ]
+    caseClaims iffs' postcs (if',storage,ret) =
+      [ B $ Behaviour name Pass contract iface (if' <> iffs') postcs storage ret,
+        B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs')]) [] (Constant . locFromRewrite <$> storage) Nothing ]
 
-splitBehaviour store (U.Definition pn contract iface@(Interface _ decls) iffs (U.Creates assigns) extStorage postcs invs) =
+splitBehaviour store (U.Definition _ contract iface@(Interface _ decls) iffs (U.Creates assigns) extStorage postcs invs) =
   if not . null $ extStorage then error "TODO: support extStorage in constructor"
   else let env = mkEnv contract store decls
   in do
@@ -178,8 +171,8 @@ splitBehaviour store (U.Definition pn contract iface@(Interface _ decls) iffs (U
 checkCase :: Env -> U.Case -> Err ([Exp Bool Untimed], [Rewrite], Maybe (TypedExp Timed))
 checkCase env c@(U.Case _ pre post) = do
   if' <- traverse (inferExpr env) $ if isWild c then [] else [pre]
-  (storage,return) <- checkPost env post
-  pure (if',storage,return)
+  (storage,return') <- checkPost env post
+  pure (if',storage,return')
 
 -- | Ensures that none of the storage variables are read in the supplied `Expr`.
 noStorageRead :: Map Id SlotType -> U.Expr -> Err ()
@@ -188,7 +181,7 @@ noStorageRead store expr = for_ (keys store) $ \name ->
     throw (pn,"Cannot read storage in creates block")
 
 makeUpdate :: Env -> SType a -> Id -> [TypedExp Untimed] -> Exp a Untimed -> StorageUpdate
-makeUpdate env@Env{contract} typ name ixs newVal = let item = Item typ contract name ixs in
+makeUpdate Env{contract} typ name ixs newVal = let item = Item typ contract name ixs in
   case typ of
     SInteger -> IntUpdate   item newVal
     SBoolean -> BoolUpdate  item newVal--(BoolItem  contract name ixs) newVal
@@ -196,14 +189,14 @@ makeUpdate env@Env{contract} typ name ixs newVal = let item = Item typ contract 
 
 -- ensures that key types match value types in an U.Assign
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
-checkAssign env@Env{contract, store} (U.AssignVal (U.StorageVar pn (StorageValue (FromAbi typ)) name) expr)
+checkAssign env@Env{store} (U.AssignVal (U.StorageVar _ (StorageValue (FromAbi typ)) name) expr)
   = sequenceA [makeUpdate env typ name [] <$> inferExpr env expr]
     <* noStorageRead store expr
-checkAssign env@Env{store} (U.AssignMany (U.StorageVar pn (StorageMapping (keyType :| _) valType) name) defns)
+checkAssign env@Env{store} (U.AssignMany (U.StorageVar _ (StorageMapping (keyType :| _) valType) name) defns)
   = for defns $ \def@(U.Defn e1 e2) -> checkDefn env keyType valType name def
                                        <* noStorageRead store e1
                                        <* noStorageRead store e2
-checkAssign _ (U.AssignVal (U.StorageVar pn (StorageMapping _ _) _) expr)
+checkAssign _ (U.AssignVal (U.StorageVar _ (StorageMapping _ _) _) expr)
   = throw (getPosn expr, "Cannot assign a single expression to a composite type")
 checkAssign _ (U.AssignMany (U.StorageVar pn (StorageValue _) _) _)
   = throw (pn, "Cannot assign multiple values to an atomic type")
@@ -212,7 +205,7 @@ checkAssign _ _ = error "todo: support struct assignment in constructors"
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
 checkDefn :: Env -> AbiType -> AbiType -> Id -> U.Defn -> Err StorageUpdate
-checkDefn env@Env{contract} keyType (FromAbi valType) name (U.Defn k val) =
+checkDefn env keyType (FromAbi valType) name (U.Defn k val) =
   makeUpdate env valType name <$> checkIxs env (getPosn k) [k] [keyType] <*> inferExpr env val
 
 checkPost :: Env -> U.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
@@ -266,7 +259,7 @@ checkPost env@Env{contract,calldata} (U.Post storage extStorage maybeReturn) = d
 
 checkStorageExpr :: Env -> U.Pattern -> U.Expr -> Err StorageUpdate
 checkStorageExpr _ (U.PWild _) _ = error "TODO: add support for wild storage to checkStorageExpr"
-checkStorageExpr env@Env{contract,store} (U.PEntry p name args) expr = case Map.lookup name store of
+checkStorageExpr env@Env{store} (U.PEntry p name args) expr = case Map.lookup name store of
   Just (StorageValue (FromAbi typ)) ->
     makeUpdate env typ name [] <$> inferExpr env expr
   Just (StorageMapping argtyps (FromAbi valType)) ->

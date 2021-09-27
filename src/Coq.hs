@@ -237,7 +237,7 @@ coqexp :: Exp a -> T.Text
 -- booleans
 coqexp (LitBool True)  = "true"
 coqexp (LitBool False) = "false"
-coqexp (BoolVar name)  = T.pack name
+coqexp (Var SBoolean name)  = T.pack name
 coqexp (And e1 e2)  = parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
 coqexp (Or e1 e2)   = parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
 coqexp (Impl e1 e2) = parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
@@ -251,7 +251,7 @@ coqexp (GEQ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
 
 -- integers
 coqexp (LitInt i) = T.pack $ show i
-coqexp (IntVar name)  = T.pack name
+coqexp (Var SInteger name)  = T.pack name
 coqexp (Add e1 e2) = parens $ coqexp e1 <> " + " <> coqexp e2
 coqexp (Sub e1 e2) = parens $ coqexp e1 <> " - " <> coqexp e2
 coqexp (Mul e1 e2) = parens $ coqexp e1 <> " * " <> coqexp e2
@@ -264,7 +264,7 @@ coqexp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
 coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
 
 -- polymorphic
-coqexp (TEntry e w) = entry e w
+coqexp (TEntry w e) = entry e w
 coqexp (ITE b e1 e2) = parens $ "if "
                              <> coqexp b
                              <> " then "
@@ -276,7 +276,7 @@ coqexp (ITE b e1 e2) = parens $ "if "
 coqexp (IntEnv e) = error $ show e <> ": environment values not yet supported"
 coqexp (Cat _ _) = error "bytestrings not supported"
 coqexp (Slice _ _ _) = error "bytestrings not supported"
-coqexp (ByVar _) = error "bytestrings not supported"
+coqexp (Var SByteStr _) = error "bytestrings not supported"
 coqexp (ByStr _) = error "bytestrings not supported"
 coqexp (ByLit _) = error "bytestrings not supported"
 coqexp (ByEnv _) = error "bytestrings not supported"
@@ -305,9 +305,9 @@ typedexp (ExpBool e)  = coqexp e
 typedexp (ExpBytes _) = error "bytestrings not supported"
 
 entry :: TStorageItem a -> When -> T.Text
-entry BytesItem{} _    = error "bytestrings not supported"
-entry _           Post = error "TODO: missing support for poststate references in coq backend"
-entry item        Pre  = case ixsFromItem item of
+entry (Item SByteStr _ _ _) _    = error "bytestrings not supported"
+entry _                     Post = error "TODO: missing support for poststate references in coq backend"
+entry item                  _    = case ixsFromItem item of
   []       -> parens $ T.pack (idFromItem item) <> " " <> stateVar
   (ix:ixs) -> parens $ T.pack (idFromItem item) <> " s " <> coqargs (ix :| ixs)
 

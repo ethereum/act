@@ -323,8 +323,8 @@ symExpBool ctx@(Ctx c m args store _) e = case e of
   NEq a b   -> sNot (symExpBool ctx (Eq a b))
   Neg a     -> sNot (symExpBool ctx a)
   LitBool a -> literal a
-  BoolVar a -> get (nameFromArg c m a) (catBools args)
-  TEntry a t -> get (nameFromItem m a) (catBools $ timeStore t store)
+  Var _ a   -> get (nameFromArg c m a) (catBools args)
+  TEntry t a -> get (nameFromItem m a) (catBools $ timeStore t store)
   ITE x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
   Eq a b -> fromMaybe (error "Internal error: invalid expression type")
       $ [symExpBool  ctx a' .== symExpBool  ctx b' | a' <- castType a, b' <- castType b]
@@ -344,8 +344,8 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   IntMax a  -> literal $ intmax a
   UIntMin a -> literal $ uintmin a
   UIntMax a -> literal $ uintmax a
-  IntVar a  -> get (nameFromArg c m a) (catInts args)
-  TEntry a t -> get (nameFromItem m a) (catInts $ timeStore t store)
+  Var _ a   -> get (nameFromArg c m a) (catInts args)
+  TEntry t a -> get (nameFromItem m a) (catInts $ timeStore t store)
   IntEnv a -> get (nameFromEnv c m a) (catInts environment)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
@@ -353,10 +353,10 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
 symExpBytes :: Ctx -> Exp ByteString -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
   Cat a b -> symExpBytes ctx a .++ symExpBytes ctx b
-  ByVar a  -> get (nameFromArg c m a) (catBytes args)
+  Var _ a -> get (nameFromArg c m a) (catBytes args)
   ByStr a -> literal a
   ByLit a -> literal $ toString a
-  TEntry a t -> get (nameFromItem m a) (catBytes $ timeStore t store)
+  TEntry t a -> get (nameFromItem m a) (catBytes $ timeStore t store)
   Slice a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
   ByEnv a -> get (nameFromEnv c m a) (catBytes environment)
   ITE x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
@@ -368,13 +368,9 @@ timeStore Post s = snd <$> s
 -- *** SMT Variable Names *** --
 
 nameFromItem :: Method -> TStorageItem a -> Id
-nameFromItem method item = case item of
-  IntItem c name ixs -> c @@ method @@ name <> showIxs c ixs
-  BoolItem c name ixs -> c @@ method @@ name <> showIxs c ixs
-  BytesItem c name ixs -> c @@ method @@ name <> showIxs c ixs
+nameFromItem method (Item _ c name ixs) = c @@ method @@ name <> showIxs
   where
-    showIxs :: ContractName -> [TypedExp] -> [Char]
-    showIxs c ixs = intercalate "-" $ "" : fmap (nameFromTypedExp c method) ixs
+    showIxs = intercalate "-" $ "" : fmap (nameFromTypedExp c method) ixs
 
 nameFromTypedExp :: ContractName -> Method -> TypedExp -> Id
 nameFromTypedExp c method e = case e of
@@ -395,7 +391,6 @@ nameFromExp c m e = case e of
   IntMax a  -> show $ intmax a
   UIntMin a -> show $ uintmin a
   UIntMax a -> show $ uintmax a
-  IntVar a -> a
   IntEnv a -> nameFromEnv c m a
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
 
@@ -408,17 +403,16 @@ nameFromExp c m e = case e of
   GEQ a b   -> nameFromExp c m a <> ">=" <> nameFromExp c m b
   Neg a     -> "~" <> nameFromExp c m a
   LitBool a -> show a
-  BoolVar a -> nameFromArg c m a
   Eq a b    -> nameFromExp c m a <> "=="  <> nameFromExp c m b
   NEq a b   -> nameFromExp c m a <> "=/=" <> nameFromExp c m b
   Cat a b -> nameFromExp c m a <> "++" <> nameFromExp c m b
-  ByVar a  -> nameFromArg c m a
   ByStr a -> show a
   ByLit a -> show a
   Slice a x y -> nameFromExp c m a <> "[" <> show x <> ":" <> show y <> "]"
   ByEnv a -> nameFromEnv c m a
 
-  TEntry a _ -> nameFromItem m a
+  Var _ a -> nameFromArg c m a
+  TEntry _ a -> nameFromItem m a
   ITE x y z -> "if-" <> nameFromExp c m x <> "-then-" <> nameFromExp c m y <> "-else-" <> nameFromExp c m z
 
 nameFromDecl :: ContractName -> Method -> Decl -> Id

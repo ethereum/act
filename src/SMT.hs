@@ -524,8 +524,8 @@ encodeInitialStorage behvName update = case update of
     encode :: TStorageItem a -> Exp a -> SMT2
     encode item e =
       let
-        postentry  = withInterface behvName $ expToSMT2 (TEntry item Post)
-        expression = withInterface behvName $ expToSMT2 (e)
+        postentry  = withInterface behvName $ expToSMT2 (TEntry Post item)
+        expression = withInterface behvName $ expToSMT2 e
       in "(assert (= " <> postentry <> " " <> expression <> "))"
 
 -- | declares a storage location that is created by the constructor, these
@@ -588,7 +588,6 @@ expToSMT2 expr = case expr of
   GEQ a b -> binop ">=" a b
   GE a b -> binop ">" a b
   LitBool a -> pure $ if a then "true" else "false"
-  BoolVar a -> nameFromVarId a
 
   -- integers
   Add a b -> binop "+" a b
@@ -600,7 +599,6 @@ expToSMT2 expr = case expr of
   LitInt a -> pure $ if a >= 0
                       then show a
                       else "(- " <> (show . negate $ a) <> ")" -- cvc4 does not accept negative integer literals
-  IntVar a -> nameFromVarId a
   IntEnv a -> pure $ prettyEnv a
 
   -- bounds
@@ -612,7 +610,6 @@ expToSMT2 expr = case expr of
   -- bytestrings
   Cat a b -> binop "str.++" a b
   Slice a start end -> triop "str.substr" a start (Sub end start)
-  ByVar a -> nameFromVarId a
   ByStr a -> pure a
   ByLit a -> pure $ show a
   ByEnv a -> pure $ prettyEnv a
@@ -624,7 +621,8 @@ expToSMT2 expr = case expr of
   Eq a b -> binop "=" a b
   NEq a b -> unop "not" (Eq a b)
   ITE a b c -> triop "ite" a b c
-  TEntry item w -> entry item w
+  Var _ a -> nameFromVarId a
+  TEntry w item -> entry item w
   where
     unop :: String -> Exp a -> Ctx SMT2
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
@@ -689,10 +687,7 @@ sType' (ExpBytes {}) = "String"
 
 -- Construct the smt2 variable name for a given storage item
 nameFromItem :: When -> TStorageItem a -> Id
-nameFromItem whn item = case item of
-  IntItem c name _ -> c @@ name @@ show whn
-  BoolItem c name _ -> c @@ name @@ show whn
-  BytesItem c name _ -> c @@ name @@ show whn
+nameFromItem whn (Item _ c name _) = c @@ name @@ show whn
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id

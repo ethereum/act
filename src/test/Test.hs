@@ -6,7 +6,7 @@ module Main where
 
 import EVM.ABI (AbiType(..))
 import Test.Tasty
-import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property)
+import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property, (===), property)
 import Test.QuickCheck.Instances.ByteString()
 import Test.QuickCheck.GenT
 import Test.QuickCheck.Monadic
@@ -20,10 +20,8 @@ import Data.Maybe (isNothing)
 import qualified Data.Set as Set
 import qualified Data.Map as Map (empty)
 
-import ErrM
-import Lex (lexer)
-import Parse (parse)
-import Type (typecheck)
+import CLI (compile)
+import Error
 import Print (prettyBehaviour)
 import SMT
 import Syntax.Annotated hiding (Mode)
@@ -56,15 +54,15 @@ main = defaultMain $ testGroup "act"
       -}
       [ testProperty "roundtrip" . withExponents $ do
           behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
-          let actual = pure . fmap annotate <=< typecheck <=< parse . lexer $ prettyBehaviour behv
+          let actual = compile False $ prettyBehaviour behv
               expected = if null preconds then
                   [ S Map.empty, B behv ]
                 else
                   [ S Map.empty, B behv
                   , B $ Behaviour name Fail contract iface [Neg $ mconcat preconds] [] [] Nothing ]
           return $ case actual of
-            Ok a -> a == expected
-            Bad _ -> False
+            Success a -> a === expected
+            Failure _ -> property False
       ]
 
   , testGroup "smt"
@@ -158,12 +156,12 @@ genTypedExp names n = oneof
 
 -- TODO: literals, cat slice, ITE, storage, ByStr
 genExpBytes :: Names -> Int -> ExpoGen (Exp ByteString)
-genExpBytes names _ = ByVar <$> selectName ByteStr names
+genExpBytes names _ = Var SByteStr <$> selectName ByteStr names
 
 -- TODO: ITE, storage
 genExpBool :: Names -> Int -> ExpoGen (Exp Bool)
 genExpBool names 0 = oneof
-  [ BoolVar <$> selectName Boolean names
+  [ Var SBoolean <$> selectName Boolean names
   , LitBool <$> liftGen arbitrary
   ]
 genExpBool names n = oneof
@@ -189,7 +187,7 @@ genExpBool names n = oneof
 genExpInt :: Names -> Int -> ExpoGen (Exp Integer)
 genExpInt names 0 = oneof
   [ LitInt <$> liftGen arbitrary
-  , IntVar <$> selectName Integer names
+  , Var SInteger <$> selectName Integer names
   , return $ IntEnv Caller
   , return $ IntEnv Callvalue
   , return $ IntEnv Calldepth

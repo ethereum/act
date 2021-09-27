@@ -10,7 +10,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
-
+{-# LANGUAGE TypeOperators #-}
 
 {-# LANGUAGE RankNTypes, StandaloneKindSignatures, PatternSynonyms, ViewPatterns #-}
 
@@ -44,65 +44,13 @@ import Data.Typeable
 import Data.Vector (fromList)
 
 import EVM.Solidity (SlotType(..))
-import EVM.ABI (AbiType(..))
 
 -- Reexports
+import Syntax.Types   as Syntax.TimeAgnostic
 import Syntax.Timing  as Syntax.TimeAgnostic
 import Syntax.Untyped as Syntax.TimeAgnostic (Id, Interface(..), EthEnv(..), Decl(..))
 
 import Data.Singletons
-
---types understood by proving tools
-data MType
-  = Integer
-  | Boolean
-  | ByteStr
-  deriving (Eq, Ord, Show, Read)
-
-metaType :: AbiType -> MType
-metaType (AbiUIntType _)     = Integer
-metaType (AbiIntType  _)     = Integer
-metaType AbiAddressType      = Integer
-metaType AbiBoolType         = Boolean
-metaType (AbiBytesType n)    = if n <= 32 then Integer else ByteStr
-metaType AbiBytesDynamicType = ByteStr
-metaType AbiStringType       = ByteStr
---metaType (AbiArrayDynamicType a) =
---metaType (AbiArrayType        Int AbiType
---metaType (AbiTupleType        (Vector AbiType)
-metaType _ = error "Extract.metaType: TODO"
-
-pattern FromAbi t <- (metaType -> FromSing (STypeable t))
-pattern FromMeta t <- FromSing (STypeable t)
-
-data SType a where
-  SInteger :: SType Integer
-  SBoolean :: SType Bool
-  SByteStr :: SType ByteString
-deriving instance Show (SType a)
-deriving instance Eq (SType a)
-
-data STypeable a where
-  STypeable :: Typeable a => SType a -> STypeable a
-deriving instance Show (STypeable a)
-deriving instance Eq (STypeable a)
-
-type instance Sing = STypeable
-
-instance SingI Integer    where sing = STypeable SInteger
-instance SingI Bool       where sing = STypeable SBoolean
-instance SingI ByteString where sing = STypeable SByteStr
-
-instance SingKind * where
-  type Demote * = MType
-
-  fromSing (STypeable SInteger) = Integer
-  fromSing (STypeable SBoolean) = Boolean
-  fromSing (STypeable SByteStr) = ByteStr
-
-  toSing Integer = SomeSing (STypeable SInteger)
-  toSing Boolean = SomeSing (STypeable SBoolean)
-  toSing ByteStr = SomeSing (STypeable SByteStr)
 
 -- AST post typechecking
 data Claim t
@@ -581,13 +529,13 @@ uintmax a = 2 ^ a - 1
 mkVar :: SingI a => Id -> Exp a t
 mkVar name = let STypeable t = sing in Var t name
 
--- castTime :: (Typeable t, Typeable u) => Exp a u -> Maybe (Exp a t)
--- castTime = gcast
+castTime :: (Typeable t, Typeable u) => Exp a u -> Maybe (Exp a t)
+castTime = gcast
 
--- castType :: (Typeable a, Typeable x) => Exp x t -> Maybe (Exp a t)
--- castType = gcast0
+castType :: (Typeable a, Typeable x) => Exp x t -> Maybe (Exp a t)
+castType = gcast0
 
--- -- | Analogous to `gcast1` and `gcast2` from `Data.Typeable`. We *could* technically use `cast` instead
--- -- but then we would catch too many errors at once, so we couldn't emit informative error messages.
--- gcast0 :: forall t t' a. (Typeable t, Typeable t') => t a -> Maybe (t' a)
--- gcast0 x = fmap (\Refl -> x) (eqT :: Maybe (t :~: t'))
+-- | Analogous to `gcast1` and `gcast2` from `Data.Typeable`. We *could* technically use `cast` instead
+-- but then we would catch too many errors at once, so we couldn't emit informative error messages.
+gcast0 :: forall t t' a. (Typeable t, Typeable t') => t a -> Maybe (t' a)
+gcast0 x = fmap (\Refl -> x) (eqT :: Maybe (t :~: t'))

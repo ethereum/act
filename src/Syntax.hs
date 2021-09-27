@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
-
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeApplications, ScopedTypeVariables #-}
 
 {-|
 Module      : Syntax
@@ -10,8 +10,7 @@ module Syntax where
 
 import Data.List
 import Data.Map (Map,empty,insertWith,unionsWith)
-
-import Error
+import Data.Singletons
 
 import Syntax.TimeAgnostic as Agnostic
 import qualified Syntax.Annotated as Annotated
@@ -44,17 +43,17 @@ locsFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
 -- * Extract from any typed AST * --
 ------------------------------------
 
-constructors :: [Claim t] -> [Constructor t]
-constructors claims = [c | C c <- claims]
+ctorsFromClaims :: [Claim t] -> [Constructor t]
+ctorsFromClaims claims = [c | C c <- claims]
 
-behaviours :: [Claim t] -> [Behaviour t]
-behaviours claims = [b | B b <- claims]
+behvsFromClaims :: [Claim t] -> [Behaviour t]
+behvsFromClaims claims = [b | B b <- claims]
 
-invariants :: [Claim t] -> [Invariant t]
-invariants claims = [i | I i <- claims]
+invsFromClaims :: [Claim t] -> [Invariant t]
+invsFromClaims claims = [i | I i <- claims]
 
-stores :: [Claim t] -> [Store]
-stores claims = [s | S s <- claims]
+storesFromClaims :: [Claim t] -> [Store]
+storesFromClaims claims = [s | S s <- claims]
 
 locsFromRewrite :: Rewrite t -> [StorageLocation t]
 locsFromRewrite update = nub $ case update of
@@ -253,10 +252,8 @@ ixsFromUpdate (BytesUpdate item _) = ixsFromItem item
 ixsFromRewrite :: Rewrite t -> [TypedExp t]
 ixsFromRewrite = onRewrite ixsFromLocation ixsFromUpdate
 
---itemType :: TStorageItem a t -> MType
---itemType IntItem{}   = Integer
---itemType BoolItem{}  = Boolean
---itemType BytesItem{} = ByteStr
+itemType :: forall a t. SingI a => TStorageItem a t -> MType
+itemType _ = withSing @a fromSing
 
 isMapping :: StorageLocation t -> Bool
 isMapping = not . null . ixsFromLocation
