@@ -5,7 +5,7 @@
 {-# Language ScopedTypeVariables #-}
 {-# Language NamedFieldPuns #-}
 {-# Language DataKinds #-}
-{-# LANGUAGE ApplicativeDo, OverloadedLists, PatternSynonyms, ViewPatterns #-}
+{-# LANGUAGE ApplicativeDo #-}
 
 module Type (typecheck, bound, lookupVars, defaultStore, metaType, Err) where
 

@@ -12,8 +12,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators #-}
 
-{-# LANGUAGE RankNTypes, StandaloneKindSignatures, PatternSynonyms, ViewPatterns #-}
-
 {-|
 Module      : Syntax.TimeAgnostic
 Description : AST data types where implicit timings may or may not have been made explicit.

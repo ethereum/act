@@ -3,7 +3,8 @@
 {-# Language OverloadedStrings #-}
 {-# Language ScopedTypeVariables #-}
 {-# Language TypeApplications #-}
-{-# LANGUAGE ApplicativeDo, OverloadedLists #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module K where
 

@@ -6,7 +6,8 @@
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# Language TypeOperators #-}
-{-# LANGUAGE OverloadedLists, ApplicativeDo #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE ApplicativeDo #-}
 
 module CLI (main, compile) where
 

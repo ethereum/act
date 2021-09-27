@@ -1,4 +1,11 @@
-{-# LANGUAGE OverloadedLists,TypeOperators, LambdaCase, AllowAmbiguousTypes, TypeApplications, TypeFamilies, DeriveFunctor, ConstraintKinds, UndecidableInstances, FlexibleContexts, FlexibleInstances, RankNTypes, KindSignatures, ApplicativeDo, MultiParamTypeClasses, ScopedTypeVariables, InstanceSigs #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Error (module Error) where
 
@@ -20,12 +27,13 @@ throw msg = Failure [msg]
 
 infixr 1 <==<, >==>
 
--- These allow us to chain error-prone computations without a @Monad@ instance.
-(<==<) :: (b -> Error e c) -> (a -> Error e b) -> a -> Error e c
-(<==<) = flip (>==>)
-
+-- Like @Control.Monad.'(>=>)'@ but allows us to chain error-prone
+-- computations even without a @Monad@ instance.
 (>==>) :: (a -> Error e b) -> (b -> Error e c) -> a -> Error e c
 f >==> g = \x -> f x `bindValidation` g
+
+(<==<) :: (b -> Error e c) -> (a -> Error e b) -> a -> Error e c
+(<==<) = flip (>==>)
 
 -- | If there is no error at the supplied position, we accept this result and
 -- do not attempt to run any later branches, even if there were other errors.
