@@ -148,10 +148,7 @@ data StorageLocation t
 -- refer to the pre-/post-state, or not. `a` is the type of the item that is
 -- referenced.
 data TStorageItem (a :: *) (t :: Timing) where
-  Item :: SType a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
---  IntItem    :: Id -> Id -> [TypedExp t] -> TStorageItem Integer t
---  BoolItem   :: Id -> Id -> [TypedExp t] -> TStorageItem Bool t
---  BytesItem  :: Id -> Id -> [TypedExp t] -> TStorageItem ByteString t
+  Item :: Sing a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
@@ -184,7 +181,6 @@ data Exp (a :: *) (t :: Timing) where
   GEQ :: Exp Integer t -> Exp Integer t -> Exp Bool t
   GE :: Exp Integer t -> Exp Integer t -> Exp Bool t
   LitBool :: Bool -> Exp Bool t
-  Var :: SType a -> Id -> Exp a t
   -- integers
   Add :: Exp Integer t -> Exp Integer t -> Exp Integer t
   Sub :: Exp Integer t -> Exp Integer t -> Exp Integer t
@@ -214,6 +210,7 @@ data Exp (a :: *) (t :: Timing) where
   Eq  :: (Eq a, Typeable a) => Exp a t -> Exp a t -> Exp Bool t
   NEq :: (Eq a, Typeable a) => Exp a t -> Exp a t -> Exp Bool t
   ITE :: Exp Bool t -> Exp a t -> Exp a t -> Exp a t
+  Var :: Sing a -> Id -> Exp a t
   TEntry :: Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
 
@@ -525,7 +522,7 @@ uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
 mkVar :: SingI a => Id -> Exp a t
-mkVar name = let STypeable t = sing in Var t name
+mkVar name = withSing $ flip Var name
 
 castTime :: (Typeable t, Typeable u) => Exp a u -> Maybe (Exp a t)
 castTime = gcast
