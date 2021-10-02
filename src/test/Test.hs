@@ -4,7 +4,6 @@
 
 module Main where
 
-import EVM.ABI (AbiType(..))
 import Test.Tasty
 import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property, (===), property)
 import Test.QuickCheck.Instances.ByteString()
@@ -15,7 +14,6 @@ import Text.PrettyPrint.ANSI.Leijen (pretty)
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Reader
-import Data.ByteString (ByteString)
 import Data.Maybe (isNothing)
 import qualified Data.Set as Set
 import qualified Data.Map as Map (empty)
@@ -148,9 +146,9 @@ genType typ = case typ of
 
 genTypedExp :: Names -> Int -> ExpoGen TypedExp
 genTypedExp names n = oneof
-  [ ExpInt <$> genExpInt names n
-  , ExpBool <$> genExpBool names n
-  , ExpBytes <$> genExpBytes names n
+  [ TExp SInteger <$> genExpInt names n
+  , TExp SBoolean <$> genExpBool names n
+  , TExp SByteStr <$> genExpBytes names n
   ]
 
 

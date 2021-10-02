@@ -10,7 +10,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeOperators, MultiParamTypeClasses, PatternSynonyms, ViewPatterns #-}
 
 {-|
 Module      : Syntax.TimeAgnostic
@@ -32,10 +32,10 @@ import Control.Applicative (empty)
 
 import Data.Aeson
 import Data.Aeson.Types
-import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.List (genericTake,genericDrop)
 import Data.Map.Strict (Map)
+import Data.Singletons
 import Data.String (fromString)
 import Data.Text (pack)
 import Data.Typeable
@@ -48,7 +48,7 @@ import Syntax.Types   as Syntax.TimeAgnostic
 import Syntax.Timing  as Syntax.TimeAgnostic
 import Syntax.Untyped as Syntax.TimeAgnostic (Id, Interface(..), EthEnv(..), Decl(..))
 
-import Data.Singletons
+import GHC.Records
 
 -- AST post typechecking
 data Claim t
@@ -129,16 +129,33 @@ data Rewrite t
   deriving (Show, Eq)
 
 data StorageUpdate t
-  = IntUpdate (TStorageItem Integer t) (Exp Integer t)
-  | BoolUpdate (TStorageItem Bool t) (Exp Bool t)
-  | BytesUpdate (TStorageItem ByteString t) (Exp ByteString t)
-  deriving (Show, Eq)
+  = forall a. Typeable a => Update (Sing a) (TStorageItem a t) (Exp a t)
+deriving instance Show (StorageUpdate t)
+
+_Update :: Typeable a => TStorageItem a t -> Exp a t -> StorageUpdate t
+_Update item exp = Update (getType item) item exp
+
+instance Eq (StorageUpdate t) where
+  Update t1 i1 e1 == Update t2 i2 e2 = withSingI2 t1 t2 $ eqS i1 i2 && eqS e1 e2
+  --   IntUpdate (TStorageItem Integer t) (Exp Integer t)
+  -- | BoolUpdate (TStorageItem Bool t) (Exp Bool t)
+  -- | BytesUpdate (TStorageItem ByteString t) (Exp ByteString t)
+--  deriving (Show, Eq)
 
 data StorageLocation t
-  = IntLoc (TStorageItem Integer t)
-  | BoolLoc (TStorageItem Bool t)
-  | BytesLoc (TStorageItem ByteString t)
-  deriving (Show, Eq)
+  = forall a. Loc (Sing a) (TStorageItem a t)
+deriving instance Show (StorageLocation t)
+
+_Loc :: TStorageItem a t -> StorageLocation t
+_Loc item = Loc (getType item) item
+
+instance Eq (StorageLocation t) where
+  Loc t1 i1 == Loc t2 i2 = withSingI2 t1 t2 $ eqS i1 i2
+--deriving instance Eq (StorageLocation t)
+--    IntLoc (TStorageItem Integer t)
+--  | BoolLoc (TStorageItem Bool t)
+--  | BytesLoc (TStorageItem ByteString t)
+--  deriving (Show, Eq)
 
 -- | References to items in storage, either as a map lookup or as a reading of
 -- a simple variable. The third argument is a list of indices; it has entries iff
@@ -152,12 +169,27 @@ data TStorageItem (a :: *) (t :: Timing) where
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
+_Item :: SingI a => Id -> Id -> [TypedExp t] -> TStorageItem a t
+_Item = Item sing
+
+instance HasType (TStorageItem a t) a where
+  getType (Item t _ _ _) = t
+
 -- | Expressions for which the return type is known.
 data TypedExp t
-  = ExpInt   (Exp Integer t)
-  | ExpBool  (Exp Bool t)
-  | ExpBytes (Exp ByteString t)
-  deriving (Eq, Show)
+  = forall a. Typeable a => TExp (Sing a) (Exp a t)
+deriving instance Show (TypedExp t)
+--deriving instance Eq (TypedExp t)
+
+_TExp :: (Typeable a, SingI a) => Exp a t -> TypedExp t
+_TExp = TExp sing
+
+instance Eq (TypedExp t) where
+  TExp t1 e1 == TExp t2 e2 = withSingI2 t1 t2 $ eqS e1 e2
+--    TExp SInteger   (Exp Integer t)
+--  | TExp SBoolean  (Exp Bool t)
+--  | TExp SByteStr (Exp ByteString t)
+--  deriving (Eq, Show)
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
 -- All storage entries within an `Exp a t` contain a value of type `Time t`.
@@ -165,11 +197,6 @@ data TypedExp t
 -- will refer to either the prestate or the poststate.
 -- In `t ~ Untimed`, the only possible such value is `Neither :: Time Untimed`, so all storage entries
 -- will not explicitly refer any particular state.
-
--- It is recommended that backends always input `Exp Timed a` to their codegens (or `Exp Untimed a`
--- if postconditions and return values are irrelevant), as this makes it easier to generate
--- consistent variable names. `Untimed` expressions can be given a specific timing using `as`,
--- e.g. ``expr `as` Pre``.
 data Exp (a :: *) (t :: Timing) where
   -- booleans
   And  :: Exp Bool t -> Exp Bool t -> Exp Bool t
@@ -263,6 +290,10 @@ instance Eq (Exp a t) where
   Var _ a == Var _ b = a == b
   _ == _ = False
 
+-- We could make this explicit which would remove the need for the SingI instance.
+instance SingI a => HasType (Exp a t) a where
+  getType _ = sing
+
 instance Semigroup (Exp Bool t) where
   a <> b = And a b
 
@@ -270,16 +301,14 @@ instance Monoid (Exp Bool t) where
   mempty = LitBool True
 
 instance Timable StorageLocation where
-  setTime time location = case location of
-    IntLoc item -> IntLoc $ setTime time item
-    BoolLoc item -> BoolLoc $ setTime time item
-    BytesLoc item -> BytesLoc $ setTime time item
+  setTime time (Loc typ item) = Loc typ $ setTime time item
+  --  BoolLoc item -> BoolLoc $ setTime time item
+  --  BytesLoc item -> BytesLoc $ setTime time item
 
 instance Timable TypedExp where
-  setTime time texp = case texp of
-    ExpInt expr -> ExpInt $ setTime time expr
-    ExpBool expr -> ExpBool $ setTime time expr
-    ExpBytes expr -> ExpBytes $ setTime time expr
+  setTime time (TExp typ expr) = TExp typ $ setTime time expr
+    --TExp SBoolean expr -> TExp SBoolean $ setTime time expr
+    --TExp SByteStr expr -> TExp SByteStr $ setTime time expr
 
 instance Timable (Exp a) where
   setTime time expr = case expr of
@@ -387,14 +416,10 @@ instance ToJSON (Rewrite t) where
   toJSON (Rewrite a) = object [ "Rewrite" .= toJSON a ]
 
 instance ToJSON (StorageLocation t) where
-  toJSON (IntLoc a) = object ["location" .= toJSON a]
-  toJSON (BoolLoc a) = object ["location" .= toJSON a]
-  toJSON (BytesLoc a) = object ["location" .= toJSON a]
+  toJSON (Loc _ a) = object ["location" .= toJSON a]
 
 instance ToJSON (StorageUpdate t) where
-  toJSON (IntUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
-  toJSON (BoolUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
-  toJSON (BytesUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
+  toJSON (Update _ a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
 instance ToJSON (TStorageItem a t) where
   toJSON (Item SInteger a b []) = object ["sort" .= pack "int"
@@ -413,12 +438,8 @@ mapping c a b = object [  "symbol"   .= pack "lookup"
                        ,  "args"     .= Array (fromList [toJSON c, toJSON a, toJSON b])]
 
 instance ToJSON (TypedExp t) where
-   toJSON (ExpInt a) = object ["sort" .= pack "int"
-                              ,"expression" .= toJSON a]
-   toJSON (ExpBool a) = object ["sort" .= String (pack "bool")
+  toJSON (TExp typ a) = object ["sort"       .= pack (show typ)
                                ,"expression" .= toJSON a]
-   toJSON (ExpBytes a) = object ["sort" .= String (pack "bytestring")
-                                ,"expression" .= toJSON a]
 
 instance Typeable a => ToJSON (Exp a t) where
   toJSON (Add a b) = symbol "+" a b
@@ -522,7 +543,7 @@ uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
 mkVar :: SingI a => Id -> Exp a t
-mkVar name = withSing $ flip Var name
+mkVar name = Var sing name
 
 castTime :: (Typeable t, Typeable u) => Exp a u -> Maybe (Exp a t)
 castTime = gcast

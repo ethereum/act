@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module SMT (
   Solver(..),
@@ -435,7 +436,7 @@ getCtorModel ctor solver = do
 
 -- | Gets a concrete value from the solver for the given storage location
 getStorageValue :: SolverInstance -> Id -> When -> StorageLocation -> IO (StorageLocation, TypedExp)
-getStorageValue solver ifaceName whn loc = do
+getStorageValue solver ifaceName whn loc@(Loc typ _) = do
   let name = if isMapping loc
                 then withInterface ifaceName
                      $ select
@@ -444,10 +445,10 @@ getStorageValue solver ifaceName whn loc = do
                 else nameFromLoc whn loc
   output <- getValue solver name
   -- TODO: handle errors here...
-  let val = case loc of
-              IntLoc {} -> parseIntModel output
-              BoolLoc {} -> parseBoolModel output
-              BytesLoc {} -> parseBytesModel output
+  let val = case typ of
+              SInteger -> parseIntModel output
+              SBoolean -> parseBoolModel output
+              SByteStr -> parseBytesModel output
   pure (loc, val)
 
 -- | Gets a concrete value from the solver for the given calldata argument
@@ -477,11 +478,11 @@ getValue solver name = sendCommand solver $ "(get-value (" <> name <> "))"
 
 -- | Parse the result of a call to getValue as an Int
 parseIntModel :: String -> TypedExp
-parseIntModel = ExpInt . LitInt . read . parseSMTModel
+parseIntModel = _TExp . LitInt . read . parseSMTModel
 
 -- | Parse the result of a call to getValue as a Bool
 parseBoolModel :: String -> TypedExp
-parseBoolModel = ExpBool . LitBool . readBool . parseSMTModel
+parseBoolModel = _TExp . LitBool . readBool . parseSMTModel
   where
     readBool "true" = True
     readBool "false" = False
@@ -489,7 +490,7 @@ parseBoolModel = ExpBool . LitBool . readBool . parseSMTModel
 
 -- | Parse the result of a call to getValue as a Bytes
 parseBytesModel :: String -> TypedExp
-parseBytesModel = ExpBytes . ByLit . fromString . parseSMTModel
+parseBytesModel = _TExp . ByLit . fromString . parseSMTModel
 
 -- | Extracts a string representation of the value in the output from a call to `(get-value)`
 parseSMTModel :: String -> String
@@ -516,29 +517,18 @@ parseSMTModel s = if length s0Caps == 1
 
 -- | encodes a storage update from a constructor creates block as an smt assertion
 encodeInitialStorage :: Id -> StorageUpdate -> SMT2
-encodeInitialStorage behvName update = case update of
-  IntUpdate item e -> encode item e
-  BoolUpdate item e -> encode item e
-  BytesUpdate item e -> encode item e
-  where
-    encode :: TStorageItem a -> Exp a -> SMT2
-    encode item e =
-      let
-        postentry  = withInterface behvName $ expToSMT2 (TEntry Post item)
-        expression = withInterface behvName $ expToSMT2 e
-      in "(assert (= " <> postentry <> " " <> expression <> "))"
+encodeInitialStorage behvName (Update _ item exp) =
+  let
+    postentry  = withInterface behvName $ expToSMT2 (TEntry Post item)
+    expression = withInterface behvName $ expToSMT2 exp
+  in "(assert (= " <> postentry <> " " <> expression <> "))"
 
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
 declareInitialStorage :: StorageUpdate -> SMT2
-declareInitialStorage update = case locFromUpdate update of
-  IntLoc item -> mkItem item
-  BoolLoc item -> mkItem item
-  BytesLoc item -> mkItem item
-  where
-    mkItem item = case ixsFromItem item of
-      []       -> constant (nameFromItem Post item) (itemType item)
-      (ix:ixs) -> array (nameFromItem Post item) (ix :| ixs) (itemType item)
+declareInitialStorage (locFromUpdate -> Loc _ item) = case ixsFromItem item of
+  []       -> constant (nameFromItem Post item)             (itemType item)
+  (ix:ixs) -> array    (nameFromItem Post item) (ix :| ixs) (itemType item)
 
 -- | encodes a storge update rewrite as an smt assertion
 encodeUpdate :: Id -> Rewrite -> SMT2
@@ -548,16 +538,11 @@ encodeUpdate behvName (Rewrite update) = encodeInitialStorage behvName update
 -- | declares a storage location that exists both in the pre state and the post
 --   state (i.e. anything except a loc created by a constructor claim)
 declareStorageLocation :: StorageLocation -> [SMT2]
-declareStorageLocation loc = case loc of
-  IntLoc item -> mkItem item
-  BoolLoc item -> mkItem item
-  BytesLoc item -> mkItem item
-  where
-    mkItem item = case ixsFromItem item of
-      []       -> [ constant (nameFromItem Pre item) (itemType item)
-                  , constant (nameFromItem Post item) (itemType item) ]
-      (ix:ixs) -> [ array (nameFromItem Pre item) (ix :| ixs) (itemType item)
-                  , array (nameFromItem Post item) (ix :| ixs) (itemType item) ]
+declareStorageLocation (Loc _ item) = case ixsFromItem item of
+  []       -> [ constant (nameFromItem Pre item) (itemType item)
+              , constant (nameFromItem Post item) (itemType item) ]
+  (ix:ixs) -> [ array (nameFromItem Pre item) (ix :| ixs) (itemType item)
+              , array (nameFromItem Post item) (ix :| ixs) (itemType item) ]
 
 -- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
@@ -571,9 +556,9 @@ declareEthEnv env = constant (prettyEnv env) tp
 -- | encodes a typed expression as an smt2 expression
 typedExpToSMT2 :: TypedExp -> Ctx SMT2
 typedExpToSMT2 re = case re of
-  ExpInt ei -> expToSMT2 ei
-  ExpBool eb -> expToSMT2 eb
-  ExpBytes ebs -> expToSMT2 ebs
+  TExp SInteger ei -> expToSMT2 ei
+  TExp SBoolean eb -> expToSMT2 eb
+  TExp SByteStr ebs -> expToSMT2 ebs
 
 -- | encodes the given Exp as an smt2 expression
 expToSMT2 :: Exp a -> Ctx SMT2
@@ -678,9 +663,9 @@ sType ByteStr = "String"
 
 -- | act -> smt2 type translation
 sType' :: TypedExp -> SMT2
-sType' (ExpInt {}) = "Int"
-sType' (ExpBool {}) = "Bool"
-sType' (ExpBytes {}) = "String"
+sType' (TExp SInteger _) = "Int"
+sType' (TExp SBoolean _) = "Bool"
+sType' (TExp SByteStr _) = "String"
 
 
 --- ** Variable Names ** ---
@@ -691,10 +676,9 @@ nameFromItem whn (Item _ c name _) = c @@ name @@ show whn
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id
-nameFromLoc whn loc = case loc of
-  IntLoc item -> nameFromItem whn item
-  BoolLoc item -> nameFromItem whn item
-  BytesLoc item -> nameFromItem whn item
+nameFromLoc whn (Loc _ item) = nameFromItem whn item
+  -- BoolLoc item -> nameFromItem whn item
+  -- BytesLoc item -> nameFromItem whn item
 
 -- Construct the smt2 variable name for a given decl
 nameFromDecl :: Id -> Decl -> Id

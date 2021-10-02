@@ -162,9 +162,8 @@ stateval store handler updates = T.unwords $ stateConstructor : fmap (valuefor u
   valuefor updates' (name, t) =
     case find (eqName name) updates' of
       Nothing -> parens $ handler name t
-      Just (IntUpdate  item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
-      Just (BoolUpdate item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
-      Just (BytesUpdate _ _) -> error "bytestrings not supported"
+      Just (Update SByteStr item e) -> error "bytestrings not supported"
+      Just (Update t item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
 
 -- | filter by name
 eqName :: Id -> StorageUpdate -> Bool
@@ -180,9 +179,9 @@ lambda (x:xs) n e m = parens $
   <> " else " <> T.pack m <> " " <> stateVar <> " " <> lambdaArgs n where
   name = anon <> T.pack (show n)
   lambdaArgs i = T.unwords $ map (\a -> anon <> T.pack (show a)) [0..i]
-  eqsym (ExpInt _) = " =? "
-  eqsym (ExpBool _) = " =?? "
-  eqsym (ExpBytes _) = error "bytestrings not supported"
+  eqsym (TExp SInteger _) = undefined -- T.pack " =? "
+  eqsym (TExp SBoolean _) = undefined -- T.pack " =?? "
+  eqsym (TExp SByteStr _) = error "bytestrings not supported"
 
 -- | produce a block of declarations from an interface
 interface :: Interface -> T.Text
@@ -210,9 +209,9 @@ abiType a = error $ show a
 
 -- | coq syntax for a return type
 returnType :: TypedExp -> T.Text
-returnType (ExpInt _) = "Z"
-returnType (ExpBool _) = "bool"
-returnType (ExpBytes _) = "bytestrings not supported"
+returnType (TExp SInteger _) = "Z"
+returnType (TExp SBoolean _) = "bool"
+returnType (TExp SByteStr _) = "bytestrings not supported"
 
 -- | default value for a given type
 -- this is used in cases where a value is not set in the constructor
@@ -300,9 +299,9 @@ coqprop _ = error "ill formed proposition"
 
 -- | coq syntax for a typed expression
 typedexp :: TypedExp -> T.Text
-typedexp (ExpInt e)   = coqexp e
-typedexp (ExpBool e)  = coqexp e
-typedexp (ExpBytes _) = error "bytestrings not supported"
+typedexp (TExp SInteger e)   = coqexp e
+typedexp (TExp SBoolean e)  = coqexp e
+typedexp (TExp SByteStr _) = error "bytestrings not supported"
 
 entry :: TStorageItem a -> When -> T.Text
 entry (Item SByteStr _ _ _) _    = error "bytestrings not supported"

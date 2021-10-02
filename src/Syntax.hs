@@ -1,7 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 {-|
 Module      : Syntax
@@ -59,31 +58,34 @@ storesFromClaims claims = [s | S s <- claims]
 locsFromRewrite :: Rewrite t -> [StorageLocation t]
 locsFromRewrite update = nub $ case update of
   Constant loc -> [loc]
-  Rewrite (IntUpdate   item e) -> locsFromItem item <> locsFromExp e
-  Rewrite (BoolUpdate  item e) -> locsFromItem item <> locsFromExp e
-  Rewrite (BytesUpdate item e) -> locsFromItem item <> locsFromExp e
+  Rewrite (Update _ item e) -> locsFromItem item <> locsFromExp e
+--  Rewrite (BoolUpdate  item e) -> locsFromItem item <> locsFromExp e
+--  Rewrite (BytesUpdate item e) -> locsFromItem item <> locsFromExp e
 
 locFromRewrite :: Rewrite t -> StorageLocation t
 locFromRewrite = onRewrite id locFromUpdate
 
 locFromUpdate :: StorageUpdate t -> StorageLocation t
-locFromUpdate (IntUpdate   item _) = IntLoc item
-locFromUpdate (BoolUpdate  item _) = BoolLoc item
-locFromUpdate (BytesUpdate item _) = BytesLoc item
+locFromUpdate (Update typ item _) = Loc typ item
+--locFromUpdate (IntUpdate   item _) = IntLoc item
+--locFromUpdate (BoolUpdate  item _) = BoolLoc item
+--locFromUpdate (BytesUpdate item _) = BytesLoc item
 
 locsFromItem :: TStorageItem a t -> [StorageLocation t]
-locsFromItem item@(Item typ _ _ ixs) = case typ of
-  SInteger -> IntLoc   item : ixLocs ixs
-  SBoolean -> BoolLoc  item : ixLocs ixs
-  SByteStr -> BytesLoc item : ixLocs ixs
+locsFromItem item@(Item typ _ _ ixs) = Loc typ item : ixLocs ixs
+--case typ of
+--  SInteger -> IntLoc   item : ixLocs ixs
+--  SBoolean -> BoolLoc  item : ixLocs ixs
+--  SByteStr -> BytesLoc item : ixLocs ixs
   where
     ixLocs :: [TypedExp t] -> [StorageLocation t]
     ixLocs = concatMap locsFromTypedExp
 
 locsFromTypedExp :: TypedExp t -> [StorageLocation t]
-locsFromTypedExp (ExpInt e) = locsFromExp e
-locsFromTypedExp (ExpBool e) = locsFromExp e
-locsFromTypedExp (ExpBytes e) = locsFromExp e
+locsFromTypedExp (TExp _ e) = locsFromExp e
+--locsFromTypedExp (TExp SInteger e) = locsFromExp e
+--locsFromTypedExp (TExp SBoolean e) = locsFromExp e
+--locsFromTypedExp (TExp SByteStr e) = locsFromExp e
 
 locsFromExp :: Exp a t -> [StorageLocation t]
 locsFromExp = nub . go
@@ -142,20 +144,23 @@ ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub
 
 ethEnvFromRewrite :: Rewrite t -> [EthEnv]
 ethEnvFromRewrite rewrite = case rewrite of
-  Constant (IntLoc item) -> ethEnvFromItem item
-  Constant (BoolLoc item) -> ethEnvFromItem item
-  Constant (BytesLoc item) -> ethEnvFromItem item
-  Rewrite (IntUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
-  Rewrite (BoolUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
-  Rewrite (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+  Constant (Loc _ item) -> ethEnvFromItem item
+--  Constant (IntLoc item) -> ethEnvFromItem item
+--  Constant (BoolLoc item) -> ethEnvFromItem item
+--  Constant (BytesLoc item) -> ethEnvFromItem item
+  Rewrite (Update _ item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+--  Rewrite (IntUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+--  Rewrite (BoolUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+--  Rewrite (BytesUpdate item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
 
 ethEnvFromItem :: TStorageItem a t -> [EthEnv]
 ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
 
 ethEnvFromTypedExp :: TypedExp t -> [EthEnv]
-ethEnvFromTypedExp (ExpInt e) = ethEnvFromExp e
-ethEnvFromTypedExp (ExpBool e) = ethEnvFromExp e
-ethEnvFromTypedExp (ExpBytes e) = ethEnvFromExp e
+ethEnvFromTypedExp (TExp _ e) = ethEnvFromExp e
+--ethEnvFromTypedExp (TExp SInteger e) = ethEnvFromExp e
+--ethEnvFromTypedExp (TExp SBoolean e) = ethEnvFromExp e
+--ethEnvFromTypedExp (TExp SByteStr e) = ethEnvFromExp e
 
 ethEnvFromExp :: Exp a t -> [EthEnv]
 ethEnvFromExp = nub . go
@@ -205,14 +210,16 @@ idFromItem :: TStorageItem a t -> Id
 idFromItem (Item _ _ name _) = name
 
 idFromUpdate :: StorageUpdate t -> Id
-idFromUpdate (IntUpdate   item _) = idFromItem item
-idFromUpdate (BoolUpdate  item _) = idFromItem item
-idFromUpdate (BytesUpdate item _) = idFromItem item
+idFromUpdate (Update _ item _) = idFromItem item
+-- idFromUpdate (IntUpdate   item _) = idFromItem item
+-- idFromUpdate (BoolUpdate  item _) = idFromItem item
+-- idFromUpdate (BytesUpdate item _) = idFromItem item
 
 idFromLocation :: StorageLocation t -> Id
-idFromLocation (IntLoc   item) = idFromItem item
-idFromLocation (BoolLoc  item) = idFromItem item
-idFromLocation (BytesLoc item) = idFromItem item
+idFromLocation (Loc _ item) = idFromItem item
+--idFromLocation (IntLoc   item) = idFromItem item
+--idFromLocation (BoolLoc  item) = idFromItem item
+--idFromLocation (BytesLoc item) = idFromItem item
 
 contractFromRewrite :: Rewrite t -> Id
 contractFromRewrite = onRewrite contractFromLoc contractFromUpdate
@@ -231,30 +238,34 @@ contractsInvolved :: Behaviour t -> [Id]
 contractsInvolved = fmap contractFromRewrite . _stateUpdates
 
 contractFromLoc :: StorageLocation t -> Id
-contractFromLoc (IntLoc   item) = contractFromItem item
-contractFromLoc (BoolLoc  item) = contractFromItem item
-contractFromLoc (BytesLoc item) = contractFromItem item
+contractFromLoc (Loc _ item) = contractFromItem item
+-- contractFromLoc (IntLoc   item) = contractFromItem item
+-- contractFromLoc (BoolLoc  item) = contractFromItem item
+-- contractFromLoc (BytesLoc item) = contractFromItem item
 
 contractFromUpdate :: StorageUpdate t -> Id
-contractFromUpdate (IntUpdate   item _) = contractFromItem item
-contractFromUpdate (BoolUpdate  item _) = contractFromItem item
-contractFromUpdate (BytesUpdate item _) = contractFromItem item
+contractFromUpdate (Update _ item _) = contractFromItem item
+-- contractFromUpdate (IntUpdate   item _) = contractFromItem item
+-- contractFromUpdate (BoolUpdate  item _) = contractFromItem item
+-- contractFromUpdate (BytesUpdate item _) = contractFromItem item
 
 ixsFromLocation :: StorageLocation t -> [TypedExp t]
-ixsFromLocation (IntLoc item) = ixsFromItem item
-ixsFromLocation (BoolLoc item) = ixsFromItem item
-ixsFromLocation (BytesLoc item) = ixsFromItem item
+ixsFromLocation (Loc _ item) = ixsFromItem item
+-- ixsFromLocation (IntLoc item) = ixsFromItem item
+-- ixsFromLocation (BoolLoc item) = ixsFromItem item
+-- ixsFromLocation (BytesLoc item) = ixsFromItem item
 
 ixsFromUpdate :: StorageUpdate t -> [TypedExp t]
-ixsFromUpdate (IntUpdate   item _) = ixsFromItem item
-ixsFromUpdate (BoolUpdate  item _) = ixsFromItem item
-ixsFromUpdate (BytesUpdate item _) = ixsFromItem item
+ixsFromUpdate (Update _ item _) = ixsFromItem item
+-- ixsFromUpdate (IntUpdate   item _) = ixsFromItem item
+-- ixsFromUpdate (BoolUpdate  item _) = ixsFromItem item
+-- ixsFromUpdate (BytesUpdate item _) = ixsFromItem item
 
 ixsFromRewrite :: Rewrite t -> [TypedExp t]
 ixsFromRewrite = onRewrite ixsFromLocation ixsFromUpdate
 
-itemType :: forall a t. SingI a => TStorageItem a t -> MType
-itemType _ = withSing @a fromSing
+itemType :: TStorageItem a t -> MType
+itemType (Item t _ _ _) = fromSing t
 
 isMapping :: StorageLocation t -> Bool
 isMapping = not . null . ixsFromLocation

@@ -88,14 +88,14 @@ kVar a = (unpack . Text.toUpper . pack $ [head a]) <> tail a
 
 kAbiEncode :: Maybe TypedExp -> String
 kAbiEncode Nothing = ".ByteArray"
-kAbiEncode (Just (ExpInt a)) = "#enc(#uint256" <> kExpr a <> ")"
-kAbiEncode (Just (ExpBool _)) = ".ByteArray"
-kAbiEncode (Just (ExpBytes _)) = ".ByteArray"
+kAbiEncode (Just (TExp SInteger a)) = "#enc(#uint256" <> kExpr a <> ")"
+kAbiEncode (Just (TExp SBoolean _)) = ".ByteArray"
+kAbiEncode (Just (TExp SByteStr _)) = ".ByteArray"
 
 kTypedExpr :: TypedExp -> String
-kTypedExpr (ExpInt a) = kExpr a
-kTypedExpr (ExpBool a) = kExpr a
-kTypedExpr (ExpBytes _) = error "TODO: add support for ExpBytes to kExpr"
+kTypedExpr (TExp SInteger a) = kExpr a
+kTypedExpr (TExp SBoolean a) = kExpr a
+kTypedExpr (TExp SByteStr _) = error "TODO: add support for TExp SByteStr to kExpr"
 
 kExpr :: Exp a -> String
 -- integers
@@ -155,11 +155,11 @@ kStorageEntry storageLayout update =
          (error "Internal error: storageVar not found, please report this error")
          (Map.lookup (pack (idFromRewrite update)) storageLayout)
   in case update of
-       Rewrite (IntUpdate a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
-       Rewrite (BoolUpdate a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
-       Rewrite (BytesUpdate a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
-       Constant (IntLoc a) -> (loc, (offset, kStorageName Pre a, kStorageName Pre a))
-       v -> error $ "Internal error: TODO kStorageEntry: " <> show v
+       Rewrite (Update _ a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
+       --Rewrite (BoolUpdate a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
+       --Rewrite (BytesUpdate a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
+       Constant (Loc SInteger a) -> (loc, (offset, kStorageName Pre a, kStorageName Pre a))
+       v -> error $ "Internal error: TODO kStorageEntry: " <> show v -- TODO should this really be separate?
 
 --packs entries packed in one slot
 normalize :: Bool -> [(String, (Int, String, String))] -> String

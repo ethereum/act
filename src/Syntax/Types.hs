@@ -4,19 +4,25 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase, ScopedTypeVariables, MultiParamTypeClasses, FlexibleContexts #-}
 
 -- These extensions should be removed once we remove the defs at the end of this file.
-{-# LANGUAGE RankNTypes, TypeApplications, StandaloneKindSignatures, PolyKinds, ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes, TypeApplications, StandaloneKindSignatures, PolyKinds #-}
 
-module Syntax.Types where
+{-|
+Module      : Syntax.Types
+Description : Types that represent Act types, and functions and patterns to go between them and Haskell's own types.
+-}
+
+module Syntax.Types (module Syntax.Types) where
 
 import Data.Singletons
+import Data.Type.Equality (TestEquality(..))
 import Data.Typeable hiding (TypeRep,typeRep)
 import Type.Reflection
 
-import Data.ByteString as Syntax.Types (ByteString)
-import EVM.ABI         as Syntax.Types (AbiType(..))
+import Data.ByteString    as Syntax.Types (ByteString)
+import EVM.ABI            as Syntax.Types (AbiType(..))
 
 -- | Types understood by proving tools.
 data MType
@@ -30,8 +36,29 @@ data SType a where
   SInteger :: SType Integer
   SBoolean :: SType Bool
   SByteStr :: SType ByteString
-deriving instance Show (SType a)
+--deriving instance Show (SType a)
 deriving instance Eq (SType a)
+
+instance Show (SType a) where
+  show = \case
+    SInteger -> "int"
+    SBoolean -> "bool"
+    SByteStr -> "bytestring"
+
+instance TestEquality SType where
+  testEquality t1@STypeable t2@STypeable = eqT
+
+eqS :: forall (a :: *) (b :: *) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
+eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
+
+class HasType a t where
+  getType :: a -> SType t
+
+  tag :: a -> (SType t, a)
+  tag a = (getType a, a)
+
+withSingI2 :: Sing a -> Sing b -> ((SingI a, SingI b) => r) -> r
+withSingI2 sa sb r = withSingI sa $ withSingI sb $ r
 
 metaType :: AbiType -> MType
 metaType (AbiUIntType _)     = Integer
@@ -46,7 +73,7 @@ metaType AbiStringType       = ByteStr
 --metaType (AbiTupleType        (Vector AbiType)
 metaType _ = error "Syntax.Types.metaType: TODO"
 
--- | For our purposes, the singleton of a type 'a' is always an @'SType' a@.
+-- | For our purposes, the singleton of a type @a@ is always @'SType' a@.
 -- Note that even though there only exist three different 'SType', this does
 -- not mean that the type family is partial. It simply means that the resulting
 -- type is uninhabited if the argument is neither 'Integer', 'Bool' nor
@@ -76,19 +103,20 @@ instance SingKind * where
   toSing Boolean = SomeSing SBoolean
   toSing ByteStr = SomeSing SByteStr
 
--- | Pattern match on an 'EVM.ABI.AbiType' is if it were an 'SType'.
+-- | Pattern match on an 'EVM.ABI.AbiType' is if it were an 'SType' with a 'Typeable'
+-- instance.
 pattern FromAbi :: () => Typeable a => SType a -> AbiType
-pattern FromAbi t <- (metaType -> FromSing t@Typeable)
+pattern FromAbi t <- (metaType -> FromSing t@STypeable)
 {-# COMPLETE FromAbi #-} -- We promise that the pattern covers all cases of AbiType.
 
--- | Pattern match on an 'MType' is if it were an 'SType'.
+-- | Pattern match on an 'MType' is if it were an 'SType' with a 'Typeable' instance.
 pattern FromMeta :: () => Typeable a => SType a -> MType
-pattern FromMeta t <- FromSing t@Typeable
+pattern FromMeta t <- FromSing t@STypeable
 {-# COMPLETE FromMeta #-} -- We promise that the pattern covers all cases of MType.
 
 -- | Helper pattern to retrieve the 'Typeable' instance of an 'SType'.
-pattern Typeable :: () => Typeable a => SType a
-pattern Typeable <- (stypeRep -> TypeRep)
+pattern STypeable :: () => Typeable a => SType a
+pattern STypeable <- (stypeRep -> TypeRep)
 
 -- | Allows us to retrieve the 'TypeRep' of any 'SType', which in turn can be used
 -- to retrieve the 'Typeable' instance.

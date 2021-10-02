@@ -4,6 +4,7 @@
 {-# Language DataKinds #-}
 {-# Language GADTs #-}
 {-# Language MonadComprehensions #-}
+{-# Language ViewPatterns #-}
 
 module HEVM where
 
@@ -123,8 +124,8 @@ checkPostStorage ctx (Behaviour _ _ _ _ _ _ rewrites _) pre post contractMap sol
                  slot update' = let S _ w = calculateSlot ctx solcjson (locFromUpdate update')
                                in w
                  insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
-                 insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx e
-                 insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ ite (symExpBool ctx e) 1 0
+                 insertUpdate store u@(Update SInteger _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx e
+                 insertUpdate store u@(Update SBoolean _ e) = writeArray store (slot u) $ ite (symExpBool ctx e) 1 0
                  insertUpdate _ _ = error "bytes unsupported"
                in post' .== foldl insertUpdate pre' insertions
               _ -> sFalse
@@ -208,9 +209,10 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
       Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item')
 
       name :: StorageLocation -> Id
-      name (IntLoc   i) = nameFromItem method i
-      name (BoolLoc  i) = nameFromItem method i
-      name (BytesLoc i) = nameFromItem method i
+      name (Loc _ i) = nameFromItem method i
+    --  name (IntLoc   i) = nameFromItem method i
+    --  name (BoolLoc  i) = nameFromItem method i
+    --  name (BytesLoc i) = nameFromItem method i
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 
@@ -307,9 +309,10 @@ type Env = Map Id SMType
 
 symExp :: Ctx -> TypedExp -> SMType
 symExp ctx ret = case ret of
-  ExpInt e -> SymInteger $ symExpInt ctx e
-  ExpBool e -> SymBool $ symExpBool ctx e
-  ExpBytes e -> SymBytes $ symExpBytes ctx e
+  TExp SInteger e -> SymInteger $ symExpInt ctx e -- TODO rest
+--  TExp SInteger e -> SymInteger $ symExpInt ctx e
+--  TExp SBoolean e -> SymBool $ symExpBool ctx e
+--  TExp SByteStr e -> SymBytes $ symExpBytes ctx e
 
 symExpBool :: Ctx -> Exp Bool -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) e = case e of
@@ -374,9 +377,10 @@ nameFromItem method (Item _ c name ixs) = c @@ method @@ name <> showIxs
 
 nameFromTypedExp :: ContractName -> Method -> TypedExp -> Id
 nameFromTypedExp c method e = case e of
-  ExpInt e' -> nameFromExp c method e'
-  ExpBool e' -> nameFromExp c method e'
-  ExpBytes e' -> nameFromExp c method e'
+  TExp _ e' -> nameFromExp c method e'
+--  TExp SInteger e' -> nameFromExp c method e'
+--  TExp SBoolean e' -> nameFromExp c method e'
+--  TExp SByteStr e' -> nameFromExp c method e'
 
 nameFromExp :: ContractName -> Method -> Exp a -> Id
 nameFromExp c m e = case e of

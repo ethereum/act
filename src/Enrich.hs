@@ -87,8 +87,8 @@ mkStorageBounds :: Store -> [Rewrite] -> [Exp Bool Untimed]
 mkStorageBounds store refs = catMaybes $ mkBound <$> refs
   where
     mkBound :: Rewrite -> Maybe (Exp Bool Untimed)
-    mkBound (Constant (IntLoc item)) = Just $ fromItem item
-    mkBound (Rewrite (IntUpdate item _)) = Just $ fromItem item
+    mkBound (Constant (Loc SInteger item)) = Just $ fromItem item
+    mkBound (Rewrite (Update SInteger item _)) = Just $ fromItem item
     mkBound _ = Nothing
 
     fromItem :: TStorageItem Integer Untimed -> Exp Bool Untimed

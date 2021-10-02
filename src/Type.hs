@@ -187,18 +187,10 @@ noStorageRead store expr = for_ (keys store) $ \name ->
   for_ (findWithDefault [] name (idFromRewrites expr)) $ \pn ->
     throw (pn,"Cannot read storage in creates block")
 
--- | Creates a correctly typed 'StorageUpdate' given correctly typed components.
-makeUpdate :: Env -> Sing a -> Id -> [TypedExp Untimed] -> Exp a Untimed -> StorageUpdate
-makeUpdate Env{contract} typ name ixs newVal = let item = Item typ contract name ixs in
-  case typ of
-    SInteger -> IntUpdate   item newVal
-    SBoolean -> BoolUpdate  item newVal
-    SByteStr -> BytesUpdate item newVal
-
 -- ensures that key types match value types in an U.Assign
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
-checkAssign env@Env{store} (U.AssignVal (U.StorageVar _ (StorageValue (FromAbi typ)) name) expr)
-  = sequenceA [makeUpdate env typ name [] <$> inferExpr env expr]
+checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar _ (StorageValue (FromAbi typ)) name) expr)
+  = sequenceA [_Update (Item typ contract name []) <$> inferExpr env expr]
     <* noStorageRead store expr
 checkAssign env@Env{store} (U.AssignMany (U.StorageVar _ (StorageMapping (keyType :| _) valType) name) defns)
   = for defns $ \def@(U.Defn e1 e2) -> checkDefn env keyType valType name def
@@ -213,8 +205,10 @@ checkAssign _ _ = error "todo: support struct assignment in constructors"
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
 checkDefn :: Env -> AbiType -> AbiType -> Id -> U.Defn -> Err StorageUpdate
-checkDefn env keyType (FromAbi valType) name (U.Defn k val) =
-  makeUpdate env valType name <$> checkIxs env (getPosn k) [k] [keyType] <*> inferExpr env val
+checkDefn env@Env{contract} keyType (FromAbi valType) name (U.Defn k val) =
+  _Update
+  <$> (Item valType contract name <$> checkIxs env (getPosn k) [k] [keyType])
+  <*> inferExpr env val
 
 -- | Typechecks a postcondition, returning typed versions of its storage updates and return expression.
 checkPost :: Env -> U.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
@@ -269,11 +263,13 @@ checkPost env@Env{contract,calldata} (U.Post storage extStorage maybeReturn) = d
 -- | Typechecks a non-constant rewrite.
 checkStorageExpr :: Env -> U.Pattern -> U.Expr -> Err StorageUpdate
 checkStorageExpr _ (U.PWild _) _ = error "TODO: add support for wild storage to checkStorageExpr"
-checkStorageExpr env@Env{store} (U.PEntry p name args) expr = case Map.lookup name store of
+checkStorageExpr env@Env{contract,store} (U.PEntry p name args) expr = case Map.lookup name store of
   Just (StorageValue (FromAbi typ)) ->
-    makeUpdate env typ name [] <$> inferExpr env expr
+    _Update (Item typ contract name []) <$> inferExpr env expr
   Just (StorageMapping argtyps (FromAbi valType)) ->
-    makeUpdate env valType name <$> checkIxs env p args (NonEmpty.toList argtyps) <*> inferExpr env expr
+    _Update
+    <$> (Item valType contract name <$> checkIxs env p args (NonEmpty.toList argtyps))
+    <*> inferExpr env expr
   Nothing ->
     throw (p, "Unknown storage variable " <> show name)
 
@@ -288,11 +284,11 @@ checkPattern env@Env{contract,store} (U.PEntry p name args) =
   where
     makeLocation :: AbiType -> [AbiType] -> Err StorageLocation
     makeLocation (FromAbi locType) argTypes =
-      let item = Item locType contract name <$> checkIxs @Untimed env p args argTypes
-      in case locType of
-        SInteger -> IntLoc   <$> item
-        SBoolean -> BoolLoc  <$> item
-        SByteStr -> BytesLoc <$> item
+      --let item = 
+      --in 
+      _Loc . Item locType contract name <$> checkIxs @Untimed env p args argTypes
+      --  SBoolean -> BoolLoc  <$> item
+      --  SByteStr -> BytesLoc <$> item
 
 checkIffs :: Env -> [U.IffH] -> Err [Exp Bool Untimed]
 checkIffs env = foldr check (pure [])
@@ -319,19 +315,21 @@ upperBound typ  = error $ "upperBound not implemented for " ++ show typ
 -- | Attempt to construct a `TypedExp` whose type matches the supplied `AbiType`.
 -- The target timing parameter will be whatever is required by the caller.
 checkExpr :: Typeable t => Env -> U.Expr -> AbiType -> Err (TypedExp t)
-checkExpr env e typ = case metaType typ of
-  Integer -> ExpInt   <$> inferExpr env e
-  Boolean -> ExpBool  <$> inferExpr env e
-  ByteStr -> ExpBytes <$> inferExpr env e
+checkExpr env e (FromAbi typ) = TExp typ <$> inferExpr env e
+  -- case metaType typ of
+  -- Integer -> TExp SInteger   <$> inferExpr env e
+  -- Boolean -> TExp SBoolean  <$> inferExpr env e
+  -- ByteStr -> TExp SByteStr <$> inferExpr env e
 
 -- | Attempt to typecheck an untyped expression as any possible type.
 typedExp :: Typeable t => Env -> U.Expr -> Err (TypedExp t)
 typedExp env e = notAtPosn (getPosn e)
-    $ A (ExpInt   <$> inferExpr env e)
-  <!> A (ExpBool  <$> inferExpr env e)
-  <!> A (ExpBytes <$> inferExpr env e)
+    $ A (TExp SInteger <$> inferExpr env e)
+  <!> A (TExp SBoolean <$> inferExpr env e)
+  <!> A (TExp SByteStr <$> inferExpr env e)
   <!> error "Internal error: typedExp" -- should never happen since e's constructor can always be given a type
                                        -- (even though its children may not fit into that)
+                                       -- but this error is more informative than "expected ByteStr, got X"
 
 -- | Attempts to construct an expression with the type and timing required by
 -- the caller. If this is impossible, an error is thrown instead.

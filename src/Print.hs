@@ -85,10 +85,9 @@ prettyExp e = case e of
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
 prettyTypedExp :: TypedExp t -> String
-prettyTypedExp e = case e of
-  ExpInt e' -> prettyExp e'
-  ExpBool e' -> prettyExp e'
-  ExpBytes e' -> prettyExp e'
+prettyTypedExp (TExp t e) = prettyExp e
+--  TExp SBoolean e' -> prettyExp e'
+--  TExp SByteStr e' -> prettyExp e'
 
 prettyItem :: TStorageItem a t -> String
 prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
@@ -96,14 +95,14 @@ prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (
     brackets str = "[" <> str <> "]"
 
 prettyLocation :: StorageLocation t -> String
-prettyLocation (IntLoc item) = prettyItem item
-prettyLocation (BoolLoc item) = prettyItem item
-prettyLocation (BytesLoc item) = prettyItem item
+prettyLocation (Loc _ item) = prettyItem item
+--prettyLocation (BoolLoc item) = prettyItem item
+--prettyLocation (BytesLoc item) = prettyItem item
 
 prettyUpdate :: StorageUpdate t -> String
-prettyUpdate (IntUpdate item e) = prettyItem item <> " => " <> prettyExp e
-prettyUpdate (BoolUpdate item e) = prettyItem item <> " => " <> prettyExp e
-prettyUpdate (BytesUpdate item e) = prettyItem item <> " => " <> prettyExp e
+prettyUpdate (Update _ item e) = prettyItem item <> " => " <> prettyExp e
+--prettyUpdate (BoolUpdate item e) = prettyItem item <> " => " <> prettyExp e
+--prettyUpdate (BytesUpdate item e) = prettyItem item <> " => " <> prettyExp e
 
 prettyEnv :: EthEnv -> String
 prettyEnv e = case e of
