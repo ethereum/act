@@ -127,7 +127,7 @@ data Rewrite t
   deriving (Show, Eq)
 
 data StorageUpdate t
-  = forall a. Typeable a => Update (Sing a) (TStorageItem a t) (Exp a t)
+  = forall a. Typeable a => Update (SType a) (TStorageItem a t) (Exp a t)
 deriving instance Show (StorageUpdate t)
 
 _Update :: Typeable a => TStorageItem a t -> Exp a t -> StorageUpdate t
@@ -135,9 +135,13 @@ _Update item expr = Update (getType item) item expr
 
 instance Eq (StorageUpdate t) where
   Update Sing i1 e1 == Update Sing i2 e2 = eqS i1 i2 && eqS e1 e2
+  u1 == u2 = error $ "Internal error: No singleton in StorageUpdate"
+                  <> "\nUpdate 1: " <> show u1
+                  <> "\nUpdate 2: " <> show u2
+  -- Ugly, stupid, but otherwise GHC compains about incomplete pattern...
 
 data StorageLocation t
-  = forall a. Loc (Sing a) (TStorageItem a t)
+  = forall a. Loc (SType a) (TStorageItem a t)
 deriving instance Show (StorageLocation t)
 
 _Loc :: TStorageItem a t -> StorageLocation t
@@ -145,11 +149,10 @@ _Loc item = Loc (getType item) item
 
 instance Eq (StorageLocation t) where
   Loc Sing i1 == Loc Sing i2 = eqS i1 i2
---deriving instance Eq (StorageLocation t)
---    IntLoc (TStorageItem Integer t)
---  | BoolLoc (TStorageItem Bool t)
---  | BytesLoc (TStorageItem ByteString t)
---  deriving (Show, Eq)
+  l1 == l2 = error $ "Internal error: No singleton in StorageLocation"
+                  <> "\nLocation 1: " <> show l1
+                  <> "\nLocation 2: " <> show l2
+  -- Ugly, stupid, but otherwise GHC compains about incomplete pattern...
 
 -- | References to items in storage, either as a map lookup or as a reading of
 -- a simple variable. The third argument is a list of indices; it has entries iff
@@ -159,7 +162,7 @@ instance Eq (StorageLocation t) where
 -- refer to the pre-/post-state, or not. `a` is the type of the item that is
 -- referenced.
 data TStorageItem (a :: *) (t :: Timing) where
-  Item :: Sing a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
+  Item :: SType a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
@@ -171,21 +174,20 @@ instance HasType (TStorageItem a t) a where
 
 -- | Expressions for which the return type is known.
 data TypedExp t
-  = forall a. Typeable a => TExp (Sing a) (Exp a t)
+  = forall a. Typeable a => TExp (SType a) (Exp a t)
 deriving instance Show (TypedExp t)
---deriving instance Eq (TypedExp t)
 
 -- We could remove the 'SingI' constraint here if we also removed it from the
 -- 'HasType' instance for 'Exp'. But it's tedious and noisy and atm unnecessary.
 _TExp :: (Typeable a, SingI a) => Exp a t -> TypedExp t
-_TExp expr = undefined -- TExp (getType expr) expr
+_TExp expr = TExp (getType expr) expr
 
 instance Eq (TypedExp t) where
   TExp Sing e1 == TExp Sing e2 = eqS e1 e2
---    TExp SInteger   (Exp Integer t)
---  | TExp SBoolean  (Exp Bool t)
---  | TExp SByteStr (Exp ByteString t)
---  deriving (Eq, Show)
+  e1 == e2 = error $ "Internal error: No singleton in TypedExp"
+                  <> "\nExp 1: " <> show e1
+                  <> "\nExp 2: " <> show e2
+  -- Ugly, stupid, but otherwise GHC compains about incomplete pattern...
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
 -- All storage entries within an `Exp a t` contain a value of type `Time t`.
