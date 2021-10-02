@@ -270,7 +270,6 @@ checkStorageExpr env@Env{contract,store} (U.PEntry p name args) expr = case Map.
   Nothing ->
     throw (p, "Unknown storage variable " <> show name)
 
--- 
 checkPattern :: Env -> U.Pattern -> Err StorageLocation
 checkPattern _ (U.PWild _) = error "TODO: checkPattern for Wild storage"
 checkPattern env@Env{contract,store} (U.PEntry p name args) =
@@ -299,11 +298,11 @@ lowerBound _ = LitInt 0
 
 -- todo, the rest
 upperBound :: AbiType -> Exp Integer t
-upperBound (AbiUIntType n) = UIntMax n
-upperBound (AbiIntType n) = IntMax n
-upperBound AbiAddressType = UIntMax 160
+upperBound (AbiUIntType  n) = UIntMax n
+upperBound (AbiIntType   n) = IntMax n
+upperBound AbiAddressType   = UIntMax 160
 upperBound (AbiBytesType n) = UIntMax (8 * n)
-upperBound typ  = error $ "upperBound not implemented for " ++ show typ
+upperBound typ = error $ "upperBound not implemented for " ++ show typ
 
 -- | Attempt to construct a `TypedExp` whose type matches the supplied `AbiType`.
 -- The target timing parameter will be whatever is required by the caller.

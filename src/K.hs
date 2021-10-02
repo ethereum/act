@@ -18,7 +18,6 @@ import Data.Text (Text, pack, unpack)
 import Data.Typeable
 import Data.List hiding (group)
 import Data.Maybe
--- import Data.ByteString hiding (group, pack, unpack, intercalate, filter, foldr, concat, head, tail, null)
 import qualified Data.Text as Text
 import Parse
 import EVM.Types hiding (Whiff(..))
@@ -156,8 +155,6 @@ kStorageEntry storageLayout update =
          (Map.lookup (pack (idFromRewrite update)) storageLayout)
   in case update of
        Rewrite (Update _ a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
-       --Rewrite (BoolUpdate a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
-       --Rewrite (BytesUpdate a b) -> (loc, (offset, kStorageName Pre a, kExpr b))
        Constant (Loc SInteger a) -> (loc, (offset, kStorageName Pre a, kStorageName Pre a))
        v -> error $ "Internal error: TODO kStorageEntry: " <> show v -- TODO should this really be separate?
 

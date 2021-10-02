@@ -96,13 +96,9 @@ prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (
 
 prettyLocation :: StorageLocation t -> String
 prettyLocation (Loc _ item) = prettyItem item
---prettyLocation (BoolLoc item) = prettyItem item
---prettyLocation (BytesLoc item) = prettyItem item
 
 prettyUpdate :: StorageUpdate t -> String
 prettyUpdate (Update _ item e) = prettyItem item <> " => " <> prettyExp e
---prettyUpdate (BoolUpdate item e) = prettyItem item <> " => " <> prettyExp e
---prettyUpdate (BytesUpdate item e) = prettyItem item <> " => " <> prettyExp e
 
 prettyEnv :: EthEnv -> String
 prettyEnv e = case e of

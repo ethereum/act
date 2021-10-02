@@ -124,7 +124,7 @@
           {
             "Pre": {
               "name": "Token.name",
-              "sort": "bytes"
+              "sort": "bytestring"
             }
           },
           "_name"
@@ -137,7 +137,7 @@
           {
             "Post": {
               "name": "Token.name",
-              "sort": "bytes"
+              "sort": "bytestring"
             }
           },
           "_name"
@@ -181,7 +181,7 @@
           {
             "Pre": {
               "name": "Token.symbol",
-              "sort": "bytes"
+              "sort": "bytestring"
             }
           },
           "_symbol"
@@ -194,7 +194,7 @@
           {
             "Post": {
               "name": "Token.symbol",
-              "sort": "bytes"
+              "sort": "bytestring"
             }
           },
           "_symbol"
@@ -236,14 +236,14 @@
       {
         "location": {
           "name": "Token.name",
-          "sort": "bytes"
+          "sort": "bytestring"
         },
         "value": "_name"
       },
       {
         "location": {
           "name": "Token.symbol",
-          "sort": "bytes"
+          "sort": "bytestring"
         },
         "value": "_symbol"
       },

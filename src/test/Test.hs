@@ -146,20 +146,20 @@ genType typ = case typ of
 
 genTypedExp :: Names -> Int -> ExpoGen TypedExp
 genTypedExp names n = oneof
-  [ TExp SInteger <$> genExpInt names n
-  , TExp SBoolean <$> genExpBool names n
-  , TExp SByteStr <$> genExpBytes names n
+  [ _TExp <$> genExpInt names n
+  , _TExp <$> genExpBool names n
+  , _TExp <$> genExpBytes names n
   ]
 
 
 -- TODO: literals, cat slice, ITE, storage, ByStr
 genExpBytes :: Names -> Int -> ExpoGen (Exp ByteString)
-genExpBytes names _ = Var SByteStr <$> selectName ByteStr names
+genExpBytes names _ = _Var <$> selectName ByteStr names
 
 -- TODO: ITE, storage
 genExpBool :: Names -> Int -> ExpoGen (Exp Bool)
 genExpBool names 0 = oneof
-  [ Var SBoolean <$> selectName Boolean names
+  [ _Var <$> selectName Boolean names
   , LitBool <$> liftGen arbitrary
   ]
 genExpBool names n = oneof
@@ -185,7 +185,7 @@ genExpBool names n = oneof
 genExpInt :: Names -> Int -> ExpoGen (Exp Integer)
 genExpInt names 0 = oneof
   [ LitInt <$> liftGen arbitrary
-  , Var SInteger <$> selectName Integer names
+  , _Var <$> selectName Integer names
   , return $ IntEnv Caller
   , return $ IntEnv Callvalue
   , return $ IntEnv Calldepth

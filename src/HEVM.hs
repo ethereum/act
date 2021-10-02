@@ -208,9 +208,6 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
 
       name :: StorageLocation -> Id
       name (Loc _ i) = nameFromItem method i
-    --  name (IntLoc   i) = nameFromItem method i
-    --  name (BoolLoc  i) = nameFromItem method i
-    --  name (BytesLoc i) = nameFromItem method i
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 

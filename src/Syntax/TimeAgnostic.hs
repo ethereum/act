@@ -214,7 +214,6 @@ data Exp (a :: *) (t :: Timing) where
   Mod :: Exp Integer t -> Exp Integer t -> Exp Integer t
   Exp :: Exp Integer t -> Exp Integer t -> Exp Integer t
   LitInt :: Integer -> Exp Integer t
-  --IntVar :: Id -> Exp Integer t
   IntEnv :: EthEnv -> Exp Integer t
   -- bounds
   IntMin :: Int -> Exp Integer t
@@ -224,7 +223,6 @@ data Exp (a :: *) (t :: Timing) where
   -- bytestrings
   Cat :: Exp ByteString t -> Exp ByteString t -> Exp ByteString t
   Slice :: Exp ByteString t -> Exp Integer t -> Exp Integer t -> Exp ByteString t
-  --ByVar :: Id -> Exp ByteString t
   ByStr :: String -> Exp ByteString t
   ByLit :: ByteString -> Exp ByteString t
   ByEnv :: EthEnv -> Exp ByteString t
@@ -249,7 +247,6 @@ instance Eq (Exp a t) where
   GEQ a b == GEQ c d = a == c && b == d
   GE a b == GE c d = a == c && b == d
   LitBool a == LitBool b = a == b
-  --BoolVar a == BoolVar b = a == b
 
   Add a b == Add c d = a == c && b == d
   Sub a b == Sub c d = a == c && b == d
@@ -258,7 +255,6 @@ instance Eq (Exp a t) where
   Mod a b == Mod c d = a == c && b == d
   Exp a b == Exp c d = a == c && b == d
   LitInt a == LitInt b = a == b
-  --IntVar a == IntVar b = a == b
   IntEnv a == IntEnv b = a == b
 
   IntMin a == IntMin b = a == b
@@ -268,7 +264,6 @@ instance Eq (Exp a t) where
 
   Cat a b == Cat c d = a == c && b == d
   Slice a b c == Slice d e f = a == d && b == e && c == f
-  --ByVar a == ByVar b = a == b
   ByStr a == ByStr b = a == b
   ByLit a == ByLit b = a == b
   ByEnv a == ByEnv b = a == b
@@ -413,15 +408,9 @@ instance ToJSON (StorageUpdate t) where
   toJSON (Update _ a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
 instance ToJSON (TStorageItem a t) where
-  toJSON (Item SInteger a b []) = object ["sort" .= pack "int"
+  toJSON (Item t a b []) = object ["sort" .= pack (show t)
                                   , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (Item SBoolean a b []) = object ["sort" .= pack "bool"
-                                   , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (Item SByteStr a b []) = object ["sort" .= pack "bytes"
-                                    , "name" .= String (pack a <> "." <> pack b)]
-  toJSON (Item SInteger a b c) = mapping a b c
-  toJSON (Item SBoolean a b c) = mapping a b c
-  toJSON (Item SByteStr a b c) = mapping a b c
+  toJSON (Item _ a b c)  = mapping a b c
 
 mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
 mapping c a b = object [  "symbol"   .= pack "lookup"
@@ -439,15 +428,12 @@ instance Typeable a => ToJSON (Exp a t) where
   toJSON (Mul a b) = symbol "*" a b
   toJSON (Div a b) = symbol "/" a b
   toJSON (NewAddr a b) = symbol "newAddr" a b
-  --toJSON (IntVar a) = String $ pack a
   toJSON (LitInt a) = toJSON $ show a
   toJSON (IntMin a) = toJSON $ show $ intmin a
   toJSON (IntMax a) = toJSON $ show $ intmax a
   toJSON (UIntMin a) = toJSON $ show $ uintmin a
   toJSON (UIntMax a) = toJSON $ show $ uintmax a
   toJSON (IntEnv a) = String $ pack $ show a
-  toJSON (TEntry t a) = object [ pack (show t) .= toJSON a ]
-  toJSON (Var _ a) = toJSON a
   toJSON (ITE a b c) = object [  "symbol"   .= pack "ite"
                               ,  "arity"    .= Data.Aeson.Types.Number 3
                               ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
@@ -461,7 +447,6 @@ instance Typeable a => ToJSON (Exp a t) where
   toJSON (LEQ a b)  = symbol "<=" a b
   toJSON (GEQ a b)  = symbol ">=" a b
   toJSON (LitBool a) = String $ pack $ show a
-  --toJSON (BoolVar a) = toJSON a
   toJSON (Neg a) = object [  "symbol"   .= pack "not"
                           ,  "arity"    .= Data.Aeson.Types.Number 1
                           ,  "args"     .= Array (fromList [toJSON a])]
@@ -475,6 +460,10 @@ instance Typeable a => ToJSON (Exp a t) where
   toJSON (ByStr a) = toJSON a
   toJSON (ByLit a) = String . pack $ show a
   toJSON (ByEnv a) = String . pack $ show a
+
+  toJSON (TEntry t a) = object [ pack (show t) .= toJSON a ]
+  toJSON (Var _ a) = toJSON a
+
   toJSON v = error $ "todo: json ast for: " <> show v
 
 symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value

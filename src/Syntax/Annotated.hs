@@ -73,5 +73,3 @@ instance Annotatable Agnostic.Rewrite where
 
 instance Annotatable Agnostic.StorageUpdate where
   annotate (Update typ item expr) = Update typ (setPost item) (setPre expr)
---    BoolUpdate item expr -> BoolUpdate (setPost item) (setPre expr)
---    BytesUpdate item expr -> BytesUpdate (setPost item) (setPre expr)

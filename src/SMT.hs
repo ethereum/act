@@ -672,8 +672,6 @@ nameFromItem whn (Item _ c name _) = c @@ name @@ show whn
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id
 nameFromLoc whn (Loc _ item) = nameFromItem whn item
-  -- BoolLoc item -> nameFromItem whn item
-  -- BytesLoc item -> nameFromItem whn item
 
 -- Construct the smt2 variable name for a given decl
 nameFromDecl :: Id -> Decl -> Id

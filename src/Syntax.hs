@@ -43,17 +43,8 @@ locsFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
 -- * Extract from any typed AST * --
 ------------------------------------
 
-ctorsFromClaims :: [Claim t] -> [Constructor t]
-ctorsFromClaims claims = [c | C c <- claims]
-
 behvsFromClaims :: [Claim t] -> [Behaviour t]
 behvsFromClaims claims = [b | B b <- claims]
-
-invsFromClaims :: [Claim t] -> [Invariant t]
-invsFromClaims claims = [i | I i <- claims]
-
-storesFromClaims :: [Claim t] -> [Store]
-storesFromClaims claims = [s | S s <- claims]
 
 locsFromRewrite :: Rewrite t -> [StorageLocation t]
 locsFromRewrite update = nub $ case update of
@@ -64,13 +55,10 @@ locFromRewrite :: Rewrite t -> StorageLocation t
 locFromRewrite = onRewrite id locFromUpdate
 
 locFromUpdate :: StorageUpdate t -> StorageLocation t
-locFromUpdate (Update typ item _) = Loc typ item
+locFromUpdate (Update _ item _) = _Loc item
 
 locsFromItem :: TStorageItem a t -> [StorageLocation t]
-locsFromItem item@(Item typ _ _ ixs) = Loc typ item : ixLocs ixs
-  where
-    ixLocs :: [TypedExp t] -> [StorageLocation t]
-    ixLocs = concatMap locsFromTypedExp
+locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
 
 locsFromTypedExp :: TypedExp t -> [StorageLocation t]
 locsFromTypedExp (TExp _ e) = locsFromExp e
