@@ -711,7 +711,7 @@ getBehvName (Postcondition (Behv behv) _ _) = (text "behaviour") <+> (bold . tex
 getBehvName (Inv {}) = error "Internal Error: invariant queries do not have an associated behaviour"
 
 identifier :: Query -> Doc
-identifier q@Inv {}           = (bold . text . prettyExp . target $ q) <+> text "of" <+> (bold . text . getQueryContract $ q)
+identifier q@(Inv (Invariant _ _ _ e) _ _)    = (bold . text . prettyInvPred $ e) <+> text "of" <+> (bold . text . getQueryContract $ q)
 identifier q@Postcondition {} = (bold . text . prettyExp . target $ q) <+> text "in" <+> getBehvName q <+> text "of" <+> (bold . text . getQueryContract $ q)
 
 getSMT :: Query -> Doc

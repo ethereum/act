@@ -27,7 +27,6 @@ import Control.Lens hiding (op, pre, (.>))
 import Control.Monad
 import Control.Applicative ((<|>))
 import qualified Data.Vector as Vec
-import Data.Tree
 
 import Print
 
@@ -38,21 +37,21 @@ import EVM.ABI
 import EVM.Concrete
 import EVM.SymExec
 import EVM.Symbolic
-import EVM.Types (SymWord(..), Buffer(..), Addr(..), toSizzle, litBytes, num, var)
-import EVM.Types (w256, SAddr(..))
+import EVM.Types (SymWord(..), Buffer(..), Addr(..), toSizzle, litBytes, num, var, w256, SAddr(..))
 
 type SolcJson = Map Text SolcContract
 
-proveBehaviour :: SolcJson -> Behaviour -> Symbolic (Either (Tree BranchInfo) VM)
+proveBehaviour :: SolcJson -> Behaviour -> Symbolic VerifyResult
 proveBehaviour sources behaviour = do
   preVm <- initialVm sources' behaviour contractMap
   query $ do
-    res <- verify preVm Nothing Nothing (Just postC)
+    res <- verify preVm Nothing Nothing Nothing (Just postC)
     case res of
-      Right _ -> do
+      Cex tree -> do
         showCounterexample preVm Nothing
-        return $ Right preVm :: Query (Either (Tree BranchInfo) VM)
-      Left tree -> return $ Left tree :: Query (Either (Tree BranchInfo) VM)
+        return $ Cex tree
+      Timeout tree -> return $ Timeout tree
+      Qed tree -> return $ Qed tree
 
    where
      -- todo: deal with ambiguities in contract name
@@ -374,8 +373,7 @@ nameFromItem method (Item _ c name ixs) = c @@ method @@ name <> showIxs
     showIxs = intercalate "-" $ "" : fmap (nameFromTypedExp c method) ixs
 
 nameFromTypedExp :: ContractName -> Method -> TypedExp -> Id
-nameFromTypedExp c method e = case e of
-  TExp _ e' -> nameFromExp c method e'
+nameFromTypedExp c method (TExp _ e) = nameFromExp c method e
 
 nameFromExp :: ContractName -> Method -> Exp a -> Id
 nameFromExp c m e = case e of
@@ -442,4 +440,4 @@ catBytes :: Map Id SMType -> Map Id (SBV String)
 catBytes m = Map.fromList [(name, i) | (name, SymBytes i) <- Map.toList m]
 
 concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
-concatMapM f xs = liftM concat (mapM f xs)
+concatMapM f xs = fmap concat (mapM f xs)

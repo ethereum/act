@@ -38,5 +38,5 @@ let
 in
 {
   inherit shell;
-  exe = myHaskellPackages.act;
+  act = myHaskellPackages.act;
 }

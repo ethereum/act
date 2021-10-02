@@ -29,5 +29,5 @@ jobs:
       - name: test
         run: nix-shell --pure --command "cabal new-update && make test"
       - name: build
-        run: nix-build -A exe
+        run: nix-build -A act
 
