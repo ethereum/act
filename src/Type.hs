@@ -281,11 +281,7 @@ checkPattern env@Env{contract,store} (U.PEntry p name args) =
   where
     makeLocation :: AbiType -> [AbiType] -> Err StorageLocation
     makeLocation (FromAbi locType) argTypes =
-      --let item = 
-      --in 
       _Loc . Item locType contract name <$> checkIxs @Untimed env p args argTypes
-      --  SBoolean -> BoolLoc  <$> item
-      --  SByteStr -> BytesLoc <$> item
 
 checkIffs :: Env -> [U.IffH] -> Err [Exp Bool Untimed]
 checkIffs env = foldr check (pure [])
@@ -313,10 +309,6 @@ upperBound typ  = error $ "upperBound not implemented for " ++ show typ
 -- The target timing parameter will be whatever is required by the caller.
 checkExpr :: Typeable t => Env -> U.Expr -> AbiType -> Err (TypedExp t)
 checkExpr env e (FromAbi typ) = TExp typ <$> inferExpr env e
-  -- case metaType typ of
-  -- Integer -> TExp SInteger   <$> inferExpr env e
-  -- Boolean -> TExp SBoolean  <$> inferExpr env e
-  -- ByteStr -> TExp SByteStr <$> inferExpr env e
 
 -- | Attempt to typecheck an untyped expression as any possible type.
 typedExp :: Typeable t => Env -> U.Expr -> Err (TypedExp t)

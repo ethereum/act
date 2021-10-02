@@ -38,6 +38,7 @@ import Data.Maybe
 import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
+import Data.Singletons (fromSing)
 
 import Syntax
 import Syntax.Annotated
@@ -555,10 +556,7 @@ declareEthEnv env = constant (prettyEnv env) tp
 
 -- | encodes a typed expression as an smt2 expression
 typedExpToSMT2 :: TypedExp -> Ctx SMT2
-typedExpToSMT2 re = case re of
-  TExp SInteger ei -> expToSMT2 ei
-  TExp SBoolean eb -> expToSMT2 eb
-  TExp SByteStr ebs -> expToSMT2 ebs
+typedExpToSMT2 (TExp _ e) = expToSMT2 e
 
 -- | encodes the given Exp as an smt2 expression
 expToSMT2 :: Exp a -> Ctx SMT2
@@ -663,10 +661,7 @@ sType ByteStr = "String"
 
 -- | act -> smt2 type translation
 sType' :: TypedExp -> SMT2
-sType' (TExp SInteger _) = "Int"
-sType' (TExp SBoolean _) = "Bool"
-sType' (TExp SByteStr _) = "String"
-
+sType' (TExp t _) = sType . fromSing $ t
 
 --- ** Variable Names ** ---
 

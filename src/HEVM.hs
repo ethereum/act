@@ -308,8 +308,8 @@ type Env = Map Id SMType
 
 symExp :: Ctx -> TypedExp -> SMType
 symExp ctx (TExp t e) = case t of
-  SInteger -> SymInteger $ symExpInt ctx e
-  SBoolean -> SymBool    $ symExpBool ctx e
+  SInteger -> SymInteger $ symExpInt   ctx e
+  SBoolean -> SymBool    $ symExpBool  ctx e
   SByteStr -> SymBytes   $ symExpBytes ctx e
 
 symExpBool :: Ctx -> Exp Bool -> SBV Bool
@@ -376,9 +376,6 @@ nameFromItem method (Item _ c name ixs) = c @@ method @@ name <> showIxs
 nameFromTypedExp :: ContractName -> Method -> TypedExp -> Id
 nameFromTypedExp c method e = case e of
   TExp _ e' -> nameFromExp c method e'
---  TExp SInteger e' -> nameFromExp c method e'
---  TExp SBoolean e' -> nameFromExp c method e'
---  TExp SByteStr e' -> nameFromExp c method e'
 
 nameFromExp :: ContractName -> Method -> Exp a -> Id
 nameFromExp c m e = case e of

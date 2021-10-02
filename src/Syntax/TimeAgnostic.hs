@@ -134,11 +134,7 @@ _Update :: Typeable a => TStorageItem a t -> Exp a t -> StorageUpdate t
 _Update item expr = Update (getType item) item expr
 
 instance Eq (StorageUpdate t) where
-  Update t1 i1 e1 == Update t2 i2 e2 = withSingI2 t1 t2 $ eqS i1 i2 && eqS e1 e2
-  --   IntUpdate (TStorageItem Integer t) (Exp Integer t)
-  -- | BoolUpdate (TStorageItem Bool t) (Exp Bool t)
-  -- | BytesUpdate (TStorageItem ByteString t) (Exp ByteString t)
---  deriving (Show, Eq)
+  Update Sing i1 e1 == Update Sing i2 e2 = eqS i1 i2 && eqS e1 e2
 
 data StorageLocation t
   = forall a. Loc (Sing a) (TStorageItem a t)
@@ -148,7 +144,7 @@ _Loc :: TStorageItem a t -> StorageLocation t
 _Loc item = Loc (getType item) item
 
 instance Eq (StorageLocation t) where
-  Loc t1 i1 == Loc t2 i2 = withSingI2 t1 t2 $ eqS i1 i2
+  Loc Sing i1 == Loc Sing i2 = eqS i1 i2
 --deriving instance Eq (StorageLocation t)
 --    IntLoc (TStorageItem Integer t)
 --  | BoolLoc (TStorageItem Bool t)
@@ -179,11 +175,13 @@ data TypedExp t
 deriving instance Show (TypedExp t)
 --deriving instance Eq (TypedExp t)
 
+-- We could remove the 'SingI' constraint here if we also removed it from the
+-- 'HasType' instance for 'Exp'. But it's tedious and noisy and atm unnecessary.
 _TExp :: (Typeable a, SingI a) => Exp a t -> TypedExp t
-_TExp = TExp sing
+_TExp expr = undefined -- TExp (getType expr) expr
 
 instance Eq (TypedExp t) where
-  TExp t1 e1 == TExp t2 e2 = withSingI2 t1 t2 $ eqS e1 e2
+  TExp Sing e1 == TExp Sing e2 = eqS e1 e2
 --    TExp SInteger   (Exp Integer t)
 --  | TExp SBoolean  (Exp Bool t)
 --  | TExp SByteStr (Exp ByteString t)
@@ -300,13 +298,9 @@ instance Monoid (Exp Bool t) where
 
 instance Timable StorageLocation where
   setTime time (Loc typ item) = Loc typ $ setTime time item
-  --  BoolLoc item -> BoolLoc $ setTime time item
-  --  BytesLoc item -> BytesLoc $ setTime time item
 
 instance Timable TypedExp where
   setTime time (TExp typ expr) = TExp typ $ setTime time expr
-    --TExp SBoolean expr -> TExp SBoolean $ setTime time expr
-    --TExp SByteStr expr -> TExp SByteStr $ setTime time expr
 
 instance Timable (Exp a) where
   setTime time expr = case expr of
@@ -320,7 +314,6 @@ instance Timable (Exp a) where
     GEQ x y -> GEQ (go x) (go y)
     GE x y -> GE (go x) (go y)
     LitBool x -> LitBool x
-    --BoolVar x -> BoolVar x
     -- integers
     Add x y -> Add (go x) (go y)
     Sub x y -> Sub (go x) (go y)
@@ -329,7 +322,6 @@ instance Timable (Exp a) where
     Mod x y -> Mod (go x) (go y)
     Exp x y -> Exp (go x) (go y)
     LitInt x -> LitInt x
-    --IntVar x -> IntVar x
     IntEnv x -> IntEnv x
     -- bounds
     IntMin x -> IntMin x
@@ -339,7 +331,6 @@ instance Timable (Exp a) where
     -- bytestrings
     Cat x y -> Cat (go x) (go y)
     Slice x y z -> Slice (go x) (go y) (go z)
-    --ByVar x -> ByVar x
     ByStr x -> ByStr x
     ByLit x -> ByLit x
     ByEnv x -> ByEnv x
@@ -540,8 +531,8 @@ uintmin _ = 0
 uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
-mkVar :: SingI a => Id -> Exp a t
-mkVar name = Var sing name
+_Var :: SingI a => Id -> Exp a t
+_Var name = Var sing name
 
 castTime :: (Typeable t, Typeable u) => Exp a u -> Maybe (Exp a t)
 castTime = gcast

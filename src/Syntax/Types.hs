@@ -4,7 +4,9 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase, ScopedTypeVariables, MultiParamTypeClasses, FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
 
 -- These extensions should be removed once we remove the defs at the end of this file.
 {-# LANGUAGE RankNTypes, TypeApplications, StandaloneKindSignatures, PolyKinds #-}
@@ -36,7 +38,6 @@ data SType a where
   SInteger :: SType Integer
   SBoolean :: SType Bool
   SByteStr :: SType ByteString
---deriving instance Show (SType a)
 deriving instance Eq (SType a)
 
 instance Show (SType a) where
@@ -53,12 +54,6 @@ eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
 
 class HasType a t where
   getType :: a -> SType t
-
-  tag :: a -> (SType t, a)
-  tag a = (getType a, a)
-
-withSingI2 :: Sing a -> Sing b -> ((SingI a, SingI b) => r) -> r
-withSingI2 sa sb r = withSingI sa $ withSingI sb $ r
 
 metaType :: AbiType -> MType
 metaType (AbiUIntType _)     = Integer

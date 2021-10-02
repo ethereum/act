@@ -172,16 +172,17 @@ eqName n update = n == idFromUpdate update
 -- represent mapping update with anonymous function
 lambda :: [TypedExp] -> Int -> Exp a -> Id -> T.Text
 lambda [] _ e _ = parens $ coqexp e
-lambda (x:xs) n e m = parens $
+lambda (TExp argType arg:xs) n e m = parens $
   "fun " <> name <> " =>"
-  <> " if " <> name <> eqsym x <> typedexp x
+  <> " if " <> name <> eqsym <> coqexp arg
   <> " then " <> lambda xs (n + 1) e m
   <> " else " <> T.pack m <> " " <> stateVar <> " " <> lambdaArgs n where
   name = anon <> T.pack (show n)
   lambdaArgs i = T.unwords $ map (\a -> anon <> T.pack (show a)) [0..i]
-  eqsym (TExp SInteger _) = undefined -- T.pack " =? "
-  eqsym (TExp SBoolean _) = undefined -- T.pack " =?? "
-  eqsym (TExp SByteStr _) = error "bytestrings not supported"
+  eqsym = case argType of
+    SInteger -> " =? "
+    SBoolean -> " =?? "
+    SByteStr -> error "bytestrings not supported"
 
 -- | produce a block of declarations from an interface
 interface :: Interface -> T.Text
@@ -299,9 +300,7 @@ coqprop _ = error "ill formed proposition"
 
 -- | coq syntax for a typed expression
 typedexp :: TypedExp -> T.Text
-typedexp (TExp SInteger e)   = coqexp e
-typedexp (TExp SBoolean e)  = coqexp e
-typedexp (TExp SByteStr _) = error "bytestrings not supported"
+typedexp (TExp _ e) = coqexp e
 
 entry :: TStorageItem a -> When -> T.Text
 entry (Item SByteStr _ _ _) _    = error "bytestrings not supported"

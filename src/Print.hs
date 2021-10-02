@@ -86,8 +86,6 @@ prettyExp e = case e of
 
 prettyTypedExp :: TypedExp t -> String
 prettyTypedExp (TExp _ e) = prettyExp e
---  TExp SBoolean e' -> prettyExp e'
---  TExp SByteStr e' -> prettyExp e'
 
 prettyItem :: TStorageItem a t -> String
 prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
