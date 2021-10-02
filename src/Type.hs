@@ -16,11 +16,8 @@ import Data.Maybe
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict    as Map -- abandon in favor of [(a,b)]?
-import Data.Singletons
 import Data.Typeable hiding (typeRep)
 import Type.Reflection (typeRep)
-
-import Data.ByteString (ByteString)
 
 import Control.Lens.Operators ((??))
 import Control.Monad.Writer

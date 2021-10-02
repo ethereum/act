@@ -162,8 +162,8 @@ stateval store handler updates = T.unwords $ stateConstructor : fmap (valuefor u
   valuefor updates' (name, t) =
     case find (eqName name) updates' of
       Nothing -> parens $ handler name t
-      Just (Update SByteStr item e) -> error "bytestrings not supported"
-      Just (Update t item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
+      Just (Update SByteStr _ _) -> error "bytestrings not supported"
+      Just (Update _ item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
 
 -- | filter by name
 eqName :: Id -> StorageUpdate -> Bool

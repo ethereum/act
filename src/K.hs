@@ -18,7 +18,7 @@ import Data.Text (Text, pack, unpack)
 import Data.Typeable
 import Data.List hiding (group)
 import Data.Maybe
-import Data.ByteString hiding (group, pack, unpack, intercalate, filter, foldr, concat, head, tail, null)
+-- import Data.ByteString hiding (group, pack, unpack, intercalate, filter, foldr, concat, head, tail, null)
 import qualified Data.Text as Text
 import Parse
 import EVM.Types hiding (Whiff(..))

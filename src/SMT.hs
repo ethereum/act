@@ -517,10 +517,10 @@ parseSMTModel s = if length s0Caps == 1
 
 -- | encodes a storage update from a constructor creates block as an smt assertion
 encodeInitialStorage :: Id -> StorageUpdate -> SMT2
-encodeInitialStorage behvName (Update _ item exp) =
+encodeInitialStorage behvName (Update _ item expr) =
   let
     postentry  = withInterface behvName $ expToSMT2 (TEntry Post item)
-    expression = withInterface behvName $ expToSMT2 exp
+    expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
 -- | declares a storage location that is created by the constructor, these

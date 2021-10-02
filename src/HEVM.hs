@@ -13,7 +13,6 @@ import Prelude hiding (lookup)
 import Syntax
 import Syntax.Annotated as Annotated hiding (S)
 
-import Data.ByteString (ByteString)
 import Data.ByteString.UTF8 (toString)
 import Data.Text (Text, pack, splitOn)
 import Data.Maybe
@@ -308,11 +307,10 @@ type Storage = Map Id (SMType, SMType)
 type Env = Map Id SMType
 
 symExp :: Ctx -> TypedExp -> SMType
-symExp ctx ret = case ret of
-  TExp SInteger e -> SymInteger $ symExpInt ctx e -- TODO rest
---  TExp SInteger e -> SymInteger $ symExpInt ctx e
---  TExp SBoolean e -> SymBool $ symExpBool ctx e
---  TExp SByteStr e -> SymBytes $ symExpBytes ctx e
+symExp ctx (TExp t e) = case t of
+  SInteger -> SymInteger $ symExpInt ctx e
+  SBoolean -> SymBool    $ symExpBool ctx e
+  SByteStr -> SymBytes   $ symExpBytes ctx e
 
 symExpBool :: Ctx -> Exp Bool -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) e = case e of

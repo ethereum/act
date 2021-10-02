@@ -85,7 +85,7 @@ prettyExp e = case e of
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
 prettyTypedExp :: TypedExp t -> String
-prettyTypedExp (TExp t e) = prettyExp e
+prettyTypedExp (TExp _ e) = prettyExp e
 --  TExp SBoolean e' -> prettyExp e'
 --  TExp SByteStr e' -> prettyExp e'
 

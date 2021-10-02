@@ -46,7 +46,7 @@ instance Show (SType a) where
     SByteStr -> "bytestring"
 
 instance TestEquality SType where
-  testEquality t1@STypeable t2@STypeable = eqT
+  testEquality STypeable STypeable = eqT
 
 eqS :: forall (a :: *) (b :: *) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
 eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
@@ -112,11 +112,12 @@ pattern FromAbi t <- (metaType -> FromSing t@STypeable)
 -- | Pattern match on an 'MType' is if it were an 'SType' with a 'Typeable' instance.
 pattern FromMeta :: () => Typeable a => SType a -> MType
 pattern FromMeta t <- FromSing t@STypeable
-{-# COMPLETE FromMeta #-} -- We promise that the pattern covers all cases of MType.
+{-# COMPLETE FromMeta #-}
 
 -- | Helper pattern to retrieve the 'Typeable' instance of an 'SType'.
 pattern STypeable :: () => Typeable a => SType a
 pattern STypeable <- (stypeRep -> TypeRep)
+{-# COMPLETE STypeable #-}
 
 -- | Allows us to retrieve the 'TypeRep' of any 'SType', which in turn can be used
 -- to retrieve the 'Typeable' instance.
@@ -127,7 +128,7 @@ stypeRep = \case
   SByteStr -> typeRep
 
 -- Everything below will be added to base 4.17 but for now we need it here.
--- See https://gitlab.haskell.org/ghc/ghc/-/blob/master/libraries/base/Data/Typeable/Internal.hs#L264
+-- See https://gitlab.haskell.org/ghc/ghc/-/commit/d3ef2dc2bdfec457d5e0973f3e8f3e92767c16af#786588e27bcbc2a8360d2d0d3b2ce1d075797ffb_232_263
 
 -- | A 'TypeableInstance' wraps up a 'Typeable' instance for explicit
 -- handling. For internal use: for defining 'TypeRep' pattern.

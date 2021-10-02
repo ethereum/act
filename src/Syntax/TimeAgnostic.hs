@@ -48,8 +48,6 @@ import Syntax.Types   as Syntax.TimeAgnostic
 import Syntax.Timing  as Syntax.TimeAgnostic
 import Syntax.Untyped as Syntax.TimeAgnostic (Id, Interface(..), EthEnv(..), Decl(..))
 
-import GHC.Records
-
 -- AST post typechecking
 data Claim t
   = C (Constructor t)
@@ -133,7 +131,7 @@ data StorageUpdate t
 deriving instance Show (StorageUpdate t)
 
 _Update :: Typeable a => TStorageItem a t -> Exp a t -> StorageUpdate t
-_Update item exp = Update (getType item) item exp
+_Update item expr = Update (getType item) item expr
 
 instance Eq (StorageUpdate t) where
   Update t1 i1 e1 == Update t2 i2 e2 = withSingI2 t1 t2 $ eqS i1 i2 && eqS e1 e2
