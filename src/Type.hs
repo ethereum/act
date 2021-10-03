@@ -56,6 +56,13 @@ typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
     -- Generic helper
     noDuplicates :: [(Pn,Id)] -> (Id -> String) -> Err ()
     noDuplicates xs errmsg = traverse_ (throw . fmap errmsg) . duplicatesBy ((==) `on` snd) $ xs
+      where
+        -- filters out duplicate entries in list based on a custom equality predicate.
+        duplicatesBy :: (a -> a -> Bool) -> [a] -> [a]
+        duplicatesBy _ [] = []
+        duplicatesBy f (y:ys) =
+          let e = [y | any (f y) ys]
+          in e <> duplicatesBy f ys
 
 --- Finds storage declarations from constructors
 lookupVars :: [U.RawBehaviour] -> Store
@@ -64,20 +71,13 @@ lookupVars = foldMap $ \case
   U.Definition _ contract _ _ (U.Creates assigns) _ _ _ ->
     Map.singleton contract . Map.fromList $ snd . fromAssign <$> assigns
 
--- | Extracts what we need to build a 'Store' and to verify that names are unique.
+-- | Extracts what we need to build a 'Store' and to verify that its names are unique.
 -- Kind of stupid return type but it makes it easier to use the same function
 -- at both places (without relying on custom functions on triples.)
 fromAssign :: U.Assign -> (Pn, (Id, SlotType))
 fromAssign (U.AssignVal (U.StorageVar pn typ var) _) = (pn, (var, typ))
 fromAssign (U.AssignMany (U.StorageVar pn typ var) _) = (pn, (var, typ))
 fromAssign (U.AssignStruct _ _) = error "TODO: assignstruct"
-
--- | filters out duplicate entries in list based on a custom equality predicate.
-duplicatesBy :: (a -> a -> Bool) -> [a] -> [a]
-duplicatesBy _ [] = []
-duplicatesBy f (x:xs) =
-  let e = [x | any (f x) xs]
-  in e <> duplicatesBy f xs
 
 -- | The type checking environment. 
 data Env = Env
