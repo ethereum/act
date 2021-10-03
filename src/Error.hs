@@ -7,6 +7,15 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{-|
+Module      : Error
+Description : An instantiation of 'Validation' with our error type.
+
+This specializes 'Data.Validation.Validation' to keep its errors in a 'NonEmpty' list
+and keep track of a 'Pn' for every error it logs. There is also some infrastructure
+around modified chaining/branching behaviours.
+-}
+
 module Error (module Error) where
 
 import Data.Functor.Alt
@@ -27,7 +36,7 @@ throw msg = Failure [msg]
 
 infixr 1 <==<, >==>
 
--- Like @Control.Monad.'(>=>)'@ but allows us to chain error-prone
+-- Like 'Control.Monad.(>=>)' but allows us to chain error-prone
 -- computations even without a @Monad@ instance.
 (>==>) :: (a -> Error e b) -> (b -> Error e c) -> a -> Error e c
 f >==> g = \x -> f x `bindValidation` g
