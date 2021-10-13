@@ -87,13 +87,12 @@ instance SingKind * where
   -- | We can demote a type variable @a@ to a value of type 'MType'
   type Demote * = MType
 
-  -- | We can go from any singleton type to the corresponding demoted type.
+  -- | Demotes @'SType' a@ to 'MType'.
   fromSing SInteger = Integer
   fromSing SBoolean = Boolean
   fromSing SByteStr = ByteStr
 
-  -- | We can go from any demoted type to the corresponding singleton type,
-  -- but need to hide its type variable when doing so.
+  -- | Promotes 'MType' to an existentially quantified 'SType'.
   toSing Integer = SomeSing SInteger
   toSing Boolean = SomeSing SBoolean
   toSing ByteStr = SomeSing SByteStr
