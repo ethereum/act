@@ -163,7 +163,7 @@ Transition : 'behaviour' id 'of' id
              Interface
              list(Precondition)
              Cases
-             Ensures                                  { Transition (posn $2) (name $2) (name $4)
+             Ensures                                  { Transition (name $2) (name $4)
                                                         $5 $6 $7 $8 }
 
 Constructor : 'constructor' 'of' id
@@ -305,6 +305,7 @@ Expr : '(' Expr ')'                                   { $2 }
 {
 
 nowhere = AlexPn 0 0 0
+
 lastPos = AlexPn (-1) (-1) (-1)
 
 validsize :: Int -> Bool

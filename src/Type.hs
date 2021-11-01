@@ -118,7 +118,7 @@ mkEnv contract store decls = Env
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> U.RawBehaviour -> Err [Claim]
-splitBehaviour store (U.Transition _ name contract iface@(Interface _ decls) iffs cases posts) =
+splitBehaviour store (U.Transition name contract iface@(Interface _ decls) iffs cases posts) =
   noIllegalWilds *>
   -- constrain integer calldata variables (TODO: other types)
   fmap concatMap (caseClaims
