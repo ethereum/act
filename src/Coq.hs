@@ -212,7 +212,7 @@ abiType a = error $ show a
 returnType :: TypedExp -> T.Text
 returnType (TExp SInteger _) = "Z"
 returnType (TExp SBoolean _) = "bool"
-returnType (TExp SByteStr _) = "bytestrings not supported"
+returnType (TExp SByteStr _) = error "bytestrings not supported"
 
 -- | default value for a given type
 -- this is used in cases where a value is not set in the constructor

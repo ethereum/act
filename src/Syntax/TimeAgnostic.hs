@@ -456,7 +456,6 @@ instance Typeable a => ToJSON (Exp a t) where
                                 , "arity"  .= Data.Aeson.Types.Number 3
                                 , "args"   .= Array (fromList [toJSON s, toJSON a, toJSON b])
                                 ]
-  --toJSON (ByVar a) = toJSON a
   toJSON (ByStr a) = toJSON a
   toJSON (ByLit a) = String . pack $ show a
   toJSON (ByEnv a) = String . pack $ show a
