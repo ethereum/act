@@ -38,7 +38,7 @@ import Data.Maybe
 import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
-import Data.Singletons (fromSing)
+import Data.Singletons (SomeSing(..))
 
 import Syntax
 import Syntax.Annotated
@@ -661,7 +661,7 @@ sType ByteStr = "String"
 
 -- | act -> smt2 type translation
 sType' :: TypedExp -> SMT2
-sType' (TExp t _) = sType . fromSing $ t
+sType' (TExp t _) = sType $ SomeSing t
 
 --- ** Variable Names ** ---
 

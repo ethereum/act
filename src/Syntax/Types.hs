@@ -26,12 +26,10 @@ import Type.Reflection
 import Data.ByteString    as Syntax.Types (ByteString)
 import EVM.ABI            as Syntax.Types (AbiType(..))
 
--- | Types understood by proving tools.
-data MType
-  = Integer
-  | Boolean
-  | ByteStr
-  deriving (Eq, Ord, Show, Read)
+type MType = SomeSing *
+pattern Integer = SomeSing SInteger
+pattern Boolean = SomeSing SBoolean
+pattern ByteStr = SomeSing SByteStr
 
 -- | Singleton types of the types understood by proving tools.
 data SType a where
@@ -56,13 +54,13 @@ class HasType a t where
   getType :: a -> SType t
 
 metaType :: AbiType -> MType
-metaType (AbiUIntType _)     = Integer
-metaType (AbiIntType  _)     = Integer
-metaType AbiAddressType      = Integer
-metaType AbiBoolType         = Boolean
-metaType (AbiBytesType n)    = if n <= 32 then Integer else ByteStr
-metaType AbiBytesDynamicType = ByteStr
-metaType AbiStringType       = ByteStr
+metaType (AbiUIntType _)     = SomeSing SInteger
+metaType (AbiIntType  _)     = SomeSing SInteger
+metaType AbiAddressType      = SomeSing SInteger
+metaType AbiBoolType         = SomeSing SBoolean
+metaType (AbiBytesType n)    = if n <= 32 then SomeSing SInteger else SomeSing SByteStr
+metaType AbiBytesDynamicType = SomeSing SByteStr
+metaType AbiStringType       = SomeSing SByteStr
 --metaType (AbiArrayDynamicType a) =
 --metaType (AbiArrayType        Int AbiType
 --metaType (AbiTupleType        (Vector AbiType)
@@ -81,31 +79,15 @@ instance SingI Integer    where sing = SInteger
 instance SingI Bool       where sing = SBoolean
 instance SingI ByteString where sing = SByteStr
 
--- | This instance allows us to go between 'MType', @'SType' a@ and @a@,
--- with @a :: '*'@.
-instance SingKind * where
-  -- | We can demote a type variable @a@ to a value of type 'MType'
-  type Demote * = MType
-
-  -- | Demotes @'SType' a@ to 'MType'.
-  fromSing SInteger = Integer
-  fromSing SBoolean = Boolean
-  fromSing SByteStr = ByteStr
-
-  -- | Promotes 'MType' to an existentially quantified 'SType'.
-  toSing Integer = SomeSing SInteger
-  toSing Boolean = SomeSing SBoolean
-  toSing ByteStr = SomeSing SByteStr
-
 -- | Pattern match on an 'EVM.ABI.AbiType' is if it were an 'SType' with a 'Typeable'
 -- instance.
 pattern FromAbi :: () => Typeable a => SType a -> AbiType
-pattern FromAbi t <- (metaType -> FromSing t@STypeable)
+pattern FromAbi t <- (metaType -> FromMeta t)
 {-# COMPLETE FromAbi #-} -- We promise that the pattern covers all cases of AbiType.
 
 -- | Pattern match on an 'MType' is if it were an 'SType' with a 'Typeable' instance.
 pattern FromMeta :: () => Typeable a => SType a -> MType
-pattern FromMeta t <- FromSing t@STypeable
+pattern FromMeta t <- SomeSing t@STypeable
 {-# COMPLETE FromMeta #-}
 
 -- | Helper pattern to retrieve the 'Typeable' instance of an 'SType'.
