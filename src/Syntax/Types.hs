@@ -27,8 +27,14 @@ import Data.ByteString    as Syntax.Types (ByteString)
 import EVM.ABI            as Syntax.Types (AbiType(..))
 
 type MType = SomeSing *
+
+pattern Integer :: MType
 pattern Integer = SomeSing SInteger
+
+pattern Boolean :: MType
 pattern Boolean = SomeSing SBoolean
+
+pattern ByteStr :: MType
 pattern ByteStr = SomeSing SByteStr
 
 -- | Singleton types of the types understood by proving tools.
@@ -54,13 +60,13 @@ class HasType a t where
   getType :: a -> SType t
 
 metaType :: AbiType -> MType
-metaType (AbiUIntType _)     = SomeSing SInteger
-metaType (AbiIntType  _)     = SomeSing SInteger
-metaType AbiAddressType      = SomeSing SInteger
-metaType AbiBoolType         = SomeSing SBoolean
-metaType (AbiBytesType n)    = if n <= 32 then SomeSing SInteger else SomeSing SByteStr
-metaType AbiBytesDynamicType = SomeSing SByteStr
-metaType AbiStringType       = SomeSing SByteStr
+metaType (AbiUIntType _)     = Integer
+metaType (AbiIntType  _)     = Integer
+metaType AbiAddressType      = Integer
+metaType AbiBoolType         = Boolean
+metaType (AbiBytesType n)    = if n <= 32 then Integer else ByteStr
+metaType AbiBytesDynamicType = ByteStr
+metaType AbiStringType       = ByteStr
 --metaType (AbiArrayDynamicType a) =
 --metaType (AbiArrayType        Int AbiType
 --metaType (AbiTupleType        (Vector AbiType)
