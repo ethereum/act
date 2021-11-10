@@ -23,7 +23,6 @@ import Control.Lens.Operators ((??))
 import Control.Monad.Writer
 import Data.List.Extra (snoc,unsnoc)
 import Data.Function (on)
-import Data.Functor.Alt
 import Data.Foldable
 import Data.Traversable
 
@@ -311,13 +310,12 @@ checkExpr env e (FromAbi typ) = TExp typ <$> inferExpr env e
 
 -- | Attempt to typecheck an untyped expression as any possible type.
 typedExp :: Typeable t => Env -> U.Expr -> Err (TypedExp t)
-typedExp env e = notAtPosn (getPosn e)
-    $ A (TExp SInteger <$> inferExpr env e)
-  <!> A (TExp SBoolean <$> inferExpr env e)
-  <!> A (TExp SByteStr <$> inferExpr env e)
-  <!> error "Internal error: typedExp" -- should never happen since e's constructor can always be given a type
-                                       -- (even though its children may not fit into that)
-                                       -- but this error is more informative than "expected ByteStr, got X"
+typedExp env e = fromMaybe (error $ "Internal error: Type.typedExp. Expr: " <> show e)
+                 $ notAtPosn (getPosn e)
+                 [ TExp SInteger <$> inferExpr env e
+                 , TExp SBoolean <$> inferExpr env e
+                 , TExp SByteStr <$> inferExpr env e
+                 ]
 
 -- | Attempts to construct an expression with the type and timing required by
 -- the caller. If this is impossible, an error is thrown instead.
@@ -376,12 +374,12 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
     -- our types. Those specializations are used in order to guide the
     -- typechecking of the two supplied expressions. Returns at first success.
     polycheck :: Typeable x => Pn -> (forall y. (Eq y, Typeable y) => Exp y t -> Exp y t -> Exp x t) -> U.Expr -> U.Expr -> Err (Exp a t)
-    polycheck pn cons e1 e2 = notAtPosn (getPosn e1)
-        $ A (check pn <*> (cons @Integer    <$> inferExpr env e1 <*> inferExpr env e2))
-      <!> A (check pn <*> (cons @Bool       <$> inferExpr env e1 <*> inferExpr env e2))
-      <!> A (check pn <*> (cons @ByteString <$> inferExpr env e1 <*> inferExpr env e2))
-      <!> error "Internal error: polycheck" -- should never happen since e1's constructor can always be given a type
-                                            -- (even though its children may not fit into that)
+    polycheck pn cons e1 e2 = fromMaybe (error $ "Internal error: Type.polycheck. Expr1: " <> show e1)
+      $ notAtPosn (getPosn e1)
+      [ check pn <*> (cons @Integer    <$> inferExpr env e1 <*> inferExpr env e2)
+      , check pn <*> (cons @Bool       <$> inferExpr env e1 <*> inferExpr env e2)
+      , check pn <*> (cons @ByteString <$> inferExpr env e1 <*> inferExpr env e2)
+      ]
 
     -- Try to construct a reference to a calldata variable or an item in storage.
     entry :: forall t0. Typeable t0 => Pn -> Time t0 -> Id -> [U.Expr] -> Err (Exp a t)
