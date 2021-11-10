@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE LambdaCase #-}
 
 module SMT (
   Solver(..),
@@ -438,28 +439,21 @@ getCtorModel ctor solver = do
 -- | Gets a concrete value from the solver for the given storage location
 getStorageValue :: SolverInstance -> Id -> When -> StorageLocation -> IO (StorageLocation, TypedExp)
 getStorageValue solver ifaceName whn loc@(Loc typ _) = do
-  let name = if isMapping loc
-                then withInterface ifaceName
-                     $ select
-                        (nameFromLoc whn loc)
-                        (NonEmpty.fromList $ ixsFromLocation loc)
-                else nameFromLoc whn loc
   output <- getValue solver name
   -- TODO: handle errors here...
-  let val = case typ of
-              SInteger -> parseIntModel output
-              SBoolean -> parseBoolModel output
-              SByteStr -> parseBytesModel output
-  pure (loc, val)
+  pure (loc, parseModel typ output)
+  where
+    name = if isMapping loc
+            then withInterface ifaceName
+                 $ select
+                    (nameFromLoc whn loc)
+                    (NonEmpty.fromList $ ixsFromLocation loc)
+            else nameFromLoc whn loc
 
 -- | Gets a concrete value from the solver for the given calldata argument
 getCalldataValue :: SolverInstance -> Id -> Decl -> IO (Decl, TypedExp)
-getCalldataValue solver ifaceName decl@(Decl tp _) = do
-  output <- getValue solver $ nameFromDecl ifaceName decl
-  let val = case metaType tp of
-              Integer -> parseIntModel output
-              Boolean -> parseBoolModel output
-              ByteStr -> parseBytesModel output
+getCalldataValue solver ifaceName decl@(Decl (FromAbi tp) _) = do
+  val <- parseModel tp <$> getValue solver (nameFromDecl ifaceName decl)
   pure (decl, val)
 
 -- | Gets a concrete value from the solver for the given environment variable
@@ -467,31 +461,24 @@ getEnvironmentValue :: SolverInstance -> EthEnv -> IO (EthEnv, TypedExp)
 getEnvironmentValue solver env = do
   output <- getValue solver (prettyEnv env)
   let val = case lookup env defaultStore of
-              Just Integer -> parseIntModel output
-              Just Boolean -> parseBoolModel output
-              Just ByteStr -> parseBytesModel output
-              Nothing -> error $ "Internal Error: could not determine a type for" <> show env
+        Just (FromMeta typ) -> parseModel typ output
+        _ -> error $ "Internal Error: could not determine a type for" <> show env
   pure (env, val)
 
 -- | Calls `(get-value)` for the given identifier in the given solver instance.
 getValue :: SolverInstance -> String -> IO String
 getValue solver name = sendCommand solver $ "(get-value (" <> name <> "))"
 
--- | Parse the result of a call to getValue as an Int
-parseIntModel :: String -> TypedExp
-parseIntModel = _TExp . LitInt . read . parseSMTModel
-
--- | Parse the result of a call to getValue as a Bool
-parseBoolModel :: String -> TypedExp
-parseBoolModel = _TExp . LitBool . readBool . parseSMTModel
+-- | Parse the result of a call to getValue as the supplied type.
+parseModel :: SType a -> String -> TypedExp
+parseModel = \case
+  SInteger -> _TExp . LitInt  . read       . parseSMTModel
+  SBoolean -> _TExp . LitBool . readBool   . parseSMTModel
+  SByteStr -> _TExp . ByLit   . fromString . parseSMTModel
   where
     readBool "true" = True
     readBool "false" = False
     readBool s = error ("Could not parse " <> s <> "into a bool")
-
--- | Parse the result of a call to getValue as a Bytes
-parseBytesModel :: String -> TypedExp
-parseBytesModel = _TExp . ByLit . fromString . parseSMTModel
 
 -- | Extracts a string representation of the value in the output from a call to `(get-value)`
 parseSMTModel :: String -> String

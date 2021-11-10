@@ -19,6 +19,7 @@ Description : Types that represent Act types, and functions and patterns to go b
 module Syntax.Types (module Syntax.Types) where
 
 import Data.Singletons
+import Data.Tuple.Extra (dupe)
 import Data.Type.Equality (TestEquality(..))
 import Data.Typeable hiding (TypeRep,typeRep)
 import Type.Reflection
@@ -37,6 +38,8 @@ pattern Boolean = SomeSing SBoolean
 pattern ByteStr :: MType
 pattern ByteStr = SomeSing SByteStr
 
+{-# COMPLETE Integer, Boolean, ByteStr #-}
+
 -- | Singleton types of the types understood by proving tools.
 data SType a where
   SInteger :: SType Integer
@@ -51,7 +54,7 @@ instance Show (SType a) where
     SByteStr -> "bytestring"
 
 instance TestEquality SType where
-  testEquality STypeable STypeable = eqT
+  testEquality SType SType = eqT
 
 eqS :: forall (a :: *) (b :: *) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
 eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
@@ -85,21 +88,20 @@ instance SingI Integer    where sing = SInteger
 instance SingI Bool       where sing = SBoolean
 instance SingI ByteString where sing = SByteStr
 
--- | Pattern match on an 'EVM.ABI.AbiType' is if it were an 'SType' with a 'Typeable'
--- instance.
-pattern FromAbi :: () => Typeable a => SType a -> AbiType
+-- | Pattern match on an 'EVM.ABI.AbiType' is if it were an 'SType'.
+pattern FromAbi :: () => (SingI a, Typeable a) => SType a -> AbiType
 pattern FromAbi t <- (metaType -> FromMeta t)
 {-# COMPLETE FromAbi #-} -- We promise that the pattern covers all cases of AbiType.
 
--- | Pattern match on an 'MType' is if it were an 'SType' with a 'Typeable' instance.
-pattern FromMeta :: () => Typeable a => SType a -> MType
-pattern FromMeta t <- SomeSing t@STypeable
+-- | Pattern match on an 'MType' is if it were an 'SType'.
+pattern FromMeta :: () => (SingI a, Typeable a) => SType a -> MType
+pattern FromMeta t <- SomeSing t@SType
 {-# COMPLETE FromMeta #-}
 
--- | Helper pattern to retrieve the 'Typeable' instance of an 'SType'.
-pattern STypeable :: () => Typeable a => SType a
-pattern STypeable <- (stypeRep -> TypeRep)
-{-# COMPLETE STypeable #-}
+-- | Helper pattern to retrieve the 'Typeable' and 'SingI' instances of an 'SType'.
+pattern SType :: () => (SingI a, Typeable a) => SType a
+pattern SType <- (dupe -> (Sing, stypeRep -> TypeRep))
+{-# COMPLETE SType #-}
 
 -- | Allows us to retrieve the 'TypeRep' of any 'SType', which in turn can be used
 -- to retrieve the 'Typeable' instance.

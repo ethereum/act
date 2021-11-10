@@ -35,7 +35,7 @@ import Data.Aeson.Types
 import qualified Data.ByteString as BS
 import Data.List (genericTake,genericDrop)
 import Data.Map.Strict (Map)
-import Data.Singletons
+import Data.Singletons (SingI(..))
 import Data.String (fromString)
 import Data.Text (pack)
 import Data.Typeable
@@ -127,18 +127,14 @@ data Rewrite t
   deriving (Show, Eq)
 
 data StorageUpdate t
-  = forall a. Typeable a => Update (SType a) (TStorageItem a t) (Exp a t)
+  = forall a. Update (SType a) (TStorageItem a t) (Exp a t)
 deriving instance Show (StorageUpdate t)
 
-_Update :: Typeable a => TStorageItem a t -> Exp a t -> StorageUpdate t
+_Update :: TStorageItem a t -> Exp a t -> StorageUpdate t
 _Update item expr = Update (getType item) item expr
 
 instance Eq (StorageUpdate t) where
-  Update Sing i1 e1 == Update Sing i2 e2 = eqS i1 i2 && eqS e1 e2
-  u1 == u2 = error $ "Internal error: No singleton in StorageUpdate"
-                  <> "\nUpdate 1: " <> show u1
-                  <> "\nUpdate 2: " <> show u2
-  -- Ugly, stupid, but otherwise GHC compains about incomplete pattern...
+  Update SType i1 e1 == Update SType i2 e2 = eqS i1 i2 && eqS e1 e2
 
 data StorageLocation t
   = forall a. Loc (SType a) (TStorageItem a t)
@@ -148,11 +144,7 @@ _Loc :: TStorageItem a t -> StorageLocation t
 _Loc item = Loc (getType item) item
 
 instance Eq (StorageLocation t) where
-  Loc Sing i1 == Loc Sing i2 = eqS i1 i2
-  l1 == l2 = error $ "Internal error: No singleton in StorageLocation"
-                  <> "\nLocation 1: " <> show l1
-                  <> "\nLocation 2: " <> show l2
-  -- Ugly, stupid, but otherwise GHC compains about incomplete pattern...
+  Loc SType i1 == Loc SType i2 = eqS i1 i2
 
 -- | References to items in storage, either as a map lookup or as a reading of
 -- a simple variable. The third argument is a list of indices; it has entries iff
@@ -174,20 +166,16 @@ instance HasType (TStorageItem a t) a where
 
 -- | Expressions for which the return type is known.
 data TypedExp t
-  = forall a. Typeable a => TExp (SType a) (Exp a t)
+  = forall a. TExp (SType a) (Exp a t)
 deriving instance Show (TypedExp t)
 
 -- We could remove the 'SingI' constraint here if we also removed it from the
 -- 'HasType' instance for 'Exp'. But it's tedious and noisy and atm unnecessary.
-_TExp :: (Typeable a, SingI a) => Exp a t -> TypedExp t
+_TExp :: SingI a => Exp a t -> TypedExp t
 _TExp expr = TExp (getType expr) expr
 
 instance Eq (TypedExp t) where
-  TExp Sing e1 == TExp Sing e2 = eqS e1 e2
-  e1 == e2 = error $ "Internal error: No singleton in TypedExp"
-                  <> "\nExp 1: " <> show e1
-                  <> "\nExp 2: " <> show e2
-  -- Ugly, stupid, but otherwise GHC compains about incomplete pattern...
+  TExp SType e1 == TExp SType e2 = eqS e1 e2
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
 -- All storage entries within an `Exp a t` contain a value of type `Time t`.
@@ -233,7 +221,7 @@ data Exp (a :: *) (t :: Timing) where
   Eq  :: (Eq a, Typeable a) => Exp a t -> Exp a t -> Exp Bool t
   NEq :: (Eq a, Typeable a) => Exp a t -> Exp a t -> Exp Bool t
   ITE :: Exp Bool t -> Exp a t -> Exp a t -> Exp a t
-  Var :: Sing a -> Id -> Exp a t
+  Var :: SType a -> Id -> Exp a t
   TEntry :: Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
 
@@ -405,7 +393,7 @@ instance ToJSON (StorageLocation t) where
   toJSON (Loc _ a) = object ["location" .= toJSON a]
 
 instance ToJSON (StorageUpdate t) where
-  toJSON (Update _ a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
+  toJSON (Update SType a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
 
 instance ToJSON (TStorageItem a t) where
   toJSON (Item t a b []) = object ["sort" .= pack (show t)
@@ -421,7 +409,7 @@ instance ToJSON (TypedExp t) where
   toJSON (TExp typ a) = object ["sort"       .= pack (show typ)
                                ,"expression" .= toJSON a]
 
-instance Typeable a => ToJSON (Exp a t) where
+instance ToJSON (Exp a t) where
   toJSON (Add a b) = symbol "+" a b
   toJSON (Sub a b) = symbol "-" a b
   toJSON (Exp a b) = symbol "^" a b
