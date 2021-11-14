@@ -10,7 +10,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators, MultiParamTypeClasses, PatternSynonyms, ViewPatterns #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 {-|
 Module      : Syntax.TimeAgnostic
@@ -126,8 +127,8 @@ data Rewrite t
   | Rewrite (StorageUpdate t)
   deriving (Show, Eq)
 
-data StorageUpdate t
-  = forall a. Update (SType a) (TStorageItem a t) (Exp a t)
+data StorageUpdate (t :: Timing) where
+  Update :: SType a -> TStorageItem a t -> Exp a t -> StorageUpdate t
 deriving instance Show (StorageUpdate t)
 
 _Update :: TStorageItem a t -> Exp a t -> StorageUpdate t
@@ -136,8 +137,8 @@ _Update item expr = Update (getType item) item expr
 instance Eq (StorageUpdate t) where
   Update SType i1 e1 == Update SType i2 e2 = eqS i1 i2 && eqS e1 e2
 
-data StorageLocation t
-  = forall a. Loc (SType a) (TStorageItem a t)
+data StorageLocation (t :: Timing) where
+  Loc :: SType a -> TStorageItem a t -> StorageLocation t
 deriving instance Show (StorageLocation t)
 
 _Loc :: TStorageItem a t -> StorageLocation t

@@ -96,7 +96,7 @@ actType _ = error "Syntax.Types.actType: TODO"
 -- | Pattern match on an 'EVM.ABI.AbiType' is if it were an 'SType'.
 pattern FromAbi :: () => (SingI a, Typeable a) => SType a -> AbiType
 pattern FromAbi t <- (actType -> FromAct t)
-{-# COMPLETE FromAbi #-} -- We promise that the pattern covers all cases of AbiType.
+{-# COMPLETE FromAbi #-}
 
 -- | Pattern match on an 'ActType' is if it were an 'SType'.
 pattern FromAct :: () => (SingI a, Typeable a) => SType a -> ActType
