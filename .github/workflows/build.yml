@@ -18,10 +18,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
-      - uses: cachix/install-nix-action@07da2520eebede906fbeefa9dd0a2b635323909d # v12
+      - uses: cachix/install-nix-action@ef6c38c42ba153b4be4b764b71c87c1610896378 # v15
         with:
           skip_adding_nixpkgs_channel: false
-      - uses: cachix/cachix-action@6e4751ed42b22f60165d3f266cfa4cce66ae406d # v8
+      - uses: cachix/cachix-action@3db1a09d3a573d7b62801116405ad5aa0f59c904 # v10
         with:
           name: dapp
           skipPush: true
