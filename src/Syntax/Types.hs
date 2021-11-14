@@ -6,7 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -- These extensions should be removed once we remove the defs at the end of this file.
 {-# LANGUAGE RankNTypes, TypeApplications, StandaloneKindSignatures, PolyKinds #-}
@@ -27,19 +27,6 @@ import Type.Reflection
 import Data.ByteString    as Syntax.Types (ByteString)
 import EVM.ABI            as Syntax.Types (AbiType(..))
 
-type MType = SomeSing *
-
-pattern Integer :: MType
-pattern Integer = SomeSing SInteger
-
-pattern Boolean :: MType
-pattern Boolean = SomeSing SBoolean
-
-pattern ByteStr :: MType
-pattern ByteStr = SomeSing SByteStr
-
-{-# COMPLETE Integer, Boolean, ByteStr #-}
-
 -- | Singleton types of the types understood by proving tools.
 data SType a where
   SInteger :: SType Integer
@@ -56,26 +43,13 @@ instance Show (SType a) where
 instance TestEquality SType where
   testEquality SType SType = eqT
 
+-- | Compare equality of two things parametrized by types which have singletons.
 eqS :: forall (a :: *) (b :: *) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
 eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
 
-class HasType a t where
-  getType :: a -> SType t
-
-metaType :: AbiType -> MType
-metaType (AbiUIntType _)     = Integer
-metaType (AbiIntType  _)     = Integer
-metaType AbiAddressType      = Integer
-metaType AbiBoolType         = Boolean
-metaType (AbiBytesType n)    = if n <= 32 then Integer else ByteStr
-metaType AbiBytesDynamicType = ByteStr
-metaType AbiStringType       = ByteStr
---metaType (AbiArrayDynamicType a) =
---metaType (AbiArrayType        Int AbiType
---metaType (AbiTupleType        (Vector AbiType)
-metaType _ = error "Syntax.Types.metaType: TODO"
-
 -- | For our purposes, the singleton of a type @a@ is always @'SType' a@.
+-- We need this to be able to use 'SomeSing' when implementing 'ActType'.
+
 -- Note that even though there only exist three different 'SType', this does
 -- not mean that the type family is partial. It simply means that the resulting
 -- type is uninhabited if the argument is neither 'Integer', 'Bool' nor
@@ -88,17 +62,49 @@ instance SingI Integer    where sing = SInteger
 instance SingI Bool       where sing = SBoolean
 instance SingI ByteString where sing = SByteStr
 
+-- | A non-indexed type whose inhabitants represent the types understood
+-- by proving tools. Implemented by an existentially quantified 'SType'.
+type ActType = SomeSing *
+
+pattern Integer :: ActType
+pattern Integer = SomeSing SInteger
+
+pattern Boolean :: ActType
+pattern Boolean = SomeSing SBoolean
+
+pattern ByteStr :: ActType
+pattern ByteStr = SomeSing SByteStr
+
+{-# COMPLETE Integer, Boolean, ByteStr #-}
+
+class HasType a t where
+  getType :: a -> SType t
+
+actType :: AbiType -> ActType
+actType (AbiUIntType _)     = Integer
+actType (AbiIntType  _)     = Integer
+actType AbiAddressType      = Integer
+actType AbiBoolType         = Boolean
+actType (AbiBytesType n)    = if n <= 32 then Integer else ByteStr
+actType AbiBytesDynamicType = ByteStr
+actType AbiStringType       = ByteStr
+--actType (AbiArrayDynamicType a) =
+--actType (AbiArrayType        Int AbiType
+--actType (AbiTupleType        (Vector AbiType)
+actType _ = error "Syntax.Types.actType: TODO"
+
 -- | Pattern match on an 'EVM.ABI.AbiType' is if it were an 'SType'.
 pattern FromAbi :: () => (SingI a, Typeable a) => SType a -> AbiType
-pattern FromAbi t <- (metaType -> FromMeta t)
+pattern FromAbi t <- (actType -> FromAct t)
 {-# COMPLETE FromAbi #-} -- We promise that the pattern covers all cases of AbiType.
 
--- | Pattern match on an 'MType' is if it were an 'SType'.
-pattern FromMeta :: () => (SingI a, Typeable a) => SType a -> MType
-pattern FromMeta t <- SomeSing t@SType
-{-# COMPLETE FromMeta #-}
+-- | Pattern match on an 'ActType' is if it were an 'SType'.
+pattern FromAct :: () => (SingI a, Typeable a) => SType a -> ActType
+pattern FromAct t <- SomeSing t@SType
+{-# COMPLETE FromAct #-}
 
--- | Helper pattern to retrieve the 'Typeable' and 'SingI' instances of an 'SType'.
+-- | Helper pattern to retrieve the 'Typeable' and 'SingI' instances of the type
+-- represented by an 'SType'.
 pattern SType :: () => (SingI a, Typeable a) => SType a
 pattern SType <- (dupe -> (Sing, stypeRep -> TypeRep))
 {-# COMPLETE SType #-}

@@ -83,11 +83,11 @@ data Env = Env
   { contract :: Id              -- ^ The name of the current contract.
   , store    :: Map Id SlotType -- ^ This contract's storage entry names and their types.
   , theirs   :: Store           -- ^ Mapping from contract names to a map of their entry names and their types.
-  , calldata :: Map Id MType    -- ^ The calldata var names and their types.
+  , calldata :: Map Id ActType    -- ^ The calldata var names and their types.
   }
 
 -- typing of eth env variables
-defaultStore :: [(EthEnv, MType)]
+defaultStore :: [(EthEnv, ActType)]
 defaultStore =
   [(Callvalue, Integer),
    (Caller, Integer),
@@ -113,7 +113,7 @@ mkEnv contract store decls = Env
   , calldata = abiVars
   }
  where
-   abiVars = Map.fromList $ map (\(Decl typ var) -> (var, metaType typ)) decls
+   abiVars = Map.fromList $ map (\(Decl typ var) -> (var, actType typ)) decls
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> U.RawBehaviour -> Err [Claim]
@@ -386,7 +386,7 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
     entry pn timing name es = case (Map.lookup name store, Map.lookup name calldata) of
       (Nothing, Nothing) -> throw (pn, "Unknown variable " <> name)
       (Just _, Just _)   -> throw (pn, "Ambiguous variable " <> name)
-      (Nothing, Just (FromMeta varType)) ->
+      (Nothing, Just (FromAct varType)) ->
         if isTimed timing then throw (pn, "Calldata var cannot be pre/post")
         else check pn ?? Var varType name
       (Just (StorageValue a), Nothing)      -> checkEntry a []

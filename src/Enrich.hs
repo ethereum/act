@@ -103,6 +103,6 @@ mkStorageBounds store refs = catMaybes $ mkBound <$> refs
     abiType (StorageValue typ) = typ
 
 mkCallDataBounds :: [Decl] -> [Exp Bool t]
-mkCallDataBounds = concatMap $ \(Decl typ name) -> case metaType typ of
+mkCallDataBounds = concatMap $ \(Decl typ name) -> case actType typ of
   Integer -> [bound typ (_Var name)]
   _ -> []

@@ -128,7 +128,7 @@ mkDecls (Names ints bools bytes) = mapM mkDecl names
     prepare typ ns = (,typ) <$> ns
 
 
-genType :: MType -> ExpoGen AbiType
+genType :: ActType -> ExpoGen AbiType
 genType typ = case typ of
   Integer -> oneof [ AbiUIntType <$> validIntSize
                    , AbiIntType <$> validIntSize
@@ -216,7 +216,7 @@ genExpInt names n = do
         subExpBool = genExpBool names (n `div` 2)
 
 
-selectName :: MType -> Names -> ExpoGen String
+selectName :: ActType -> Names -> ExpoGen String
 selectName typ (Names ints bools bytes) = do
   let names = case typ of
                 Integer -> ints

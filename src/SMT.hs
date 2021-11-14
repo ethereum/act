@@ -461,7 +461,7 @@ getEnvironmentValue :: SolverInstance -> EthEnv -> IO (EthEnv, TypedExp)
 getEnvironmentValue solver env = do
   output <- getValue solver (prettyEnv env)
   let val = case lookup env defaultStore of
-        Just (FromMeta typ) -> parseModel typ output
+        Just (FromAct typ) -> parseModel typ output
         _ -> error $ "Internal Error: could not determine a type for" <> show env
   pure (env, val)
 
@@ -534,7 +534,7 @@ declareStorageLocation (Loc _ item) = case ixsFromItem item of
 
 -- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
-declareArg behvName d@(Decl typ _) = constant (nameFromDecl behvName d) (metaType typ)
+declareArg behvName d@(Decl typ _) = constant (nameFromDecl behvName d) (actType typ)
 
 -- | produces an SMT2 expression declaring the given EthEnv as a symbolic constant
 declareEthEnv :: EthEnv -> SMT2
@@ -620,7 +620,7 @@ simplifyExponentiation a b = fromMaybe (error "Internal Error: no support for sy
     evalb = eval b -- TODO is this actually necessary to prevent double evaluation?
 
 -- | declare a constant in smt2
-constant :: Id -> MType -> SMT2
+constant :: Id -> ActType -> SMT2
 constant name tp = "(declare-const " <> name <> " " <> sType tp <> ")"
 
 -- | encode the given boolean expression as an assertion in smt2
@@ -628,7 +628,7 @@ mkAssert :: Id -> Exp Bool -> SMT2
 mkAssert c e = "(assert " <> withInterface c (expToSMT2 e) <> ")"
 
 -- | declare a (potentially nested) array in smt2
-array :: Id -> NonEmpty TypedExp -> MType -> SMT2
+array :: Id -> NonEmpty TypedExp -> ActType -> SMT2
 array name (hd :| tl) ret = "(declare-const " <> name <> " (Array " <> sType' hd <> " " <> valueDecl tl <> "))"
   where
     valueDecl [] = sType ret
@@ -641,7 +641,7 @@ select name (hd :| tl) = do
   foldM (\smt ix -> ["(select " <> smt <> " " <> ix' <> ")" | ix' <- typedExpToSMT2 ix]) inner tl
 
 -- | act -> smt2 type translation
-sType :: MType -> SMT2
+sType :: ActType -> SMT2
 sType Integer = "Int"
 sType Boolean = "Bool"
 sType ByteStr = "String"
