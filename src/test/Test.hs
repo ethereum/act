@@ -52,7 +52,7 @@ main = defaultMain $ testGroup "act"
       -}
       [ testProperty "roundtrip" . withExponents $ do
           behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
-          let actual = compile False $ prettyBehaviour behv
+          let actual = compile $ prettyBehaviour behv
               expected = if null preconds then
                   [ S Map.empty, B behv ]
                 else

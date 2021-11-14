@@ -122,7 +122,7 @@ parse' f = do
 type' :: FilePath -> IO ()
 type' f = do
   contents <- readFile f
-  validation (prettyErrs contents) (B.putStrLn . encode) (compile True contents)
+  validation (prettyErrs contents) (B.putStrLn . encode) (enrich <$> compile contents)
 
 prove :: FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
 prove file' solver' smttimeout' debug' = do
@@ -134,7 +134,7 @@ prove file' solver' smttimeout' debug' = do
       Just _ -> error "unrecognized solver"
     config = SMT.SMTConfig (parseSolver solver') (fromMaybe 20000 smttimeout') debug'
   contents <- readFile file'
-  proceed contents (compile True contents) $ \claims -> do
+  proceed contents (enrich <$> compile contents) $ \claims -> do
     let
       catModels results = [m | Sat m <- results]
       catErrors results = [e | e@SMT.Error {} <- results]
@@ -187,7 +187,7 @@ prove file' solver' smttimeout' debug' = do
 coq' :: FilePath -> IO()
 coq' f = do
   contents <- readFile f
-  proceed contents (compile True contents) $ \claims ->
+  proceed contents (enrich <$> compile contents) $ \claims ->
     TIO.putStr $ coq claims
 
 k :: FilePath -> FilePath -> Maybe [(Id, String)] -> Maybe String -> Bool -> Maybe String -> IO ()
@@ -196,7 +196,7 @@ k spec' soljson' gas' storage' extractbin' out' = do
   solContents  <- readFile soljson'
   let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
       errKSpecs = do
-        behvs <- toEither $ behvsFromClaims <$> compile True specContents
+        behvs <- toEither $ behvsFromClaims . enrich <$> compile specContents
         (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
                               (Solidity.readJSON . pack) solContents
         for behvs (makekSpec sources kOpts) ^. revalidate
@@ -210,7 +210,7 @@ hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
 hevm spec' soljson' solver' smttimeout' smtdebug' = do
   specContents <- readFile spec'
   solContents  <- readFile soljson'
-  let preprocess = do behvs <- behvsFromClaims <$> compile True specContents
+  let preprocess = do behvs <- behvsFromClaims . enrich <$> compile specContents
                       (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
                         (Solidity.readJSON . pack) solContents
                       pure (behvs, sources)
@@ -265,10 +265,8 @@ runSMTWithTimeOut solver' maybeTimeout debug' sym
 proceed :: Validate err => String -> err (NonEmpty (Pn, String)) a -> (a -> IO ()) -> IO ()
 proceed contents comp continue = validation (prettyErrs contents) continue (comp ^. revalidate)
 
-compile :: Bool -> String -> Error String [Claim]
-compile shouldEnrich = pure . fmap annotate . enrich' <==< typecheck <==< parse . lexer
-  where
-    enrich' = if shouldEnrich then enrich else id
+compile :: String -> Error String [Claim]
+compile = pure . fmap annotate <==< typecheck <==< parse . lexer
 
 prettyErrs :: Traversable t => String -> t (Pn, String) -> IO ()
 prettyErrs contents errs = mapM_ prettyErr errs >> exitFailure
