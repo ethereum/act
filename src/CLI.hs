@@ -6,8 +6,10 @@
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# Language TypeOperators #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE ApplicativeDo #-}
 
-module Main where
+module CLI (main, compile) where
 
 import Data.Aeson hiding (Bool, Number)
 import EVM.SymExec (ProofResult(..))
@@ -20,6 +22,7 @@ import Data.List
 import Data.Either (lefts)
 import Data.Maybe
 import Data.Tree
+import Data.Traversable
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
@@ -30,11 +33,13 @@ import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import Control.Monad
+import Control.Lens.Getter
 
-import ErrM
+import Error
 import Lex (lexer, AlexPosn(..))
 import Options.Generic
 import Parse
+import Syntax
 import Syntax.Annotated
 import Syntax.Untyped
 import Enrich
@@ -112,16 +117,12 @@ lex' f = do
 parse' :: FilePath -> IO ()
 parse' f = do
   contents <- readFile f
-  case parse $ lexer contents of
-    Bad e -> prettyErr contents e
-    Ok x -> print x
+  validation (prettyErrs contents) print (parse $ lexer contents)
 
 type' :: FilePath -> IO ()
 type' f = do
   contents <- readFile f
-  case compile contents of
-    Ok a  -> B.putStrLn $ encode a
-    Bad e -> prettyErr contents e
+  validation (prettyErrs contents) (B.putStrLn . encode) (enrich <$> compile contents)
 
 prove :: FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
 prove file' solver' smttimeout' debug' = do
@@ -133,7 +134,7 @@ prove file' solver' smttimeout' debug' = do
       Just _ -> error "unrecognized solver"
     config = SMT.SMTConfig (parseSolver solver') (fromMaybe 20000 smttimeout') debug'
   contents <- readFile file'
-  proceed contents (compile contents) $ \claims -> do
+  proceed contents (enrich <$> compile contents) $ \claims -> do
     let
       catModels results = [m | Sat m <- results]
       catErrors results = [e | e@SMT.Error {} <- results]
@@ -186,7 +187,7 @@ prove file' solver' smttimeout' debug' = do
 coq' :: FilePath -> IO()
 coq' f = do
   contents <- readFile f
-  proceed contents (compile contents) $ \claims ->
+  proceed contents (enrich <$> compile contents) $ \claims ->
     TIO.putStr $ coq claims
 
 k :: FilePath -> FilePath -> Maybe [(Id, String)] -> Maybe String -> Bool -> Maybe String -> IO ()
@@ -194,11 +195,11 @@ k spec' soljson' gas' storage' extractbin' out' = do
   specContents <- readFile spec'
   solContents  <- readFile soljson'
   let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
-      errKSpecs = do refinedSpecs <- compile specContents
-                     (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
-                       $ Solidity.readJSON $ pack solContents
-                     forM [b | B b <- refinedSpecs]
-                       $ makekSpec sources kOpts
+      errKSpecs = do
+        behvs <- toEither $ behvsFromClaims . enrich <$> compile specContents
+        (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
+                              (Solidity.readJSON . pack) solContents
+        for behvs (makekSpec sources kOpts) ^. revalidate
   proceed specContents errKSpecs $ \kSpecs -> do
     let printFile (filename, content) = case out' of
           Nothing -> putStrLn (filename <> ".k") >> putStrLn content
@@ -209,10 +210,10 @@ hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
 hevm spec' soljson' solver' smttimeout' smtdebug' = do
   specContents <- readFile spec'
   solContents  <- readFile soljson'
-  let preprocess = do refinedSpecs  <- compile specContents
-                      (sources, _, _) <- errMessage (nowhere, "Could not read sol.json")
-                        $ Solidity.readJSON $ pack solContents
-                      return ([b | B b <- refinedSpecs], sources)
+  let preprocess = do behvs <- behvsFromClaims . enrich <$> compile specContents
+                      (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
+                        (Solidity.readJSON . pack) solContents
+                      pure (behvs, sources)
   proceed specContents preprocess $ \(specs, sources) -> do
     -- TODO: prove constructor too
     passes <- forM specs $ \behv -> do
@@ -261,38 +262,36 @@ runSMTWithTimeOut solver' maybeTimeout debug' sym
        runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
 
 -- | Fail on error, or proceed with continuation
-proceed :: String -> Err a -> (a -> IO ()) -> IO ()
-proceed contents (Bad e) _ = prettyErr contents e
-proceed _ (Ok a) continue = continue a
+proceed :: Validate err => String -> err (NonEmpty (Pn, String)) a -> (a -> IO ()) -> IO ()
+proceed contents comp continue = validation (prettyErrs contents) continue (comp ^. revalidate)
 
-compile :: String -> Err [Claim]
-compile = pure . fmap annotate . enrich <=< typecheck <=< parse . lexer
+compile :: String -> Error String [Claim]
+compile = pure . fmap annotate <==< typecheck <==< parse . lexer
 
-prettyErr :: String -> (Pn, String) -> IO ()
-prettyErr _ (pn, msg) | pn == nowhere = do
-  hPutStrLn stderr "Internal error:"
-  hPutStrLn stderr msg
-  exitFailure
-prettyErr contents (pn, msg) | pn == lastPos = do
-  let culprit = last $ lines contents
-      line' = length (lines contents) - 1
-      col  = length culprit
-  hPutStrLn stderr $ show line' <> " | " <> culprit
-  hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
-  hPutStrLn stderr msg
-  exitFailure
-prettyErr contents (AlexPn _ line' col, msg) = do
-  let cxt = safeDrop (line' - 1) (lines contents)
-  hPutStrLn stderr $ show line' <> " | " <> head cxt
-  hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
-  hPutStrLn stderr msg
-  exitFailure
+prettyErrs :: Traversable t => String -> t (Pn, String) -> IO ()
+prettyErrs contents errs = mapM_ prettyErr errs >> exitFailure
   where
-    safeDrop :: Int -> [a] -> [a]
-    safeDrop 0 a = a
-    safeDrop _ [] = []
-    safeDrop _ [a] = [a]
-    safeDrop n (_:xs) = safeDrop (n-1) xs
+  prettyErr (pn, msg) | pn == nowhere = do
+    hPutStrLn stderr "Internal error:"
+    hPutStrLn stderr msg
+  prettyErr (pn, msg) | pn == lastPos = do
+    let culprit = last $ lines contents
+        line' = length (lines contents) - 1
+        col  = length culprit
+    hPutStrLn stderr $ show line' <> " | " <> culprit
+    hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
+    hPutStrLn stderr msg
+  prettyErr (AlexPn _ line' col, msg) = do
+    let cxt = safeDrop (line' - 1) (lines contents)
+    hPutStrLn stderr $ msg <> ":"
+    hPutStrLn stderr $ show line' <> " | " <> head cxt
+    hPutStrLn stderr $ unpack (Text.replicate (col + length (show line' <> " | ") - 1) " " <> "^")
+    where
+      safeDrop :: Int -> [a] -> [a]
+      safeDrop 0 a = a
+      safeDrop _ [] = []
+      safeDrop _ [a] = [a]
+      safeDrop n (_:xs) = safeDrop (n-1) xs
 
 -- | prints a Doc, with wider output than the built in `putDoc`
 render :: Doc -> IO ()

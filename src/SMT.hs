@@ -1,6 +1,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE LambdaCase #-}
 
 module SMT (
   Solver(..),
@@ -37,6 +39,7 @@ import Data.Maybe
 import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
+import Data.Singletons (SomeSing(..))
 
 import Syntax
 import Syntax.Annotated
@@ -435,29 +438,22 @@ getCtorModel ctor solver = do
 
 -- | Gets a concrete value from the solver for the given storage location
 getStorageValue :: SolverInstance -> Id -> When -> StorageLocation -> IO (StorageLocation, TypedExp)
-getStorageValue solver ifaceName whn loc = do
-  let name = if isMapping loc
-                then withInterface ifaceName
-                     $ select
-                        (nameFromLoc whn loc)
-                        (NonEmpty.fromList $ ixsFromLocation loc)
-                else nameFromLoc whn loc
+getStorageValue solver ifaceName whn loc@(Loc typ _) = do
   output <- getValue solver name
   -- TODO: handle errors here...
-  let val = case loc of
-              IntLoc {} -> parseIntModel output
-              BoolLoc {} -> parseBoolModel output
-              BytesLoc {} -> parseBytesModel output
-  pure (loc, val)
+  pure (loc, parseModel typ output)
+  where
+    name = if isMapping loc
+            then withInterface ifaceName
+                 $ select
+                    (nameFromLoc whn loc)
+                    (NonEmpty.fromList $ ixsFromLocation loc)
+            else nameFromLoc whn loc
 
 -- | Gets a concrete value from the solver for the given calldata argument
 getCalldataValue :: SolverInstance -> Id -> Decl -> IO (Decl, TypedExp)
-getCalldataValue solver ifaceName decl@(Decl tp _) = do
-  output <- getValue solver $ nameFromDecl ifaceName decl
-  let val = case metaType tp of
-              Integer -> parseIntModel output
-              Boolean -> parseBoolModel output
-              ByteStr -> parseBytesModel output
+getCalldataValue solver ifaceName decl@(Decl (FromAbi tp) _) = do
+  val <- parseModel tp <$> getValue solver (nameFromDecl ifaceName decl)
   pure (decl, val)
 
 -- | Gets a concrete value from the solver for the given environment variable
@@ -465,31 +461,24 @@ getEnvironmentValue :: SolverInstance -> EthEnv -> IO (EthEnv, TypedExp)
 getEnvironmentValue solver env = do
   output <- getValue solver (prettyEnv env)
   let val = case lookup env defaultStore of
-              Just Integer -> parseIntModel output
-              Just Boolean -> parseBoolModel output
-              Just ByteStr -> parseBytesModel output
-              Nothing -> error $ "Internal Error: could not determine a type for" <> show env
+        Just (FromAct typ) -> parseModel typ output
+        _ -> error $ "Internal Error: could not determine a type for" <> show env
   pure (env, val)
 
 -- | Calls `(get-value)` for the given identifier in the given solver instance.
 getValue :: SolverInstance -> String -> IO String
 getValue solver name = sendCommand solver $ "(get-value (" <> name <> "))"
 
--- | Parse the result of a call to getValue as an Int
-parseIntModel :: String -> TypedExp
-parseIntModel = ExpInt . LitInt . read . parseSMTModel
-
--- | Parse the result of a call to getValue as a Bool
-parseBoolModel :: String -> TypedExp
-parseBoolModel = ExpBool . LitBool . readBool . parseSMTModel
+-- | Parse the result of a call to getValue as the supplied type.
+parseModel :: SType a -> String -> TypedExp
+parseModel = \case
+  SInteger -> _TExp . LitInt  . read       . parseSMTModel
+  SBoolean -> _TExp . LitBool . readBool   . parseSMTModel
+  SByteStr -> _TExp . ByLit   . fromString . parseSMTModel
   where
     readBool "true" = True
     readBool "false" = False
     readBool s = error ("Could not parse " <> s <> "into a bool")
-
--- | Parse the result of a call to getValue as a Bytes
-parseBytesModel :: String -> TypedExp
-parseBytesModel = ExpBytes . ByLit . fromString . parseSMTModel
 
 -- | Extracts a string representation of the value in the output from a call to `(get-value)`
 parseSMTModel :: String -> String
@@ -516,29 +505,18 @@ parseSMTModel s = if length s0Caps == 1
 
 -- | encodes a storage update from a constructor creates block as an smt assertion
 encodeInitialStorage :: Id -> StorageUpdate -> SMT2
-encodeInitialStorage behvName update = case update of
-  IntUpdate item e -> encode item e
-  BoolUpdate item e -> encode item e
-  BytesUpdate item e -> encode item e
-  where
-    encode :: TStorageItem a -> Exp a -> SMT2
-    encode item e =
-      let
-        postentry  = withInterface behvName $ expToSMT2 (TEntry item Post)
-        expression = withInterface behvName $ expToSMT2 (e)
-      in "(assert (= " <> postentry <> " " <> expression <> "))"
+encodeInitialStorage behvName (Update _ item expr) =
+  let
+    postentry  = withInterface behvName $ expToSMT2 (TEntry Post item)
+    expression = withInterface behvName $ expToSMT2 expr
+  in "(assert (= " <> postentry <> " " <> expression <> "))"
 
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
 declareInitialStorage :: StorageUpdate -> SMT2
-declareInitialStorage update = case locFromUpdate update of
-  IntLoc item -> mkItem item
-  BoolLoc item -> mkItem item
-  BytesLoc item -> mkItem item
-  where
-    mkItem item = case ixsFromItem item of
-      []       -> constant (nameFromItem Post item) (itemType item)
-      (ix:ixs) -> array (nameFromItem Post item) (ix :| ixs) (itemType item)
+declareInitialStorage (locFromUpdate -> Loc _ item) = case ixsFromItem item of
+  []       -> constant (nameFromItem Post item)             (itemType item)
+  (ix:ixs) -> array    (nameFromItem Post item) (ix :| ixs) (itemType item)
 
 -- | encodes a storge update rewrite as an smt assertion
 encodeUpdate :: Id -> Rewrite -> SMT2
@@ -548,20 +526,15 @@ encodeUpdate behvName (Rewrite update) = encodeInitialStorage behvName update
 -- | declares a storage location that exists both in the pre state and the post
 --   state (i.e. anything except a loc created by a constructor claim)
 declareStorageLocation :: StorageLocation -> [SMT2]
-declareStorageLocation loc = case loc of
-  IntLoc item -> mkItem item
-  BoolLoc item -> mkItem item
-  BytesLoc item -> mkItem item
-  where
-    mkItem item = case ixsFromItem item of
-      []       -> [ constant (nameFromItem Pre item) (itemType item)
-                  , constant (nameFromItem Post item) (itemType item) ]
-      (ix:ixs) -> [ array (nameFromItem Pre item) (ix :| ixs) (itemType item)
-                  , array (nameFromItem Post item) (ix :| ixs) (itemType item) ]
+declareStorageLocation (Loc _ item) = case ixsFromItem item of
+  []       -> [ constant (nameFromItem Pre item) (itemType item)
+              , constant (nameFromItem Post item) (itemType item) ]
+  (ix:ixs) -> [ array (nameFromItem Pre item) (ix :| ixs) (itemType item)
+              , array (nameFromItem Post item) (ix :| ixs) (itemType item) ]
 
 -- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
-declareArg behvName d@(Decl typ _) = constant (nameFromDecl behvName d) (metaType typ)
+declareArg behvName d@(Decl typ _) = constant (nameFromDecl behvName d) (actType typ)
 
 -- | produces an SMT2 expression declaring the given EthEnv as a symbolic constant
 declareEthEnv :: EthEnv -> SMT2
@@ -570,10 +543,7 @@ declareEthEnv env = constant (prettyEnv env) tp
 
 -- | encodes a typed expression as an smt2 expression
 typedExpToSMT2 :: TypedExp -> Ctx SMT2
-typedExpToSMT2 re = case re of
-  ExpInt ei -> expToSMT2 ei
-  ExpBool eb -> expToSMT2 eb
-  ExpBytes ebs -> expToSMT2 ebs
+typedExpToSMT2 (TExp _ e) = expToSMT2 e
 
 -- | encodes the given Exp as an smt2 expression
 expToSMT2 :: Exp a -> Ctx SMT2
@@ -588,7 +558,6 @@ expToSMT2 expr = case expr of
   GEQ a b -> binop ">=" a b
   GE a b -> binop ">" a b
   LitBool a -> pure $ if a then "true" else "false"
-  BoolVar a -> nameFromVarId a
 
   -- integers
   Add a b -> binop "+" a b
@@ -600,7 +569,6 @@ expToSMT2 expr = case expr of
   LitInt a -> pure $ if a >= 0
                       then show a
                       else "(- " <> (show . negate $ a) <> ")" -- cvc4 does not accept negative integer literals
-  IntVar a -> nameFromVarId a
   IntEnv a -> pure $ prettyEnv a
 
   -- bounds
@@ -612,7 +580,6 @@ expToSMT2 expr = case expr of
   -- bytestrings
   Cat a b -> binop "str.++" a b
   Slice a start end -> triop "str.substr" a start (Sub end start)
-  ByVar a -> nameFromVarId a
   ByStr a -> pure a
   ByLit a -> pure $ show a
   ByEnv a -> pure $ prettyEnv a
@@ -624,7 +591,8 @@ expToSMT2 expr = case expr of
   Eq a b -> binop "=" a b
   NEq a b -> unop "not" (Eq a b)
   ITE a b c -> triop "ite" a b c
-  TEntry item w -> entry item w
+  Var _ a -> nameFromVarId a
+  TEntry w item -> entry item w
   where
     unop :: String -> Exp a -> Ctx SMT2
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
@@ -652,7 +620,7 @@ simplifyExponentiation a b = fromMaybe (error "Internal Error: no support for sy
     evalb = eval b -- TODO is this actually necessary to prevent double evaluation?
 
 -- | declare a constant in smt2
-constant :: Id -> MType -> SMT2
+constant :: Id -> ActType -> SMT2
 constant name tp = "(declare-const " <> name <> " " <> sType tp <> ")"
 
 -- | encode the given boolean expression as an assertion in smt2
@@ -660,7 +628,7 @@ mkAssert :: Id -> Exp Bool -> SMT2
 mkAssert c e = "(assert " <> withInterface c (expToSMT2 e) <> ")"
 
 -- | declare a (potentially nested) array in smt2
-array :: Id -> NonEmpty TypedExp -> MType -> SMT2
+array :: Id -> NonEmpty TypedExp -> ActType -> SMT2
 array name (hd :| tl) ret = "(declare-const " <> name <> " (Array " <> sType' hd <> " " <> valueDecl tl <> "))"
   where
     valueDecl [] = sType ret
@@ -673,33 +641,24 @@ select name (hd :| tl) = do
   foldM (\smt ix -> ["(select " <> smt <> " " <> ix' <> ")" | ix' <- typedExpToSMT2 ix]) inner tl
 
 -- | act -> smt2 type translation
-sType :: MType -> SMT2
+sType :: ActType -> SMT2
 sType Integer = "Int"
 sType Boolean = "Bool"
 sType ByteStr = "String"
 
 -- | act -> smt2 type translation
 sType' :: TypedExp -> SMT2
-sType' (ExpInt {}) = "Int"
-sType' (ExpBool {}) = "Bool"
-sType' (ExpBytes {}) = "String"
-
+sType' (TExp t _) = sType $ SomeSing t
 
 --- ** Variable Names ** ---
 
 -- Construct the smt2 variable name for a given storage item
 nameFromItem :: When -> TStorageItem a -> Id
-nameFromItem whn item = case item of
-  IntItem c name _ -> c @@ name @@ show whn
-  BoolItem c name _ -> c @@ name @@ show whn
-  BytesItem c name _ -> c @@ name @@ show whn
+nameFromItem whn (Item _ c name _) = c @@ name @@ show whn
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id
-nameFromLoc whn loc = case loc of
-  IntLoc item -> nameFromItem whn item
-  BoolLoc item -> nameFromItem whn item
-  BytesLoc item -> nameFromItem whn item
+nameFromLoc whn (Loc _ item) = nameFromItem whn item
 
 -- Construct the smt2 variable name for a given decl
 nameFromDecl :: Id -> Decl -> Id

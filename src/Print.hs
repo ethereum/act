@@ -54,7 +54,6 @@ prettyExp e = case e of
   Neg a -> "(not " <> prettyExp a <> ")"
   Impl a b -> print2 "=>" a b
   LitBool b -> if b then "true" else "false"
-  BoolVar b -> b
 
   -- integers
   Add a b -> print2 "+" a b
@@ -68,13 +67,11 @@ prettyExp e = case e of
   IntMax a -> show $ intmax a
   IntMin a -> show $ intmin a
   LitInt a -> show a
-  IntVar a -> a
   IntEnv a -> prettyEnv a
 
   -- bytestrings
   Cat a b -> print2 "++" a b
   Slice a b c -> (prettyExp a) <> "[" <> (prettyExp b) <> ":" <> (prettyExp c) <> "]"
-  ByVar a -> a
   ByStr a -> a
   ByLit a -> toString a
   ByEnv a -> prettyEnv a
@@ -84,15 +81,13 @@ prettyExp e = case e of
 
   --polymorphic
   ITE a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  TEntry a t -> timeParens t $ prettyItem a
+  TEntry t a -> timeParens t $ prettyItem a
+  Var _ x -> x
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
 prettyTypedExp :: TypedExp t -> String
-prettyTypedExp e = case e of
-  ExpInt e' -> prettyExp e'
-  ExpBool e' -> prettyExp e'
-  ExpBytes e' -> prettyExp e'
+prettyTypedExp (TExp _ e) = prettyExp e
 
 prettyItem :: TStorageItem a t -> String
 prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
@@ -100,14 +95,10 @@ prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (
     brackets str = "[" <> str <> "]"
 
 prettyLocation :: StorageLocation t -> String
-prettyLocation (IntLoc item) = prettyItem item
-prettyLocation (BoolLoc item) = prettyItem item
-prettyLocation (BytesLoc item) = prettyItem item
+prettyLocation (Loc _ item) = prettyItem item
 
 prettyUpdate :: StorageUpdate t -> String
-prettyUpdate (IntUpdate item e) = prettyItem item <> " => " <> prettyExp e
-prettyUpdate (BoolUpdate item e) = prettyItem item <> " => " <> prettyExp e
-prettyUpdate (BytesUpdate item e) = prettyItem item <> " => " <> prettyExp e
+prettyUpdate (Update _ item e) = prettyItem item <> " => " <> prettyExp e
 
 prettyEnv :: EthEnv -> String
 prettyEnv e = case e of
@@ -136,9 +127,7 @@ prettyInvPred :: InvariantPred Timed -> String
 prettyInvPred = prettyExp . untime . fst
   where
     untimeTyped :: TypedExp t -> TypedExp Untimed
-    untimeTyped (ExpInt e) = ExpInt (untime e)
-    untimeTyped (ExpBool e) = ExpBool (untime e)
-    untimeTyped (ExpBytes e) = ExpBytes (untime e)
+    untimeTyped (TExp t e) = TExp t (untime e)
 
     untime :: Exp a t -> Exp a Untimed
     untime e = case e of
@@ -159,7 +148,6 @@ prettyInvPred = prettyExp . untime . fst
       Mod a b   -> Mod (untime a) (untime b)
       Exp a b   -> Exp (untime a) (untime b)
       Cat a b   -> Cat (untime a) (untime b)
-      ByVar a   -> ByVar a
       ByStr a   -> ByStr a
       ByLit a   -> ByLit a
       LitInt a  -> LitInt a
@@ -167,14 +155,11 @@ prettyInvPred = prettyExp . untime . fst
       IntMax a  -> IntMax a
       UIntMin a -> UIntMin a
       UIntMax a -> UIntMax a
-      IntVar a  -> IntVar a
       LitBool a -> LitBool a
-      BoolVar a -> BoolVar a
       IntEnv a  -> IntEnv a
       ByEnv a   -> ByEnv a
       ITE x y z -> ITE (untime x) (untime y) (untime z)
       NewAddr a b -> NewAddr (untime a) (untime b)
       Slice a b c -> Slice (untime a) (untime b) (untime c)
-      TEntry (IntItem a b c) _ -> TEntry (IntItem a b (fmap untimeTyped c)) Neither
-      TEntry (BoolItem a b c) _ -> TEntry (BoolItem a b (fmap untimeTyped c)) Neither
-      TEntry (BytesItem a b c) _ -> TEntry (BytesItem a b (fmap untimeTyped c)) Neither
+      TEntry _ (Item t a b c) -> TEntry Neither (Item t a b (fmap untimeTyped c))
+      Var t a -> Var t a

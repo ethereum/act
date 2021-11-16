@@ -4,6 +4,7 @@
 {-# Language DataKinds #-}
 {-# Language GADTs #-}
 {-# Language MonadComprehensions #-}
+{-# Language ViewPatterns #-}
 
 module HEVM where
 
@@ -12,7 +13,6 @@ import Prelude hiding (lookup)
 import Syntax
 import Syntax.Annotated as Annotated hiding (S)
 
-import Data.ByteString (ByteString)
 import Data.ByteString.UTF8 (toString)
 import Data.Text (Text, pack, splitOn)
 import Data.Maybe
@@ -122,8 +122,8 @@ checkPostStorage ctx (Behaviour _ _ _ _ _ _ rewrites _) pre post contractMap sol
                  slot update' = let S _ w = calculateSlot ctx solcjson (locFromUpdate update')
                                in w
                  insertUpdate :: SArray (WordN 256) (WordN 256) -> StorageUpdate -> SArray (WordN 256) (WordN 256)
-                 insertUpdate store u@(IntUpdate _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx e
-                 insertUpdate store u@(BoolUpdate _ e) = writeArray store (slot u) $ ite (symExpBool ctx e) 1 0
+                 insertUpdate store u@(Update SInteger _ e) = writeArray store (slot u) $ sFromIntegral $ symExpInt ctx e
+                 insertUpdate store u@(Update SBoolean _ e) = writeArray store (slot u) $ ite (symExpBool ctx e) 1 0
                  insertUpdate _ _ = error "bytes unsupported"
                in post' .== foldl insertUpdate pre' insertions
               _ -> sFalse
@@ -170,7 +170,7 @@ mkVmContext solcjson b@(Behaviour method _ c1 (Interface _ decls) _ _ updates _)
   in (ctx, res)
 
 
-makeVmEnv :: Behaviour -> VM -> Map Id SMType
+makeVmEnv :: Behaviour -> VM -> Map Id SActType
 makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
   fromList
     [ Caller    |- SymInteger (sFromIntegral $ saddressWord160 (view (state . caller) vm))
@@ -195,7 +195,7 @@ makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
     (|-) a b = (nameFromEnv c1 method a, b)
 
 -- | Locate the variables refered to in the act-spec in the vm
-locateStorage :: Ctx -> SolcJson -> Map Id Addr -> Method -> (VM,VM) -> Rewrite -> (Id, (SMType, SMType))
+locateStorage :: Ctx -> SolcJson -> Map Id Addr -> Method -> (VM,VM) -> Rewrite -> (Id, (SActType, SActType))
 locateStorage ctx solcjson contractMap method (pre, post) item =
   let item' = locFromRewrite item
       addr = get (contractFromRewrite item) contractMap
@@ -207,9 +207,7 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
       Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item')
 
       name :: StorageLocation -> Id
-      name (IntLoc   i) = nameFromItem method i
-      name (BoolLoc  i) = nameFromItem method i
-      name (BytesLoc i) = nameFromItem method i
+      name (Loc _ i) = nameFromItem method i
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 
@@ -228,7 +226,7 @@ calculateSlot ctx solcjson loc =
      else foldl (\a b -> keccak' . SymbolicBuffer $ toBytes a <> toSymBytes b) slotword indexers
 
 
-locateCalldata :: Behaviour -> [Decl] -> Buffer -> Decl -> (Id, SMType)
+locateCalldata :: Behaviour -> [Decl] -> Buffer -> Decl -> (Id, SActType)
 locateCalldata b decls calldata' d@(Decl typ name) =
   if any (\(Decl typ' _) -> abiKind typ' /= Static) decls
   then error "dynamic calldata args currently unsupported"
@@ -241,7 +239,7 @@ locateCalldata b decls calldata' d@(Decl typ name) =
               ++ name ++ " in interface declaration"))
           (elemIndex d decls)
 
-    val = case metaType typ of
+    val = case actType typ of
       -- all integers are 32 bytes
       Integer -> let S _ w = readSWord offset calldata'
                  in SymInteger $ sFromIntegral w
@@ -249,8 +247,8 @@ locateCalldata b decls calldata' d@(Decl typ name) =
       Boolean -> SymBool $ readSWord offset calldata' ./= 0
       _ -> error "TODO: support bytes"
 
--- | Embed an SMType as a list of symbolic bytes
-toSymBytes :: SMType -> [SWord 8]
+-- | Embed an SActType as a list of symbolic bytes
+toSymBytes :: SActType -> [SWord 8]
 toSymBytes (SymInteger i) = toBytes (sFromIntegral i :: SWord 256)
 toSymBytes (SymBool i) = ite i (toBytes (1 :: SWord 256)) (toBytes (0 :: SWord 256))
 toSymBytes (SymBytes _) = error "unsupported"
@@ -292,7 +290,7 @@ keccak' (ConcreteBuffer bytes) = literal $ toSizzle $ wordValue $ keccakBlob byt
 data Ctx = Ctx ContractName Method Args HEVM.Storage HEVM.Env
   deriving (Show)
 
-data SMType
+data SActType
   = SymInteger (SBV Integer)
   | SymBool (SBV Bool)
   | SymBytes (SBV String)
@@ -300,15 +298,15 @@ data SMType
 
 type ContractName = Id
 type Method = Id
-type Args = Map Id SMType
-type Storage = Map Id (SMType, SMType)
-type Env = Map Id SMType
+type Args = Map Id SActType
+type Storage = Map Id (SActType, SActType)
+type Env = Map Id SActType
 
-symExp :: Ctx -> TypedExp -> SMType
-symExp ctx ret = case ret of
-  ExpInt e -> SymInteger $ symExpInt ctx e
-  ExpBool e -> SymBool $ symExpBool ctx e
-  ExpBytes e -> SymBytes $ symExpBytes ctx e
+symExp :: Ctx -> TypedExp -> SActType
+symExp ctx (TExp t e) = case t of
+  SInteger -> SymInteger $ symExpInt   ctx e
+  SBoolean -> SymBool    $ symExpBool  ctx e
+  SByteStr -> SymBytes   $ symExpBytes ctx e
 
 symExpBool :: Ctx -> Exp Bool -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) e = case e of
@@ -322,8 +320,8 @@ symExpBool ctx@(Ctx c m args store _) e = case e of
   NEq a b   -> sNot (symExpBool ctx (Eq a b))
   Neg a     -> sNot (symExpBool ctx a)
   LitBool a -> literal a
-  BoolVar a -> get (nameFromArg c m a) (catBools args)
-  TEntry a t -> get (nameFromItem m a) (catBools $ timeStore t store)
+  Var _ a   -> get (nameFromArg c m a) (catBools args)
+  TEntry t a -> get (nameFromItem m a) (catBools $ timeStore t store)
   ITE x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
   Eq a b -> fromMaybe (error "Internal error: invalid expression type")
       $ [symExpBool  ctx a' .== symExpBool  ctx b' | a' <- castType a, b' <- castType b]
@@ -343,8 +341,8 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   IntMax a  -> literal $ intmax a
   UIntMin a -> literal $ uintmin a
   UIntMax a -> literal $ uintmax a
-  IntVar a  -> get (nameFromArg c m a) (catInts args)
-  TEntry a t -> get (nameFromItem m a) (catInts $ timeStore t store)
+  Var _ a   -> get (nameFromArg c m a) (catInts args)
+  TEntry t a -> get (nameFromItem m a) (catInts $ timeStore t store)
   IntEnv a -> get (nameFromEnv c m a) (catInts environment)
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
@@ -352,34 +350,27 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
 symExpBytes :: Ctx -> Exp ByteString -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
   Cat a b -> symExpBytes ctx a .++ symExpBytes ctx b
-  ByVar a  -> get (nameFromArg c m a) (catBytes args)
+  Var _ a -> get (nameFromArg c m a) (catBytes args)
   ByStr a -> literal a
   ByLit a -> literal $ toString a
-  TEntry a t -> get (nameFromItem m a) (catBytes $ timeStore t store)
+  TEntry t a -> get (nameFromItem m a) (catBytes $ timeStore t store)
   Slice a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
   ByEnv a -> get (nameFromEnv c m a) (catBytes environment)
   ITE x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
 
-timeStore :: When -> HEVM.Storage -> Map Id SMType
+timeStore :: When -> HEVM.Storage -> Map Id SActType
 timeStore Pre  s = fst <$> s
 timeStore Post s = snd <$> s
 
 -- *** SMT Variable Names *** --
 
 nameFromItem :: Method -> TStorageItem a -> Id
-nameFromItem method item = case item of
-  IntItem c name ixs -> c @@ method @@ name <> showIxs c ixs
-  BoolItem c name ixs -> c @@ method @@ name <> showIxs c ixs
-  BytesItem c name ixs -> c @@ method @@ name <> showIxs c ixs
+nameFromItem method (Item _ c name ixs) = c @@ method @@ name <> showIxs
   where
-    showIxs :: ContractName -> [TypedExp] -> [Char]
-    showIxs c ixs = intercalate "-" $ "" : fmap (nameFromTypedExp c method) ixs
+    showIxs = intercalate "-" $ "" : fmap (nameFromTypedExp c method) ixs
 
 nameFromTypedExp :: ContractName -> Method -> TypedExp -> Id
-nameFromTypedExp c method e = case e of
-  ExpInt e' -> nameFromExp c method e'
-  ExpBool e' -> nameFromExp c method e'
-  ExpBytes e' -> nameFromExp c method e'
+nameFromTypedExp c method (TExp _ e) = nameFromExp c method e
 
 nameFromExp :: ContractName -> Method -> Exp a -> Id
 nameFromExp c m e = case e of
@@ -394,7 +385,6 @@ nameFromExp c m e = case e of
   IntMax a  -> show $ intmax a
   UIntMin a -> show $ uintmin a
   UIntMax a -> show $ uintmax a
-  IntVar a -> a
   IntEnv a -> nameFromEnv c m a
   NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
 
@@ -407,17 +397,16 @@ nameFromExp c m e = case e of
   GEQ a b   -> nameFromExp c m a <> ">=" <> nameFromExp c m b
   Neg a     -> "~" <> nameFromExp c m a
   LitBool a -> show a
-  BoolVar a -> nameFromArg c m a
   Eq a b    -> nameFromExp c m a <> "=="  <> nameFromExp c m b
   NEq a b   -> nameFromExp c m a <> "=/=" <> nameFromExp c m b
   Cat a b -> nameFromExp c m a <> "++" <> nameFromExp c m b
-  ByVar a  -> nameFromArg c m a
   ByStr a -> show a
   ByLit a -> show a
   Slice a x y -> nameFromExp c m a <> "[" <> show x <> ":" <> show y <> "]"
   ByEnv a -> nameFromEnv c m a
 
-  TEntry a _ -> nameFromItem m a
+  Var _ a -> nameFromArg c m a
+  TEntry _ a -> nameFromItem m a
   ITE x y z -> "if-" <> nameFromExp c m x <> "-then-" <> nameFromExp c m y <> "-else-" <> nameFromExp c m z
 
 nameFromDecl :: ContractName -> Method -> Decl -> Id
@@ -438,13 +427,13 @@ x @@ y = show x <> "_" <> show y
 get :: (Show a, Ord a, Show b) => a -> Map a b -> b
 get name vars = fromMaybe (error (show name <> " not found in " <> show vars)) $ Map.lookup name vars
 
-catInts :: Map Id SMType -> Map Id (SBV Integer)
+catInts :: Map Id SActType -> Map Id (SBV Integer)
 catInts m = Map.fromList [(name, i) | (name, SymInteger i) <- Map.toList m]
 
-catBools :: Map Id SMType -> Map Id (SBV Bool)
+catBools :: Map Id SActType -> Map Id (SBV Bool)
 catBools m = Map.fromList [(name, i) | (name, SymBool i) <- Map.toList m]
 
-catBytes :: Map Id SMType -> Map Id (SBV String)
+catBytes :: Map Id SActType -> Map Id (SBV String)
 catBytes m = Map.fromList [(name, i) | (name, SymBytes i) <- Map.toList m]
 
 concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]

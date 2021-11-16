@@ -1,16 +1,17 @@
 {
-module Parse where
+module Parse (module Parse, showposn) where
 import Prelude hiding (EQ, GT, LT)
 import Lex
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Syntax.Untyped
-import ErrM
+import Error
+import Data.Validation
 }
 
 %name parse
-%monad { Err } { (>>=) } { return }
+%monad { Error String } { bindValidation } { pure }
 %tokentype { Lexeme }
 %error { parseError }
 
@@ -171,7 +172,7 @@ Constructor : 'constructor' 'of' id
               Creation
               list(ExtStorage)
               Ensures
-              Invariants                              { Definition (name $3)
+              Invariants                              { Definition (posn $3) (name $3)
                                                          $4 $5 $6 $7 $8 $9 }
 
 Ensures : optblock('ensures', Expr)                   { $1 }
@@ -188,10 +189,10 @@ Cases : Post                                          { Direct $1 }
 Case : 'case' Expr ':' Post                           { Case (posn $1) $2 $4 }
 
 
-Post  : Storage list(ExtStorage)                      { Post (Just $1) $2 Nothing }
-      | list(ExtStorage) Returns                      { Post Nothing $1 (Just $2) }
-      | nonempty(ExtStorage)                          { Post Nothing $1 Nothing }
-      | Storage list(ExtStorage) Returns              { Post (Just $1) $2 (Just $3) }
+Post  : Storage list(ExtStorage)                      { Post $1 $2 Nothing }
+      | list(ExtStorage) Returns                      { Post [] $1 (Just $2) }
+      | nonempty(ExtStorage)                          { Post [] $1 Nothing }
+      | Storage list(ExtStorage) Returns              { Post $1 $2 (Just $3) }
 
 Returns : 'returns' Expr                              { $2 }
 
@@ -221,7 +222,7 @@ Assign : StorageVar ':=' Expr                         { AssignVal $1 $3 }
 Defn : Expr ':=' Expr                                 { Defn $1 $3 }
 Decl : Type id                                        { Decl $1 (name $2) }
 
-StorageVar : SlotType id                              { StorageVar $1 (name $2) }
+StorageVar : SlotType id                              { StorageVar (posn $2) $1 (name $2) }
 
 Type : 'uint'
        { case validsize $1 of
@@ -304,15 +305,16 @@ Expr : '(' Expr ')'                                   { $2 }
 {
 
 nowhere = AlexPn 0 0 0
+
 lastPos = AlexPn (-1) (-1) (-1)
 
 validsize :: Int -> Bool
 validsize x = (mod x 8 == 0) && (x >= 8) && (x <= 256)
 
-parseError :: [Lexeme] -> Err a
-parseError [] = Bad (lastPos, "Expected more tokens")
+parseError :: [Lexeme] -> Error String a
+parseError [] = throw (lastPos, "Expected more tokens")
 parseError ((L token pn):_) =
-  Bad $ (pn, concat [
+  throw (pn, concat [
     "parsing error at token ",
     show token])
 }

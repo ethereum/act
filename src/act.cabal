@@ -30,28 +30,38 @@ common deps
                  utf8-string      >= 1.0.1.1,
                  process          >= 1.6.5.0,
                  ansi-wl-pprint   >= 0.6.9,
-                 regex-tdfa
-  other-modules: Lex ErrM Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Annotated Syntax.Timing Syntax.TimeAgnostic Type Print Enrich SMT
-  
+                 regex-tdfa,
+                 validation       >= 1.1.1,
+                 extra,
+                 singletons
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans -Wno-unticked-promoted-constructors
   else
       ghc-options: -Wall -Wno-orphans -Wno-unticked-promoted-constructors
 
-executable act
+library act-internal
   import:             deps
-  main-is:            Main.hs
   build-tool-depends: happy:happy, alex:alex
   hs-source-dirs:     .
   default-language:   Haskell2010
+  exposed-modules:    CLI Error Print SMT Syntax.Annotated
+  other-modules:      Lex Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Types Syntax.Timing Syntax.TimeAgnostic Type Enrich
+
+executable act
+  import:             deps
+  main-is:            Main.hs
+  hs-source-dirs:     main
+  default-language:   Haskell2010
+  build-depends:      act-internal
 
 Test-Suite test
   import:           deps
   type:             exitcode-stdio-1.0
   default-language: Haskell2010
   main-is:          Test.hs
-  hs-source-dirs:   test, .
-  build-depends:    pretty-simple          >= 2.2,
+  hs-source-dirs:   test
+  build-depends:    act-internal,
+                    pretty-simple          >= 2.2,
                     quickcheck-instances   >= 0.3,
                     quickcheck-transformer >= 0.3,
                     tasty-hunit            >= 0.10,

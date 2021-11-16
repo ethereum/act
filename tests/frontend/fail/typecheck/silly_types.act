@@ -1,0 +1,24 @@
+constructor of Pass
+interface constructor()
+
+creates
+
+    uint x := 0
+    uint y := 2
+    bool p := true
+    bool q := false
+
+behaviour g of Pass
+interface g()
+
+iff in range uint256
+
+    x + y
+
+storage
+
+    // TODO: remove this hack once bug #81 is fixed...
+    x => x
+    y => (x + p) == (q > y)
+    p => (x + p) and (q > y)
+    q

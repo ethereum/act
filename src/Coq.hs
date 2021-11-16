@@ -162,9 +162,8 @@ stateval store handler updates = T.unwords $ stateConstructor : fmap (valuefor u
   valuefor updates' (name, t) =
     case find (eqName name) updates' of
       Nothing -> parens $ handler name t
-      Just (IntUpdate  item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
-      Just (BoolUpdate item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
-      Just (BytesUpdate _ _) -> error "bytestrings not supported"
+      Just (Update SByteStr _ _) -> error "bytestrings not supported"
+      Just (Update _ item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
 
 -- | filter by name
 eqName :: Id -> StorageUpdate -> Bool
@@ -173,16 +172,17 @@ eqName n update = n == idFromUpdate update
 -- represent mapping update with anonymous function
 lambda :: [TypedExp] -> Int -> Exp a -> Id -> T.Text
 lambda [] _ e _ = parens $ coqexp e
-lambda (x:xs) n e m = parens $
+lambda (TExp argType arg:xs) n e m = parens $
   "fun " <> name <> " =>"
-  <> " if " <> name <> eqsym x <> typedexp x
+  <> " if " <> name <> eqsym <> coqexp arg
   <> " then " <> lambda xs (n + 1) e m
   <> " else " <> T.pack m <> " " <> stateVar <> " " <> lambdaArgs n where
   name = anon <> T.pack (show n)
   lambdaArgs i = T.unwords $ map (\a -> anon <> T.pack (show a)) [0..i]
-  eqsym (ExpInt _) = " =? "
-  eqsym (ExpBool _) = " =?? "
-  eqsym (ExpBytes _) = error "bytestrings not supported"
+  eqsym = case argType of
+    SInteger -> " =? "
+    SBoolean -> " =?? "
+    SByteStr -> error "bytestrings not supported"
 
 -- | produce a block of declarations from an interface
 interface :: Interface -> T.Text
@@ -210,9 +210,9 @@ abiType a = error $ show a
 
 -- | coq syntax for a return type
 returnType :: TypedExp -> T.Text
-returnType (ExpInt _) = "Z"
-returnType (ExpBool _) = "bool"
-returnType (ExpBytes _) = "bytestrings not supported"
+returnType (TExp SInteger _) = "Z"
+returnType (TExp SBoolean _) = "bool"
+returnType (TExp SByteStr _) = error "bytestrings not supported"
 
 -- | default value for a given type
 -- this is used in cases where a value is not set in the constructor
@@ -237,7 +237,7 @@ coqexp :: Exp a -> T.Text
 -- booleans
 coqexp (LitBool True)  = "true"
 coqexp (LitBool False) = "false"
-coqexp (BoolVar name)  = T.pack name
+coqexp (Var SBoolean name)  = T.pack name
 coqexp (And e1 e2)  = parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
 coqexp (Or e1 e2)   = parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
 coqexp (Impl e1 e2) = parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
@@ -251,7 +251,7 @@ coqexp (GEQ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
 
 -- integers
 coqexp (LitInt i) = T.pack $ show i
-coqexp (IntVar name)  = T.pack name
+coqexp (Var SInteger name)  = T.pack name
 coqexp (Add e1 e2) = parens $ coqexp e1 <> " + " <> coqexp e2
 coqexp (Sub e1 e2) = parens $ coqexp e1 <> " - " <> coqexp e2
 coqexp (Mul e1 e2) = parens $ coqexp e1 <> " * " <> coqexp e2
@@ -264,7 +264,7 @@ coqexp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
 coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
 
 -- polymorphic
-coqexp (TEntry e w) = entry e w
+coqexp (TEntry w e) = entry e w
 coqexp (ITE b e1 e2) = parens $ "if "
                              <> coqexp b
                              <> " then "
@@ -276,7 +276,7 @@ coqexp (ITE b e1 e2) = parens $ "if "
 coqexp (IntEnv e) = error $ show e <> ": environment values not yet supported"
 coqexp (Cat _ _) = error "bytestrings not supported"
 coqexp (Slice _ _ _) = error "bytestrings not supported"
-coqexp (ByVar _) = error "bytestrings not supported"
+coqexp (Var SByteStr _) = error "bytestrings not supported"
 coqexp (ByStr _) = error "bytestrings not supported"
 coqexp (ByLit _) = error "bytestrings not supported"
 coqexp (ByEnv _) = error "bytestrings not supported"
@@ -300,14 +300,12 @@ coqprop _ = error "ill formed proposition"
 
 -- | coq syntax for a typed expression
 typedexp :: TypedExp -> T.Text
-typedexp (ExpInt e)   = coqexp e
-typedexp (ExpBool e)  = coqexp e
-typedexp (ExpBytes _) = error "bytestrings not supported"
+typedexp (TExp _ e) = coqexp e
 
 entry :: TStorageItem a -> When -> T.Text
-entry BytesItem{} _    = error "bytestrings not supported"
-entry _           Post = error "TODO: missing support for poststate references in coq backend"
-entry item        Pre  = case ixsFromItem item of
+entry (Item SByteStr _ _ _) _    = error "bytestrings not supported"
+entry _                     Post = error "TODO: missing support for poststate references in coq backend"
+entry item                  _    = case ixsFromItem item of
   []       -> parens $ T.pack (idFromItem item) <> " " <> stateVar
   (ix:ixs) -> parens $ T.pack (idFromItem item) <> " s " <> coqargs (ix :| ixs)
 

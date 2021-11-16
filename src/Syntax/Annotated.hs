@@ -1,7 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 
 {-|
@@ -73,7 +72,4 @@ instance Annotatable Agnostic.Rewrite where
   annotate (Rewrite  update)   = Rewrite  $ annotate update
 
 instance Annotatable Agnostic.StorageUpdate where
-  annotate update = case update of
-    IntUpdate item expr -> IntUpdate (setPost item) (setPre expr)
-    BoolUpdate item expr -> BoolUpdate (setPost item) (setPre expr)
-    BytesUpdate item expr -> BytesUpdate (setPost item) (setPre expr)
+  annotate (Update typ item expr) = Update typ (setPost item) (setPre expr)

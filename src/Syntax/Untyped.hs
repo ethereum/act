@@ -23,7 +23,7 @@ newtype Act = Main [RawBehaviour]
 
 data RawBehaviour
   = Transition Id Id Interface [IffH] Cases Ensures
-  | Definition Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
+  | Definition Pn Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
   deriving (Eq, Show)
 
 type Ensures = [Expr]
@@ -45,7 +45,7 @@ data Case = Case Pn Expr Post
   deriving (Eq, Show)
 
 data Post
-  = Post (Maybe [Storage]) [ExtStorage] (Maybe Expr)
+  = Post [Storage] [ExtStorage] (Maybe Expr)
   deriving (Eq, Show)
 
 newtype Creates = Creates [Assign]
@@ -134,7 +134,7 @@ data EthEnv
   | Nonce
   deriving (Show, Eq)
 
-data StorageVar = StorageVar SlotType Id
+data StorageVar = StorageVar Pn SlotType Id
   deriving (Eq, Show)
 
 data Decl = Decl AbiType Id

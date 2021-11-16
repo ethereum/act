@@ -1,0 +1,52 @@
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+{-|
+Module      : Error
+Description : An instantiation of 'Validation' with our error type.
+
+This specializes 'Data.Validation.Validation' to keep its errors in a 'NonEmpty' list
+and keep track of a 'Pn' for every error it logs. There is also some infrastructure
+around modified chaining/branching behaviours.
+-}
+
+module Error (module Error) where
+
+import Data.List (find)
+import Data.List.NonEmpty as NE
+import Data.Validation as Error
+
+import Syntax.Untyped (Pn)
+
+-- Reexport NonEmpty so that we can use `-XOverloadedLists` without thinking.
+import Data.List.NonEmpty as Error (NonEmpty)
+
+type Error e = Validation (NonEmpty (Pn,e))
+
+throw :: (Pn,e) -> Error e a
+throw msg = Failure [msg]
+
+infixr 1 <==<, >==>
+
+-- Like 'Control.Monad.(>=>)' but allows us to chain error-prone
+-- computations even without a @Monad@ instance.
+(>==>) :: (a -> Error e b) -> (b -> Error e c) -> a -> Error e c
+f >==> g = \x -> f x `bindValidation` g
+
+(<==<) :: (b -> Error e c) -> (a -> Error e b) -> a -> Error e c
+(<==<) = flip (>==>)
+
+-- | Runs through a list of error-prone computations and returns the first
+-- successful one, with the definition of "success" expanded to include
+-- failures which did not generate any error at the supplied position.
+notAtPosn :: Pn -> [Error e a] -> Maybe (Error e a)
+notAtPosn p = find valid
+  where
+    valid (Success _)    = True
+    valid (Failure errs) = all ((p /=) . fst) errs

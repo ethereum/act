@@ -7,11 +7,10 @@ import Data.Maybe
 import Data.List (nub)
 import qualified Data.Map.Strict as Map (lookup)
 
-import EVM.ABI (AbiType(..))
 import EVM.Solidity (SlotType(..))
 
 import Syntax
-import Syntax.Typed
+import Syntax.Annotated
 import Type (bound, defaultStore)
 
 -- | Adds extra preconditions to non constructor behaviours based on the types of their variables
@@ -49,7 +48,7 @@ enrichBehaviour store behv@(Behaviour _ _ _ (Interface _ decls) pre _ stateUpdat
 
 -- | Adds type bounds for calldata, environment vars, and storage vars
 enrichInvariant :: Store -> Constructor -> Invariant -> Invariant
-enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invariant _ preconds storagebounds predicate) =
+enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invariant _ preconds storagebounds (predicate,_)) =
   inv { _ipreconditions = preconds', _istoragebounds = storagebounds' }
     where
       preconds' = preconds
@@ -58,12 +57,12 @@ enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invaria
       storagebounds' = storagebounds
                        <> mkStorageBounds store (Constant <$> locsFromExp predicate)
 
-mkEthEnvBounds :: [EthEnv] -> [Exp Bool t]
+mkEthEnvBounds :: [EthEnv] -> [Exp Bool]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
   where
-    mkBound :: EthEnv -> Maybe (Exp Bool t)
+    mkBound :: EthEnv -> Maybe (Exp Bool)
     mkBound e = case lookup e defaultStore of
-      Just (Integer) -> Just $ bound (toAbiType e) (IntEnv e)
+      Just Integer -> Just $ bound (toAbiType e) (IntEnv e)
       _ -> Nothing
 
     toAbiType :: EthEnv -> AbiType
@@ -83,16 +82,16 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
       Nonce -> AbiUIntType 256
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
-mkStorageBounds :: Store -> [Rewrite] -> [Exp Bool Untimed]
+mkStorageBounds :: Store -> [Rewrite] -> [Exp Bool]
 mkStorageBounds store refs = catMaybes $ mkBound <$> refs
   where
-    mkBound :: Rewrite -> Maybe (Exp Bool Untimed)
-    mkBound (Constant (IntLoc item)) = Just $ fromItem item
-    mkBound (Rewrite (IntUpdate item _)) = Just $ fromItem item
+    mkBound :: Rewrite -> Maybe (Exp Bool)
+    mkBound (Constant (Loc SInteger item)) = Just $ fromItem item
+    mkBound (Rewrite (Update SInteger item _)) = Just $ fromItem item
     mkBound _ = Nothing
 
-    fromItem :: TStorageItem Integer Untimed -> Exp Bool Untimed
-    fromItem item@(IntItem contract name _) = bound (abiType $ slotType contract name) (TEntry item Neither)
+    fromItem :: TStorageItem Integer -> Exp Bool
+    fromItem item@(Item _ contract name _) = bound (abiType $ slotType contract name) (TEntry Pre item)
 
     slotType :: Id -> Id -> SlotType
     slotType contract name = let
@@ -103,7 +102,7 @@ mkStorageBounds store refs = catMaybes $ mkBound <$> refs
     abiType (StorageMapping _ typ) = typ
     abiType (StorageValue typ) = typ
 
-mkCallDataBounds :: [Decl] -> [Exp Bool t]
-mkCallDataBounds = concatMap $ \(Decl typ name) -> case metaType typ of
-  Integer -> [bound typ (IntVar name)]
+mkCallDataBounds :: [Decl] -> [Exp Bool]
+mkCallDataBounds = concatMap $ \(Decl typ name) -> case actType typ of
+  Integer -> [bound typ (_Var name)]
   _ -> []
