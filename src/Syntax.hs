@@ -68,38 +68,38 @@ locsFromExp = nub . go
   where
     go :: Exp a t -> [StorageLocation t]
     go e = case e of
-      And a b   -> go a <> go b
-      Or a b    -> go a <> go b
-      Impl a b  -> go a <> go b
-      Eq a b    -> go a <> go b
-      LE a b    -> go a <> go b
-      LEQ a b   -> go a <> go b
-      GE a b    -> go a <> go b
-      GEQ a b   -> go a <> go b
-      NEq a b   -> go a <> go b
-      Neg a     -> go a
-      Add a b   -> go a <> go b
-      Sub a b   -> go a <> go b
-      Mul a b   -> go a <> go b
-      Div a b   -> go a <> go b
-      Mod a b   -> go a <> go b
-      Exp a b   -> go a <> go b
-      Cat a b   -> go a <> go b
-      Slice a b c -> go a <> go b <> go c
-      ByStr _ -> []
-      ByLit _ -> []
-      LitInt _  -> []
-      IntMin _  -> []
-      IntMax _  -> []
-      UIntMin _ -> []
-      UIntMax _ -> []
-      LitBool _ -> []
-      NewAddr a b -> go a <> go b
-      IntEnv _ -> []
-      ByEnv _ -> []
-      ITE x y z -> go x <> go y <> go z
-      TEntry _ a -> locsFromItem a
-      Var _ _ -> []
+      And _ a b   -> go a <> go b
+      Or _ a b    -> go a <> go b
+      Impl _ a b  -> go a <> go b
+      Eq _ a b    -> go a <> go b
+      LE _ a b    -> go a <> go b
+      LEQ _ a b   -> go a <> go b
+      GE _ a b    -> go a <> go b
+      GEQ _ a b   -> go a <> go b
+      NEq _ a b   -> go a <> go b
+      Neg _ a     -> go a
+      Add _ a b   -> go a <> go b
+      Sub _ a b   -> go a <> go b
+      Mul _ a b   -> go a <> go b
+      Div _ a b   -> go a <> go b
+      Mod _ a b   -> go a <> go b
+      Exp _ a b   -> go a <> go b
+      Cat _ a b   -> go a <> go b
+      Slice _ a b c -> go a <> go b <> go c
+      ByStr {} -> []
+      ByLit {} -> []
+      LitInt {}  -> []
+      IntMin {}  -> []
+      IntMax {}  -> []
+      UIntMin {} -> []
+      UIntMax {} -> []
+      LitBool {} -> []
+      NewAddr _ a b -> go a <> go b
+      IntEnv {} -> []
+      ByEnv {} -> []
+      ITE _ x y z -> go x <> go y <> go z
+      TEntry _ _ a -> locsFromItem a
+      Var {} -> []
 
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
@@ -131,38 +131,38 @@ ethEnvFromExp = nub . go
   where
     go :: Exp a t -> [EthEnv]
     go e = case e of
-      And a b   -> go a <> go b
-      Or a b    -> go a <> go b
-      Impl a b  -> go a <> go b
-      Eq a b    -> go a <> go b
-      LE a b    -> go a <> go b
-      LEQ a b   -> go a <> go b
-      GE a b    -> go a <> go b
-      GEQ a b   -> go a <> go b
-      NEq a b   -> go a <> go b
-      Neg a     -> go a
-      Add a b   -> go a <> go b
-      Sub a b   -> go a <> go b
-      Mul a b   -> go a <> go b
-      Div a b   -> go a <> go b
-      Mod a b   -> go a <> go b
-      Exp a b   -> go a <> go b
-      Cat a b   -> go a <> go b
-      Slice a b c -> go a <> go b <> go c
-      ITE a b c -> go a <> go b <> go c
-      ByStr _ -> []
-      ByLit _ -> []
-      LitInt _  -> []
-      LitBool _ -> []
-      IntMin _ -> []
-      IntMax _ -> []
-      UIntMin _ -> []
-      UIntMax _ -> []
-      NewAddr a b -> go a <> go b
-      IntEnv a -> [a]
-      ByEnv a -> [a]
-      TEntry _ a -> ethEnvFromItem a
-      Var _ _ -> []
+      And   _ a b   -> go a <> go b
+      Or    _ a b   -> go a <> go b
+      Impl  _ a b   -> go a <> go b
+      Eq    _ a b   -> go a <> go b
+      LE    _ a b   -> go a <> go b
+      LEQ   _ a b   -> go a <> go b
+      GE    _ a b   -> go a <> go b
+      GEQ   _ a b   -> go a <> go b
+      NEq   _ a b   -> go a <> go b
+      Neg   _ a     -> go a
+      Add   _ a b   -> go a <> go b
+      Sub   _ a b   -> go a <> go b
+      Mul   _ a b   -> go a <> go b
+      Div   _ a b   -> go a <> go b
+      Mod   _ a b   -> go a <> go b
+      Exp   _ a b   -> go a <> go b
+      Cat   _ a b   -> go a <> go b
+      Slice _ a b c -> go a <> go b <> go c
+      ITE   _ a b c -> go a <> go b <> go c
+      ByStr {} -> []
+      ByLit {} -> []
+      LitInt {}  -> []
+      LitBool {} -> []
+      IntMin {} -> []
+      IntMax {} -> []
+      UIntMin {} -> []
+      UIntMax {} -> []
+      NewAddr _ a b -> go a <> go b
+      IntEnv _ a -> [a]
+      ByEnv _ a -> [a]
+      TEntry _ _ a -> ethEnvFromItem a
+      Var {} -> []
 
 idFromRewrite :: Rewrite t -> Id
 idFromRewrite = onRewrite idFromLocation idFromUpdate

@@ -63,7 +63,9 @@ instance SingI Bool       where sing = SBoolean
 instance SingI ByteString where sing = SByteStr
 
 -- | A non-indexed type whose inhabitants represent the types understood
--- by proving tools. Implemented by an existentially quantified 'SType'.
+-- by proving tools. Implemented by an existentially quantified 'SType',
+-- but it is recommended to use the patterns 'Syntax.Types.Integer', 'Boolean'
+-- and 'ByteStr' whenever constructing or matching on these.
 type ActType = SomeSing *
 
 pattern Integer :: ActType

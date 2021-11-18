@@ -28,11 +28,9 @@ import Data.Traversable
 
 import Syntax
 import Syntax.Timing
-import Syntax.Untyped (Pn)
 import qualified Syntax.Untyped as U
 import Syntax.Typed
 import Error
-import Parse
 
 type Err = Error String
 
@@ -151,7 +149,7 @@ splitBehaviour store (U.Transition name contract iface@(Interface _ decls) iffs 
       [ B $ Behaviour name Pass contract iface if' postcs storage ret ]
     caseClaims iffs' postcs (if',storage,ret) =
       [ B $ Behaviour name Pass contract iface (if' <> iffs') postcs storage ret,
-        B $ Behaviour name Fail contract iface (if' <> [Neg (mconcat iffs')]) [] (Constant . locFromRewrite <$> storage) Nothing ]
+        B $ Behaviour name Fail contract iface (if' <> [Neg nowhere (mconcat iffs')]) [] (Constant . locFromRewrite <$> storage) Nothing ]
 
 splitBehaviour store (U.Definition _ contract iface@(Interface _ decls) iffs (U.Creates assigns) extStorage postcs invs) =
   if not . null $ extStorage then error "TODO: support extStorage in constructor"
@@ -166,9 +164,9 @@ splitBehaviour store (U.Definition _ contract iface@(Interface _ decls) iffs (U.
   where
     invrClaims invariants = I . Invariant contract [] [] <$> invariants
     ctorClaims updates iffs' ensures
-      | null iffs' = [ C $ Constructor contract Pass iface []                    ensures updates [] ]
-      | otherwise  = [ C $ Constructor contract Pass iface iffs'                 ensures updates []
-                     , C $ Constructor contract Fail iface [Neg (mconcat iffs')] ensures []      [] ]
+      | null iffs' = [ C $ Constructor contract Pass iface []                            ensures updates [] ]
+      | otherwise  = [ C $ Constructor contract Pass iface iffs'                         ensures updates []
+                     , C $ Constructor contract Fail iface [Neg nowhere (mconcat iffs')] ensures []      [] ]
 
 -- | Typechecks a case, returning typed versions of its preconditions, rewrites and return value.
 checkCase :: Env -> U.Case -> Err ([Exp Bool Untimed], [Rewrite], Maybe (TypedExp Timed))
@@ -288,19 +286,19 @@ checkIffs env = foldr check (pure [])
     check (U.IffIn _ typ exps) acc = mappend <$> traverse (fmap (bound typ) . inferExpr env) exps <*> acc
 
 bound :: AbiType -> Exp Integer t -> Exp Bool t
-bound typ e = And (LEQ (lowerBound typ) e) $ LEQ e (upperBound typ)
+bound typ e = And nowhere (LEQ nowhere (lowerBound typ) e) $ LEQ nowhere e (upperBound typ)
 
 lowerBound :: AbiType -> Exp Integer t
-lowerBound (AbiIntType a) = IntMin a
+lowerBound (AbiIntType a) = IntMin nowhere a
 -- todo: other negatives?
-lowerBound _ = LitInt 0
+lowerBound _ = LitInt nowhere 0
 
 -- todo, the rest
 upperBound :: AbiType -> Exp Integer t
-upperBound (AbiUIntType  n) = UIntMax n
-upperBound (AbiIntType   n) = IntMax n
-upperBound AbiAddressType   = UIntMax 160
-upperBound (AbiBytesType n) = UIntMax (8 * n)
+upperBound (AbiUIntType  n) = UIntMax nowhere n
+upperBound (AbiIntType   n) = IntMax nowhere n
+upperBound AbiAddressType   = UIntMax nowhere 160
+upperBound (AbiBytesType n) = UIntMax nowhere (8 * n)
 upperBound typ = error $ "upperBound not implemented for " ++ show typ
 
 -- | Attempt to construct a `TypedExp` whose type matches the supplied `AbiType`.
@@ -321,31 +319,31 @@ typedExp env e = fromMaybe (error $ "Internal error: Type.typedExp. Expr: " <> s
 -- the caller. If this is impossible, an error is thrown instead.
 inferExpr :: forall a t. (Typeable a, Typeable t) => Env -> U.Expr -> Err (Exp a t)
 inferExpr env@Env{contract,store,calldata} expr = case expr of
-  U.ENot    p v1    -> check p <*> (Neg  <$> inferExpr env v1)
-  U.EAnd    p v1 v2 -> check p <*> (And  <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EOr     p v1 v2 -> check p <*> (Or   <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EImpl   p v1 v2 -> check p <*> (Impl <$> inferExpr env v1 <*> inferExpr env v2)
+  U.ENot    p v1    -> check p <*> (Neg  p <$> inferExpr env v1)
+  U.EAnd    p v1 v2 -> check p <*> (And  p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.EOr     p v1 v2 -> check p <*> (Or   p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.EImpl   p v1 v2 -> check p <*> (Impl p <$> inferExpr env v1 <*> inferExpr env v2)
   U.EEq     p v1 v2 -> polycheck p Eq v1 v2
   U.ENeq    p v1 v2 -> polycheck p NEq v1 v2
-  U.ELT     p v1 v2 -> check p <*> (LE   <$> inferExpr env v1 <*> inferExpr env v2)
-  U.ELEQ    p v1 v2 -> check p <*> (LEQ  <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EGEQ    p v1 v2 -> check p <*> (GEQ  <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EGT     p v1 v2 -> check p <*> (GE   <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EAdd    p v1 v2 -> check p <*> (Add  <$> inferExpr env v1 <*> inferExpr env v2)
-  U.ESub    p v1 v2 -> check p <*> (Sub  <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EMul    p v1 v2 -> check p <*> (Mul  <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EDiv    p v1 v2 -> check p <*> (Div  <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EMod    p v1 v2 -> check p <*> (Mod  <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EExp    p v1 v2 -> check p <*> (Exp  <$> inferExpr env v1 <*> inferExpr env v2)
-  U.IntLit  p v1    -> check p ?? LitInt v1
-  U.BoolLit p v1    -> check p ?? LitBool v1
-  U.EITE    _ v1 v2 v3 -> ITE <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
+  U.ELT     p v1 v2 -> check p <*> (LE  p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.ELEQ    p v1 v2 -> check p <*> (LEQ p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.EGEQ    p v1 v2 -> check p <*> (GEQ p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.EGT     p v1 v2 -> check p <*> (GE  p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.EAdd    p v1 v2 -> check p <*> (Add p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.ESub    p v1 v2 -> check p <*> (Sub p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.EMul    p v1 v2 -> check p <*> (Mul p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.EDiv    p v1 v2 -> check p <*> (Div p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.EMod    p v1 v2 -> check p <*> (Mod p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.EExp    p v1 v2 -> check p <*> (Exp p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.IntLit  p v1    -> check p ?? LitInt  p v1
+  U.BoolLit p v1    -> check p ?? LitBool p v1
+  U.EITE    p v1 v2 v3 -> ITE p <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
   U.EUTEntry   p name es -> entry p Neither name es
   U.EPreEntry  p name es -> entry p Pre     name es
   U.EPostEntry p name es -> entry p Post    name es
   U.EnvExp p v1 -> case lookup v1 defaultStore of
-    Just Integer -> check p ?? IntEnv v1
-    Just ByteStr -> check p ?? ByEnv  v1
+    Just Integer -> check p ?? IntEnv p v1
+    Just ByteStr -> check p ?? ByEnv  p v1
     _            -> throw (p, "unknown environment variable " <> show v1)
   v -> error $ "internal error: infer type of" <> show v
   -- Wild ->
@@ -373,12 +371,12 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
     -- Takes a polymorphic binary AST constructor and specializes it to each of
     -- our types. Those specializations are used in order to guide the
     -- typechecking of the two supplied expressions. Returns at first success.
-    polycheck :: Typeable x => Pn -> (forall y. (Eq y, Typeable y) => Exp y t -> Exp y t -> Exp x t) -> U.Expr -> U.Expr -> Err (Exp a t)
+    polycheck :: Typeable x => Pn -> (forall y. (Eq y, Typeable y) => Pn -> Exp y t -> Exp y t -> Exp x t) -> U.Expr -> U.Expr -> Err (Exp a t)
     polycheck pn cons e1 e2 = fromMaybe (error $ "Internal error: Type.polycheck. Expr1: " <> show e1)
       $ notAtPosn (getPosn e1)
-      [ check pn <*> (cons @Integer    <$> inferExpr env e1 <*> inferExpr env e2)
-      , check pn <*> (cons @Bool       <$> inferExpr env e1 <*> inferExpr env e2)
-      , check pn <*> (cons @ByteString <$> inferExpr env e1 <*> inferExpr env e2)
+      [ check pn <*> (cons @Integer    pn <$> inferExpr env e1 <*> inferExpr env e2)
+      , check pn <*> (cons @Bool       pn <$> inferExpr env e1 <*> inferExpr env e2)
+      , check pn <*> (cons @ByteString pn <$> inferExpr env e1 <*> inferExpr env e2)
       ]
 
     -- Try to construct a reference to a calldata variable or an item in storage.
@@ -388,13 +386,13 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
       (Just _, Just _)   -> throw (pn, "Ambiguous variable " <> name)
       (Nothing, Just (FromAct varType)) ->
         if isTimed timing then throw (pn, "Calldata var cannot be pre/post")
-        else check pn ?? Var varType name
+        else check pn ?? Var pn varType name
       (Just (StorageValue a), Nothing)      -> checkEntry a []
       (Just (StorageMapping ts a), Nothing) -> checkEntry a $ NonEmpty.toList ts
       where
         checkEntry :: AbiType -> [AbiType] -> Err (Exp a t)
         checkEntry (FromAbi entryType) ts = checkTime pn <*> (check pn <*>
-          (TEntry timing . Item entryType contract name <$> checkIxs env pn es ts))
+          (TEntry pn timing . Item entryType contract name <$> checkIxs env pn es ts))
 
 -- | Checks that there are as many expressions as expected by the types,
 -- and checks that each one of them agree with its type.

@@ -62,7 +62,7 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
   where
     mkBound :: EthEnv -> Maybe (Exp Bool)
     mkBound e = case lookup e defaultStore of
-      Just Integer -> Just $ bound (toAbiType e) (IntEnv e)
+      Just Integer -> Just $ bound (toAbiType e) (IntEnv nowhere e)
       _ -> Nothing
 
     toAbiType :: EthEnv -> AbiType
@@ -91,7 +91,7 @@ mkStorageBounds store refs = catMaybes $ mkBound <$> refs
     mkBound _ = Nothing
 
     fromItem :: TStorageItem Integer -> Exp Bool
-    fromItem item@(Item _ contract name _) = bound (abiType $ slotType contract name) (TEntry Pre item)
+    fromItem item@(Item _ contract name _) = bound (abiType $ slotType contract name) (TEntry nowhere Pre item)
 
     slotType :: Id -> Id -> SlotType
     slotType contract name = let

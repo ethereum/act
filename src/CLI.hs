@@ -41,7 +41,6 @@ import Options.Generic
 import Parse
 import Syntax
 import Syntax.Annotated
-import Syntax.Untyped
 import Enrich
 import K hiding (normalize, indent)
 import SMT

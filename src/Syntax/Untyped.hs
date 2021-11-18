@@ -3,7 +3,7 @@
 -- It is also equipped with position information for extra debugging xp
 {-# LANGUAGE OverloadedStrings #-}
 
-module Syntax.Untyped where
+module Syntax.Untyped (module Syntax.Untyped) where
 
 import Data.Aeson
 import Data.List (intercalate)
