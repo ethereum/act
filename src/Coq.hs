@@ -235,67 +235,67 @@ abiVal _ = error "TODO: missing default values"
 coqexp :: Exp a -> T.Text
 
 -- booleans
-coqexp (LitBool True)  = "true"
-coqexp (LitBool False) = "false"
-coqexp (Var SBoolean name)  = T.pack name
-coqexp (And e1 e2)  = parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
-coqexp (Or e1 e2)   = parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
-coqexp (Impl e1 e2) = parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
-coqexp (Eq e1 e2)   = parens $ coqexp e1  <> " =? " <> coqexp e2
-coqexp (NEq e1 e2)  = parens $ "negb " <> parens (coqexp e1  <> " =? " <> coqexp e2)
-coqexp (Neg e)      = parens $ "negb " <> coqexp e
-coqexp (LE e1 e2)   = parens $ coqexp e1 <> " <? "  <> coqexp e2
-coqexp (LEQ e1 e2)  = parens $ coqexp e1 <> " <=? " <> coqexp e2
-coqexp (GE e1 e2)   = parens $ coqexp e2 <> " <? "  <> coqexp e1
-coqexp (GEQ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
+coqexp (LitBool _ True)  = "true"
+coqexp (LitBool _ False) = "false"
+coqexp (Var _ SBoolean name)  = T.pack name
+coqexp (And _ e1 e2)  = parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
+coqexp (Or _ e1 e2)   = parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
+coqexp (Impl _ e1 e2) = parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
+coqexp (Eq _ e1 e2)   = parens $ coqexp e1  <> " =? " <> coqexp e2
+coqexp (NEq _ e1 e2)  = parens $ "negb " <> parens (coqexp e1  <> " =? " <> coqexp e2)
+coqexp (Neg _ e)      = parens $ "negb " <> coqexp e
+coqexp (LE _ e1 e2)   = parens $ coqexp e1 <> " <? "  <> coqexp e2
+coqexp (LEQ _ e1 e2)  = parens $ coqexp e1 <> " <=? " <> coqexp e2
+coqexp (GE _ e1 e2)   = parens $ coqexp e2 <> " <? "  <> coqexp e1
+coqexp (GEQ _ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
 
 -- integers
-coqexp (LitInt i) = T.pack $ show i
-coqexp (Var SInteger name)  = T.pack name
-coqexp (Add e1 e2) = parens $ coqexp e1 <> " + " <> coqexp e2
-coqexp (Sub e1 e2) = parens $ coqexp e1 <> " - " <> coqexp e2
-coqexp (Mul e1 e2) = parens $ coqexp e1 <> " * " <> coqexp e2
-coqexp (Div e1 e2) = parens $ coqexp e1 <> " / " <> coqexp e2
-coqexp (Mod e1 e2) = parens $ "Z.modulo " <> coqexp e1 <> coqexp e2
-coqexp (Exp e1 e2) = parens $ coqexp e1 <> " ^ " <> coqexp e2
-coqexp (IntMin n)  = parens $ "INT_MIN "  <> T.pack (show n)
-coqexp (IntMax n)  = parens $ "INT_MAX "  <> T.pack (show n)
-coqexp (UIntMin n) = parens $ "UINT_MIN " <> T.pack (show n)
-coqexp (UIntMax n) = parens $ "UINT_MAX " <> T.pack (show n)
+coqexp (LitInt _ i) = T.pack $ show i
+coqexp (Var _ SInteger name)  = T.pack name
+coqexp (Add _ e1 e2) = parens $ coqexp e1 <> " + " <> coqexp e2
+coqexp (Sub _ e1 e2) = parens $ coqexp e1 <> " - " <> coqexp e2
+coqexp (Mul _ e1 e2) = parens $ coqexp e1 <> " * " <> coqexp e2
+coqexp (Div _ e1 e2) = parens $ coqexp e1 <> " / " <> coqexp e2
+coqexp (Mod _ e1 e2) = parens $ "Z.modulo " <> coqexp e1 <> coqexp e2
+coqexp (Exp _ e1 e2) = parens $ coqexp e1 <> " ^ " <> coqexp e2
+coqexp (IntMin _ n)  = parens $ "INT_MIN "  <> T.pack (show n)
+coqexp (IntMax _ n)  = parens $ "INT_MAX "  <> T.pack (show n)
+coqexp (UIntMin _ n) = parens $ "UINT_MIN " <> T.pack (show n)
+coqexp (UIntMax _ n) = parens $ "UINT_MAX " <> T.pack (show n)
 
 -- polymorphic
-coqexp (TEntry w e) = entry e w
-coqexp (ITE b e1 e2) = parens $ "if "
-                             <> coqexp b
-                             <> " then "
-                             <> coqexp e1
-                             <> " else "
-                             <> coqexp e2
+coqexp (TEntry _ w e) = entry e w
+coqexp (ITE _ b e1 e2) = parens $ "if "
+                               <> coqexp b
+                               <> " then "
+                               <> coqexp e1
+                               <> " else "
+                               <> coqexp e2
 
 -- unsupported
-coqexp (IntEnv e) = error $ show e <> ": environment values not yet supported"
-coqexp (Cat _ _) = error "bytestrings not supported"
-coqexp (Slice _ _ _) = error "bytestrings not supported"
-coqexp (Var SByteStr _) = error "bytestrings not supported"
-coqexp (ByStr _) = error "bytestrings not supported"
-coqexp (ByLit _) = error "bytestrings not supported"
-coqexp (ByEnv _) = error "bytestrings not supported"
-coqexp (NewAddr _ _) = error "newaddr not supported"
+coqexp (IntEnv _ e) = error $ show e <> ": environment values not yet supported"
+coqexp Cat {} = error "bytestrings not supported"
+coqexp Slice {} = error "bytestrings not supported"
+coqexp (Var _ SByteStr _) = error "bytestrings not supported"
+coqexp ByStr {} = error "bytestrings not supported"
+coqexp ByLit {} = error "bytestrings not supported"
+coqexp ByEnv {} = error "bytestrings not supported"
+coqexp NewAddr {} = error "newaddr not supported"
 
 -- | coq syntax for a proposition
 coqprop :: Exp a -> T.Text
-coqprop (LitBool True)  = "True"
-coqprop (LitBool False) = "False"
-coqprop (And e1 e2)  = parens $ coqprop e1 <> " /\\ " <> coqprop e2
-coqprop (Or e1 e2)   = parens $ coqprop e1 <> " \\/ " <> coqprop e2
-coqprop (Impl e1 e2) = parens $ coqprop e1 <> " -> " <> coqprop e2
-coqprop (Neg e)      = parens $ "not " <> coqprop e
-coqprop (Eq e1 e2)   = parens $ coqexp e1 <> " = "  <> coqexp e2
-coqprop (NEq e1 e2)  = parens $ coqexp e1 <> " <> " <> coqexp e2
-coqprop (LE e1 e2)   = parens $ coqexp e1 <> " < "  <> coqexp e2
-coqprop (LEQ e1 e2)  = parens $ coqexp e1 <> " <= " <> coqexp e2
-coqprop (GE e1 e2)   = parens $ coqexp e1 <> " > "  <> coqexp e2
-coqprop (GEQ e1 e2)  = parens $ coqexp e1 <> " >= " <> coqexp e2
+coqprop (LitBool _ True)  = "True"
+coqprop (LitBool _ False) = "False"
+coqprop (And _ e1 e2)  = parens $ coqprop e1 <> " /\\ " <> coqprop e2
+coqprop (Or _ e1 e2)   = parens $ coqprop e1 <> " \\/ " <> coqprop e2
+coqprop (Impl _ e1 e2) = parens $ coqprop e1 <> " -> " <> coqprop e2
+coqprop (Neg _ e)      = parens $ "not " <> coqprop e
+coqprop (Eq _ e1 e2)   = parens $ coqexp e1 <> " = "  <> coqexp e2
+coqprop (NEq _ e1 e2)  = parens $ coqexp e1 <> " <> " <> coqexp e2
+coqprop (LE _ e1 e2)   = parens $ coqexp e1 <> " < "  <> coqexp e2
+coqprop (LEQ _ e1 e2)  = parens $ coqexp e1 <> " <= " <> coqexp e2
+coqprop (GE _ e1 e2)   = parens $ coqexp e1 <> " > "  <> coqexp e2
+coqprop (GEQ _ e1 e2)  = parens $ coqexp e1 <> " >= " <> coqexp e2
 coqprop _ = error "ill formed proposition"
 
 -- | coq syntax for a typed expression

@@ -43,46 +43,46 @@ prettyExp :: Exp a t -> String
 prettyExp e = case e of
 
   -- booleans
-  Or a b -> print2 "or" a b
-  Eq a b -> print2 "==" a b
-  LE a b -> print2 "<" a b
-  GE a b -> print2 ">" a b
-  LEQ a b -> print2 "<=" a b
-  GEQ a b -> print2 ">=" a b
-  And a b -> print2 "and" a b
-  NEq a b -> print2 "=/=" a b
-  Neg a -> "(not " <> prettyExp a <> ")"
-  Impl a b -> print2 "=>" a b
-  LitBool b -> if b then "true" else "false"
+  Or _ a b -> print2 "or" a b
+  Eq _ a b -> print2 "==" a b
+  LE _ a b -> print2 "<" a b
+  GE _ a b -> print2 ">" a b
+  LEQ _ a b -> print2 "<=" a b
+  GEQ _ a b -> print2 ">=" a b
+  And _ a b -> print2 "and" a b
+  NEq _ a b -> print2 "=/=" a b
+  Neg _ a -> "(not " <> prettyExp a <> ")"
+  Impl _ a b -> print2 "=>" a b
+  LitBool _ b -> if b then "true" else "false"
 
   -- integers
-  Add a b -> print2 "+" a b
-  Sub a b -> print2 "-" a b
-  Mul a b -> print2 "*" a b
-  Div a b -> print2 "/" a b
-  Mod a b -> print2 "%" a b
-  Exp a b -> print2 "^" a b
-  UIntMax a -> show $ uintmax a
-  UIntMin a -> show $ uintmin a
-  IntMax a -> show $ intmax a
-  IntMin a -> show $ intmin a
-  LitInt a -> show a
-  IntEnv a -> prettyEnv a
+  Add _ a b -> print2 "+" a b
+  Sub _ a b -> print2 "-" a b
+  Mul _ a b -> print2 "*" a b
+  Div _ a b -> print2 "/" a b
+  Mod _ a b -> print2 "%" a b
+  Exp _ a b -> print2 "^" a b
+  UIntMax _ a -> show $ uintmax a
+  UIntMin _ a -> show $ uintmin a
+  IntMax _ a -> show $ intmax a
+  IntMin _ a -> show $ intmin a
+  LitInt _ a -> show a
+  IntEnv _ a -> prettyEnv a
 
   -- bytestrings
-  Cat a b -> print2 "++" a b
-  Slice a b c -> (prettyExp a) <> "[" <> (prettyExp b) <> ":" <> (prettyExp c) <> "]"
-  ByStr a -> a
-  ByLit a -> toString a
-  ByEnv a -> prettyEnv a
+  Cat _ a b -> print2 "++" a b
+  Slice _ a b c -> (prettyExp a) <> "[" <> (prettyExp b) <> ":" <> (prettyExp c) <> "]"
+  ByStr _ a -> a
+  ByLit _ a -> toString a
+  ByEnv _ a -> prettyEnv a
 
   -- builtins
-  NewAddr addr nonce -> "newAddr(" <> prettyExp addr <> ", " <> prettyExp nonce <> ")"
+  NewAddr _ addr nonce -> "newAddr(" <> prettyExp addr <> ", " <> prettyExp nonce <> ")"
 
   --polymorphic
-  ITE a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  TEntry t a -> timeParens t $ prettyItem a
-  Var _ x -> x
+  ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
+  TEntry _ t a -> timeParens t $ prettyItem a
+  Var _ _ x -> x
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
@@ -131,35 +131,35 @@ prettyInvPred = prettyExp . untime . fst
 
     untime :: Exp a t -> Exp a Untimed
     untime e = case e of
-      And a b   -> And (untime a) (untime b)
-      Or a b    -> Or (untime a) (untime b)
-      Impl a b  -> Impl (untime a) (untime b)
-      Eq a b    -> Eq (untime a) (untime b)
-      LE a b    -> LE (untime a) (untime b)
-      LEQ a b   -> LEQ (untime a) (untime b)
-      GE a b    -> GE (untime a) (untime b)
-      GEQ a b   -> GEQ (untime a) (untime b)
-      NEq a b   -> NEq (untime a) (untime b)
-      Neg a     -> Neg (untime a)
-      Add a b   -> Add (untime a) (untime b)
-      Sub a b   -> Sub (untime a) (untime b)
-      Mul a b   -> Mul (untime a) (untime b)
-      Div a b   -> Div (untime a) (untime b)
-      Mod a b   -> Mod (untime a) (untime b)
-      Exp a b   -> Exp (untime a) (untime b)
-      Cat a b   -> Cat (untime a) (untime b)
-      ByStr a   -> ByStr a
-      ByLit a   -> ByLit a
-      LitInt a  -> LitInt a
-      IntMin a  -> IntMin a
-      IntMax a  -> IntMax a
-      UIntMin a -> UIntMin a
-      UIntMax a -> UIntMax a
-      LitBool a -> LitBool a
-      IntEnv a  -> IntEnv a
-      ByEnv a   -> ByEnv a
-      ITE x y z -> ITE (untime x) (untime y) (untime z)
-      NewAddr a b -> NewAddr (untime a) (untime b)
-      Slice a b c -> Slice (untime a) (untime b) (untime c)
-      TEntry _ (Item t a b c) -> TEntry Neither (Item t a b (fmap untimeTyped c))
-      Var t a -> Var t a
+      And p a b   -> And p (untime a) (untime b)
+      Or p a b    -> Or p (untime a) (untime b)
+      Impl p a b  -> Impl p (untime a) (untime b)
+      Eq p a b    -> Eq p (untime a) (untime b)
+      LE p a b    -> LE p (untime a) (untime b)
+      LEQ p a b   -> LEQ p (untime a) (untime b)
+      GE p a b    -> GE p (untime a) (untime b)
+      GEQ p a b   -> GEQ p (untime a) (untime b)
+      NEq p a b   -> NEq p (untime a) (untime b)
+      Neg p a     -> Neg p (untime a)
+      Add p a b   -> Add p (untime a) (untime b)
+      Sub p a b   -> Sub p (untime a) (untime b)
+      Mul p a b   -> Mul p (untime a) (untime b)
+      Div p a b   -> Div p (untime a) (untime b)
+      Mod p a b   -> Mod p (untime a) (untime b)
+      Exp p a b   -> Exp p (untime a) (untime b)
+      Cat p a b   -> Cat p (untime a) (untime b)
+      ByStr p a   -> ByStr p a
+      ByLit p a   -> ByLit p a
+      LitInt p a  -> LitInt p a
+      IntMin p a  -> IntMin p a
+      IntMax p a  -> IntMax p a
+      UIntMin p a -> UIntMin p a
+      UIntMax p a -> UIntMax p a
+      LitBool p a -> LitBool p a
+      IntEnv p a  -> IntEnv p a
+      ByEnv p a   -> ByEnv p a
+      ITE p x y z -> ITE p (untime x) (untime y) (untime z)
+      NewAddr p a b -> NewAddr p (untime a) (untime b)
+      Slice p a b c -> Slice p (untime a) (untime b) (untime c)
+      TEntry p _ (Item t a b c) -> TEntry p Neither (Item t a b (fmap untimeTyped c))
+      Var p t a -> Var p t a

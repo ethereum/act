@@ -33,7 +33,8 @@ common deps
                  regex-tdfa,
                  validation       >= 1.1.1,
                  extra,
-                 singletons
+                 singletons,
+                 deriving-compat
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans -Wno-unticked-promoted-constructors
   else

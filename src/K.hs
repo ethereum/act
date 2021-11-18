@@ -19,7 +19,6 @@ import Data.Typeable
 import Data.List hiding (group)
 import Data.Maybe
 import qualified Data.Text as Text
-import Parse
 import EVM.Types hiding (Whiff(..))
 
 import EVM.Solidity (SolcContract(..), StorageItem(..), SlotType(..))
@@ -98,41 +97,41 @@ kTypedExpr (TExp SByteStr _) = error "TODO: add support for TExp SByteStr to kEx
 
 kExpr :: Exp a -> String
 -- integers
-kExpr (Add a b) = "(" <> kExpr a <> " +Int " <> kExpr b <> ")"
-kExpr (Sub a b) = "(" <> kExpr a <> " -Int " <> kExpr b <> ")"
-kExpr (Mul a b) = "(" <> kExpr a <> " *Int " <> kExpr b <> ")"
-kExpr (Div a b) = "(" <> kExpr a <> " /Int " <> kExpr b <> ")"
-kExpr (Mod a b) = "(" <> kExpr a <> " modInt " <> kExpr b <> ")"
-kExpr (Exp a b) = "(" <> kExpr a <> " ^Int " <> kExpr b <> ")"
-kExpr (LitInt a) = show a
-kExpr (IntMin a) = kExpr $ LitInt $ negate $ 2 ^ (a - 1)
-kExpr (IntMax a) = kExpr $ LitInt $ 2 ^ (a - 1) - 1
-kExpr (UIntMin _) = kExpr $ LitInt 0
-kExpr (UIntMax a) = kExpr $ LitInt $ 2 ^ a - 1
-kExpr (IntEnv a) = show a
+kExpr (Add _ a b) = "(" <> kExpr a <> " +Int " <> kExpr b <> ")"
+kExpr (Sub _ a b) = "(" <> kExpr a <> " -Int " <> kExpr b <> ")"
+kExpr (Mul _ a b) = "(" <> kExpr a <> " *Int " <> kExpr b <> ")"
+kExpr (Div _ a b) = "(" <> kExpr a <> " /Int " <> kExpr b <> ")"
+kExpr (Mod _ a b) = "(" <> kExpr a <> " modInt " <> kExpr b <> ")"
+kExpr (Exp _ a b) = "(" <> kExpr a <> " ^Int " <> kExpr b <> ")"
+kExpr (LitInt _ a) = show a
+kExpr (IntMin p a) = kExpr $ LitInt p $ negate $ 2 ^ (a - 1)
+kExpr (IntMax p a) = kExpr $ LitInt p $ 2 ^ (a - 1) - 1
+kExpr (UIntMin p _) = kExpr $ LitInt p 0
+kExpr (UIntMax p a) = kExpr $ LitInt p $ 2 ^ a - 1
+kExpr (IntEnv _ a) = show a
 
 -- booleans
-kExpr (And a b) = "(" <> kExpr a <> " andBool\n " <> kExpr b <> ")"
-kExpr (Or a b) = "(" <> kExpr a <> " orBool " <> kExpr b <> ")"
-kExpr (Impl a b) = "(" <> kExpr a <> " impliesBool " <> kExpr b <> ")"
-kExpr (Neg a) = "notBool (" <> kExpr a <> ")"
-kExpr (LE a b) = "(" <> kExpr a <> " <Int " <> kExpr b <> ")"
-kExpr (LEQ a b) = "(" <> kExpr a <> " <=Int " <> kExpr b <> ")"
-kExpr (GE a b) = "(" <> kExpr a <> " >Int " <> kExpr b <> ")"
-kExpr (GEQ a b) = "(" <> kExpr a <> " >=Int " <> kExpr b <> ")"
-kExpr (LitBool a) = show a
-kExpr (NEq a b) = "notBool (" <> kExpr (Eq a b) <> ")"
-kExpr (Eq (a :: Exp a) (b :: Exp a)) = fromMaybe (error "Internal Error: invalid expression type") $
+kExpr (And _ a b) = "(" <> kExpr a <> " andBool\n " <> kExpr b <> ")"
+kExpr (Or _ a b) = "(" <> kExpr a <> " orBool " <> kExpr b <> ")"
+kExpr (Impl _ a b) = "(" <> kExpr a <> " impliesBool " <> kExpr b <> ")"
+kExpr (Neg _ a) = "notBool (" <> kExpr a <> ")"
+kExpr (LE _ a b) = "(" <> kExpr a <> " <Int " <> kExpr b <> ")"
+kExpr (LEQ _ a b) = "(" <> kExpr a <> " <=Int " <> kExpr b <> ")"
+kExpr (GE _ a b) = "(" <> kExpr a <> " >Int " <> kExpr b <> ")"
+kExpr (GEQ _ a b) = "(" <> kExpr a <> " >=Int " <> kExpr b <> ")"
+kExpr (LitBool _ a) = show a
+kExpr (NEq p a b) = "notBool (" <> kExpr (Eq p a b) <> ")"
+kExpr (Eq p (a :: Exp a) (b :: Exp a)) = fromMaybe (error $ "Internal Error: invalid expression type at pos " ++ show p) $
   let eqK typ = "(" <> kExpr a <> " ==" <> typ <> " " <> kExpr b <> ")"
    in eqT @a @Integer    $> eqK "Int"
   <|> eqT @a @Bool       $> eqK "Bool"
   <|> eqT @a @ByteString $> eqK "K" -- TODO: Is ==K correct?
 
 -- bytestrings
-kExpr (ByStr str) = show str
-kExpr (ByLit bs) = show bs
-kExpr (TEntry t item) = kStorageName t item
-kExpr (Var _ a) = kVar a
+kExpr (ByStr _ str) = show str
+kExpr (ByLit _ bs) = show bs
+kExpr (TEntry _ t item) = kStorageName t item
+kExpr (Var _ _ a) = kVar a
 kExpr v = error ("Internal error: TODO kExpr of " <> show v)
 --kExpr (Cat a b) =
 --kExpr (Slice a start end) =

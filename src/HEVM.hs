@@ -310,53 +310,53 @@ symExp ctx (TExp t e) = case t of
 
 symExpBool :: Ctx -> Exp Bool -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) e = case e of
-  And a b   -> symExpBool ctx a .&& symExpBool ctx b
-  Or a b    -> symExpBool ctx a .|| symExpBool ctx b
-  Impl a b  -> symExpBool ctx a .=> symExpBool ctx b
-  LE a b    -> symExpInt ctx a .< symExpInt ctx b
-  LEQ a b   -> symExpInt ctx a .<= symExpInt ctx b
-  GE a b    -> symExpInt ctx a .> symExpInt ctx b
-  GEQ a b   -> symExpInt ctx a .>= symExpInt ctx b
-  NEq a b   -> sNot (symExpBool ctx (Eq a b))
-  Neg a     -> sNot (symExpBool ctx a)
-  LitBool a -> literal a
-  Var _ a   -> get (nameFromArg c m a) (catBools args)
-  TEntry t a -> get (nameFromItem m a) (catBools $ timeStore t store)
-  ITE x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
-  Eq a b -> fromMaybe (error "Internal error: invalid expression type")
+  And _ a b   -> symExpBool ctx a .&& symExpBool ctx b
+  Or _ a b    -> symExpBool ctx a .|| symExpBool ctx b
+  Impl _ a b  -> symExpBool ctx a .=> symExpBool ctx b
+  LE _ a b    -> symExpInt ctx a .< symExpInt ctx b
+  LEQ _ a b   -> symExpInt ctx a .<= symExpInt ctx b
+  GE _ a b    -> symExpInt ctx a .> symExpInt ctx b
+  GEQ _ a b   -> symExpInt ctx a .>= symExpInt ctx b
+  NEq p a b   -> sNot (symExpBool ctx (Eq p a b))
+  Neg _ a     -> sNot (symExpBool ctx a)
+  LitBool _ a -> literal a
+  Var _ _ a   -> get (nameFromArg c m a) (catBools args)
+  TEntry _ t a -> get (nameFromItem m a) (catBools $ timeStore t store)
+  ITE _ x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
+  Eq p a b -> fromMaybe (error $ "Internal error: invalid expression type at " ++ show p)
       $ [symExpBool  ctx a' .== symExpBool  ctx b' | a' <- castType a, b' <- castType b]
     <|> [symExpInt   ctx a' .== symExpInt   ctx b' | a' <- castType a, b' <- castType b]
     <|> [symExpBytes ctx a' .== symExpBytes ctx b' | a' <- castType a, b' <- castType b]
 
 symExpInt :: Ctx -> Exp Integer -> SBV Integer
 symExpInt ctx@(Ctx c m args store environment) e = case e of
-  Add a b   -> symExpInt ctx a + symExpInt ctx b
-  Sub a b   -> symExpInt ctx a - symExpInt ctx b
-  Mul a b   -> symExpInt ctx a * symExpInt ctx b
-  Div a b   -> symExpInt ctx a `sDiv` symExpInt ctx b
-  Mod a b   -> symExpInt ctx a `sMod` symExpInt ctx b
-  Exp a b   -> symExpInt ctx a .^ symExpInt ctx b
-  LitInt a  -> literal a
-  IntMin a  -> literal $ intmin a
-  IntMax a  -> literal $ intmax a
-  UIntMin a -> literal $ uintmin a
-  UIntMax a -> literal $ uintmax a
-  Var _ a   -> get (nameFromArg c m a) (catInts args)
-  TEntry t a -> get (nameFromItem m a) (catInts $ timeStore t store)
-  IntEnv a -> get (nameFromEnv c m a) (catInts environment)
-  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
-  ITE x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
+  Add _ a b   -> symExpInt ctx a + symExpInt ctx b
+  Sub _ a b   -> symExpInt ctx a - symExpInt ctx b
+  Mul _ a b   -> symExpInt ctx a * symExpInt ctx b
+  Div _ a b   -> symExpInt ctx a `sDiv` symExpInt ctx b
+  Mod _ a b   -> symExpInt ctx a `sMod` symExpInt ctx b
+  Exp _ a b   -> symExpInt ctx a .^ symExpInt ctx b
+  LitInt _ a  -> literal a
+  IntMin _ a  -> literal $ intmin a
+  IntMax _ a  -> literal $ intmax a
+  UIntMin _ a -> literal $ uintmin a
+  UIntMax _ a -> literal $ uintmax a
+  Var _ _ a   -> get (nameFromArg c m a) (catInts args)
+  TEntry _ t a -> get (nameFromItem m a) (catInts $ timeStore t store)
+  IntEnv _ a -> get (nameFromEnv c m a) (catInts environment)
+  NewAddr _ _ _ -> error "TODO: handle new addr in SMT expressions"
+  ITE _ x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
 
 symExpBytes :: Ctx -> Exp ByteString -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
-  Cat a b -> symExpBytes ctx a .++ symExpBytes ctx b
-  Var _ a -> get (nameFromArg c m a) (catBytes args)
-  ByStr a -> literal a
-  ByLit a -> literal $ toString a
-  TEntry t a -> get (nameFromItem m a) (catBytes $ timeStore t store)
-  Slice a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
-  ByEnv a -> get (nameFromEnv c m a) (catBytes environment)
-  ITE x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
+  Cat _ a b -> symExpBytes ctx a .++ symExpBytes ctx b
+  Var _ _ a -> get (nameFromArg c m a) (catBytes args)
+  ByStr _ a -> literal a
+  ByLit _ a -> literal $ toString a
+  TEntry _ t a -> get (nameFromItem m a) (catBytes $ timeStore t store)
+  Slice _ a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
+  ByEnv _ a -> get (nameFromEnv c m a) (catBytes environment)
+  ITE _ x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
 
 timeStore :: When -> HEVM.Storage -> Map Id SActType
 timeStore Pre  s = fst <$> s
@@ -374,40 +374,40 @@ nameFromTypedExp c method (TExp _ e) = nameFromExp c method e
 
 nameFromExp :: ContractName -> Method -> Exp a -> Id
 nameFromExp c m e = case e of
-  Add a b   -> nameFromExp c m a <> "+" <> nameFromExp c m b
-  Sub a b   -> nameFromExp c m a <> "-" <> nameFromExp c m b
-  Mul a b   -> nameFromExp c m a <> "*" <> nameFromExp c m b
-  Div a b   -> nameFromExp c m a <> "/" <> nameFromExp c m b
-  Mod a b   -> nameFromExp c m a <> "%" <> nameFromExp c m b
-  Exp a b   -> nameFromExp c m a <> "^" <> nameFromExp c m b
-  LitInt a  -> show a
-  IntMin a  -> show $ intmin a
-  IntMax a  -> show $ intmax a
-  UIntMin a -> show $ uintmin a
-  UIntMax a -> show $ uintmax a
-  IntEnv a -> nameFromEnv c m a
-  NewAddr _ _ -> error "TODO: handle new addr in SMT expressions"
+  Add _ a b   -> nameFromExp c m a <> "+" <> nameFromExp c m b
+  Sub _ a b   -> nameFromExp c m a <> "-" <> nameFromExp c m b
+  Mul _ a b   -> nameFromExp c m a <> "*" <> nameFromExp c m b
+  Div _ a b   -> nameFromExp c m a <> "/" <> nameFromExp c m b
+  Mod _ a b   -> nameFromExp c m a <> "%" <> nameFromExp c m b
+  Exp _ a b   -> nameFromExp c m a <> "^" <> nameFromExp c m b
+  LitInt _ a  -> show a
+  IntMin _ a  -> show $ intmin a
+  IntMax _ a  -> show $ intmax a
+  UIntMin _ a -> show $ uintmin a
+  UIntMax _ a -> show $ uintmax a
+  IntEnv _ a -> nameFromEnv c m a
+  NewAddr p _ _ -> error $ "TODO: handle new addr in SMT expressions, pos " ++ show p
 
-  And a b   -> nameFromExp c m a <> "&&" <> nameFromExp c m b
-  Or a b    -> nameFromExp c m a <> "|" <> nameFromExp c m b
-  Impl a b  -> nameFromExp c m a <> "=>" <> nameFromExp c m b
-  LE a b    -> nameFromExp c m a <> "<" <> nameFromExp c m b
-  LEQ a b   -> nameFromExp c m a <> "<=" <> nameFromExp c m b
-  GE a b    -> nameFromExp c m a <> ">" <> nameFromExp c m b
-  GEQ a b   -> nameFromExp c m a <> ">=" <> nameFromExp c m b
-  Neg a     -> "~" <> nameFromExp c m a
-  LitBool a -> show a
-  Eq a b    -> nameFromExp c m a <> "=="  <> nameFromExp c m b
-  NEq a b   -> nameFromExp c m a <> "=/=" <> nameFromExp c m b
-  Cat a b -> nameFromExp c m a <> "++" <> nameFromExp c m b
-  ByStr a -> show a
-  ByLit a -> show a
-  Slice a x y -> nameFromExp c m a <> "[" <> show x <> ":" <> show y <> "]"
-  ByEnv a -> nameFromEnv c m a
+  And _ a b   -> nameFromExp c m a <> "&&" <> nameFromExp c m b
+  Or _ a b    -> nameFromExp c m a <> "|" <> nameFromExp c m b
+  Impl _ a b  -> nameFromExp c m a <> "=>" <> nameFromExp c m b
+  LE _ a b    -> nameFromExp c m a <> "<" <> nameFromExp c m b
+  LEQ _ a b   -> nameFromExp c m a <> "<=" <> nameFromExp c m b
+  GE _ a b    -> nameFromExp c m a <> ">" <> nameFromExp c m b
+  GEQ _ a b   -> nameFromExp c m a <> ">=" <> nameFromExp c m b
+  Neg _ a     -> "~" <> nameFromExp c m a
+  LitBool _ a -> show a
+  Eq _ a b    -> nameFromExp c m a <> "=="  <> nameFromExp c m b
+  NEq _ a b   -> nameFromExp c m a <> "=/=" <> nameFromExp c m b
+  Cat _ a b -> nameFromExp c m a <> "++" <> nameFromExp c m b
+  ByStr _ a -> show a
+  ByLit _ a -> show a
+  Slice _ a x y -> nameFromExp c m a <> "[" <> show x <> ":" <> show y <> "]"
+  ByEnv _ a -> nameFromEnv c m a
 
-  Var _ a -> nameFromArg c m a
-  TEntry _ a -> nameFromItem m a
-  ITE x y z -> "if-" <> nameFromExp c m x <> "-then-" <> nameFromExp c m y <> "-else-" <> nameFromExp c m z
+  Var _ _ a -> nameFromArg c m a
+  TEntry _ _ a -> nameFromItem m a
+  ITE _ x y z -> "if-" <> nameFromExp c m x <> "-then-" <> nameFromExp c m y <> "-else-" <> nameFromExp c m z
 
 nameFromDecl :: ContractName -> Method -> Decl -> Id
 nameFromDecl c m (Decl _ name) = nameFromArg c m name

@@ -176,7 +176,7 @@ mkPostconditionQueries (B behv@(Behaviour _ Pass _ (Interface ifaceName decls) p
       { _storage = storage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert ifaceName . Neg $ e] <> pres <> updates
+      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> updates
       }
     mkQuery e = Postcondition (Behv behv) e (mksmt e)
 mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName decls) preconds postconds initialStorage stateUpdates)) = mkQuery <$> postconds
@@ -196,7 +196,7 @@ mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName d
       { _storage = localStorage <> externalStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert ifaceName . Neg $ e] <> pres <> updates <> initialStorage'
+      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> updates <> initialStorage'
       }
     mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
 mkPostconditionQueries _ = []
@@ -243,7 +243,7 @@ mkInvariantQueries claims = fmap mkQuery gathered
         pres = mkAssert ifaceName <$> preconds <> invConds
         updates = encodeUpdate ifaceName <$> stateUpdates
         initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
-        postInv = mkAssert ifaceName $ Neg invPost
+        postInv = mkAssert ifaceName $ Neg nowhere invPost
 
         smt = SMTExp
           { _storage = localStorage <> externalStorage
@@ -270,7 +270,7 @@ mkInvariantQueries claims = fmap mkQuery gathered
 
         -- constraints
         preInv = mkAssert ctorIface $ invPre
-        postInv = mkAssert ctorIface . Neg $ invPost
+        postInv = mkAssert ctorIface . Neg nowhere $ invPost
         behvConds = mkAssert behvIface <$> _preconditions behv
         invConds' = mkAssert ctorIface <$> invConds <> invStorageBounds
         implicitLocs' = encodeUpdate ctorIface <$> implicitLocs
@@ -472,9 +472,9 @@ getValue solver name = sendCommand solver $ "(get-value (" <> name <> "))"
 -- | Parse the result of a call to getValue as the supplied type.
 parseModel :: SType a -> String -> TypedExp
 parseModel = \case
-  SInteger -> _TExp . LitInt  . read       . parseSMTModel
-  SBoolean -> _TExp . LitBool . readBool   . parseSMTModel
-  SByteStr -> _TExp . ByLit   . fromString . parseSMTModel
+  SInteger -> _TExp . LitInt  nowhere . read       . parseSMTModel
+  SBoolean -> _TExp . LitBool nowhere . readBool   . parseSMTModel
+  SByteStr -> _TExp . ByLit   nowhere . fromString . parseSMTModel
   where
     readBool "true" = True
     readBool "false" = False
@@ -507,7 +507,7 @@ parseSMTModel s = if length s0Caps == 1
 encodeInitialStorage :: Id -> StorageUpdate -> SMT2
 encodeInitialStorage behvName (Update _ item expr) =
   let
-    postentry  = withInterface behvName $ expToSMT2 (TEntry Post item)
+    postentry  = withInterface behvName $ expToSMT2 (TEntry nowhere Post item)
     expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
@@ -549,50 +549,50 @@ typedExpToSMT2 (TExp _ e) = expToSMT2 e
 expToSMT2 :: Exp a -> Ctx SMT2
 expToSMT2 expr = case expr of
   -- booleans
-  And a b -> binop "and" a b
-  Or a b -> binop "or" a b
-  Impl a b -> binop "=>" a b
-  Neg a -> unop "not" a
-  LE a b -> binop "<" a b
-  LEQ a b -> binop "<=" a b
-  GEQ a b -> binop ">=" a b
-  GE a b -> binop ">" a b
-  LitBool a -> pure $ if a then "true" else "false"
+  And _ a b -> binop "and" a b
+  Or _ a b -> binop "or" a b
+  Impl _ a b -> binop "=>" a b
+  Neg _ a -> unop "not" a
+  LE _ a b -> binop "<" a b
+  LEQ _ a b -> binop "<=" a b
+  GEQ _ a b -> binop ">=" a b
+  GE _ a b -> binop ">" a b
+  LitBool _ a -> pure $ if a then "true" else "false"
 
   -- integers
-  Add a b -> binop "+" a b
-  Sub a b -> binop "-" a b
-  Mul a b -> binop "*" a b
-  Div a b -> binop "div" a b
-  Mod a b -> binop "mod" a b
-  Exp a b -> expToSMT2 $ simplifyExponentiation a b
-  LitInt a -> pure $ if a >= 0
+  Add _ a b -> binop "+" a b
+  Sub _ a b -> binop "-" a b
+  Mul _ a b -> binop "*" a b
+  Div _ a b -> binop "div" a b
+  Mod _ a b -> binop "mod" a b
+  Exp _ a b -> expToSMT2 $ simplifyExponentiation a b
+  LitInt _ a -> pure $ if a >= 0
                       then show a
                       else "(- " <> (show . negate $ a) <> ")" -- cvc4 does not accept negative integer literals
-  IntEnv a -> pure $ prettyEnv a
+  IntEnv _ a -> pure $ prettyEnv a
 
   -- bounds
-  IntMin a -> expToSMT2 . LitInt $ intmin a
-  IntMax a -> pure . show $ intmax a
-  UIntMin a -> pure . show $ uintmin a
-  UIntMax a -> pure . show $ uintmax a
+  IntMin p a -> expToSMT2 . LitInt p $ intmin a
+  IntMax _ a -> pure . show $ intmax a
+  UIntMin _ a -> pure . show $ uintmin a
+  UIntMax _ a -> pure . show $ uintmax a
 
   -- bytestrings
-  Cat a b -> binop "str.++" a b
-  Slice a start end -> triop "str.substr" a start (Sub end start)
-  ByStr a -> pure a
-  ByLit a -> pure $ show a
-  ByEnv a -> pure $ prettyEnv a
+  Cat _ a b -> binop "str.++" a b
+  Slice p a start end -> triop "str.substr" a start (Sub p end start)
+  ByStr _ a -> pure a
+  ByLit _ a -> pure $ show a
+  ByEnv _ a -> pure $ prettyEnv a
 
   -- builtins
   NewAddr {} -> error "TODO: NewAddr"
 
   -- polymorphic
-  Eq a b -> binop "=" a b
-  NEq a b -> unop "not" (Eq a b)
-  ITE a b c -> triop "ite" a b c
-  Var _ a -> nameFromVarId a
-  TEntry w item -> entry item w
+  Eq _ a b -> binop "=" a b
+  NEq p a b -> unop "not" (Eq p a b)
+  ITE _ a b c -> triop "ite" a b c
+  Var _ _ a -> nameFromVarId a
+  TEntry _ w item -> entry item w
   where
     unop :: String -> Exp a -> Ctx SMT2
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
@@ -614,8 +614,8 @@ expToSMT2 expr = case expr of
 --   if the RHS is concrete to provide some limited support for exponentiation
 simplifyExponentiation :: Exp Integer -> Exp Integer -> Exp Integer
 simplifyExponentiation a b = fromMaybe (error "Internal Error: no support for symbolic exponents in SMT lib")
-                           $ [LitInt $ a' ^ b'               | a' <- eval a, b' <- evalb]
-                         <|> [foldr Mul (LitInt 1) (genericReplicate b' a) | b' <- evalb]
+                           $ [LitInt nowhere $ a' ^ b'                         | a' <- eval a, b' <- evalb]
+                         <|> [foldr (Mul nowhere) (LitInt nowhere 1) (genericReplicate b' a) | b' <- evalb]
   where
     evalb = eval b -- TODO is this actually necessary to prevent double evaluation?
 
