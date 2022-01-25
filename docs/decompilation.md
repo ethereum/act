@@ -90,26 +90,11 @@ For each behaviour from spec A we can construct an SMT query that looks somethin
 If we get `unsat` for all behaviours in spec A then we have a proof that all behaviours in spec A
 are implemented by spec B.
 
-In order to prove that spec B does not implement any additional behaviours we can run the following
-query
+In order to prove that spec B does not implement any additional behaviours we can run the same
+routine but in reverse.
 
-```smt
-<Declare Calldata Variables>
-<Declare Storage Prestate Vars>
-<Declare Storage Poststate Vars>
-
-<Assert implications for every behaviour in spec B>
-
-<Assert negation of the conjuction of preconditions from all behaviours in spec A>
-<Assert disjunction of the storage rewrites for all behvs in spec B>
-
-(check-sat)
-```
-
-An `unsat` result here shows that there are no storage rewrites from the behaviours in spec B
-that can be reached without satisfying the preconditions from a behaviour in spec A (which we
-already know are all implemented by the behaviours in spec B), implying that spec B does not
-implement any additional behaviour outside of that defined in spec A.
+We then have a proof that all behaviours from spec A are implemented in specc B and vice versa, thus
+giving a proof that the two are exactly equivalent.
 
 ## Open Questions
 
