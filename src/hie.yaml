@@ -1,6 +1,8 @@
 cradle:
   cabal:
     - path: "."
+      component: "lib:act-internal"
+    - path: "./Main.hs"
       component: "exe:act"
     - path: "./test"
       component: "test:test"
