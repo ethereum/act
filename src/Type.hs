@@ -38,6 +38,7 @@ type Err = Error String
 typecheck :: [U.RawBehaviour] -> Err [Claim]
 typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
                   <* noDuplicateContracts
+                  <* noDuplicateBehaviourNames
                   <* traverse noDuplicateVars [creates | U.Definition _ _ _ _ creates _ _ _ <- behvs]
   where
     store = lookupVars behvs
@@ -49,6 +50,11 @@ typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
     noDuplicateVars :: U.Creates -> Err ()
     noDuplicateVars (U.Creates assigns) = noDuplicates (fmap fst . fromAssign <$> assigns)
                                           $ \x -> "Multiple definitions of " <> x
+
+    noDuplicateBehaviourNames :: Err ()
+    noDuplicateBehaviourNames =
+        noDuplicates [(nowhere, (contract ++ "." ++ behav)) | U.Transition behav contract _ _ _ _ <- behvs]
+                           $ \c -> "Multiple definitions of Behaviour " <> c
 
     -- Generic helper
     noDuplicates :: [(Pn,Id)] -> (Id -> String) -> Err ()
