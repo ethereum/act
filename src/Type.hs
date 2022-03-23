@@ -40,6 +40,7 @@ typecheck :: [U.RawBehaviour] -> Err [Claim]
 typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
                   <* noDuplicateContracts
                   <* noDuplicateBehaviourNames
+                  <* noDuplicateInterfaces
                   <* traverse noDuplicateVars [creates | U.Definition _ _ _ _ creates _ _ _ <- behvs]
   where
     store = lookupVars behvs
@@ -51,6 +52,12 @@ typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
     noDuplicateVars :: U.Creates -> Err ()
     noDuplicateVars (U.Creates assigns) = noDuplicates (fmap fst . fromAssign <$> assigns)
                            $ \x -> "Multiple definitions of Variable " <> x
+
+    noDuplicateInterfaces :: Err ()
+    noDuplicateInterfaces =
+      noDuplicates
+        [(pn, (contract ++ "." ++ (show iface))) | U.Transition pn _ contract iface _ _ _ <- behvs]
+        $ \c -> "Multiple definitions of Interface " <> c
 
     noDuplicateBehaviourNames :: Err ()
     noDuplicateBehaviourNames =
