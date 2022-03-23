@@ -22,7 +22,7 @@ newtype Act = Main [RawBehaviour]
   deriving (Eq, Show)
 
 data RawBehaviour
-  = Transition Id Id Interface [IffH] Cases Ensures
+  = Transition Pn Id Id Interface [IffH] Cases Ensures
   | Definition Pn Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
   deriving (Eq, Show)
 
