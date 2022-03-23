@@ -45,11 +45,11 @@ typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
 
     noDuplicateContracts :: Err ()
     noDuplicateContracts = noDuplicates [(pn,contract) | U.Definition pn contract _ _ _ _ _ _ <- behvs]
-                           $ \c -> "Multiple definitions of " <> c
+                           $ \c -> "Multiple definitions of Contract " <> c
 
     noDuplicateVars :: U.Creates -> Err ()
     noDuplicateVars (U.Creates assigns) = noDuplicates (fmap fst . fromAssign <$> assigns)
-                                          $ \x -> "Multiple definitions of " <> x
+                           $ \x -> "Multiple definitions of Variable " <> x
 
     noDuplicateBehaviourNames :: Err ()
     noDuplicateBehaviourNames =
