@@ -163,7 +163,7 @@ Transition : 'behaviour' id 'of' id
              Interface
              list(Precondition)
              Cases
-             Ensures                                  { Transition (name $2) (name $4)
+             Ensures                                  { Transition (posn $1) (name $2) (name $4)
                                                         $5 $6 $7 $8 }
 
 Constructor : 'constructor' 'of' id

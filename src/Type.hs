@@ -25,6 +25,7 @@ import Data.List.Extra (snoc,unsnoc)
 import Data.Function (on)
 import Data.Foldable
 import Data.Traversable
+import Data.List
 
 import Syntax
 import Syntax.Timing
@@ -38,28 +39,37 @@ type Err = Error String
 typecheck :: [U.RawBehaviour] -> Err [Claim]
 typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
                   <* noDuplicateContracts
+                  <* noDuplicateBehaviourNames
                   <* traverse noDuplicateVars [creates | U.Definition _ _ _ _ creates _ _ _ <- behvs]
   where
     store = lookupVars behvs
 
     noDuplicateContracts :: Err ()
     noDuplicateContracts = noDuplicates [(pn,contract) | U.Definition pn contract _ _ _ _ _ _ <- behvs]
-                           $ \c -> "Multiple definitions of " <> c
+                           $ \c -> "Multiple definitions of Contract " <> c
 
     noDuplicateVars :: U.Creates -> Err ()
     noDuplicateVars (U.Creates assigns) = noDuplicates (fmap fst . fromAssign <$> assigns)
-                                          $ \x -> "Multiple definitions of " <> x
+                           $ \x -> "Multiple definitions of Variable " <> x
+
+    noDuplicateBehaviourNames :: Err ()
+    noDuplicateBehaviourNames =
+        noDuplicates [(pn, (contract ++ "." ++ behav)) | U.Transition pn behav contract _ _ _ _ <- behvs]
+                           $ \c -> "Multiple definitions of Behaviour " <> c
 
     -- Generic helper
     noDuplicates :: [(Pn,Id)] -> (Id -> String) -> Err ()
-    noDuplicates xs errmsg = traverse_ (throw . fmap errmsg) . duplicatesBy ((==) `on` snd) $ xs
+    noDuplicates xs errmsg = traverse_ (throw . fmap errmsg) . nub . duplicatesBy ((==) `on` snd) $ xs
       where
-        -- filters out duplicate entries in list based on a custom equality predicate.
-        duplicatesBy :: (a -> a -> Bool) -> [a] -> [a]
+        -- gathers duplicate entries in list based on a custom equality predicate.
+        duplicatesBy :: Eq a => (a -> a -> Bool) -> [a] -> [a]
         duplicatesBy _ [] = []
         duplicatesBy f (y:ys) =
-          let e = [y | any (f y) ys]
-          in e <> duplicatesBy f ys
+          let e = [x | x <- ys , f y x]
+              prependIfNotEmpty :: [a] -> a -> [a]
+              prependIfNotEmpty [] _ = []
+              prependIfNotEmpty a b = b : a
+          in (prependIfNotEmpty e y) <> duplicatesBy f ys
 
 --- Finds storage declarations from constructors
 lookupVars :: [U.RawBehaviour] -> Store
@@ -115,7 +125,7 @@ mkEnv contract store decls = Env
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> U.RawBehaviour -> Err [Claim]
-splitBehaviour store (U.Transition name contract iface@(Interface _ decls) iffs cases posts) =
+splitBehaviour store (U.Transition _ name contract iface@(Interface _ decls) iffs cases posts) =
   noIllegalWilds *>
   -- constrain integer calldata variables (TODO: other types)
   fmap concatMap (caseClaims

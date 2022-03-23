@@ -1,0 +1,39 @@
+constructor of C
+interface constructor(uint24 _x)
+
+creates
+
+  uint24 x := _x
+
+behaviour increase of C
+interface increase(uint24 new_x)
+
+  storage
+    x
+
+  returns pre(x)
+
+ensures
+
+  post(x) >= pre(x)
+
+// Second contract, with same behaviour name
+constructor of D
+interface constructor(uint24 _x)
+
+creates
+
+  uint24 x := _x
+
+behaviour increase of D
+interface increase2(uint24 new_x)
+
+storage
+    x
+
+  returns new_x
+
+ensures
+
+  post(x) >= pre(x)
+
