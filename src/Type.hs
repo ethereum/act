@@ -61,8 +61,9 @@ typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
 
     noDuplicateBehaviourNames :: Err ()
     noDuplicateBehaviourNames =
-        noDuplicates [(pn, (contract ++ "." ++ behav)) | U.Transition pn behav contract _ _ _ _ <- behvs]
-                           $ \c -> "Multiple definitions of Behaviour " <> c
+      noDuplicates
+        [(pn, (contract ++ "." ++ behav)) | U.Transition pn behav contract _ _ _ _ <- behvs]
+        $ \c -> "Multiple definitions of Behaviour " <> c
 
     -- Generic helper
     noDuplicates :: [(Pn,Id)] -> (Id -> String) -> Err ()
