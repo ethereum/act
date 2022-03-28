@@ -415,7 +415,7 @@
       }
     ],
     "contract": "B",
-    "interface": "set_remote(uint256 z)",
+    "interface": "set_remote2(uint256 z)",
     "postConditions": [],
     "returns": null
   },
@@ -573,7 +573,7 @@
       }
     ],
     "contract": "B",
-    "interface": "set_remote(uint256 z)",
+    "interface": "set_remote2(uint256 z)",
     "postConditions": [],
     "returns": null
   }

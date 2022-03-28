@@ -24,7 +24,7 @@ storage of a
    x => z
 
 behaviour multi of B
-interface set_remote(uint z)
+interface set_remote2(uint z)
 
 iff
    CALLVALUE == 0

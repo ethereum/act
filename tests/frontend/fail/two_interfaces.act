@@ -1,0 +1,32 @@
+// This is wrong because we have two behviours for the same interface
+constructor of C
+interface constructor(uint24 _x)
+
+creates
+
+  uint24 x := _x
+
+behaviour increase of C
+interface increase(uint24 new_x)
+
+  storage
+    x
+
+  returns pre(x)
+
+ensures
+
+  post(x) >= pre(x)
+
+behaviour increase2 of C
+interface increase(uint24 new_x)
+
+storage
+    x
+
+  returns new_x
+
+ensures
+
+  post(x) >= pre(x)
+
