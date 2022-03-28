@@ -1,4 +1,4 @@
-// This is wrong because we have two behviours with the same name
+// This is wrong because we have two behviours for the same interface
 constructor of C
 interface constructor(uint24 _x)
 
