@@ -100,12 +100,15 @@ arrayStripPn [xpr] = strippn xpr
 arrayStripPn xprs = concat ["," ++ strippn x | x <- xprs] ++ ")"
 
 strippn :: U.Expr -> Id
+-- Boolean connectors we can actually deal with
 strippn (U.EAnd  pn xpr1 xpr2) = "U.EAND("  ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
 strippn (U.ENot  pn xpr1) =      "U.ENot("  ++ strippn xpr1 ++ ")"
 strippn (U.EImpl pn xpr1 xpr2) = "U.EImpl(" ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
 
 -- base elements
-strippn (U.EUTEntry   pn id xprs) = "U.EUTEntry(" ++ id ++ arrayStripPn xprs ++ ")"
+strippn (U.EUTEntry   pn id []) = "U.EUTEntry(" ++ id ++ ")"
+-- let's not deal with the case where xprs can be non-empty, I don't know how to do deal with that
+-- strippn (U.EUTEntry   pn id xprs) = "U.EUTEntry(" ++ id ++ arrayStripPn xprs ++ ")"
 -- strippn (U.EPreEntry  pn id xprs) = "U.EPreEntry(" ++ id ++ arrayStripPn xprs ++ ")"
 -- strippn (U.EPostEntry pn id xprs) = "U.EPostEntry(" ++ id ++ arrayStripPn xprs ++ ")"
 -- strippn (U.Func       pn id xprs) = "U.Func(" ++ id ++ arrayStripPn xprs ++ ")"
