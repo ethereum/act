@@ -56,7 +56,7 @@ typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
     noDuplicateInterfaces :: Err ()
     noDuplicateInterfaces =
       noDuplicates
-        [(pn, (contract ++ "." ++ (show iface))) | U.Transition pn _ contract iface _ _ _ <- behvs]
+        [(pn, contract ++ "." ++ (show iface)) | U.Transition pn _ contract iface _ _ _ <- behvs]
         $ \c -> "Multiple definitions of Interface " <> c
 
     noDuplicateBehaviourNames :: Err ()
