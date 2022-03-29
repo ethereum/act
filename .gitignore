@@ -1,11 +1,19 @@
-bin/
+# generated code
 src/Lex.hs
 src/Parse.hs
 src/dist-newstyle
+tests/**/*.out
+
+# build results
+bin/
 result*
+
+# cabal
 **/*.cabal.local
 **/cabal.project.local*
-tests/**/*.out
+src/dist/
+
+# coq
 *.vo
 *.vok
 *.vos
@@ -14,4 +22,6 @@ tests/**/*.out
 **/CoqMakefile.conf
 *.aux
 **/.coqdeps.d
-src/dist/
+
+# mdbook
+doc/book
