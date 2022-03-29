@@ -16,7 +16,7 @@ Some general features it hopes to achieve are:
 - No attachment to a particular logic. If a tool wishes to support certain
   expressions, extensions can be written.
 
-More in depth documentation can be found in The Act Book.
+More in depth documentation can be found in [The Act Book](https://ethereum.github.io/act/).
 
 # Building
 
