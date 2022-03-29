@@ -1,0 +1,474 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Coq - The Act Book</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="introduction.html">Introduction</a></li><li class="chapter-item expanded "><a href="language.html"><strong aria-hidden="true">1.</strong> Language Reference</a></li><li class="chapter-item expanded "><a href="backends.html"><strong aria-hidden="true">2.</strong> Backends</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="smt.html"><strong aria-hidden="true">2.1.</strong> SMT</a></li><li class="chapter-item expanded "><a href="coq.html" class="active"><strong aria-hidden="true">2.2.</strong> Coq</a></li><li class="chapter-item expanded "><a href="hevm.html"><strong aria-hidden="true">2.3.</strong> Hevm</a></li></ol></li><li class="chapter-item expanded "><a href="internals.html"><strong aria-hidden="true">3.</strong> Internals</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Act Book</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="coq"><a class="header" href="#coq">Coq</a></h1>
+<p>While the automated proof backend is quite capable, there are still many properties that are too
+challenging for automated tools. For this reason Act allows exporting the transition system to the
+Coq proof assistant, where manual proofs of arbitrary complexity can be carried out.</p>
+<p>A proof assistant provides tools that help to construct proofs. Coq, in particular, is highly
+interactive. The user typically builds proofs step by step, with the software giving feedback as the
+proof progresses.</p>
+<p>The requirements on proofs in a system like Coq, Isabelle, or Lean are quite strict. These tools
+only accept proofs that are algorithmically verifiable to be valid series of applications of the
+system’s inference rules. This is generally stricter than what is typically expected of pen and
+paper proofs, which often omit tedious details in the interest of clarity and concision.</p>
+<p>The verification of these proofs is performed in a minimal and well-audited kernel. Although
+occasionally bugs have been found in Coq’s and other systems’ kernels, a proof in these systems is
+generally quite strong evidence of correctness.</p>
+<h2 id="a-brief-introduction-to-proof-in-coq"><a class="header" href="#a-brief-introduction-to-proof-in-coq">A Brief Introduction to Proof in Coq</a></h2>
+<p>Coq is a complex system with a steep learning curve, and while a full tutorial on programming in Coq
+is out of the scope of this blog post, we can give a little taste of how things work. For a more
+thorough introduction, the books Software Foundations and Certified Programming With Dependent Types
+are both excellent. Software Foundations in particular is a great introduction for users with little
+experience in the fields of formal logic and proof theory.</p>
+<p>The Coq system is composed of three languages: a minimal functional programming language (Gallina),
+a tactics language for proof construction (Ltac), and a “vernacular” for interaction with the
+kernel. Let’s start with the very basics: defining the natural numbers and proving something about
+addition.</p>
+<p>We start by defining the type of natural numbers. There are infinitely many natural numbers, so of
+course they must be defined inductively. In fact, all type definitions are done with the Inductive
+vernacular command, even if they are not in fact inductive. Coq’s Inductive is analogous to
+Haskell’s data and OCaml’s type (with the added power of dependent types).</p>
+<p>We define two constructors: <code>O</code>, representing 0, and <code>S</code>, which when applied to the natural number n
+produces the representation of the number <code>n + 1</code> (S as in &quot;successor&quot;). To give a concrete example, 3
+would be represented in this encoding as <code>S (S (S 0)))</code> i.e <code>1 + (1 + (1 + 0))</code>.</p>
+<pre><code class="language-Coq">Inductive nat : Type :=
+  | O
+  | S (n : nat).
+</code></pre>
+<p>This is an example of a unary number representation. It can often be helpful to represent numbers
+this way, since the inductive nature of the definition lends itself to inductive proof techniques.</p>
+<p>Let’s continue by defining addition over our nat type:</p>
+<pre><code class="language-Coq">Fixpoint plus (n : nat) (m : nat) : nat :=
+  match n with
+  | O ⇒ m
+  | S n' ⇒ S (plus n' m)
+  end.
+</code></pre>
+<p>Here we define a recursive function (a <code>Fixpoint</code>) that takes two numbers n and m and returns the
+sum of these two numbers. The implementation is defined recursively with pattern matching. You might
+think of this definition as “unwrapping” each application of S from the first argument until we
+reach its O. Then we start wrapping the second argument in the same number of Ss.</p>
+<p>Now we’re ready to prove something! Let’s prove that <code>0 + n == n</code>:</p>
+<pre><code class="language-Coq">Theorem plus_O_n :
+  forall n : nat, plus O n = n.
+Proof.
+  intros n. simpl. reflexivity.
+Qed.
+</code></pre>
+<p>We first define our theorem and give it a name (plus_O_n). Then we define the proof goal, in the
+form of a dependent type. We claim that for all n, where n is an instance of our nat type, 0 + n is
+equal to n. Finally, we construct a proof, in the form of a series of tactics. Tactics may implement
+either backwards inference (transforming the goal) or forwards inference (transforming evidence).</p>
+<p>The best way to understand the system is to run the software yourself, and play around with the
+various tactics. In this case the goal is simple enough; once we’ve specified that the proof will be
+on n, Coq is able to simplify plus O n into n, leaving us the goal n = n. This turns out to be true
+by the definition of equality, and we invoke definitional equality by reflexivity.</p>
+<p>More complicated proofs do not typically require proving basic facts about arithmetic, because Coq
+ships a substantial standard library of useful definitions and theorems. The above example hopefully
+serves to illustrate the formal nature of proof in these systems. In many cases it can be
+surprisingly hard to convince the kernel of the correctness of a statement that seems “obviously”
+true.</p>
+<h2 id="act-export"><a class="header" href="#act-export">Act Export</a></h2>
+<p>Let’s take a look at using Coq to prove properties about a specification that is too difficult for
+the SMT backend. The following defines a contract that implements exponentiation via repeated
+multiplication. The contract is initialized with a base (<code>b</code>) and an exponent (<code>e</code>). <code>exp()</code> can then be
+repeatedly called until <code>e</code> is 1, and the result can then be read from the storage variable <code>r</code>. While
+obviously artificial, this example does highlight a key shortcoming of the SMT based analysis:
+exponentiation with a symbolic exponent is simply inexpressible in the smt-lib language used by all
+major SMT solvers, and so any contract making use of exponentiation where the exponent is a variable
+of some kind (e.g. calldata, storage) will be impossible to verify using SMT. Coq has no such
+restrictions, and we can export the spec below and prove correctness there.</p>
+<pre><code class="language-act">constructor of Exponent
+interface constructor(uint _b, uint _e)
+
+iff
+
+    _e &gt; 0
+
+creates
+
+    uint b := _b
+    uint e := _e
+    uint r := _b
+</code></pre>
+<pre><code class="language-act">behaviour exp of Exponent
+interface exp()
+
+iff
+
+    e &gt; 1
+
+iff in range uint
+
+    r * b
+    e - 1
+
+storage
+
+    r =&gt; r * b
+    e =&gt; e - 1
+    b
+</code></pre>
+<p>You can export the spec into Coq by running <code>act coq --file Exponent.act</code>. This will create a file called Exponent.v which contains a model of the above Act specification in Coq:</p>
+<pre><code class="language-Coq">(* --- GENERATED BY ACT --- *)
+
+Require Import Coq.ZArith.ZArith.
+Require Import ActLib.ActLib.
+Require Coq.Strings.String.
+
+Module Str := Coq.Strings.String.
+Open Scope Z_scope.
+
+Record State : Set := state
+{ b : Z
+; e : Z
+; r : Z
+}.
+
+Definition exp0 (STATE : State)  :=
+state (b STATE) (((e STATE) - 1)) (((r STATE) * (b STATE))).
+
+Definition Exponent0 (_b : Z) (_e : Z) :=
+state (_b) (_e) (_b).
+
+Inductive reachable  : State -&gt; State -&gt; Prop :=
+| Exponent0_base : forall (_b : Z) (_e : Z),
+     (_e &gt; 0)
+  -&gt; ((0 &lt;= _b) /\ (_b &lt;= (UINT_MAX 256)))
+  -&gt; ((0 &lt;= _e) /\ (_e &lt;= (UINT_MAX 256)))
+  -&gt; reachable (Exponent0 _b _e) (Exponent0 _b _e)
+
+| exp0_step : forall (BASE STATE : State),
+     reachable BASE STATE
+  -&gt; ((e STATE) &gt; 1)
+  -&gt; ((0 &lt;= ((r STATE) * (b STATE))) /\ (((r STATE) * (b STATE)) &lt;= (UINT_MAX 256)))
+  -&gt; ((0 &lt;= ((e STATE) - 1)) /\ (((e STATE) - 1) &lt;= (UINT_MAX 256)))
+  -&gt; ((0 &lt;= (r STATE)) /\ ((r STATE) &lt;= (UINT_MAX 256)))
+  -&gt; ((0 &lt;= (e STATE)) /\ ((e STATE) &lt;= (UINT_MAX 256)))
+  -&gt; ((0 &lt;= (b STATE)) /\ ((b STATE) &lt;= (UINT_MAX 256)))
+  -&gt; reachable BASE (exp0 STATE )
+.
+</code></pre>
+<p>Let’s break this down a bit. We have a definition of contract storage State, which consists of three
+variables <code>b</code>, <code>e</code> and <code>r</code>, all of type <code>Z</code>. <code>Z</code> is an integer type using a binary encoding from the
+ZArith library bundled with Coq.</p>
+<p>Next we have <code>exp0</code>, which defines how the state is updated by the exp behaviour, and <code>Exponent0</code> which
+defines how the state variables are initialized by the constructor arguments.</p>
+<p>Finally we have an Inductive Proposition reachable that defines the conditions under which a certain
+state is reachable from another. There are two parts to this definition:</p>
+<ul>
+<li><code>Exponent0_base</code>: states that given two integers <code>_b</code> and <code>_e</code>, the initial state is reachable</li>
+<li>from the initial state if <code>_e</code> and <code>_b</code> are in the range of a <code>uint256</code> and <code>_e</code> is greater than</li>
+<li><code>0</code>. <code>exp0_step</code>: states that for a pair of states <code>BASE</code> and <code>STATE</code>, <code>exp0 STATE</code> (i.e. the</li>
+<li>result of calling <code>exp()</code> against an arbitrary contract state) is reachable from <code>BASE</code> if <code>STATE</code></li>
+<li>is reachable from <code>BASE</code>, all the state variables in <code>STATE (e, b, r)</code> are within the range of a</li>
+<li><code>uint256</code>, the result of the calculations <code>r * b</code> and <code>e - 1</code> are within the range of a <code>uint256</code>,</li>
+<li>and <code>e</code> is greater than 1.</li>
+</ul>
+<p>This gives us a pair of inference rules that we can use to prove facts about the set of reachable
+states defined by the specification for the Exponent contract.</p>
+<p>The core fact that we wish to prove is that when <code>e</code> is 1, <code>r</code> is equal to <code>b ^ e</code>. This can be
+expressed in Coq as:</p>
+<p><code>forall (base, s : State), reachable base s -&gt; e s = 1 -&gt; r s = (b base) ^ (e base)</code>. Expressed more
+verbosely: for all states <code>base</code> and <code>s</code>, if <code>s</code> is reachable from <code>base</code>, and the value of <code>e</code> in
+<code>s</code> is 1, then the result variable <code>r</code> in <code>s</code> is equal to <code>b</code> from base raised to the power of <code>e</code>
+from base.</p>
+<p>The full proof is reproduced below. While an explanation of each step is out of scope for this post
+(and is anyway best made with the proof loaded into an interactive instance of the Coq prover like
+proof general or CoqIde), we can give a broad strokes overview.</p>
+<p>We must first define a helper fact <code>pow_pred</code> which simply states that given two integers <code>a</code> and
+<code>e</code>, if e is greater than 0 then <code>a * a ^ (e - 1)</code> is equal to <code>a ^ e</code>. This fact is needed in the
+later steps of the proof. The next step is to define a loop invariant for <code>exp()</code> (i.e. a fact that
+is true before and after each loop iteration). This is the Lemma <code>invariant</code>, which states that for
+every state <code>s</code> reachable from <code>base</code>, <code>r * b ^ (e - 1)</code> over <code>s</code> is equal to <code>b ^ e</code> over <code>base</code>.
+Intuitively, this states that the partial result calculated so far (<code>r</code>), multiplied by the
+remaining portion of the input calculation <code>b ^ (e - 1)</code> is equal to the final expected result.
+Finally, given these two intermediate facts, we can discharge a proof for the correctness of
+Exponent as defined above.</p>
+<pre><code class="language-Coq">Require Import Exponent.Exponent.
+Require Import ActLib.ActLib.
+Require Import Coq.ZArith.ZArith.
+Open Scope Z_scope.
+
+Lemma pow_pred : forall a e, 0 &lt; e -&gt; a * a ^ (Z.pred e) = a ^ e.
+Proof.
+  intros.
+  apply eq_sym.
+  replace (a ^ e) with (a ^ (Z.succ (Z.pred e))).
+  - apply Z.pow_succ_r.
+    apply Zlt_0_le_0_pred.
+    assumption.
+  - rewrite (Z.succ_pred e).
+    reflexivity.
+Qed.
+
+Lemma invariant : forall base s,
+  reachable base s -&gt; (r s) * (b s) ^ ((e s) - 1) = (b base) ^ (e base).
+Proof.
+  intros base s H. induction H.
+  - simpl.
+    rewrite Z.sub_1_r.
+    apply pow_pred.
+    apply Z.gt_lt.
+    assumption.
+  - simpl.
+    rewrite &lt;- IHreachable.
+    rewrite Z.sub_1_r.
+    rewrite &lt;- (pow_pred (b STATE) (e STATE - 1)).
+    + rewrite Z.mul_assoc. reflexivity.
+    + apply Z.gt_lt in H0.
+      apply (proj1 (Z.sub_lt_mono_r 1 (e STATE) 1)).
+      assumption.
+Qed.
+
+Theorem exp_correct : forall base s,
+  reachable base s -&gt; e s = 1 -&gt; r s = (b base) ^ (e base).
+Proof.
+  intros base s H He.
+  apply invariant in H.
+  rewrite He in H. simpl in H.
+  rewrite (Z.mul_1_r (r s)) in H.
+  assumption.
+Qed. Check exp_correct.
+</code></pre>
+<p>While this may seem like quite a lot of work to prove what looks like a pretty simple and obvious fact it is worth noting two things:</p>
+<ul>
+<li>A proof of this property is beyond the reach of any automated tool available today.</li>
+<li>Our mind is full of hidden assumptions, and facts that may seem obvious are not always so. This is not the case for the Coq proof kernel, and once we have convinced it that something is true, we can be very sure that it really is.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="smt.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="hevm.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="smt.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="hevm.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+        <script type="text/javascript" src="mermaid.min.js"></script>
+        
+        <script type="text/javascript" src="mermaid-init.js"></script>
+        
+
+        
+
+    </body>
+</html>

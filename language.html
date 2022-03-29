@@ -1,0 +1,420 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Language Reference - The Act Book</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="introduction.html">Introduction</a></li><li class="chapter-item expanded "><a href="language.html" class="active"><strong aria-hidden="true">1.</strong> Language Reference</a></li><li class="chapter-item expanded "><a href="backends.html"><strong aria-hidden="true">2.</strong> Backends</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="smt.html"><strong aria-hidden="true">2.1.</strong> SMT</a></li><li class="chapter-item expanded "><a href="coq.html"><strong aria-hidden="true">2.2.</strong> Coq</a></li><li class="chapter-item expanded "><a href="hevm.html"><strong aria-hidden="true">2.3.</strong> Hevm</a></li></ol></li><li class="chapter-item expanded "><a href="internals.html"><strong aria-hidden="true">3.</strong> Internals</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Act Book</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="syntax-of-the-act-language"><a class="header" href="#syntax-of-the-act-language">Syntax of the Act language</a></h1>
+<p>A specification of a contract written in <code>act</code> consists of a
+<code>constructor</code> and a set of <code>behaviours</code>.</p>
+<p>The <code>constructor</code> specification defines the structure of the contract
+state, the initial value for the state, and a list of invariants that
+the contract should satisfy.</p>
+<p>Each <code>behaviour</code> specification determines how a contract method updates
+the state, and its return value, and the conditions that must be
+satisfied in order for it to be applied.</p>
+<p>Alternatively, they can be thought of an initial state and a
+set of state transitions, determining an inductively defined
+state transition system.</p>
+<p>The specifications can be exported to different backends in order to
+prove that the claims that are being made hold with respect to an implementation.</p>
+<p>This document is a high level description of the syntax of
+act specifications.
+For a more formal treatment of the syntax, study the
+definitions of <a href="https://github.com/ethereum/act/blob/master/src/RefinedAst.hs">RefinedAst.hs</a>.</p>
+<h2 id="types"><a class="header" href="#types">Types</a></h2>
+<p>The types of Act consist of three basic primitives:
+Integers, Booleans and ByteStrings. Integers are unbounded,
+with true integer operations. However, as our integer expressions
+will often represent words in the EVM, we allow ourselves a slight
+abuse of notation and denote by <code>uintN/intN</code> integers together with the
+constraint that the value fits into a <code>uintN/intN</code>.</p>
+<p>Using conventional ABI types for typing also allows us to specify
+function signatures in a concise way.</p>
+<p>As an example consider the specification of overflow safe addition:</p>
+<pre><code class="language-act">behaviour add of SafeMath
+interface add(uint x, uint y)
+
+iff in range uint
+
+   x + y
+
+returns x + y
+</code></pre>
+<p>In more verbose terms, this specification would read:</p>
+<p>Given any pair of integers <code>x</code> and <code>y</code>, s.t. <code>0 &lt;= x &lt; 2^256</code> and
+<code>0 &lt;= y &lt; 2^256</code>, an ABI encoded call to the contract <code>SafeMath</code>
+with the signature <code>add(uint256,uint256)</code>, and <code>x</code> and <code>y</code>, will:</p>
+<ul>
+<li>return <code>x + y</code>      if <code>0 &lt;= x + y &lt; 2^256</code></li>
+<li>revert              otherwise</li>
+</ul>
+<h2 id="contructor"><a class="header" href="#contructor">Contructor</a></h2>
+<p>A <code>constructor</code> specification is indicated by the
+<code>constructor of &lt;contractName&gt;</code> header, as in:</p>
+<pre><code class="language-act">constructor of A
+</code></pre>
+<p>A constructor section consists of the following fields:</p>
+<h3 id="interface"><a class="header" href="#interface">interface</a></h3>
+<p>Specifying the arguments the constructor takes.
+Example:</p>
+<pre><code class="language-act">interface constructor(address _owner)
+</code></pre>
+<h3 id="iff-optional"><a class="header" href="#iff-optional">iff (optional)</a></h3>
+<p>The conditions that must be satisfied in order for the contract to be created.
+These must be necessary and sufficient conditions, in the sense that if any
+condition isn't met, the contract cannot be created.</p>
+<p>Example:</p>
+<pre><code class="language-act">iff
+
+CALLER == _owner
+</code></pre>
+<h3 id="creates"><a class="header" href="#creates">creates</a></h3>
+<p>Defines the storage layout of the contract.</p>
+<p>Example:</p>
+<pre><code class="language-act">
+creates
+
+  uint256 totalSupply := _totalSupply
+  mapping(address =&gt; uint) balanceOf :=  [CALLER := _totalSupply]
+</code></pre>
+<h3 id="external-storage-changes-optional"><a class="header" href="#external-storage-changes-optional">External storage changes (optional)</a></h3>
+<p>If the contract creation updates the state of other contracts,
+they should be specified as:</p>
+<pre><code class="language-act">contract B
+   x =&gt; x + 1
+
+contract C
+   y =&gt; y - 1
+</code></pre>
+<h3 id="ensures-optional"><a class="header" href="#ensures-optional">Ensures (optional)</a></h3>
+<p>A list of predicates that should hold over the poststate. All references to storage
+variables in <code>ensures</code> sections need to specify whether they talk about the variable's
+value in the pre- or the poststate, by using <code>pre(x)</code> or <code>post(x)</code>.
+Example:</p>
+<pre><code class="language-act">
+ensures
+
+   (post(x) == _x) or (pre(x) == _x)
+</code></pre>
+<h3 id="invariants-optional"><a class="header" href="#invariants-optional">Invariants (optional)</a></h3>
+<p>A list of predicates over the state of the contract that should hold before and after
+every contract invocation:</p>
+<pre><code class="language-act">invariants
+
+  totalSupply = initialSupply
+  _k = x * y
+</code></pre>
+<h2 id="behaviour"><a class="header" href="#behaviour">Behaviour</a></h2>
+<p>A <code>behaviour</code> specification is indicated by the
+<code>behaviour of &lt;contractName&gt;</code> header, as in:</p>
+<pre><code class="language-act">behaviour of A
+</code></pre>
+<p>and consists of the following fields:</p>
+<h3 id="interface-1"><a class="header" href="#interface-1">interface</a></h3>
+<p>Specifying which method the behaviour refers to.
+Example:</p>
+<pre><code class="language-act">interface transfer(address to, uint value)
+</code></pre>
+<h3 id="iff-optional-1"><a class="header" href="#iff-optional-1">iff (optional)</a></h3>
+<p>The conditions that must be satisfied in order for the transition to apply.
+These must be necessary and sufficient conditions, in the sense that if any
+condition isn't met, a call to the given method must revert.</p>
+<p>Example:</p>
+<pre><code class="language-act">iff
+
+  balanceOf[CALLER] &gt;= value
+  CALLVALUE == 0
+</code></pre>
+<h3 id="cases-and-state-updates"><a class="header" href="#cases-and-state-updates">cases and state updates</a></h3>
+<p>Each behaviour must specify the state changes that happens a result of
+a valid call to the method, and its return argument, if any.
+All references to storage variables in <code>returns</code> arguments need to
+specify whether they talk about the variable's
+value in the pre- or the poststate, by using <code>pre(x)</code> or <code>post(x)</code>.</p>
+<p>This can be specified in two ways. Either directly, as in:</p>
+<pre><code class="language-act">
+storage
+
+  balanceOf[CALLER] =&gt; balanceOf[CALLER] - value
+  balanceOf[to] =&gt; balanceOf[to] + value
+
+returns post(balanceOf[CALLER])
+</code></pre>
+<p>or split between a number of cases, as in:</p>
+<pre><code class="language-act">case to == CALLER:
+
+   returns -1
+
+case to =/= CALLER:
+
+   storage
+     balanceOf[CALLER] =&gt; balanceOf[CALLER] - value
+     balanceOf[to] =&gt; balanceOf[to] + value
+
+   returns post(balanceOf[CALLER])
+</code></pre>
+<p>Note that currently, either a <code>storage</code> or <code>returns</code> section, or both is required in every spec.</p>
+<h3 id="external-storage-changes-optional-1"><a class="header" href="#external-storage-changes-optional-1">External storage changes (optional)</a></h3>
+<p>If the contract method updates the state of other contracts,
+they should be specified as:</p>
+<pre><code class="language-act">contract B
+   x =&gt; x + 1
+
+contract C
+   y =&gt; y - 1
+</code></pre>
+<h3 id="ensures-optional-1"><a class="header" href="#ensures-optional-1">Ensures (optional)</a></h3>
+<p>A list of predicates that should hold over the poststate.
+Example:</p>
+<pre><code class="language-act">
+ensures
+
+   x == _x
+</code></pre>
+<h2 id="referencing-storage-variables"><a class="header" href="#referencing-storage-variables">Referencing Storage Variables</a></h2>
+<p>Storage locations that are read and used in other expressions must be declared in a storage block.</p>
+<p>Some examples:</p>
+<pre><code class="language-act">storage
+  x =&gt; y
+  y
+</code></pre>
+<pre><code class="language-act">storage
+  x
+  y
+
+returns x + y
+``
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="introduction.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="backends.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="introduction.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="backends.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+        <script type="text/javascript" src="mermaid.min.js"></script>
+        
+        <script type="text/javascript" src="mermaid-init.js"></script>
+        
+
+        
+
+    </body>
+</html>
