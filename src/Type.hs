@@ -69,15 +69,15 @@ typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store) behvs
     checkCases ::  Err ()
     checkCases =
       noDuplicates
-        (concat [getcases pn (contract ++ "->" ++ behav ++ "->" ++ (show iface)) cases | U.Transition pn behav contract iface _ (U.Branches cases) _ <- behvs])
+        (concat [getcases (contract ++ "->" ++ behav ++ "->" ++ (show iface)) cases | U.Transition pn behav contract iface _ (U.Branches cases) _ <- behvs])
         $ \c -> "Multiple definitions of Case " <> c
 
-    onecase:: Pn -> Id -> U.Case -> (Pn, Id)
-    onecase outerpn ident (U.Case pn expr post) = (pn, ident ++ "->" ++ (strippn expr))
+    onecase:: Id -> U.Case -> (Pn, Id)
+    onecase ident (U.Case pn expr post) = (pn, ident ++ "->" ++ strippn expr)
 
-    getcases :: Pn-> Id ->[U.Case] -> [(Pn, Id)]
-    getcases pn ident (a:ax) = (onecase pn ident a):getcases pn ident ax
-    getcases _ _ [] = []
+    getcases :: Id ->[U.Case] -> [(Pn, Id)]
+    getcases ident (a:ax) = (onecase ident a):getcases ident ax
+    getcases _ [] = []
 
     -- Generic helper
     noDuplicates :: [(Pn,Id)] -> (Id -> String) -> Err ()
@@ -99,14 +99,21 @@ arrayStripPn [] = ""
 arrayStripPn [xpr] = strippn xpr
 arrayStripPn xprs = concat ["," ++ strippn x | x <- xprs] ++ ")"
 
-strippn :: U.Expr -> Id
+data SATFun =
+  SATAnd SATFun SATFun
+  | SATOr SATFun SATFun
+  | SATNot SATFun
+  | SATImpl SATFun SATFun
+  | Id
+
+strippn :: U.Expr -> (Id, SATFun)
 -- Boolean connectors we can actually deal with
-strippn (U.EAnd  pn xpr1 xpr2) = "U.EAND("  ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
-strippn (U.ENot  pn xpr1) =      "U.ENot("  ++ strippn xpr1 ++ ")"
-strippn (U.EImpl pn xpr1 xpr2) = "U.EImpl(" ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
+strippn (U.EAnd     _ xpr1 xpr2) = ("U.EAND("  ++ strippn xpr1) ++ "," ++ strippn xpr2 ++ ")", SATAnd)
+strippn (U.ENot     _ xpr1)      = ("U.ENot("  ++ strippn xpr1 ++ ")", SATNot)
+strippn (U.EImpl    _ xpr1 xpr2) = ("U.EImpl(" ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")", SATImpl)
 
 -- base elements
-strippn (U.EUTEntry   pn id []) = "U.EUTEntry(" ++ id ++ ")"
+strippn (U.EUTEntry _ id [])     = "U.EUTEntry(" ++ id ++ ")"
 -- let's not deal with the case where xprs can be non-empty, I don't know how to do deal with that
 -- strippn (U.EUTEntry   pn id xprs) = "U.EUTEntry(" ++ id ++ arrayStripPn xprs ++ ")"
 -- strippn (U.EPreEntry  pn id xprs) = "U.EPreEntry(" ++ id ++ arrayStripPn xprs ++ ")"
@@ -114,12 +121,12 @@ strippn (U.EUTEntry   pn id []) = "U.EUTEntry(" ++ id ++ ")"
 -- strippn (U.Func       pn id xprs) = "U.Func(" ++ id ++ arrayStripPn xprs ++ ")"
 
 -- functions that must be uninterpreted
-strippn (U.EEq   pn xpr1 xpr2) = "U.EEq("   ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
-strippn (U.ENeq  pn xpr1 xpr2) = "U.ENeq("  ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
-strippn (U.ELEQ  pn xpr1 xpr2) = "U.ELEQ("  ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
-strippn (U.ELT   pn xpr1 xpr2) = "U.ELT("   ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
-strippn (U.EGEQ  pn xpr1 xpr2) = "U.EGEQ("  ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
-strippn (U.EGT   pn xpr1 xpr2) = "U.EGT("   ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
+strippn (U.EEq      _ xpr1 xpr2) = "U.EEq("   ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
+strippn (U.ENeq     _ xpr1 xpr2) = "U.ENeq("  ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
+strippn (U.ELEQ     _ xpr1 xpr2) = "U.ELEQ("  ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
+strippn (U.ELT      _ xpr1 xpr2) = "U.ELT("   ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
+strippn (U.EGEQ     _ xpr1 xpr2) = "U.EGEQ("  ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
+strippn (U.EGT      _ xpr1 xpr2) = "U.EGT("   ++ strippn xpr1 ++ "," ++ strippn xpr2 ++ ")"
 -- strippn (U.EAdd  pn xpr1 xpr2)
 -- strippn (U.ESub  pn xpr1 xpr2)
 -- strippn (U.EITE  pn xpr1 xpr2 expr3
