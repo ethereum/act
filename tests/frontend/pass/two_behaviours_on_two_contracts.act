@@ -36,4 +36,3 @@ storage
 ensures
 
   post(x) >= pre(x)
-

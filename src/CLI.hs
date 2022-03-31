@@ -9,7 +9,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE ApplicativeDo #-}
 
-module CLI (main, compile) where
+module CLI (main, compile, myread') where
 
 import Data.Aeson hiding (Bool, Number)
 import EVM.SymExec (ProofResult(..))
@@ -36,7 +36,7 @@ import Control.Monad
 import Control.Lens.Getter
 
 import Error
-import Lex (lexer, AlexPosn(..))
+import Lex (lexer,Lexeme, AlexPosn(..))
 import Options.Generic
 import Parse
 import Syntax
@@ -47,6 +47,7 @@ import SMT
 import Type
 import Coq hiding (indent)
 import HEVM
+import Consistent
 
 --command line options
 data Command w
@@ -265,7 +266,7 @@ proceed :: Validate err => String -> err (NonEmpty (Pn, String)) a -> (a -> IO (
 proceed contents comp continue = validation (prettyErrs contents) continue (comp ^. revalidate)
 
 compile :: String -> Error String [Claim]
-compile = pure . fmap annotate <==< typecheck <==< parse . lexer
+compile =  checkConsistency <==< pure . fmap annotate <==< typecheck <==< parse . lexer
 
 prettyErrs :: Traversable t => String -> t (Pn, String) -> IO ()
 prettyErrs contents errs = mapM_ prettyErr errs >> exitFailure
@@ -295,3 +296,19 @@ prettyErrs contents errs = mapM_ prettyErr errs >> exitFailure
 -- | prints a Doc, with wider output than the built in `putDoc`
 render :: Doc -> IO ()
 render doc = displayIO stdout (renderPretty 0.9 120 doc)
+
+myread path = do
+    -- let path = "/home/matesoos/development/act/tests/frontend/fail/two_interfaces.act"
+    spec <- readFile path
+    return $ parse $ lexer spec
+
+myread' path = do
+    -- let path = "/home/matesoos/development/act/tests/frontend/fail/two_interfaces.act"
+    spec2 <- readFile path
+    return $ enrich <$> compile spec2
+
+-- mate = do
+--     x <- b
+--     return $ fmap whatever x
+--     where b = myread'
+-- 

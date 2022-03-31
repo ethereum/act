@@ -1,0 +1,19 @@
+// fails because cases are not booleans
+constructor of C
+interface constructor(uint24 _x)
+
+creates
+
+  uint24 x := _x
+
+behaviour increase of C
+interface increase(uint24 new_x, uint24 new_y)
+
+case new_x:
+  storage
+    x => new_x
+
+case x:
+  storage
+    x => x + new_x
+

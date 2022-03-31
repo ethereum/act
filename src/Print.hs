@@ -163,3 +163,8 @@ prettyInvPred = prettyExp . untime . fst
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
       TEntry p _ (Item t a b c) -> TEntry p Neither (Item t a b (fmap untimeTyped c))
       Var p t a -> Var p t a
+
+
+prettyClaim :: Claim t -> String
+prettyClaim (B behv) = prettyBehaviour behv
+prettyClaim _ = ""

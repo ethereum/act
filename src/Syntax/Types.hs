@@ -33,6 +33,7 @@ data SType a where
   SBoolean :: SType Bool
   SByteStr :: SType ByteString
 deriving instance Eq (SType a)
+deriving instance Ord (SType a)
 
 instance Show (SType a) where
   show = \case

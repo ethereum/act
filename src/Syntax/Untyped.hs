@@ -132,7 +132,7 @@ data EthEnv
   | Timestamp
   | This
   | Nonce
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 data StorageVar = StorageVar Pn SlotType Id
   deriving (Eq, Show)

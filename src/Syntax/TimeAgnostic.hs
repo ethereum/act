@@ -159,6 +159,7 @@ data TStorageItem (a :: *) (t :: Timing) where
   Item :: SType a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
+deriving instance Ord (TStorageItem a t)
 
 _Item :: SingI a => Id -> Id -> [TypedExp t] -> TStorageItem a t
 _Item = Item sing
@@ -170,6 +171,11 @@ instance HasType (TStorageItem a t) a where
 data TypedExp t
   = forall a. TExp (SType a) (Exp a t)
 deriving instance Show (TypedExp t)
+instance Ord (TypedExp t) where
+  (TExp (SBoolean) e0) <= (TExp (SBoolean) e1) = e0 <= e1
+  (TExp (SByteStr) e0) <= (TExp (SByteStr) e1) = e0 <= e1
+  (TExp (SInteger) e0) <= (TExp (SInteger) e1) = e0 <= e1
+  _ <= _ = False
 
 -- We could remove the 'SingI' constraint here if we also removed it from the
 -- 'HasType' instance for 'Exp'. But it's tedious and noisy and atm unnecessary.
@@ -273,6 +279,55 @@ instance Eq (Exp a t) where
   TEntry _ a t == TEntry _ b u = a == b && t == u
   Var _ _ a == Var _ _ b = a == b
   _ == _ = False
+
+-- Less-than modulo source file position.
+instance Ord (Exp a t) where
+  And _ a b <= And _ c d = a <= c && b <= d
+  Or _ a b <= Or _ c d = a <= c && b <= d
+  Impl _ a b <= Impl _ c d = a <= c && b <= d
+  Neg _ a <= Neg _ b = a <= b
+  LE _ a b <= LE _ c d = a <= c && b <= d
+  LEQ _ a b <= LEQ _ c d = a <= c && b <= d
+  GEQ _ a b <= GEQ _ c d = a <= c && b <= d
+  GE _ a b <= GE _ c d = a <= c && b <= d
+  LitBool _ a <= LitBool _ b = a <= b
+
+  Add _ a b <= Add _ c d = a <= c && b <= d
+  Sub _ a b <= Sub _ c d = a <= c && b <= d
+  Mul _ a b <= Mul _ c d = a <= c && b <= d
+  Div _ a b <= Div _ c d = a <= c && b <= d
+  Mod _ a b <= Mod _ c d = a <= c && b <= d
+  Exp _ a b <= Exp _ c d = a <= c && b <= d
+  LitInt _ a <= LitInt _ b = a <= b
+  IntEnv _ a <= IntEnv _ b = a <= b
+
+  IntMin _ a <= IntMin _ b = a <= b
+  IntMax _ a <= IntMax _ b = a <= b
+  UIntMin _ a <= UIntMin _ b = a <= b
+  UIntMax _ a <= UIntMax _ b = a <= b
+
+  Cat _ a b <= Cat _ c d = a <= c && b <= d
+  Slice _ a b c <= Slice _ d e f = a <= d && b <= e && c <= f
+  ByStr _ a <= ByStr _ b = a <= b
+  ByLit _ a <= ByLit _ b = a <= b
+  ByEnv _ a <= ByEnv _ b = a <= b
+
+  NewAddr _ a b <= NewAddr _ c d = a <= c && b <= d
+
+  Eq _ (a :: Exp x t) (b :: Exp x t) <= Eq _ (c :: Exp y t) (d :: Exp y t) =
+    case eqT @x @y of
+      Just Refl -> a <= c && b <= d
+      Nothing -> False
+  NEq _ (a :: Exp x t) (b :: Exp x t) <= NEq _ (c :: Exp y t) (d :: Exp y t) =
+    case eqT @x @y of
+      Just Refl -> a <= c && b <= d
+      Nothing -> False
+  ITE _ a b c <= ITE _ d e f = a <= d && b <= e && c <= f
+  TEntry _ a t <= TEntry _ b u = a <= b && t <= u
+  Var _ _ a <= Var _ _ b = a <= b
+  _ <= _ = False
+
+
 
 -- We could make this explicit which would remove the need for the SingI instance.
 instance SingI a => HasType (Exp a t) a where

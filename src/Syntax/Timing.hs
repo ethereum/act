@@ -22,6 +22,7 @@ data Time t where
   Neither :: Time Untimed
 deriving instance Eq (Time t)
 deriving instance Show (Time t)
+deriving instance Ord (Time t)
 
 -- | Encodes choice between referencing the pre- or the poststate.
 type When = Time Timed
