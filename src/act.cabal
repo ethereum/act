@@ -14,7 +14,7 @@ common deps
   build-depends: base             >= 4.9 && < 5,
                  aeson            >= 1.0,
                  containers       >= 0.5,
-                 hevm             >= 0.47.1 && < 0.48,
+                 hevm             >= 0.49.0 && < 0.50.0,
                  -- hevm version has an ugly upper bound to
                  -- force usage of version from nix-shell,
                  -- which avoids weird missing deps when
