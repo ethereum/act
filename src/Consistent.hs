@@ -18,7 +18,7 @@
 -- Module      : Consistent
 -- Description : SMT-based checks of case consistency
 -- -}
-module Consistent (checkConsistency, abstractCase, testX, testXV1, testXV2, testXVstr1, testXVstr2, testXbool1, testXbool2, runExpr, abstractCases) where
+module Consistent (checkConsistency, abstractCase, testX, testX2, testXV1, testXV2, testXVstr1, testXVstr2, testXbool1, testXbool2, runExpr, abstractCases) where
 
 import Syntax.Annotated
 import Error
@@ -60,13 +60,11 @@ abstractCasesHelper :: MyPair -> MyPair
 abstractCasesHelper ([], b, c) = ([], b, c)
 abstractCasesHelper (a:ax, b, c)  = abstractCasesHelper (ax, x:b, y) where
   (x, y) = runState (abstractCase a) c
---  (f, g) = runExpr a
---  (f,g) = runState (abstractCases a) start
-  
 
 -- Use this to actually bind & run the Monad
 
-testX = (LE nowhere (Var nowhere SInteger "a") (Var nowhere SInteger "b")) :: Exp Bool
+testX = (GE nowhere (Var nowhere SInteger "a") (Var nowhere SInteger "b")) :: Exp Bool
+testX2 = (LEQ nowhere (Var nowhere SInteger "b") (Var nowhere SInteger "a")) :: Exp Bool
 testXbool1 = (LitBool nowhere True) :: Exp Bool
 testXbool2 = (LitBool nowhere False) :: Exp Bool
 testXV1 = Var nowhere SInteger "b"
