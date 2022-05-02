@@ -266,7 +266,8 @@ proceed :: Validate err => String -> err (NonEmpty (Pn, String)) a -> (a -> IO (
 proceed contents comp continue = validation (prettyErrs contents) continue (comp ^. revalidate)
 
 compile :: String -> Error String [Claim]
-compile =  checkConsistency <==< pure . fmap annotate <==< typecheck <==< parse . lexer
+compile =  pure . fmap annotate <==< typecheck <==< parse . lexer
+-- compile =  checkConsistency <==< pure . fmap annotate <==< typecheck <==< parse . lexer
 
 prettyErrs :: Traversable t => String -> t (Pn, String) -> IO ()
 prettyErrs contents errs = mapM_ prettyErr errs >> exitFailure
