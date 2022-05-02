@@ -18,7 +18,7 @@
 -- Module      : Consistent
 -- Description : SMT-based checks of case consistency
 -- -}
-module Consistent (checkConsistency, abstractCase, testX, testXV1, testXV2, testXVstr1, testXVstr2, testXbool1, testXbool2, runExpr) where
+module Consistent (checkConsistency, abstractCase, testX, testXV1, testXV2, testXVstr1, testXVstr2, testXbool1, testXbool2, runExpr, abstractCases) where
 
 import Syntax.Annotated
 import Error
@@ -28,7 +28,6 @@ import Type
 import Data.Typeable
 import qualified Data.Map as Map
 import Control.Monad.State
-import Syntax.Timing  as Syntax.TimeAgnostic
 
 checkConsistency :: [Claim] -> Err [Claim]
 checkConsistency = undefined
@@ -48,14 +47,24 @@ type Ctx = Int
 checkcases :: [Exp Bool] -> Error String ()
 checkcases = undefined
 
-normalize :: Exp Bool -> Exp Bool
-normalize (GE pn exp1 exp2) = Neg pn $ LEQ pn exp1 exp2
-normalize (GEQ pn exp1 exp2) = Neg pn $ LE pn exp1 exp2
-normalize x = x
+start :: (Int, Map (Exp Bool) Int)
+start = (0, Map.empty)
+runExpr :: Exp Bool -> (MyExp Bool, (Int, Map (Exp Bool) Int))
+runExpr expr = runState (abstractCase expr) start
 
-abstractCases :: [Exp Bool] -> ([Exp Bool], Map TypedExp Id)
-abstractCases = undefined
+abstractCases :: [Exp Bool] -> [MyExp Bool]
+abstractCases a = y where
+  (x, y, z) = abstractCasesHelper (a, [], start)
+type MyPair = ([Exp Bool], [MyExp Bool], (Int, Map(Exp Bool) Int))
+abstractCasesHelper :: MyPair -> MyPair
+abstractCasesHelper ([], b, c) = ([], b, c)
+abstractCasesHelper (a:ax, b, c)  = abstractCasesHelper (ax, x:b, y) where
+  (x, y) = runState (abstractCase a) c
+--  (f, g) = runExpr a
+--  (f,g) = runState (abstractCases a) start
+  
 
+-- Use this to actually bind & run the Monad
 
 testX = (LE nowhere (Var nowhere SInteger "a") (Var nowhere SInteger "b")) :: Exp Bool
 testXbool1 = (LitBool nowhere True) :: Exp Bool
@@ -80,7 +89,6 @@ data MyExp (a :: *) where
   MEq   :: Pn -> MyExp Bool -> MyExp Bool -> MyExp Bool
 deriving instance Show (MyExp a)
 
-
 abstractCase :: Exp Bool -> State (Int, Map (Exp Bool) Int) (MyExp Bool)
 -- Only LE is allowed
 -- 1) a>b is represented as b<a
@@ -88,8 +96,6 @@ abstractCase :: Exp Bool -> State (Int, Map (Exp Bool) Int) (MyExp Bool)
 -- 3) a>=b becomes NOT a<b
 -- NOTE: this requires well-behaved integers -- reflexivity + transitivity
 -- DIV/MUL/SUB/etc are represented as a full-on function, with its own variable
--- TODO: Eq does not work
---       Deal with bytestrings
 abstractCase (LitBool pn exp1) = do
     return $ MBool pn exp1
 abstractCase (Or pn exp1 exp2) = do
@@ -146,29 +152,4 @@ abstractCase (Eq pn (l1 :: Exp tp) (l2 :: Exp tp)) = case eqT @tp @Bool of
     return $ MInt pn var1
 abstractCase _ = undefined
 
-
--- abstractCase (LE pn exp1 exp2) = do
---     abstractAway LE pn exp1 exp2
--- abstractCase (Eq pn exp1 exp2) = do
---     abstractAway Eq pn exp1 exp2
--- 
--- abstractAway constr pn exp1 exp2 = do
---     (lastVar, ctx) <- get
---     var1 <- case Map.lookup (TExp SInteger exp1) ctx of
---                   Just v -> return v
---                   Nothing -> do
---                       put (lastVar+1, Map.insert (TExp SInteger exp1) lastVar ctx)
---                       return lastVar
---     (lastVar2, ctx2) <- get
---     var2 <- case Map.lookup (TExp SInteger exp2) ctx of
---                   Just v -> return v
---                   Nothing -> do
---                       put (lastVar2+1, Map.insert (TExp SInteger exp2) lastVar2 ctx2)
---                       return lastVar2
---     return $ constr pn (Var pn SInteger $show var1) (Var pn SInteger $show var2)
-
-
--- Use this to actually bind & run the Monad
-start = (0, Map.empty) :: (Int, Map (Exp Bool) Int)
-runExpr expr = runState (abstractCase expr) start
 
