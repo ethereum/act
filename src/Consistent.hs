@@ -108,6 +108,11 @@ abstractCase (GEQ pn a b) = do
     return $ MNeg nowhere x
 abstractCase (LEQ pn a b) = do
     abstractCase (Neg pn (GE nowhere b a))
+abstractCase (ITE pn a b c) = do
+    e1 <- abstractCase a
+    e2 <- abstractCase b
+    e3 <- abstractCase c
+    return $ MAnd pn (MOr nowhere (MNeg nowhere e1) e2) (MOr nowhere e1 e3)
 abstractCase (Neg pn e) = do
     e' <- abstractCase e
     return $ MNeg pn e'
@@ -118,7 +123,6 @@ abstractCase (Impl pn exp1 exp2) = do
 abstractCase (NEq pn exp1 exp2) = do
      e1 <- abstractCase (Eq pn exp1 exp2)
      return $ MNeg pn e1
-
 abstractCase (LE pn exp1 exp2) = do
     (lastVar, ctx) <- get
     var1 <- case Map.lookup (LE nowhere exp1 exp2) ctx of
@@ -127,8 +131,6 @@ abstractCase (LE pn exp1 exp2) = do
                       put (lastVar+1, Map.insert (LE nowhere exp1 exp2) lastVar ctx)
                       return lastVar
     return $ MInt pn var1
-
--- abstractCase (Eq pn e1@(Exp pn2 Integer a) e2@(Exp pn3 Integer b)) = do
 abstractCase (Eq pn (l1 :: Exp tp) (l2 :: Exp tp)) = case eqT @tp @Bool of
   Just Refl -> do
     u1 <- abstractCase l1
