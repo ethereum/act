@@ -63,7 +63,7 @@ abstractCasesHelper (a:ax, b, c)  = abstractCasesHelper (ax, x:b, y) where
 
 -- Use this to actually bind & run the Monad
 
-testX = (GE nowhere (Var nowhere SInteger "a") (Var nowhere SInteger "b")) :: Exp Bool
+testX = (GT nowhere (Var nowhere SInteger "a") (Var nowhere SInteger "b")) :: Exp Bool
 testX2 = (LEQ nowhere (Var nowhere SInteger "b") (Var nowhere SInteger "a")) :: Exp Bool
 testXbool1 = (LitBool nowhere True) :: Exp Bool
 testXbool2 = (LitBool nowhere False) :: Exp Bool
@@ -88,7 +88,7 @@ data MyExp where
 deriving instance Show MyExp
 
 abstractCase :: Exp Bool -> State (Int, Map (Exp Bool) Int) (MyExp)
--- Only LE is allowed
+-- Only LT is allowed
 -- 1) a>b is represented as b<a
 -- 2) a>=b is represented as b<=a 
 -- 3) a>=b becomes NOT a<b
@@ -104,14 +104,14 @@ abstractCase (And pn exp1 exp2) = do
     l <- abstractCase exp1
     r <- abstractCase exp2
     return $ MAnd pn l r
-abstractCase (GE pn a b) = do
-    x <- abstractCase (LE pn b a)
+abstractCase (GT pn a b) = do
+    x <- abstractCase (LT pn b a)
     return $ MNeg nowhere x
 abstractCase (GEQ pn a b) = do
     x <- abstractCase (LEQ pn b a)
     return $ MNeg nowhere x
 abstractCase (LEQ pn a b) = do
-    abstractCase (Neg pn (GE nowhere b a))
+    abstractCase (Neg pn (GT nowhere b a))
 abstractCase (ITE pn a b c) = do
     e1 <- abstractCase a
     e2 <- abstractCase b
@@ -127,12 +127,12 @@ abstractCase (Impl pn exp1 exp2) = do
 abstractCase (NEq pn exp1 exp2) = do
      e1 <- abstractCase (Eq pn exp1 exp2)
      return $ MNeg pn e1
-abstractCase (LE pn exp1 exp2) = do
+abstractCase (LT pn exp1 exp2) = do
     (lastVar, ctx) <- get
-    var1 <- case Map.lookup (LE nowhere exp1 exp2) ctx of
+    var1 <- case Map.lookup (LT nowhere exp1 exp2) ctx of
                   Just v -> return v
                   Nothing -> do
-                      put (lastVar+1, Map.insert (LE nowhere exp1 exp2) lastVar ctx)
+                      put (lastVar+1, Map.insert (LT nowhere exp1 exp2) lastVar ctx)
                       return lastVar
     return $ MInt pn var1
 abstractCase (Eq pn (l1 :: Exp tp) (l2 :: Exp tp)) = case eqT @tp @Bool of
