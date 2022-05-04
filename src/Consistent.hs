@@ -49,13 +49,13 @@ checkcases = undefined
 
 start :: (Int, Map (Exp Bool) Int)
 start = (0, Map.empty)
-runExpr :: Exp Bool -> (MyExp Bool, (Int, Map (Exp Bool) Int))
+runExpr :: Exp Bool -> (MyExp, (Int, Map (Exp Bool) Int))
 runExpr expr = runState (abstractCase expr) start
 
-abstractCases :: [Exp Bool] -> [MyExp Bool]
+abstractCases :: [Exp Bool] -> [MyExp]
 abstractCases a = y where
   (x, y, z) = abstractCasesHelper (a, [], start)
-type MyPair = ([Exp Bool], [MyExp Bool], (Int, Map(Exp Bool) Int))
+type MyPair = ([Exp Bool], [MyExp], (Int, Map(Exp Bool) Int))
 abstractCasesHelper :: MyPair -> MyPair
 abstractCasesHelper ([], b, c) = ([], b, c)
 abstractCasesHelper (a:ax, b, c)  = abstractCasesHelper (ax, x:b, y) where
@@ -77,17 +77,17 @@ testXVstr2 = Var nowhere SByteStr "fgh"
 -- :k Sate
 --
 
-data MyExp (a :: *) where
+data MyExp where
   -- boolean variables
-  MInt  :: Pn -> Int -> MyExp Bool
-  MAnd  :: Pn -> MyExp Bool -> MyExp Bool -> MyExp Bool
-  MBool :: Pn -> Bool -> MyExp Bool
-  MOr   :: Pn -> MyExp Bool -> MyExp Bool -> MyExp Bool
-  MNeg  :: Pn -> MyExp Bool -> MyExp Bool
-  MEq   :: Pn -> MyExp Bool -> MyExp Bool -> MyExp Bool
-deriving instance Show (MyExp a)
+  MInt  :: Pn -> Int -> MyExp
+  MAnd  :: Pn -> MyExp -> MyExp -> MyExp
+  MBool :: Pn -> Bool -> MyExp
+  MOr   :: Pn -> MyExp -> MyExp -> MyExp
+  MNeg  :: Pn -> MyExp -> MyExp
+  MEq   :: Pn -> MyExp -> MyExp -> MyExp
+deriving instance Show MyExp
 
-abstractCase :: Exp Bool -> State (Int, Map (Exp Bool) Int) (MyExp Bool)
+abstractCase :: Exp Bool -> State (Int, Map (Exp Bool) Int) (MyExp)
 -- Only LE is allowed
 -- 1) a>b is represented as b<a
 -- 2) a>=b is represented as b<=a 
