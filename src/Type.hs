@@ -9,6 +9,8 @@
 
 module Type (typecheck, bound, lookupVars, defaultStore, Err) where
 
+import Prelude hiding (GT, LT)
+
 import EVM.ABI
 import EVM.Solidity (SlotType(..))
 import Data.Map.Strict    (Map,keys,findWithDefault)
@@ -94,7 +96,7 @@ fromAssign (U.AssignVal (U.StorageVar pn typ var) _) = (pn, (var, typ))
 fromAssign (U.AssignMany (U.StorageVar pn typ var) _) = (pn, (var, typ))
 fromAssign (U.AssignStruct _ _) = error "TODO: assignstruct"
 
--- | The type checking environment. 
+-- | The type checking environment.
 data Env = Env
   { contract :: Id              -- ^ The name of the current contract.
   , store    :: Map Id SlotType -- ^ This contract's storage entry names and their types.
@@ -150,7 +152,7 @@ splitBehaviour store (U.Transition _ name contract iface@(Interface _ decls) iff
       U.Branches bs -> for_ (init bs) $ \c@(U.Case p _ _) ->
                           when (isWild c) (throw (p, "Wildcard pattern must be last case"))  -- TODO test when wildcard isn't last
 
-    -- translate wildcards into negation of other branches and translate a single case to a wildcard 
+    -- translate wildcards into negation of other branches and translate a single case to a wildcard
     normalizedCases :: [U.Case]
     normalizedCases = case cases of
       U.Direct   post -> [U.Case nowhere (U.WildExp nowhere) post]
@@ -343,10 +345,10 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
   U.EImpl   p v1 v2 -> check p <*> (Impl p <$> inferExpr env v1 <*> inferExpr env v2)
   U.EEq     p v1 v2 -> polycheck p Eq v1 v2
   U.ENeq    p v1 v2 -> polycheck p NEq v1 v2
-  U.ELT     p v1 v2 -> check p <*> (LE  p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.ELT     p v1 v2 -> check p <*> (LT  p <$> inferExpr env v1 <*> inferExpr env v2)
   U.ELEQ    p v1 v2 -> check p <*> (LEQ p <$> inferExpr env v1 <*> inferExpr env v2)
   U.EGEQ    p v1 v2 -> check p <*> (GEQ p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EGT     p v1 v2 -> check p <*> (GE  p <$> inferExpr env v1 <*> inferExpr env v2)
+  U.EGT     p v1 v2 -> check p <*> (GT  p <$> inferExpr env v1 <*> inferExpr env v2)
   U.EAdd    p v1 v2 -> check p <*> (Add p <$> inferExpr env v1 <*> inferExpr env v2)
   U.ESub    p v1 v2 -> check p <*> (Sub p <$> inferExpr env v1 <*> inferExpr env v2)
   U.EMul    p v1 v2 -> check p <*> (Mul p <$> inferExpr env v1 <*> inferExpr env v2)

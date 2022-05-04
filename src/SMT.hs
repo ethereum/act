@@ -25,6 +25,8 @@ module SMT (
   getSMT
 ) where
 
+import Prelude hiding (GT, LT)
+
 import Data.Containers.ListUtils (nubOrd)
 import System.Process (createProcess, cleanupProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
 import Text.Regex.TDFA hiding (empty)
@@ -553,10 +555,10 @@ expToSMT2 expr = case expr of
   Or _ a b -> binop "or" a b
   Impl _ a b -> binop "=>" a b
   Neg _ a -> unop "not" a
-  LE _ a b -> binop "<" a b
+  LT _ a b -> binop "<" a b
   LEQ _ a b -> binop "<=" a b
   GEQ _ a b -> binop ">=" a b
-  GE _ a b -> binop ">" a b
+  GT _ a b -> binop ">" a b
   LitBool _ a -> pure $ if a then "true" else "false"
 
   -- integers

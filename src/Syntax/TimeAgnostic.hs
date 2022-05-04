@@ -30,6 +30,7 @@ Some terms in here are always 'Timed'. This indicates that their timing must
 module Syntax.TimeAgnostic (module Syntax.TimeAgnostic) where
 
 import Control.Applicative (empty)
+import Prelude hiding (GT, LT)
 
 import Data.Aeson
 import Data.Aeson.Types
@@ -191,10 +192,10 @@ data Exp (a :: *) (t :: Timing) where
   Or   :: Pn -> Exp Bool t -> Exp Bool t -> Exp Bool t
   Impl :: Pn -> Exp Bool t -> Exp Bool t -> Exp Bool t
   Neg :: Pn -> Exp Bool t -> Exp Bool t
-  LE :: Pn -> Exp Integer t -> Exp Integer t -> Exp Bool t
+  LT :: Pn -> Exp Integer t -> Exp Integer t -> Exp Bool t
   LEQ :: Pn -> Exp Integer t -> Exp Integer t -> Exp Bool t
   GEQ :: Pn -> Exp Integer t -> Exp Integer t -> Exp Bool t
-  GE :: Pn -> Exp Integer t -> Exp Integer t -> Exp Bool t
+  GT :: Pn -> Exp Integer t -> Exp Integer t -> Exp Bool t
   LitBool :: Pn -> Bool -> Exp Bool t
   -- integers
   Add :: Pn -> Exp Integer t -> Exp Integer t -> Exp Integer t
@@ -233,10 +234,10 @@ instance Eq (Exp a t) where
   Or _ a b == Or _ c d = a == c && b == d
   Impl _ a b == Impl _ c d = a == c && b == d
   Neg _ a == Neg _ b = a == b
-  LE _ a b == LE _ c d = a == c && b == d
+  LT _ a b == LT _ c d = a == c && b == d
   LEQ _ a b == LEQ _ c d = a == c && b == d
   GEQ _ a b == GEQ _ c d = a == c && b == d
-  GE _ a b == GE _ c d = a == c && b == d
+  GT _ a b == GT _ c d = a == c && b == d
   LitBool _ a == LitBool _ b = a == b
 
   Add _ a b == Add _ c d = a == c && b == d
@@ -297,10 +298,10 @@ instance Timable (Exp a) where
     Or   p x y -> Or p (go x) (go y)
     Impl p x y -> Impl p (go x) (go y)
     Neg p x -> Neg p(go x)
-    LE p x y -> LE p (go x) (go y)
+    LT p x y -> LT p (go x) (go y)
     LEQ p x y -> LEQ p (go x) (go y)
     GEQ p x y -> GEQ p (go x) (go y)
-    GE p x y -> GE p (go x) (go y)
+    GT p x y -> GT p (go x) (go y)
     LitBool p x -> LitBool p x
     -- integers
     Add p x y -> Add p (go x) (go y)
@@ -323,7 +324,7 @@ instance Timable (Exp a) where
     ByLit p x -> ByLit p x
     ByEnv p x -> ByEnv p x
     -- builtins
-    NewAddr p x y -> NewAddr p (go x) (go y) 
+    NewAddr p x y -> NewAddr p (go x) (go y)
     -- polymorphic
     Eq  p x y -> Eq p (go x) (go y)
     NEq p x y -> NEq p (go x) (go y)
@@ -354,7 +355,7 @@ instance ToJSON (Claim Untimed) where
   toJSON (S storages)          = storeJSON storages
   toJSON (I inv@Invariant{..}) = invariantJSON inv _predicate
   toJSON (C ctor)              = toJSON ctor
-  toJSON (B behv)              = toJSON behv 
+  toJSON (B behv)              = toJSON behv
 
 storeJSON :: Store -> Value
 storeJSON storages = object [ "kind" .= String "Storages"
@@ -430,8 +431,8 @@ instance ToJSON (Exp a t) where
                                 ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
   toJSON (And _ a b)  = symbol "and" a b
   toJSON (Or _ a b)   = symbol "or" a b
-  toJSON (LE _ a b)   = symbol "<" a b
-  toJSON (GE _ a b)   = symbol ">" a b
+  toJSON (LT _ a b)   = symbol "<" a b
+  toJSON (GT _ a b)   = symbol ">" a b
   toJSON (Impl _ a b) = symbol "=>" a b
   toJSON (NEq _ a b)  = symbol "=/=" a b
   toJSON (Eq _ a b)   = symbol "==" a b
@@ -469,9 +470,9 @@ eval e = case e of
   Or   _ a b    -> [a' || b' | a' <- eval a, b' <- eval b]
   Impl _ a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
   Neg  _ a      -> not <$> eval a
-  LE   _ a b    -> [a' <  b' | a' <- eval a, b' <- eval b]
+  LT   _ a b    -> [a' <  b' | a' <- eval a, b' <- eval b]
   LEQ  _ a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
-  GE   _ a b    -> [a' >  b' | a' <- eval a, b' <- eval b]
+  GT   _ a b    -> [a' >  b' | a' <- eval a, b' <- eval b]
   GEQ  _ a b    -> [a' >= b' | a' <- eval a, b' <- eval b]
   LitBool _ a   -> pure a
 
@@ -513,7 +514,7 @@ uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
 _Var :: SingI a => Id -> Exp a t
-_Var name = Var nowhere sing name
+_Var = Var nowhere sing
 
 castTime :: (Typeable t, Typeable u) => Exp a u -> Maybe (Exp a t)
 castTime = gcast

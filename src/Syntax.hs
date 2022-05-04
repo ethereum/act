@@ -8,6 +8,8 @@ Description : Functions for manipulating and collapsing all our different ASTs.
 -}
 module Syntax where
 
+import Prelude hiding (LT, GT)
+
 import Data.List
 import Data.Map (Map,empty,insertWith,unionsWith)
 import Data.Singletons
@@ -72,9 +74,9 @@ locsFromExp = nub . go
       Or _ a b    -> go a <> go b
       Impl _ a b  -> go a <> go b
       Eq _ a b    -> go a <> go b
-      LE _ a b    -> go a <> go b
+      LT _ a b    -> go a <> go b
       LEQ _ a b   -> go a <> go b
-      GE _ a b    -> go a <> go b
+      GT _ a b    -> go a <> go b
       GEQ _ a b   -> go a <> go b
       NEq _ a b   -> go a <> go b
       Neg _ a     -> go a
@@ -135,9 +137,9 @@ ethEnvFromExp = nub . go
       Or    _ a b   -> go a <> go b
       Impl  _ a b   -> go a <> go b
       Eq    _ a b   -> go a <> go b
-      LE    _ a b   -> go a <> go b
+      LT    _ a b   -> go a <> go b
       LEQ   _ a b   -> go a <> go b
-      GE    _ a b   -> go a <> go b
+      GT    _ a b   -> go a <> go b
       GEQ   _ a b   -> go a <> go b
       NEq   _ a b   -> go a <> go b
       Neg   _ a     -> go a
