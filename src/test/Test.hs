@@ -4,6 +4,7 @@
 
 module Main where
 
+import Prelude hiding (GT, LT)
 import Test.Tasty
 import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property, (===), property)
 import Test.QuickCheck.Instances.ByteString()
@@ -170,10 +171,10 @@ genExpBool names n = oneof
   , liftM2 (Eq nowhere) subExpBool subExpBool
   , liftM2 (Eq nowhere) subExpBytes subExpBytes
   , liftM2 (NEq nowhere) subExpInt subExpInt
-  , liftM2 (LE nowhere) subExpInt subExpInt
+  , liftM2 (LT nowhere) subExpInt subExpInt
   , liftM2 (LEQ nowhere) subExpInt subExpInt
   , liftM2 (GEQ nowhere) subExpInt subExpInt
-  , liftM2 (GE nowhere) subExpInt subExpInt
+  , liftM2 (GT nowhere) subExpInt subExpInt
   , Neg nowhere <$> subExpBool
   ]
   where subExpBool = genExpBool names (n `div` 2)
