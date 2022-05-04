@@ -18,7 +18,7 @@
 -- Module      : Consistent
 -- Description : SMT-based checks of case consistency
 -- -}
-module Consistent (checkConsistency, abstractCase, testX, testX2, testXV1, testXV2, testXVstr1, testXVstr2, testXbool1, testXbool2, runExpr, abstractCases) where
+module Consistent where
 
 import Syntax.Annotated
 import Error
@@ -28,6 +28,8 @@ import Type
 import Data.Typeable
 import qualified Data.Map as Map
 import Control.Monad.State
+import Prelude hiding (LT, GT)
+import Data.Set
 
 checkConsistency :: [Claim] -> Err [Claim]
 checkConsistency = undefined
@@ -67,10 +69,12 @@ testX = (GT nowhere (Var nowhere SInteger "a") (Var nowhere SInteger "b")) :: Ex
 testX2 = (LEQ nowhere (Var nowhere SInteger "b") (Var nowhere SInteger "a")) :: Exp Bool
 testXbool1 = (LitBool nowhere True) :: Exp Bool
 testXbool2 = (LitBool nowhere False) :: Exp Bool
-testXV1 = Var nowhere SInteger "b"
-testXV2 = Var nowhere SInteger "a"
-testXVstr1 = Var nowhere SByteStr "abc"
-testXVstr2 = Var nowhere SByteStr "fgh"
+testXV1 = Var nowhere SInteger "a"
+testXV2 = Var nowhere SInteger "b"
+testXV3 = TEntry nowhere Post (Item SInteger "contr" "y" [])
+testXV4 = TEntry nowhere Post (Item SInteger "contr" "z" [])
+testXVstr1 = Var nowhere SByteStr "x"
+testXVstr2 = Var nowhere SByteStr "y"
 
 -- NOTE: you HAVE to import Control.Monad.State to have any visibility
 -- Here, State is a type constructor:
@@ -87,7 +91,7 @@ data MyExp where
   MEq   :: Pn -> MyExp -> MyExp -> MyExp
 deriving instance Show MyExp
 
-abstractCase :: Exp Bool -> State (Int, Map (Exp Bool) Int) (MyExp)
+abstractCase :: Exp Bool -> State (Int, (Map (Exp Bool) Int)) (MyExp)
 -- Only LT is allowed
 -- 1) a>b is represented as b<a
 -- 2) a>=b is represented as b<=a 

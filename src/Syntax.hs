@@ -10,7 +10,9 @@ module Syntax where
 
 import Prelude hiding (LT, GT)
 
-import Data.List
+import Data.List hiding (insert, union)
+import Data.Set (insert, union, Set)
+import qualified Data.Set as Set
 import Data.Map (Map,empty,insertWith,unionsWith)
 import Data.Singletons
 
@@ -22,6 +24,39 @@ import qualified Syntax.Untyped as Untyped
 -----------------------------------------
 -- * Extract from fully refined ASTs * --
 -----------------------------------------
+
+namesFromExp :: Exp a t -> Set (TypedExp t)
+namesFromExp = go Set.empty
+  where
+    go :: Set (TypedExp t) -> Exp a t -> Set (TypedExp t)
+    go acc (Neg _ a    ) = go acc a
+    go acc (GEQ _ a b  ) = (go acc a) `union` (go acc b)
+    go acc (GT _ a b   ) = (go acc a) `union` (go acc b)
+    go acc (LEQ _ a b  ) = (go acc a) `union` (go acc b)
+    go acc (LT _ a b   ) = (go acc a) `union` (go acc b)
+    go acc (Eq _ a b   ) = (go acc a) `union` (go acc b)
+    go acc (And _ a b  ) = (go acc a) `union` (go acc b)
+    go acc (Or _ a b   ) = (go acc a) `union` (go acc b)
+    go acc (Impl _ a b ) = (go acc a) `union` (go acc b)
+    go acc (NEq _ a b  ) = (go acc a) `union` (go acc b)
+    go acc (Add _ a b  ) = (go acc a) `union` (go acc b)
+    go acc (Sub _ a b  ) = (go acc a) `union` (go acc b)
+    go acc (Mul _ a b  ) = (go acc a) `union` (go acc b)
+    go acc (Div _ a b  ) = (go acc a) `union` (go acc b)
+    go acc (Mod _ a b  ) = (go acc a) `union` (go acc b)
+    go acc (Exp _ a b  ) = (go acc a) `union` (go acc b)
+    go acc (Cat _ a b  ) = (go acc a) `union` (go acc b)
+    go acc (Slice _ a b c ) = (go acc a) `union` (go acc b) `union` (go acc c)
+    go acc (ITE _ a b c   ) = (go acc a) `union` (go acc b) `union` (go acc c)
+    go acc v@(Var _ t _) = insert (TExp t v) acc
+    go acc v@(TEntry _ _ (Item t _ _ _)) = insert (TExp t v) acc
+    go acc v@(IntEnv {}) = insert (TExp SInteger v) acc
+    go acc v@(ByEnv {}) = insert (TExp SByteStr v) acc
+    -- NewAddr _ a b -> go a <> go b
+    go acc _ = acc
+
+-- stringsFromExpr (Var _ a b) = [b]
+-- stringsFromExpr _ = undefine
 
 -- | Invariant predicates can always be expressed as a single expression.
 invExp :: Annotated.InvariantPred -> Annotated.Exp Bool

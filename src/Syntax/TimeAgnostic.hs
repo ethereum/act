@@ -287,10 +287,10 @@ instance Ord (Exp a t) where
   Or _ a b <= Or _ c d = a <= c && b <= d
   Impl _ a b <= Impl _ c d = a <= c && b <= d
   Neg _ a <= Neg _ b = a <= b
-  LE _ a b <= LE _ c d = a <= c && b <= d
+  LT _ a b <= LT _ c d = a <= c && b <= d
   LEQ _ a b <= LEQ _ c d = a <= c && b <= d
   GEQ _ a b <= GEQ _ c d = a <= c && b <= d
-  GE _ a b <= GE _ c d = a <= c && b <= d
+  GT _ a b <= GT _ c d = a <= c && b <= d
   LitBool _ a <= LitBool _ b = a <= b
 
   Add _ a b <= Add _ c d = a <= c && b <= d
