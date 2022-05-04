@@ -179,16 +179,12 @@ invariant of this form that holds over the full transition system.
 
 Although SMT solvers are powerful tools there are some important limitations to be aware of:
 
-- The invariants proven can only be [inductive](./invariants#inductive-vs-non-inductive-invariants) in nature, and can only be expressed in terms of state
+- The invariants proven can only be inductive in nature, and can only be expressed in terms of state
   variables and constructor arguments.
 - SMT solvers do not support the exponentiation operation.
-- Bytestrings are encoded using the theory of sequences. This is a non standard smtlib extension and
-  is currently only supported by `z3`. Behaviours that use the `string`, `bytes`, or `bytesX`
-  (e.g. `bytes32`) types will not be able to make use of the `cvc4` backend.
 - The solver may be unable to prove properties about behaviours making extensive use of non linear
   arithmetic (i.e. multiplication or division by a symbolic value). This is an inherent limitation
   of all SMT solvers.
-
 
 ## Implementation Strategy
 
@@ -215,12 +211,3 @@ about the transition system:
 
 1. The invariant holds over the post state
 2. The postconditions hold for every method level behaviour
-
-## Future Extensions
-
-In the future we hope to leverage SMT solvers to prove the following claims:
-
-- all expressions are within the bounds of their types
-- case expressions are exhaustive
-- case expressions do not overlap
-- storage updates do not conflict

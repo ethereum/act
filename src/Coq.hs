@@ -14,6 +14,8 @@
 
 module Coq where
 
+import Prelude hiding (GT, LT)
+
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map.Strict    as M
 import qualified Data.List.NonEmpty as NE
@@ -244,9 +246,9 @@ coqexp (Impl _ e1 e2) = parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
 coqexp (Eq _ e1 e2)   = parens $ coqexp e1  <> " =? " <> coqexp e2
 coqexp (NEq _ e1 e2)  = parens $ "negb " <> parens (coqexp e1  <> " =? " <> coqexp e2)
 coqexp (Neg _ e)      = parens $ "negb " <> coqexp e
-coqexp (LE _ e1 e2)   = parens $ coqexp e1 <> " <? "  <> coqexp e2
+coqexp (LT _ e1 e2)   = parens $ coqexp e1 <> " <? "  <> coqexp e2
 coqexp (LEQ _ e1 e2)  = parens $ coqexp e1 <> " <=? " <> coqexp e2
-coqexp (GE _ e1 e2)   = parens $ coqexp e2 <> " <? "  <> coqexp e1
+coqexp (GT _ e1 e2)   = parens $ coqexp e2 <> " <? "  <> coqexp e1
 coqexp (GEQ _ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
 
 -- integers
@@ -292,9 +294,9 @@ coqprop (Impl _ e1 e2) = parens $ coqprop e1 <> " -> " <> coqprop e2
 coqprop (Neg _ e)      = parens $ "not " <> coqprop e
 coqprop (Eq _ e1 e2)   = parens $ coqexp e1 <> " = "  <> coqexp e2
 coqprop (NEq _ e1 e2)  = parens $ coqexp e1 <> " <> " <> coqexp e2
-coqprop (LE _ e1 e2)   = parens $ coqexp e1 <> " < "  <> coqexp e2
+coqprop (LT _ e1 e2)   = parens $ coqexp e1 <> " < "  <> coqexp e2
 coqprop (LEQ _ e1 e2)  = parens $ coqexp e1 <> " <= " <> coqexp e2
-coqprop (GE _ e1 e2)   = parens $ coqexp e1 <> " > "  <> coqexp e2
+coqprop (GT _ e1 e2)   = parens $ coqexp e1 <> " > "  <> coqexp e2
 coqprop (GEQ _ e1 e2)  = parens $ coqexp e1 <> " >= " <> coqexp e2
 coqprop _ = error "ill formed proposition"
 

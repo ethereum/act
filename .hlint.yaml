@@ -2,3 +2,4 @@
 - ignore: {name: Use head}
 - ignore: {name: Move brackets to avoid $}
 - ignore: {name: Use ++}
+- ignore: {name: Eta reduce}

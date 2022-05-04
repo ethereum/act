@@ -8,7 +8,7 @@
 
 module HEVM where
 
-import Prelude hiding (lookup)
+import Prelude hiding (lookup, GT, LT)
 
 import Syntax
 import Syntax.Annotated as Annotated hiding (S)
@@ -313,9 +313,9 @@ symExpBool ctx@(Ctx c m args store _) e = case e of
   And _ a b   -> symExpBool ctx a .&& symExpBool ctx b
   Or _ a b    -> symExpBool ctx a .|| symExpBool ctx b
   Impl _ a b  -> symExpBool ctx a .=> symExpBool ctx b
-  LE _ a b    -> symExpInt ctx a .< symExpInt ctx b
+  LT _ a b    -> symExpInt ctx a .< symExpInt ctx b
   LEQ _ a b   -> symExpInt ctx a .<= symExpInt ctx b
-  GE _ a b    -> symExpInt ctx a .> symExpInt ctx b
+  GT _ a b    -> symExpInt ctx a .> symExpInt ctx b
   GEQ _ a b   -> symExpInt ctx a .>= symExpInt ctx b
   NEq p a b   -> sNot (symExpBool ctx (Eq p a b))
   Neg _ a     -> sNot (symExpBool ctx a)
@@ -391,9 +391,9 @@ nameFromExp c m e = case e of
   And _ a b   -> nameFromExp c m a <> "&&" <> nameFromExp c m b
   Or _ a b    -> nameFromExp c m a <> "|" <> nameFromExp c m b
   Impl _ a b  -> nameFromExp c m a <> "=>" <> nameFromExp c m b
-  LE _ a b    -> nameFromExp c m a <> "<" <> nameFromExp c m b
+  LT _ a b    -> nameFromExp c m a <> "<" <> nameFromExp c m b
   LEQ _ a b   -> nameFromExp c m a <> "<=" <> nameFromExp c m b
-  GE _ a b    -> nameFromExp c m a <> ">" <> nameFromExp c m b
+  GT _ a b    -> nameFromExp c m a <> ">" <> nameFromExp c m b
   GEQ _ a b   -> nameFromExp c m a <> ">=" <> nameFromExp c m b
   Neg _ a     -> "~" <> nameFromExp c m a
   LitBool _ a -> show a

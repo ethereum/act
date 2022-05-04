@@ -1,11 +1,10 @@
 .DEFAULT_GOAL := compiler
-.PHONY: parser compiler
+.PHONY: parser compiler docs
 
 parser: src/Lex.hs src/Parse.hs
 
 src/Parse.hs: src/Parse.y src/Syntax/Untyped.hs
 	happy src/Parse.y
-
 
 src/Lex.hs: src/Lex.x
 	alex src/Lex.x
@@ -18,6 +17,12 @@ repl: src/Lex.hs src/Parse.hs
 	cd src && cabal v2-repl
 
 compiler: bin/act
+
+docs:
+	cd doc && mdbook build
+
+docs-serve:
+	cd doc && mdbook serve
 
 frontend_pass=$(wildcard tests/frontend/pass/*/*.act)
 frontend_fail=$(wildcard tests/frontend/fail/*/*.act)

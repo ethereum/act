@@ -29,6 +29,8 @@ let
       pkgs.cvc4
       pkgs.coq_8_10
       dapptools.solc
+      pkgs.mdbook
+      pkgs.mdbook-mermaid
     ];
     withHoogle = true;
     shellHook = ''

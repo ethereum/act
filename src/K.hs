@@ -8,6 +8,8 @@
 
 module K where
 
+import Prelude hiding (GT, LT)
+
 import Syntax
 import Syntax.Annotated
 
@@ -115,9 +117,9 @@ kExpr (And _ a b) = "(" <> kExpr a <> " andBool\n " <> kExpr b <> ")"
 kExpr (Or _ a b) = "(" <> kExpr a <> " orBool " <> kExpr b <> ")"
 kExpr (Impl _ a b) = "(" <> kExpr a <> " impliesBool " <> kExpr b <> ")"
 kExpr (Neg _ a) = "notBool (" <> kExpr a <> ")"
-kExpr (LE _ a b) = "(" <> kExpr a <> " <Int " <> kExpr b <> ")"
+kExpr (LT _ a b) = "(" <> kExpr a <> " <Int " <> kExpr b <> ")"
 kExpr (LEQ _ a b) = "(" <> kExpr a <> " <=Int " <> kExpr b <> ")"
-kExpr (GE _ a b) = "(" <> kExpr a <> " >Int " <> kExpr b <> ")"
+kExpr (GT _ a b) = "(" <> kExpr a <> " >Int " <> kExpr b <> ")"
 kExpr (GEQ _ a b) = "(" <> kExpr a <> " >=Int " <> kExpr b <> ")"
 kExpr (LitBool _ a) = show a
 kExpr (NEq p a b) = "notBool (" <> kExpr (Eq p a b) <> ")"
@@ -185,7 +187,7 @@ normalize pass entries = foldr (\a acc -> case a of
 kSlot :: Rewrite -> StorageItem -> (String, Int)
 kSlot update StorageItem{..} = case _type of
   (StorageValue _) -> (show _slot, _offset)
-  (StorageMapping _ _) -> if null (ixsFromRewrite update) 
+  (StorageMapping _ _) -> if null (ixsFromRewrite update)
     then error $ "internal error: kSlot. Please report: " <> show update
     else ( "#hashedLocation(\"Solidity\", "
              <> show _slot <> ", " <> unwords (kTypedExpr <$> ixsFromRewrite update) <> ")"

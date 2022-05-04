@@ -3,6 +3,7 @@
 
 module Print where
 
+import Prelude hiding (GT, LT)
 import Data.ByteString.UTF8 (toString)
 
 import Data.List
@@ -45,8 +46,8 @@ prettyExp e = case e of
   -- booleans
   Or _ a b -> print2 "or" a b
   Eq _ a b -> print2 "==" a b
-  LE _ a b -> print2 "<" a b
-  GE _ a b -> print2 ">" a b
+  LT _ a b -> print2 "<" a b
+  GT _ a b -> print2 ">" a b
   LEQ _ a b -> print2 "<=" a b
   GEQ _ a b -> print2 ">=" a b
   And _ a b -> print2 "and" a b
@@ -135,9 +136,9 @@ prettyInvPred = prettyExp . untime . fst
       Or p a b    -> Or p (untime a) (untime b)
       Impl p a b  -> Impl p (untime a) (untime b)
       Eq p a b    -> Eq p (untime a) (untime b)
-      LE p a b    -> LE p (untime a) (untime b)
+      LT p a b    -> LT p (untime a) (untime b)
       LEQ p a b   -> LEQ p (untime a) (untime b)
-      GE p a b    -> GE p (untime a) (untime b)
+      GT p a b    -> GT p (untime a) (untime b)
       GEQ p a b   -> GEQ p (untime a) (untime b)
       NEq p a b   -> NEq p (untime a) (untime b)
       Neg p a     -> Neg p (untime a)
