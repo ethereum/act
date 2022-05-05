@@ -282,7 +282,6 @@ coqexp (Var _ SByteStr _) = error "bytestrings not supported"
 coqexp ByStr {} = error "bytestrings not supported"
 coqexp ByLit {} = error "bytestrings not supported"
 coqexp ByEnv {} = error "bytestrings not supported"
-coqexp NewAddr {} = error "newaddr not supported"
 
 -- | coq syntax for a proposition
 coqprop :: Exp a -> T.Text

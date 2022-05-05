@@ -77,9 +77,6 @@ prettyExp e = case e of
   ByLit _ a -> toString a
   ByEnv _ a -> prettyEnv a
 
-  -- builtins
-  NewAddr _ addr nonce -> "newAddr(" <> prettyExp addr <> ", " <> prettyExp nonce <> ")"
-
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
   TEntry _ t a -> timeParens t $ prettyItem a
@@ -160,7 +157,6 @@ prettyInvPred = prettyExp . untime . fst
       IntEnv p a  -> IntEnv p a
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)
-      NewAddr p a b -> NewAddr p (untime a) (untime b)
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
       TEntry p _ (Item t a b c) -> TEntry p Neither (Item t a b (fmap untimeTyped c))
       Var p t a -> Var p t a

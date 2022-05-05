@@ -586,9 +586,6 @@ expToSMT2 expr = case expr of
   ByLit _ a -> pure $ show a
   ByEnv _ a -> pure $ prettyEnv a
 
-  -- builtins
-  NewAddr {} -> error "TODO: NewAddr"
-
   -- polymorphic
   Eq _ a b -> binop "=" a b
   NEq p a b -> unop "not" (Eq p a b)

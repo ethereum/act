@@ -344,7 +344,6 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   Var _ _ a   -> get (nameFromArg c m a) (catInts args)
   TEntry _ t a -> get (nameFromItem m a) (catInts $ timeStore t store)
   IntEnv _ a -> get (nameFromEnv c m a) (catInts environment)
-  NewAddr _ _ _ -> error "TODO: handle new addr in SMT expressions"
   ITE _ x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
 
 symExpBytes :: Ctx -> Exp ByteString -> SBV String
@@ -386,7 +385,6 @@ nameFromExp c m e = case e of
   UIntMin _ a -> show $ uintmin a
   UIntMax _ a -> show $ uintmax a
   IntEnv _ a -> nameFromEnv c m a
-  NewAddr p _ _ -> error $ "TODO: handle new addr in SMT expressions, pos " ++ show p
 
   And _ a b   -> nameFromExp c m a <> "&&" <> nameFromExp c m b
   Or _ a b    -> nameFromExp c m a <> "|" <> nameFromExp c m b

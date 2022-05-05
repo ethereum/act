@@ -217,8 +217,6 @@ data Exp (a :: *) (t :: Timing) where
   ByStr :: Pn -> String -> Exp ByteString t
   ByLit :: Pn -> ByteString -> Exp ByteString t
   ByEnv :: Pn -> EthEnv -> Exp ByteString t
-  -- builtins
-  NewAddr :: Pn -> Exp Integer t -> Exp Integer t -> Exp Integer t
 
   -- polymorphic
   Eq  :: (Eq a, Typeable a) => Pn -> Exp a t -> Exp a t -> Exp Bool t
@@ -259,8 +257,6 @@ instance Eq (Exp a t) where
   ByStr _ a == ByStr _ b = a == b
   ByLit _ a == ByLit _ b = a == b
   ByEnv _ a == ByEnv _ b = a == b
-
-  NewAddr _ a b == NewAddr _ c d = a == c && b == d
 
   Eq _ (a :: Exp x t) (b :: Exp x t) == Eq _ (c :: Exp y t) (d :: Exp y t) =
     case eqT @x @y of
@@ -323,8 +319,6 @@ instance Timable (Exp a) where
     ByStr p x -> ByStr p x
     ByLit p x -> ByLit p x
     ByEnv p x -> ByEnv p x
-    -- builtins
-    NewAddr p x y -> NewAddr p (go x) (go y)
     -- polymorphic
     Eq  p x y -> Eq p (go x) (go y)
     NEq p x y -> NEq p (go x) (go y)
@@ -419,7 +413,6 @@ instance ToJSON (Exp a t) where
   toJSON (Exp _ a b) = symbol "^" a b
   toJSON (Mul _ a b) = symbol "*" a b
   toJSON (Div _ a b) = symbol "/" a b
-  toJSON (NewAddr _ a b) = symbol "newAddr" a b
   toJSON (LitInt _ a) = toJSON $ show a
   toJSON (IntMin _ a) = toJSON $ show $ intmin a
   toJSON (IntMax _ a) = toJSON $ show $ intmax a

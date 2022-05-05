@@ -96,7 +96,6 @@ locsFromExp = nub . go
       UIntMin {} -> []
       UIntMax {} -> []
       LitBool {} -> []
-      NewAddr _ a b -> go a <> go b
       IntEnv {} -> []
       ByEnv {} -> []
       ITE _ x y z -> go x <> go y <> go z
@@ -160,7 +159,6 @@ ethEnvFromExp = nub . go
       IntMax {} -> []
       UIntMin {} -> []
       UIntMax {} -> []
-      NewAddr _ a b -> go a <> go b
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
       TEntry _ _ a -> ethEnvFromItem a
