@@ -23,6 +23,7 @@ import Data.Tuple.Extra (dupe)
 import Data.Type.Equality (TestEquality(..))
 import Data.Typeable hiding (TypeRep,typeRep)
 import Type.Reflection
+import Data.Kind
 
 import Data.ByteString    as Syntax.Types (ByteString)
 import EVM.ABI            as Syntax.Types (AbiType(..))
@@ -44,7 +45,7 @@ instance TestEquality SType where
   testEquality SType SType = eqT
 
 -- | Compare equality of two things parametrized by types which have singletons.
-eqS :: forall (a :: *) (b :: *) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
+eqS :: forall (a :: Type) (b :: Type) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
 eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
 
 -- | For our purposes, the singleton of a type @a@ is always @'SType' a@.
@@ -66,7 +67,7 @@ instance SingI ByteString where sing = SByteStr
 -- by proving tools. Implemented by an existentially quantified 'SType',
 -- but it is recommended to use the patterns 'Syntax.Types.Integer', 'Boolean'
 -- and 'ByteStr' whenever constructing or matching on these.
-type ActType = SomeSing *
+type ActType = SomeSing Type
 
 pattern Integer :: ActType
 pattern Integer = SomeSing SInteger
@@ -124,14 +125,14 @@ stypeRep = \case
 
 -- | A 'TypeableInstance' wraps up a 'Typeable' instance for explicit
 -- handling. For internal use: for defining 'TypeRep' pattern.
-type TypeableInstance :: forall k. k -> *
+type TypeableInstance :: forall k. k -> Type
 data TypeableInstance a where
  TypeableInstance :: Typeable a => TypeableInstance a
 
 -- | Get a reified 'Typeable' instance from an explicit 'TypeRep'.
 --
 -- For internal use: for defining 'TypeRep' pattern.
-typeableInstance :: forall (k :: *) (a :: k). TypeRep a -> TypeableInstance a
+typeableInstance :: forall (k :: Type) (a :: k). TypeRep a -> TypeableInstance a
 typeableInstance rep = withTypeable rep TypeableInstance
 
 -- | A explicitly bidirectional pattern synonym to construct a
@@ -153,6 +154,6 @@ typeableInstance rep = withTypeable rep TypeableInstance
 -- @
 --
 -- @since 4.17.0.0
-pattern TypeRep :: forall (k :: *) (a :: k). () => Typeable @k a => TypeRep @k a
+pattern TypeRep :: forall (k :: Type) (a :: k). () => Typeable @k a => TypeRep @k a
 pattern TypeRep <- (typeableInstance -> TypeableInstance)
   where TypeRep = typeRep

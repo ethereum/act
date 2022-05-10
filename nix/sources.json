@@ -1,26 +1,26 @@
 {
     "dapptools": {
-        "branch": "master",
+        "branch": "bump-nixpkgs",
         "description": "Dapp, Seth, Hevm, and more",
         "homepage": "https://dapp.tools",
         "owner": "dapphub",
         "repo": "dapptools",
-        "rev": "d10dbe5e58a8e1f0dbd9c8f6e959f63172c90cfb",
-        "sha256": "0qq7nn0ck26kmp7zj6ykpszrnn3yxs046fqkirb5y63nlphyw26x",
+        "rev": "f84fb768721418c1ac9f5c910ac2cb1962af982a",
+        "sha256": "0ymlj04y1g9v5jizhjar0z8rmmqngfas0f3imrcrqb2vhf0znkbd",
         "type": "tarball",
-        "url": "https://github.com/dapphub/dapptools/archive/d10dbe5e58a8e1f0dbd9c8f6e959f63172c90cfb.tar.gz",
+        "url": "https://github.com/dapphub/dapptools/archive/f84fb768721418c1ac9f5c910ac2cb1962af982a.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
-        "branch": "21.05",
+        "branch": "nixos-unstable",
         "description": "A Nix Packages collection",
         "homepage": "https://github.com/NixOS/nixpkgs",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "7e9b0dff974c89e070da1ad85713ff3c20b0ca97",
-        "sha256": "1ckzhh24mgz6jd1xhfgx0i9mijk6xjqxwsshnvq789xsavrmsc36",
+        "rev": "2a3aac479caeba0a65b2ad755fe5f284f1fde74d",
+        "sha256": "0px2fk64s56qxd8ir8xg8bsj5yz1w399ps4xfkyx29n2ywp9ar7c",
         "type": "tarball",
-        "url": "https://github.com/nixos/nixpkgs/archive/7e9b0dff974c89e070da1ad85713ff3c20b0ca97.tar.gz",
+        "url": "https://github.com/nixos/nixpkgs/archive/2a3aac479caeba0a65b2ad755fe5f284f1fde74d.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

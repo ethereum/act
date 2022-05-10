@@ -1,10 +1,10 @@
 {-# Language RecordWildCards #-}
 {-# Language TypeApplications #-}
+{-# Language DataKinds #-}
 {-# Language OverloadedStrings #-}
 {-# Language DataKinds #-}
 {-# Language GADTs #-}
 {-# Language MonadComprehensions #-}
-{-# Language ViewPatterns #-}
 
 module HEVM where
 
@@ -256,7 +256,7 @@ toSymBytes (SymBytes _) = error "unsupported"
 
 -- | Convenience functions for generating symbolic byte strings
 freshbytes32 :: Symbolic [SWord 8]
-freshbytes32 = toBytes <$> free_ @ (WordN 256)
+freshbytes32 = toBytes <$> free_ @(WordN 256)
 
 
 -- | Adapted from SymExec.symAbiArg to fit into the `Symbolic` monad instead of

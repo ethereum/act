@@ -1,6 +1,5 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE LambdaCase #-}
 
 {- | Implements a concrete evaluator for act
@@ -9,13 +8,10 @@ module Eval where
 import Syntax.Annotated
 import Data.ByteString as BS
 import Data.ByteString.Char8 as BS8
-import Data.Map (Map)
-import qualified Data.Map as Map
 import Data.Maybe
-import Data.Typeable
 
 eval :: Behaviour -> [(String, TypedExp)] -> TypedExp
-eval behv args = undefined
+eval = undefined
 
 val :: Eq a => a -> [(a, b)] -> Maybe b
 val _ [] = Nothing

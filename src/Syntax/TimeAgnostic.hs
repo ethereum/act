@@ -33,6 +33,7 @@ import Control.Applicative (empty)
 
 import Data.Aeson
 import Data.Aeson.Types
+import qualified Data.Aeson.Key as Key
 import qualified Data.ByteString as BS
 import Data.List (genericTake,genericDrop)
 import Data.Map.Strict (Map)
@@ -41,6 +42,7 @@ import Data.String (fromString)
 import Data.Text (pack)
 import Data.Typeable
 import Data.Vector (fromList)
+import Data.Kind
 
 import EVM.Solidity (SlotType(..))
 
@@ -92,7 +94,7 @@ deriving instance Eq   (InvariantPred t) => Eq   (Invariant t)
 -- two predicates which explicitly reference the pre- and the post-state, respectively.
 -- Furthermore, if we know the predicate type we can always deduce the timing, not
 -- only vice versa.
-type family InvariantPred (t :: Timing) = (pred :: *) | pred -> t where
+type family InvariantPred (t :: Timing) = (pred :: Type) | pred -> t where
   InvariantPred Untimed = Exp Bool Untimed
   InvariantPred Timed   = (Exp Bool Timed, Exp Bool Timed)
 
@@ -155,7 +157,7 @@ instance Eq (StorageLocation t) where
 -- indicates whether any indices that reference items in storage explicitly
 -- refer to the pre-/post-state, or not. `a` is the type of the item that is
 -- referenced.
-data TStorageItem (a :: *) (t :: Timing) where
+data TStorageItem (a :: Type) (t :: Timing) where
   Item :: SType a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
@@ -185,7 +187,7 @@ instance Eq (TypedExp t) where
 -- will refer to either the prestate or the poststate.
 -- In `t ~ Untimed`, the only possible such value is `Neither :: Time Untimed`, so all storage entries
 -- will not explicitly refer any particular state.
-data Exp (a :: *) (t :: Timing) where
+data Exp (a :: Type) (t :: Timing) where
   -- booleans
   And  :: Pn -> Exp Bool t -> Exp Bool t -> Exp Bool t
   Or   :: Pn -> Exp Bool t -> Exp Bool t -> Exp Bool t
@@ -323,7 +325,7 @@ instance Timable (Exp a) where
     ByLit p x -> ByLit p x
     ByEnv p x -> ByEnv p x
     -- builtins
-    NewAddr p x y -> NewAddr p (go x) (go y) 
+    NewAddr p x y -> NewAddr p (go x) (go y)
     -- polymorphic
     Eq  p x y -> Eq p (go x) (go y)
     NEq p x y -> NEq p (go x) (go y)
@@ -354,7 +356,7 @@ instance ToJSON (Claim Untimed) where
   toJSON (S storages)          = storeJSON storages
   toJSON (I inv@Invariant{..}) = invariantJSON inv _predicate
   toJSON (C ctor)              = toJSON ctor
-  toJSON (B behv)              = toJSON behv 
+  toJSON (B behv)              = toJSON behv
 
 storeJSON :: Store -> Value
 storeJSON storages = object [ "kind" .= String "Storages"
@@ -451,7 +453,7 @@ instance ToJSON (Exp a t) where
   toJSON (ByLit _ a) = String . pack $ show a
   toJSON (ByEnv _ a) = String . pack $ show a
 
-  toJSON (TEntry _ t a) = object [ pack (show t) .= toJSON a ]
+  toJSON (TEntry _ t a) = object [ Key.fromString (show t) .= toJSON a ]
   toJSON (Var _ _ a) = toJSON a
 
   toJSON v = error $ "todo: json ast for: " <> show v

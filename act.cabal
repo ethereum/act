@@ -39,7 +39,7 @@ common deps
 library act-internal
   import:             deps
   build-tool-depends: happy:happy, alex:alex
-  hs-source-dirs:     ./src
+  hs-source-dirs:     src
   default-language:   Haskell2010
   exposed-modules:    CLI Error Print SMT Syntax.Annotated
   other-modules:      Lex Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Types Syntax.Timing Syntax.TimeAgnostic Type Enrich Eval
@@ -47,7 +47,7 @@ library act-internal
 executable act
   import:             deps
   main-is:            Main.hs
-  hs-source-dirs:     main
+  hs-source-dirs:     src/main
   default-language:   Haskell2010
   build-depends:      act-internal
 
@@ -56,7 +56,7 @@ Test-Suite test
   type:             exitcode-stdio-1.0
   default-language: Haskell2010
   main-is:          Test.hs
-  hs-source-dirs:   test
+  hs-source-dirs:   src/test
   build-depends:    act-internal,
                     pretty-simple          >= 2.2,
                     quickcheck-instances   >= 0.3,

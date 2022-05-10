@@ -1,4 +1,5 @@
 - ignore: {name: Redundant bracket}
+- ignore: {name: Eta reduce}
 - ignore: {name: Use head}
 - ignore: {name: Move brackets to avoid $}
 - ignore: {name: Use ++}
