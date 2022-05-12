@@ -21,6 +21,7 @@
 module Consistent where
 
 import Syntax.Annotated
+import Syntax
 import Error
 import Type.Reflection
 import Data.Map (Map)
@@ -29,13 +30,13 @@ import Data.Typeable
 import qualified Data.Map as Map
 import Control.Monad.State
 import Prelude hiding (LT, GT)
-import Data.Set
+import Data.Set as Set
 
 checkConsistency :: [Claim] -> Err [Claim]
 checkConsistency = undefined
 
 -- Contract -> Interface -> Cases
-mygrouping :: [Claim] -> Map Id (Map Id [Exp Bool]) 
+mygrouping :: [Claim] -> Map Id (Map Id [Exp Bool])
 mygrouping = undefined
 
 type Ctx = Int
@@ -49,15 +50,28 @@ type Ctx = Int
 checkcases :: [Exp Bool] -> Error String ()
 checkcases = undefined
 
-start :: (Int, Map (Exp Bool) Int)
-start = (0, Map.empty)
-runExpr :: Exp Bool -> (MyExp, (Int, Map (Exp Bool) Int))
+
+
+-- We look up Exp Bool in `expression`, and if it's not there
+--    then we check if it matches any in setOfVars. If it does
+--    we cannot guarantee uniqueness
+data AbstFunc = AbstFunc
+  { setOfVars  :: Set (TypedExp)
+  , expression :: Map (Exp Bool) Int
+  } deriving Show
+start :: (Int, AbstFunc)
+start = (0, AbstFunc {setOfVars = Set.empty, expression = Map.empty})
+
+runExpr :: Exp Bool -> (MyExp, (Int, AbstFunc))
 runExpr expr = runState (abstractCase expr) start
 
+-- TODO: we need to DISTINCT cases. Currently, they can overlap
+-- For example: (a<b) can be overlapping with a=c
+-- we can accomplish this via namesFromExp
 abstractCases :: [Exp Bool] -> [MyExp]
 abstractCases a = y where
   (x, y, z) = abstractCasesHelper (a, [], start)
-type MyPair = ([Exp Bool], [MyExp], (Int, Map(Exp Bool) Int))
+type MyPair = ([Exp Bool], [MyExp], (Int, AbstFunc))
 abstractCasesHelper :: MyPair -> MyPair
 abstractCasesHelper ([], b, c) = ([], b, c)
 abstractCasesHelper (a:ax, b, c)  = abstractCasesHelper (ax, x:b, y) where
@@ -65,8 +79,9 @@ abstractCasesHelper (a:ax, b, c)  = abstractCasesHelper (ax, x:b, y) where
 
 -- Use this to actually bind & run the Monad
 
-testX = (GT nowhere (Var nowhere SInteger "a") (Var nowhere SInteger "b")) :: Exp Bool
+testX1 = (GT nowhere (Var nowhere SInteger "a") (Var nowhere SInteger "b")) :: Exp Bool
 testX2 = (LEQ nowhere (Var nowhere SInteger "b") (Var nowhere SInteger "a")) :: Exp Bool
+testX3 = (Eq nowhere (Var nowhere SInteger "b") (Var nowhere SInteger "a")) :: Exp Bool
 testXbool1 = (LitBool nowhere True) :: Exp Bool
 testXbool2 = (LitBool nowhere False) :: Exp Bool
 testXV1 = Var nowhere SInteger "a"
@@ -91,10 +106,10 @@ data MyExp where
   MEq   :: Pn -> MyExp -> MyExp -> MyExp
 deriving instance Show MyExp
 
-abstractCase :: Exp Bool -> State (Int, (Map (Exp Bool) Int)) (MyExp)
+abstractCase :: Exp Bool -> State (Int, AbstFunc) (MyExp)
 -- Only LT is allowed
 -- 1) a>b is represented as b<a
--- 2) a>=b is represented as b<=a 
+-- 2) a>=b is represented as b<=a
 -- 3) a>=b becomes NOT a<b
 -- NOTE: this requires well-behaved integers -- reflexivity + transitivity
 -- DIV/MUL/SUB/etc are represented as a full-on function, with its own variable
@@ -133,24 +148,40 @@ abstractCase (NEq pn exp1 exp2) = do
      return $ MNeg pn e1
 abstractCase (LT pn exp1 exp2) = do
     (lastVar, ctx) <- get
-    var1 <- case Map.lookup (LT nowhere exp1 exp2) ctx of
-                  Just v -> return v
-                  Nothing -> do
-                      put (lastVar+1, Map.insert (LT nowhere exp1 exp2) lastVar ctx)
-                      return lastVar
+    var1 <- case Map.lookup (LT nowhere exp1 exp2) (expression ctx) of
+       Just v -> return v
+       Nothing -> do
+         let exp1Names = (Syntax.namesFromExp exp1)
+         let exp2Names = (Syntax.namesFromExp exp2)
+         let check =(exp1Names `union` exp2Names) `intersection` (setOfVars ctx)
+         if check == Set.empty then do
+           let x = exp1Names `union` exp2Names `union` setOfVars ctx
+           let y = Map.insert (LT nowhere exp1 exp2) lastVar (expression ctx)
+           put (lastVar+1, AbstFunc {setOfVars = x, expression=y})
+           return lastVar
+         else
+           return 999
     return $ MInt pn var1
-abstractCase (Eq pn (l1 :: Exp tp) (l2 :: Exp tp)) = case eqT @tp @Bool of
+abstractCase (Eq pn (exp1 :: Exp tp) (exp2 :: Exp tp)) = case eqT @tp @Bool of
   Just Refl -> do
-    u1 <- abstractCase l1
-    u2 <- abstractCase l2
+    u1 <- abstractCase exp1
+    u2 <- abstractCase exp2
     return $ MEq pn u1 u2
   Nothing -> do
     (lastVar, ctx) <- get
-    var1 <- case Map.lookup (Eq nowhere l1 l2) ctx of
-                  Just v -> return v
-                  Nothing -> do
-                      put (lastVar+1, Map.insert (Eq nowhere l1 l2) lastVar ctx)
-                      return lastVar
+    var1 <- case Map.lookup (Eq nowhere exp1 exp2) (expression ctx) of
+       Just v -> return v
+       Nothing -> do
+         let exp1Names = (Syntax.namesFromExp exp1)
+         let exp2Names = (Syntax.namesFromExp exp2)
+         let check =(exp1Names `union` exp2Names) `intersection` (setOfVars ctx)
+         if check == Set.empty then do
+           let x = exp1Names `union` exp2Names `union` setOfVars ctx
+           let y = Map.insert (Eq nowhere exp1 exp2) lastVar (expression ctx)
+           put (lastVar+1, AbstFunc {setOfVars = x, expression=y})
+           return lastVar
+         else
+           return 999
     return $ MInt pn var1
 abstractCase _ = undefined
 
