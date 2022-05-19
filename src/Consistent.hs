@@ -68,7 +68,7 @@ checkNoOverlap x = do
     pairs xs = [And nowhere x (Neg nowhere y) | (x:ys) <- tails (nub xs), y <- ys]
     resultsAgg :: [SMTResult] -> Err ()
     resultsAgg [] = Success ()
-    resultsAgg (a:ax) = if a == Unsat then (resultsAgg ax) else (throw (nowhere, "a"))
+    resultsAgg (a:ax) = if (isFail a) then (resultsAgg ax) else (throw (nowhere, "a"))
 
 -- We look up Exp Bool in `expression`, and if it's not there
 --    then we check if it matches any in setOfVars. If it does
