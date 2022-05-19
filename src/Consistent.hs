@@ -57,9 +57,13 @@ checkNoOverlap x = do
   -- let runwithz3 = runSMTWith z3 $ (setTimeOut timeout) >> sym
   let config = SMT.SMTConfig {_solver=SMT.Z3, _timeout=100, _debug=False}
   solverInstance <- spawnSolver config
-  results <- mapM (runQuery solverInstance) (pairs x)
+  let mypairs = pairs x :: [Exp Bool]
+  let queries = expToQuery <$> (mypairs) :: [Query]
+  results <- mapM (runQuery solverInstance) (queries)
   return $ Success ()
   where
+    expToQuery :: Exp Bool -> Query
+    expToQuery exp = undefined
     pairs :: [Exp Bool] -> [Exp Bool]
     pairs xs = [And nowhere x (Neg nowhere y) | (x:ys) <- tails (nub xs), y <- ys]
     resultsAgg :: [SMTResult] -> Err ()
