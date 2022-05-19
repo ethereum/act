@@ -22,7 +22,16 @@ module SMT (
   ifExists,
   getBehvName,
   identifier,
-  getSMT
+  getSMT,
+  SMT2,
+  withInterface,
+  expToSMT2,
+  checkSat,
+  SolverInstance,
+  Model(..),
+  mkAssert,
+  typedExpToSMT2,
+  constant
 ) where
 
 import Prelude hiding (GT, LT)
@@ -304,7 +313,7 @@ runQuery solver query@(Inv (Invariant _ _ _ predicate) (ctor, ctorSMT) behvs) = 
 
 -- | Checks the satisfiability of a single SMT expression, and uses the
 -- provided `modelFn` to extract a model if the solver returns `sat`
-checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO SMTResult
+checkSat :: (Pretty a) => SolverInstance -> (SolverInstance -> IO Model) -> a -> IO SMTResult
 checkSat solver modelFn smt = do
   err <- sendLines solver ("(reset)" : (lines . show . pretty $ smt))
   case err of

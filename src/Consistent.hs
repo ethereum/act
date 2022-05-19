@@ -32,7 +32,9 @@ import Control.Monad.State
 import Prelude hiding (LT, GT)
 import Data.Set as Set
 import Data.List (tails, nub, sort)
+import Data.Containers.ListUtils (nubOrd)
 import SMT
+import Debug.Trace
 
 checkConsistency :: [Claim] -> Err [Claim]
 checkConsistency = undefined
@@ -54,21 +56,37 @@ checkcases = undefined
 
 checkNoOverlap :: [Exp Bool] -> IO (Err ())
 checkNoOverlap x = do
-  -- let runwithz3 = runSMTWith z3 $ (setTimeOut timeout) >> sym
   let config = SMT.SMTConfig {_solver=SMT.Z3, _timeout=100, _debug=False}
   solverInstance <- spawnSolver config
   let mypairs = pairs x :: [Exp Bool]
-  let queries = expToQuery <$> (mypairs) :: [Query]
-  results <- mapM (runQuery solverInstance) (queries)
-  return $ Success ()
+  traceM (show mypairs)
+  let queries = expToQuery <$> (mypairs) :: [SMT2]
+  traceM (show queries)
+  results <- mapM (checkSat solverInstance throwaway) (queries) :: IO [SMTResult]
+  traceM (show results)
+  return $ resultsAgg results
   where
-    expToQuery :: Exp Bool -> Query
-    expToQuery exp = undefined
+    throwaway :: SMT.SolverInstance -> IO Model
+    throwaway  _ = pure $ Model
+      { _mprestate  = []
+      , _mpoststate = []
+      , _mcalldata = ("", [])
+      , _menvironment = []
+      , _minitargs = []
+      }
+    expToQuery :: Exp Bool -> SMT2
+    expToQuery e = (unlines init) ++ assert
+      where
+        assert = mkAssert "" e
+        names = namesFromExp e :: Set (TypedExp)
+        init =  toList $ Set.map (flip SMT.constant Boolean . withInterface "" . typedExpToSMT2) names :: [SMT2]
+
     pairs :: [Exp Bool] -> [Exp Bool]
-    pairs xs = [And nowhere x (Neg nowhere y) | (x:ys) <- tails (nub xs), y <- ys]
+    pairs xs = [And nowhere x y | (x:ys) <- tails (xs), y <- ys]
     resultsAgg :: [SMTResult] -> Err ()
     resultsAgg [] = Success ()
-    resultsAgg (a:ax) = if (isFail a) then (resultsAgg ax) else (throw (nowhere, "a"))
+    resultsAgg (a:ax) = if (not $ isFail a) then (resultsAgg ax) else (throw (nowhere, "a"))
+
 
 -- We look up Exp Bool in `expression`, and if it's not there
 --    then we check if it matches any in setOfVars. If it does
@@ -129,7 +147,7 @@ abstractCase (GT pn a b) = do
     x <- abstractCase (LT pn b a)
     return $ Neg nowhere x
 abstractCase (GEQ pn a b) = do
-    x <- abstractCase (LEQ pn b a)
+    let x = LEQ pn b a
     return $ Neg nowhere x
 abstractCase (LEQ pn a b) = do
     abstractCase (Neg pn (GT nowhere b a))
