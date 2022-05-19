@@ -31,6 +31,8 @@ import qualified Data.Map as Map
 import Control.Monad.State
 import Prelude hiding (LT, GT)
 import Data.Set as Set
+import Data.List (tails, nub, sort)
+import SMT
 
 checkConsistency :: [Claim] -> Err [Claim]
 checkConsistency = undefined
@@ -50,7 +52,19 @@ type Ctx = Int
 checkcases :: [Exp Bool] -> Error String ()
 checkcases = undefined
 
-
+checkNoOverlap :: [Exp Bool] -> IO (Err ())
+checkNoOverlap x = do
+  -- let runwithz3 = runSMTWith z3 $ (setTimeOut timeout) >> sym
+  let config = SMT.SMTConfig {_solver=SMT.Z3, _timeout=100, _debug=False}
+  solverInstance <- spawnSolver config
+  results <- mapM (runQuery solverInstance) (pairs x)
+  return $ Success ()
+  where
+    pairs :: [Exp Bool] -> [Exp Bool]
+    pairs xs = [And nowhere x (Neg nowhere y) | (x:ys) <- tails (nub xs), y <- ys]
+    resultsAgg :: [SMTResult] -> Err ()
+    resultsAgg [] = Success ()
+    resultsAgg (a:ax) = if a == Unsat then (resultsAgg ax) else (throw (nowhere, "a"))
 
 -- We look up Exp Bool in `expression`, and if it's not there
 --    then we check if it matches any in setOfVars. If it does
@@ -62,16 +76,13 @@ data AbstFunc = AbstFunc
 start :: (Int, AbstFunc)
 start = (0, AbstFunc {setOfVars = Set.empty, expression = Map.empty})
 
-runExpr :: Exp Bool -> (MyExp, (Int, AbstFunc))
-runExpr expr = runState (abstractCase expr) start
-
--- TODO: we need to DISTINCT cases. Currently, they can overlap
+-- Checks also DISTINCT cases. Currently, they can overlap
 -- For example: (a<b) can be overlapping with a=c
 -- we can accomplish this via namesFromExp
-abstractCases :: [Exp Bool] -> [MyExp]
+abstractCases :: [Exp Bool] -> [Exp Bool]
 abstractCases a = y where
   (x, y, z) = abstractCasesHelper (a, [], start)
-type MyPair = ([Exp Bool], [MyExp], (Int, AbstFunc))
+type MyPair = ([Exp Bool], [Exp Bool], (Int, AbstFunc))
 abstractCasesHelper :: MyPair -> MyPair
 abstractCasesHelper ([], b, c) = ([], b, c)
 abstractCasesHelper (a:ax, b, c)  = abstractCasesHelper (ax, x:b, y) where
@@ -90,23 +101,10 @@ testXV3 = TEntry nowhere Post (Item SInteger "contr" "y" [])
 testXV4 = TEntry nowhere Post (Item SInteger "contr" "z" [])
 testXVstr1 = Var nowhere SByteStr "x"
 testXVstr2 = Var nowhere SByteStr "y"
+testXVb = Var nowhere SBoolean "a"
+varBool = Var nowhere SInteger "myBoolvar"
 
--- NOTE: you HAVE to import Control.Monad.State to have any visibility
--- Here, State is a type constructor:
--- :k Sate
---
-
-data MyExp where
-  -- boolean variables
-  MInt  :: Pn -> Int -> MyExp
-  MAnd  :: Pn -> MyExp -> MyExp -> MyExp
-  MBool :: Pn -> Bool -> MyExp
-  MOr   :: Pn -> MyExp -> MyExp -> MyExp
-  MNeg  :: Pn -> MyExp -> MyExp
-  MEq   :: Pn -> MyExp -> MyExp -> MyExp
-deriving instance Show MyExp
-
-abstractCase :: Exp Bool -> State (Int, AbstFunc) (MyExp)
+abstractCase :: Exp Bool -> State (Int, AbstFunc) (Exp Bool)
 -- Only LT is allowed
 -- 1) a>b is represented as b<a
 -- 2) a>=b is represented as b<=a
@@ -114,38 +112,38 @@ abstractCase :: Exp Bool -> State (Int, AbstFunc) (MyExp)
 -- NOTE: this requires well-behaved integers -- reflexivity + transitivity
 -- DIV/MUL/SUB/etc are represented as a full-on function, with its own variable
 abstractCase (LitBool pn exp1) = do
-    return $ MBool pn exp1
+    return $ LitBool pn exp1
 abstractCase (Or pn exp1 exp2) = do
     l <- abstractCase exp1
     r <- abstractCase exp2
-    return $ MOr pn l r
+    return $ Or pn l r
 abstractCase (And pn exp1 exp2) = do
     l <- abstractCase exp1
     r <- abstractCase exp2
-    return $ MAnd pn l r
+    return $ And pn l r
 abstractCase (GT pn a b) = do
     x <- abstractCase (LT pn b a)
-    return $ MNeg nowhere x
+    return $ Neg nowhere x
 abstractCase (GEQ pn a b) = do
     x <- abstractCase (LEQ pn b a)
-    return $ MNeg nowhere x
+    return $ Neg nowhere x
 abstractCase (LEQ pn a b) = do
     abstractCase (Neg pn (GT nowhere b a))
 abstractCase (ITE pn a b c) = do
     e1 <- abstractCase a
     e2 <- abstractCase b
     e3 <- abstractCase c
-    return $ MAnd pn (MOr nowhere (MNeg nowhere e1) e2) (MOr nowhere e1 e3)
+    return $ And pn (Or nowhere (Neg nowhere e1) e2) (Or nowhere e1 e3)
 abstractCase (Neg pn e) = do
     e' <- abstractCase e
-    return $ MNeg pn e'
+    return $ Neg pn e'
 abstractCase (Impl pn exp1 exp2) = do
     l <- abstractCase exp1
     r <- abstractCase exp2
-    return $ MOr pn (MNeg pn l) r
+    return $ Or pn (Neg pn l) r
 abstractCase (NEq pn exp1 exp2) = do
      e1 <- abstractCase (Eq pn exp1 exp2)
-     return $ MNeg pn e1
+     return $ Neg pn e1
 abstractCase (LT pn exp1 exp2) = do
     (lastVar, ctx) <- get
     var1 <- case Map.lookup (LT nowhere exp1 exp2) (expression ctx) of
@@ -161,12 +159,12 @@ abstractCase (LT pn exp1 exp2) = do
            return lastVar
          else
            return 999
-    return $ MInt pn var1
+    return $ Var pn SBoolean (show var1)
 abstractCase (Eq pn (exp1 :: Exp tp) (exp2 :: Exp tp)) = case eqT @tp @Bool of
   Just Refl -> do
     u1 <- abstractCase exp1
     u2 <- abstractCase exp2
-    return $ MEq pn u1 u2
+    return $ Eq pn u1 u2
   Nothing -> do
     (lastVar, ctx) <- get
     var1 <- case Map.lookup (Eq nowhere exp1 exp2) (expression ctx) of
@@ -182,7 +180,7 @@ abstractCase (Eq pn (exp1 :: Exp tp) (exp2 :: Exp tp)) = case eqT @tp @Bool of
            return lastVar
          else
            return 999
-    return $ MInt pn var1
+    return $ Var pn SBoolean (show var1)
 abstractCase _ = undefined
 
 
