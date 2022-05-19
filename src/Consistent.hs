@@ -126,7 +126,7 @@ testXVstr2 = Var nowhere SByteStr "y"
 testXVb = Var nowhere SBoolean "a"
 varBool = Var nowhere SInteger "myBoolvar"
 
-abstractCase :: Exp Bool -> State (Int, AbstFunc) (Exp Bool)
+abstractCase :: Exp Bool -> State (Int, AbstFunc) (Err (Exp Bool))
 -- Only LT is allowed
 -- 1) a>b is represented as b<a
 -- 2) a>=b is represented as b<=a
@@ -134,7 +134,7 @@ abstractCase :: Exp Bool -> State (Int, AbstFunc) (Exp Bool)
 -- NOTE: this requires well-behaved integers -- reflexivity + transitivity
 -- DIV/MUL/SUB/etc are represented as a full-on function, with its own variable
 abstractCase (LitBool pn exp1) = do
-    return $ LitBool pn exp1
+    return $ Success (LitBool pn exp1)
 abstractCase (Or pn exp1 exp2) = do
     l <- abstractCase exp1
     r <- abstractCase exp2
