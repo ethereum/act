@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -138,7 +139,10 @@ abstractCase (LitBool pn exp1) = do
 abstractCase (Or pn exp1 exp2) = do
     l <- abstractCase exp1
     r <- abstractCase exp2
-    return $ Or pn l r
+    return $ do
+      l' <- l
+      r' <- r
+      pure $ Or pn l' r'
 abstractCase (And pn exp1 exp2) = do
     l <- abstractCase exp1
     r <- abstractCase exp2
