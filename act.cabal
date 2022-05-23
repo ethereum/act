@@ -36,7 +36,7 @@ common deps
   else
       ghc-options: -Wall -Wno-orphans -Wno-unticked-promoted-constructors
 
-library act-internal
+library
   import:             deps
   build-tool-depends: happy:happy, alex:alex
   hs-source-dirs:     src
@@ -49,7 +49,7 @@ executable act
   main-is:            Main.hs
   hs-source-dirs:     src/main
   default-language:   Haskell2010
-  build-depends:      act-internal
+  build-depends:      act
 
 Test-Suite test
   import:           deps
