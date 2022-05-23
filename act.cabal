@@ -57,7 +57,7 @@ Test-Suite test
   default-language: Haskell2010
   main-is:          Test.hs
   hs-source-dirs:   src/test
-  build-depends:    act-internal,
+  build-depends:    act,
                     pretty-simple          >= 2.2,
                     quickcheck-instances   >= 0.3,
                     quickcheck-transformer >= 0.3,
