@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
@@ -146,30 +147,47 @@ abstractCase (Or pn exp1 exp2) = do
 abstractCase (And pn exp1 exp2) = do
     l <- abstractCase exp1
     r <- abstractCase exp2
-    return $ And pn l r
+    return $ do
+      l' <- l
+      r' <- r
+      pure $ And pn l' r'
 abstractCase (GT pn a b) = do
     x <- abstractCase (LT pn b a)
-    return $ Neg nowhere x
+    return $ do
+      x' <- x
+      pure $ Neg nowhere x'
 abstractCase (GEQ pn a b) = do
     let x = LEQ pn b a
-    return $ Neg nowhere x
+    return $ do
+      pure $ Neg nowhere x
 abstractCase (LEQ pn a b) = do
     abstractCase (Neg pn (GT nowhere b a))
 abstractCase (ITE pn a b c) = do
     e1 <- abstractCase a
     e2 <- abstractCase b
     e3 <- abstractCase c
-    return $ And pn (Or nowhere (Neg nowhere e1) e2) (Or nowhere e1 e3)
+    return $ do
+      e1' <- e1
+      e2' <- e2
+      e3' <- e3
+      pure $ And pn (Or nowhere (Neg nowhere e1') e2') (Or nowhere e1' e3')
 abstractCase (Neg pn e) = do
-    e' <- abstractCase e
-    return $ Neg pn e'
+    x <- abstractCase e
+    return $ do
+      x' <- x
+      return $ Neg pn x'
 abstractCase (Impl pn exp1 exp2) = do
     l <- abstractCase exp1
     r <- abstractCase exp2
-    return $ Or pn (Neg pn l) r
+    return $ do
+      l' <- l
+      r' <- r
+      pure $ Or pn (Neg pn l') r'
 abstractCase (NEq pn exp1 exp2) = do
-     e1 <- abstractCase (Eq pn exp1 exp2)
-     return $ Neg pn e1
+    x <- abstractCase (Eq pn exp1 exp2)
+    return $ do
+      x' <- x
+      pure $ Neg pn x'
 abstractCase (LT pn exp1 exp2) = do
     (lastVar, ctx) <- get
     var1 <- case Map.lookup (LT nowhere exp1 exp2) (expression ctx) of
@@ -185,12 +203,17 @@ abstractCase (LT pn exp1 exp2) = do
            return lastVar
          else
            return 999
-    return $ Var pn SBoolean (show var1)
+    if var1 == 999 then return $ throw (nowhere, "Abtracted expression uses same set of inputs twice")
+    else return $ do
+      pure $ Var pn SBoolean (show var1)
 abstractCase (Eq pn (exp1 :: Exp tp) (exp2 :: Exp tp)) = case eqT @tp @Bool of
   Just Refl -> do
     u1 <- abstractCase exp1
     u2 <- abstractCase exp2
-    return $ Eq pn u1 u2
+    return $ do
+      u1' <- u1
+      u2' <- u2
+      pure $ Eq pn u1' u2'
   Nothing -> do
     (lastVar, ctx) <- get
     var1 <- case Map.lookup (Eq nowhere exp1 exp2) (expression ctx) of
@@ -206,7 +229,9 @@ abstractCase (Eq pn (exp1 :: Exp tp) (exp2 :: Exp tp)) = case eqT @tp @Bool of
            return lastVar
          else
            return 999
-    return $ Var pn SBoolean (show var1)
+    if var1 == 999 then return $ throw (nowhere, "Abtracted expression uses same set of inputs twice")
+    else return $ do
+      pure $ Var pn SBoolean (show var1)
 abstractCase _ = undefined
 
 
