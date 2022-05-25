@@ -37,6 +37,7 @@ import Data.List (tails, nub, sort)
 import Data.Containers.ListUtils (nubOrd)
 import SMT
 import Debug.Trace
+import Data.Validation (fromEither)
 
 checkConsistency :: [Claim] -> Err [Claim]
 checkConsistency = undefined
@@ -56,11 +57,14 @@ type Ctx = Int
 checkcases :: [Exp Bool] -> Error String ()
 checkcases = undefined
 
-checkNoOverlap :: [Exp Bool] -> IO (Err ())
+-- To be run like: "checkNoOverlap abstractCases [Exp Bool]". It will then:
+--   Abstract away, while checking that abstractions don't have overlapping variables
+--   Then checks the cases don't overlap.
+checkNoOverlap :: [Err (Exp Bool)] -> IO (Err ())
 checkNoOverlap x = do
   let config = SMT.SMTConfig {_solver=SMT.Z3, _timeout=100, _debug=False}
   solverInstance <- spawnSolver config
-  let mypairs = pairs x :: [Exp Bool]
+  let mypairs = pairs (successes x) :: [Exp Bool] -- TODO filtering here!!!
   traceM (show mypairs)
   let queries = expToQuery <$> (mypairs) :: [SMT2]
   traceM (show queries)
@@ -100,17 +104,26 @@ data AbstFunc = AbstFunc
 start :: (Int, AbstFunc)
 start = (0, AbstFunc {setOfVars = Set.empty, expression = Map.empty})
 
+successes :: [Validation e a] -> [a]
+successes v = [a | Success a <- v]
+
+failures :: [Validation e a] -> [e]
+failures v = [e | Failure e <- v]
+
 -- Checks also DISTINCT cases. Currently, they can overlap
 -- For example: (a<b) can be overlapping with a=c
 -- we can accomplish this via namesFromExp
-abstractCases :: [Exp Bool] -> [Exp Bool]
-abstractCases a = y where
+abstractCases :: [Exp Bool] -> [Err (Exp Bool)]
+-- another way: abstractCases :: [Exp Bool] -> [Err (Exp Bool)]
+--              abstractCases a = Success (successes y) where -- which forgets all errors :(
+abstractCases a = (y) where
   (x, y, z) = abstractCasesHelper (a, [], start)
-type MyPair = ([Exp Bool], [Exp Bool], (Int, AbstFunc))
+type MyPair = ([Exp Bool], [Err (Exp Bool)], (Int, AbstFunc))
 abstractCasesHelper :: MyPair -> MyPair
 abstractCasesHelper ([], b, c) = ([], b, c)
-abstractCasesHelper (a:ax, b, c)  = abstractCasesHelper (ax, x:b, y) where
+abstractCasesHelper (a:ax, b, c)  = abstractCasesHelper (ax, z, y) where
   (x, y) = runState (abstractCase a) c
+  z = x:(b)
 
 -- Use this to actually bind & run the Monad
 
