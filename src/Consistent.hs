@@ -60,11 +60,11 @@ checkcases = undefined
 -- To be run like: "checkNoOverlap abstractCases [Exp Bool]". It will then:
 --   Abstract away, while checking that abstractions don't have overlapping variables
 --   Then checks the cases don't overlap.
-checkNoOverlap :: Err [Exp Bool] -> IO (Err ())
+checkNoOverlap :: [Err (Exp Bool)] -> IO (Err ())
 checkNoOverlap x = do
   let config = SMT.SMTConfig {_solver=SMT.Z3, _timeout=100, _debug=False}
   solverInstance <- spawnSolver config
-  let mypairs = pairs x :: [Exp Bool] -- TODO filtering here!!!
+  let mypairs = pairs (successes x) :: [Exp Bool] -- TODO filtering here!!!
   traceM (show mypairs)
   let queries = expToQuery <$> (mypairs) :: [SMT2]
   traceM (show queries)
@@ -112,18 +112,23 @@ successes v = [a | Success a <- v]
 failures :: Show e => [Validation e a] -> String
 failures v = concat [show e | Failure e <- v]
 
+-- 30:type Error e = Validation (NonEmpty (Pn,e))
+-- 33:type Err = Error String
+
+
+
 -- Checks also DISTINCT cases. Currently, they can overlap
 -- For example: (a<b) can be overlapping with a=c
 -- we can accomplish this via namesFromExp
-abstractCases :: [Exp Bool] -> Err [Exp Bool]
-abstractCases a = Success (successes y) where -- TODO we we lose all Errors here
+abstractCases :: [Exp Bool] -> [Err (Exp Bool)]
+abstractCases a = y where -- TODO we we lose all Errors here
   (x, y, z) = abstractCasesHelper (a, [], start)
-type MyPair = ([Exp Bool], [Err (Exp Bool)], (Int, AbstFunc))
-abstractCasesHelper :: MyPair -> MyPair
+type MyStruct = ([Exp Bool], [Err (Exp Bool)], (Int, AbstFunc))
+abstractCasesHelper :: MyStruct -> MyStruct
 abstractCasesHelper ([], b, c) = ([], b, c)
-abstractCasesHelper (a:ax, b, c)  = abstractCasesHelper (ax, z, y) where
+abstractCasesHelper (a:ax, f, c)  = abstractCasesHelper (ax, z, y) where
   (x, y) = runState (abstractCase a) c
-  z = x:(b)
+  z = x:f
 
 -- Use this to actually bind & run the Monad
 
