@@ -121,7 +121,7 @@ failures v = concat [show e | Failure e <- v]
 -- For example: (a<b) can be overlapping with a=c
 -- we can accomplish this via namesFromExp
 abstractCases :: [Exp Bool] -> [Err (Exp Bool)]
-abstractCases a = y where -- TODO we we lose all Errors here
+abstractCases a = y where
   (x, y, z) = abstractCasesHelper (a, [], start)
 type MyStruct = ([Exp Bool], [Err (Exp Bool)], (Int, AbstFunc))
 abstractCasesHelper :: MyStruct -> MyStruct
