@@ -39,12 +39,16 @@ import SMT
 import Debug.Trace
 import Data.Validation (fromEither)
 
-checkConsistency :: [Claim] -> Err [Claim]
-checkConsistency = undefined
+checkConsistency :: [Claim] -> [IO (Err ())]
+checkConsistency x = Prelude.map checkcases (mygrouping x)
 
--- Contract -> Interface -> Cases
-mygrouping :: [Claim] -> Map Id (Map Id [Exp Bool])
-mygrouping = undefined
+mygrouping :: [Claim] -> [[Exp Bool]]
+mygrouping a =  Prelude.map expsFromBehav (behavsFromClaims a)
+  where
+    behavsFromClaims :: [Claim] -> [Behaviour]
+    behavsFromClaims x = [b | (B b) <- x]
+    expsFromBehav :: Behaviour -> [Exp Bool]
+    expsFromBehav x = _preconditions x
 
 type Ctx = Int
 -- doSmth :: Ctx -> Int -> Int
@@ -52,10 +56,8 @@ type Ctx = Int
 --   ctx <- get
 --   put 10
 
--- checkcases -> normalize -> abstractcases
-
-checkcases :: [Exp Bool] -> Err ()
-checkcases = undefined
+checkcases :: [Exp Bool] -> IO (Err ())
+checkcases x = checkNoOverlap (abstractCases x)
 
 -- To be run like: "checkNoOverlap abstractCases [Exp Bool]". It will then:
 --   Abstract away, while checking that abstractions don't have overlapping variables
