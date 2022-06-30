@@ -38,17 +38,22 @@ import Data.Containers.ListUtils (nubOrd)
 import SMT
 import Debug.Trace
 import Data.Validation (fromEither)
+import Syntax
 
-checkConsistency :: [Claim] -> [IO (Err ())]
-checkConsistency x = Prelude.map checkcases (mygrouping x)
+checkConsistency :: [Claim] -> IO (Err ())
+checkConsistency x = do
+  y <- checkcases (mygrouping x)
+  return $ y
 
-mygrouping :: [Claim] -> [[Exp Bool]]
-mygrouping a =  Prelude.map expsFromBehav (behavsFromClaims a)
+mygrouping :: [Claim] -> [Exp Bool]
+mygrouping a =  Prelude.map (andTogether . expsFromBehav) (behvsFromClaims a)
   where
-    behavsFromClaims :: [Claim] -> [Behaviour]
-    behavsFromClaims x = [b | (B b) <- x]
     expsFromBehav :: Behaviour -> [Exp Bool]
     expsFromBehav x = _preconditions x
+    andTogether :: [Exp Bool] -> Exp Bool
+    andTogether [b] = b
+    andTogether (b:bx) = And nowhere b (andTogether bx)
+    andTogether [] = LitBool nowhere True
 
 type Ctx = Int
 -- doSmth :: Ctx -> Int -> Int
@@ -56,23 +61,23 @@ type Ctx = Int
 --   ctx <- get
 --   put 10
 
-checkcases :: [Exp Bool] -> IO (Err ())
-checkcases x = checkNoOverlap (abstractCases x)
+checkcases :: [Exp Bool] -> Err (IO ())
+checkcases x = do
+  cases <- abstractCases x
+  checkNoOverlap cases
 
 -- To be run like: "checkNoOverlap abstractCases [Exp Bool]". It will then:
 --   Abstract away, while checking that abstractions don't have overlapping variables
 --   Then checks the cases don't overlap.
-checkNoOverlap :: [Err (Exp Bool)] -> IO (Err ())
+checkNoOverlap :: [Exp Bool] -> Err (IO ())
 checkNoOverlap x = do
   let config = SMT.SMTConfig {_solver=SMT.Z3, _timeout=100, _debug=False}
-  solverInstance <- spawnSolver config
-  let mypairs = pairs (successes x) :: [Exp Bool] -- TODO filtering here!!!
-  traceM (show mypairs)
+  let solverInstance = spawnSolver config
+  let mypairs = pairs x :: [Exp Bool]
   let queries = expToQuery <$> (mypairs) :: [SMT2]
   traceM (show queries)
-  results <- mapM (checkSat solverInstance throwaway) (queries) :: IO [SMTResult]
-  traceM (show results)
-  return $ resultsAgg results
+  let results = mapM (checkSat solverInstance throwaway) (queries) :: IO [SMTResult]
+  pure $ resultsAgg results
   where
     throwaway :: SMT.SolverInstance -> IO Model
     throwaway  _ = pure $ Model
@@ -93,7 +98,7 @@ checkNoOverlap x = do
     pairs xs = [And nowhere x y | (x:ys) <- tails (xs), y <- ys]
     resultsAgg :: [SMTResult] -> Err ()
     resultsAgg [] = Success ()
-    resultsAgg (a:ax) = if (not $ isFail a) then (resultsAgg ax) else (throw (nowhere, "a"))
+    resultsAgg (a:ax) = if (not $ isFail a) then (resultsAgg ax) else (throw (nowhere, "there is overlap"))
 
 
 -- We look up Exp Bool in `expression`, and if it's not there
@@ -109,28 +114,33 @@ start = (0, AbstFunc {setOfVars = Set.empty, expression = Map.empty})
 successes :: [Validation e a] -> [a]
 successes v = [a | Success a <- v]
 
+-- getSuccess :: Validation a b -> b
+-- getSuccess (Error.Success r:es) = res
+-- getSuccess x = undefined
+
+
 -- failures :: Show e => [Validation e a] -> [String]
 -- failures v = [show e | Failure e <- v]
 failures :: Show e => [Validation e a] -> String
 failures v = concat [show e | Failure e <- v]
-
--- 30:type Error e = Validation (NonEmpty (Pn,e))
--- 33:type Err = Error String
 
 
 
 -- Checks also DISTINCT cases. Currently, they can overlap
 -- For example: (a<b) can be overlapping with a=c
 -- we can accomplish this via namesFromExp
-abstractCases :: [Exp Bool] -> [Err (Exp Bool)]
+abstractCases :: [Exp Bool] -> Err [Exp Bool]
 abstractCases a = y where
-  (x, y, z) = abstractCasesHelper (a, [], start)
-type MyStruct = ([Exp Bool], [Err (Exp Bool)], (Int, AbstFunc))
+  (_, y, _) = abstractCasesHelper (a, Success [], start)
+type MyStruct = ([Exp Bool], Err [Exp Bool], (Int, AbstFunc))
 abstractCasesHelper :: MyStruct -> MyStruct
 abstractCasesHelper ([], b, c) = ([], b, c)
 abstractCasesHelper (a:ax, f, c)  = abstractCasesHelper (ax, z, y) where
   (x, y) = runState (abstractCase a) c
-  z = x:f
+  z = do
+    x' <- x
+    f' <- f
+    Success $ x' : f'
 
 -- Use this to actually bind & run the Monad
 
