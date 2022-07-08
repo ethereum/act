@@ -75,11 +75,11 @@ checkNoOverlap exprs = do
   let mypairs = pairs exprs :: [Exp Bool]
   let queries = expToQuery <$> (mypairs) :: [SMT2]
   traceM (show queries)
-  let results = mapM (checkSat solverInstance throwaway) (queries) :: IO [SMTResult]
+  solverInstance <- spawnSolver config
+  results <- mapM (checkSat solverInstance throwaway) (queries) :: IO [SMTResult]
   return $ resultsAgg results
   where
     config = SMT.SMTConfig {_solver=SMT.Z3, _timeout=100, _debug=False}
-    solverInstance = spawnSolver config
     throwaway :: SMT.SolverInstance -> IO Model
     throwaway  _ = pure $ Model
       { _mprestate  = []
