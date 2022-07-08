@@ -33,17 +33,14 @@ import qualified Data.Map as Map
 import Control.Monad.State
 import Prelude hiding (LT, GT)
 import Data.Set as Set
-import Data.List (tails, nub, sort)
-import Data.Containers.ListUtils (nubOrd)
+import Data.List (tails)
 import SMT
 import Debug.Trace
-import Data.Validation (fromEither)
-import Syntax
+-- import Data.Validation (fromEither)
+-- import Syntax
 
 checkConsistency :: [Claim] -> IO (Err ())
-checkConsistency x = do
-  y <- checkcases (mygrouping x)
-  return $ y
+checkConsistency x = do checkcases (mygrouping x)
 
 mygrouping :: [Claim] -> [Exp Bool]
 mygrouping a =  Prelude.map (andTogether . expsFromBehav) (behvsFromClaims a)
@@ -61,24 +58,28 @@ type Ctx = Int
 --   ctx <- get
 --   put 10
 
-checkcases :: [Exp Bool] -> Err (IO ())
-checkcases x = do
-  cases <- abstractCases x
-  checkNoOverlap cases
+checkcases :: [Exp Bool] -> IO (Err ())
+checkcases x = myret cases
+  where
+    cases = abstractCases x
+    myret :: Err [Exp Bool] -> IO (Err ())
+    myret (Success k) = checkNoOverlap k
+    myret (Failure k) =  return $ throw (nowhere, "TODO k should be re-thrown here")
 
 -- To be run like: "checkNoOverlap abstractCases [Exp Bool]". It will then:
 --   Abstract away, while checking that abstractions don't have overlapping variables
 --   Then checks the cases don't overlap.
-checkNoOverlap :: [Exp Bool] -> Err (IO ())
-checkNoOverlap x = do
-  let config = SMT.SMTConfig {_solver=SMT.Z3, _timeout=100, _debug=False}
-  let solverInstance = spawnSolver config
-  let mypairs = pairs x :: [Exp Bool]
+checkNoOverlap :: [Exp Bool] -> IO (Err ())
+checkNoOverlap exprs = do
+  -- check if they are pairwise independent
+  let mypairs = pairs exprs :: [Exp Bool]
   let queries = expToQuery <$> (mypairs) :: [SMT2]
   traceM (show queries)
   let results = mapM (checkSat solverInstance throwaway) (queries) :: IO [SMTResult]
-  pure $ resultsAgg results
+  return $ resultsAgg results
   where
+    config = SMT.SMTConfig {_solver=SMT.Z3, _timeout=100, _debug=False}
+    solverInstance = spawnSolver config
     throwaway :: SMT.SolverInstance -> IO Model
     throwaway  _ = pure $ Model
       { _mprestate  = []
@@ -88,11 +89,11 @@ checkNoOverlap x = do
       , _minitargs = []
       }
     expToQuery :: Exp Bool -> SMT2
-    expToQuery e = (unlines init) ++ assert
+    expToQuery e = (unlines initx) ++ assert
       where
         assert = mkAssert "" e
         names = namesFromExp e :: Set (TypedExp)
-        init =  toList $ Set.map (flip SMT.constant Boolean . withInterface "" . typedExpToSMT2) names :: [SMT2]
+        initx =  toList $ Set.map (flip SMT.constant Boolean . withInterface "" . typedExpToSMT2) names :: [SMT2]
 
     pairs :: [Exp Bool] -> [Exp Bool]
     pairs xs = [And nowhere x y | (x:ys) <- tails (xs), y <- ys]
@@ -223,6 +224,7 @@ abstractCase (LT pn exp1 exp2) = do
     var1 <- case Map.lookup (LT nowhere exp1 exp2) (expression ctx) of
        Just v -> return v
        Nothing -> do
+         -- check if we have already seen these variables used in an expression
          let exp1Names = (Syntax.namesFromExp exp1)
          let exp2Names = (Syntax.namesFromExp exp2)
          let check =(exp1Names `union` exp2Names) `intersection` (setOfVars ctx)
@@ -249,6 +251,7 @@ abstractCase (Eq pn (exp1 :: Exp tp) (exp2 :: Exp tp)) = case eqT @tp @Bool of
     var1 <- case Map.lookup (Eq nowhere exp1 exp2) (expression ctx) of
        Just v -> return v
        Nothing -> do
+         -- check if we have already seen these variables used in an expression
          let exp1Names = (Syntax.namesFromExp exp1)
          let exp2Names = (Syntax.namesFromExp exp2)
          let check =(exp1Names `union` exp2Names) `intersection` (setOfVars ctx)
