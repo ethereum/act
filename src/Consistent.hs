@@ -240,8 +240,8 @@ abstractCase (LT pn exp1 exp2) = do
            put (lastVar+1, AbstFunc {setOfVars = x, expression=y})
            return lastVar
          else
-           return 999
-    if var1 == 999 then return $ throw (nowhere, "Abtracted expression uses same set of inputs twice")
+           return (-1)
+    if var1 == -1 then return $ throw (nowhere, "Abtracted expression uses same set of inputs twice")
     else return $ do
       pure $ Var pn SBoolean (show var1)
 abstractCase (Eq pn (exp1 :: Exp tp) (exp2 :: Exp tp)) = case eqT @tp @Bool of
@@ -267,8 +267,8 @@ abstractCase (Eq pn (exp1 :: Exp tp) (exp2 :: Exp tp)) = case eqT @tp @Bool of
            put (lastVar+1, AbstFunc {setOfVars = x, expression=y})
            return lastVar
          else
-           return 999
-    if var1 == 999 then return $ throw (nowhere, "Abtracted expression uses same set of inputs twice")
+           return (-1)
+    if var1 == -1 then return $ throw (nowhere, "Abtracted expression uses same set of inputs twice")
     else return $ do
       pure $ Var pn SBoolean (show var1)
 abstractCase _ = undefined
