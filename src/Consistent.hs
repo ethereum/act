@@ -133,15 +133,21 @@ failures v = concat [show e | Failure e <- v]
 abstractCases :: [Exp Bool] -> Err [Exp Bool]
 abstractCases a = y where
   (_, y, _) = abstractCasesHelper (a, Success [], start)
+
+-- This struct is:
+--   Input expressions, Output abstract expressions, current max integer used
 type MyStruct = ([Exp Bool], Err [Exp Bool], (Int, AbstFunc))
+
 abstractCasesHelper :: MyStruct -> MyStruct
 abstractCasesHelper ([], b, c) = ([], b, c)
-abstractCasesHelper (a:ax, f, c)  = abstractCasesHelper (ax, z, y) where
-  (x, y) = runState (abstractCase a) c
-  z = do
-    x' <- x
-    f' <- f
-    Success $ x' : f'
+abstractCasesHelper (a:ax, f, c)  = abstractCasesHelper (ax, k, y) where
+  (z, y) = runState (abstractCase a) c
+  k = failfirst f z
+    where
+      failfirst :: Err [Exp Bool] -> Err (Exp Bool) -> Err [Exp Bool]
+      failfirst (Success v1) (Success v2) = Success (v2:v1)
+      failfirst _ (Failure v2) = Failure v2
+      failfirst (Failure v1) _= Failure v1
 
 -- Use this to actually bind & run the Monad
 
