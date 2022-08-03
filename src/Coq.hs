@@ -93,14 +93,16 @@ baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _) =
       <> baseSuffix <> " : "
       <> universal <> "\n"
       <> constructorBody where
-    baseval = parens $ name' <> " " <> arguments i
+    baseval = parens $ name' <> " " <> envVar <> " " <> arguments i
     constructorBody = (indent 2) . implication . concat $
       [ coqprop <$> conds
       , [reachableType <> " " <> baseval <> " " <> baseval]
       ]
-    universal = if null decls
+    universal =
+      "forall " <> envDecl <> " " <>
+      if null decls
       then ""
-      else "forall " <> interface i <> ","
+      else interface i <> ","
 
 -- | recursive constructor for the reachable relation
 reachableStep :: Behaviour -> Fresh T.Text
@@ -109,14 +111,15 @@ reachableStep (Behaviour name _ _ i conds _ _ _) =
   continuation name' =
     return $ name'
       <> stepSuffix <> " : forall "
-      <> parens (baseVar <> " " <> stateVar <> " : " <> stateType)
+      <> envDecl <> " "
+      <> parens (baseVar <> " " <> stateVar <> " : " <> stateType) <> " "
       <> interface i <> ",\n"
       <> constructorBody where
     constructorBody = (indent 2) . implication . concat $
       [ [reachableType <> " " <> baseVar <> " " <> stateVar]
       , coqprop <$> conds
       , [ reachableType <> " " <> baseVar <> " "
-          <> parens (name' <> " " <> stateVar <> " " <> arguments i)
+          <> parens (name' <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)
         ]
       ]
 
@@ -124,13 +127,13 @@ reachableStep (Behaviour name _ _ i conds _ _ _) =
 base :: Store -> Constructor -> Fresh T.Text
 base store (Constructor name _ i _ _ updates _) = do
   name' <- fresh name
-  return $ definition name' (interface i) $
+  return $ definition name' (envDecl <> " " <> interface i) $
     stateval store (\_ t -> defaultValue t) updates
 
 claim :: Store -> Behaviour -> Fresh T.Text
 claim store (Behaviour name _ _ i _ _ rewrites _) = do
   name' <- fresh name
-  return $ definition name' (stateDecl <> " " <> interface i) $
+  return $ definition name' (envDecl <> " " <> stateDecl <> " " <> interface i) $
     stateval store (\n _ -> T.pack n <> " " <> stateVar) (updatesFromRewrites rewrites)
 
 -- | inductive definition of a return claim
@@ -140,14 +143,14 @@ retVal (Behaviour name _ _ i conds _ _ (Just r)) =
   fresh name >>= continuation where
   continuation name' = return $ inductive
     (name' <> returnSuffix)
-    (stateDecl <> " " <> interface i)
+    (envDecl <> " " <> stateDecl <> " " <> interface i)
     (returnType r <> " -> Prop")
     [retname <> introSuffix <> " :\n" <> body] where
 
     retname = name' <> returnSuffix
     body = indent 2 . implication . concat $
       [ coqprop <$> conds
-      , [retname <> " " <> stateVar <> " " <> arguments i <> " " <> typedexp r]
+      , [retname <> " " <> envVar <> " " <> stateVar <> " " <> arguments i <> " " <> typedexp r]
       ]
 
 retVal _ = return ""
@@ -275,8 +278,11 @@ coqexp (ITE _ b e1 e2) = parens $ "if "
                                <> " else "
                                <> coqexp e2
 
+-- environment values
+coqexp (IntEnv _ Caller) = parens (callerVar <> " " <> envVar)
+
 -- unsupported
-coqexp (IntEnv _ e) = error $ show e <> ": environment values not yet supported"
+coqexp (IntEnv _ e) = error $ show e <> ": environment value not yet supported"
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
 coqexp (Var _ SByteStr _) = error "bytestrings not supported"
@@ -385,6 +391,23 @@ introSuffix = "_intro"
 
 reachableType :: T.Text
 reachableType = "reachable"
+
+-- | Environment Values
+
+callerVar :: T.Text
+callerVar = "CALLER"
+
+callerType :: T.Text
+callerType = "address"
+
+envType :: T.Text
+envType = "Env"
+
+envVar :: T.Text
+envVar = "ENV"
+
+envDecl :: T.Text
+envDecl = parens $ envVar <> " : " <> envType
 
 anon :: T.Text
 anon = "_binding_"

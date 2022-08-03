@@ -6,6 +6,10 @@ Open Scope Z_scope.
 (** * type definitions *)
 Definition address := Z.
 
+(** * Environment record *)
+Record Env : Set :=
+  { CALLER : address }.
+
 (** * integer bounds *)
 Definition UINT_MIN (n : Z) := 0.
 Definition UINT_MAX (n : Z) := 2^n - 1.
