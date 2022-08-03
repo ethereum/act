@@ -74,6 +74,7 @@ coq claims =
     decl (n, s) = (T.pack n) <> " : " <> slotType s
 
 
+
 -- | inductive definition of reachable states
 reachable :: [[Constructor]] -> [[Behaviour]] -> T.Text
 reachable constructors groups = inductive
@@ -308,7 +309,7 @@ entry (Item SByteStr _ _ _) _    = error "bytestrings not supported"
 entry _                     Post = error "TODO: missing support for poststate references in coq backend"
 entry item                  _    = case ixsFromItem item of
   []       -> parens $ T.pack (idFromItem item) <> " " <> stateVar
-  (ix:ixs) -> parens $ T.pack (idFromItem item) <> " s " <> coqargs (ix :| ixs)
+  (ix:ixs) -> parens $ T.pack (idFromItem item) <> " " <> stateVar <> " " <> coqargs (ix :| ixs)
 
 -- | coq syntax for a list of arguments
 coqargs :: NonEmpty TypedExp -> T.Text
