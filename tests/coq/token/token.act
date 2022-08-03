@@ -1,0 +1,39 @@
+constructor of Token
+interface constructor (address a, uint256 amt)
+
+creates
+  mapping(address => uint256) balances := [a := amt]
+
+
+behaviour transfer of Token
+interface transfer(address to, uint256 amt)
+
+
+iff
+
+  amt <= balances[CALLER]
+  
+
+iff in range uint256
+  
+  balances[to] + amt
+
+
+case CALLER =/= to:
+
+  storage
+
+	balances[CALLER] => balances[CALLER] - amt
+	balances[to] => balances[to] + amt
+
+  returns 1
+
+
+case CALLER == to:
+
+  returns 1
+
+  // storage
+
+  // 	balances[CALLER]
+  // 	balances[to]
