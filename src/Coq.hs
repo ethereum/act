@@ -169,20 +169,20 @@ stateval store handler updates = T.unwords $ stateConstructor : fmap (valuefor u
     case find (eqName name) updates' of
       Nothing -> parens $ handler name t
       Just (Update SByteStr _ _) -> error "bytestrings not supported"
-      Just (Update _ item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
+      Just (Update _ item e) -> lambda (ixsFromItem item) 0 e (idFromItem item) (flip handler t)
 
 -- | filter by name
 eqName :: Id -> StorageUpdate -> Bool
 eqName n update = n == idFromUpdate update
 
 -- represent mapping update with anonymous function
-lambda :: [TypedExp] -> Int -> Exp a -> Id -> T.Text
-lambda [] _ e _ = parens $ coqexp e
-lambda (TExp argType arg:xs) n e m = parens $
+lambda :: [TypedExp] -> Int -> Exp a -> Id -> (Id -> T.Text) -> T.Text
+lambda [] _ e _ _ = parens $ coqexp e
+lambda (TExp argType arg:xs) n e m handler = parens $
   "fun " <> name <> " =>"
   <> " if " <> name <> eqsym <> coqexp arg
-  <> " then " <> lambda xs (n + 1) e m
-  <> " else " <> T.pack m <> " " <> stateVar <> " " <> lambdaArgs n where
+  <> " then " <> lambda xs (n + 1) e m handler
+  <> " else " <> parens (handler m) <> " " <> lambdaArgs n where
   name = anon <> T.pack (show n)
   lambdaArgs i = T.unwords $ map (\a -> anon <> T.pack (show a)) [0..i]
   eqsym = case argType of
