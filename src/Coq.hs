@@ -20,7 +20,7 @@ import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map.Strict    as M
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
-import Data.List (find, groupBy)
+import Data.List (groupBy)
 import Control.Monad.State
 
 import EVM.ABI
@@ -162,30 +162,43 @@ stateval
   -> (Id -> SlotType -> T.Text)
   -> [StorageUpdate]
   -> T.Text
-stateval store handler updates = T.unwords $ stateConstructor : fmap (valuefor updates) (M.toList store)
-  where
-  valuefor :: [StorageUpdate] -> (Id, SlotType) -> T.Text
-  valuefor updates' (name, t) =
-    case find (eqName name) updates' of
-      Nothing -> parens $ handler name t
-      Just (Update SByteStr _ _) -> error "bytestrings not supported"
-      Just (Update _ item e) -> lambda (ixsFromItem item) 0 e (idFromItem item) (flip handler t)
+stateval store handler updates = T.unwords $ stateConstructor : fmap (updateVar updates handler) (M.toList store)
 
 -- | filter by name
 eqName :: Id -> StorageUpdate -> Bool
 eqName n update = n == idFromUpdate update
 
--- represent mapping update with anonymous function
-lambda :: [TypedExp] -> Int -> Exp a -> Id -> (Id -> T.Text) -> T.Text
-lambda [] _ e _ _ = parens $ coqexp e
-lambda (TExp argType arg:xs) n e m handler = parens $
-  "fun " <> name <> " =>"
-  <> " if " <> name <> eqsym <> coqexp arg
-  <> " then " <> lambda xs (n + 1) e m handler
-  <> " else " <> parens (handler m) <> " " <> lambdaArgs n where
-  name = anon <> T.pack (show n)
-  lambdaArgs i = T.unwords $ map (\a -> anon <> T.pack (show a)) [0..i]
-  eqsym = case argType of
+-- | Returns the updated value of a storage variable 
+updateVar :: [StorageUpdate]
+          -> (Id -> SlotType -> T.Text)
+          -> (Id, SlotType)
+          -> T.Text
+updateVar updates handler (name, t@(StorageValue _)) = 
+  parens $ foldl updatedVal (handler name t) (filter (eqName name) updates) where
+
+  updatedVal _ (Update SByteStr _ _) = error "bytestrings not supported"
+  updatedVal _ (Update _ _ e) = coqexp e
+
+updateVar updates handler (name, t@(StorageMapping xs _)) = parens $
+  lambda n <> foldl updatedMap prestate (filter (eqName name) updates) where
+
+  prestate = parens (handler name t) <> " " <> lambdaArgs n
+  n = length xs
+
+  updatedMap _ (Update SByteStr _ _) = error "bytestrings not supported"
+  updatedMap prestate' (Update _ item e) =
+    "if " <> boolScope (T.intercalate " && " (map cond (zip (ixsFromItem item) ([0..] :: [Int]))))
+    <> " then " <> coqexp e 
+    <> " else " <> parens prestate'
+
+  cond (TExp argType arg, i) = parens $ anon <> T.pack (show i) <> eqsym argType <> coqexp arg
+
+  lambda i = if i >= 0 then "fun " <> lambdaArgs i <> " => " else ""
+
+  lambdaArgs i = T.unwords $ map (\a -> anon <> T.pack (show a)) ([0..i-1] :: [Int])
+
+  eqsym :: SType a -> T.Text
+  eqsym argType = case argType of
     SInteger -> " =? "
     SBoolean -> " =?? "
     SByteStr -> error "bytestrings not supported"
@@ -351,6 +364,9 @@ implication xs = "   " <> T.intercalate "\n-> " xs
 -- | wrap text in parentheses
 parens :: T.Text -> T.Text
 parens s = "(" <> s <> ")"
+
+boolScope :: T.Text -> T.Text
+boolScope s = "(" <> s <> ")%bool"
 
 indent :: Int -> T.Text -> T.Text
 indent n = T.unlines . fmap (T.replicate n " " <>) . T.lines
