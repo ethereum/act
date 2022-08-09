@@ -27,7 +27,7 @@ Definition transfer_from map (from : address) (amt : Z) :=
 Definition transfer_to map (from : address) (amt : Z) :=
   fun b => if b =? from then map from + amt else map b.
 
-Definition transfer map from to amt := transfer_from (transfer_to map to amt) from amt.
+Definition transfer map from to amt := transfer_to (transfer_from map from amt) to amt.
 
 Lemma balances_sum_f_eq f f' addr acc :
   (forall x, x <= Z.of_nat addr -> f x = f' x) ->
@@ -136,10 +136,10 @@ Proof.
   intros Hneq Hleq1 Hleq2.
   unfold transfer. 
   
-  rewrite balances_sum_transfer_from; [ | lia ].
+  rewrite balances_sum_transfer_to; [ | lia ].
   rewrite leb_correct; [ | lia ].
   
-  rewrite balances_sum_transfer_to; [ | lia ].
+  rewrite balances_sum_transfer_from; [ | lia ].
   rewrite leb_correct; [ | lia ].
 
   lia.
@@ -153,15 +153,16 @@ Proof.
   intros BASE S Hreach. induction Hreach; intros.
   - reflexivity.
   - rewrite IHHreach. unfold transfer0. 
-    unfold balances_sum. Opaque MAX_ADDRESS. Opaque balances_sum'. simpl.
+    unfold balances_sum. simpl.
     
     erewrite <- transfer_thm.
     
     + unfold transfer, transfer_to, transfer_from.
-      eapply Z.eqb_neq in H. rewrite H. reflexivity.
+      eapply not_eq_sym in H. eapply Z.eqb_neq in H.
+      rewrite H. reflexivity.
 
     + eauto.
-    + Transparent MAX_ADDRESS. rewrite Z2Nat.id. assumption.
+    + rewrite Z2Nat.id. assumption.
       unfold MAX_ADDRESS. unfold UINT_MAX. lia.
 
     + rewrite Z2Nat.id. assumption.
