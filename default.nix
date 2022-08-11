@@ -27,7 +27,7 @@ let
       pkgs.jq
       pkgs.z3
       pkgs.cvc4
-      pkgs.coq_8_10
+      pkgs.coq_8_13
       dapptools.solc
       pkgs.mdbook
       pkgs.mdbook-mermaid

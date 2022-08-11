@@ -52,7 +52,7 @@ hevm_fail=$(wildcard tests/hevm/fail/*/*.act)
 failing_typing=tests/frontend/pass/array/array.act tests/frontend/pass/dss/vat.act tests/frontend/pass/creation/createMultiple.act tests/frontend/pass/staticstore/staticstore.act
 
 
-coq-examples = tests/coq/transitions tests/coq/safemath tests/coq/exponent
+coq-examples = tests/coq/transitions tests/coq/safemath tests/coq/exponent tests/coq/token
 
 .PHONY: test-coq $(coq-examples)
 test-coq: compiler $(coq-examples)
