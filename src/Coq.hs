@@ -100,9 +100,9 @@ baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _) =
       ]
     universal =
       "forall " <> envDecl <> " " <>
-      if null decls
-      then ""
-      else interface i <> ","
+      (if null decls
+       then ""
+       else interface i) <> ","
 
 -- | recursive constructor for the reachable relation
 reachableStep :: Behaviour -> Fresh T.Text
