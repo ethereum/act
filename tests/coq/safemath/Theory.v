@@ -11,8 +11,8 @@ Proof.
   reflexivity.
 Qed.
 
-Theorem mul_correct : forall s x y,
-  range256 x /\ range256 y /\ range256 (x * y) <-> mul0_ret s x y (x * y).
+Theorem mul_correct : forall e s x y,
+  range256 x /\ range256 y /\ range256 (x * y) <-> mul0_ret e s x y (x * y).
 Proof.
   intros.
   split. {
@@ -23,9 +23,18 @@ Proof.
     - assumption.
     - assumption.
   } {
-    intros. induction H.
+    intros. destruct H.
     split. assumption.
     split. assumption. assumption.
   }
 Qed. Check mul_correct.
 
+
+Theorem mul_is_mul :
+  forall e s x y z,
+    mul0_ret e s x y z ->
+    z = x * y.
+Proof.
+  intros. inversion H.
+  reflexivity.
+Qed.
