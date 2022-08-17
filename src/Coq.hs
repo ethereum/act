@@ -168,40 +168,40 @@ stateval store handler updates = T.unwords $ stateConstructor : fmap (updateVar 
 eqName :: Id -> StorageUpdate -> Bool
 eqName n update = n == idFromUpdate update
 
--- | Returns the updated value of a storage variable 
+-- | Returns the updated value of a storage variable
 updateVar :: [StorageUpdate]
           -> (Id -> SlotType -> T.Text)
           -> (Id, SlotType)
           -> T.Text
-updateVar updates handler (name, t@(StorageValue _)) = 
-  parens $ foldl updatedVal (handler name t) (filter (eqName name) updates) where
-
-  updatedVal _ (Update SByteStr _ _) = error "bytestrings not supported"
-  updatedVal _ (Update _ _ e) = coqexp e
+updateVar updates handler (name, t@(StorageValue _)) =
+  parens $ foldl updatedVal (handler name t) (filter (eqName name) updates)
+    where
+      updatedVal _ (Update SByteStr _ _) = error "bytestrings not supported"
+      updatedVal _ (Update _ _ e) = coqexp e
 
 updateVar updates handler (name, t@(StorageMapping xs _)) = parens $
-  lambda n <> foldl updatedMap prestate (filter (eqName name) updates) where
+  lambda n <> foldl updatedMap prestate (filter (eqName name) updates)
+    where
+      prestate = parens (handler name t) <> " " <> lambdaArgs n
+      n = length xs
 
-  prestate = parens (handler name t) <> " " <> lambdaArgs n
-  n = length xs
+      updatedMap _ (Update SByteStr _ _) = error "bytestrings not supported"
+      updatedMap prestate' (Update _ item e) =
+        "if " <> boolScope (T.intercalate " && " (map cond (zip (ixsFromItem item) ([0..] :: [Int]))))
+        <> " then " <> coqexp e
+        <> " else " <> parens prestate'
 
-  updatedMap _ (Update SByteStr _ _) = error "bytestrings not supported"
-  updatedMap prestate' (Update _ item e) =
-    "if " <> boolScope (T.intercalate " && " (map cond (zip (ixsFromItem item) ([0..] :: [Int]))))
-    <> " then " <> coqexp e 
-    <> " else " <> parens prestate'
+      cond (TExp argType arg, i) = parens $ anon <> T.pack (show i) <> eqsym argType <> coqexp arg
 
-  cond (TExp argType arg, i) = parens $ anon <> T.pack (show i) <> eqsym argType <> coqexp arg
+      lambda i = if i >= 0 then "fun " <> lambdaArgs i <> " => " else ""
 
-  lambda i = if i >= 0 then "fun " <> lambdaArgs i <> " => " else ""
+      lambdaArgs i = T.unwords $ map (\a -> anon <> T.pack (show a)) ([0..i-1] :: [Int])
 
-  lambdaArgs i = T.unwords $ map (\a -> anon <> T.pack (show a)) ([0..i-1] :: [Int])
-
-  eqsym :: SType a -> T.Text
-  eqsym argType = case argType of
-    SInteger -> " =? "
-    SBoolean -> " =?? "
-    SByteStr -> error "bytestrings not supported"
+      eqsym :: SType a -> T.Text
+      eqsym argType = case argType of
+        SInteger -> " =? "
+        SBoolean -> " =?? "
+        SByteStr -> error "bytestrings not supported"
 
 -- | produce a block of declarations from an interface
 interface :: Interface -> T.Text
