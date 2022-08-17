@@ -292,10 +292,21 @@ coqexp (ITE _ b e1 e2) = parens $ "if "
                                <> coqexp e2
 
 -- environment values
-coqexp (IntEnv _ Caller) = parens (callerVar <> " " <> envVar)
+coqexp (IntEnv _ Callvalue) = parens ("Callvalue" <> " " <> envVar)
+coqexp (IntEnv _ Caller) = parens ("Caller" <> " " <> envVar)
+coqexp (IntEnv _ Blockhash) = parens ("Blockhash" <> " " <> envVar)
+coqexp (IntEnv _ Blocknumber) = parens ("Blocknumber" <> " " <> envVar)
+coqexp (IntEnv _ Difficulty) = parens ("Difficulty" <> " " <> envVar)
+coqexp (IntEnv _ Timestamp) = parens ("Timestamp" <> " " <> envVar)
+coqexp (IntEnv _ Gaslimit) = parens ("Gaslimit" <> " " <> envVar)
+coqexp (IntEnv _ Coinbase) = parens ("Coinbase" <> " " <> envVar)
+coqexp (IntEnv _ Chainid) = parens ("Chainid" <> " " <> envVar)
+coqexp (IntEnv _ This) = parens ("This" <> " " <> envVar)
+coqexp (IntEnv _ Origin) = parens ("Origin" <> " " <> envVar)
+coqexp (IntEnv _ Nonce) = parens ("Nonce" <> " " <> envVar)
+coqexp (IntEnv _ Calldepth) = parens ("Calldepth" <> " " <> envVar)
 
 -- unsupported
-coqexp (IntEnv _ e) = error $ show e <> ": environment value not yet supported"
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
 coqexp (Var _ SByteStr _) = error "bytestrings not supported"
@@ -407,14 +418,6 @@ introSuffix = "_intro"
 
 reachableType :: T.Text
 reachableType = "reachable"
-
--- | Environment Values
-
-callerVar :: T.Text
-callerVar = "CALLER"
-
-callerType :: T.Text
-callerType = "address"
 
 envType :: T.Text
 envType = "Env"

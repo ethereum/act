@@ -8,7 +8,19 @@ Definition address := Z.
 
 (** * Environment record *)
 Record Env : Set :=
-  { CALLER : address }.
+  { Callvalue : Z;
+    Caller : address;
+    Blockhash : Z;
+    Blocknumber : Z;
+    Difficulty : Z;
+    Timestamp : Z;
+    Gaslimit : Z;
+    Coinbase : address;
+    Chainid : Z;
+    This : Z;
+    Origin : address;
+    Nonce : Z;
+    Calldepth : Z }.
 
 (** * integer bounds *)
 Definition UINT_MIN (n : Z) := 0.
@@ -57,4 +69,3 @@ Proof.
   - left. reflexivity.
   - right. reflexivity.
 Qed.
-
