@@ -17,7 +17,7 @@ Record Env : Set :=
     Gaslimit : Z;
     Coinbase : address;
     Chainid : Z;
-    This : Z;
+    This : address;
     Origin : address;
     Nonce : Z;
     Calldepth : Z }.

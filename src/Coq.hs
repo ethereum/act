@@ -292,19 +292,9 @@ coqexp (ITE _ b e1 e2) = parens $ "if "
                                <> coqexp e2
 
 -- environment values
-coqexp (IntEnv _ Callvalue) = parens ("Callvalue" <> " " <> envVar)
-coqexp (IntEnv _ Caller) = parens ("Caller" <> " " <> envVar)
-coqexp (IntEnv _ Blockhash) = parens ("Blockhash" <> " " <> envVar)
-coqexp (IntEnv _ Blocknumber) = parens ("Blocknumber" <> " " <> envVar)
-coqexp (IntEnv _ Difficulty) = parens ("Difficulty" <> " " <> envVar)
-coqexp (IntEnv _ Timestamp) = parens ("Timestamp" <> " " <> envVar)
-coqexp (IntEnv _ Gaslimit) = parens ("Gaslimit" <> " " <> envVar)
-coqexp (IntEnv _ Coinbase) = parens ("Coinbase" <> " " <> envVar)
-coqexp (IntEnv _ Chainid) = parens ("Chainid" <> " " <> envVar)
-coqexp (IntEnv _ This) = parens ("This" <> " " <> envVar)
-coqexp (IntEnv _ Origin) = parens ("Origin" <> " " <> envVar)
-coqexp (IntEnv _ Nonce) = parens ("Nonce" <> " " <> envVar)
-coqexp (IntEnv _ Calldepth) = parens ("Calldepth" <> " " <> envVar)
+-- Relies on the assumption that Coq record fields have the same name
+-- as the corresponding Haskell constructor
+coqexp (IntEnv _ envVal) = parens (T.pack (show envVal) <> " " <> envVar)
 
 -- unsupported
 coqexp Cat {} = error "bytestrings not supported"
