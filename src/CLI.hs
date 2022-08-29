@@ -9,7 +9,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE ApplicativeDo #-}
 
-module CLI (main, compile) where
+module CLI (main, compile, proceed) where
 
 import Data.Aeson hiding (Bool, Number)
 import EVM.SymExec (ProofResult(..))
@@ -183,7 +183,7 @@ prove file' solver' smttimeout' debug' = do
     unless (fst invOutput && fst pcOutput) exitFailure
 
 
-coq' :: FilePath -> IO()
+coq' :: FilePath -> IO ()
 coq' f = do
   contents <- readFile f
   proceed contents (enrich <$> compile contents) $ \claims ->

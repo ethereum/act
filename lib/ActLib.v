@@ -6,6 +6,22 @@ Open Scope Z_scope.
 (** * type definitions *)
 Definition address := Z.
 
+(** * Environment record *)
+Record Env : Set :=
+  { Callvalue : Z;
+    Caller : address;
+    Blockhash : Z;
+    Blocknumber : Z;
+    Difficulty : Z;
+    Timestamp : Z;
+    Gaslimit : Z;
+    Coinbase : address;
+    Chainid : Z;
+    This : address;
+    Origin : address;
+    Nonce : Z;
+    Calldepth : Z }.
+
 (** * integer bounds *)
 Definition UINT_MIN (n : Z) := 0.
 Definition UINT_MAX (n : Z) := 2^n - 1.
@@ -53,4 +69,3 @@ Proof.
   - left. reflexivity.
   - right. reflexivity.
 Qed.
-

@@ -46,7 +46,7 @@ library act-internal
   hs-source-dirs:     .
   default-language:   Haskell2010
   exposed-modules:    CLI Error Print SMT Syntax.Annotated
-  other-modules:      Lex Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Types Syntax.Timing Syntax.TimeAgnostic Type Enrich
+  other-modules:      Lex Parse K HEVM Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Types Syntax.Timing Syntax.TimeAgnostic Type Enrich Dev
 
 executable act
   import:             deps

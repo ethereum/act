@@ -20,7 +20,7 @@ import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map.Strict    as M
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
-import Data.List (find, groupBy)
+import Data.List (groupBy)
 import Control.Monad.State
 
 import EVM.ABI
@@ -74,6 +74,7 @@ coq claims =
     decl (n, s) = (T.pack n) <> " : " <> slotType s
 
 
+
 -- | inductive definition of reachable states
 reachable :: [[Constructor]] -> [[Behaviour]] -> T.Text
 reachable constructors groups = inductive
@@ -92,14 +93,16 @@ baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _) =
       <> baseSuffix <> " : "
       <> universal <> "\n"
       <> constructorBody where
-    baseval = parens $ name' <> " " <> arguments i
+    baseval = parens $ name' <> " " <> envVar <> " " <> arguments i
     constructorBody = (indent 2) . implication . concat $
       [ coqprop <$> conds
       , [reachableType <> " " <> baseval <> " " <> baseval]
       ]
-    universal = if null decls
-      then ""
-      else "forall " <> interface i <> ","
+    universal =
+      "forall " <> envDecl <> " " <>
+      (if null decls
+       then ""
+       else interface i) <> ","
 
 -- | recursive constructor for the reachable relation
 reachableStep :: Behaviour -> Fresh T.Text
@@ -108,14 +111,15 @@ reachableStep (Behaviour name _ _ i conds _ _ _) =
   continuation name' =
     return $ name'
       <> stepSuffix <> " : forall "
-      <> parens (baseVar <> " " <> stateVar <> " : " <> stateType)
+      <> envDecl <> " "
+      <> parens (baseVar <> " " <> stateVar <> " : " <> stateType) <> " "
       <> interface i <> ",\n"
       <> constructorBody where
     constructorBody = (indent 2) . implication . concat $
       [ [reachableType <> " " <> baseVar <> " " <> stateVar]
       , coqprop <$> conds
       , [ reachableType <> " " <> baseVar <> " "
-          <> parens (name' <> " " <> stateVar <> " " <> arguments i)
+          <> parens (name' <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)
         ]
       ]
 
@@ -123,13 +127,13 @@ reachableStep (Behaviour name _ _ i conds _ _ _) =
 base :: Store -> Constructor -> Fresh T.Text
 base store (Constructor name _ i _ _ updates _) = do
   name' <- fresh name
-  return $ definition name' (interface i) $
+  return $ definition name' (envDecl <> " " <> interface i) $
     stateval store (\_ t -> defaultValue t) updates
 
 claim :: Store -> Behaviour -> Fresh T.Text
 claim store (Behaviour name _ _ i _ _ rewrites _) = do
   name' <- fresh name
-  return $ definition name' (stateDecl <> " " <> interface i) $
+  return $ definition name' (envDecl <> " " <> stateDecl <> " " <> interface i) $
     stateval store (\n _ -> T.pack n <> " " <> stateVar) (updatesFromRewrites rewrites)
 
 -- | inductive definition of a return claim
@@ -139,14 +143,14 @@ retVal (Behaviour name _ _ i conds _ _ (Just r)) =
   fresh name >>= continuation where
   continuation name' = return $ inductive
     (name' <> returnSuffix)
-    (stateDecl <> " " <> interface i)
+    (envDecl <> " " <> stateDecl <> " " <> interface i)
     (returnType r <> " -> Prop")
     [retname <> introSuffix <> " :\n" <> body] where
 
     retname = name' <> returnSuffix
     body = indent 2 . implication . concat $
       [ coqprop <$> conds
-      , [retname <> " " <> stateVar <> " " <> arguments i <> " " <> typedexp r]
+      , [retname <> " " <> envVar <> " " <> stateVar <> " " <> arguments i <> " " <> typedexp r]
       ]
 
 retVal _ = return ""
@@ -158,33 +162,46 @@ stateval
   -> (Id -> SlotType -> T.Text)
   -> [StorageUpdate]
   -> T.Text
-stateval store handler updates = T.unwords $ stateConstructor : fmap (valuefor updates) (M.toList store)
-  where
-  valuefor :: [StorageUpdate] -> (Id, SlotType) -> T.Text
-  valuefor updates' (name, t) =
-    case find (eqName name) updates' of
-      Nothing -> parens $ handler name t
-      Just (Update SByteStr _ _) -> error "bytestrings not supported"
-      Just (Update _ item e) -> lambda (ixsFromItem item) 0 e (idFromItem item)
+stateval store handler updates = T.unwords $ stateConstructor : fmap (updateVar updates handler) (M.toList store)
 
 -- | filter by name
 eqName :: Id -> StorageUpdate -> Bool
 eqName n update = n == idFromUpdate update
 
--- represent mapping update with anonymous function
-lambda :: [TypedExp] -> Int -> Exp a -> Id -> T.Text
-lambda [] _ e _ = parens $ coqexp e
-lambda (TExp argType arg:xs) n e m = parens $
-  "fun " <> name <> " =>"
-  <> " if " <> name <> eqsym <> coqexp arg
-  <> " then " <> lambda xs (n + 1) e m
-  <> " else " <> T.pack m <> " " <> stateVar <> " " <> lambdaArgs n where
-  name = anon <> T.pack (show n)
-  lambdaArgs i = T.unwords $ map (\a -> anon <> T.pack (show a)) [0..i]
-  eqsym = case argType of
-    SInteger -> " =? "
-    SBoolean -> " =?? "
-    SByteStr -> error "bytestrings not supported"
+-- | Returns the updated value of a storage variable
+updateVar :: [StorageUpdate]
+          -> (Id -> SlotType -> T.Text)
+          -> (Id, SlotType)
+          -> T.Text
+updateVar updates handler (name, t@(StorageValue _)) =
+  parens $ foldl updatedVal (handler name t) (filter (eqName name) updates)
+    where
+      updatedVal _ (Update SByteStr _ _) = error "bytestrings not supported"
+      updatedVal _ (Update _ _ e) = coqexp e
+
+updateVar updates handler (name, t@(StorageMapping xs _)) = parens $
+  lambda n <> foldl updatedMap prestate (filter (eqName name) updates)
+    where
+      prestate = parens (handler name t) <> " " <> lambdaArgs n
+      n = length xs
+
+      updatedMap _ (Update SByteStr _ _) = error "bytestrings not supported"
+      updatedMap prestate' (Update _ item e) =
+        "if " <> boolScope (T.intercalate " && " (map cond (zip (ixsFromItem item) ([0..] :: [Int]))))
+        <> " then " <> coqexp e
+        <> " else " <> parens prestate'
+
+      cond (TExp argType arg, i) = parens $ anon <> T.pack (show i) <> eqsym argType <> coqexp arg
+
+      lambda i = if i >= 0 then "fun " <> lambdaArgs i <> " => " else ""
+
+      lambdaArgs i = T.unwords $ map (\a -> anon <> T.pack (show a)) ([0..i-1] :: [Int])
+
+      eqsym :: SType a -> T.Text
+      eqsym argType = case argType of
+        SInteger -> " =? "
+        SBoolean -> " =?? "
+        SByteStr -> error "bytestrings not supported"
 
 -- | produce a block of declarations from an interface
 interface :: Interface -> T.Text
@@ -274,8 +291,12 @@ coqexp (ITE _ b e1 e2) = parens $ "if "
                                <> " else "
                                <> coqexp e2
 
+-- environment values
+-- Relies on the assumption that Coq record fields have the same name
+-- as the corresponding Haskell constructor
+coqexp (IntEnv _ envVal) = parens (T.pack (show envVal) <> " " <> envVar)
+
 -- unsupported
-coqexp (IntEnv _ e) = error $ show e <> ": environment values not yet supported"
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
 coqexp (Var _ SByteStr _) = error "bytestrings not supported"
@@ -308,7 +329,7 @@ entry (Item SByteStr _ _ _) _    = error "bytestrings not supported"
 entry _                     Post = error "TODO: missing support for poststate references in coq backend"
 entry item                  _    = case ixsFromItem item of
   []       -> parens $ T.pack (idFromItem item) <> " " <> stateVar
-  (ix:ixs) -> parens $ T.pack (idFromItem item) <> " s " <> coqargs (ix :| ixs)
+  (ix:ixs) -> parens $ T.pack (idFromItem item) <> " " <> stateVar <> " " <> coqargs (ix :| ixs)
 
 -- | coq syntax for a list of arguments
 coqargs :: NonEmpty TypedExp -> T.Text
@@ -344,6 +365,9 @@ implication xs = "   " <> T.intercalate "\n-> " xs
 -- | wrap text in parentheses
 parens :: T.Text -> T.Text
 parens s = "(" <> s <> ")"
+
+boolScope :: T.Text -> T.Text
+boolScope s = "(" <> s <> ")%bool"
 
 indent :: Int -> T.Text -> T.Text
 indent n = T.unlines . fmap (T.replicate n " " <>) . T.lines
@@ -384,6 +408,15 @@ introSuffix = "_intro"
 
 reachableType :: T.Text
 reachableType = "reachable"
+
+envType :: T.Text
+envType = "Env"
+
+envVar :: T.Text
+envVar = "ENV"
+
+envDecl :: T.Text
+envDecl = parens $ envVar <> " : " <> envType
 
 anon :: T.Text
 anon = "_binding_"
