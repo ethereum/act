@@ -140,7 +140,7 @@ splitBehaviour store (U.Transition _ name contract iface@(Interface _ decls) iff
   -- constrain integer calldata variables (TODO: other types)
   fmap concatMap (caseClaims
                     <$> checkIffs env iffs
-                    <*> traverse (inferExpr env) posts)
+                    <*> traverse (checkExpr env SBoolean) posts)
     <*> traverse (checkCase env) normalizedCases
   where
     env :: Env
@@ -177,8 +177,8 @@ splitBehaviour store (U.Definition _ contract iface@(Interface _ decls) iffs (U.
   in do
     stateUpdates <- concat <$> traverse (checkAssign env) assigns
     iffs' <- checkIffs env iffs
-    invariants <- traverse (inferExpr env) invs
-    ensures <- traverse (inferExpr env) postcs
+    invariants <- traverse (checkExpr env SBoolean) invs
+    ensures <- traverse (checkExpr env SBoolean) postcs
 
     pure $ invrClaims invariants <> ctorClaims stateUpdates iffs' ensures
   where
@@ -191,7 +191,8 @@ splitBehaviour store (U.Definition _ contract iface@(Interface _ decls) iffs (U.
 -- | Typechecks a case, returning typed versions of its preconditions, rewrites and return value.
 checkCase :: Env -> U.Case -> Err ([Exp Bool Untimed], [Rewrite], Maybe (TypedExp Timed))
 checkCase env c@(U.Case _ pre post) = do
-  if' <- traverse (inferExpr env) $ if isWild c then [] else [pre]
+  -- XXX isWild checks for WildExp, but WildExp is never generated
+  if' <- traverse (checkExpr env SBoolean) $ if isWild c then [] else [pre]  
   (storage,return') <- checkPost env post
   pure (if',storage,return')
 
@@ -204,7 +205,7 @@ noStorageRead store expr = for_ (keys store) $ \name ->
 -- ensures that key types match value types in an U.Assign
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
 checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar _ (StorageValue (FromAbi typ)) name) expr)
-  = sequenceA [_Update (Item typ contract name []) <$> inferExpr env expr]
+  = sequenceA [_Update (Item typ contract name []) <$> checkExpr env typ expr]
     <* noStorageRead store expr
 checkAssign env@Env{store} (U.AssignMany (U.StorageVar _ (StorageMapping (keyType :| _) valType) name) defns)
   = for defns $ \def@(U.Defn e1 e2) -> checkDefn env keyType valType name def
@@ -222,7 +223,7 @@ checkDefn :: Env -> AbiType -> AbiType -> Id -> U.Defn -> Err StorageUpdate
 checkDefn env@Env{contract} keyType (FromAbi valType) name (U.Defn k val) =
   _Update
   <$> (Item valType contract name <$> checkIxs env (getPosn k) [k] [keyType])
-  <*> inferExpr env val
+  <*> checkExpr env valType val
 
 -- | Typechecks a postcondition, returning typed versions of its storage updates and return expression.
 checkPost :: Env -> U.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
@@ -279,11 +280,11 @@ checkStorageExpr :: Env -> U.Pattern -> U.Expr -> Err StorageUpdate
 checkStorageExpr _ (U.PWild _) _ = error "TODO: add support for wild storage to checkStorageExpr"
 checkStorageExpr env@Env{contract,store} (U.PEntry p name args) expr = case Map.lookup name store of
   Just (StorageValue (FromAbi typ)) ->
-    _Update (Item typ contract name []) <$> inferExpr env expr
+    _Update (Item typ contract name []) <$> checkExpr env typ expr
   Just (StorageMapping argtyps (FromAbi valType)) ->
     _Update
     <$> (Item valType contract name <$> checkIxs env p args (NonEmpty.toList argtyps))
-    <*> inferExpr env expr
+    <*> checkExpr env typ expr
   Nothing ->
     throw (p, "Unknown storage variable " <> show name)
 
@@ -302,8 +303,8 @@ checkPattern env@Env{contract,store} (U.PEntry p name args) =
 checkIffs :: Env -> [U.IffH] -> Err [Exp Bool Untimed]
 checkIffs env = foldr check (pure [])
   where
-    check (U.Iff   _     exps) acc = mappend <$> traverse (inferExpr env) exps                    <*> acc
-    check (U.IffIn _ typ exps) acc = mappend <$> traverse (fmap (bound typ) . inferExpr env) exps <*> acc
+    check (U.Iff   _     exps) acc = mappend <$> traverse (checkExpr SBoollean env) exps <*> acc
+    check (U.IffIn _ typ exps) acc = mappend <$> traverse (fmap (bound typ) . checkExpr SInteger env) exps <*> acc
 
 bound :: AbiType -> Exp Integer t -> Exp Bool t
 bound typ e = And nowhere (LEQ nowhere (lowerBound typ) e) $ LEQ nowhere e (upperBound typ)
@@ -323,100 +324,133 @@ upperBound typ = error $ "upperBound not implemented for " ++ show typ
 
 -- | Attempt to construct a `TypedExp` whose type matches the supplied `AbiType`.
 -- The target timing parameter will be whatever is required by the caller.
-checkExpr :: Typeable t => Env -> U.Expr -> AbiType -> Err (TypedExp t)
-checkExpr env e (FromAbi typ) = TExp typ <$> inferExpr env e
+checkAbiExpr :: Typeable t => Env -> U.Expr -> AbiType -> Err (TypedExp t)
+checkAbiExpr env e (FromAbi typ) = TExp typ <$> checkExpr env e typ
 
 -- | Attempt to typecheck an untyped expression as any possible type.
-typedExp :: Typeable t => Env -> U.Expr -> Err (TypedExp t)
-typedExp env e = fromMaybe (error $ "Internal error: Type.typedExp. Expr: " <> show e)
-                 $ notAtPosn (getPosn e)
-                 [ TExp SInteger <$> inferExpr env e
-                 , TExp SBoolean <$> inferExpr env e
-                 , TExp SByteStr <$> inferExpr env e
-                 ]
+typedExp :: Env -> U.Expr -> Err (TypedExp t)
+typedExp env e = inferExpr env e `bindValidation` (\t -> TExp t <$> checkExpr env e t)
 
--- | Attempts to construct an expression with the type and timing required by
--- the caller. If this is impossible, an error is thrown instead.
-inferExpr :: forall a t. (Typeable a, Typeable t) => Env -> U.Expr -> Err (Exp a t)
+-- | Infer the type of an expression
+inferExpr :: Env -> U.Expr -> Err (SType a)
 inferExpr env@Env{contract,store,calldata} expr = case expr of
-  U.ENot    p v1    -> check p <*> (Neg  p <$> inferExpr env v1)
-  U.EAnd    p v1 v2 -> check p <*> (And  p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EOr     p v1 v2 -> check p <*> (Or   p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EImpl   p v1 v2 -> check p <*> (Impl p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EEq     p v1 v2 -> polycheck p Eq v1 v2
-  U.ENeq    p v1 v2 -> polycheck p NEq v1 v2
-  U.ELT     p v1 v2 -> check p <*> (LT  p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.ELEQ    p v1 v2 -> check p <*> (LEQ p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EGEQ    p v1 v2 -> check p <*> (GEQ p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EGT     p v1 v2 -> check p <*> (GT  p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EAdd    p v1 v2 -> check p <*> (Add p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.ESub    p v1 v2 -> check p <*> (Sub p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EMul    p v1 v2 -> check p <*> (Mul p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EDiv    p v1 v2 -> check p <*> (Div p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EMod    p v1 v2 -> check p <*> (Mod p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.EExp    p v1 v2 -> check p <*> (Exp p <$> inferExpr env v1 <*> inferExpr env v2)
-  U.IntLit  p v1    -> check p ?? LitInt  p v1
-  U.BoolLit p v1    -> check p ?? LitBool p v1
-  U.EITE    p v1 v2 v3 -> ITE p <$> inferExpr env v1 <*> inferExpr env v2 <*> inferExpr env v3
-  U.EUTEntry   p name es -> entry p Neither name es
-  U.EPreEntry  p name es -> entry p Pre     name es
-  U.EPostEntry p name es -> entry p Post    name es
+  -- Boolean expressions
+  U.ENot    p v1    -> SBoolean <$ checkExpr env SBoolean v1
+  U.EAnd    p v1 v2 -> SBoolean <$ checkExpr env SBoolean v1 <* checkExpr env SBoolean v
+  U.EOr     p v1 v2 -> SBoolean <$ checkExpr env SBoolean v1 <* checkExpr env SBoolean v
+  U.EImpl   p v1 v2 -> SBoolean <$ checkExpr env SBoolean v1 <* checkExpr env SBoolean v
+  U.ELT     p v1 v2 -> SBoolean <$ checkExpr env SInteger v1 <* checkExpr env SInteger v
+  U.ELEQ    p v1 v2 -> SBoolean <$ checkExpr env SInteger v1 <* checkExpr env SInteger v
+  U.EGEQ    p v1 v2 -> SBoolean <$ checkExpr env SInteger v1 <* checkExpr env SInteger v
+  U.EGT     p v1 v2 -> SBoolean <$ checkExpr env SInteger v1 <* checkExpr env SInteger v
+  U.EEq     p v1 v2 -> inferPoly p v1 v2 SBoolean
+  U.ENEq    p v1 v2 -> inferPoly p v1 v2 SBoolean
+  U.BoolLit p v1    -> pure SBoolean
+  -- Arithemetic expressions
+  U.EAdd    p v1 v2 -> SInteger <$ checkExpr env SInteger v1 <* checkExpr env SInteger v2
+  U.ESub    p v1 v2 -> SInteger <$ checkExpr env SInteger v1 <* checkExpr env SInteger v2
+  U.EMul    p v1 v2 -> SInteger <$ checkExpr env SInteger v1 <* checkExpr env SInteger v2
+  U.EDiv    p v1 v2 -> SInteger <$ checkExpr env SInteger v1 <* checkExpr env SInteger v2
+  U.EMod    p v1 v2 -> SInteger <$ checkExpr env SInteger v1 <* checkExpr env SInteger v2
+  U.EExp    p v1 v2 -> SInteger <$ checkExpr env SInteger v1 <* checkExpr env SInteger v2
+  U.IntLit  p v1    -> pure SInteger
+  -- Control
+  U.EITE    p v1 v2 v3 -> inferExpr `bindValidation` (\t1 ->
+                            inferExpr `bindValidation` (\t2 ->
+                              assertEq p t1 t2 <* checkExpr env SBoolean v1))
+  -- Variable references
+  U.EUTEntry   p name es -> fst <$> checkEntry p Neither name es
+  U.EPreEntry  p name es -> fst <$> checkEntry p Pre     name es
+  U.EPostEntry p name es -> fst <$> checkEntry p Post    name es
+  -- Environment variables
   U.EnvExp p v1 -> case lookup v1 defaultStore of
-    Just Integer -> check p ?? IntEnv p v1
-    Just ByteStr -> check p ?? ByEnv  p v1
-    _            -> throw (p, "unknown environment variable " <> show v1)
-  v -> error $ "internal error: infer type of" <> show v
-  -- Wild ->
-  -- Zoom Var Exp
-  -- Func Var [U.Expr]
-  -- Look U.Expr U.Expr
-  -- ECat U.Expr U.Expr
-  -- ESlice U.Expr U.Expr U.Expr
-  -- Newaddr U.Expr U.Expr
-  -- Newaddr2 U.Expr U.Expr U.Expr
-  -- BYHash U.Expr
-  -- BYAbiE U.Expr
-  -- StringLit String
+    Just Integer -> SInteger 
+    Just ByteStr -> SByteStr
+    _            -> throw (p, "Unknown environment variable " <> show v1)
+
   where
-    check :: forall x t0. Typeable x => Pn -> Err (Exp x t0 -> Exp a t0)
-    check pn = case eqT @a @x of
-      Just Refl -> pure id
-      Nothing   -> throw (pn,"Type mismatch. Expected " <> show (typeRep @a) <> ", got " <> show (typeRep @x))
+    inferPoly :: Pn -> U.Expr -> U.Expr -> SType a -> Err (SType a)
+    inferPoly p t1 t2 ret =
+      inferExpr `bindValidation` (\t1 ->
+        inferExpr `bindValidation` (\t2 ->
+          ret <$ assertEq p t1 t2))
 
-    checkTime :: forall x t0. Typeable t0 => Pn -> Err (Exp x t0 -> Exp x t)
-    checkTime pn = case eqT @t @t0 of
-      Just Refl -> pure id
-      Nothing   -> throw (pn, (tail . show $ typeRep @t) <> " variable needed here")
+    -- Check if two types are the same and if they are, return that type
+    assertEq p t1 t2 =
+      if t1 == t2 then pure t1
+      else throw (pn, "Type mismatch. Type " <> show t1 <> " should match " <> show t2)
 
-    -- Takes a polymorphic binary AST constructor and specializes it to each of
-    -- our types. Those specializations are used in order to guide the
-    -- typechecking of the two supplied expressions. Returns at first success.
-    polycheck :: Typeable x => Pn -> (forall y. (Eq y, Typeable y) => Pn -> Exp y t -> Exp y t -> Exp x t) -> U.Expr -> U.Expr -> Err (Exp a t)
-    polycheck pn cons e1 e2 = fromMaybe (error $ "Internal error: Type.polycheck. Expr1: " <> show e1)
-      $ notAtPosn (getPosn e1)
-      [ check pn <*> (cons @Integer    pn <$> inferExpr env e1 <*> inferExpr env e2)
-      , check pn <*> (cons @Bool       pn <$> inferExpr env e1 <*> inferExpr env e2)
-      , check pn <*> (cons @ByteString pn <$> inferExpr env e1 <*> inferExpr env e2)
-      ]
 
-    -- Try to construct a reference to a calldata variable or an item in storage.
-    entry :: forall t0. Typeable t0 => Pn -> Time t0 -> Id -> [U.Expr] -> Err (Exp a t)
-    entry pn timing name es = case (Map.lookup name store, Map.lookup name calldata) of
-      (Nothing, Nothing) -> throw (pn, "Unknown variable " <> name)
-      (Just _, Just _)   -> throw (pn, "Ambiguous variable " <> name)
-      (Nothing, Just (FromAct varType)) ->
-        if isTimed timing then throw (pn, "Calldata var cannot be pre/post")
-        else check pn ?? Var pn varType name
-      (Just (StorageValue a), Nothing)      -> checkEntry a []
-      (Just (StorageMapping ts a), Nothing) -> checkEntry a $ NonEmpty.toList ts
-      where
-        checkEntry :: AbiType -> [AbiType] -> Err (Exp a t)
-        checkEntry (FromAbi entryType) ts = checkTime pn <*> (check pn <*>
-          (TEntry pn timing . Item entryType contract name <$> checkIxs env pn es ts))
+-- | Check the type of an expression and construct a typed expression
+checkExpr :: Env -> U.Expr -> SType a -> Err (Exp a)
+checkExpr env expr typ = <*> inferExpr env expr
+-- Boolean expressions
+checkExpr env expr SBoolean = case expr of
+  U.ENot    p v1    -> Neg  p <$> checkExpr env v1 SBoolean 
+  U.EAnd    p v1 v2 -> And  p <$> checkExpr env v1 SBoolean <*> checkExpr env v2 SBoolean
+  U.EOr     p v1 v2 -> Or   p <$> checkExpr env v1 SBoolean <*> checkExpr env v2 SBoolean
+  U.EImpl   p v1 v2 -> Impl p <$> checkExpr env v1 SBoolean <*> checkExpr env v2 SBoolean
+  U.ELT     p v1 v2 -> LT  p  <$> checkExpr env v1 SInteger <*> checkExpr env v2 SInteger
+  U.ELEQ    p v1 v2 -> LEQ p  <$> checkExpr env v1 SInteger <*> checkExpr env v2 SInteger
+  U.EGEQ    p v1 v2 -> GEQ p  <$> checkExpr env v1 SInteger <*> checkExpr env v2 SInteger
+  U.EGT     p v1 v2 -> GT  p  <$> checkExpr env v1 SInteger <*> checkExpr env v2 SInteger
+  U.EEq     p v1 v2 -> inferExpr env v1 `bindValidation` (\t1 ->
+                         inferExpr env v2 `bindValidation` (\t2 ->
+                           Eq p <$ checkEq t1 t2 <*> checkExpr env v1 t1 <*> checkExpr env v2 t2))
+  U.ENeq    p v1 v2 -> inferExpr env v1 `bindValidation` (\t1 ->
+                         inferExpr env v2 `bindValidation` (\t2 ->
+                           NEq p <$ checkEq t1 t2 <*> checkExpr env v1 t1 <*> checkExpr env v2 t2))
+  U.BoolLit p v1    -> LitBool p v1
+-- Arithemetic expressions
+checkExpr env expr SInteger = case expr of
+  U.EAdd    p v1 v2 -> Add p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
+  U.ESub    p v1 v2 -> Sub p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
+  U.EMul    p v1 v2 -> Mul p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
+  U.EDiv    p v1 v2 -> Div p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
+  U.EMod    p v1 v2 -> Mod p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
+  U.IntLit  p v1    -> LitInt  p v1  
+
+checkExpr env expr tau = case expr of
+    -- Control
+  U.EITE    p v1 v2 v3 -> inferExpr `bindValidation` (\t1 ->
+                            inferExpr `bindValidation` (\t2 ->
+                              checkEq p t1 t2  `bindValidation` (\t ->
+                                 ITE p <$> checkExpr env v1 SBoolean <*> checkExpr env v1 t1 <*> checkExpr env v2 t2)))
+  -- Variable references
+  U.EUTEntry   p name es -> checkEntry p Neither name es
+  U.EPreEntry  p name es -> checkEntry p Pre     name es
+  U.EPostEntry p name es -> entryType p Post    name es
+  -- Environment variables
+  U.EnvExp p v1 -> case lookup v1 defaultStore of
+    Just Integer -> SInteger 
+    Just ByteStr -> SByteStr
+    _            -> throw (p, "Unknown environment variable " <> show v1)
+  -- TODO other error for unimplemented
+  _ -> throw (pn,"Type mismatch. Expression " <> show expr <> " does not have type " <> show typ)
+
+
+-- Try to construct a reference to a calldata variable or an item in storage.
+checkEntry :: forall t0. Typeable t0 => Pn -> Time t0 -> Id -> [U.Expr] -> Err (SType a, Exp a t)
+checkEntry pn timing name es = case (Map.lookup name store, Map.lookup name calldata) of
+  (Nothing, Nothing) -> throw (pn, "Unknown variable " <> name)
+  (Just _, Just _)   -> throw (pn, "Ambiguous variable " <> name)
+  (Nothing, Just (FromAct varType)) ->
+    if isTimed timing then throw (pn, "Calldata var cannot be pre/post")
+    else checkTime pn pure (varType , Var pn varType name)
+  (Just (StorageValue (FromAbi a)), Nothing)      -> (,) a <$> makeEntry a []
+  (Just (StorageMapping ts (FromAbi a)), Nothing) -> (,) a <$> makeEntry a $ NonEmpty.toList ts
+    where
+      makeEntry :: SType a -> [AbiType] -> Err (Exp a t)
+      makeEntry entryType ts = checkTime pn <*> (TEntry pn timing . Item entryType contract name <$> checkIxs env pn es ts)
+
+      checkTime :: forall x t0. Typeable t0 => Pn -> Err (Exp x t0 -> Exp x t)
+      checkTime pn = case eqT @t @t0 of
+        Just Refl -> pure id
+        Nothing   -> throw (pn, (tail . show $ typeRep @t) <> " variable needed here")
 
 -- | Checks that there are as many expressions as expected by the types,
 -- and checks that each one of them agree with its type.
 checkIxs :: Typeable t => Env -> Pn -> [U.Expr] -> [AbiType] -> Err [TypedExp t]
 checkIxs env pn exprs types = if length exprs /= length types
                               then throw (pn, "Index mismatch for entry")
-                              else traverse (uncurry $ checkExpr env) (exprs `zip` types)
+                              else traverse (uncurry $ checkAbiExpr env) (exprs `zip` types)
