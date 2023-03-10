@@ -383,7 +383,6 @@ inferExpr env@Env{contract,store,calldata} expr = case expr of
 
 -- | Check the type of an expression and construct a typed expression
 checkExpr :: Env -> U.Expr -> SType a -> Err (Exp a)
-checkExpr env expr typ = <*> inferExpr env expr
 -- Boolean expressions
 checkExpr env expr SBoolean = case expr of
   U.ENot    p v1    -> Neg  p <$> checkExpr env v1 SBoolean 
