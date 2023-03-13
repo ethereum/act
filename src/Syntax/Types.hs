@@ -23,6 +23,8 @@ import Data.Tuple.Extra (dupe)
 import Data.Type.Equality (TestEquality(..))
 import Data.Typeable hiding (TypeRep,typeRep)
 import Type.Reflection
+import Data.ByteString (empty)
+
 
 import Data.ByteString    as Syntax.Types (ByteString)
 import EVM.ABI            as Syntax.Types (AbiType(..))
@@ -156,3 +158,13 @@ typeableInstance rep = withTypeable rep TypeableInstance
 pattern TypeRep :: forall (k :: *) (a :: k). () => Typeable @k a => TypeRep @k a
 pattern TypeRep <- (typeableInstance -> TypeableInstance)
   where TypeRep = typeRep
+
+
+acttyp :: Int -> ActType
+acttyp _ = SomeSing SBoolean
+
+
+typeToVal :: forall a. SType a -> a
+typeToVal SInteger = 1
+typeToVal SBoolean = True
+typeToVal SByteStr = empty
