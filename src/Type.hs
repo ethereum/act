@@ -332,7 +332,7 @@ typedExp :: Env -> U.Expr -> Err (TypedExp t)
 typedExp env e = inferExpr env e `bindValidation` (\t -> TExp t <$> checkExpr env t e)
 
 -- | Infer the type of an expression
-inferExpr :: forall a. Env -> U.Expr -> Err (SType a)
+inferExpr :: forall a. Env -> U.Expr -> Err Type
 inferExpr env@Env{contract,store,calldata} expr = case expr of
   -- Boolean expressions
   U.ENot    p v1    -> SBoolean <$ checkExpr env SBoolean v1
@@ -383,6 +383,9 @@ assertEq p t1 t2 =
 
 
 -- | Check the type of an expression and construct a typed expression
+checkExpr :: forall a t. Typeable t => Env -> EType -> U.Expr -> Err (Exp )
+
+-- | Check the type of an expression and construct a typed expression
 checkExpr :: forall a t. Typeable t => Env -> SType a -> U.Expr -> Err (Exp a t)
 -- Boolean expressions
 checkExpr env SBoolean = \case
@@ -428,15 +431,15 @@ checkExpr env typ = \case
 
 -- XXX why different t t0
 -- Try to construct a reference to a calldata variable or an item in storage.
-checkEntry :: forall t a t0. Typeable t0 => Pn -> Env -> Time t0 -> Id -> [U.Expr] -> Err (SType a, Exp a t)
+checkEntry :: forall a t. Typeable t => Pn -> Env -> Time t -> Id -> [U.Expr] -> Err (SType a, Exp a t)
 checkEntry pn env@Env{contract,store,calldata} timing name es = case (Map.lookup name store, Map.lookup name calldata) of
   (Nothing, Nothing) -> throw (pn, "Unknown variable " <> name)
   (Just _, Just _)   -> throw (pn, "Ambiguous variable " <> name)
   (Nothing, Just (FromAct varType)) ->
     if isTimed timing then throw (pn, "Calldata var cannot be pre/post")
-    else (,) varType <$> (checkTime pn <*> pure (Var pn varType name))
+    else pure (varType, Var pn varType name)
   (Just (StorageValue (FromAbi t)), Nothing)      -> (,) t <$> makeEntry t []
-  (Just (StorageMapping ts (FromAbi t)), Nothing) -> (,) t <$> makeEntry t $ NonEmpty.toList ts
+  (Just (StorageMapping ts (FromAbi t)), Nothing) -> (,) t <$> makeEntry t (NonEmpty.toList ts)
   where
     makeEntry :: forall a. SType a -> [AbiType] -> Err (Exp a t)
     makeEntry entryType ts = checkTime pn <*> (TEntry pn timing . Item entryType contract name <$> checkIxs pn env es ts)
