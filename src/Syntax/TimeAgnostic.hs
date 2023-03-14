@@ -519,8 +519,15 @@ eval e = case e of
   ByStr _ s     -> pure . fromString $ s
   ByLit _ s     -> pure s
 
-  -- Eq  _ s a b     -> [a' == b' | a' <- eval a, b' <- eval b]
-  -- NEq _ s a b     -> [a' /= b' | a' <- eval a, b' <- eval b]
+  -- TODO better way to write these?
+  Eq _ SInteger x y -> [ x' == y' | x' <- eval x, y' <- eval y]
+  Eq _ SBoolean x y -> [ x' == y' | x' <- eval x, y' <- eval y]
+  Eq _ SByteStr x y -> [ x' == y' | x' <- eval x, y' <- eval y]
+
+  NEq _ SInteger x y -> [ x' /= y' | x' <- eval x, y' <- eval y]
+  NEq _ SBoolean x y -> [ x' /= y' | x' <- eval x, y' <- eval y]
+  NEq _ SByteStr x y -> [ x' /= y' | x' <- eval x, y' <- eval y]
+
   ITE _ a b c   -> eval a >>= \cond -> if cond then eval b else eval c
   _             -> empty
 
