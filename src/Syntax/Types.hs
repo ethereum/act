@@ -21,6 +21,7 @@ module Syntax.Types (module Syntax.Types) where
 
 import Data.ByteString    as Syntax.Types (ByteString)
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
+import Data.Singletons
 import EVM.ABI            as Syntax.Types (AbiType(..))
 
 -- | Types of Act expressions
@@ -37,13 +38,19 @@ data SType (a :: ActType) where
   SBoolean :: SType ABoolean
   SByteStr :: SType AByteStr
 deriving instance Show (SType a)
-
+deriving instance Eq (SType a)
 
 instance TestEquality SType where
   testEquality SInteger SInteger = Just Refl
   testEquality SBoolean SBoolean = Just Refl
   testEquality SByteStr SByteStr = Just Refl
   testEquality _ _ = Nothing
+
+-- | Compare equality of two things parametrized by types which have singletons.
+eqS :: forall a b f t. Eq (f a t) => SType a -> f a t -> SType b -> f b t -> Bool
+eqS sa ea sb eb = case testEquality sa sb of
+                       Just Refl -> ea == eb
+                       _ -> False
 
 -- | Reflection of an Act type into a haskell type. Usefull to define
 -- the result type of the evaluation function.

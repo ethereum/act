@@ -37,12 +37,10 @@ import Data.Aeson.Types
 import qualified Data.ByteString as BS
 import Data.List (genericTake,genericDrop)
 import Data.Map.Strict (Map)
-import Data.Singletons (SingI(..))
 import Data.String (fromString)
 import Data.Text (pack)
 import Data.Typeable
 import Data.Vector (fromList)
-import Data.Type.Equality (TestEquality(..), (:~:)(..))
 
 import EVM.Solidity (SlotType(..))
 
@@ -131,19 +129,18 @@ data Rewrite t
   deriving (Show, Eq)
 
 data StorageUpdate (t :: Timing) where
-  IntUpdate :: TStorageItem AInteger t -> Exp AInteger t -> StorageUpdate t
-  BoolUpdate :: TStorageItem ABoolean t -> Exp ABoolean t -> StorageUpdate t
-  ByteStrUpdate :: TStorageItem AByteStr t -> Exp AByteStr t -> StorageUpdate t
+  Update :: SType a -> TStorageItem a t -> Exp a t -> StorageUpdate t
 deriving instance Show (StorageUpdate t)
-deriving instance Eq (StorageUpdate t)
+
+instance Eq (StorageUpdate t) where
+  Update s1 i1 e1 == Update s2 i2 e2 = eqS s1 i1 s2 i2 && eqS s1 e1 s2 e2
 
 data StorageLocation (t :: Timing) where
-  IntLoc :: TStorageItem AInteger t -> StorageLocation t
-  BoolLoc :: TStorageItem ABoolean t -> StorageLocation t
-  ByteStrLoc :: TStorageItem AByteStr t -> StorageLocation t
+  Loc :: SType a -> TStorageItem a t -> StorageLocation t
 deriving instance Show (StorageLocation t)
-deriving instance Eq (StorageLocation t)
 
+instance Eq (StorageLocation t) where
+  Loc s1 i1 == Loc s2 i2 = eqS s1 i1 s2 i2
 
 -- | References to items in storage, either as a map lookup or as a reading of
 -- a simple variable. The list argument is a list of indices; it has entries iff
@@ -153,8 +150,7 @@ deriving instance Eq (StorageLocation t)
 -- refer to the pre-/post-state, or not. `a` is the type of the item that is
 -- referenced.
 data TStorageItem (a :: ActType) (t :: Timing) where
-  VarItem :: Id -> Var a -> TStorageItem a t
-  MappingItem :: Var a -> Id -> [TypedExp t] -> TStorageItem a t
+  Item :: SType a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
@@ -166,11 +162,11 @@ deriving instance Eq (TStorageItem a t)
 
 -- | Expressions for which the return type is known.
 data TypedExp t
-  = IntExp (Exp AInteger t)
-  | BoolExp (Exp ABoolean t)
-  | ByteStrExp (Exp AByteStr t)
+  = forall a. TExp (SType a) (Exp a t)
 deriving instance Show (TypedExp t)
-deriving instance Eq (TypedExp t)
+
+instance Eq (TypedExp t) where
+  TExp s1 e1 == TExp s2 e2 = eqS s1 e1 s2 e2
 
 -- -- We could remove the 'SingI' constraint here if we also removed it from the
 -- -- 'HasType' instance for 'Exp'. But it's tedious and noisy and atm unnecessary.
@@ -219,17 +215,11 @@ data Exp (a :: ActType) (t :: Timing) where
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   ITE :: Pn -> Exp ABoolean t -> Exp a t -> Exp a t -> Exp a t
-  Var :: Pn -> Var a -> Exp a t
+  Var :: Pn -> SType a -> Id -> Exp a t
   TEntry :: Pn -> Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
 
-data Var (a :: ActType) where 
-  IntVar :: Id -> Var AInteger
-  BoolVar :: Id -> Var ABoolean
-  ByteStrVar :: Id -> Var AByteStr
-deriving instance Show (Var a)
-deriving instance Eq (Var a)
-
+  
 -- Equality modulo source file position.
 instance Eq (Exp a t) where
   And _ a b == And _ c d = a == c && b == d
@@ -262,15 +252,12 @@ instance Eq (Exp a t) where
   ByLit _ a == ByLit _ b = a == b
   ByEnv _ a == ByEnv _ b = a == b
 
-  Eq _ s a b == Eq _ s' c d =
-    case testEquality s s' of
-      Just Refl -> a == c && b == d
-      _ -> False
---    maybe False (\Refl -> a == c && b == d) $ testEquality s s'
---  NEq _ s a b == NEq _ s' c d = maybe False (\Refl -> a == c && b == d) $ testEquality s s'
+  Eq _ s a b == Eq _ s' c d = eqS s a s' c && eqS s b s' d
+  NEq _ s a b == Eq _ s' c d = eqS s a s' c && eqS s b s' d
+
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
   TEntry _ a t == TEntry _ b u = a == b && t == u
-  Var _ a == Var _ b = a == b
+  Var _ _ a == Var _ _ b = a == b
   _ == _ = False
 
 -- -- We could make this explicit which would remove the need for the SingI instance.
@@ -284,15 +271,11 @@ instance Monoid (Exp ABoolean t) where
   mempty = LitBool nowhere True
 
 instance Timable StorageLocation where
-  setTime time (IntLoc item) = IntLoc $ setTime time item
-  setTime time (BoolLoc item) = BoolLoc $ setTime time item
-  setTime time (ByteStrLoc item) = ByteStrLoc $ setTime time item
+  setTime time (Loc t item) = Loc t $ setTime time item
 
 instance Timable TypedExp where
-  setTime time (IntExp expr) = IntExp $ setTime time expr
-  setTime time (BoolExp expr) = BoolExp $ setTime time expr
-  setTime time (ByteStrExp expr) = ByteStrExp $ setTime time expr
-
+  setTime time (TExp t expr) = TExp t $ setTime time expr
+ 
 instance Timable (Exp a) where
   setTime time expr = case expr of
     -- booleans
@@ -330,14 +313,13 @@ instance Timable (Exp a) where
     NEq p s x y -> NEq p s (go x) (go y)
     ITE p x y z -> ITE p (go x) (go y) (go z)
     TEntry p _ item -> TEntry p time (go item)
-    Var p x -> Var p x
+    Var p t x -> Var p t x
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
 
 instance Timable (TStorageItem a) where
-   setTime time (VarItem c x) = VarItem c x
-   setTime time (MappingItem c x ixs) = MappingItem c x $ setTime time <$> ixs
+   setTime time (Item t c x ixs) = Item t c x $ setTime time <$> ixs
 
 ------------------------
 -- * JSON instances * --
@@ -395,47 +377,24 @@ instance ToJSON (Rewrite t) where
   toJSON (Rewrite a) = object [ "Rewrite" .= toJSON a ]
 
 instance ToJSON (StorageLocation t) where
-  toJSON (IntLoc a) = object ["location" .= toJSON a]
-  toJSON (BoolLoc a) = object ["location" .= toJSON a]
-  toJSON (ByteStrLoc a) = object ["location" .= toJSON a]
+  toJSON (Loc _ a) = object [ "location" .= toJSON a ]
 
 instance ToJSON (StorageUpdate t) where
-  toJSON (IntUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
-  toJSON (BoolUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
-  toJSON (ByteStrUpdate a b) = object ["location" .= toJSON a ,"value" .= toJSON b]
+  toJSON (Update _ a b) = object [ "location" .= toJSON a ,"value" .= toJSON b ]
 
 instance ToJSON (TStorageItem a t) where
-  toJSON (VarItem a b) = object []
-    -- object ["sort" .= varType b
-    --                             , "name" .= String (a <> pack "." <> varName b)]
-    -- where
-    --   varType (IntVar _) = pack "int"
-    --   varType (BoolVar _) = pack "bool"
-    --   varType (ByteStrVar _) = pack "bytestring"
-
-    --   varName (IntVar x) = pack x
-    --   varName (BoolVar x) = pack x
-    --   varName (ByteStrVar x) = pack x
-  toJSON (MappingItem a b c)  = mapping a b c
-
-instance ToJSON (Var a) where
-  toJSON (IntVar x) = String $ pack x
-  toJSON (BoolVar x) = String $ pack x
-  toJSON (ByteStrVar x) = String $ pack x
-
+  toJSON (Item t a b []) = object [ "sort" .= pack (show t)
+                                  , "name" .= String (pack a <> "." <> pack b) ]
+  toJSON (Item _ a b c)  = mapping a b c
 
 mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
-mapping c a b = object [  "symbol"   .= pack "lookup"
-                       ,  "arity"    .= Data.Aeson.Types.Number 3
-                       ,  "args"     .= Array (fromList [toJSON c, toJSON a, toJSON b])]
+mapping c a b = object [ "symbol"   .= pack "lookup"
+                       , "arity"    .= Data.Aeson.Types.Number 3
+                       , "args"     .= Array (fromList [toJSON c, toJSON a, toJSON b]) ]
 
 instance ToJSON (TypedExp t) where
-  toJSON (IntExp a) = object ["sort"       .= pack "int"
-                             ,"expression" .= toJSON a]
-  toJSON (BoolExp a) = object ["sort"       .= pack "bool"
-                               ,"expression" .= toJSON a]
-  toJSON (ByteStrExp a) = object ["sort"       .= pack "bytestring"
-                                 ,"expression" .= toJSON a]
+  toJSON (TExp typ a) = object [ "sort"       .= pack (show typ)
+                               , "expression" .= toJSON a ]
 
 instance ToJSON (Exp a t) where
   toJSON (Add _ a b) = symbol "+" a b
@@ -449,9 +408,9 @@ instance ToJSON (Exp a t) where
   toJSON (UIntMin _ a) = toJSON $ show $ uintmin a
   toJSON (UIntMax _ a) = toJSON $ show $ uintmax a
   toJSON (IntEnv _ a) = String $ pack $ show a
-  toJSON (ITE _ a b c) = object [  "symbol"   .= pack "ite"
-                                ,  "arity"    .= Data.Aeson.Types.Number 3
-                                ,  "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c])]
+  toJSON (ITE _ a b c) = object [ "symbol"   .= pack "ite"
+                                , "arity"    .= Data.Aeson.Types.Number 3
+                                , "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c]) ]
   toJSON (And _ a b)  = symbol "and" a b
   toJSON (Or _ a b)   = symbol "or" a b
   toJSON (LT _ a b)   = symbol "<" a b
@@ -462,28 +421,27 @@ instance ToJSON (Exp a t) where
   toJSON (LEQ _ a b)  = symbol "<=" a b
   toJSON (GEQ _ a b)  = symbol ">=" a b
   toJSON (LitBool _ a) = String $ pack $ show a
-  toJSON (Neg _ a) = object [  "symbol"   .= pack "not"
-                            ,  "arity"    .= Data.Aeson.Types.Number 1
-                            ,  "args"     .= Array (fromList [toJSON a])]
+  toJSON (Neg _ a) = object [ "symbol"   .= pack "not"
+                            , "arity"    .= Data.Aeson.Types.Number 1
+                            , "args"     .= Array (fromList [toJSON a]) ]
 
   toJSON (Cat _ a b) = symbol "cat" a b
   toJSON (Slice _ s a b) = object [ "symbol" .= pack "slice"
-                                , "arity"  .= Data.Aeson.Types.Number 3
-                                , "args"   .= Array (fromList [toJSON s, toJSON a, toJSON b])
-                                ]
+                                  , "arity"  .= Data.Aeson.Types.Number 3
+                                  , "args"   .= Array (fromList [toJSON s, toJSON a, toJSON b]) ]
   toJSON (ByStr _ a) = toJSON a
   toJSON (ByLit _ a) = String . pack $ show a
   toJSON (ByEnv _ a) = String . pack $ show a
 
   toJSON (TEntry _ t a) = object [ pack (show t) .= toJSON a ]
-  toJSON (Var _ a) = toJSON a
+  toJSON (Var _ _ a) = toJSON a
 
   toJSON v = error $ "todo: json ast for: " <> show v
 
 symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
-symbol s a b = object [  "symbol"   .= pack s
-                      ,  "arity"    .= Data.Aeson.Types.Number 2
-                      ,  "args"     .= Array (fromList [toJSON a, toJSON b])]
+symbol s a b = object [ "symbol"   .= pack s
+                      , "arity"    .= Data.Aeson.Types.Number 2
+                      , "args"     .= Array (fromList [toJSON a, toJSON b]) ]
 
 -- | Simplifies concrete expressions into literals.
 -- Returns `Nothing` if the expression contains symbols.
