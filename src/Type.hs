@@ -204,9 +204,12 @@ noStorageRead store expr = for_ (keys store) $ \name ->
 
 -- ensures that key types match value types in an U.Assign
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
-checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar _ (StorageValue (FromAbi typ)) name) expr)
-  = sequenceA [_Update (Item typ contract name []) <$> checkExpr env typ expr]
-    <* noStorageRead store expr
+checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar _ (StorageValue typ) name) expr)
+  = let styp = case actType typ of
+                 AInteger -> SInteger
+                 ABoolean -> SBoolean
+                 AByteStr -> SByteStr
+    in sequenceA [Update styp (Item styp contract name []) <$> checkExpr env styp expr] <* noStorageRead store expr
 checkAssign env@Env{store} (U.AssignMany (U.StorageVar _ (StorageMapping (keyType :| _) valType) name) defns)
   = for defns $ \def@(U.Defn e1 e2) -> checkDefn env keyType valType name def
                                        <* noStorageRead store e1
@@ -220,10 +223,14 @@ checkAssign _ _ = error "todo: support struct assignment in constructors"
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
 checkDefn :: Env -> AbiType -> AbiType -> Id -> U.Defn -> Err StorageUpdate
-checkDefn env@Env{contract} keyType (FromAbi valType) name (U.Defn k val) =
-  _Update
-  <$> (Item valType contract name <$> checkIxs (getPosn k) env [k] [keyType])
-  <*> checkExpr env valType val
+checkDefn env@Env{contract} keyType valType name (U.Defn k val) =
+  let styp = case actType typ of
+                 AInteger -> SInteger
+                 ABoolean -> SBoolean
+                 AByteStr -> SByteStr
+  in Update styp
+  <$> (Item styp contract name <$> checkIxs (getPosn k) env [k] [keyType])
+  <*> checkExpr env styp val
 
 -- | Typechecks a postcondition, returning typed versions of its storage updates and return expression.
 checkPost :: Env -> U.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
@@ -329,7 +336,7 @@ checkAbiExpr env e (FromAbi typ) = TExp typ <$> checkExpr env typ e
 
 -- | Attempt to typecheck an untyped expression as any possible type.
 typedExp :: Env -> U.Expr -> Err (TypedExp t)
-typedExp env e = inferExpr env e `bindValidation` (\t -> TExp t <$> checkExpr env t e)
+typedExp env e = inferExpr env e `bindValidation` (\(FromAct t) -> TExp t <$> checkExpr env t e)
 
 -- | Infer the type of an expression
 inferExpr :: forall a. Env -> U.Expr -> Err Type

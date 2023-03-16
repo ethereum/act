@@ -19,9 +19,9 @@ Description : Types that represent Act types, and functions and patterns to go b
 
 module Syntax.Types (module Syntax.Types) where
 
+import Data.Singletons
 import Data.ByteString    as Syntax.Types (ByteString)
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
-import Data.Singletons
 import EVM.ABI            as Syntax.Types (AbiType(..))
 
 -- | Types of Act expressions
@@ -39,6 +39,8 @@ data SType (a :: ActType) where
   SByteStr :: SType AByteStr
 deriving instance Show (SType a)
 deriving instance Eq (SType a)
+
+type instance Sing = SType
 
 instance TestEquality SType where
   testEquality SInteger SInteger = Just Refl
@@ -59,7 +61,6 @@ type family TypeOf a where
   TypeOf 'ABoolean = Bool
   TypeOf 'AByteStr = ByteString
 
-
 actType :: AbiType -> ActType
 actType (AbiUIntType _)     = AInteger
 actType (AbiIntType  _)     = AInteger
@@ -69,3 +70,27 @@ actType (AbiBytesType n)    = if n <= 32 then AInteger else AByteStr
 actType AbiBytesDynamicType = AByteStr
 actType AbiStringType       = AByteStr
 actType _ = error "Syntax.Types.actType: TODO"
+
+
+-- type SomeType = SomeSing *
+
+-- toAct :: SType a -> ActType
+-- toAct SInteger = AInteger
+-- toAct SBoolean = ABoolean
+-- toAct SByteStr = AByteStr
+
+-- fromAct :: ActType -> SomeType
+-- fromAct AInteger = SomeSing SInteger
+-- fromAct ABoolean = SomeSing SBoolean
+-- fromAct AByteStr = SomeSing SByteStr
+
+-- -- | Pattern match on an 'ActType' is if it were an 'SType'.
+-- pattern FromAct :: () => SType a -> SomeType
+-- pattern FromAct t <- SomeSing t
+-- {-# COMPLETE FromAct #-}
+
+-- -- -- | Pattern match on an 'EVM.ABI.AbiType' is if it were an 'SType'.
+-- -- pattern FromAbi :: () => (SingI a, Typeable a) => SType a -> AbiType
+-- -- pattern FromAbi t <- (actType -> FromAct t)
+-- -- {-# COMPLETE FromAbi #-}
+

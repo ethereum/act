@@ -14,10 +14,7 @@ import Syntax
 import Syntax.Annotated
 
 import Error
-import Control.Applicative ((<|>))
-import Data.Functor (($>))
 import Data.Text (Text, pack, unpack)
-import Data.Typeable
 import Data.List hiding (group)
 import Data.Maybe
 import qualified Data.Text as Text
@@ -122,12 +119,13 @@ kExpr (LEQ _ a b) = "(" <> kExpr a <> " <=Int " <> kExpr b <> ")"
 kExpr (GT _ a b) = "(" <> kExpr a <> " >Int " <> kExpr b <> ")"
 kExpr (GEQ _ a b) = "(" <> kExpr a <> " >=Int " <> kExpr b <> ")"
 kExpr (LitBool _ a) = show a
-kExpr (NEq p a b) = "notBool (" <> kExpr (Eq p a b) <> ")"
-kExpr (Eq p (a :: Exp a) (b :: Exp a)) = fromMaybe (error $ "Internal Error: invalid expression type at pos " ++ show p) $
+kExpr (NEq p t a b) = "notBool (" <> kExpr (Eq p t a b) <> ")"
+kExpr (Eq p t a b) =
   let eqK typ = "(" <> kExpr a <> " ==" <> typ <> " " <> kExpr b <> ")"
-   in eqT @a @Integer    $> eqK "Int"
-  <|> eqT @a @Bool       $> eqK "Bool"
-  <|> eqT @a @ByteString $> eqK "K" -- TODO: Is ==K correct?
+  in case t of
+       SInteger -> eqK "Int"
+       SBoolean -> eqK "Bool"
+       SByteStr -> eqK "K"
 
 -- bytestrings
 kExpr (ByStr _ str) = show str

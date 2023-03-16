@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DataKinds #-}
 
 {-|
 Module      : Syntax
@@ -12,9 +13,9 @@ import Prelude hiding (LT, GT)
 
 import Data.List
 import Data.Map (Map,empty,insertWith,unionsWith)
-import Data.Singletons
 
 import Syntax.TimeAgnostic as Agnostic
+-- import Syntax.Types
 import qualified Syntax.Annotated as Annotated
 import           Syntax.Untyped hiding (Constant,Rewrite)
 import qualified Syntax.Untyped as Untyped
@@ -24,7 +25,7 @@ import qualified Syntax.Untyped as Untyped
 -----------------------------------------
 
 -- | Invariant predicates can always be expressed as a single expression.
-invExp :: Annotated.InvariantPred -> Annotated.Exp Bool
+invExp :: Annotated.InvariantPred -> Annotated.Exp ABoolean
 invExp = uncurry (<>)
 
 locsFromBehaviour :: Annotated.Behaviour -> [Annotated.StorageLocation]
@@ -57,10 +58,10 @@ locFromRewrite :: Rewrite t -> StorageLocation t
 locFromRewrite = onRewrite id locFromUpdate
 
 locFromUpdate :: StorageUpdate t -> StorageLocation t
-locFromUpdate (Update _ item _) = _Loc item
+locFromUpdate (Update t item _) = Loc t item
 
 locsFromItem :: TStorageItem a t -> [StorageLocation t]
-locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
+locsFromItem item = Loc (typeFromItem item) item : concatMap locsFromTypedExp (ixsFromItem item)
 
 locsFromTypedExp :: TypedExp t -> [StorageLocation t]
 locsFromTypedExp (TExp _ e) = locsFromExp e
@@ -73,12 +74,12 @@ locsFromExp = nub . go
       And _ a b   -> go a <> go b
       Or _ a b    -> go a <> go b
       Impl _ a b  -> go a <> go b
-      Eq _ a b    -> go a <> go b
+      Eq _ _ a b    -> go a <> go b
       LT _ a b    -> go a <> go b
       LEQ _ a b   -> go a <> go b
       GT _ a b    -> go a <> go b
       GEQ _ a b   -> go a <> go b
-      NEq _ a b   -> go a <> go b
+      NEq _ _ a b   -> go a <> go b
       Neg _ a     -> go a
       Add _ a b   -> go a <> go b
       Sub _ a b   -> go a <> go b
@@ -135,12 +136,12 @@ ethEnvFromExp = nub . go
       And   _ a b   -> go a <> go b
       Or    _ a b   -> go a <> go b
       Impl  _ a b   -> go a <> go b
-      Eq    _ a b   -> go a <> go b
+      Eq    _ _ a b   -> go a <> go b
       LT    _ a b   -> go a <> go b
       LEQ   _ a b   -> go a <> go b
       GT    _ a b   -> go a <> go b
       GEQ   _ a b   -> go a <> go b
-      NEq   _ a b   -> go a <> go b
+      NEq   _ _ a b   -> go a <> go b
       Neg   _ a     -> go a
       Add   _ a b   -> go a <> go b
       Sub   _ a b   -> go a <> go b
@@ -185,6 +186,9 @@ contractFromItem (Item _ c _ _) = c
 ixsFromItem :: TStorageItem a t -> [TypedExp t]
 ixsFromItem (Item _ _ _ ixs) = ixs
 
+typeFromItem :: TStorageItem a t -> SType a
+typeFromItem (Item t _ _ _) = t
+
 contractsInvolved :: Behaviour t -> [Id]
 contractsInvolved = fmap contractFromRewrite . _stateUpdates
 
@@ -203,8 +207,8 @@ ixsFromUpdate (Update _ item _) = ixsFromItem item
 ixsFromRewrite :: Rewrite t -> [TypedExp t]
 ixsFromRewrite = onRewrite ixsFromLocation ixsFromUpdate
 
-itemType :: TStorageItem a t -> ActType
-itemType (Item t _ _ _) = SomeSing t
+-- itemType :: TStorageItem a t -> ActType
+-- itemType item =
 
 isMapping :: StorageLocation t -> Bool
 isMapping = not . null . ixsFromLocation

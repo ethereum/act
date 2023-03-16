@@ -142,6 +142,7 @@ deriving instance Show (StorageLocation t)
 instance Eq (StorageLocation t) where
   Loc s1 i1 == Loc s2 i2 = eqS s1 i1 s2 i2
 
+
 -- | References to items in storage, either as a map lookup or as a reading of
 -- a simple variable. The list argument is a list of indices; it has entries iff
 -- the item is referenced as a map lookup. The type is parametrized on a
