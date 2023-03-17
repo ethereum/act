@@ -72,25 +72,23 @@ actType AbiStringType       = AByteStr
 actType _ = error "Syntax.Types.actType: TODO"
 
 
--- type SomeType = SomeSing *
+someType :: ActType -> SomeType
+someType AInteger = SomeType SInteger
+someType ABoolean = SomeType SBoolean
+someType AByteStr = SomeType SByteStr
 
--- toAct :: SType a -> ActType
--- toAct SInteger = AInteger
--- toAct SBoolean = ABoolean
--- toAct SByteStr = AByteStr
 
--- fromAct :: ActType -> SomeType
--- fromAct AInteger = SomeSing SInteger
--- fromAct ABoolean = SomeSing SBoolean
--- fromAct AByteStr = SomeSing SByteStr
+data SomeType where
+  SomeType :: SType a -> SomeType
+  
+-- | Pattern match on an 'SomeType' is if it were an 'SType'.
+pattern FromSome :: SType a -> SomeType
+pattern FromSome t <- SomeType t
 
--- -- | Pattern match on an 'ActType' is if it were an 'SType'.
--- pattern FromAct :: () => SType a -> SomeType
--- pattern FromAct t <- SomeSing t
--- {-# COMPLETE FromAct #-}
+-- | Pattern match on an 'AbiType' is if it were an 'SType'.
+pattern FromAbi :: SType a -> AbiType
+pattern FromAbi t <- (someType . actType -> FromSome t)
 
--- -- -- | Pattern match on an 'EVM.ABI.AbiType' is if it were an 'SType'.
--- -- pattern FromAbi :: () => (SingI a, Typeable a) => SType a -> AbiType
--- -- pattern FromAbi t <- (actType -> FromAct t)
--- -- {-# COMPLETE FromAbi #-}
-
+-- | Pattern match on an 'ActType' is if it were an 'SType'.
+pattern FromAct :: SType a -> ActType
+pattern FromAct t <- (someType -> FromSome t)
