@@ -238,7 +238,7 @@ locateCalldata b decls calldata' d@(Decl typ name) =
               ++ name ++ " in interface declaration"))
           (elemIndex d decls)
 
-    val = case actType typ of
+    val = case fromAbiType typ of
       -- all integers are 32 bytes
       AInteger -> let S _ w = readSWord offset calldata'
                  in SymInteger $ sFromIntegral w

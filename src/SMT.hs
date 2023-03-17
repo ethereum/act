@@ -3,6 +3,7 @@
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DataKinds #-}
 
 module SMT (
   Solver(..),
@@ -97,7 +98,7 @@ instance Pretty SMTExp where
 -- | A Query is a structured representation of an SMT query for an individual
 --   expression, along with the metadata needed to extract a model from a satisfiable query
 data Query
-  = Postcondition Transition (Exp Bool) SMTExp
+  = Postcondition Transition (Exp ABoolean) SMTExp
   | Inv Invariant (Constructor, SMTExp) [(Behaviour, SMTExp)]
   deriving (Show)
 
@@ -474,9 +475,9 @@ getValue solver name = sendCommand solver $ "(get-value (" <> name <> "))"
 -- | Parse the result of a call to getValue as the supplied type.
 parseModel :: SType a -> String -> TypedExp
 parseModel = \case
-  SInteger -> _TExp . LitInt  nowhere . read       . parseSMTModel
-  SBoolean -> _TExp . LitBool nowhere . readBool   . parseSMTModel
-  SByteStr -> _TExp . ByLit   nowhere . fromString . parseSMTModel
+  SInteger -> TExp SInteger . LitInt  nowhere . read       . parseSMTModel
+  SBoolean -> TExp SBoolean . LitBool nowhere . readBool   . parseSMTModel
+  SByteStr -> TExp SByteStr . ByLit   nowhere . fromString . parseSMTModel
   where
     readBool "true" = True
     readBool "false" = False
@@ -536,7 +537,7 @@ declareStorageLocation (Loc _ item) = case ixsFromItem item of
 
 -- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
-declareArg behvName d@(Decl typ _) = constant (nameFromDecl behvName d) (actType typ)
+declareArg behvName d@(Decl typ _) = constant (nameFromDecl behvName d) (fromAbiType typ)
 
 -- | produces an SMT2 expression declaring the given EthEnv as a symbolic constant
 declareEthEnv :: EthEnv -> SMT2
@@ -587,8 +588,8 @@ expToSMT2 expr = case expr of
   ByEnv _ a -> pure $ prettyEnv a
 
   -- polymorphic
-  Eq _ a b -> binop "=" a b
-  NEq p a b -> unop "not" (Eq p a b)
+  Eq _ _ a b -> binop "=" a b
+  NEq p s a b -> unop "not" (Eq p s a b)
   ITE _ a b c -> triop "ite" a b c
   Var _ _ a -> nameFromVarId a
   TEntry _ w item -> entry item w
@@ -611,7 +612,7 @@ expToSMT2 expr = case expr of
 
 -- | SMT2 has no support for exponentiation, but we can do some preprocessing
 --   if the RHS is concrete to provide some limited support for exponentiation
-simplifyExponentiation :: Exp Integer -> Exp Integer -> Exp Integer
+simplifyExponentiation :: Exp AInteger -> Exp AInteger -> Exp AInteger
 simplifyExponentiation a b = fromMaybe (error "Internal Error: no support for symbolic exponents in SMT lib")
                            $ [LitInt nowhere $ a' ^ b'                         | a' <- eval a, b' <- evalb]
                          <|> [foldr (Mul nowhere) (LitInt nowhere 1) (genericReplicate b' a) | b' <- evalb]
@@ -623,7 +624,7 @@ constant :: Id -> ActType -> SMT2
 constant name tp = "(declare-const " <> name <> " " <> sType tp <> ")"
 
 -- | encode the given boolean expression as an assertion in smt2
-mkAssert :: Id -> Exp Bool -> SMT2
+mkAssert :: Id -> Exp ABoolean -> SMT2
 mkAssert c e = "(assert " <> withInterface c (expToSMT2 e) <> ")"
 
 -- | declare a (potentially nested) array in smt2
@@ -641,13 +642,13 @@ select name (hd :| tl) = do
 
 -- | act -> smt2 type translation
 sType :: ActType -> SMT2
-sType Integer = "Int"
-sType Boolean = "Bool"
-sType ByteStr = "String"
+sType AInteger = "Int"
+sType ABoolean = "Bool"
+sType AByteStr = "String"
 
 -- | act -> smt2 type translation
 sType' :: TypedExp -> SMT2
-sType' (TExp t _) = sType $ SomeSing t
+sType' (TExp t _) = sType $ actType t
 
 --- ** Variable Names ** ---
 
@@ -673,7 +674,7 @@ x @@ y = x <> "_" <> y
 --- ** Util ** ---
 
 -- | The target expression of a query.
-target :: Query -> Exp Bool
+target :: Query -> Exp ABoolean
 target (Postcondition _ e _)         = e
 target (Inv (Invariant _ _ _ e) _ _) = invExp e
 

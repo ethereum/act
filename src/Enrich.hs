@@ -57,12 +57,12 @@ enrichInvariant store (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invaria
       storagebounds' = storagebounds
                        <> mkStorageBounds store (Constant <$> locsFromExp predicate)
 
-mkEthEnvBounds :: [EthEnv] -> [Exp Bool]
+mkEthEnvBounds :: [EthEnv] -> [Exp ABoolean]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
   where
-    mkBound :: EthEnv -> Maybe (Exp Bool)
+    mkBound :: EthEnv -> Maybe (Exp ABoolean)
     mkBound e = case lookup e defaultStore of
-      Just Integer -> Just $ bound (toAbiType e) (IntEnv nowhere e)
+      Just AInteger -> Just $ bound (toAbiType e) (IntEnv nowhere e)
       _ -> Nothing
 
     toAbiType :: EthEnv -> AbiType
@@ -82,15 +82,15 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
       Nonce -> AbiUIntType 256
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
-mkStorageBounds :: Store -> [Rewrite] -> [Exp Bool]
+mkStorageBounds :: Store -> [Rewrite] -> [Exp ABoolean]
 mkStorageBounds store refs = catMaybes $ mkBound <$> refs
   where
-    mkBound :: Rewrite -> Maybe (Exp Bool)
+    mkBound :: Rewrite -> Maybe (Exp ABoolean)
     mkBound (Constant (Loc SInteger item)) = Just $ fromItem item
     mkBound (Rewrite (Update SInteger item _)) = Just $ fromItem item
     mkBound _ = Nothing
 
-    fromItem :: TStorageItem Integer -> Exp Bool
+    fromItem :: TStorageItem AInteger -> Exp ABoolean
     fromItem item@(Item _ contract name _) = bound (abiType $ slotType contract name) (TEntry nowhere Pre item)
 
     slotType :: Id -> Id -> SlotType
@@ -102,7 +102,7 @@ mkStorageBounds store refs = catMaybes $ mkBound <$> refs
     abiType (StorageMapping _ typ) = typ
     abiType (StorageValue typ) = typ
 
-mkCallDataBounds :: [Decl] -> [Exp Bool]
-mkCallDataBounds = concatMap $ \(Decl typ name) -> case actType typ of
-  Integer -> [bound typ (_Var name)]
+mkCallDataBounds :: [Decl] -> [Exp ABoolean]
+mkCallDataBounds = concatMap $ \(Decl typ name) -> case fromAbiType typ of
+  AInteger -> [bound typ (Var nowhere SInteger name)]
   _ -> []

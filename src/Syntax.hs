@@ -207,8 +207,8 @@ ixsFromUpdate (Update _ item _) = ixsFromItem item
 ixsFromRewrite :: Rewrite t -> [TypedExp t]
 ixsFromRewrite = onRewrite ixsFromLocation ixsFromUpdate
 
--- itemType :: TStorageItem a t -> ActType
--- itemType item =
+itemType :: TStorageItem a t -> ActType
+itemType (Item t _ _ _) = actType t
 
 isMapping :: StorageLocation t -> Bool
 isMapping = not . null . ixsFromLocation

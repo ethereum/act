@@ -131,7 +131,7 @@ mkEnv contract store decls = Env
   , calldata = abiVars
   }
  where
-   abiVars = Map.fromList $ map (\(Decl typ var) -> (var, actType typ)) decls
+   abiVars = Map.fromList $ map (\(Decl typ var) -> (var, fromAbiType typ)) decls
 
 -- checks a transition given a typing of its storage variables
 splitBehaviour :: Store -> U.RawBehaviour -> Err [Claim]
@@ -359,7 +359,7 @@ checkExpr env typ e = case (typ, e) of
   (SInteger, U.EMod    p v1 v2) -> Mod p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
   (SInteger, U.IntLit  p v1 )   -> pure $ LitInt  p v1
   -- Control
-  (typ, U.EITE p v1 v2 v3) -> ITE p <$> checkExpr env SBoolean v1 <*> checkExpr env typ v2 <*> checkExpr env typ v3
+  (_, U.EITE p v1 v2 v3) -> ITE p <$> checkExpr env SBoolean v1 <*> checkExpr env typ v2 <*> checkExpr env typ v3
   -- Environment variables
   (SInteger, U.EnvExp p v1) -> case lookup v1 defaultStore of
     Just AInteger -> pure $ IntEnv p v1

@@ -61,21 +61,26 @@ type family TypeOf a where
   TypeOf 'ABoolean = Bool
   TypeOf 'AByteStr = ByteString
 
-actType :: AbiType -> ActType
-actType (AbiUIntType _)     = AInteger
-actType (AbiIntType  _)     = AInteger
-actType AbiAddressType      = AInteger
-actType AbiBoolType         = ABoolean
-actType (AbiBytesType n)    = if n <= 32 then AInteger else AByteStr
-actType AbiBytesDynamicType = AByteStr
-actType AbiStringType       = AByteStr
-actType _ = error "Syntax.Types.actType: TODO"
+fromAbiType :: AbiType -> ActType
+fromAbiType (AbiUIntType _)     = AInteger
+fromAbiType (AbiIntType  _)     = AInteger
+fromAbiType AbiAddressType      = AInteger
+fromAbiType AbiBoolType         = ABoolean
+fromAbiType (AbiBytesType n)    = if n <= 32 then AInteger else AByteStr
+fromAbiType AbiBytesDynamicType = AByteStr
+fromAbiType AbiStringType       = AByteStr
+fromAbiType _ = error "Syntax.Types.actType: TODO"
 
 
 someType :: ActType -> SomeType
 someType AInteger = SomeType SInteger
 someType ABoolean = SomeType SBoolean
 someType AByteStr = SomeType SByteStr
+
+actType :: SType s -> ActType
+actType SInteger = AInteger
+actType SBoolean = ABoolean
+actType SByteStr = AByteStr
 
 
 data SomeType where
@@ -84,11 +89,14 @@ data SomeType where
 -- | Pattern match on an 'SomeType' is if it were an 'SType'.
 pattern FromSome :: SType a -> SomeType
 pattern FromSome t <- SomeType t
+{-# COMPLETE FromSome #-}
 
 -- | Pattern match on an 'AbiType' is if it were an 'SType'.
 pattern FromAbi :: SType a -> AbiType
-pattern FromAbi t <- (someType . actType -> FromSome t)
+pattern FromAbi t <- (someType . fromAbiType -> FromSome t)
+{-# COMPLETE FromAbi #-}
 
 -- | Pattern match on an 'ActType' is if it were an 'SType'.
 pattern FromAct :: SType a -> ActType
 pattern FromAct t <- (someType -> FromSome t)
+{-# COMPLETE FromAct #-}
