@@ -205,7 +205,7 @@ noStorageRead store expr = for_ (keys store) $ \name ->
 -- ensures that key types match value types in an U.Assign
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
 checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar _ (StorageValue (FromAbi typ)) name) expr)
-  = sequenceA [Update typ (Item typ contract name []) <$> checkExpr env typ expr]
+  = sequenceA [_Update (_Item contract name []) <$> checkExpr env typ expr]
     <* noStorageRead store expr
 checkAssign env@Env{store} (U.AssignMany (U.StorageVar _ (StorageMapping (keyType :| _) valType) name) defns)
   = for defns $ \def@(U.Defn e1 e2) -> checkDefn env keyType valType name def
@@ -221,8 +221,8 @@ checkAssign _ _ = error "todo: support struct assignment in constructors"
 -- TODO: handle nested mappings
 checkDefn :: Env -> AbiType -> AbiType -> Id -> U.Defn -> Err StorageUpdate
 checkDefn env@Env{contract} keyType (FromAbi valType) name (U.Defn k val) =
-  Update valType
-  <$> (Item valType contract name <$> checkIxs (getPosn k) env [k] [keyType])
+  _Update
+  <$> (_Item contract name <$> checkIxs (getPosn k) env [k] [keyType])
   <*> checkExpr env valType val
 
 -- | Typechecks a postcondition, returning typed versions of its storage updates and return expression.
@@ -280,10 +280,10 @@ checkStorageExpr :: Env -> U.Pattern -> U.Expr -> Err StorageUpdate
 checkStorageExpr _ (U.PWild _) _ = error "TODO: add support for wild storage to checkStorageExpr"
 checkStorageExpr env@Env{contract,store} (U.PEntry p name args) expr = case Map.lookup name store of
   Just (StorageValue (FromAbi typ)) ->
-    Update typ (Item typ contract name []) <$> checkExpr env typ expr
+    _Update (_Item contract name []) <$> checkExpr env typ expr
   Just (StorageMapping argtyps (FromAbi valType)) ->
-    Update valType
-    <$> (Item valType contract name <$> checkIxs p env args (NonEmpty.toList argtyps))
+    _Update
+    <$> (_Item contract name <$> checkIxs p env args (NonEmpty.toList argtyps))
     <*> checkExpr env valType expr
   Nothing ->
     throw (p, "Unknown storage variable " <> show name)
@@ -298,7 +298,7 @@ checkPattern env@Env{contract,store} (U.PEntry p name args) =
   where
     makeLocation :: AbiType -> [AbiType] -> Err StorageLocation
     makeLocation (FromAbi locType) argTypes =
-      Loc locType . Item locType contract name <$> checkIxs @Untimed p env args argTypes
+      _Loc . Item locType contract name <$> checkIxs @Untimed p env args argTypes
 
 checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
 checkIffs env = foldr check (pure [])
@@ -411,7 +411,7 @@ checkEntry pn env@Env{contract,store,calldata} timing name typ es = case (Map.lo
       Just Refl -> pure id
       Nothing   -> throw (pn, (tail . show $ typeRep @t) <> " variable needed here")
 
- 
+
 -- | Checks that there are as many expressions as expected by the types,
 -- and checks that each one of them agree with its type.
 checkIxs :: forall t. Typeable t => Pn -> Env -> [U.Expr] -> [AbiType] -> Err [TypedExp t]

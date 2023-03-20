@@ -32,7 +32,7 @@ data ActType
 
 -- | Singleton runtime witness for Act types
 -- Sometimes we need to examine type tags at runime. Tagging structures
--- with this type will let us do that. 
+-- with this type will let us do that.
 data SType (a :: ActType) where
   SInteger :: SType AInteger
   SBoolean :: SType ABoolean
@@ -53,6 +53,12 @@ eqS :: forall a b f t. Eq (f a t) => SType a -> f a t -> SType b -> f b t -> Boo
 eqS sa ea sb eb = case testEquality sa sb of
                        Just Refl -> ea == eb
                        _ -> False
+
+-- Defines which singleton to retreive when we only have the type, not the
+-- actual singleton.
+instance SingI 'AInteger where sing = SInteger
+instance SingI 'ABoolean where sing = SBoolean
+instance SingI 'AByteStr where sing = SByteStr
 
 -- | Reflection of an Act type into a haskell type. Usefull to define
 -- the result type of the evaluation function.
@@ -84,19 +90,19 @@ actType SByteStr = AByteStr
 
 
 data SomeType where
-  SomeType :: SType a -> SomeType
-  
+  SomeType :: SingI a => SType a -> SomeType
+
 -- | Pattern match on an 'SomeType' is if it were an 'SType'.
-pattern FromSome :: SType a -> SomeType
+pattern FromSome :: () => (SingI a) => SType a -> SomeType
 pattern FromSome t <- SomeType t
 {-# COMPLETE FromSome #-}
 
 -- | Pattern match on an 'AbiType' is if it were an 'SType'.
-pattern FromAbi :: SType a -> AbiType
+pattern FromAbi :: () => (SingI a) => SType a -> AbiType
 pattern FromAbi t <- (someType . fromAbiType -> FromSome t)
 {-# COMPLETE FromAbi #-}
 
 -- | Pattern match on an 'ActType' is if it were an 'SType'.
-pattern FromAct :: SType a -> ActType
+pattern FromAct ::() => (SingI a) => SType a -> ActType
 pattern FromAct t <- (someType -> FromSome t)
 {-# COMPLETE FromAct #-}

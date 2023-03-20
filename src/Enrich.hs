@@ -104,5 +104,5 @@ mkStorageBounds store refs = catMaybes $ mkBound <$> refs
 
 mkCallDataBounds :: [Decl] -> [Exp ABoolean]
 mkCallDataBounds = concatMap $ \(Decl typ name) -> case fromAbiType typ of
-  AInteger -> [bound typ (Var nowhere SInteger name)]
+  AInteger -> [bound typ (_Var name)]
   _ -> []

@@ -39,9 +39,8 @@ import Data.List (genericTake,genericDrop)
 import Data.Map.Strict (Map)
 import Data.String (fromString)
 import Data.Text (pack)
-import Data.Typeable
 import Data.Vector (fromList)
-
+import Data.Singletons
 import EVM.Solidity (SlotType(..))
 
 -- Reexports
@@ -135,9 +134,15 @@ deriving instance Show (StorageUpdate t)
 instance Eq (StorageUpdate t) where
   Update s1 i1 e1 == Update s2 i2 e2 = eqS s1 i1 s2 i2 && eqS s1 e1 s2 e2
 
+_Update :: forall a t. SingI a => TStorageItem a t -> Exp a t -> StorageUpdate t
+_Update item expr = Update (sing @a) item expr
+
 data StorageLocation (t :: Timing) where
   Loc :: SType a -> TStorageItem a t -> StorageLocation t
 deriving instance Show (StorageLocation t)
+
+_Loc :: forall a t. SingI a => TStorageItem a t -> StorageLocation t
+_Loc item = Loc (sing @a) item
 
 instance Eq (StorageLocation t) where
   Loc s1 i1 == Loc s2 i2 = eqS s1 i1 s2 i2
@@ -155,24 +160,21 @@ data TStorageItem (a :: ActType) (t :: Timing) where
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
--- _Item :: SingI a => Id -> Id -> [TypedExp t] -> TStorageItem a t
--- _Item = Item sing
+_Item :: SingI a => Id -> Id -> [TypedExp t] -> TStorageItem a t
+_Item = Item sing
 
--- instance HasType (TStorageItem a t) a where
---   getType (Item t _ _ _) = t
 
 -- | Expressions for which the return type is known.
 data TypedExp t
   = forall a. TExp (SType a) (Exp a t)
 deriving instance Show (TypedExp t)
 
+_TExp :: SingI a => Exp a t -> TypedExp t
+_TExp expr = TExp sing expr
+
 instance Eq (TypedExp t) where
   TExp s1 e1 == TExp s2 e2 = eqS s1 e1 s2 e2
 
--- -- We could remove the 'SingI' constraint here if we also removed it from the
--- -- 'HasType' instance for 'Exp'. But it's tedious and noisy and atm unnecessary.
--- _TExp :: SingI a => Exp a t -> TypedExp t
--- _TExp expr = TExp (getType expr) expr
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
 -- All storage entries within an `Exp a t` contain a value of type `Time t`.
@@ -220,7 +222,7 @@ data Exp (a :: ActType) (t :: Timing) where
   TEntry :: Pn -> Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
 
-  
+
 -- Equality modulo source file position.
 instance Eq (Exp a t) where
   And _ a b == And _ c d = a == c && b == d
@@ -276,7 +278,7 @@ instance Timable StorageLocation where
 
 instance Timable TypedExp where
   setTime time (TExp t expr) = TExp t $ setTime time expr
- 
+
 instance Timable (Exp a) where
   setTime time expr = case expr of
     -- booleans
@@ -502,16 +504,5 @@ uintmin _ = 0
 uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
--- _Var :: SingI a => Id -> Exp a t
--- _Var = Var nowhere sing
-
-castTime :: (Typeable t, Typeable u) => Exp a u -> Maybe (Exp a t)
-castTime = gcast
-
-castType :: (Typeable a, Typeable x) => Exp x t -> Maybe (Exp a t)
-castType = gcast0
-
--- | Analogous to `gcast1` and `gcast2` from `Data.Typeable`. We *could* technically use `cast` instead
--- but then we would catch too many errors at once, so we couldn't emit informative error messages.
-gcast0 :: forall t t' a. (Typeable t, Typeable t') => t a -> Maybe (t' a)
-gcast0 x = fmap (\Refl -> x) (eqT :: Maybe (t :~: t'))
+_Var :: SingI a => Id -> Exp a t
+_Var = Var nowhere sing
