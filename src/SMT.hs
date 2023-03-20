@@ -42,7 +42,6 @@ import Data.Maybe
 import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
-import Data.Singletons (SomeSing(..))
 
 import Syntax
 import Syntax.Annotated

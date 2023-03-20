@@ -120,7 +120,7 @@ kExpr (GT _ a b) = "(" <> kExpr a <> " >Int " <> kExpr b <> ")"
 kExpr (GEQ _ a b) = "(" <> kExpr a <> " >=Int " <> kExpr b <> ")"
 kExpr (LitBool _ a) = show a
 kExpr (NEq p t a b) = "notBool (" <> kExpr (Eq p t a b) <> ")"
-kExpr (Eq p t a b) =
+kExpr (Eq _ t a b) =
   let eqK typ = "(" <> kExpr a <> " ==" <> typ <> " " <> kExpr b <> ")"
   in case t of
        SInteger -> eqK "Int"
