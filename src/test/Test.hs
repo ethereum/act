@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 
 module Main where
 
@@ -125,17 +126,17 @@ mkDecls :: Names -> ExpoGen [Decl]
 mkDecls (Names ints bools bytes) = mapM mkDecl names
   where
     mkDecl (n, typ) = ((flip Decl) n) <$> (genType typ)
-    names = prepare Integer ints ++ prepare Boolean bools ++ prepare ByteStr bytes
+    names = prepare AInteger ints ++ prepare ABoolean bools ++ prepare AByteStr bytes
     prepare typ ns = (,typ) <$> ns
 
 
 genType :: ActType -> ExpoGen AbiType
 genType typ = case typ of
   AInteger -> oneof [ AbiUIntType <$> validIntSize
-                   , AbiIntType <$> validIntSize
-                   , return AbiAddressType
-                   , AbiBytesType <$> validBytesSize
-                   ]
+                    , AbiIntType <$> validIntSize
+                    , return AbiAddressType
+                    , AbiBytesType <$> validBytesSize
+                    ]
   ABoolean -> return AbiBoolType
   AByteStr -> return AbiStringType
                    --, return AbiBytesDynamicType -- TODO: needs frontend support
@@ -155,22 +156,22 @@ genTypedExp names n = oneof
 
 -- TODO: literals, cat slice, ITE, storage, ByStr
 genExpBytes :: Names -> Int -> ExpoGen (Exp AByteStr)
-genExpBytes names _ = _Var <$> selectName ByteStr names
+genExpBytes names _ = _Var <$> selectName AByteStr names
 
 -- TODO: ITE, storage
 genExpBool :: Names -> Int -> ExpoGen (Exp ABoolean)
 genExpBool names 0 = oneof
-  [ _Var <$> selectName Boolean names
+  [ _Var <$> selectName ABoolean names
   , LitBool nowhere <$> liftGen arbitrary
   ]
 genExpBool names n = oneof
   [ liftM2 (And nowhere) subExpBool subExpBool
   , liftM2 (Or nowhere) subExpBool subExpBool
   , liftM2 (Impl nowhere) subExpBool subExpBool
-  , liftM2 (Eq nowhere) subExpInt subExpInt
-  , liftM2 (Eq nowhere) subExpBool subExpBool
-  , liftM2 (Eq nowhere) subExpBytes subExpBytes
-  , liftM2 (NEq nowhere) subExpInt subExpInt
+  , liftM2 (Eq nowhere SInteger) subExpInt subExpInt
+  , liftM2 (Eq nowhere SBoolean) subExpBool subExpBool
+  , liftM2 (Eq nowhere SByteStr) subExpBytes subExpBytes
+  , liftM2 (NEq nowhere SInteger) subExpInt subExpInt
   , liftM2 (LT nowhere) subExpInt subExpInt
   , liftM2 (LEQ nowhere) subExpInt subExpInt
   , liftM2 (GEQ nowhere) subExpInt subExpInt
@@ -186,7 +187,7 @@ genExpBool names n = oneof
 genExpInt :: Names -> Int -> ExpoGen (Exp AInteger)
 genExpInt names 0 = oneof
   [ LitInt nowhere <$> liftGen arbitrary
-  , _Var <$> selectName Integer names
+  , _Var <$> selectName AInteger names
   , return $ IntEnv nowhere Caller
   , return $ IntEnv nowhere Callvalue
   , return $ IntEnv nowhere Calldepth
