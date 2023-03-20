@@ -357,6 +357,7 @@ checkExpr env typ e = case (typ, e) of
   (SInteger, U.EMul    p v1 v2) -> Mul p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
   (SInteger, U.EDiv    p v1 v2) -> Div p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
   (SInteger, U.EMod    p v1 v2) -> Mod p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
+  (SInteger, U.EExp    p v1 v2) -> Exp p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
   (SInteger, U.IntLit  p v1 )   -> pure $ LitInt  p v1
   -- Control
   (_, U.EITE p v1 v2 v3) -> ITE p <$> checkExpr env SBoolean v1 <*> checkExpr env typ v2 <*> checkExpr env typ v3
