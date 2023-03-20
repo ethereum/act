@@ -154,11 +154,11 @@ genTypedExp names n = oneof
 
 
 -- TODO: literals, cat slice, ITE, storage, ByStr
-genExpBytes :: Names -> Int -> ExpoGen (Exp ByteString)
+genExpBytes :: Names -> Int -> ExpoGen (Exp AByteStr)
 genExpBytes names _ = _Var <$> selectName ByteStr names
 
 -- TODO: ITE, storage
-genExpBool :: Names -> Int -> ExpoGen (Exp Bool)
+genExpBool :: Names -> Int -> ExpoGen (Exp ABoolean)
 genExpBool names 0 = oneof
   [ _Var <$> selectName Boolean names
   , LitBool nowhere <$> liftGen arbitrary
@@ -183,7 +183,7 @@ genExpBool names n = oneof
 
 
 -- TODO: storage
-genExpInt :: Names -> Int -> ExpoGen (Exp Integer)
+genExpInt :: Names -> Int -> ExpoGen (Exp AInteger)
 genExpInt names 0 = oneof
   [ LitInt nowhere <$> liftGen arbitrary
   , _Var <$> selectName Integer names
