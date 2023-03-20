@@ -37,8 +37,13 @@ data SType (a :: ActType) where
   SInteger :: SType AInteger
   SBoolean :: SType ABoolean
   SByteStr :: SType AByteStr
-deriving instance Show (SType a)
 deriving instance Eq (SType a)
+
+instance Show (SType a) where
+  show = \case
+    SInteger -> "int"
+    SBoolean -> "bool"
+    SByteStr -> "bytestring"
 
 type instance Sing = SType
 
