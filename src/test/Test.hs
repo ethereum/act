@@ -131,13 +131,13 @@ mkDecls (Names ints bools bytes) = mapM mkDecl names
 
 genType :: ActType -> ExpoGen AbiType
 genType typ = case typ of
-  Integer -> oneof [ AbiUIntType <$> validIntSize
+  AInteger -> oneof [ AbiUIntType <$> validIntSize
                    , AbiIntType <$> validIntSize
                    , return AbiAddressType
                    , AbiBytesType <$> validBytesSize
                    ]
-  Boolean -> return AbiBoolType
-  ByteStr -> return AbiStringType
+  ABoolean -> return AbiBoolType
+  AByteStr -> return AbiStringType
                    --, return AbiBytesDynamicType -- TODO: needs frontend support
 
   where
@@ -220,9 +220,9 @@ genExpInt names n = do
 selectName :: ActType -> Names -> ExpoGen String
 selectName typ (Names ints bools bytes) = do
   let names = case typ of
-                Integer -> ints
-                Boolean -> bools
-                ByteStr -> bytes
+                AInteger -> ints
+                ABoolean -> bools
+                AByteStr -> bytes
   idx <- elements [0..((length names)-1)]
   return $ names!!idx
 
