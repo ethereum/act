@@ -58,10 +58,10 @@ locFromRewrite :: Rewrite t -> StorageLocation t
 locFromRewrite = onRewrite id locFromUpdate
 
 locFromUpdate :: StorageUpdate t -> StorageLocation t
-locFromUpdate (Update t item _) = Loc t item
+locFromUpdate (Update _ item _) = _Loc item
 
 locsFromItem :: TStorageItem a t -> [StorageLocation t]
-locsFromItem item = Loc (typeFromItem item) item : concatMap locsFromTypedExp (ixsFromItem item)
+locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
 
 locsFromTypedExp :: TypedExp t -> [StorageLocation t]
 locsFromTypedExp (TExp _ e) = locsFromExp e
@@ -185,9 +185,6 @@ contractFromItem (Item _ c _ _) = c
 
 ixsFromItem :: TStorageItem a t -> [TypedExp t]
 ixsFromItem (Item _ _ _ ixs) = ixs
-
-typeFromItem :: TStorageItem a t -> SType a
-typeFromItem (Item t _ _ _) = t
 
 contractsInvolved :: Behaviour t -> [Id]
 contractsInvolved = fmap contractFromRewrite . _stateUpdates

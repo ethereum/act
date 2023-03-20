@@ -141,8 +141,8 @@ data StorageLocation (t :: Timing) where
   Loc :: SType a -> TStorageItem a t -> StorageLocation t
 deriving instance Show (StorageLocation t)
 
-_Loc :: forall a t. SingI a => TStorageItem a t -> StorageLocation t
-_Loc item = Loc (sing @a) item
+_Loc :: TStorageItem a t -> StorageLocation t
+_Loc item@(Item s _ _ _ ) = Loc s item
 
 instance Eq (StorageLocation t) where
   Loc s1 i1 == Loc s2 i2 = eqS s1 i1 s2 i2
