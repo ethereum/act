@@ -256,7 +256,7 @@ instance Eq (Exp a t) where
   ByEnv _ a == ByEnv _ b = a == b
 
   Eq _ s a b == Eq _ s' c d = eqS s a s' c && eqS s b s' d
-  NEq _ s a b == Eq _ s' c d = eqS s a s' c && eqS s b s' d
+  NEq _ s a b == NEq _ s' c d = eqS s a s' c && eqS s b s' d
 
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
   TEntry _ a t == TEntry _ b u = a == b && t == u
