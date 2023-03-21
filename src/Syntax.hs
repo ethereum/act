@@ -15,7 +15,6 @@ import Data.List
 import Data.Map (Map,empty,insertWith,unionsWith)
 
 import Syntax.TimeAgnostic as Agnostic
--- import Syntax.Types
 import qualified Syntax.Annotated as Annotated
 import           Syntax.Untyped hiding (Constant,Rewrite)
 import qualified Syntax.Untyped as Untyped

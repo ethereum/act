@@ -24,6 +24,11 @@ import Data.ByteString    as Syntax.Types (ByteString)
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import EVM.ABI            as Syntax.Types (AbiType(..))
 
+import Data.Tuple.Extra (dupe)
+import Data.Type.Equality (TestEquality(..))
+import Data.Typeable hiding (TypeRep,typeRep)
+import Type.Reflection
+
 -- | Types of Act expressions
 data ActType
   = AInteger
@@ -47,17 +52,34 @@ instance Show (SType a) where
 
 type instance Sing = SType
 
-instance TestEquality SType where
-  testEquality SInteger SInteger = Just Refl
-  testEquality SBoolean SBoolean = Just Refl
-  testEquality SByteStr SByteStr = Just Refl
-  testEquality _ _ = Nothing
+-- | Singleton types of the types understood by proving tools.
+data VSType a where
+  VSInteger :: VSType Integer
+  VSBoolean :: VSType Bool
+  VSByteStr :: VSType ByteString
+deriving instance Eq (VSType a)
+
+type instance Sing = VSType
+
+instance TestEquality VSType where
+  testEquality SType SType = eqT
+-- instance TestEquality SType where
+--   testEquality SInteger SInteger = Just Refl
+--   testEquality SBoolean SBoolean = Just Refl
+--   testEquality SByteStr SByteStr = Just Refl
+--   testEquality _ _ = Nothing
+
 
 -- | Compare equality of two things parametrized by types which have singletons.
-eqS :: forall a b f t. Eq (f a t) => SType a -> f a t -> SType b -> f b t -> Bool
-eqS sa ea sb eb = case testEquality sa sb of
-                       Just Refl -> ea == eb
-                       _ -> False
+eqS :: forall (a :: *) (b :: *) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
+eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
+
+
+-- -- | Compare equality of two things parametrized by types which have singletons.
+-- eqS :: forall (a :: ActType) (b :: ActType) f t. (Eq (f a t), SingI a, SingI b) => f a t -> f b t -> Bool
+-- eqS ea eb = case testEquality (sing @a) (sing @b) of
+--                        Just Refl -> ea == eb
+--                        _ -> False
 
 -- Defines which singleton to retreive when we only have the type, not the
 -- actual singleton.

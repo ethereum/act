@@ -42,6 +42,7 @@ import Data.Text (pack)
 import Data.Vector (fromList)
 import Data.Singletons
 import EVM.Solidity (SlotType(..))
+import Data.Singletons (SingI(..))
 
 -- Reexports
 import Parse          as Syntax.TimeAgnostic (nowhere)
@@ -128,11 +129,11 @@ data Rewrite t
   deriving (Show, Eq)
 
 data StorageUpdate (t :: Timing) where
-  Update :: SType a -> TStorageItem a t -> Exp a t -> StorageUpdate t
+  Update :: SingI a => SType a -> TStorageItem a t -> Exp a t -> StorageUpdate t
 deriving instance Show (StorageUpdate t)
 
 instance Eq (StorageUpdate t) where
-  Update s1 i1 e1 == Update s2 i2 e2 = eqS s1 i1 s2 i2 && eqS s1 e1 s2 e2
+  Update s1 i1 e1 == Update s2 i2 e2 = eqS i1 i2 && eqS e1 e2
 
 _Update :: forall a t. SingI a => TStorageItem a t -> Exp a t -> StorageUpdate t
 _Update item expr = Update (sing @a) item expr
@@ -145,7 +146,7 @@ _Loc :: TStorageItem a t -> StorageLocation t
 _Loc item@(Item s _ _ _ ) = Loc s item
 
 instance Eq (StorageLocation t) where
-  Loc s1 i1 == Loc s2 i2 = eqS s1 i1 s2 i2
+  Loc SType i1 == Loc SType i2 = eqS i1 i2
 
 
 -- | References to items in storage, either as a map lookup or as a reading of
@@ -163,7 +164,6 @@ deriving instance Eq (TStorageItem a t)
 _Item :: SingI a => Id -> Id -> [TypedExp t] -> TStorageItem a t
 _Item = Item sing
 
-
 -- | Expressions for which the return type is known.
 data TypedExp t
   = forall a. TExp (SType a) (Exp a t)
@@ -173,7 +173,7 @@ _TExp :: SingI a => Exp a t -> TypedExp t
 _TExp expr = TExp sing expr
 
 instance Eq (TypedExp t) where
-  TExp s1 e1 == TExp s2 e2 = eqS s1 e1 s2 e2
+  TExp s1 e1 == TExp s2 e2 = eqS e1 e2
 
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
@@ -255,8 +255,8 @@ instance Eq (Exp a t) where
   ByLit _ a == ByLit _ b = a == b
   ByEnv _ a == ByEnv _ b = a == b
 
-  Eq _ s a b == Eq _ s' c d = eqS s a s' c && eqS s b s' d
-  NEq _ s a b == NEq _ s' c d = eqS s a s' c && eqS s b s' d
+  Eq _ _ a b == Eq _ _ c d = eqS a c && eqS b d
+  NEq _ _ a b == NEq _ _ c d = eqS a c && eqS b d
 
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
   TEntry _ a t == TEntry _ b u = a == b && t == u
