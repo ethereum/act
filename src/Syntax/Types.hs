@@ -24,11 +24,6 @@ import Data.ByteString    as Syntax.Types (ByteString)
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import EVM.ABI            as Syntax.Types (AbiType(..))
 
-import Data.Tuple.Extra (dupe)
-import Data.Type.Equality (TestEquality(..))
-import Data.Typeable hiding (TypeRep,typeRep)
-import Type.Reflection
-
 -- | Types of Act expressions
 data ActType
   = AInteger
