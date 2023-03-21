@@ -40,7 +40,6 @@ import Data.Map.Strict (Map)
 import Data.String (fromString)
 import Data.Text (pack)
 import Data.Vector (fromList)
-import Data.Singletons
 import EVM.Solidity (SlotType(..))
 import Data.Singletons (SingI(..))
 
@@ -129,14 +128,14 @@ data Rewrite t
   deriving (Show, Eq)
 
 data StorageUpdate (t :: Timing) where
-  Update :: SingI a => SType a -> TStorageItem a t -> Exp a t -> StorageUpdate t
+  Update :: SType a -> TStorageItem a t -> Exp a t -> StorageUpdate t
 deriving instance Show (StorageUpdate t)
 
 instance Eq (StorageUpdate t) where
-  Update s1 i1 e1 == Update s2 i2 e2 = eqS i1 i2 && eqS e1 e2
+  Update SType i1 e1 == Update SType i2 e2 = eqS i1 i2 && eqS e1 e2
 
-_Update :: forall a t. SingI a => TStorageItem a t -> Exp a t -> StorageUpdate t
-_Update item expr = Update (sing @a) item expr
+_Update :: SingI a => TStorageItem a t -> Exp a t -> StorageUpdate t
+_Update item expr = Update sing item expr
 
 data StorageLocation (t :: Timing) where
   Loc :: SType a -> TStorageItem a t -> StorageLocation t
@@ -173,7 +172,7 @@ _TExp :: SingI a => Exp a t -> TypedExp t
 _TExp expr = TExp sing expr
 
 instance Eq (TypedExp t) where
-  TExp s1 e1 == TExp s2 e2 = eqS e1 e2
+  TExp SType e1 == TExp SType e2 = eqS e1 e2
 
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
@@ -255,17 +254,14 @@ instance Eq (Exp a t) where
   ByLit _ a == ByLit _ b = a == b
   ByEnv _ a == ByEnv _ b = a == b
 
-  Eq _ _ a b == Eq _ _ c d = eqS a c && eqS b d
-  NEq _ _ a b == NEq _ _ c d = eqS a c && eqS b d
+  Eq _ SType a b == Eq _ SType c d = eqS a c && eqS b d
+  NEq _ SType a b == NEq _ SType c d = eqS a c && eqS b d
 
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
   TEntry _ a t == TEntry _ b u = a == b && t == u
   Var _ _ a == Var _ _ b = a == b
   _ == _ = False
 
--- -- We could make this explicit which would remove the need for the SingI instance.
--- instance SingI a => HasType (Exp a t) a where
---   getType _ = sing
 
 instance Semigroup (Exp ABoolean t) where
   a <> b = And nowhere a b
