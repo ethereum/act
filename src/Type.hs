@@ -193,7 +193,7 @@ splitBehaviour store (U.Definition _ contract iface@(Interface _ decls) iffs (U.
 -- | Typechecks a case, returning typed versions of its preconditions, rewrites and return value.
 checkCase :: Env -> U.Case -> Err ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed))
 checkCase env c@(U.Case _ pre post) = do
-  -- XXX isWild checks for WildExp, but WildExp is never generated
+  -- TODO isWild checks for WildExp, but WildExp is never generated
   if' <- traverse (checkExpr env SBoolean) $ if isWild c then [] else [pre]
   (storage,return') <- checkPost env post
   pure (if',storage,return')
@@ -224,7 +224,7 @@ checkAssign _ _ = error "todo: support struct assignment in constructors"
 checkDefn :: Env -> AbiType -> AbiType -> Id -> U.Defn -> Err StorageUpdate
 checkDefn env@Env{contract} keyType (FromAbi valType) name (U.Defn k val) =
   _Update
-  <$> (_Item contract name <$> checkIxs (getPosn k) env [k] [keyType])
+  <$> (_Item contract name <$> checkIxs env (getPosn k) [k] [keyType])
   <*> checkExpr env valType val
 
 -- | Typechecks a postcondition, returning typed versions of its storage updates and return expression.
@@ -285,7 +285,7 @@ checkStorageExpr env@Env{contract,store} (U.PEntry p name args) expr = case Map.
     _Update (_Item contract name []) <$> checkExpr env typ expr
   Just (StorageMapping argtyps (FromAbi valType)) ->
     _Update
-    <$> (_Item contract name <$> checkIxs p env args (NonEmpty.toList argtyps))
+    <$> (_Item contract name <$> checkIxs env p args (NonEmpty.toList argtyps))
     <*> checkExpr env valType expr
   Nothing ->
     throw (p, "Unknown storage variable " <> show name)
@@ -300,7 +300,7 @@ checkPattern env@Env{contract,store} (U.PEntry p name args) =
   where
     makeLocation :: AbiType -> [AbiType] -> Err StorageLocation
     makeLocation (FromAbi locType) argTypes =
-      _Loc . Item locType contract name <$> checkIxs @Untimed p env args argTypes
+      _Loc . Item locType contract name <$> checkIxs @Untimed env p args argTypes
 
 checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
 checkIffs env = foldr check (pure [])
@@ -398,7 +398,7 @@ checkExpr env@Env{contract,store,calldata} typ e = case (typ, e) of
       (Just (StorageMapping ts (FromAbi varTyp)), Nothing) -> makeEntry typ (NonEmpty.toList ts) <* checkEq pn typ varTyp
       where
         makeEntry :: SType a -> [AbiType] -> Err (Exp a t)
-        makeEntry entryType ts = checkTime <*> (TEntry pn timing . Item entryType contract name <$> checkIxs pn env es ts)
+        makeEntry entryType ts = checkTime <*> (TEntry pn timing . Item entryType contract name <$> checkIxs env pn es ts)
   
         checkTime :: Err (Exp x t0 -> Exp x t)
         checkTime = case eqT @t @t0 of
@@ -414,7 +414,7 @@ checkEq p t1 t2 = maybe err (\Refl -> pure ()) $  testEquality t1 t2
 
 -- | Checks that there are as many expressions as expected by the types,
 -- and checks that each one of them agree with its type.
-checkIxs :: forall t. Typeable t => Pn -> Env -> [U.Expr] -> [AbiType] -> Err [TypedExp t]
-checkIxs pn env exprs types = if length exprs /= length types
+checkIxs :: forall t. Typeable t => Env -> Pn -> [U.Expr] -> [AbiType] -> Err [TypedExp t]
+checkIxs env pn exprs types = if length exprs /= length types
                               then throw (pn, "Index mismatch for entry")
                               else traverse (uncurry $ checkAbiExpr env) (exprs `zip` types)

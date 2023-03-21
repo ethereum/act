@@ -474,9 +474,9 @@ getValue solver name = sendCommand solver $ "(get-value (" <> name <> "))"
 -- | Parse the result of a call to getValue as the supplied type.
 parseModel :: SType a -> String -> TypedExp
 parseModel = \case
-  SInteger -> TExp SInteger . LitInt  nowhere . read       . parseSMTModel
-  SBoolean -> TExp SBoolean . LitBool nowhere . readBool   . parseSMTModel
-  SByteStr -> TExp SByteStr . ByLit   nowhere . fromString . parseSMTModel
+  SInteger -> _TExp . LitInt  nowhere . read       . parseSMTModel
+  SBoolean -> _TExp . LitBool nowhere . readBool   . parseSMTModel
+  SByteStr -> _TExp . ByLit   nowhere . fromString . parseSMTModel
   where
     readBool "true" = True
     readBool "false" = False
