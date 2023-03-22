@@ -54,7 +54,7 @@ instance TestEquality SType where
   testEquality _ _ = Nothing
 
 
--- -- | Compare equality of two things parametrized by types which have singletons.
+-- | Compare equality of two things parametrized by types which have singletons.
 eqS :: forall (a :: ActType) (b :: ActType) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
 eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
 
