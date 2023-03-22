@@ -55,13 +55,9 @@ instance TestEquality SType where
 
 
 -- -- | Compare equality of two things parametrized by types which have singletons.
--- eqS :: forall (a :: *) (b :: *) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
--- eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
--- | Compare equality of two things parametrized by types which have singletons.
-eqS :: forall (a :: ActType) (b :: ActType) f t. (Eq (f a t), SingI a, SingI b) => f a t -> f b t -> Bool
-eqS ea eb = case testEquality (sing @a) (sing @b) of
-                       Just Refl -> ea == eb
-                       _ -> False
+eqS :: forall (a :: ActType) (b :: ActType) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
+eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
+
 
 -- Defines which singleton to retreive when we only have the type, not the
 -- actual singleton.
