@@ -7,10 +7,9 @@ module Syntax.Untyped (module Syntax.Untyped) where
 
 import Data.Aeson
 import Data.List (intercalate)
-import Data.List.NonEmpty (toList)
+import Data.List.NonEmpty (toList, NonEmpty)
 
 import EVM.ABI (AbiType)
-import EVM.Solidity (SlotType(..))
 
 import Lex
 
@@ -64,6 +63,7 @@ data ExtStorage
 
 data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignStruct StorageVar [Defn]
   deriving (Eq, Show)
+-- TODO AssignStruct is never used
 
 data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
   deriving (Eq, Show)
@@ -133,6 +133,17 @@ data EthEnv
   | This
   | Nonce
   deriving (Show, Eq)
+
+
+data ValueType
+  = ContractType Id
+  | PrimitiveType AbiType
+  deriving (Eq, Show)
+
+data SlotType
+  = StorageMapping (NonEmpty ValueType) ValueType
+  | StorageValue ValueType
+  deriving (Eq, Show)
 
 data StorageVar = StorageVar Pn SlotType Id
   deriving (Eq, Show)

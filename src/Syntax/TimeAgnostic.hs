@@ -44,6 +44,7 @@ import EVM.Solidity (SlotType(..))
 import Data.Singletons (SingI(..))
 
 -- Reexports
+
 import Parse          as Syntax.TimeAgnostic (nowhere)
 import Syntax.Types   as Syntax.TimeAgnostic
 import Syntax.Timing  as Syntax.TimeAgnostic
@@ -57,6 +58,10 @@ data Claim t
   | S Store
 deriving instance Show (InvariantPred t) => Show (Claim t)
 deriving instance Eq   (InvariantPred t) => Eq   (Claim t)
+
+
+-- TODO maybe enforce this structure to Act programs
+-- Store * [Contract of (C, [B], [I],)]
 
 data Transition t
   = Ctor (Constructor t)
