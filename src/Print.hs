@@ -45,13 +45,13 @@ prettyExp e = case e of
 
   -- booleans
   Or _ a b -> print2 "or" a b
-  Eq _ a b -> print2 "==" a b
+  Eq _ _ a b -> print2 "==" a b
   LT _ a b -> print2 "<" a b
   GT _ a b -> print2 ">" a b
   LEQ _ a b -> print2 "<=" a b
   GEQ _ a b -> print2 ">=" a b
   And _ a b -> print2 "and" a b
-  NEq _ a b -> print2 "=/=" a b
+  NEq _ _ a b -> print2 "=/=" a b
   Neg _ a -> "(not " <> prettyExp a <> ")"
   Impl _ a b -> print2 "=>" a b
   LitBool _ b -> if b then "true" else "false"
@@ -132,12 +132,12 @@ prettyInvPred = prettyExp . untime . fst
       And p a b   -> And p (untime a) (untime b)
       Or p a b    -> Or p (untime a) (untime b)
       Impl p a b  -> Impl p (untime a) (untime b)
-      Eq p a b    -> Eq p (untime a) (untime b)
+      Eq p t a b    -> Eq p t (untime a) (untime b)
       LT p a b    -> LT p (untime a) (untime b)
       LEQ p a b   -> LEQ p (untime a) (untime b)
       GT p a b    -> GT p (untime a) (untime b)
       GEQ p a b   -> GEQ p (untime a) (untime b)
-      NEq p a b   -> NEq p (untime a) (untime b)
+      NEq p t a b   -> NEq p t (untime a) (untime b)
       Neg p a     -> Neg p (untime a)
       Add p a b   -> Add p (untime a) (untime b)
       Sub p a b   -> Sub p (untime a) (untime b)

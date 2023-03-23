@@ -25,7 +25,6 @@ import Data.SBV
 import Data.SBV.String ((.++), subStr)
 import Control.Lens hiding (op, pre, (.>))
 import Control.Monad
-import Control.Applicative ((<|>))
 import qualified Data.Vector as Vec
 
 import Print
@@ -239,12 +238,12 @@ locateCalldata b decls calldata' d@(Decl typ name) =
               ++ name ++ " in interface declaration"))
           (elemIndex d decls)
 
-    val = case actType typ of
+    val = case fromAbiType typ of
       -- all integers are 32 bytes
-      Integer -> let S _ w = readSWord offset calldata'
+      AInteger -> let S _ w = readSWord offset calldata'
                  in SymInteger $ sFromIntegral w
       -- interpret all nonzero values as boolean true
-      Boolean -> SymBool $ readSWord offset calldata' ./= 0
+      ABoolean -> SymBool $ readSWord offset calldata' ./= 0
       _ -> error "TODO: support bytes"
 
 -- | Embed an SActType as a list of symbolic bytes
@@ -308,7 +307,7 @@ symExp ctx (TExp t e) = case t of
   SBoolean -> SymBool    $ symExpBool  ctx e
   SByteStr -> SymBytes   $ symExpBytes ctx e
 
-symExpBool :: Ctx -> Exp Bool -> SBV Bool
+symExpBool :: Ctx -> Exp ABoolean -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) e = case e of
   And _ a b   -> symExpBool ctx a .&& symExpBool ctx b
   Or _ a b    -> symExpBool ctx a .|| symExpBool ctx b
@@ -317,18 +316,17 @@ symExpBool ctx@(Ctx c m args store _) e = case e of
   LEQ _ a b   -> symExpInt ctx a .<= symExpInt ctx b
   GT _ a b    -> symExpInt ctx a .> symExpInt ctx b
   GEQ _ a b   -> symExpInt ctx a .>= symExpInt ctx b
-  NEq p a b   -> sNot (symExpBool ctx (Eq p a b))
+  NEq p t a b   -> sNot (symExpBool ctx (Eq p t a b))
   Neg _ a     -> sNot (symExpBool ctx a)
   LitBool _ a -> literal a
   Var _ _ a   -> get (nameFromArg c m a) (catBools args)
   TEntry _ t a -> get (nameFromItem m a) (catBools $ timeStore t store)
   ITE _ x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
-  Eq p a b -> fromMaybe (error $ "Internal error: invalid expression type at " ++ show p)
-      $ [symExpBool  ctx a' .== symExpBool  ctx b' | a' <- castType a, b' <- castType b]
-    <|> [symExpInt   ctx a' .== symExpInt   ctx b' | a' <- castType a, b' <- castType b]
-    <|> [symExpBytes ctx a' .== symExpBytes ctx b' | a' <- castType a, b' <- castType b]
+  Eq _ SInteger a b -> symExpInt  ctx a .== symExpInt  ctx b
+  Eq _ SBoolean a b -> symExpBool  ctx a .== symExpBool  ctx b
+  Eq _ SByteStr a b -> symExpBytes  ctx a .== symExpBytes  ctx b
 
-symExpInt :: Ctx -> Exp Integer -> SBV Integer
+symExpInt :: Ctx -> Exp AInteger -> SBV Integer
 symExpInt ctx@(Ctx c m args store environment) e = case e of
   Add _ a b   -> symExpInt ctx a + symExpInt ctx b
   Sub _ a b   -> symExpInt ctx a - symExpInt ctx b
@@ -346,7 +344,7 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   IntEnv _ a -> get (nameFromEnv c m a) (catInts environment)
   ITE _ x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
 
-symExpBytes :: Ctx -> Exp ByteString -> SBV String
+symExpBytes :: Ctx -> Exp AByteStr -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
   Cat _ a b -> symExpBytes ctx a .++ symExpBytes ctx b
   Var _ _ a -> get (nameFromArg c m a) (catBytes args)
@@ -395,8 +393,8 @@ nameFromExp c m e = case e of
   GEQ _ a b   -> nameFromExp c m a <> ">=" <> nameFromExp c m b
   Neg _ a     -> "~" <> nameFromExp c m a
   LitBool _ a -> show a
-  Eq _ a b    -> nameFromExp c m a <> "=="  <> nameFromExp c m b
-  NEq _ a b   -> nameFromExp c m a <> "=/=" <> nameFromExp c m b
+  Eq _ _ a b    -> nameFromExp c m a <> "=="  <> nameFromExp c m b
+  NEq _ _ a b   -> nameFromExp c m a <> "=/=" <> nameFromExp c m b
   Cat _ a b -> nameFromExp c m a <> "++" <> nameFromExp c m b
   ByStr _ a -> show a
   ByLit _ a -> show a

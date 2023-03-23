@@ -50,3 +50,13 @@ notAtPosn p = find valid
   where
     valid (Success _)    = True
     valid (Failure errs) = all ((p /=) . fst) errs
+
+-- | Try to find a succesfull computation in a list, and if it fails
+-- it returns a default computation
+findSuccess :: Error e a -> [Error e a] -> Error e a
+findSuccess d comp = case find valid comp of
+                       Just a -> a
+                       Nothing -> d
+  where
+    valid (Success _) = True
+    valid _ = False

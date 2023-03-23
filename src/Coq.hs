@@ -260,8 +260,8 @@ coqexp (Var _ SBoolean name)  = T.pack name
 coqexp (And _ e1 e2)  = parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
 coqexp (Or _ e1 e2)   = parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
 coqexp (Impl _ e1 e2) = parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
-coqexp (Eq _ e1 e2)   = parens $ coqexp e1  <> " =? " <> coqexp e2
-coqexp (NEq _ e1 e2)  = parens $ "negb " <> parens (coqexp e1  <> " =? " <> coqexp e2)
+coqexp (Eq _ _ e1 e2)   = parens $ coqexp e1  <> " =? " <> coqexp e2
+coqexp (NEq _ _ e1 e2)  = parens $ "negb " <> parens (coqexp e1  <> " =? " <> coqexp e2)
 coqexp (Neg _ e)      = parens $ "negb " <> coqexp e
 coqexp (LT _ e1 e2)   = parens $ coqexp e1 <> " <? "  <> coqexp e2
 coqexp (LEQ _ e1 e2)  = parens $ coqexp e1 <> " <=? " <> coqexp e2
@@ -312,8 +312,8 @@ coqprop (And _ e1 e2)  = parens $ coqprop e1 <> " /\\ " <> coqprop e2
 coqprop (Or _ e1 e2)   = parens $ coqprop e1 <> " \\/ " <> coqprop e2
 coqprop (Impl _ e1 e2) = parens $ coqprop e1 <> " -> " <> coqprop e2
 coqprop (Neg _ e)      = parens $ "not " <> coqprop e
-coqprop (Eq _ e1 e2)   = parens $ coqexp e1 <> " = "  <> coqexp e2
-coqprop (NEq _ e1 e2)  = parens $ coqexp e1 <> " <> " <> coqexp e2
+coqprop (Eq _ _ e1 e2)   = parens $ coqexp e1 <> " = "  <> coqexp e2
+coqprop (NEq _ _ e1 e2)  = parens $ coqexp e1 <> " <> " <> coqexp e2
 coqprop (LT _ e1 e2)   = parens $ coqexp e1 <> " < "  <> coqexp e2
 coqprop (LEQ _ e1 e2)  = parens $ coqexp e1 <> " <= " <> coqexp e2
 coqprop (GT _ e1 e2)   = parens $ coqexp e1 <> " > "  <> coqexp e2

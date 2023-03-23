@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DataKinds #-}
 
 {-|
 Module      : Syntax
@@ -12,7 +13,6 @@ import Prelude hiding (LT, GT)
 
 import Data.List
 import Data.Map (Map,empty,insertWith,unionsWith)
-import Data.Singletons
 
 import Syntax.TimeAgnostic as Agnostic
 import qualified Syntax.Annotated as Annotated
@@ -24,7 +24,7 @@ import qualified Syntax.Untyped as Untyped
 -----------------------------------------
 
 -- | Invariant predicates can always be expressed as a single expression.
-invExp :: Annotated.InvariantPred -> Annotated.Exp Bool
+invExp :: Annotated.InvariantPred -> Annotated.Exp ABoolean
 invExp = uncurry (<>)
 
 locsFromBehaviour :: Annotated.Behaviour -> [Annotated.StorageLocation]
@@ -73,12 +73,12 @@ locsFromExp = nub . go
       And _ a b   -> go a <> go b
       Or _ a b    -> go a <> go b
       Impl _ a b  -> go a <> go b
-      Eq _ a b    -> go a <> go b
+      Eq _ _ a b    -> go a <> go b
       LT _ a b    -> go a <> go b
       LEQ _ a b   -> go a <> go b
       GT _ a b    -> go a <> go b
       GEQ _ a b   -> go a <> go b
-      NEq _ a b   -> go a <> go b
+      NEq _ _ a b   -> go a <> go b
       Neg _ a     -> go a
       Add _ a b   -> go a <> go b
       Sub _ a b   -> go a <> go b
@@ -135,12 +135,12 @@ ethEnvFromExp = nub . go
       And   _ a b   -> go a <> go b
       Or    _ a b   -> go a <> go b
       Impl  _ a b   -> go a <> go b
-      Eq    _ a b   -> go a <> go b
+      Eq    _ _ a b   -> go a <> go b
       LT    _ a b   -> go a <> go b
       LEQ   _ a b   -> go a <> go b
       GT    _ a b   -> go a <> go b
       GEQ   _ a b   -> go a <> go b
-      NEq   _ a b   -> go a <> go b
+      NEq   _ _ a b   -> go a <> go b
       Neg   _ a     -> go a
       Add   _ a b   -> go a <> go b
       Sub   _ a b   -> go a <> go b
@@ -204,7 +204,7 @@ ixsFromRewrite :: Rewrite t -> [TypedExp t]
 ixsFromRewrite = onRewrite ixsFromLocation ixsFromUpdate
 
 itemType :: TStorageItem a t -> ActType
-itemType (Item t _ _ _) = SomeSing t
+itemType (Item t _ _ _) = actType t
 
 isMapping :: StorageLocation t -> Bool
 isMapping = not . null . ixsFromLocation
