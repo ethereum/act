@@ -159,3 +159,4 @@ instance ToJSON SlotType where
   toJSON (StorageMapping ixTypes valType) = object [ "type" .= String "mapping"
                                                    , "ixTypes" .= show (toList ixTypes)
                                                    , "valType" .= show valType]
+

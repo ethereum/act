@@ -40,7 +40,6 @@ import Data.Map.Strict (Map)
 import Data.String (fromString)
 import Data.Text (pack)
 import Data.Vector (fromList)
-import EVM.Solidity (SlotType(..))
 import Data.Singletons (SingI(..))
 
 -- Reexports
@@ -48,7 +47,7 @@ import Data.Singletons (SingI(..))
 import Parse          as Syntax.TimeAgnostic (nowhere)
 import Syntax.Types   as Syntax.TimeAgnostic
 import Syntax.Timing  as Syntax.TimeAgnostic
-import Syntax.Untyped as Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..))
+import Syntax.Untyped as Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..))
 
 -- AST post typechecking
 data Claim t

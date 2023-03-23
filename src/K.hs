@@ -11,7 +11,7 @@ module K where
 import Prelude hiding (GT, LT)
 
 import Syntax
-import Syntax.Annotated
+import Syntax.Annotated hiding (SlotType(..))
 
 import Error
 import Data.Text (Text, pack, unpack)

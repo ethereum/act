@@ -24,7 +24,6 @@ import Data.List (groupBy)
 import Control.Monad.State
 
 import EVM.ABI
-import EVM.Solidity (SlotType(..))
 import Syntax
 import Syntax.Annotated hiding (Store)
 
@@ -128,7 +127,7 @@ base :: Store -> Constructor -> Fresh T.Text
 base store (Constructor name _ i _ _ updates _) = do
   name' <- fresh name
   return $ definition name' (envDecl <> " " <> interface i) $
-    stateval store (\_ t -> defaultValue t) updates
+    stateval store (\_ t -> defaultSlotValue t) updates
 
 claim :: Store -> Behaviour -> Fresh T.Text
 claim store (Behaviour name _ _ i _ _ rewrites _) = do
@@ -216,8 +215,12 @@ arguments (Interface _ decls) =
 -- | coq syntax for a slot type
 slotType :: SlotType -> T.Text
 slotType (StorageMapping xs t) =
-  T.intercalate " -> " (map abiType (NE.toList xs ++ [t]))
-slotType (StorageValue abitype) = abiType abitype
+  T.intercalate " -> " (map valueType (NE.toList xs ++ [t]))
+slotType (StorageValue val) = valueType val
+
+valueType :: ValueType -> T.Text
+valueType (PrimitiveType t) = abiType t
+valueType (ContractType _) = error "TODO: implement contract types in Coq"
 
 -- | coq syntax for an abi type
 abiType :: AbiType -> T.Text
@@ -235,13 +238,17 @@ returnType (TExp SByteStr _) = error "bytestrings not supported"
 
 -- | default value for a given type
 -- this is used in cases where a value is not set in the constructor
-defaultValue :: SlotType -> T.Text
-defaultValue (StorageMapping xs t) =
+defaultSlotValue :: SlotType -> T.Text
+defaultSlotValue (StorageMapping xs t) =
   "fun "
   <> T.unwords (replicate (length (NE.toList xs)) "_")
   <> " => "
-  <> abiVal t
-defaultValue (StorageValue t) = abiVal t
+  <> defaultVal t
+defaultSlotValue (StorageValue t) = defaultVal t
+
+defaultVal :: ValueType -> T.Text
+defaultVal (PrimitiveType t) = abiVal t
+defaultVal (ContractType _) = error "TODO: implement contract types in Coq"
 
 abiVal :: AbiType -> T.Text
 abiVal (AbiUIntType _) = "0"
