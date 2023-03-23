@@ -3,7 +3,6 @@ module Parse (module Parse, showposn) where
 import Prelude hiding (EQ, GT, LT)
 import Lex
 import EVM.ABI
-import EVM.Solidity (SlotType(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Syntax.Untyped
 import Error
@@ -203,7 +202,7 @@ ExtStorage : 'storage' 'of' id nonempty(Store)        { ExtStorage (name $3) $4 
            | 'storage' 'of' '_' '_' '=>' '_'          { WildStorage }
 
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
-             | 'iff in range' Type nonempty(Expr)     { IffIn (posn $1) $2 $3 }
+             | 'iff in range' AbiType nonempty(Expr)  { IffIn (posn $1) $2 $3 }
 
 Store : Pattern '=>' Expr                             { Rewrite $1 $3 }
       | Pattern                                       { Constant $1 }
@@ -220,25 +219,28 @@ Assign : StorageVar ':=' Expr                         { AssignVal $1 $3 }
        | StorageVar ':=' '[' seplist(Defn, ',') ']'   { AssignMany $1 $4 }
 
 Defn : Expr ':=' Expr                                 { Defn $1 $3 }
-Decl : Type id                                        { Decl $1 (name $2) }
+Decl : AbiType id                                     { Decl $1 (name $2) }
 
 StorageVar : SlotType id                              { StorageVar (posn $2) $1 (name $2) }
 
-Type : 'uint'
-       { case validsize $1 of
-              True  -> AbiUIntType $1
-              False -> error $ "invalid uint size: uint" <> (show $1)
-       }
-     | 'int'
-       { case validsize $1 of
-              True  -> AbiIntType $1
-              False -> error $ "invalid int size: int" <> (show $1)
-       }
-     | 'bytes'                                        { AbiBytesType $1 }
-     | Type '[' ilit ']'                              { AbiArrayType (fromIntegral $ value $3) $1 }
-     | 'address'                                      { AbiAddressType }
-     | 'bool'                                         { AbiBoolType }
-     | 'string'                                       { AbiStringType }
+AbiType : 'uint'
+         { case validsize $1 of
+	     True  -> AbiUIntType $1
+	     False -> error $ "invalid uint size: uint" <> (show $1)
+	 }
+       | 'int'
+         { case validsize $1 of
+	     True  -> AbiIntType $1
+	     False -> error $ "invalid int size: int" <> (show $1)
+	 }
+       | 'bytes'                                      { AbiBytesType $1 }
+       | AbiType '[' ilit ']'                         { AbiArrayType (fromIntegral $ value $3) $1 }
+       | 'address'                                    { AbiAddressType }
+       | 'bool'                                       { AbiBoolType }
+       | 'string'                                     { AbiStringType }
+
+Type : AbiType                                        { PrimitiveType $1 }
+     | id                                             { ContractType $ name $1 }
 
 SlotType : 'mapping' '(' MappingArgs ')'              { (uncurry StorageMapping) $3 }
          | Type                                       { StorageValue $1 }
