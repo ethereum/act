@@ -98,6 +98,7 @@ locsFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
+      Select _ a _ -> go a
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
       Var {} -> []
@@ -161,6 +162,7 @@ ethEnvFromExp = nub . go
       UIntMax {} -> []
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
+      Select _ a _ -> go a
       TEntry _ _ a -> ethEnvFromItem a
       Var {} -> []
 

@@ -477,6 +477,7 @@ parseModel = \case
   SInteger -> _TExp . LitInt  nowhere . read       . parseSMTModel
   SBoolean -> _TExp . LitBool nowhere . readBool   . parseSMTModel
   SByteStr -> _TExp . ByLit   nowhere . fromString . parseSMTModel
+  SContract -> error "unexpected contract type"
   where
     readBool "true" = True
     readBool "false" = False
@@ -586,6 +587,8 @@ expToSMT2 expr = case expr of
   ByLit _ a -> pure $ show a
   ByEnv _ a -> pure $ prettyEnv a
 
+  -- contracts
+  Select _ _ _ -> error "contracts not supported"
   -- polymorphic
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
@@ -644,6 +647,7 @@ sType :: ActType -> SMT2
 sType AInteger = "Int"
 sType ABoolean = "Bool"
 sType AByteStr = "String"
+sType AContract = error "contracts not supported"
 
 -- | act -> smt2 type translation
 sType' :: TypedExp -> SMT2

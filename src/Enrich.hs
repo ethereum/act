@@ -7,8 +7,6 @@ import Data.Maybe
 import Data.List (nub)
 import qualified Data.Map.Strict as Map (lookup)
 
-import EVM.Solidity (SlotType(..))
-
 import Syntax
 import Syntax.Annotated
 import Type (bound, defaultStore)
@@ -62,7 +60,7 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
   where
     mkBound :: EthEnv -> Maybe (Exp ABoolean)
     mkBound e = case lookup e defaultStore of
-      Just AInteger -> Just $ bound (toAbiType e) (IntEnv nowhere e)
+      Just AInteger -> Just $ bound (PrimitiveType $ toAbiType e) (IntEnv nowhere e)
       _ -> Nothing
 
     toAbiType :: EthEnv -> AbiType
@@ -91,18 +89,18 @@ mkStorageBounds store refs = catMaybes $ mkBound <$> refs
     mkBound _ = Nothing
 
     fromItem :: TStorageItem AInteger -> Exp ABoolean
-    fromItem item@(Item _ contract name _) = bound (abiType $ slotType contract name) (TEntry nowhere Pre item)
+    fromItem item@(Item _ contract name _) = bound (valueType $ slotType contract name) (TEntry nowhere Pre item)
 
     slotType :: Id -> Id -> SlotType
     slotType contract name = let
         vars = fromMaybe (error $ contract <> " not found in " <> show store) $ Map.lookup contract store
       in fromMaybe (error $ name <> " not found in " <> show vars) $ Map.lookup name vars
 
-    abiType :: SlotType -> AbiType
-    abiType (StorageMapping _ typ) = typ
-    abiType (StorageValue typ) = typ
+    valueType :: SlotType -> ValueType
+    valueType (StorageMapping _ typ) = typ
+    valueType (StorageValue typ) = typ
 
 mkCallDataBounds :: [Decl] -> [Exp ABoolean]
 mkCallDataBounds = concatMap $ \(Decl typ name) -> case fromAbiType typ of
-  AInteger -> [bound typ (_Var name)]
+  AInteger -> [bound (PrimitiveType typ) (_Var name)]
   _ -> []

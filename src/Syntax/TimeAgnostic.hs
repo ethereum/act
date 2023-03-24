@@ -126,6 +126,11 @@ data Mode
   | OOG
   deriving (Eq, Show)
 
+-- | Additional type information
+data TInfo
+  = TypeId Id -- unique identifier for contract types
+  | None
+
 data Rewrite t
   = Constant (StorageLocation t)
   | Rewrite (StorageUpdate t)
@@ -216,7 +221,8 @@ data Exp (a :: ActType) (t :: Timing) where
   ByStr :: Pn -> String -> Exp AByteStr t
   ByLit :: Pn -> ByteString -> Exp AByteStr t
   ByEnv :: Pn -> EthEnv -> Exp AByteStr t
-
+  -- contracts
+  Select :: Pn -> Exp AContract t -> Id -> Exp a t
   -- polymorphic
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
@@ -311,6 +317,8 @@ instance Timable (Exp a) where
     ByStr p x -> ByStr p x
     ByLit p x -> ByLit p x
     ByEnv p x -> ByEnv p x
+    -- contracts
+    Select p x y -> Select p (go x) y
     -- polymorphic
     Eq  p s x y -> Eq p s (go x) (go y)
     NEq p s x y -> NEq p s (go x) (go y)

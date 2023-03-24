@@ -201,6 +201,7 @@ updateVar updates handler (name, t@(StorageMapping xs _)) = parens $
         SInteger -> " =? "
         SBoolean -> " =?? "
         SByteStr -> error "bytestrings not supported"
+        SContract -> error "contracts not supported"
 
 -- | produce a block of declarations from an interface
 interface :: Interface -> T.Text
@@ -235,6 +236,7 @@ returnType :: TypedExp -> T.Text
 returnType (TExp SInteger _) = "Z"
 returnType (TExp SBoolean _) = "bool"
 returnType (TExp SByteStr _) = error "bytestrings not supported"
+returnType (TExp SContract _) = error "contracts not supported"
 
 -- | default value for a given type
 -- this is used in cases where a value is not set in the constructor
@@ -310,6 +312,8 @@ coqexp (Var _ SByteStr _) = error "bytestrings not supported"
 coqexp ByStr {} = error "bytestrings not supported"
 coqexp ByLit {} = error "bytestrings not supported"
 coqexp ByEnv {} = error "bytestrings not supported"
+coqexp Select {} = error "contracts not supported"
+coqexp (Var _ SContract _) = error "contracts not supported"
 
 -- | coq syntax for a proposition
 coqprop :: Exp a -> T.Text

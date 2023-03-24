@@ -24,19 +24,23 @@ import Data.ByteString    as Syntax.Types (ByteString)
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import EVM.ABI            as Syntax.Types (AbiType(..))
 
+import Syntax.Untyped (ValueType(..))
+
 -- | Types of Act expressions
 data ActType
   = AInteger
   | ABoolean
   | AByteStr
+  | AContract
 
 -- | Singleton runtime witness for Act types
 -- Sometimes we need to examine type tags at runime. Tagging structures
 -- with this type will let us do that.
 data SType (a :: ActType) where
-  SInteger :: SType AInteger
-  SBoolean :: SType ABoolean
-  SByteStr :: SType AByteStr
+  SInteger  :: SType AInteger
+  SBoolean  :: SType ABoolean
+  SByteStr  :: SType AByteStr
+  SContract :: SType AContract
 deriving instance Eq (SType a)
 
 instance Show (SType a) where
@@ -44,6 +48,7 @@ instance Show (SType a) where
     SInteger -> "int"
     SBoolean -> "bool"
     SByteStr -> "bytestring"
+    SContract -> "contract"
 
 type instance Sing = SType
 
@@ -51,6 +56,7 @@ instance TestEquality SType where
   testEquality SInteger SInteger = Just Refl
   testEquality SBoolean SBoolean = Just Refl
   testEquality SByteStr SByteStr = Just Refl
+  testEquality SContract SContract = Just Refl
   testEquality _ _ = Nothing
 
 
@@ -64,6 +70,7 @@ eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
 instance SingI 'AInteger where sing = SInteger
 instance SingI 'ABoolean where sing = SBoolean
 instance SingI 'AByteStr where sing = SByteStr
+instance SingI 'AContract where sing = SContract
 
 -- | Reflection of an Act type into a haskell type. Usefull to define
 -- the result type of the evaluation function.
@@ -71,6 +78,7 @@ type family TypeOf a where
   TypeOf 'AInteger = Integer
   TypeOf 'ABoolean = Bool
   TypeOf 'AByteStr = ByteString
+  
 
 fromAbiType :: AbiType -> ActType
 fromAbiType (AbiUIntType _)     = AInteger
@@ -87,12 +95,17 @@ someType :: ActType -> SomeType
 someType AInteger = SomeType SInteger
 someType ABoolean = SomeType SBoolean
 someType AByteStr = SomeType SByteStr
+someType AContract = SomeType SContract
 
 actType :: SType s -> ActType
 actType SInteger = AInteger
 actType SBoolean = ABoolean
 actType SByteStr = AByteStr
+actType SContract = AContract
 
+fromValueType :: ValueType -> ActType
+fromValueType (PrimitiveType t) = fromAbiType t
+fromValueType (ContractType _) = AContract
 
 data SomeType where
   SomeType :: SingI a => SType a -> SomeType
@@ -111,6 +124,11 @@ pattern FromAbi t <- (someType . fromAbiType -> FromSome t)
 pattern FromAct ::() => (SingI a) => SType a -> ActType
 pattern FromAct t <- (someType -> FromSome t)
 {-# COMPLETE FromAct #-}
+
+-- | Pattern match on an 'ValueType' is if it were an 'SType'.
+pattern FromVType :: () => (SingI a) => SType a -> ValueType
+pattern FromVType t <- (someType . fromValueType -> FromSome t)
+{-# COMPLETE FromVType #-}
 
 
 -- | Helper pattern to retrieve the 'SingI' instances of the type
