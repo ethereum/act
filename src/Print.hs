@@ -77,6 +77,9 @@ prettyExp e = case e of
   ByLit _ a -> toString a
   ByEnv _ a -> prettyEnv a
 
+  -- contracts
+  Select _ a b -> (prettyExp a) <> "." <> b
+  
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
   TEntry _ t a -> timeParens t $ prettyItem a
@@ -154,6 +157,7 @@ prettyInvPred = prettyExp . untime . fst
       UIntMin p a -> UIntMin p a
       UIntMax p a -> UIntMax p a
       LitBool p a -> LitBool p a
+      Select p a b -> Select p (untime a) b
       IntEnv p a  -> IntEnv p a
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)

@@ -224,6 +224,7 @@ selectName typ (Names ints bools bytes) = do
                 AInteger -> ints
                 ABoolean -> bools
                 AByteStr -> bytes
+                AContract -> error "unsupported type"
   idx <- elements [0..((length names)-1)]
   return $ names!!idx
 

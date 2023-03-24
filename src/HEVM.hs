@@ -306,6 +306,7 @@ symExp ctx (TExp t e) = case t of
   SInteger -> SymInteger $ symExpInt   ctx e
   SBoolean -> SymBool    $ symExpBool  ctx e
   SByteStr -> SymBytes   $ symExpBytes ctx e
+  SContract -> error "contracts not supported"
 
 symExpBool :: Ctx -> Exp ABoolean -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) e = case e of
@@ -325,6 +326,8 @@ symExpBool ctx@(Ctx c m args store _) e = case e of
   Eq _ SInteger a b -> symExpInt  ctx a .== symExpInt  ctx b
   Eq _ SBoolean a b -> symExpBool  ctx a .== symExpBool  ctx b
   Eq _ SByteStr a b -> symExpBytes  ctx a .== symExpBytes  ctx b
+  Eq _ SContract _ _ -> error "contracts not supported"
+  Select _ _ _ -> error "contracts not supported"
 
 symExpInt :: Ctx -> Exp AInteger -> SBV Integer
 symExpInt ctx@(Ctx c m args store environment) e = case e of
@@ -343,6 +346,7 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   TEntry _ t a -> get (nameFromItem m a) (catInts $ timeStore t store)
   IntEnv _ a -> get (nameFromEnv c m a) (catInts environment)
   ITE _ x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
+  Select _ _ _ -> error "contracts not supported"
 
 symExpBytes :: Ctx -> Exp AByteStr -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
@@ -354,6 +358,7 @@ symExpBytes ctx@(Ctx c m args store environment) e = case e of
   Slice _ a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
   ByEnv _ a -> get (nameFromEnv c m a) (catBytes environment)
   ITE _ x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
+  Select _ _ _ -> error "contracts not supported"
 
 timeStore :: When -> HEVM.Storage -> Map Id SActType
 timeStore Pre  s = fst <$> s
@@ -404,6 +409,8 @@ nameFromExp c m e = case e of
   Var _ _ a -> nameFromArg c m a
   TEntry _ _ a -> nameFromItem m a
   ITE _ x y z -> "if-" <> nameFromExp c m x <> "-then-" <> nameFromExp c m y <> "-else-" <> nameFromExp c m z
+
+  Select _ _ _ -> error "contracts not supported"
 
 nameFromDecl :: ContractName -> Method -> Decl -> Id
 nameFromDecl c m (Decl _ name) = nameFromArg c m name
