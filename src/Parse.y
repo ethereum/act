@@ -169,7 +169,7 @@ Constructor : 'constructor' 'of' id
               CInterface
               list(Precondition)
               Creation
-              list(ExtStorage)
+              list(ExtStorage) -- Q: what does this represent in a constructor or behavior?
               Ensures
               Invariants                              { Definition (posn $3) (name $3)
                                                          $4 $5 $6 $7 $8 $9 }
@@ -197,9 +197,9 @@ Returns : 'returns' Expr                              { $2 }
 
 Storage : 'storage' nonempty(Store)                   { $2 }
 
-ExtStorage : 'storage' 'of' id nonempty(Store)        { ExtStorage (name $3) $4 }
-           | 'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (name $2) $4 $5 }
+ExtStorage :'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (name $2) $4 $5 }
            | 'storage' 'of' '_' '_' '=>' '_'          { WildStorage }
+        -- | 'storage' 'of' id nonempty(Store)        { ExtStorage (name $3) $4 }
 
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
              | 'iff in range' AbiType nonempty(Expr)  { IffIn (posn $1) $2 $3 }
@@ -280,9 +280,9 @@ Expr : '(' Expr ')'                                   { $2 }
 
   -- composites
   | 'if' Expr 'then' Expr 'else' Expr                 { EITE (posn $1) $2 $4 $6 }
-  | id list(Zoom)                                     { EUTEntry (posn $1) (name $1) $2 }
-  | 'pre'  '(' id list(Zoom) ')'                      { EPreEntry (posn $1) (name $3) $4 }
-  | 'post' '(' id list(Zoom) ')'                      { EPostEntry (posn $1) (name $3) $4 }
+  | id list(Zoom)                                     { EEntry (posn $1) None (name $1) $2 }
+  | 'pre'  '(' id list(Zoom) ')'                      { EEntry (posn $1) Pre (name $3) $4 }
+  | 'post' '(' id list(Zoom) ')'                      { EEntry (posn $1) Post (name $3) $4 }
 --  | id list(Zoom)                                   { Look (posn $1) (name $1) $2 }
   | Expr '.' Expr                                     { Zoom (posn $2) $1 $3 }
 --  | id '(' seplist(Expr, ',') ')'                   { App    (posn $1) $1 $3 }

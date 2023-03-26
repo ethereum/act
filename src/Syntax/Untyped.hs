@@ -20,7 +20,7 @@ type Id = String
 newtype Act = Main [RawBehaviour]
   deriving (Eq, Show)
 
-data RawBehaviour
+ RawBehaviour
   = Transition Pn Id Id Interface [IffH] Cases Ensures
   | Definition Pn Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
   deriving (Eq, Show)
@@ -80,6 +80,8 @@ data Entry
 data Defn = Defn Expr Expr
   deriving (Eq, Show)
 
+data Timing = Pre | Post | None
+
 data Expr
   = EAnd Pn Expr Expr
   | EOr Pn Expr Expr
@@ -99,9 +101,7 @@ data Expr
   | EMod Pn Expr Expr
   | EExp Pn Expr Expr
   | Zoom Pn Expr Expr
-  | EUTEntry Pn Id [Expr]
-  | EPreEntry Pn Id [Expr]
-  | EPostEntry Pn Id [Expr]
+  | EEntry Pn Timing Id [Expr]
 --    | Look Pn Id [Expr]
   | Func Pn Id [Expr]
   | ListConst Expr
@@ -111,7 +111,7 @@ data Expr
   | ENewaddr2 Pn Expr Expr Expr
   | BYHash Pn Expr
   | BYAbiE Pn Expr
-  | StringLit Pn String
+  | StringLit Pn 
   | WildExp Pn
   | EnvExp Pn EthEnv
   | IntLit Pn Integer

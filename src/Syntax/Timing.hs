@@ -9,6 +9,7 @@ Description : Stuff relating to explicit and implicit references to pre-/post-st
 module Syntax.Timing where
 
 import Data.Char (toLower)
+import Syntax.Untyped
 
 -- | This will never be used as-is. Its only purpose is to use with -XDataKinds,
 -- to distinguish between those AST terms which have fully explicit timings ('Timed')
