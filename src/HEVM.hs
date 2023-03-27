@@ -328,6 +328,7 @@ symExpBool ctx@(Ctx c m args store _) e = case e of
   Eq _ SByteStr a b -> symExpBytes  ctx a .== symExpBytes  ctx b
   Eq _ SContract _ _ -> error "contracts not supported"
   Select _ _ _ -> error "contracts not supported"
+  Call _ _ _ _ -> error "contracts not supported"
 
 symExpInt :: Ctx -> Exp AInteger -> SBV Integer
 symExpInt ctx@(Ctx c m args store environment) e = case e of
@@ -347,6 +348,7 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   IntEnv _ a -> get (nameFromEnv c m a) (catInts environment)
   ITE _ x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
   Select _ _ _ -> error "contracts not supported"
+  Call _ _ _ _ -> error "contracts not supported"
 
 symExpBytes :: Ctx -> Exp AByteStr -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
@@ -359,6 +361,7 @@ symExpBytes ctx@(Ctx c m args store environment) e = case e of
   ByEnv _ a -> get (nameFromEnv c m a) (catBytes environment)
   ITE _ x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
   Select _ _ _ -> error "contracts not supported"
+  Call _ _ _ _ -> error "contracts not supported"
 
 timeStore :: When -> HEVM.Storage -> Map Id SActType
 timeStore Pre  s = fst <$> s
@@ -411,6 +414,7 @@ nameFromExp c m e = case e of
   ITE _ x y z -> "if-" <> nameFromExp c m x <> "-then-" <> nameFromExp c m y <> "-else-" <> nameFromExp c m z
 
   Select _ _ _ -> error "contracts not supported"
+  Call _ _ _ _ -> error "contracts not supported"
 
 nameFromDecl :: ContractName -> Method -> Decl -> Id
 nameFromDecl c m (Decl _ name) = nameFromArg c m name

@@ -99,6 +99,7 @@ locsFromExp = nub . go
       IntEnv {} -> []
       ByEnv {} -> []
       Select _ a _ -> go a
+      Call _ _ _ es -> concatMap locsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
       Var {} -> []
@@ -163,6 +164,7 @@ ethEnvFromExp = nub . go
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
       Select _ a _ -> go a
+      Call _ _ _ ixs -> concatMap ethEnvFromTypedExp ixs
       TEntry _ _ a -> ethEnvFromItem a
       Var {} -> []
 
@@ -249,11 +251,11 @@ getPosn expr = case expr of
     EDiv pn _ _ -> pn
     EMod pn _ _ -> pn
     EExp pn _ _ -> pn
-    Zoom pn _ _ -> pn
+    ESelect pn _ _ -> pn
+    ECall pn _ _ -> pn
     EUTEntry pn _ _ -> pn
     EPreEntry pn _ _ -> pn
     EPostEntry pn _ _ -> pn
-    Func pn _ _ -> pn
     ListConst e -> getPosn e
     ECat pn _ _ -> pn
     ESlice pn _ _ _ -> pn
@@ -291,11 +293,11 @@ idFromRewrites e = case e of
   EDiv _ a b        -> idFromRewrites' [a,b]
   EMod _ a b        -> idFromRewrites' [a,b]
   EExp _ a b        -> idFromRewrites' [a,b]
-  Zoom _ a b        -> idFromRewrites' [a,b]
   EUTEntry p x es   -> insertWith (<>) x [p] $ idFromRewrites' es
   EPreEntry p x es  -> insertWith (<>) x [p] $ idFromRewrites' es
   EPostEntry p x es -> insertWith (<>) x [p] $ idFromRewrites' es
-  Func _ _ es       -> idFromRewrites' es
+  ECall p x es      -> insertWith (<>) x [p] $ idFromRewrites' es
+  ESelect _ a (Untyped.Field _ es) -> idFromRewrites a <> idFromRewrites' es
   ListConst a       -> idFromRewrites a
   ECat _ a b        -> idFromRewrites' [a,b]
   ESlice _ a b c    -> idFromRewrites' [a,b,c]

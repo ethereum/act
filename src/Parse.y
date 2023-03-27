@@ -284,8 +284,8 @@ Expr : '(' Expr ')'                                   { $2 }
   | id list(Index)                                    { EUTEntry (posn $1) (name $1) $2 }
   | 'pre'  '(' id list(Index) ')'                     { EPreEntry (posn $1) (name $3) $4 }
   | 'post' '(' id list(Index) ')'                     { EPostEntry (posn $1) (name $3) $4 }
-  | Expr '.' id list(Index)                           { Select (posn $2) $1 (Field (name $3) $4) }
-  | id '(' seplist(Expr, ',') ')'                     { Call   (posn $1) (name $1) $3 }
+  | Expr '.' id list(Index)                           { ESelect (posn $2) $1 (Field (name $3) $4) }
+  | id '(' seplist(Expr, ',') ')'                     { ECall   (posn $1) (name $1) $3 }
   | Expr '++' Expr                                    { ECat   (posn $2) $1 $3 }
 --  | id '[' Expr '..' Expr ']'                       { ESlice (posn $2) $1 $3 $5 }
   | 'CALLER'                                          { EnvExp (posn $1) Caller }

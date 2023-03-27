@@ -222,7 +222,8 @@ data Exp (a :: ActType) (t :: Timing) where
   ByLit :: Pn -> ByteString -> Exp AByteStr t
   ByEnv :: Pn -> EthEnv -> Exp AByteStr t
   -- contracts
-  Select :: Pn -> Exp AContract t -> Id -> Exp a t
+  Select :: Pn -> Exp AContract t -> Field t -> Exp a t
+  Call   :: Pn -> SType a -> Id -> [TypedExp t] -> Exp a t
   -- polymorphic
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
@@ -231,6 +232,9 @@ data Exp (a :: ActType) (t :: Timing) where
   TEntry :: Pn -> Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
 
+data Field t = Field Id [TypedExp t]
+deriving instance (Show (Field t))
+deriving instance (Eq (Field t))
 
 -- Equality modulo source file position.
 instance Eq (Exp a t) where
@@ -270,6 +274,10 @@ instance Eq (Exp a t) where
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
   TEntry _ a t == TEntry _ b u = a == b && t == u
   Var _ _ a == Var _ _ b = a == b
+
+  Select _ a b == Select _ c d = a == c && b == d
+  Call _ _ a b == Call _ _ c d = a == c && b == d
+
   _ == _ = False
 
 
@@ -318,7 +326,8 @@ instance Timable (Exp a) where
     ByLit p x -> ByLit p x
     ByEnv p x -> ByEnv p x
     -- contracts
-    Select p x y -> Select p (go x) y
+    Select p x y -> Select p (go x) (go y)
+    Call p t x y -> Call p t x (go <$> y)
     -- polymorphic
     Eq  p s x y -> Eq p s (go x) (go y)
     NEq p s x y -> NEq p s (go x) (go y)
@@ -328,6 +337,9 @@ instance Timable (Exp a) where
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
+
+instance Timable Field where
+  setTime time (Field x ixs) = Field x $ setTime time <$> ixs
 
 instance Timable (TStorageItem a) where
    setTime time (Item t c x ixs) = Item t c x $ setTime time <$> ixs
@@ -448,7 +460,7 @@ instance ToJSON (Exp a t) where
   toJSON (Var _ _ a) = toJSON a
 
   toJSON v = error $ "todo: json ast for: " <> show v
-
+ 
 symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
 symbol s a b = object [ "symbol"   .= pack s
                       , "arity"    .= Data.Aeson.Types.Number 2
@@ -498,7 +510,10 @@ eval e = case e of
   NEq _ SByteStr x y -> [ x' /= y' | x' <- eval x, y' <- eval y]
 
   ITE _ a b c   -> eval a >>= \cond -> if cond then eval b else eval c
-  _             -> empty
+
+  Call _ _ _ _ -> error "eval of contracts not supported"
+  Select _ _ _ -> error "eval of contracts not supported"
+  _            -> empty
 
 intmin :: Int -> Integer
 intmin a = negate $ 2 ^ (a - 1)

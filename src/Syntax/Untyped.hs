@@ -20,7 +20,7 @@ type Id = String
 newtype Act = Main [RawBehaviour]
   deriving (Eq, Show)
 
- RawBehaviour
+data RawBehaviour
   = Transition Pn Id Id Interface [IffH] Cases Ensures
   | Definition Pn Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
   deriving (Eq, Show)
@@ -70,7 +70,13 @@ data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
 
 data Pattern
   = PEntry Pn Id [Expr]
+  | PSelect Pn Id [Field]
   | PWild Pn
+  deriving (Eq, Show)
+-- TODO is the name "Pattern" accurate?
+
+data Field
+  = Field Id [Expr]
   deriving (Eq, Show)
 
 data Entry
@@ -79,8 +85,6 @@ data Entry
 
 data Defn = Defn Expr Expr
   deriving (Eq, Show)
-
-data Timing = Pre | Post | None
 
 data Expr
   = EAnd Pn Expr Expr
@@ -100,10 +104,11 @@ data Expr
   | EDiv Pn Expr Expr
   | EMod Pn Expr Expr
   | EExp Pn Expr Expr
-  | Zoom Pn Expr Expr
-  | EEntry Pn Timing Id [Expr]
---    | Look Pn Id [Expr]
-  | Func Pn Id [Expr]
+  | EUTEntry Pn Id [Expr]
+  | EPreEntry Pn Id [Expr]
+  | EPostEntry Pn Id [Expr]
+  | ESelect Pn Expr Field
+  | ECall Pn Id [Expr]
   | ListConst Expr
   | ECat Pn Expr Expr
   | ESlice Pn Expr Expr Expr
@@ -111,13 +116,13 @@ data Expr
   | ENewaddr2 Pn Expr Expr Expr
   | BYHash Pn Expr
   | BYAbiE Pn Expr
-  | StringLit Pn 
+  | StringLit Pn String
   | WildExp Pn
   | EnvExp Pn EthEnv
   | IntLit Pn Integer
   | BoolLit Pn Bool
   deriving (Eq, Show)
-
+  
 data EthEnv
   = Caller
   | Callvalue

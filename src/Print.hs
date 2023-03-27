@@ -78,7 +78,8 @@ prettyExp e = case e of
   ByEnv _ a -> prettyEnv a
 
   -- contracts
-  Select _ a b -> (prettyExp a) <> "." <> b
+  Select _ a b -> (prettyExp a) <> prettyField b
+  Call _ _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
   
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
@@ -92,8 +93,9 @@ prettyTypedExp (TExp _ e) = prettyExp e
 
 prettyItem :: TStorageItem a t -> String
 prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
-  where
-    brackets str = "[" <> str <> "]"
+
+prettyField :: Field t -> String
+prettyField (Field x ixs) ="." <> x <> concatMap (brackets . prettyTypedExp) ixs
 
 prettyLocation :: StorageLocation t -> String
 prettyLocation (Loc _ item) = prettyItem item
@@ -116,6 +118,9 @@ prettyEnv e = case e of
   Timestamp -> "TIMESTAMP"
   This -> "THIS"
   Nonce -> "NONCE"
+
+brackets :: String -> String
+brackets str = "[" <> str <> "]"
 
 -- | Invariant predicates are represented internally as a pair of timed
 -- expressions, one over the prestate and one over the poststate.  This is good
@@ -157,7 +162,8 @@ prettyInvPred = prettyExp . untime . fst
       UIntMin p a -> UIntMin p a
       UIntMax p a -> UIntMax p a
       LitBool p a -> LitBool p a
-      Select p a b -> Select p (untime a) b
+      Select p a (Field b c) -> Select p (untime a) (Field b (fmap untimeTyped c))
+      Call p t f xs -> Call p t f (fmap untimeTyped xs)
       IntEnv p a  -> IntEnv p a
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)

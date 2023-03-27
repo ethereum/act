@@ -313,6 +313,7 @@ coqexp ByStr {} = error "bytestrings not supported"
 coqexp ByLit {} = error "bytestrings not supported"
 coqexp ByEnv {} = error "bytestrings not supported"
 coqexp Select {} = error "contracts not supported"
+coqexp Call {} = error "contracts not supported"
 coqexp (Var _ SContract _) = error "contracts not supported"
 
 -- | coq syntax for a proposition
