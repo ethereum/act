@@ -169,7 +169,7 @@ Constructor : 'constructor' 'of' id
               CInterface
               list(Precondition)
               Creation
-              list(ExtStorage) -- Q: what does this represent in a constructor or behavior?
+              list(ExtStorage)
               Ensures
               Invariants                              { Definition (posn $3) (name $3)
                                                          $4 $5 $6 $7 $8 $9 }
@@ -197,9 +197,8 @@ Returns : 'returns' Expr                              { $2 }
 
 Storage : 'storage' nonempty(Store)                   { $2 }
 
-ExtStorage :'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (name $2) $4 $5 }
+ExtStorage : 'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (name $2) $4 $5 }
            | 'storage' 'of' '_' '_' '=>' '_'          { WildStorage }
-        -- | 'storage' 'of' id nonempty(Store)        { ExtStorage (name $3) $4 }
 
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
              | 'iff in range' AbiType nonempty(Expr)  { IffIn (posn $1) $2 $3 }
@@ -207,11 +206,13 @@ Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
 Store : Pattern '=>' Expr                             { Rewrite $1 $3 }
       | Pattern                                       { Constant $1 }
 
-Pattern : id list(Zoom)                               { PEntry (posn $1) (name $1) $2 }
+Pattern : id list(Index)                              { PEntry (posn $1) (name $1) $2 }
+        | id list(Field)                              { PSelect (posn $1) (name $1) $2 }
         | '_'                                         { PWild (posn $1) }
 
-Zoom : '[' Expr ']'                                   { $2 }
-     | '.' Expr                                       { $2 }
+Index : '[' Expr ']'                                  { $2 }
+
+Field : '.' id list(Index)                            { Field (name $2) $3 }
 
 Creation : 'creates' list(Assign)                     { Creates $2 }
 
@@ -280,12 +281,11 @@ Expr : '(' Expr ')'                                   { $2 }
 
   -- composites
   | 'if' Expr 'then' Expr 'else' Expr                 { EITE (posn $1) $2 $4 $6 }
-  | id list(Zoom)                                     { EEntry (posn $1) None (name $1) $2 }
-  | 'pre'  '(' id list(Zoom) ')'                      { EEntry (posn $1) Pre (name $3) $4 }
-  | 'post' '(' id list(Zoom) ')'                      { EEntry (posn $1) Post (name $3) $4 }
---  | id list(Zoom)                                   { Look (posn $1) (name $1) $2 }
-  | Expr '.' Expr                                     { Zoom (posn $2) $1 $3 }
---  | id '(' seplist(Expr, ',') ')'                   { App    (posn $1) $1 $3 }
+  | id list(Index)                                    { EUTEntry (posn $1) (name $1) $2 }
+  | 'pre'  '(' id list(Index) ')'                     { EPreEntry (posn $1) (name $3) $4 }
+  | 'post' '(' id list(Index) ')'                     { EPostEntry (posn $1) (name $3) $4 }
+  | Expr '.' id list(Index)                           { Select (posn $2) $1 (Field (name $3) $4) }
+  | id '(' seplist(Expr, ',') ')'                     { Call   (posn $1) $1 $3 }
   | Expr '++' Expr                                    { ECat   (posn $2) $1 $3 }
 --  | id '[' Expr '..' Expr ']'                       { ESlice (posn $2) $1 $3 $5 }
   | 'CALLER'                                          { EnvExp (posn $1) Caller }
