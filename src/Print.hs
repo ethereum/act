@@ -78,7 +78,6 @@ prettyExp e = case e of
   ByEnv _ a -> prettyEnv a
 
   -- contracts
-  Select _ a b -> (prettyExp a) <> prettyField b
   Call _ _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
   
   --polymorphic
@@ -93,9 +92,6 @@ prettyTypedExp (TExp _ e) = prettyExp e
 
 prettyItem :: TStorageItem a t -> String
 prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
-
-prettyField :: Field t -> String
-prettyField (Field x ixs) ="." <> x <> concatMap (brackets . prettyTypedExp) ixs
 
 prettyLocation :: StorageLocation t -> String
 prettyLocation (Loc _ item) = prettyItem item
@@ -135,6 +131,11 @@ prettyInvPred = prettyExp . untime . fst
     untimeTyped :: TypedExp t -> TypedExp Untimed
     untimeTyped (TExp t e) = TExp t (untime e)
 
+    untimeStorageRef :: StorageRef t -> StorageRef Untimed
+    untimeStorageRef (SVar p c a) = SVar p c a
+    untimeStorageRef (SMapping p e xs) = SMapping p (untimeStorageRef e) (fmap untimeTyped xs)
+    untimeStorageRef (SField p e x) = SField p (untimeStorageRef e) x
+    
     untime :: Exp a t -> Exp a Untimed
     untime e = case e of
       And p a b   -> And p (untime a) (untime b)
@@ -162,11 +163,11 @@ prettyInvPred = prettyExp . untime . fst
       UIntMin p a -> UIntMin p a
       UIntMax p a -> UIntMax p a
       LitBool p a -> LitBool p a
-      Select p a (Field b c) -> Select p (untime a) (Field b (fmap untimeTyped c))
       Call p t f xs -> Call p t f (fmap untimeTyped xs)
       IntEnv p a  -> IntEnv p a
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
-      TEntry p _ (Item t a b c) -> TEntry p Neither (Item t a b (fmap untimeTyped c))
+      TEntry p _ (Item t a) -> TEntry p Neither (Item t (untimeStorageRef a))
       Var p t a -> Var p t a
+             

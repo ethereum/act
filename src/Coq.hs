@@ -312,7 +312,6 @@ coqexp (Var _ SByteStr _) = error "bytestrings not supported"
 coqexp ByStr {} = error "bytestrings not supported"
 coqexp ByLit {} = error "bytestrings not supported"
 coqexp ByEnv {} = error "bytestrings not supported"
-coqexp Select {} = error "contracts not supported"
 coqexp Call {} = error "contracts not supported"
 coqexp (Var _ SContract _) = error "contracts not supported"
 
@@ -337,9 +336,9 @@ typedexp :: TypedExp -> T.Text
 typedexp (TExp _ e) = coqexp e
 
 entry :: TStorageItem a -> When -> T.Text
-entry (Item SByteStr _ _ _) _    = error "bytestrings not supported"
-entry _                     Post = error "TODO: missing support for poststate references in coq backend"
-entry item                  _    = case ixsFromItem item of
+entry (Item SByteStr _) _    = error "bytestrings not supported"
+entry _                 Post = error "TODO: missing support for poststate references in coq backend"
+entry item              _    = case ixsFromItem item of
   []       -> parens $ T.pack (idFromItem item) <> " " <> stateVar
   (ix:ixs) -> parens $ T.pack (idFromItem item) <> " " <> stateVar <> " " <> coqargs (ix :| ixs)
 

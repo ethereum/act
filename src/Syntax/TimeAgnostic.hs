@@ -151,26 +151,35 @@ data StorageLocation (t :: Timing) where
 deriving instance Show (StorageLocation t)
 
 _Loc :: TStorageItem a t -> StorageLocation t
-_Loc item@(Item s _ _ _ ) = Loc s item
+_Loc item@(Item s _) = Loc s item
 
 instance Eq (StorageLocation t) where
   Loc SType i1 == Loc SType i2 = eqS i1 i2
 
-
--- | References to items in storage, either as a map lookup or as a reading of
--- a simple variable. The list argument is a list of indices; it has entries iff
--- the item is referenced as a map lookup. The type is parametrized on a
+-- | References to items in storage. The type is parametrized on a
 -- timing `t` and a type `a`. `t` can be either `Timed` or `Untimed` and
 -- indicates whether any indices that reference items in storage explicitly
 -- refer to the pre-/post-state, or not. `a` is the type of the item that is
 -- referenced.
 data TStorageItem (a :: ActType) (t :: Timing) where
-  Item :: SType a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
+  Item :: SType a -> StorageRef t -> TStorageItem a t
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
-_Item :: SingI a => Id -> Id -> [TypedExp t] -> TStorageItem a t
+-- | Reference to an item storage. It can be either a bare variable, a
+-- map lookup, or a field selection.
+data StorageRef (t :: Timing) where
+  SVar :: Pn -> Id -> Id -> StorageRef t
+  SMapping :: Pn -> StorageRef t -> [TypedExp t] -> StorageRef t
+  SField :: Pn -> StorageRef t -> Id -> StorageRef t
+deriving instance Show (StorageRef t)
+deriving instance Eq (StorageRef t)
+
+_Item :: SingI a => StorageRef t -> TStorageItem a t
 _Item = Item sing
+
+-- | A reference to the storage of an other
+data TContractItem
 
 -- | Expressions for which the return type is known.
 data TypedExp t
@@ -222,7 +231,6 @@ data Exp (a :: ActType) (t :: Timing) where
   ByLit :: Pn -> ByteString -> Exp AByteStr t
   ByEnv :: Pn -> EthEnv -> Exp AByteStr t
   -- contracts
-  Select :: Pn -> Exp AContract t -> Field t -> Exp a t
   Call   :: Pn -> SType a -> Id -> [TypedExp t] -> Exp a t
   -- polymorphic
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
@@ -231,10 +239,6 @@ data Exp (a :: ActType) (t :: Timing) where
   Var :: Pn -> SType a -> Id -> Exp a t
   TEntry :: Pn -> Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
-
-data Field t = Field Id [TypedExp t]
-deriving instance (Show (Field t))
-deriving instance (Eq (Field t))
 
 -- Equality modulo source file position.
 instance Eq (Exp a t) where
@@ -275,7 +279,6 @@ instance Eq (Exp a t) where
   TEntry _ a t == TEntry _ b u = a == b && t == u
   Var _ _ a == Var _ _ b = a == b
 
-  Select _ a b == Select _ c d = a == c && b == d
   Call _ _ a b == Call _ _ c d = a == c && b == d
 
   _ == _ = False
@@ -326,7 +329,6 @@ instance Timable (Exp a) where
     ByLit p x -> ByLit p x
     ByEnv p x -> ByEnv p x
     -- contracts
-    Select p x y -> Select p (go x) (go y)
     Call p t x y -> Call p t x (go <$> y)
     -- polymorphic
     Eq  p s x y -> Eq p s (go x) (go y)
@@ -338,11 +340,13 @@ instance Timable (Exp a) where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
 
-instance Timable Field where
-  setTime time (Field x ixs) = Field x $ setTime time <$> ixs
-
 instance Timable (TStorageItem a) where
-   setTime time (Item t c x ixs) = Item t c x $ setTime time <$> ixs
+   setTime time (Item t ref) = Item t $ setTime time ref
+
+instance Timable StorageRef where
+  setTime time (SMapping p e ixs) = SMapping p (setTime time e) (setTime time <$> ixs)
+  setTime time (SField p e x) = SField p (setTime time e) x
+  setTime _ (SVar p c x) = SVar p c x
 
 ------------------------
 -- * JSON instances * --
@@ -406,14 +410,23 @@ instance ToJSON (StorageUpdate t) where
   toJSON (Update _ a b) = object [ "location" .= toJSON a ,"value" .= toJSON b ]
 
 instance ToJSON (TStorageItem a t) where
-  toJSON (Item t a b []) = object [ "sort" .= pack (show t)
-                                  , "name" .= String (pack a <> "." <> pack b) ]
-  toJSON (Item _ a b c)  = mapping a b c
+  toJSON (Item t a) = object [ "sort" .= pack (show t)
+                             , "item" .= toJSON a ]
 
-mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
-mapping c a b = object [ "symbol"   .= pack "lookup"
-                       , "arity"    .= Data.Aeson.Types.Number 3
-                       , "args"     .= Array (fromList [toJSON c, toJSON a, toJSON b]) ]
+instance ToJSON (StorageRef t) where
+  toJSON (SVar _ c x) = object [ "var" .=  String (pack c <> "." <> pack x) ]
+  toJSON (SMapping _ e xs) = mapping e xs
+  toJSON (SField _ e x) = field e x
+
+mapping :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
+mapping a b = object [ "symbol"   .= pack "lookup"
+                     , "arity"    .= Data.Aeson.Types.Number 2
+                     , "args"     .= Array (fromList [toJSON a, toJSON b]) ]
+
+field :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
+field a b = object [ "symbol"   .= pack "select"
+                   , "arity"    .= Data.Aeson.Types.Number 2
+                   , "args"     .= Array (fromList [toJSON a, toJSON b]) ]
 
 instance ToJSON (TypedExp t) where
   toJSON (TExp typ a) = object [ "sort"       .= pack (show typ)
@@ -460,7 +473,7 @@ instance ToJSON (Exp a t) where
   toJSON (Var _ _ a) = toJSON a
 
   toJSON v = error $ "todo: json ast for: " <> show v
- 
+
 symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
 symbol s a b = object [ "symbol"   .= pack s
                       , "arity"    .= Data.Aeson.Types.Number 2
@@ -512,7 +525,6 @@ eval e = case e of
   ITE _ a b c   -> eval a >>= \cond -> if cond then eval b else eval c
 
   Call _ _ _ _ -> error "eval of contracts not supported"
-  Select _ _ _ -> error "eval of contracts not supported"
   _            -> empty
 
 intmin :: Int -> Integer

@@ -203,16 +203,15 @@ ExtStorage : 'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (name $2) $4 
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
              | 'iff in range' AbiType nonempty(Expr)  { IffIn (posn $1) $2 $3 }
 
-Store : Pattern '=>' Expr                             { Rewrite $1 $3 }
-      | Pattern                                       { Constant $1 }
+Store : Entry '=>' Expr                               { Rewrite $1 $3 }
+      | Entry                                         { Constant $1 }
 
-Pattern : id list(Index)                              { PEntry (posn $1) (name $1) $2 }
-        | id list(Field)                              { PSelect (posn $1) (name $1) $2 }
-        | '_'                                         { PWild (posn $1) }
+Entry : id                                            { EVar (posn $1) (name $1) }
+      | Entry '[' Expr ']' list(Index)                { EMapping (posn $2) $1 ($3:$5) }
+      | Entry '.' id                                  { EField (posn $2) $1 (name $3) }
 
 Index : '[' Expr ']'                                  { $2 }
 
-Field : '.' id list(Index)                            { Field (name $2) $3 }
 
 Creation : 'creates' list(Assign)                     { Creates $2 }
 
@@ -281,10 +280,9 @@ Expr : '(' Expr ')'                                   { $2 }
 
   -- composites
   | 'if' Expr 'then' Expr 'else' Expr                 { EITE (posn $1) $2 $4 $6 }
-  | id list(Index)                                    { EUTEntry (posn $1) (name $1) $2 }
-  | 'pre'  '(' id list(Index) ')'                     { EPreEntry (posn $1) (name $3) $4 }
-  | 'post' '(' id list(Index) ')'                     { EPostEntry (posn $1) (name $3) $4 }
-  | Expr '.' id list(Index)                           { ESelect (posn $2) $1 (Field (name $3) $4) }
+  | Entry                                             { EUTEntry $1 }
+  | 'pre'  '(' Entry ')'                              { EPreEntry $3 }
+  | 'post' '(' Entry ')'                              { EPostEntry $3 }
   | id '(' seplist(Expr, ',') ')'                     { ECall   (posn $1) (name $1) $3 }
   | Expr '++' Expr                                    { ECat   (posn $2) $1 $3 }
 --  | id '[' Expr '..' Expr ']'                       { ESlice (posn $2) $1 $3 $5 }

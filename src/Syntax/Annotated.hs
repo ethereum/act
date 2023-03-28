@@ -13,7 +13,7 @@ import qualified Syntax.TimeAgnostic as Agnostic
 import Syntax.TimeAgnostic (Timing(..),setPre,setPost)
 
 -- Reexports
-import Syntax.TimeAgnostic as Syntax.Annotated hiding (Timing(..),Timable(..),Time,Neither,Claim,Transition,Invariant,InvariantPred,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp)
+import Syntax.TimeAgnostic as Syntax.Annotated hiding (Timing(..),Timable(..),Time,Neither,Claim,Transition,Invariant,InvariantPred,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp,StorageRef)
 import Syntax.TimeAgnostic as Syntax.Annotated (pattern Invariant, pattern Constructor, pattern Behaviour, pattern Rewrite, pattern Exp)
 
 
@@ -27,6 +27,7 @@ type Behaviour       = Agnostic.Behaviour       Timed
 type Rewrite         = Agnostic.Rewrite         Timed
 type StorageUpdate   = Agnostic.StorageUpdate   Timed
 type StorageLocation = Agnostic.StorageLocation Timed
+type StorageRef      = Agnostic.StorageRef      Timed
 type TStorageItem  a = Agnostic.TStorageItem  a Timed
 type Exp           a = Agnostic.Exp           a Timed
 type TypedExp        = Agnostic.TypedExp        Timed

@@ -51,8 +51,8 @@ newtype Creates = Creates [Assign]
   deriving (Eq, Show)
 
 data Storage
-  = Rewrite Pattern Expr
-  | Constant Pattern
+  = Rewrite Entry Expr
+  | Constant Entry
   deriving (Eq, Show)
 
 data ExtStorage
@@ -68,19 +68,10 @@ data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignS
 data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
   deriving (Eq, Show)
 
-data Pattern
-  = PEntry Pn Id [Expr]
-  | PSelect Pn Id [Field]
-  | PWild Pn
-  deriving (Eq, Show)
--- TODO is the name "Pattern" accurate?
-
-data Field
-  = Field Id [Expr]
-  deriving (Eq, Show)
-
 data Entry
-  = Entry Pn Id [Expr]
+  = EVar Pn Id
+  | EMapping Pn Entry [Expr]
+  | EField Pn Entry Id
   deriving (Eq, Show)
 
 data Defn = Defn Expr Expr
@@ -104,10 +95,9 @@ data Expr
   | EDiv Pn Expr Expr
   | EMod Pn Expr Expr
   | EExp Pn Expr Expr
-  | EUTEntry Pn Id [Expr]
-  | EPreEntry Pn Id [Expr]
-  | EPostEntry Pn Id [Expr]
-  | ESelect Pn Expr Field
+  | EUTEntry Entry
+  | EPreEntry Entry
+  | EPostEntry Entry
   | ECall Pn Id [Expr]
   | ListConst Expr
   | ECat Pn Expr Expr
