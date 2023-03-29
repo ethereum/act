@@ -374,7 +374,7 @@ nameFromStorageRef c method (SMapping _ e ixs) = nameFromStorageRef c method e <
 nameFromStorageRef _ _ (SField _ _ _) = error "contracts not supported"
 
 nameFromItem :: ContractName -> Method -> TStorageItem a -> Id
-nameFromItem c method (Item _ e) = nameFromStorageRef c method e
+nameFromItem c method (Item _ _ e) = nameFromStorageRef c method e
 
 nameFromTypedExp :: ContractName -> Method -> TypedExp -> Id
 nameFromTypedExp c method (TExp _ e) = nameFromExp c method e

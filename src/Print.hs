@@ -168,6 +168,6 @@ prettyInvPred = prettyExp . untime . fst
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
-      TEntry p _ (Item t a) -> TEntry p Neither (Item t (untimeStorageRef a))
+      TEntry p _ (Item t vt a) -> TEntry p Neither (Item t vt (untimeStorageRef a))
       Var p t a -> Var p t a
              

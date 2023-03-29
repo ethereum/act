@@ -242,8 +242,13 @@ noStorageRead store expr = for_ (keys store) $ \name ->
 
 -- ensures that key types match value types in an U.Assign
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
+<<<<<<< HEAD
 checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar pn (StorageValue vt@(FromVType typ)) name) expr)
   = sequenceA [_Update (_Item vt (SVar pn contract name)) <$> checkExpr env typ expr]
+=======
+checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar _ (StorageValue vt@(FromVType typ)) name) expr)
+  = sequenceA [_Update (_Item vt (SVar nowhere contract name)) <$> checkExpr env typ expr]
+>>>>>>> b28dbd5 (Type: add support for contract types and fields)
     <* noStorageRead store expr
 checkAssign env@Env{store} (U.AssignMany (U.StorageVar pn (StorageMapping (keyType :| _) valType) name) defns)
   = for defns $ \def@(U.Defn e1 e2) -> checkDefn pn env keyType valType name def
@@ -257,10 +262,17 @@ checkAssign _ _ = error "todo: support struct assignment in constructors"
 
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
+<<<<<<< HEAD
 checkDefn :: Pn -> Env -> ValueType -> ValueType -> Id -> U.Defn -> Err StorageUpdate
 checkDefn pn env@Env{contract} keyType vt@(FromVType valType) name (U.Defn k val) =
   _Update
   <$> (_Item vt . SMapping nowhere (SVar pn contract name) <$> checkIxs env (getPosn k) [k] [keyType])
+=======
+checkDefn :: Env -> ValueType -> ValueType -> Id -> U.Defn -> Err StorageUpdate
+checkDefn env@Env{contract} keyType vt@(FromVType valType) name (U.Defn k val) =
+  _Update
+  <$> (_Item vt . SMapping nowhere (SVar nowhere contract name) <$> checkIxs env (getPosn k) [k] [keyType])
+>>>>>>> b28dbd5 (Type: add support for contract types and fields)
   <*> checkExpr env valType val
 
 -- | Typechecks a postcondition, returning typed versions of its storage updates and return expression.
@@ -307,6 +319,7 @@ validateEntry env entry =
     StorageValue t -> pure (t, ref)
     StorageMapping _ _  -> throw (getPosEntry entry, "Top-level expressions cannot have mapping type")
 
+<<<<<<< HEAD
 -- | Typechecks a non-constant rewrite.
 checkStorageExpr :: Env -> U.Entry -> U.Expr -> Err StorageUpdate
 checkStorageExpr env entry expr =
@@ -320,6 +333,41 @@ checkStorageExpr env entry expr =
       let c' = contractId e in
       assert (p, "Expression is expected to be a contract " <> show c <> " but it is a contract " <> show c) (c == c')
     validContractType _ _ _ _ = pure ()
+=======
+
+checkEntry :: forall t. Typeable t => Env -> U.Entry -> Err (SlotType, StorageRef t)
+checkEntry Env{contract,store,calldata} (U.EVar p name) = case (Map.lookup name store, Map.lookup name calldata) of
+  (Just _, Just _) -> throw (p, "Ambiguous variable " <> name)
+  (Just typ, Nothing) -> pure (typ, SVar p contract name)
+  (Nothing, Just _) -> throw (p, "Variable " <> name <> " is not a storage variable")
+  (Nothing, Nothing) -> throw (p, "Unknown storage variable " <> show name)
+  -- TODO more consitent check of name overlap between calldata and storage
+checkEntry env (U.EMapping p e args) =
+  checkEntry env e `bindValidation` \(typ, ref) -> case typ of
+    StorageValue _ -> throw (p, "Expression should have a mapping type" <> show e)
+    StorageMapping argtyps restyp -> (StorageValue restyp,) . SMapping p ref <$> checkIxs env p args (NonEmpty.toList argtyps)
+checkEntry env@Env{theirs} (U.EField p e x) = 
+  checkEntry env e `bindValidation` \(typ, ref) -> case typ of
+    StorageValue (ContractType c) -> case Map.lookup c theirs of
+      Just cenv -> case Map.lookup x cenv of
+        Just t -> pure (t, SField p ref x)
+        Nothing -> throw (p, "Contract " <> c <> " does not have field " <> x)
+      Nothing -> error $ "Internal error: Invalid contract type " <> show c
+    _ -> throw (p, "Expression should have a mapping type" <> show e)
+
+validateEntry :: forall t. Typeable t => Env -> U.Entry -> Err (ValueType, StorageRef t)
+validateEntry env entry = 
+  checkEntry env entry `bindValidation` \(typ, ref) -> case typ of
+    StorageValue t -> pure (t, ref)
+    StorageMapping _ _  -> throw (getPosEntry entry, "Top-level expressions cannot have mapping type")
+
+
+-- | Typechecks a non-constant rewrite.
+checkStorageExpr :: Env -> U.Entry -> U.Expr -> Err StorageUpdate
+checkStorageExpr env entry expr =
+  validateEntry env entry `bindValidation` \(vt@(FromVType typ), ref) ->
+     _Update (_Item vt ref) <$> checkExpr env typ expr
+>>>>>>> b28dbd5 (Type: add support for contract types and fields)
 
 checkPattern :: Env -> U.Entry -> Err StorageLocation
 checkPattern env entry =
@@ -355,6 +403,7 @@ checkExprVType :: Typeable t => Env -> U.Expr -> ValueType -> Err (TypedExp t)
 checkExprVType env e (FromVType typ) = TExp typ <$> checkExpr env typ e
 
 -- | Attempt to typecheck an untyped expression as any possible type.
+-- TODO a more principled way of doing this check is to write a inferType :: Env -> Exp -> ValueType
 typedExp :: Typeable t => Env -> U.Expr -> Err (TypedExp t)
 typedExp env e = findSuccess (throw (getPosn e, "Cannot find a valid type for expression " <> show e))
                    [ TExp SInteger <$> checkExpr env SInteger e
@@ -365,7 +414,11 @@ typedExp env e = findSuccess (throw (getPosn e, "Cannot find a valid type for ex
 
 -- | Check the type of an expression and construct a typed expression
 checkExpr :: forall a t. Typeable t => Env -> SType a -> U.Expr -> Err (Exp a t)
+<<<<<<< HEAD
 checkExpr env@Env{constructors} typ e = case (typ, e) of
+=======
+checkExpr env typ e = case (typ, e) of
+>>>>>>> b28dbd5 (Type: add support for contract types and fields)
   -- Boolean expressions
   (SBoolean, U.ENot    p v1)    -> Neg  p <$> checkExpr env SBoolean v1
   (SBoolean, U.EAnd    p v1 v2) -> And  p <$> checkExpr env SBoolean v1 <*> checkExpr env SBoolean v2
@@ -392,7 +445,11 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
     Nothing -> throw (p, "Unknown constructor " <> show c)
   -- Control
   (_, U.EITE p v1 v2 v3) ->
+<<<<<<< HEAD
     ((,) <$> checkExpr env typ v2 <*> checkExpr env typ v3) `bindValidation` (\(e1, e2) -> do
+=======
+    ((,) <$> checkExpr env typ v2 <*> checkExpr env typ v3) `bindValidation` (\(e1, e2) -> do 
+>>>>>>> b28dbd5 (Type: add support for contract types and fields)
        _ <- checkITE p typ e1 e2
        b <- checkExpr env SBoolean v1
        pure $ ITE p b e1 e2)
@@ -441,15 +498,27 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
       (Nothing, Nothing) -> throw (p, "Unknown variable " <> name)
       (Just _, Just _)   -> throw (p, "Ambiguous variable " <> name)
       (Nothing, Just (FromAct varType)) -> Var p typ name <$ checkEq p typ varType
+<<<<<<< HEAD
       (Just _, Nothing) -> error "Internal error: variable must be in calldata"
+=======
+      (Just _, Nothing) -> error "Internal error: variable must be in calldata"  
+>>>>>>> b28dbd5 (Type: add support for contract types and fields)
     checkCalldataEntry _ _ =  error "Internal error: variable cannot be mapping or contract field"
 
 
 -- | Find the contract id of an expression with contract type
+<<<<<<< HEAD
 contractId :: Exp AContract t -> Id
 contractId (ITE _ _ a _) = contractId a
 contractId (Var _ _ _) = error "Internal error: calldata variables cannot have contract types"
 contractId (Create _ _ c _) = c
+=======
+-- TODO a more principled way of doing this check is to write a inferType :: Env -> Exp -> ValueType
+contractId :: Exp AContract t -> Id
+contractId (ITE _ _ a _) = contractId a
+contractId (Var _ _ _) = error "Internal error: calldata variables cannot have contract types"
+contractId (Call _ _ _ _) = error "Calls not yet supported"
+>>>>>>> b28dbd5 (Type: add support for contract types and fields)
 contractId (TEntry _ _ (Item _ (ContractType c) _)) = c
 contractId (TEntry _ _ (Item _ _ _)) = error "Internal error: entry does not have contract type"
 

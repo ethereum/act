@@ -151,18 +151,19 @@ data StorageLocation (t :: Timing) where
 deriving instance Show (StorageLocation t)
 
 _Loc :: TStorageItem a t -> StorageLocation t
-_Loc item@(Item s _) = Loc s item
+_Loc item@(Item s _ _) = Loc s item
 
 instance Eq (StorageLocation t) where
   Loc SType i1 == Loc SType i2 = eqS i1 i2
 
 -- | References to items in storage. The type is parametrized on a
--- timing `t` and a type `a`. `t` can be either `Timed` or `Untimed` and
+-- timing `t` and a type `a`. `t` can be either `Timed` or `Untimed` and15
 -- indicates whether any indices that reference items in storage explicitly
 -- refer to the pre-/post-state, or not. `a` is the type of the item that is
--- referenced.
+-- referenced. Item are also annotated with the original ValueType that
+-- carries more precise type information (e.g., exact contract type).
 data TStorageItem (a :: ActType) (t :: Timing) where
-  Item :: SType a -> StorageRef t -> TStorageItem a t
+  Item :: SType a -> ValueType -> StorageRef t -> TStorageItem a t
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
@@ -175,7 +176,7 @@ data StorageRef (t :: Timing) where
 deriving instance Show (StorageRef t)
 deriving instance Eq (StorageRef t)
 
-_Item :: SingI a => StorageRef t -> TStorageItem a t
+_Item :: SingI a => ValueType -> StorageRef t -> TStorageItem a t
 _Item = Item sing
 
 -- | A reference to the storage of an other
@@ -341,7 +342,7 @@ instance Timable (Exp a) where
       go = setTime time
 
 instance Timable (TStorageItem a) where
-   setTime time (Item t ref) = Item t $ setTime time ref
+   setTime time (Item t vt ref) = Item t vt $ setTime time ref
 
 instance Timable StorageRef where
   setTime time (SMapping p e ixs) = SMapping p (setTime time e) (setTime time <$> ixs)
@@ -410,8 +411,8 @@ instance ToJSON (StorageUpdate t) where
   toJSON (Update _ a b) = object [ "location" .= toJSON a ,"value" .= toJSON b ]
 
 instance ToJSON (TStorageItem a t) where
-  toJSON (Item t a) = object [ "sort" .= pack (show t)
-                             , "item" .= toJSON a ]
+  toJSON (Item t _ a) = object [ "sort" .= pack (show t)
+                               , "item" .= toJSON a ]
 
 instance ToJSON (StorageRef t) where
   toJSON (SVar _ c x) = object [ "var" .=  String (pack c <> "." <> pack x) ]

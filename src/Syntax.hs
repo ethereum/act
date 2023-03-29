@@ -170,7 +170,7 @@ idFromRewrite :: Rewrite t -> Id
 idFromRewrite = onRewrite idFromLocation idFromUpdate
 
 idFromItem :: TStorageItem a t -> Id
-idFromItem (Item _ ref) = idFromStorageRef ref
+idFromItem (Item _ _ ref) = idFromStorageRef ref
 
 idFromStorageRef :: StorageRef t -> Id
 idFromStorageRef (SVar _ _ x) = x
@@ -187,7 +187,7 @@ contractFromRewrite :: Rewrite t -> Id
 contractFromRewrite = onRewrite contractFromLoc contractFromUpdate
 
 contractFromItem :: TStorageItem a t -> Id
-contractFromItem (Item _ ref) = contractFromStorageRef ref
+contractFromItem (Item _ _ ref) = contractFromStorageRef ref
 
 contractFromStorageRef :: StorageRef t -> Id
 contractFromStorageRef (SVar _ c _) = c
@@ -195,7 +195,7 @@ contractFromStorageRef (SMapping _ e _) = contractFromStorageRef e
 contractFromStorageRef (SField _ e _) = contractFromStorageRef e
 
 ixsFromItem :: TStorageItem a t -> [TypedExp t]
-ixsFromItem (Item _ (SMapping _ _ ixs)) = ixs
+ixsFromItem (Item _ _ (SMapping _ _ ixs)) = ixs
 ixsFromItem _ = []
 
 contractsInvolved :: Behaviour t -> [Id]
@@ -217,7 +217,7 @@ ixsFromRewrite :: Rewrite t -> [TypedExp t]
 ixsFromRewrite = onRewrite ixsFromLocation ixsFromUpdate
 
 itemType :: TStorageItem a t -> ActType
-itemType (Item t _) = actType t
+itemType (Item t _ _) = actType t
 
 isMapping :: StorageLocation t -> Bool
 isMapping = not . null . ixsFromLocation
