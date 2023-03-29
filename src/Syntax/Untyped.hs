@@ -25,6 +25,7 @@ data RawBehaviour
   | Definition Pn Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
   deriving (Eq, Show)
 
+
 type Ensures = [Expr]
 
 type Invariants = [Expr]
