@@ -472,6 +472,9 @@ instance ToJSON (Exp a t) where
 
   toJSON (TEntry _ t a) = object [ pack (show t) .= toJSON a ]
   toJSON (Var _ _ a) = toJSON a
+  toJSON (Call _ _ f xs) = object [ "symbol" .= pack "call"
+                                  , "arity"  .= Data.Aeson.Types.Number 2
+                                  , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
 
   toJSON v = error $ "todo: json ast for: " <> show v
 
