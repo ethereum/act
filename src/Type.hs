@@ -229,7 +229,7 @@ checkDefn env@Env{contract} keyType (FromAbi valType) name (U.Defn k val) =
 
 -- | Typechecks a postcondition, returning typed versions of its storage updates and return expression.
 checkPost :: Env -> U.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
-checkPost env@Env{contract,calldata} (U.Post storage extStorage maybeReturn) = do
+checkPost Env{contract,calldata,theirs} (U.Post storage extStorage maybeReturn) = do
   returnexp <- traverse (typedExp scopedEnv) maybeReturn
   ourStorage <- checkEntries contract storage
   otherStorage <- checkStorages extStorage
@@ -245,37 +245,19 @@ checkPost env@Env{contract,calldata} (U.Post storage extStorage maybeReturn) = d
     checkStorages (U.ExtStorage name entries:xs) = mappend <$> checkEntries name entries <*> checkStorages xs
     checkStorages _ = error "TODO: check other storages"
 
-    -- remove storage items from the env that are not mentioned on the LHS of a storage declaration
     scopedEnv :: Env
     scopedEnv = focus contract $ Env
       { contract = mempty
       , store    = mempty
-      , theirs   = filtered
+      , theirs   = theirs
       , calldata = calldata
       }
-      where
-        filtered = flip Map.mapWithKey (theirs env) $ \name vars ->
-          if name == contract
-            then Map.filterWithKey (\slot _ -> slot `elem` localNames) vars
-            else Map.filterWithKey
-                  (\slot _ -> slot `elem` Map.findWithDefault [] name externalNames)
-                  vars
 
     focus :: Id -> Env -> Env
     focus name unfocused@Env{theirs} = unfocused
       { contract = name
       , store    = Map.findWithDefault mempty name theirs
       }
-
-    localNames :: [Id]
-    localNames = nameFromStorage <$> storage
-
-    externalNames :: Map Id [Id]
-    externalNames = Map.fromList $ mapMaybe (\case
-        U.ExtStorage name storages -> Just (name, nameFromStorage <$> storages)
-        U.ExtCreates {} -> error "TODO: handle ExtCreate"
-        U.WildStorage -> Nothing
-      ) extStorage
 
 -- | Typechecks a non-constant rewrite.
 checkStorageExpr :: Env -> U.Pattern -> U.Expr -> Err StorageUpdate
