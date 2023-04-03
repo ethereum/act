@@ -229,32 +229,24 @@ checkDefn env@Env{contract} keyType (FromAbi valType) name (U.Defn k val) =
 
 -- | Typechecks a postcondition, returning typed versions of its storage updates and return expression.
 checkPost :: Env -> U.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
-checkPost Env{contract,calldata,theirs} (U.Post storage extStorage maybeReturn) = do
-  returnexp <- traverse (typedExp scopedEnv) maybeReturn
+checkPost env@Env{contract,theirs} (U.Post storage extStorage maybeReturn) = do
+  returnexp <- traverse (typedExp $ focus contract) maybeReturn
   ourStorage <- checkEntries contract storage
   otherStorage <- checkStorages extStorage
   pure (ourStorage <> otherStorage, returnexp)
   where
     checkEntries :: Id -> [U.Storage] -> Err [Rewrite]
     checkEntries name entries = for entries $ \case
-      U.Constant loc     -> Constant <$> checkPattern     (focus name scopedEnv) loc
-      U.Rewrite  loc val -> Rewrite  <$> checkStorageExpr (focus name scopedEnv) loc val
+      U.Constant loc     -> Constant <$> checkPattern     (focus name) loc
+      U.Rewrite  loc val -> Rewrite  <$> checkStorageExpr (focus name) loc val
 
     checkStorages :: [U.ExtStorage] -> Err [Rewrite]
     checkStorages [] = pure []
     checkStorages (U.ExtStorage name entries:xs) = mappend <$> checkEntries name entries <*> checkStorages xs
     checkStorages _ = error "TODO: check other storages"
 
-    scopedEnv :: Env
-    scopedEnv = focus contract $ Env
-      { contract = mempty
-      , store    = mempty
-      , theirs   = theirs
-      , calldata = calldata
-      }
-
-    focus :: Id -> Env -> Env
-    focus name unfocused@Env{theirs} = unfocused
+    focus :: Id -> Env
+    focus name = env
       { contract = name
       , store    = Map.findWithDefault mempty name theirs
       }
