@@ -12,10 +12,6 @@ creates
     Token token0 := Token(s0)
     Token token1 := Token(s1)
 
-invariants
-
-    pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) <= post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS])
-
 behaviour swap0 of Amm
 interface swap0(uint256 amt)
 
@@ -35,6 +31,10 @@ storage
     token1.balanceOf[THIS]   => (token0.balanceOf[THIS] * token1.balanceOf[THIS]) / (token0.balanceOf[THIS] + amt)
     token1.balanceOf[CALLER] => token1.balanceOf[CALLER] + (token1.balanceOf[THIS] - ((token0.balanceOf[THIS] * token1.balanceOf[THIS]) / (token0.balanceOf[THIS] + amt)))
 
+ensures
+
+    pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) <= post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS])
+
 behaviour swap1 of Amm
 interface swap1(uint256 amt)
 
@@ -53,3 +53,7 @@ storage
 
     token0.balanceOf[THIS]   => (token0.balanceOf[THIS] * token1.balanceOf[THIS]) / (token0.balanceOf[THIS] + amt)
     token0.balanceOf[CALLER] => token0.balanceOf[CALLER] + (token0.balanceOf[THIS] - ((token0.balanceOf[THIS] * token1.balanceOf[THIS]) / (token1.balanceOf[THIS] + amt)))
+
+ensures
+
+    pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) <= post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS])
