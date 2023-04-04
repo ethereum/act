@@ -126,11 +126,6 @@ data Mode
   | OOG
   deriving (Eq, Show)
 
--- | Additional type information
-data TInfo
-  = TypeId Id -- unique identifier for contract types
-  | None
-
 data Rewrite t
   = Constant (StorageLocation t)
   | Rewrite (StorageUpdate t)
