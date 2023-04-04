@@ -3,23 +3,23 @@
     "storages": {
       "Token": {
         "symbol": {
-          "type": "string"
+          "type": "PrimitiveType string"
         },
         "name": {
-          "type": "string"
+          "type": "PrimitiveType string"
         },
         "balanceOf": {
-          "ixTypes": "[address]",
-          "valType": "uint256",
+          "ixTypes": "[PrimitiveType address]",
+          "valType": "PrimitiveType uint256",
           "type": "mapping"
         },
         "allowance": {
-          "ixTypes": "[address,address]",
-          "valType": "uint256",
+          "ixTypes": "[PrimitiveType address,PrimitiveType address]",
+          "valType": "PrimitiveType uint256",
           "type": "mapping"
         },
         "totalSupply": {
-          "type": "uint256"
+          "type": "PrimitiveType uint256"
         }
       }
     },
@@ -33,8 +33,10 @@
         "args": [
           {
             "Pre": {
-              "name": "Token.totalSupply",
-              "sort": "int"
+              "sort": "int",
+              "item": {
+                "var": "Token.totalSupply"
+              }
             }
           },
           "_totalSupply"
@@ -46,8 +48,10 @@
         "args": [
           {
             "Post": {
-              "name": "Token.totalSupply",
-              "sort": "int"
+              "sort": "int",
+              "item": {
+                "var": "Token.totalSupply"
+              }
             }
           },
           "_totalSupply"
@@ -90,8 +94,10 @@
               "0",
               {
                 "Pre": {
-                  "name": "Token.totalSupply",
-                  "sort": "int"
+                  "sort": "int",
+                  "item": {
+                    "var": "Token.totalSupply"
+                  }
                 }
               }
             ],
@@ -102,8 +108,10 @@
             "args": [
               {
                 "Pre": {
-                  "name": "Token.totalSupply",
-                  "sort": "int"
+                  "sort": "int",
+                  "item": {
+                    "var": "Token.totalSupply"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -123,8 +131,10 @@
         "args": [
           {
             "Pre": {
-              "name": "Token.name",
-              "sort": "bytestring"
+              "sort": "bytestring",
+              "item": {
+                "var": "Token.name"
+              }
             }
           },
           "_name"
@@ -136,8 +146,10 @@
         "args": [
           {
             "Post": {
-              "name": "Token.name",
-              "sort": "bytestring"
+              "sort": "bytestring",
+              "item": {
+                "var": "Token.name"
+              }
             }
           },
           "_name"
@@ -180,8 +192,10 @@
         "args": [
           {
             "Pre": {
-              "name": "Token.symbol",
-              "sort": "bytestring"
+              "sort": "bytestring",
+              "item": {
+                "var": "Token.symbol"
+              }
             }
           },
           "_symbol"
@@ -193,8 +207,10 @@
         "args": [
           {
             "Post": {
-              "name": "Token.symbol",
-              "sort": "bytestring"
+              "sort": "bytestring",
+              "item": {
+                "var": "Token.symbol"
+              }
             }
           },
           "_symbol"
@@ -235,39 +251,49 @@
     "storage": [
       {
         "location": {
-          "name": "Token.name",
-          "sort": "bytestring"
+          "sort": "bytestring",
+          "item": {
+            "var": "Token.name"
+          }
         },
         "value": "_name"
       },
       {
         "location": {
-          "name": "Token.symbol",
-          "sort": "bytestring"
+          "sort": "bytestring",
+          "item": {
+            "var": "Token.symbol"
+          }
         },
         "value": "_symbol"
       },
       {
         "location": {
-          "name": "Token.totalSupply",
-          "sort": "int"
+          "sort": "int",
+          "item": {
+            "var": "Token.totalSupply"
+          }
         },
         "value": "_totalSupply"
       },
       {
         "location": {
-          "arity": 3,
-          "args": [
-            "Token",
-            "balanceOf",
-            [
+          "sort": "int",
+          "item": {
+            "arity": 2,
+            "args": [
               {
-                "expression": "Caller",
-                "sort": "int"
-              }
-            ]
-          ],
-          "symbol": "lookup"
+                "var": "Token.balanceOf"
+              },
+              [
+                {
+                  "expression": "Caller",
+                  "sort": "int"
+                }
+              ]
+            ],
+            "symbol": "lookup"
+          }
         },
         "value": "_totalSupply"
       }
@@ -327,36 +353,44 @@
       {
         "Rewrite": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           },
           "value": {
             "arity": 2,
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "value"
@@ -368,36 +402,44 @@
       {
         "Rewrite": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "to",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "to",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           },
           "value": {
             "arity": 2,
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "to",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "to",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "value"
@@ -433,18 +475,22 @@
           "value",
           {
             "Pre": {
-              "arity": 3,
-              "args": [
-                "Token",
-                "balanceOf",
-                [
+              "sort": "int",
+              "item": {
+                "arity": 2,
+                "args": [
                   {
-                    "expression": "Caller",
-                    "sort": "int"
-                  }
-                ]
-              ],
-              "symbol": "lookup"
+                    "var": "Token.balanceOf"
+                  },
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              }
             }
           }
         ],
@@ -469,18 +515,22 @@
                 "args": [
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "balanceOf",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "to",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                            "var": "Token.balanceOf"
+                          },
+                          [
+                            {
+                              "expression": "to",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   },
                   "value"
@@ -554,18 +604,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -576,18 +630,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -606,18 +664,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "to",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "to",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -628,18 +690,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "to",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "to",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -707,36 +773,44 @@
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "to",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "to",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       }
@@ -776,18 +850,22 @@
                       "value",
                       {
                         "Pre": {
-                          "arity": 3,
-                          "args": [
-                            "Token",
-                            "balanceOf",
-                            [
+                          "sort": "int",
+                          "item": {
+                            "arity": 2,
+                            "args": [
                               {
-                                "expression": "Caller",
-                                "sort": "int"
-                              }
-                            ]
-                          ],
-                          "symbol": "lookup"
+                                "var": "Token.balanceOf"
+                              },
+                              [
+                                {
+                                  "expression": "Caller",
+                                  "sort": "int"
+                                }
+                              ]
+                            ],
+                            "symbol": "lookup"
+                          }
                         }
                       }
                     ],
@@ -815,18 +893,22 @@
                                 "args": [
                                   {
                                     "Pre": {
-                                      "arity": 3,
-                                      "args": [
-                                        "Token",
-                                        "balanceOf",
-                                        [
+                                      "sort": "int",
+                                      "item": {
+                                        "arity": 2,
+                                        "args": [
                                           {
-                                            "expression": "to",
-                                            "sort": "int"
-                                          }
-                                        ]
-                                      ],
-                                      "symbol": "lookup"
+                                            "var": "Token.balanceOf"
+                                          },
+                                          [
+                                            {
+                                              "expression": "to",
+                                              "sort": "int"
+                                            }
+                                          ]
+                                        ],
+                                        "symbol": "lookup"
+                                      }
                                     }
                                   },
                                   "value"
@@ -913,18 +995,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -935,18 +1021,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -965,18 +1055,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "to",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "to",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -987,18 +1081,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "to",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "to",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -1063,36 +1161,44 @@
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "to",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "to",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       }
@@ -1123,18 +1229,22 @@
           "value",
           {
             "Pre": {
-              "arity": 3,
-              "args": [
-                "Token",
-                "balanceOf",
-                [
+              "sort": "int",
+              "item": {
+                "arity": 2,
+                "args": [
                   {
-                    "expression": "Caller",
-                    "sort": "int"
-                  }
-                ]
-              ],
-              "symbol": "lookup"
+                    "var": "Token.balanceOf"
+                  },
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              }
             }
           }
         ],
@@ -1159,18 +1269,22 @@
                 "args": [
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "balanceOf",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "to",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                            "var": "Token.balanceOf"
+                          },
+                          [
+                            {
+                              "expression": "to",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   },
                   "value"
@@ -1244,18 +1358,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -1266,18 +1384,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -1296,18 +1418,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "to",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "to",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -1318,18 +1444,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "to",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "to",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -1397,36 +1527,44 @@
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "to",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "to",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       }
@@ -1466,18 +1604,22 @@
                       "value",
                       {
                         "Pre": {
-                          "arity": 3,
-                          "args": [
-                            "Token",
-                            "balanceOf",
-                            [
+                          "sort": "int",
+                          "item": {
+                            "arity": 2,
+                            "args": [
                               {
-                                "expression": "Caller",
-                                "sort": "int"
-                              }
-                            ]
-                          ],
-                          "symbol": "lookup"
+                                "var": "Token.balanceOf"
+                              },
+                              [
+                                {
+                                  "expression": "Caller",
+                                  "sort": "int"
+                                }
+                              ]
+                            ],
+                            "symbol": "lookup"
+                          }
                         }
                       }
                     ],
@@ -1505,18 +1647,22 @@
                                 "args": [
                                   {
                                     "Pre": {
-                                      "arity": 3,
-                                      "args": [
-                                        "Token",
-                                        "balanceOf",
-                                        [
+                                      "sort": "int",
+                                      "item": {
+                                        "arity": 2,
+                                        "args": [
                                           {
-                                            "expression": "to",
-                                            "sort": "int"
-                                          }
-                                        ]
-                                      ],
-                                      "symbol": "lookup"
+                                            "var": "Token.balanceOf"
+                                          },
+                                          [
+                                            {
+                                              "expression": "to",
+                                              "sort": "int"
+                                            }
+                                          ]
+                                        ],
+                                        "symbol": "lookup"
+                                      }
                                     }
                                   },
                                   "value"
@@ -1603,18 +1749,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -1625,18 +1775,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -1655,18 +1809,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "to",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "to",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -1677,18 +1835,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "to",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "to",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -1753,76 +1915,92 @@
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "allowance",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "src",
-                  "sort": "int"
+                  "var": "Token.allowance"
                 },
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Rewrite": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "src",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           },
           "value": {
             "arity": 2,
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "amount"
@@ -1834,36 +2012,44 @@
       {
         "Rewrite": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "dst",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           },
           "value": {
             "arity": 2,
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "amount"
@@ -1905,18 +2091,22 @@
           "amount",
           {
             "Pre": {
-              "arity": 3,
-              "args": [
-                "Token",
-                "balanceOf",
-                [
+              "sort": "int",
+              "item": {
+                "arity": 2,
+                "args": [
                   {
-                    "expression": "Caller",
-                    "sort": "int"
-                  }
-                ]
-              ],
-              "symbol": "lookup"
+                    "var": "Token.balanceOf"
+                  },
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              }
             }
           }
         ],
@@ -1941,18 +2131,22 @@
                 "args": [
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "balanceOf",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "dst",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                            "var": "Token.balanceOf"
+                          },
+                          [
+                            {
+                              "expression": "dst",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   },
                   "amount"
@@ -1993,22 +2187,26 @@
                 "args": [
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "allowance",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "src",
-                            "sort": "int"
+                            "var": "Token.allowance"
                           },
-                          {
-                            "expression": "Caller",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                          [
+                            {
+                              "expression": "src",
+                              "sort": "int"
+                            },
+                            {
+                              "expression": "Caller",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   },
                   "amount"
@@ -2104,74 +2302,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              }
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              },
-              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "0",
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
-                      {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -2182,22 +2328,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -2216,18 +2362,26 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -2238,18 +2392,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -2268,18 +2430,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -2290,18 +2456,82 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              },
+              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -2369,76 +2599,92 @@
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
-          }
-        }
-      },
-      {
-        "Constant": {
-          "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "allowance",
-              [
-                {
-                  "expression": "src",
-                  "sort": "int"
+                  "var": "Token.balanceOf"
                 },
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "src",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.allowance"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "dst",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        }
+      },
+      {
+        "Constant": {
+          "location": {
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
+                {
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       }
@@ -2481,18 +2727,22 @@
                   "amount",
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "balanceOf",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "Caller",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                            "var": "Token.balanceOf"
+                          },
+                          [
+                            {
+                              "expression": "Caller",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   }
                 ],
@@ -2520,18 +2770,22 @@
                             "args": [
                               {
                                 "Pre": {
-                                  "arity": 3,
-                                  "args": [
-                                    "Token",
-                                    "balanceOf",
-                                    [
+                                  "sort": "int",
+                                  "item": {
+                                    "arity": 2,
+                                    "args": [
                                       {
-                                        "expression": "dst",
-                                        "sort": "int"
-                                      }
-                                    ]
-                                  ],
-                                  "symbol": "lookup"
+                                        "var": "Token.balanceOf"
+                                      },
+                                      [
+                                        {
+                                          "expression": "dst",
+                                          "sort": "int"
+                                        }
+                                      ]
+                                    ],
+                                    "symbol": "lookup"
+                                  }
                                 }
                               },
                               "amount"
@@ -2575,22 +2829,26 @@
                                 "args": [
                                   {
                                     "Pre": {
-                                      "arity": 3,
-                                      "args": [
-                                        "Token",
-                                        "allowance",
-                                        [
+                                      "sort": "int",
+                                      "item": {
+                                        "arity": 2,
+                                        "args": [
                                           {
-                                            "expression": "src",
-                                            "sort": "int"
+                                            "var": "Token.allowance"
                                           },
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          }
-                                        ]
-                                      ],
-                                      "symbol": "lookup"
+                                          [
+                                            {
+                                              "expression": "src",
+                                              "sort": "int"
+                                            },
+                                            {
+                                              "expression": "Caller",
+                                              "sort": "int"
+                                            }
+                                          ]
+                                        ],
+                                        "symbol": "lookup"
+                                      }
                                     }
                                   },
                                   "amount"
@@ -2705,74 +2963,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              }
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              },
-              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "0",
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
-                      {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -2783,22 +2989,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -2817,18 +3023,26 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -2839,18 +3053,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -2869,18 +3091,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -2891,18 +3117,82 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              },
+              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -2967,76 +3257,92 @@
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "allowance",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "src",
-                  "sort": "int"
+                  "var": "Token.allowance"
                 },
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Rewrite": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "src",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           },
           "value": {
             "arity": 2,
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "amount"
@@ -3048,36 +3354,44 @@
       {
         "Rewrite": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "dst",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           },
           "value": {
             "arity": 2,
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "amount"
@@ -3121,22 +3435,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.allowance"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               {
@@ -3166,18 +3484,22 @@
           "amount",
           {
             "Pre": {
-              "arity": 3,
-              "args": [
-                "Token",
-                "balanceOf",
-                [
+              "sort": "int",
+              "item": {
+                "arity": 2,
+                "args": [
                   {
-                    "expression": "Caller",
-                    "sort": "int"
-                  }
-                ]
-              ],
-              "symbol": "lookup"
+                    "var": "Token.balanceOf"
+                  },
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              }
             }
           }
         ],
@@ -3202,18 +3524,22 @@
                 "args": [
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "balanceOf",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "dst",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                            "var": "Token.balanceOf"
+                          },
+                          [
+                            {
+                              "expression": "dst",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   },
                   "amount"
@@ -3254,22 +3580,26 @@
                 "args": [
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "allowance",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "src",
-                            "sort": "int"
+                            "var": "Token.allowance"
                           },
-                          {
-                            "expression": "Caller",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                          [
+                            {
+                              "expression": "src",
+                              "sort": "int"
+                            },
+                            {
+                              "expression": "Caller",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   },
                   "amount"
@@ -3365,74 +3695,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              }
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              },
-              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "0",
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
-                      {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -3443,22 +3721,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -3477,18 +3755,26 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -3499,18 +3785,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -3529,18 +3823,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -3551,18 +3849,82 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              },
+              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -3630,76 +3992,92 @@
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
-          }
-        }
-      },
-      {
-        "Constant": {
-          "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "allowance",
-              [
-                {
-                  "expression": "src",
-                  "sort": "int"
+                  "var": "Token.balanceOf"
                 },
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "src",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.allowance"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "dst",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        }
+      },
+      {
+        "Constant": {
+          "location": {
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
+                {
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       }
@@ -3738,22 +4116,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.allowance"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               {
@@ -3789,18 +4171,22 @@
                   "amount",
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "balanceOf",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "Caller",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                            "var": "Token.balanceOf"
+                          },
+                          [
+                            {
+                              "expression": "Caller",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   }
                 ],
@@ -3828,18 +4214,22 @@
                             "args": [
                               {
                                 "Pre": {
-                                  "arity": 3,
-                                  "args": [
-                                    "Token",
-                                    "balanceOf",
-                                    [
+                                  "sort": "int",
+                                  "item": {
+                                    "arity": 2,
+                                    "args": [
                                       {
-                                        "expression": "dst",
-                                        "sort": "int"
-                                      }
-                                    ]
-                                  ],
-                                  "symbol": "lookup"
+                                        "var": "Token.balanceOf"
+                                      },
+                                      [
+                                        {
+                                          "expression": "dst",
+                                          "sort": "int"
+                                        }
+                                      ]
+                                    ],
+                                    "symbol": "lookup"
+                                  }
                                 }
                               },
                               "amount"
@@ -3883,22 +4273,26 @@
                                 "args": [
                                   {
                                     "Pre": {
-                                      "arity": 3,
-                                      "args": [
-                                        "Token",
-                                        "allowance",
-                                        [
+                                      "sort": "int",
+                                      "item": {
+                                        "arity": 2,
+                                        "args": [
                                           {
-                                            "expression": "src",
-                                            "sort": "int"
+                                            "var": "Token.allowance"
                                           },
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          }
-                                        ]
-                                      ],
-                                      "symbol": "lookup"
+                                          [
+                                            {
+                                              "expression": "src",
+                                              "sort": "int"
+                                            },
+                                            {
+                                              "expression": "Caller",
+                                              "sort": "int"
+                                            }
+                                          ]
+                                        ],
+                                        "symbol": "lookup"
+                                      }
                                     }
                                   },
                                   "amount"
@@ -4013,74 +4407,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              }
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              },
-              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "0",
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
-                      {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -4091,22 +4433,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -4125,18 +4467,26 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -4147,18 +4497,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -4177,18 +4535,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -4199,18 +4561,82 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              },
+              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -4275,62 +4701,74 @@
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
-          }
-        }
-      },
-      {
-        "Rewrite": {
-          "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "allowance",
-              [
-                {
-                  "expression": "src",
-                  "sort": "int"
+                  "var": "Token.balanceOf"
                 },
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        }
+      },
+      {
+        "Rewrite": {
+          "location": {
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.allowance"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           },
           "value": {
             "arity": 2,
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.allowance"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "amount"
@@ -4342,36 +4780,44 @@
       {
         "Rewrite": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "src",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           },
           "value": {
             "arity": 2,
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "amount"
@@ -4383,36 +4829,44 @@
       {
         "Rewrite": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "dst",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           },
           "value": {
             "arity": 2,
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "amount"
@@ -4456,22 +4910,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.allowance"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               {
@@ -4501,18 +4959,22 @@
           "amount",
           {
             "Pre": {
-              "arity": 3,
-              "args": [
-                "Token",
-                "balanceOf",
-                [
+              "sort": "int",
+              "item": {
+                "arity": 2,
+                "args": [
                   {
-                    "expression": "Caller",
-                    "sort": "int"
-                  }
-                ]
-              ],
-              "symbol": "lookup"
+                    "var": "Token.balanceOf"
+                  },
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              }
             }
           }
         ],
@@ -4537,18 +4999,22 @@
                 "args": [
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "balanceOf",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "dst",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                            "var": "Token.balanceOf"
+                          },
+                          [
+                            {
+                              "expression": "dst",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   },
                   "amount"
@@ -4589,22 +5055,26 @@
                 "args": [
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "allowance",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "src",
-                            "sort": "int"
+                            "var": "Token.allowance"
                           },
-                          {
-                            "expression": "Caller",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                          [
+                            {
+                              "expression": "src",
+                              "sort": "int"
+                            },
+                            {
+                              "expression": "Caller",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   },
                   "amount"
@@ -4700,74 +5170,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              }
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              },
-              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "0",
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
-                      {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -4778,22 +5196,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -4812,18 +5230,26 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -4834,18 +5260,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -4864,18 +5298,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -4886,18 +5324,82 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              },
+              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -4965,76 +5467,92 @@
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
-          }
-        }
-      },
-      {
-        "Constant": {
-          "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "allowance",
-              [
-                {
-                  "expression": "src",
-                  "sort": "int"
+                  "var": "Token.balanceOf"
                 },
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "src",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.allowance"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "dst",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        }
+      },
+      {
+        "Constant": {
+          "location": {
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
+                {
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       }
@@ -5073,22 +5591,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.allowance"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               {
@@ -5124,18 +5646,22 @@
                   "amount",
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "balanceOf",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "Caller",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                            "var": "Token.balanceOf"
+                          },
+                          [
+                            {
+                              "expression": "Caller",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   }
                 ],
@@ -5163,18 +5689,22 @@
                             "args": [
                               {
                                 "Pre": {
-                                  "arity": 3,
-                                  "args": [
-                                    "Token",
-                                    "balanceOf",
-                                    [
+                                  "sort": "int",
+                                  "item": {
+                                    "arity": 2,
+                                    "args": [
                                       {
-                                        "expression": "dst",
-                                        "sort": "int"
-                                      }
-                                    ]
-                                  ],
-                                  "symbol": "lookup"
+                                        "var": "Token.balanceOf"
+                                      },
+                                      [
+                                        {
+                                          "expression": "dst",
+                                          "sort": "int"
+                                        }
+                                      ]
+                                    ],
+                                    "symbol": "lookup"
+                                  }
                                 }
                               },
                               "amount"
@@ -5218,22 +5748,26 @@
                                 "args": [
                                   {
                                     "Pre": {
-                                      "arity": 3,
-                                      "args": [
-                                        "Token",
-                                        "allowance",
-                                        [
+                                      "sort": "int",
+                                      "item": {
+                                        "arity": 2,
+                                        "args": [
                                           {
-                                            "expression": "src",
-                                            "sort": "int"
+                                            "var": "Token.allowance"
                                           },
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          }
-                                        ]
-                                      ],
-                                      "symbol": "lookup"
+                                          [
+                                            {
+                                              "expression": "src",
+                                              "sort": "int"
+                                            },
+                                            {
+                                              "expression": "Caller",
+                                              "sort": "int"
+                                            }
+                                          ]
+                                        ],
+                                        "symbol": "lookup"
+                                      }
                                     }
                                   },
                                   "amount"
@@ -5348,74 +5882,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              }
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              },
-              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "0",
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
-                      {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -5426,22 +5908,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -5460,18 +5942,26 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -5482,18 +5972,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -5512,18 +6010,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -5534,18 +6036,82 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              },
+              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -5610,76 +6176,92 @@
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
-          }
-        }
-      },
-      {
-        "Constant": {
-          "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "allowance",
-              [
-                {
-                  "expression": "src",
-                  "sort": "int"
+                  "var": "Token.balanceOf"
                 },
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "src",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.allowance"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "dst",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        }
+      },
+      {
+        "Constant": {
+          "location": {
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
+                {
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       }
@@ -5702,18 +6284,22 @@
           "amount",
           {
             "Pre": {
-              "arity": 3,
-              "args": [
-                "Token",
-                "balanceOf",
-                [
+              "sort": "int",
+              "item": {
+                "arity": 2,
+                "args": [
                   {
-                    "expression": "Caller",
-                    "sort": "int"
-                  }
-                ]
-              ],
-              "symbol": "lookup"
+                    "var": "Token.balanceOf"
+                  },
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "symbol": "lookup"
+              }
             }
           }
         ],
@@ -5738,18 +6324,22 @@
                 "args": [
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "balanceOf",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "dst",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                            "var": "Token.balanceOf"
+                          },
+                          [
+                            {
+                              "expression": "dst",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   },
                   "amount"
@@ -5790,22 +6380,26 @@
                 "args": [
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "allowance",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "src",
-                            "sort": "int"
+                            "var": "Token.allowance"
                           },
-                          {
-                            "expression": "Caller",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                          [
+                            {
+                              "expression": "src",
+                              "sort": "int"
+                            },
+                            {
+                              "expression": "Caller",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   },
                   "amount"
@@ -5901,74 +6495,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              }
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              },
-              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "0",
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
-                      {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -5979,22 +6521,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -6013,18 +6555,26 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -6035,18 +6585,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -6065,18 +6623,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -6087,18 +6649,82 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              },
+              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -6166,76 +6792,92 @@
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
-          }
-        }
-      },
-      {
-        "Constant": {
-          "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "allowance",
-              [
-                {
-                  "expression": "src",
-                  "sort": "int"
+                  "var": "Token.balanceOf"
                 },
-                {
-                  "expression": "Caller",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                [
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "src",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.allowance"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  },
+                  {
+                    "expression": "Caller",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       },
       {
         "Constant": {
           "location": {
-            "arity": 3,
-            "args": [
-              "Token",
-              "balanceOf",
-              [
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
                 {
-                  "expression": "dst",
-                  "sort": "int"
-                }
-              ]
-            ],
-            "symbol": "lookup"
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "src",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
+          }
+        }
+      },
+      {
+        "Constant": {
+          "location": {
+            "sort": "int",
+            "item": {
+              "arity": 2,
+              "args": [
+                {
+                  "var": "Token.balanceOf"
+                },
+                [
+                  {
+                    "expression": "dst",
+                    "sort": "int"
+                  }
+                ]
+              ],
+              "symbol": "lookup"
+            }
           }
         }
       }
@@ -6264,18 +6906,22 @@
                   "amount",
                   {
                     "Pre": {
-                      "arity": 3,
-                      "args": [
-                        "Token",
-                        "balanceOf",
-                        [
+                      "sort": "int",
+                      "item": {
+                        "arity": 2,
+                        "args": [
                           {
-                            "expression": "Caller",
-                            "sort": "int"
-                          }
-                        ]
-                      ],
-                      "symbol": "lookup"
+                            "var": "Token.balanceOf"
+                          },
+                          [
+                            {
+                              "expression": "Caller",
+                              "sort": "int"
+                            }
+                          ]
+                        ],
+                        "symbol": "lookup"
+                      }
                     }
                   }
                 ],
@@ -6303,18 +6949,22 @@
                             "args": [
                               {
                                 "Pre": {
-                                  "arity": 3,
-                                  "args": [
-                                    "Token",
-                                    "balanceOf",
-                                    [
+                                  "sort": "int",
+                                  "item": {
+                                    "arity": 2,
+                                    "args": [
                                       {
-                                        "expression": "dst",
-                                        "sort": "int"
-                                      }
-                                    ]
-                                  ],
-                                  "symbol": "lookup"
+                                        "var": "Token.balanceOf"
+                                      },
+                                      [
+                                        {
+                                          "expression": "dst",
+                                          "sort": "int"
+                                        }
+                                      ]
+                                    ],
+                                    "symbol": "lookup"
+                                  }
                                 }
                               },
                               "amount"
@@ -6358,22 +7008,26 @@
                                 "args": [
                                   {
                                     "Pre": {
-                                      "arity": 3,
-                                      "args": [
-                                        "Token",
-                                        "allowance",
-                                        [
+                                      "sort": "int",
+                                      "item": {
+                                        "arity": 2,
+                                        "args": [
                                           {
-                                            "expression": "src",
-                                            "sort": "int"
+                                            "var": "Token.allowance"
                                           },
-                                          {
-                                            "expression": "Caller",
-                                            "sort": "int"
-                                          }
-                                        ]
-                                      ],
-                                      "symbol": "lookup"
+                                          [
+                                            {
+                                              "expression": "src",
+                                              "sort": "int"
+                                            },
+                                            {
+                                              "expression": "Caller",
+                                              "sort": "int"
+                                            }
+                                          ]
+                                        ],
+                                        "symbol": "lookup"
+                                      }
                                     }
                                   },
                                   "amount"
@@ -6488,74 +7142,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              }
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
-                }
-              },
-              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      },
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "0",
-              {
-                "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
-                      {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -6566,22 +7168,22 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "allowance",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
+                        "var": "Token.balanceOf"
                       },
-                      {
-                        "expression": "Caller",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                      [
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -6600,18 +7202,26 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -6622,18 +7232,26 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "src",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.allowance"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        },
+                        {
+                          "expression": "Caller",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"
@@ -6652,18 +7270,22 @@
               "0",
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               }
             ],
@@ -6674,18 +7296,82 @@
             "args": [
               {
                 "Pre": {
-                  "arity": 3,
-                  "args": [
-                    "Token",
-                    "balanceOf",
-                    [
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
                       {
-                        "expression": "dst",
-                        "sort": "int"
-                      }
-                    ]
-                  ],
-                  "symbol": "lookup"
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "src",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              },
+              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+            ],
+            "symbol": "<="
+          }
+        ],
+        "symbol": "and"
+      },
+      {
+        "arity": 2,
+        "args": [
+          {
+            "arity": 2,
+            "args": [
+              "0",
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
+                }
+              }
+            ],
+            "symbol": "<="
+          },
+          {
+            "arity": 2,
+            "args": [
+              {
+                "Pre": {
+                  "sort": "int",
+                  "item": {
+                    "arity": 2,
+                    "args": [
+                      {
+                        "var": "Token.balanceOf"
+                      },
+                      [
+                        {
+                          "expression": "dst",
+                          "sort": "int"
+                        }
+                      ]
+                    ],
+                    "symbol": "lookup"
+                  }
                 }
               },
               "115792089237316195423570985008687907853269984665640564039457584007913129639935"

@@ -3,10 +3,10 @@
     "storages": {
       "Modest": {
         "x": {
-          "type": "uint256"
+          "type": "PrimitiveType uint256"
         },
         "y": {
-          "type": "address"
+          "type": "PrimitiveType address"
         }
       }
     },
@@ -18,15 +18,19 @@
     "storage": [
       {
         "location": {
-          "name": "Modest.x",
-          "sort": "int"
+          "sort": "int",
+          "item": {
+            "var": "Modest.x"
+          }
         },
         "value": "1"
       },
       {
         "location": {
-          "name": "Modest.y",
-          "sort": "int"
+          "sort": "int",
+          "item": {
+            "var": "Modest.y"
+          }
         },
         "value": "Caller"
       }
