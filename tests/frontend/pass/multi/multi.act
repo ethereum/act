@@ -1,4 +1,4 @@
-constructor of a
+constructor of A
 interface constructor()
 
 creates
@@ -9,7 +9,7 @@ interface constructor()
 
 creates
    uint y := 0
-
+   A a := A()
 
 behaviour remote of B
 interface set_remote(uint z)
@@ -17,11 +17,8 @@ interface set_remote(uint z)
 iff
    CALLVALUE == 0
 
-// we can specify how a call to a function of B
-// updates the storage of another by labelling the storage header
-// by the address of that contract
-storage of a
-   x => z
+storage
+   a.x => z
 
 behaviour multi of B
 interface set_remote2(uint z)
@@ -29,9 +26,6 @@ interface set_remote2(uint z)
 iff
    CALLVALUE == 0
 
-// or specify changes over multiple contracts at once
 storage
    y => 1
-
-storage of a
-   x => z
+   a.x => z
