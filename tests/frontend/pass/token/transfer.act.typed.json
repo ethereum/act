@@ -3,23 +3,23 @@
     "storages": {
       "Token": {
         "symbol": {
-          "type": "PrimitiveType string"
+          "type": "string"
         },
         "name": {
-          "type": "PrimitiveType string"
+          "type": "string"
         },
         "balanceOf": {
-          "ixTypes": "[PrimitiveType address]",
-          "valType": "PrimitiveType uint256",
+          "ixTypes": "[address]",
+          "valType": "uint256",
           "type": "mapping"
         },
         "allowance": {
-          "ixTypes": "[PrimitiveType address,PrimitiveType address]",
-          "valType": "PrimitiveType uint256",
+          "ixTypes": "[address,address]",
+          "valType": "uint256",
           "type": "mapping"
         },
         "totalSupply": {
-          "type": "PrimitiveType uint256"
+          "type": "uint256"
         }
       }
     },

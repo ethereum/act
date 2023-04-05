@@ -3,15 +3,15 @@
     "storages": {
       "A": {
         "x": {
-          "type": "PrimitiveType uint256"
+          "type": "uint256"
         }
       },
       "B": {
         "a": {
-          "type": "ContractType \"A\""
+          "type": "A"
         },
         "y": {
-          "type": "PrimitiveType uint256"
+          "type": "uint256"
         }
       }
     },

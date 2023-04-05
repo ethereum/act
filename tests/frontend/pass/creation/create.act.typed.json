@@ -3,10 +3,10 @@
     "storages": {
       "Modest": {
         "x": {
-          "type": "PrimitiveType uint256"
+          "type": "uint256"
         },
         "y": {
-          "type": "PrimitiveType address"
+          "type": "address"
         }
       }
     },
