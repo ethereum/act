@@ -92,7 +92,8 @@ prettyTypedExp (TExp _ e) = prettyExp e
 
 prettyItem :: TStorageItem a t -> String
 prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
-
+  where
+    brackets str = "[" <> str <> "]"
 prettyLocation :: StorageLocation t -> String
 prettyLocation (Loc _ item) = prettyItem item
 
@@ -114,9 +115,6 @@ prettyEnv e = case e of
   Timestamp -> "TIMESTAMP"
   This -> "THIS"
   Nonce -> "NONCE"
-
-brackets :: String -> String
-brackets str = "[" <> str <> "]"
 
 -- | Invariant predicates are represented internally as a pair of timed
 -- expressions, one over the prestate and one over the poststate.  This is good

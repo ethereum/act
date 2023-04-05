@@ -245,7 +245,6 @@ nameFromEntry (EVar _ x) = x
 nameFromEntry (EMapping _ e _) = nameFromEntry e
 nameFromEntry (EField _ e _) = nameFromEntry e
 
-
 getPosEntry :: Entry -> Pn
 getPosEntry (EVar pn _) = pn
 getPosEntry (EMapping pn _ _) = pn

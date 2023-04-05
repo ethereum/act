@@ -113,7 +113,7 @@ data Expr
   | IntLit Pn Integer
   | BoolLit Pn Bool
   deriving (Eq, Show)
-  
+
 data EthEnv
   = Caller
   | Callvalue
@@ -155,4 +155,3 @@ instance ToJSON SlotType where
   toJSON (StorageMapping ixTypes valType) = object [ "type" .= String "mapping"
                                                    , "ixTypes" .= show (toList ixTypes)
                                                    , "valType" .= show valType]
-

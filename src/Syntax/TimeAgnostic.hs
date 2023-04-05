@@ -152,11 +152,11 @@ instance Eq (StorageLocation t) where
   Loc SType i1 == Loc SType i2 = eqS i1 i2
 
 -- | References to items in storage. The type is parametrized on a
--- timing `t` and a type `a`. `t` can be either `Timed` or `Untimed` and15
+-- timing `t` and a type `a`. `t` can be either `Timed` or `Untimed` and
 -- indicates whether any indices that reference items in storage explicitly
 -- refer to the pre-/post-state, or not. `a` is the type of the item that is
--- referenced. Item are also annotated with the original ValueType that
--- carries more precise type information (e.g., exact contract type).
+-- referenced. Items are also annotated with the original ValueType that
+-- carries more precise type information (e.g., the exact contract type).
 data TStorageItem (a :: ActType) (t :: Timing) where
   Item :: SType a -> ValueType -> StorageRef t -> TStorageItem a t
 deriving instance Show (TStorageItem a t)
@@ -176,12 +176,8 @@ instance Eq (StorageRef t) where
   SField _ r x == SField _ r' x' = r == r' && x == x'
   _ == _ = False
 
-
 _Item :: SingI a => ValueType -> StorageRef t -> TStorageItem a t
 _Item = Item sing
-
--- | A reference to the storage of an other
-data TContractItem
 
 -- | Expressions for which the return type is known.
 data TypedExp t

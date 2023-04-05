@@ -664,7 +664,6 @@ nameFromStorageRef (SVar _ c name) = c @@ name
 nameFromStorageRef (SMapping _ e _) = nameFromStorageRef e
 nameFromStorageRef (SField _ _ _) = error "contracts not supported"
 
-                   
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id
 nameFromLoc whn (Loc _ item) = nameFromItem whn item
