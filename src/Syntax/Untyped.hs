@@ -134,18 +134,34 @@ data EthEnv
 data ValueType
   = ContractType Id
   | PrimitiveType AbiType
-  deriving (Eq, Show)
+  deriving Eq
+
+instance Show ValueType where
+  show (ContractType c) = c
+  show (PrimitiveType t) = show t
 
 data SlotType
   = StorageMapping (NonEmpty ValueType) ValueType
   | StorageValue ValueType
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show SlotType where
+ show (StorageValue t) = show t
+ show (StorageMapping s t) =
+   foldr
+   (\x y ->
+       "mapping("
+       <> show x
+       <> " => "
+       <> y
+       <> ")")
+   (show t) s
 
 data StorageVar = StorageVar Pn SlotType Id
   deriving (Eq, Show)
 
 data Decl = Decl AbiType Id
-  deriving (Eq)
+  deriving Eq
 
 instance Show Decl where
   show (Decl t a) = show t <> " " <> a
