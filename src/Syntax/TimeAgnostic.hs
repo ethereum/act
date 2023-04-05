@@ -169,7 +169,13 @@ data StorageRef (t :: Timing) where
   SMapping :: Pn -> StorageRef t -> [TypedExp t] -> StorageRef t
   SField :: Pn -> StorageRef t -> Id -> StorageRef t
 deriving instance Show (StorageRef t)
-deriving instance Eq (StorageRef t)
+
+instance Eq (StorageRef t) where
+  SVar _ c x == SVar _ c' x' = c == c' && x == x'
+  SMapping _ r ixs == SMapping _ r' ixs' = r == r' && ixs == ixs'
+  SField _ r x == SField _ r' x' = r == r' && x == x'
+  _ == _ = False
+
 
 _Item :: SingI a => ValueType -> StorageRef t -> TStorageItem a t
 _Item = Item sing
