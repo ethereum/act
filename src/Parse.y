@@ -169,10 +169,9 @@ Constructor : 'constructor' 'of' id
               CInterface
               list(Precondition)
               Creation
-              list(ExtStorage)
               Ensures
               Invariants                              { Definition (posn $3) (name $3)
-                                                         $4 $5 $6 $7 $8 $9 }
+                                                         $4 $5 $6 $7 $8 }
 
 Ensures : optblock('ensures', Expr)                   { $1 }
 
@@ -188,17 +187,13 @@ Cases : Post                                          { Direct $1 }
 Case : 'case' Expr ':' Post                           { Case (posn $1) $2 $4 }
 
 
-Post  : Storage list(ExtStorage)                      { Post $1 $2 Nothing }
-      | list(ExtStorage) Returns                      { Post [] $1 (Just $2) }
-      | nonempty(ExtStorage)                          { Post [] $1 Nothing }
-      | Storage list(ExtStorage) Returns              { Post $1 $2 (Just $3) }
+Post  : Storage                                       { Post $1 Nothing }
+      | Returns                                       { Post [] (Just $1) }
+      | Storage Returns                               { Post $1 (Just $2) }
 
 Returns : 'returns' Expr                              { $2 }
 
 Storage : 'storage' nonempty(Store)                   { $2 }
-
-ExtStorage : 'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (name $2) $4 $5 }
-           | 'storage' 'of' '_' '_' '=>' '_'          { WildStorage }
 
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
              | 'iff in range' AbiType nonempty(Expr)  { IffIn (posn $1) $2 $3 }

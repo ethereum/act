@@ -22,7 +22,7 @@ newtype Act = Main [RawBehaviour]
 
 data RawBehaviour
   = Transition Pn Id Id Interface [IffH] Cases Ensures
-  | Definition Pn Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
+  | Definition Pn Id Interface [IffH] Creates Ensures Invariants
   deriving (Eq, Show)
 
 
@@ -45,7 +45,7 @@ data Case = Case Pn Expr Post
   deriving (Eq, Show)
 
 data Post
-  = Post [Storage] [ExtStorage] (Maybe Expr)
+  = Post [Storage] (Maybe Expr)
   deriving (Eq, Show)
 
 newtype Creates = Creates [Assign]
@@ -54,12 +54,6 @@ newtype Creates = Creates [Assign]
 data Storage
   = Rewrite Entry Expr
   | Constant Entry
-  deriving (Eq, Show)
-
-data ExtStorage
-  = ExtStorage Id [Storage]
-  | ExtCreates Id Expr [Assign]
-  | WildStorage
   deriving (Eq, Show)
 
 data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignStruct StorageVar [Defn]
