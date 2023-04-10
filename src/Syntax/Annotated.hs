@@ -13,13 +13,13 @@ import qualified Syntax.TimeAgnostic as Agnostic
 import Syntax.TimeAgnostic (Timing(..),setPre,setPost)
 
 -- Reexports
-import Syntax.TimeAgnostic as Syntax.Annotated hiding (Timing(..),Timable(..),Time,Neither,Claim,Transition,Invariant,InvariantPred,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp,StorageRef)
+import Syntax.TimeAgnostic as Syntax.Annotated hiding (Timing(..),Timable(..),Time,Neither,Act,Contract,Invariant,InvariantPred,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp,StorageRef)
 import Syntax.TimeAgnostic as Syntax.Annotated (pattern Invariant, pattern Constructor, pattern Behaviour, pattern Rewrite, pattern Exp)
 
 
 -- We shadow all timing-agnostic AST types with explicitly timed versions.
-type Claim           = Agnostic.Claim           Timed
-type Transition      = Agnostic.Transition      Timed
+type Act             = Agnostic.Act             Timed
+type Contract        = Agnostic.Contract        Timed
 type Invariant       = Agnostic.Invariant       Timed
 type InvariantPred   = Agnostic.InvariantPred   Timed
 type Constructor     = Agnostic.Constructor     Timed
@@ -36,17 +36,11 @@ type TypedExp        = Agnostic.TypedExp        Timed
 -- * How to make all timings explicit * --
 ------------------------------------------
 
-instance Annotatable Agnostic.Claim where
-  annotate claim = case claim of
-    C ctor -> C $ annotate ctor
-    B behv -> B $ annotate behv
-    I invr -> I $ annotate invr
-    S stor -> S stor
+instance Annotatable Agnostic.Act where
+  annotate (Agnostic.Act store act) = Agnostic.Act store $ fmap annotate act
 
-instance Annotatable Agnostic.Transition where
-  annotate trans = case trans of
-    Ctor ctor -> Ctor $ annotate ctor
-    Behv behv -> Behv $ annotate behv
+instance Annotatable Agnostic.Contract where
+  annotate (Agnostic.Contract ctor behv inv)  = Agnostic.Contract (annotate ctor) (fmap annotate behv) (fmap annotate inv)
 
 instance Annotatable Agnostic.Invariant where
   annotate inv@Invariant{..} = inv
