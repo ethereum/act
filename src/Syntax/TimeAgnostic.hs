@@ -50,22 +50,13 @@ import Syntax.Timing  as Syntax.TimeAgnostic
 import Syntax.Untyped as Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..))
 
 -- AST post typechecking
-data Claim t
-  = C (Constructor t)
-  | B (Behaviour t)
-  | I (Invariant t)
-  | S Store
-deriving instance Show (InvariantPred t) => Show (Claim t)
-deriving instance Eq   (InvariantPred t) => Eq   (Claim t)
+data Act t = Act Store [Contract t]
+deriving instance Show (InvariantPred t) => Show (Act t)
+deriving instance Eq   (InvariantPred t) => Eq   (Act t)
 
-
--- TODO maybe enforce this structure to Act programs
--- Store * [Contract of (C, [B], [I],)]
-
-data Transition t
-  = Ctor (Constructor t)
-  | Behv (Behaviour t)
-  deriving (Show, Eq)
+data Contract t = Contract (Constructor t) [Behaviour t] [Invariant t]
+deriving instance Show (InvariantPred t) => Show (Contract t)
+deriving instance Eq   (InvariantPred t) => Eq   (Contract t)
 
 type Store = Map Id (Map Id SlotType)
 
@@ -353,17 +344,28 @@ instance Timable StorageRef where
 -- TODO dual instances are ugly! But at least it works for now.
 -- It was difficult to construct a function with type:
 -- `InvPredicate t -> Either (Exp Bool Timed,Exp Bool Timed) (Exp Bool Untimed)`
-instance ToJSON (Claim Timed) where
-  toJSON (S storages)          = storeJSON storages
-  toJSON (I inv@Invariant{..}) = invariantJSON inv _predicate
-  toJSON (C ctor)              = toJSON ctor
-  toJSON (B behv)              = toJSON behv
+instance ToJSON (Act Timed) where
+  toJSON (Act storages contracts) = object [ "kind" .= String "Program"
+                                           , "store" .= storeJSON storages
+                                           , "contracts" .= toJSON contracts ]
 
-instance ToJSON (Claim Untimed) where
-  toJSON (S storages)          = storeJSON storages
-  toJSON (I inv@Invariant{..}) = invariantJSON inv _predicate
-  toJSON (C ctor)              = toJSON ctor
-  toJSON (B behv)              = toJSON behv
+instance ToJSON (Act Untimed) where
+  toJSON (Act storages contracts) = object [ "kind" .= String "Program"
+                                           , "store" .= storeJSON storages
+                                           , "contracts" .= toJSON contracts ]
+
+instance ToJSON (Contract Timed) where
+  toJSON (Contract ctor behv inv) = object [ "kind" .= String "Contract"
+                                           , "constructor" .= toJSON ctor
+                                           , "behaviors" .= toJSON behv
+                                           , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) inv ]
+
+instance ToJSON (Contract Untimed) where
+  toJSON (Contract ctor behv inv) = object [ "kind" .= String "Contract"
+                                           , "constructor" .= toJSON ctor
+                                           , "behaviors" .= toJSON behv
+                                           , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) inv ]
+
 
 storeJSON :: Store -> Value
 storeJSON storages = object [ "kind" .= String "Storages"
