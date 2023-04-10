@@ -134,7 +134,7 @@ some examples:
 
 %%
 
-ACT : list(Behaviour)                                { $1 }
+ACT : list(Contract)                                  { $1 }
 
 
 -- parameterized productions --
@@ -156,8 +156,7 @@ optblock(label, x) : label nonempty(x)                { $2 }
 
 -- rules --
 
-Behaviour : Transition                                { $1 }
-          | Constructor                               { $1 }
+Contract : Constructor list(Transition)              { Contract $1 $2 }
 
 Transition : 'behaviour' id 'of' id
              Interface
