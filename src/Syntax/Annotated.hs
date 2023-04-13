@@ -14,7 +14,7 @@ import Syntax.TimeAgnostic (Timing(..),setPre,setPost)
 
 -- Reexports
 import Syntax.TimeAgnostic as Syntax.Annotated hiding (Timing(..),Timable(..),Time,Neither,Act,Contract,Invariant,InvariantPred,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp,StorageRef)
-import Syntax.TimeAgnostic as Syntax.Annotated (pattern Invariant, pattern Constructor, pattern Behaviour, pattern Rewrite, pattern Exp)
+import Syntax.TimeAgnostic as Syntax.Annotated (pattern Act, pattern Contract, pattern Invariant, pattern Constructor, pattern Behaviour, pattern Rewrite, pattern Exp)
 
 
 -- We shadow all timing-agnostic AST types with explicitly timed versions.
@@ -40,7 +40,7 @@ instance Annotatable Agnostic.Act where
   annotate (Agnostic.Act store act) = Agnostic.Act store $ fmap annotate act
 
 instance Annotatable Agnostic.Contract where
-  annotate (Agnostic.Contract ctor behv inv)  = Agnostic.Contract (annotate ctor) (fmap annotate behv) (fmap annotate inv)
+  annotate (Agnostic.Contract ctor behv) = Agnostic.Contract (annotate ctor) (fmap annotate behv)
 
 instance Annotatable Agnostic.Invariant where
   annotate inv@Invariant{..} = inv
@@ -54,6 +54,7 @@ instance Annotatable Agnostic.Constructor where
     { _cpreconditions = setPre <$> _cpreconditions
     , _initialStorage = annotate <$> _initialStorage
     , _cstateUpdates  = annotate <$> _cstateUpdates
+    , _invariants  = annotate <$> _invariants
     }
 
 instance Annotatable Agnostic.Behaviour where

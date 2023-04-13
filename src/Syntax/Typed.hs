@@ -11,7 +11,7 @@ import qualified Syntax.TimeAgnostic as Agnostic
 
 -- Reexports
 import Syntax.TimeAgnostic as Syntax.Typed hiding (Act,Contract,Invariant,InvariantPred,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation) 
-import Syntax.TimeAgnostic as Syntax.Typed (pattern Invariant, pattern Constructor, pattern Behaviour, pattern Rewrite)
+import Syntax.TimeAgnostic as Syntax.Typed (pattern Act, pattern Contract, pattern Invariant, pattern Constructor, pattern Behaviour, pattern Rewrite)
 
 -- We shadow all timing-agnostic AST types with versions
 -- that need to have implicit timings where possible.
