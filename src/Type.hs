@@ -39,29 +39,31 @@ import Data.Type.Equality (TestEquality(..))
 
 type Err = Error String
 
--- | Main typechecking function.
-typecheck :: [U.RawBehaviour] -> Err [Claim]
-typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store constructors) behvs
-                  <* noDuplicateContracts
-                  <* noDuplicateBehaviourNames
-                  <* noDuplicateInterfaces
-                  <* traverse noDuplicateVars [creates | U.Definition _ _ _ _ creates _ _ <- behvs]
+-- | Main typechecking function.
+typecheck :: U.Act -> Err Act
+typecheck (U.Main contracts) = Act store . concat <$> traverse (checkContract store constructors) contracts
+                             <* noDuplicateContracts
+                             <* noDuplicateBehaviourNames
+                             <* noDuplicateInterfaces
+                             <* traverse noDuplicateVars [creates | U.Contract (U.Definition _ _ _ _ creates _ _) _ <- contracts]
   where
-    store = lookupVars behvs
-    constructors = lookupConstructors behvs
+    store = lookupVars contracts
+    constructors = lookupConstructors contracts
+
+    transitions = concatMap (\(U.Contract _ ts) -> ts) contracts
 
     noDuplicateContracts :: Err ()
-    noDuplicateContracts = noDuplicates [(pn,contract) | U.Definition pn contract _ _ _ _ _ <- behvs]
+    noDuplicateContracts = noDuplicates [(pn,contract) | U.Contract (U.Definition pn contract _ _ _ _ _) _ <- contracts]
                            $ \c -> "Multiple definitions of Contract " <> c
 
     noDuplicateVars :: U.Creates -> Err ()
     noDuplicateVars (U.Creates assigns) = noDuplicates (fmap fst . fromAssign <$> assigns)
-                           $ \x -> "Multiple definitions of Variable " <> x
+                                          $ \x -> "Multiple definitions of Variable " <> x
 
     noDuplicateInterfaces :: Err ()
     noDuplicateInterfaces =
       noDuplicates
-        [(pn, contract ++ "." ++ (show iface)) | U.Transition pn _ contract iface _ _ _ <- behvs]
+        [(pn, contract ++ "." ++ (show iface)) | U.Transition pn _ contract iface _ _ _ <- transitions]
         $ \c -> "Multiple definitions of Interface " <> c
     -- TODO this check allows interface declarations with the same name and argument types but
     -- different argument names (e.g. f(uint x) and f(uint z)). This potentially problematic since
@@ -70,7 +72,7 @@ typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store constru
     noDuplicateBehaviourNames :: Err ()
     noDuplicateBehaviourNames =
       noDuplicates
-        [(pn, contract ++ "." ++ behav) | U.Transition pn behav contract _ _ _ _ <- behvs]
+        [(pn, contract ++ "." ++ behav) | U.Transition pn behav contract _ _ _ _ <- transitions]
         $ \c -> "Multiple definitions of Behaviour " <> c
 
     -- Generic helper
@@ -87,19 +89,15 @@ typecheck behvs = (S store:) . concat <$> traverse (splitBehaviour store constru
               prependIfNotEmpty a b = b : a
           in (prependIfNotEmpty e y) <> duplicatesBy f ys
 
-  -- TODO there is no check if the constructor of a contract is defined
-
 --- Finds storage declarations from constructors
-lookupVars :: [U.RawBehaviour] -> Store
+lookupVars :: [U.Contract] -> Store
 lookupVars = foldMap $ \case
-  U.Transition {} -> mempty
-  U.Definition _ contract _ _ (U.Creates assigns) _ _ ->
+  U.Contract (U.Definition  _ contract _ _ (U.Creates assigns) _ _) _ ->
     Map.singleton contract . Map.fromList $ snd . fromAssign <$> assigns
 
-lookupConstructors :: [U.RawBehaviour] -> Map Id [AbiType]
+lookupConstructors :: [U.Contract] -> Map Id [AbiType]
 lookupConstructors = foldMap $ \case
-  U.Transition {} -> mempty
-  U.Definition _ contract (Interface _ decls) _ _ _ _ ->
+  U.Contract (U.Definition _ contract (Interface _ decls) _ _ _ _) _ ->
     Map.singleton contract (map (\(Decl t _) -> t) decls)
 
 -- | Extracts what we need to build a 'Store' and to verify that its names are unique.
@@ -138,29 +136,49 @@ defaultStore =
    --others TODO
   ]
 
-mkEnv :: Id -> Store -> [Decl] -> Map Id [AbiType] -> Env
-mkEnv contract store decls constructors = Env
+
+mkEnv :: Id -> Store -> Map Id [AbiType] -> Env
+mkEnv contract store constructors = Env
   { contract = contract
   , store    = fromMaybe mempty (Map.lookup contract store)
   , theirs   = store
-  , calldata = abiVars
+  , calldata = mempty
   , constructors = constructors
   }
- where
+
+-- add calldata to environment
+addCalldata :: Env -> [Decl] -> Env
+addCalldata env decls = env{ calldata = abiVars } 
+  where
    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, fromAbiType typ)) decls
 
+
+
+checkContract :: Store -> Map Id [AbiType] -> U.Contract -> Err [Contract]
+checkContract store constructors (U.Contract constructor@(U.Definition _ contr _ _ _ _ _) trans) =
+  Contract <$> checkDefinition env constructor <*> traverse (checkTransition env) trans <* namesConsistent
+  where 
+    env :: Env
+    env = mkEnv contract store constructors
+
+    namesConsistent :: Err ()
+    namesConsistent =
+      traverse (\(U.Transition pn contr' _ _ _ _ _) -> assert (errmsg pn contr') (contr == contr')) trans
+
+    errmsg pn id = (pn, "Behavior must belong to contract " <> show contr <> " but belongs to contract" <> id) 
+
+
 -- checks a transition given a typing of its storage variables
-splitBehaviour :: Store -> Map Id [AbiType] -> U.RawBehaviour -> Err [Claim]
-splitBehaviour store constructors (U.Transition _ name contract iface@(Interface _ decls) iffs cases posts) =
+checkTransition :: Env -> U.Transition -> Err [Behaviour]
+checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs cases posts) =
   noIllegalWilds *>
   -- constrain integer calldata variables (TODO: other types)
   fmap concatMap (caseClaims
-                    <$> checkIffs env iffs
-                    <*> traverse (checkExpr env SBoolean) posts)
-    <*> traverse (checkCase env) normalizedCases
+                    <$> checkIffs env' iffs
+                    <*> traverse (checkExpr env' SBoolean) posts)
+    <*> traverse (checkCase env') normalizedCases
   where
-    env :: Env
-    env = mkEnv contract store decls constructors
+    env' = addCalldata env decls
 
     noIllegalWilds :: Err ()
     noIllegalWilds = case cases of
@@ -180,30 +198,27 @@ splitBehaviour store constructors (U.Transition _ name contract iface@(Interface
         in rest `snoc` (if isWild lastCase then U.Case pn negation post else lastCase)
 
     -- | split case into pass and fail case
-    caseClaims :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed)) -> [Claim]
-    caseClaims []   postcs (if',storage,ret) =
-      [ B $ Behaviour name Pass contract iface if' postcs storage ret ]
+    caseClaims :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed)) -> [Behaviour]
+    caseClaims [] postcs (if',storage,ret) =
+      [ Behaviour name Pass contract iface if' postcs storage ret ]
     caseClaims iffs' postcs (if',storage,ret) =
-      [ B $ Behaviour name Pass contract iface (if' <> iffs') postcs storage ret,
-        B $ Behaviour name Fail contract iface (if' <> [Neg nowhere (mconcat iffs')]) [] (Constant . locFromRewrite <$> storage) Nothing ]
+      [ Behaviour name Pass contract iface (if' <> iffs') postcs storage ret,
+        Behaviour name Fail contract iface (if' <> [Neg nowhere (mconcat iffs')]) [] (Constant . locFromRewrite <$> storage) Nothing ]
 
-splitBehaviour store constructors (U.Definition _ contract iface@(Interface _ decls) iffs (U.Creates assigns) postcs invs) =
-  let env = mkEnv contract store decls constructors
-  in do
+checkDefinition :: Env -> U.Definition -> Err Constructor
+checkDefinition env (U.Definition _ contract iface@(Interface _ decls) iffs (U.Creates assigns) postcs invs) =
+  do
     stateUpdates <- concat <$> traverse (checkAssign env) assigns
     iffs' <- checkIffs env iffs
     _ <- traverse (validStorage env) assigns
-    invariants <- traverse (checkExpr env SBoolean) invs
     ensures <- traverse (checkExpr env SBoolean) postcs
-
-    pure $ invrClaims invariants <> ctorClaims stateUpdates iffs' ensures
+    invs' <- Invariant contract [] [] <$> traverse (checkExpr SBoolean) invs
+    pure $ ctorClaims stateUpdates iffs' ensures invs'
   where
-    invrClaims invariants = I . Invariant contract [] [] <$> invariants
-    ctorClaims updates iffs' ensures
-      | null iffs' = [ C $ Constructor contract Pass iface []                            ensures updates [] ]
-      | otherwise  = [ C $ Constructor contract Pass iface iffs'                         ensures updates []
-                     , C $ Constructor contract Fail iface [Neg nowhere (mconcat iffs')] ensures []      [] ]
-
+    ctorClaims updates iffs' ensures invs'
+      | null iffs' =  Constructor contract Pass iface [] ensures invs' updates []
+      | otherwise  =  Constructor contract Pass iface iffs'                         ensures invs' updates []
+                     , Constructor contract Fail iface [Neg nowhere (mconcat iffs')] ensures invs' []      [] ]
 
 -- | Check if the types of storage variables are valid
 validStorage :: Env -> U.Assign -> Err ()
