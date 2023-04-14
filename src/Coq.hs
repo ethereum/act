@@ -56,9 +56,9 @@ coq (Act store contracts) =
   -- currently only supports one contract
   store' = snd $ head $ M.toList $ store
 
-  behaviours' = filter ((== Pass) . _mode) $ behvsFromContracts contracts
+  behaviours' = behvsFromContracts contracts
 
-  constructors = filter ((== Pass) . _cmode) $ constrFromContracts contracts
+  constructors = constrFromContracts contracts
 
   groups = groupBy (\b b' -> _name b == _name b')
   cgroups = groupBy (\b b' -> _cname b == _cname b')
@@ -84,7 +84,7 @@ reachable constructors groups = inductive
 
 -- | non-recursive constructor for the reachable relation
 baseCase :: Constructor -> Fresh T.Text
-baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _ _) =
+baseCase (Constructor name i@(Interface _ decls) conds _ _ _ _) =
   fresh name >>= continuation where
   continuation name' =
     return $ name'
@@ -104,7 +104,7 @@ baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _ _) =
 
 -- | recursive constructor for the reachable relation
 reachableStep :: Behaviour -> Fresh T.Text
-reachableStep (Behaviour name _ _ i conds _ _ _) =
+reachableStep (Behaviour name _ i conds cases _ _ _) =
   fresh name >>= continuation where
   continuation name' =
     return $ name'
@@ -115,7 +115,7 @@ reachableStep (Behaviour name _ _ i conds _ _ _) =
       <> constructorBody where
     constructorBody = (indent 2) . implication . concat $
       [ [reachableType <> " " <> baseVar <> " " <> stateVar]
-      , coqprop <$> conds
+      , coqprop <$> conds ++ cases
       , [ reachableType <> " " <> baseVar <> " "
           <> parens (name' <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)
         ]
@@ -129,7 +129,7 @@ base store (Constructor name _ i _ _ _ updates _) = do
     stateval store (\_ t -> defaultSlotValue t) updates
 
 claim :: Store -> Behaviour -> Fresh T.Text
-claim store (Behaviour name _ _ i _ _ rewrites _) = do
+claim store (Behaviour name _ i _ _ _ rewrites _) = do
   name' <- fresh name
   return $ definition name' (envDecl <> " " <> stateDecl <> " " <> interface i) $
     stateval store (\n _ -> T.pack n <> " " <> stateVar) (updatesFromRewrites rewrites)
@@ -137,7 +137,7 @@ claim store (Behaviour name _ _ i _ _ rewrites _) = do
 -- | inductive definition of a return claim
 -- ignores claims that do not specify a return value
 retVal :: Behaviour -> Fresh T.Text
-retVal (Behaviour name _ _ i conds _ _ (Just r)) =
+retVal (Behaviour name _ i conds cases _ _ (Just r)) =
   fresh name >>= continuation where
   continuation name' = return $ inductive
     (name' <> returnSuffix)
@@ -147,7 +147,7 @@ retVal (Behaviour name _ _ i conds _ _ (Just r)) =
 
     retname = name' <> returnSuffix
     body = indent 2 . implication . concat $
-      [ coqprop <$> conds
+      [ coqprop <$> conds ++ cases
       , [retname <> " " <> envVar <> " " <> stateVar <> " " <> arguments i <> " " <> typedexp r]
       ]
 

@@ -192,8 +192,8 @@ addCalldata env decls = env{ calldata = abiVars }
 
 
 checkContract :: Store -> Map Id [AbiType] -> U.Contract -> Err Contract
-checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ _) trans) =
-  Contract <$> (checkDefinition env constr) <*> (concat <$> traverse (checkTransition env) trans) <* namesConsistent
+\checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ _) trans) =
+  Contract <$> checkDefinition env constr <*> (concat <$> traverse (checkTransition env) trans) <* namesConsistent
   where
     env :: Env
     env = mkEnv cid store constructors
@@ -206,13 +206,13 @@ checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ 
 
 
 -- checks a transition given a typing of its storage variables
-checkTransition :: Env -> U.Transition -> Err [Behaviour]
+checkTransition :: Env -> U.Transition -> Err Behaviour
 checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs cases posts) =
   noIllegalWilds *>
   -- constrain integer calldata variables (TODO: other types)
-  fmap concatMap (caseClaims
-                    <$> checkIffs env' iffs
-                    <*> traverse (checkExpr env' SBoolean) posts)
+  (makeBehv
+    <$> checkIffs env' iffs
+    <*> traverse (checkExpr env' SBoolean) posts)
     <*> traverse (checkCase env') normalizedCases
   where
     env' = addCalldata env decls
@@ -235,12 +235,8 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs
         in rest `snoc` (if isWild lastCase then U.Case pn negation post else lastCase)
 
     -- | split case into pass and fail case
-    caseClaims :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed)) -> [Behaviour]
-    caseClaims [] postcs (if',storage,ret) =
-      [ Behaviour name Pass contract iface if' postcs storage ret ]
-    caseClaims iffs' postcs (if',storage,ret) =
-      [ Behaviour name Pass contract iface (if' <> iffs') postcs storage ret,
-        Behaviour name Fail contract iface (if' <> [Neg nowhere (mconcat iffs')]) [] (Constant . locFromRewrite <$> storage) Nothing ]
+    makeBehv :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed)) -> [Behaviour]
+    makeBehv iffs' postcs (if',storage,ret) = Behaviour name Pass contract iface (if' <> iffs') postcs storage ret
 
 checkDefinition :: Env -> U.Definition -> Err [Constructor]
 checkDefinition env (U.Definition _ contract iface@(Interface _ decls) iffs (U.Creates assigns) postcs invs) =
@@ -249,15 +245,11 @@ checkDefinition env (U.Definition _ contract iface@(Interface _ decls) iffs (U.C
     iffs' <- checkIffs env' iffs
     _ <- traverse (validStorage env') assigns
     ensures <- traverse (checkExpr env' SBoolean) postcs
-    invs' <- fmap (Invariant contract [] []) <$> traverse (checkExpr env' SBoolean) invs
-    pure $ ctorClaims stateUpdates iffs' ensures invs'
+    invs' <- Invariant contract [] [] <$> traverse (checkExpr SBoolean) invs
+    pure $ Constructor contract iface iffs' ensures invs' stateUpdates []
   where
     env' = addCalldata env decls
 
-    ctorClaims updates iffs' ensures invs'
-      | null iffs' = [ Constructor contract Pass iface [] ensures invs' updates [] ]
-      | otherwise  = [ Constructor contract Pass iface iffs'                         ensures invs' updates []
-                     , Constructor contract Fail iface [Neg nowhere (mconcat iffs')] ensures invs' []      [] ]
 
 -- | Check if the types of storage variables are valid
 validStorage :: Env -> U.Assign -> Err ()

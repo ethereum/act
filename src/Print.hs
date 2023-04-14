@@ -13,16 +13,20 @@ import Syntax.TimeAgnostic
 
 
 prettyBehaviour :: Behaviour t -> String
-prettyBehaviour (Behaviour name _ contract interface preconditions postconditions stateUpdates returns)
+prettyBehaviour (Behaviour name contract interface preconditions cases postconditions stateUpdates returns)
   =   "behaviour " <> name <> " of " <> contract
   >-< "interface " <> (show interface)
   <> prettyPre preconditions
+  <> prettyCases cases
   <> prettyStorage stateUpdates
   <> prettyRet returns
   <> prettyPost postconditions
   where
     prettyPre [] = ""
     prettyPre p = header "iff" >-< block (prettyExp <$> p)
+
+    prettyCases [] = ""
+    prettyCases p = header "case" >-< block (prettyExp <$> p)
 
     prettyStorage [] = ""
     prettyStorage s = header "storage" >-< block (prettyState <$> s)

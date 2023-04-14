@@ -37,11 +37,6 @@ cell key value = "<" <> key <> "> " <> value <> " </" <> key <> "> \n"
 
 infix 7 |-
 
-kStatus :: Mode -> String
-kStatus Pass = "EVMC_SUCCESS"
-kStatus Fail = "FAILURE:EndStatusCode"
-kStatus OOG = error "TODO: handle OOG specs"
-
 type KSpec = String
 
 getContractName :: Text -> String

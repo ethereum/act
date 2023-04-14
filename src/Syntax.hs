@@ -29,14 +29,15 @@ invExp :: Annotated.InvariantPred -> Annotated.Exp ABoolean
 invExp = uncurry (<>)
 
 locsFromBehaviour :: Annotated.Behaviour -> [Annotated.StorageLocation]
-locsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+locsFromBehaviour (Behaviour _ _ _ preconds cases postconds rewrites returns) = nub $
   concatMap locsFromExp preconds
+  <> concatMap locsFromExp cases
   <> concatMap locsFromExp postconds
   <> concatMap locsFromRewrite rewrites
   <> maybe [] locsFromTypedExp returns
 
 locsFromConstructor :: Annotated.Constructor -> [Annotated.StorageLocation]
-locsFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
+locsFromConstructor (Constructor _ _ pre post inv initialStorage rewrites) = nub $
   concatMap locsFromExp pre
   <> concatMap locsFromExp post
   <> concatMap locsFromInvariant inv
@@ -189,14 +190,15 @@ createsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = n
   <> maybe [] createsFromTypedExp returns
 
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
-ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+ethEnvFromBehaviour (Behaviour _ _ _ preconds cases postconds rewrites returns) = nub $
   concatMap ethEnvFromExp preconds
+  <> concatMap ethEnvFromExp cases
   <> concatMap ethEnvFromExp postconds
   <> concatMap ethEnvFromRewrite rewrites
   <> maybe [] ethEnvFromTypedExp returns
 
 ethEnvFromConstructor :: Annotated.Constructor -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
+ethEnvFromConstructor (Constructor _ _ pre post inv initialStorage rewrites) = nub $
   concatMap ethEnvFromExp pre
   <> concatMap ethEnvFromExp post
   <> concatMap ethEnvFromInvariant inv

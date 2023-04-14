@@ -54,7 +54,7 @@ data Act t = Act Store [Contract t]
 deriving instance Show (InvariantPred t) => Show (Act t)
 deriving instance Eq   (InvariantPred t) => Eq   (Act t)
 
-data Contract t = Contract [Constructor t] [Behaviour t]
+data Contract t = Contract (Constructor t) [Behaviour t]
 deriving instance Show (InvariantPred t) => Show (Contract t)
 deriving instance Eq   (InvariantPred t) => Eq   (Contract t)
 
@@ -92,7 +92,6 @@ type family InvariantPred (t :: Timing) = (pred :: *) | pred -> t where
 
 data Constructor t = Constructor
   { _cname :: Id
-  , _cmode :: Mode
   , _cinterface :: Interface
   , _cpreconditions :: [Exp ABoolean t]
   , _cpostconditions :: [Exp ABoolean Timed]
@@ -106,20 +105,14 @@ deriving instance Eq   (InvariantPred t) => Eq   (Constructor t)
 
 data Behaviour t = Behaviour
   { _name :: Id
-  , _mode :: Mode
   , _contract :: Id
   , _interface :: Interface
-  , _preconditions :: [Exp ABoolean t]
+  , _preconditions :: [Exp ABoolean t] -- if preconditions are not satisfied execution is reverted
+  , _case :: [Exp ABoolean t] -- if preconditions are satisfied and case is not, some other instance of the bahaviour should apply
   , _postconditions :: [Exp ABoolean Timed]
   , _stateUpdates :: [Rewrite t]
   , _returns :: Maybe (TypedExp Timed)
   } deriving (Show, Eq)
-
-data Mode
-  = Pass
-  | Fail
-  | OOG
-  deriving (Eq, Show)
 
 data Rewrite t
   = Constant (StorageLocation t)
@@ -376,7 +369,6 @@ storeJSON storages = object [ "kind" .= String "Storages"
 instance ToJSON (Constructor Timed) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
                                   , "contract" .= _cname
-                                  , "mode" .= (String . pack $ show _cmode)
                                   , "interface" .= (String . pack $ show _cinterface)
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
@@ -386,7 +378,6 @@ instance ToJSON (Constructor Timed) where
 instance ToJSON (Constructor Untimed) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
                                   , "contract" .= _cname
-                                  , "mode" .= (String . pack $ show _cmode)
                                   , "interface" .= (String . pack $ show _cinterface)
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
@@ -397,9 +388,9 @@ instance ToJSON (Behaviour t) where
   toJSON Behaviour{..} = object [ "kind" .= String "Behaviour"
                                 , "name" .= _name
                                 , "contract" .= _contract
-                                , "mode" .= (String . pack $ show _mode)
                                 , "interface" .= (String . pack $ show _interface)
                                 , "preConditions" .= toJSON _preconditions
+                                , "case" .= toJSON _case
                                 , "postConditions" .= toJSON _postconditions
                                 , "stateUpdates" .= toJSON _stateUpdates
                                 , "returns" .= toJSON _returns ]
