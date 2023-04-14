@@ -40,7 +40,7 @@ instance Annotatable Agnostic.Act where
   annotate (Agnostic.Act store act) = Agnostic.Act store $ fmap annotate act
 
 instance Annotatable Agnostic.Contract where
-  annotate (Agnostic.Contract ctor behv) = Agnostic.Contract (annotate ctor) (fmap annotate behv)
+  annotate (Agnostic.Contract ctor behv) = Agnostic.Contract (fmap annotate ctor) (fmap annotate behv)
 
 instance Annotatable Agnostic.Invariant where
   annotate inv@Invariant{..} = inv

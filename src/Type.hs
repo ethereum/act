@@ -41,7 +41,7 @@ type Err = Error String
 
 -- | Main typechecking function.
 typecheck :: U.Act -> Err Act
-typecheck (U.Main contracts) = Act store . concat <$> traverse (checkContract store constructors) contracts
+typecheck (U.Main contracts) = Act store <$> traverse (checkContract store constructors) contracts
                              <* noDuplicateContracts
                              <* noDuplicateBehaviourNames
                              <* noDuplicateInterfaces
@@ -148,24 +148,24 @@ mkEnv contract store constructors = Env
 
 -- add calldata to environment
 addCalldata :: Env -> [Decl] -> Env
-addCalldata env decls = env{ calldata = abiVars } 
+addCalldata env decls = env{ calldata = abiVars }
   where
    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, fromAbiType typ)) decls
 
 
 
-checkContract :: Store -> Map Id [AbiType] -> U.Contract -> Err [Contract]
+checkContract :: Store -> Map Id [AbiType] -> U.Contract -> Err Contract
 checkContract store constructors (U.Contract constructor@(U.Definition _ contr _ _ _ _ _) trans) =
-  Contract <$> checkDefinition env constructor <*> traverse (checkTransition env) trans <* namesConsistent
-  where 
+  Contract <$> checkDefinition env constructor <*> (concat <$> traverse (checkTransition env) trans) <* namesConsistent
+  where
     env :: Env
-    env = mkEnv contract store constructors
+    env = mkEnv contr store constructors
 
     namesConsistent :: Err ()
     namesConsistent =
-      traverse (\(U.Transition pn contr' _ _ _ _ _) -> assert (errmsg pn contr') (contr == contr')) trans
+      traverse_ (\(U.Transition pn contr' _ _ _ _ _) -> assert (errmsg pn contr') (contr == contr')) trans
 
-    errmsg pn id = (pn, "Behavior must belong to contract " <> show contr <> " but belongs to contract" <> id) 
+    errmsg pn contr' = (pn, "Behavior must belong to contract " <> show contr <> " but belongs to contract" <> contr')
 
 
 -- checks a transition given a typing of its storage variables
@@ -205,19 +205,21 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs
       [ Behaviour name Pass contract iface (if' <> iffs') postcs storage ret,
         Behaviour name Fail contract iface (if' <> [Neg nowhere (mconcat iffs')]) [] (Constant . locFromRewrite <$> storage) Nothing ]
 
-checkDefinition :: Env -> U.Definition -> Err Constructor
+checkDefinition :: Env -> U.Definition -> Err [Constructor]
 checkDefinition env (U.Definition _ contract iface@(Interface _ decls) iffs (U.Creates assigns) postcs invs) =
   do
-    stateUpdates <- concat <$> traverse (checkAssign env) assigns
-    iffs' <- checkIffs env iffs
-    _ <- traverse (validStorage env) assigns
-    ensures <- traverse (checkExpr env SBoolean) postcs
-    invs' <- Invariant contract [] [] <$> traverse (checkExpr SBoolean) invs
+    stateUpdates <- concat <$> traverse (checkAssign env') assigns
+    iffs' <- checkIffs env' iffs
+    _ <- traverse (validStorage env') assigns
+    ensures <- traverse (checkExpr env' SBoolean) postcs
+    invs' <- fmap (Invariant contract [] []) <$> traverse (checkExpr env' SBoolean) invs
     pure $ ctorClaims stateUpdates iffs' ensures invs'
   where
+    env' = addCalldata env decls
+
     ctorClaims updates iffs' ensures invs'
-      | null iffs' =  Constructor contract Pass iface [] ensures invs' updates []
-      | otherwise  =  Constructor contract Pass iface iffs'                         ensures invs' updates []
+      | null iffs' = [ Constructor contract Pass iface [] ensures invs' updates [] ]
+      | otherwise  = [ Constructor contract Pass iface iffs'                         ensures invs' updates []
                      , Constructor contract Fail iface [Neg nowhere (mconcat iffs')] ensures invs' []      [] ]
 
 -- | Check if the types of storage variables are valid
