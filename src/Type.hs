@@ -45,7 +45,7 @@ typecheck (U.Main contracts) = Act store <$> traverse (checkContract store const
                              <* noDuplicateContracts
                              <* noDuplicateBehaviourNames
                              <* noDuplicateInterfaces
-                             <* traverse noDuplicateVars [creates | U.Contract (U.Definition _ _ _ _ creates _ _) _ <- contracts]
+                             <* traverse noDuplicateVars [creates | U.Contract (Just (U.Definition _ _ _ _ creates _ _)) _ <- contracts]
   where
     store = lookupVars contracts
     constructors = lookupConstructors contracts
@@ -53,7 +53,7 @@ typecheck (U.Main contracts) = Act store <$> traverse (checkContract store const
     transitions = concatMap (\(U.Contract _ ts) -> ts) contracts
 
     noDuplicateContracts :: Err ()
-    noDuplicateContracts = noDuplicates [(pn,contract) | U.Contract (U.Definition pn contract _ _ _ _ _) _ <- contracts]
+    noDuplicateContracts = noDuplicates [(pn,contract) | U.Contract (Just (U.Definition pn contract _ _ _ _ _)) _ <- contracts]
                            $ \c -> "Multiple definitions of Contract " <> c
 
     noDuplicateVars :: U.Creates -> Err ()
@@ -92,13 +92,15 @@ typecheck (U.Main contracts) = Act store <$> traverse (checkContract store const
 --- Finds storage declarations from constructors
 lookupVars :: [U.Contract] -> Store
 lookupVars = foldMap $ \case
-  U.Contract (U.Definition  _ contract _ _ (U.Creates assigns) _ _) _ ->
+  U.Contract (Just (U.Definition  _ contract _ _ (U.Creates assigns) _ _)) _ ->
     Map.singleton contract . Map.fromList $ snd . fromAssign <$> assigns
+  _ -> mempty
 
 lookupConstructors :: [U.Contract] -> Map Id [AbiType]
 lookupConstructors = foldMap $ \case
-  U.Contract (U.Definition _ contract (Interface _ decls) _ _ _ _) _ ->
+  U.Contract (Just (U.Definition _ contract (Interface _ decls) _ _ _ _)) _ ->
     Map.singleton contract (map (\(Decl t _) -> t) decls)
+  _ -> mempty
 
 -- | Extracts what we need to build a 'Store' and to verify that its names are unique.
 -- Kind of stupid return type but it makes it easier to use the same function
@@ -155,14 +157,19 @@ addCalldata env decls = env{ calldata = abiVars }
 
 
 checkContract :: Store -> Map Id [AbiType] -> U.Contract -> Err Contract
-checkContract store constructors (U.Contract constructor@(U.Definition _ contr _ _ _ _ _) trans) =
-  Contract <$> checkDefinition env constructor <*> (concat <$> traverse (checkTransition env) trans) <* namesConsistent
+checkContract store constructors (U.Contract constructor trans) =
+  Contract <$> (checkDefinition env constructor) <*> (concat <$> traverse (checkTransition env) trans) <* namesConsistent
   where
     env :: Env
     env = mkEnv contr store constructors
 
+    contr = case (constructor, trans) of
+      (Nothing, ((U.Transition _ c _ _ _ _ _):_)) -> c
+      (Just (U.Definition _ c _ _ _ _ _), _) -> c
+      (_, _) -> error "Internal error: contract must have at least one definition"
+
     namesConsistent :: Err ()
-    namesConsistent =
+    namesConsistent = 
       traverse_ (\(U.Transition pn contr' _ _ _ _ _) -> assert (errmsg pn contr') (contr == contr')) trans
 
     errmsg pn contr' = (pn, "Behavior must belong to contract " <> show contr <> " but belongs to contract" <> contr')
@@ -205,8 +212,8 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs
       [ Behaviour name Pass contract iface (if' <> iffs') postcs storage ret,
         Behaviour name Fail contract iface (if' <> [Neg nowhere (mconcat iffs')]) [] (Constant . locFromRewrite <$> storage) Nothing ]
 
-checkDefinition :: Env -> U.Definition -> Err [Constructor]
-checkDefinition env (U.Definition _ contract iface@(Interface _ decls) iffs (U.Creates assigns) postcs invs) =
+checkDefinition :: Env -> Maybe U.Definition -> Err [Constructor]
+checkDefinition env (Just (U.Definition _ contract iface@(Interface _ decls) iffs (U.Creates assigns) postcs invs)) =
   do
     stateUpdates <- concat <$> traverse (checkAssign env') assigns
     iffs' <- checkIffs env' iffs
@@ -221,6 +228,8 @@ checkDefinition env (U.Definition _ contract iface@(Interface _ decls) iffs (U.C
       | null iffs' = [ Constructor contract Pass iface [] ensures invs' updates [] ]
       | otherwise  = [ Constructor contract Pass iface iffs'                         ensures invs' updates []
                      , Constructor contract Fail iface [Neg nowhere (mconcat iffs')] ensures invs' []      [] ]
+
+checkDefinition _ Nothing = pure []
 
 -- | Check if the types of storage variables are valid
 validStorage :: Env -> U.Assign -> Err ()

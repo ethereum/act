@@ -51,6 +51,9 @@ locsFromInvariant (Invariant _ pre bounds (predpre, predpost)) =
 -- * Extract from any typed AST * --
 ------------------------------------
 
+behvsFromAct :: Agnostic.Act t -> [Behaviour t]
+behvsFromAct (Act _ contracts) = behvsFromContracts contracts
+
 behvsFromContracts :: [Contract t] -> [Behaviour t]
 behvsFromContracts contracts = concatMap (\(Contract _ b) -> b) contracts
 
