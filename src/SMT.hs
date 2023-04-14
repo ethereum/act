@@ -16,6 +16,7 @@ module SMT (
   sendLines,
   runQuery,
   mkPostconditionQueries,
+  mkPostconditionQueriesBehv,
   mkInvariantQueries,
   target,
   getQueryContract,

@@ -18,7 +18,6 @@ import Control.Monad.Trans
 import Control.Monad.Reader
 import Data.Maybe (isNothing)
 import qualified Data.Set as Set
-import qualified Data.Map as Map (empty)
 
 import CLI (compile)
 import Error
@@ -55,11 +54,10 @@ main = defaultMain $ testGroup "act"
       [ testProperty "roundtrip" . withExponents $ do
           behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
           let actual = compile $ prettyBehaviour behv
-              expected = if null preconds then
-                  [ S Map.empty, B behv ]
-                else
-                  [ S Map.empty, B behv
-                  , B $ Behaviour name Fail contract iface [Neg nowhere $ mconcat preconds] [] [] Nothing ]
+              expected = if null preconds then Act mempty [Contract [] [behv]]
+                         else Act mempty [Contract []
+                                            [ behv
+                                            , Behaviour name Fail contract iface [Neg nowhere $ mconcat preconds] [] [] Nothing ]]
           return $ case actual of
             Success a -> a === expected
             Failure _ -> property False
@@ -75,7 +73,7 @@ typeCheckSMT :: Solver -> GenT (Reader Bool) Property
 typeCheckSMT solver = do
   behv <- genBehv 3
   let smtconf = SMTConfig solver 1 False
-      smt = mkPostconditionQueries (B behv)
+      smt = mkPostconditionQueriesBehv behv
   pure . monadicIO . run $ runQueries smtconf smt
     where
       runQueries smtconf queries = do
@@ -271,7 +269,7 @@ ident = liftM2 (<>) (listOf1 (elements chars)) (listOf (elements $ chars <> digi
 traceb :: Behaviour -> Behaviour
 traceb b = trace (prettyBehaviour b) b
 
-tracec :: String -> [Claim] -> [Claim]
+tracec :: String -> Act -> Act
 tracec msg cs = trace ("\n" <> msg <> "\n\n" <> unpack (pShow cs)) cs
 
 trace' :: Show a => a -> a
