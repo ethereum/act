@@ -156,8 +156,8 @@ optblock(label, x) : label nonempty(x)                { $2 }
 
 -- rules --
 
-Contract : Constructor list(Transition)              { Contract (Just $1) $2 }
-         | nonempty(Transition)                      { Contract Nothing $1 }
+Contract : Constructor list(Transition)              { Contract $1 $2 }
+         | nonempty(Transition)                      { Contract (emptyConstructor $ head $1) $1 }
 
 Transition : 'behaviour' id 'of' id
              Interface
@@ -313,4 +313,8 @@ parseError ((L token pn):_) =
   throw (pn, concat [
     "parsing error at token ",
     show token])
+
+emptyConstructor :: Transition -> Definition
+emptyConstructor (Transition _ c _ _ _ _ _) = Definition nowhere c (Interface "constructor" []) [] (Creates []) [] []
+
 }

@@ -19,7 +19,7 @@ type Id = String
 newtype Act = Main [Contract]
   deriving (Eq, Show)
 
-data Contract = Contract (Maybe Definition) [Transition]
+data Contract = Contract Definition [Transition]
   deriving (Eq, Show)
 
 data Definition = Definition Pn Id Interface [IffH] Creates Ensures Invariants
