@@ -18,6 +18,7 @@ import Control.Monad.Trans
 import Control.Monad.Reader
 import Data.Maybe (isNothing)
 import qualified Data.Set as Set
+import Data.Map (fromList)
 
 import CLI (compile)
 import Error
@@ -52,12 +53,10 @@ main = defaultMain $ testGroup "act"
          fail spec is also checked.
       -}
       [ testProperty "roundtrip" . withExponents $ do
-          behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
+          behv@(Behaviour _ _ contract _ preconds _ _ _) <- sized genBehv
           let actual = compile $ prettyBehaviour behv
-              expected = if null preconds then Act mempty [Contract [] [behv]]
-                         else Act mempty [Contract []
-                                            [ behv
-                                            , Behaviour name Fail contract iface [Neg nowhere $ mconcat preconds] [] [] Nothing ]]
+              expected = Act (defaultStore contract)
+                [Contract [defaultCtor contract] $ if null preconds then [behv] else [behv, failBehv behv]]
           return $ case actual of
             Success a -> a === expected
             Failure _ -> property False
@@ -68,6 +67,18 @@ main = defaultMain $ testGroup "act"
       --, testProperty "generated smt is well typed (cvc4)" . noExponents $ typeCheckSMT CVC4 -- This test is too sloooowwww :(
       ]
   ]
+
+
+failBehv :: Behaviour -> Behaviour
+failBehv (Behaviour name _ contract iface preconds _ _ _) =
+  Behaviour name Fail contract iface [Neg nowhere $ mconcat preconds] [] [] Nothing
+
+defaultStore :: Id -> Store
+defaultStore c = fromList [(c,fromList [])]
+
+defaultCtor :: Id -> Constructor
+defaultCtor c = Constructor {_cname = c, _cmode = Pass, _cinterface = Interface "constructor" [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = [], _cstateUpdates = []}
+
 
 typeCheckSMT :: Solver -> GenT (Reader Bool) Property
 typeCheckSMT solver = do
