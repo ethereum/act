@@ -315,6 +315,6 @@ parseError ((L token pn):_) =
     show token])
 
 emptyConstructor :: Transition -> Definition
-emptyConstructor (Transition _ c _ _ _ _ _) = Definition nowhere c (Interface "constructor" []) [] (Creates []) [] []
+emptyConstructor (Transition _ _ c _ _ _ _) = Definition nowhere c (Interface "constructor" []) [] (Creates []) [] []
 
 }
