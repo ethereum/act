@@ -164,15 +164,15 @@ checkContract store constructors (U.Contract constructor trans) =
     env = mkEnv contr store constructors
 
     contr = case (constructor, trans) of
-      (Nothing, ((U.Transition _ c _ _ _ _ _):_)) -> c
+      (Nothing, ((U.Transition _ _ c _ _ _ _):_)) -> c
       (Just (U.Definition _ c _ _ _ _ _), _) -> c
       (_, _) -> error "Internal error: contract must have at least one definition"
 
     namesConsistent :: Err ()
     namesConsistent = 
-      traverse_ (\(U.Transition pn contr' _ _ _ _ _) -> assert (errmsg pn contr') (contr == contr')) trans
+      traverse_ (\(U.Transition pn _ contr' _ _ _ _) -> assert (errmsg pn contr') (contr == contr')) trans
 
-    errmsg pn contr' = (pn, "Behavior must belong to contract " <> show contr <> " but belongs to contract" <> contr')
+    errmsg pn contr' = (pn, "Behavior must belong to contract " <> show contr <> " but belongs to contract " <> contr')
 
 
 -- checks a transition given a typing of its storage variables
