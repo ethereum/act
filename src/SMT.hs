@@ -245,11 +245,10 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     mkQuery (inv, ctor, behvs) = Inv inv (mkInit inv ctor) (fmap (mkBehv inv ctor) behvs)
     gathered = concatMap getInvariants contracts
 
-    getInvariants (Contract ctors behvs) =
-      let c@Constructor{..} = getConstructor ctors in
-      fmap (\i -> (i, c, behvs)) _invariants
+    getInvariants (Contract ctors behvs) = case filter matchConstructor ctors of
+      c@Constructor{..}:_ -> fmap (\i -> (i, c, behvs)) _invariants
+      _ -> []
 
-    getConstructor constructors = head [c | c <- constructors, matchConstructor c]
     matchConstructor defn = _cmode defn == Pass
 
     mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
