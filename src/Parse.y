@@ -157,7 +157,8 @@ optblock(label, x) : label nonempty(x)                { $2 }
 -- rules --
 
 Contract : Constructor list(Transition)              { Contract (Just $1) $2 }
-         | list(Transition)                          { Contract Nothing $1 }
+         | nonempty(Transition)                      { Contract Nothing $1 }
+
 Transition : 'behaviour' id 'of' id
              Interface
              list(Precondition)
