@@ -78,7 +78,7 @@ prettyExp e = case e of
   ByEnv _ a -> prettyEnv a
 
   -- contracts
-  Call _ _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
+  Create _ _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
   
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
@@ -139,12 +139,12 @@ prettyInvPred = prettyExp . untime . fst
       And p a b   -> And p (untime a) (untime b)
       Or p a b    -> Or p (untime a) (untime b)
       Impl p a b  -> Impl p (untime a) (untime b)
-      Eq p t a b    -> Eq p t (untime a) (untime b)
+      Eq p t a b  -> Eq p t (untime a) (untime b)
       LT p a b    -> LT p (untime a) (untime b)
       LEQ p a b   -> LEQ p (untime a) (untime b)
       GT p a b    -> GT p (untime a) (untime b)
       GEQ p a b   -> GEQ p (untime a) (untime b)
-      NEq p t a b   -> NEq p t (untime a) (untime b)
+      NEq p t a b -> NEq p t (untime a) (untime b)
       Neg p a     -> Neg p (untime a)
       Add p a b   -> Add p (untime a) (untime b)
       Sub p a b   -> Sub p (untime a) (untime b)
@@ -161,7 +161,7 @@ prettyInvPred = prettyExp . untime . fst
       UIntMin p a -> UIntMin p a
       UIntMax p a -> UIntMax p a
       LitBool p a -> LitBool p a
-      Call p t f xs -> Call p t f (fmap untimeTyped xs)
+      Create p t f xs -> Create p t f (fmap untimeTyped xs)
       IntEnv p a  -> IntEnv p a
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)

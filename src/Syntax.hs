@@ -98,7 +98,7 @@ locsFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Call _ _ _ es -> concatMap locsFromTypedExp es
+      Create _ _ _ es -> concatMap locsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
       Var {} -> []
@@ -162,7 +162,7 @@ ethEnvFromExp = nub . go
       UIntMax {} -> []
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
-      Call _ _ _ ixs -> concatMap ethEnvFromTypedExp ixs
+      Create _ _ _ ixs -> concatMap ethEnvFromTypedExp ixs
       TEntry _ _ a -> ethEnvFromItem a
       Var {} -> []
 
@@ -269,7 +269,7 @@ getPosn expr = case expr of
     EDiv pn _ _ -> pn
     EMod pn _ _ -> pn
     EExp pn _ _ -> pn
-    ECall pn _ _ -> pn
+    ECreate pn _ _ -> pn
     EUTEntry e -> getPosEntry e
     EPreEntry e -> getPosEntry e
     EPostEntry e -> getPosEntry e
@@ -313,7 +313,7 @@ idFromRewrites e = case e of
   EUTEntry en       -> idFromEntry en
   EPreEntry en      -> idFromEntry en
   EPostEntry en     -> idFromEntry en
-  ECall p x es      -> insertWith (<>) x [p] $ idFromRewrites' es
+  ECreate p x es      -> insertWith (<>) x [p] $ idFromRewrites' es
   ListConst a       -> idFromRewrites a
   ECat _ a b        -> idFromRewrites' [a,b]
   ESlice _ a b c    -> idFromRewrites' [a,b,c]

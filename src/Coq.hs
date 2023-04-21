@@ -312,7 +312,7 @@ coqexp (Var _ SByteStr _) = error "bytestrings not supported"
 coqexp ByStr {} = error "bytestrings not supported"
 coqexp ByLit {} = error "bytestrings not supported"
 coqexp ByEnv {} = error "bytestrings not supported"
-coqexp Call {} = error "contracts not supported"
+coqexp Create {} = error "contracts not supported"
 coqexp (Var _ SContract _) = error "contracts not supported"
 
 -- | coq syntax for a proposition

@@ -229,7 +229,7 @@ data Exp (a :: ActType) (t :: Timing) where
   ByLit :: Pn -> ByteString -> Exp AByteStr t
   ByEnv :: Pn -> EthEnv -> Exp AByteStr t
   -- contracts
-  Call   :: Pn -> SType a -> Id -> [TypedExp t] -> Exp a t
+  Create   :: Pn -> SType a -> Id -> [TypedExp t] -> Exp a t
   -- polymorphic
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
@@ -277,7 +277,7 @@ instance Eq (Exp a t) where
   TEntry _ a t == TEntry _ b u = a == b && t == u
   Var _ _ a == Var _ _ b = a == b
 
-  Call _ _ a b == Call _ _ c d = a == c && b == d
+  Create _ _ a b == Create _ _ c d = a == c && b == d
 
   _ == _ = False
 
@@ -327,7 +327,7 @@ instance Timable (Exp a) where
     ByLit p x -> ByLit p x
     ByEnv p x -> ByEnv p x
     -- contracts
-    Call p t x y -> Call p t x (go <$> y)
+    Create p t x y -> Create p t x (go <$> y)
     -- polymorphic
     Eq  p s x y -> Eq p s (go x) (go y)
     NEq p s x y -> NEq p s (go x) (go y)
@@ -469,9 +469,9 @@ instance ToJSON (Exp a t) where
 
   toJSON (TEntry _ t a) = object [ pack (show t) .= toJSON a ]
   toJSON (Var _ _ a) = toJSON a
-  toJSON (Call _ _ f xs) = object [ "symbol" .= pack "call"
-                                  , "arity"  .= Data.Aeson.Types.Number 2
-                                  , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
+  toJSON (Create _ _ f xs) = object [ "symbol" .= pack "create"
+                                    , "arity"  .= Data.Aeson.Types.Number 2
+                                    , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
 
   toJSON v = error $ "todo: json ast for: " <> show v
 
@@ -525,8 +525,8 @@ eval e = case e of
 
   ITE _ a b c   -> eval a >>= \cond -> if cond then eval b else eval c
 
-  Call _ _ _ _ -> error "eval of contracts not supported"
-  _            -> empty
+  Create _ _ _ _ -> error "eval of contracts not supported"
+  _              -> empty
 
 intmin :: Int -> Integer
 intmin a = negate $ 2 ^ (a - 1)

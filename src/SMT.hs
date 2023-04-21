@@ -588,7 +588,7 @@ expToSMT2 expr = case expr of
   ByEnv _ a -> pure $ prettyEnv a
 
   -- contracts
-  Call _ _ _ _ -> error "contracts not supported"
+  Create _ _ _ _ -> error "contracts not supported"
   -- polymorphic
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
