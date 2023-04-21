@@ -33,6 +33,7 @@ import Data.Validation
   'or'                        { L OR _ }
   'true'                      { L TRUE _ }
   'false'                     { L FALSE _ }
+  'create'                    { L CREATE _ }
   'mapping'                   { L MAPPING _ }
   'ensures'                   { L ENSURES _ }
   'invariants'                { L INVARIANTS _ }
@@ -278,7 +279,7 @@ Expr : '(' Expr ')'                                   { $2 }
   | Entry                                             { EUTEntry $1 }
   | 'pre'  '(' Entry ')'                              { EPreEntry $3 }
   | 'post' '(' Entry ')'                              { EPostEntry $3 }
-  | id '(' seplist(Expr, ',') ')'                     { ECall   (posn $1) (name $1) $3 }
+  | 'create' id '(' seplist(Expr, ',') ')'            { ECreate (posn $2) (name $2) $4 }
   | Expr '++' Expr                                    { ECat   (posn $2) $1 $3 }
 --  | id '[' Expr '..' Expr ']'                       { ESlice (posn $2) $1 $3 $5 }
   | 'CALLER'                                          { EnvExp (posn $1) Caller }

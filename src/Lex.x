@@ -44,6 +44,7 @@ tokens :-
   or                                    { mk OR }
   true                                  { mk TRUE }
   false                                 { mk FALSE }
+  create                                { mk CREATE }
   mapping                               { mk MAPPING }
   ensures                               { mk ENSURES }
   invariants                            { mk INVARIANTS }
@@ -137,6 +138,7 @@ data LEX =
   | OR
   | TRUE
   | FALSE
+  | CREATE
   | MAPPING
   | ENSURES
   | INVARIANTS
