@@ -9,8 +9,8 @@ interface constructor(uint s0, uint s1)
 
 creates
 
-    Token token0 := Token(s0)
-    Token token1 := Token(s1)
+    Token token0 := create Token(s0)
+    Token token1 := create Token(s1)
 
 behaviour swap0 of Amm
 interface swap0(uint256 amt)

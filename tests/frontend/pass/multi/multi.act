@@ -9,7 +9,7 @@ interface constructor()
 
 creates
    uint y := 0
-   A a := A()
+   A a := create A()
 
 behaviour remote of B
 interface set_remote(uint z)
