@@ -262,7 +262,7 @@ ident = liftM2 (<>) (listOf1 (elements chars)) (listOf (elements $ chars <> digi
     reserved = -- TODO: add uintX intX and bytesX type names
       [ "behaviour", "of", "interface", "creates", "case", "returns", "storage", "noop", "iff"
       , "and", "not", "or", "true", "false", "mapping", "ensures", "invariants", "if", "then"
-      , "else", "at", "uint", "int", "bytes", "address", "bool", "string", "newAddr" ]
+      , "else", "at", "uint", "int", "bytes", "address", "bool", "string", "newAddr", "create" ]
 
 
 -- ** Debugging Utils ** --
