@@ -233,23 +233,3 @@ ensures
 
    x == _x
 ```
-
-## Referencing Storage Variables
-
-Storage locations that are read and used in other expressions must be declared in a storage block.
-
-Some examples:
-
-```act
-storage
-  x => y
-  y
-```
-
-```act
-storage
-  x
-  y
-
-returns x + y
-``
