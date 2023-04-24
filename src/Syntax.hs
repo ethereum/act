@@ -16,6 +16,7 @@ import Data.Map (Map,empty,insertWith,unionsWith,unionWith,singleton)
 
 import Syntax.TimeAgnostic as Agnostic
 import qualified Syntax.Annotated as Annotated
+import qualified Syntax.Typed as Typed
 import           Syntax.Untyped hiding (Constant,Rewrite,Contract)
 import qualified Syntax.Untyped as Untyped
 
@@ -114,6 +115,78 @@ locsFromExp = nub . go
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
       Var {} -> []
+
+callsFromExp :: Exp a t -> [Id]
+callsFromExp = nub . go
+  where
+    go :: Exp a t -> [Id]
+    go e = case e of
+      And _ a b   -> go a <> go b
+      Or _ a b    -> go a <> go b
+      Impl _ a b  -> go a <> go b
+      Eq _ _ a b    -> go a <> go b
+      LT _ a b    -> go a <> go b
+      LEQ _ a b   -> go a <> go b
+      GT _ a b    -> go a <> go b
+      GEQ _ a b   -> go a <> go b
+      NEq _ _ a b   -> go a <> go b
+      Neg _ a     -> go a
+      Add _ a b   -> go a <> go b
+      Sub _ a b   -> go a <> go b
+      Mul _ a b   -> go a <> go b
+      Div _ a b   -> go a <> go b
+      Mod _ a b   -> go a <> go b
+      Exp _ a b   -> go a <> go b
+      Cat _ a b   -> go a <> go b
+      Slice _ a b c -> go a <> go b <> go c
+      ByStr {} -> []
+      ByLit {} -> []
+      LitInt {}  -> []
+      IntMin {}  -> []
+      IntMax {}  -> []
+      UIntMin {} -> []
+      UIntMax {} -> []
+      LitBool {} -> []
+      IntEnv {} -> []
+      ByEnv {} -> []
+      Call _ _ f es -> [f] <> concatMap callsFromTypedExp es
+      ITE _ x y z -> go x <> go y <> go z
+      TEntry _ _ a -> callsFromItem a
+      Var {} -> []
+
+callsFromItem :: TStorageItem a t -> [Id]
+callsFromItem item = concatMap callsFromTypedExp (ixsFromItem item)  
+
+callsFromTypedExp :: TypedExp t -> [Id]
+callsFromTypedExp (TExp _ e) = callsFromExp e
+
+callsFromContract :: Typed.Contract -> [Id]
+callsFromContract (Contract constr behvs) =
+  concatMap callsFromConstructor constr <> concatMap callsFromBehaviour behvs
+
+callsFromConstructor :: Typed.Constructor -> [Id] 
+callsFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
+  concatMap callsFromExp pre
+  <> concatMap callsFromExp post
+  <> concatMap callsFromInvariant inv
+  <> concatMap callsFromRewrite rewrites
+  <> concatMap callsFromRewrite (Rewrite <$> initialStorage)
+
+callsFromInvariant :: Typed.Invariant -> [Id]
+callsFromInvariant (Invariant _ pre bounds ipred) =
+  concatMap callsFromExp pre <>  concatMap callsFromExp bounds <> callsFromExp ipred
+
+callsFromRewrite :: Rewrite t ->[Id]
+callsFromRewrite update = nub $ case update of
+  Constant _ -> []
+  Rewrite (Update _ item e) -> callsFromItem item <> callsFromExp e
+
+callsFromBehaviour :: Behaviour t -> [Id]
+callsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+  concatMap callsFromExp preconds
+  <> concatMap callsFromExp postconds
+  <> concatMap callsFromRewrite rewrites
+  <> maybe [] callsFromTypedExp returns
 
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
