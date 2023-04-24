@@ -97,16 +97,22 @@ typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store cons
 
 
 detectCycle :: Act -> Err ()
-detectCycle (Act _ contracts) = case calls of
-  [] -> pure ()
-  ((v, _):_) -> () <$ dfs Set.empty Set.empty v
-  where 
+detectCycle (Act _ contracts) =
+  () <$ foldValidation doDFS Set.empty (map fst calls)
+  where
+    doDFS :: Set Id -> Id -> Err (Set Id)
+    doDFS visited v = if Set.member v visited then pure visited
+      else dfs Set.empty visited v
+ 
     dfs :: Set Id -> Set Id -> Id -> Err (Set Id)
-    dfs stack discovered v =      
-      let ws = [ w | w <- adjacent v, not (Set.member w discovered) ] in
-      let stack' = Set.insert v stack in
-      let discovered' = Set.insert v discovered in
-      foldValidation (dfs stack') discovered' ws <* assert (nowhere, "Detected cycle in constructor calls") (not $ Set.member v stack)
+    dfs stack discovered v =
+      if Set.member v stack then throw (nowhere, "Detected cycle in constructor calls")
+      else if Set.member v discovered then pure discovered
+      else
+        let ws = adjacent v in
+        let stack' = Set.insert v stack in
+        let discovered' = Set.insert v discovered in
+        foldValidation (dfs stack') discovered' ws
 
     adjacent :: Id -> [Id]
     adjacent v = case Map.lookup v g of
