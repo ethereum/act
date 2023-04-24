@@ -28,6 +28,8 @@ import Data.Function (on)
 import Data.Foldable
 import Data.Traversable
 import Data.List
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 import Syntax
 import Syntax.Timing
@@ -39,9 +41,13 @@ import Data.Type.Equality (TestEquality(..))
 
 type Err = Error String
 
--- | Main typechecking function.
+-- | Typecheck and then detect possible circularities in constructor call graph
 typecheck :: U.Act -> Err Act
-typecheck (U.Main contracts) = Act store <$> traverse (checkContract store constructors) contracts
+typecheck act = typecheck' act `bindValidation` \t -> t <$ detectCycle t
+  
+-- | Main typechecking function.
+typecheck' :: U.Act -> Err Act
+typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store constructors) contracts
                              <* noDuplicateContracts
                              <* noDuplicateBehaviourNames
                              <* noDuplicateInterfaces
@@ -89,6 +95,31 @@ typecheck (U.Main contracts) = Act store <$> traverse (checkContract store const
               prependIfNotEmpty a b = b : a
           in (prependIfNotEmpty e y) <> duplicatesBy f ys
 
+
+detectCycle :: Act -> Err ()
+detectCycle (Act _ contracts) = case calls of
+  [] -> pure ()
+  ((v, _):_) -> () <$ dfs Set.empty Set.empty v
+  where 
+    dfs :: Set Id -> Set Id -> Id -> Err (Set Id)
+    dfs stack discovered v =      
+      let ws = [ w | w <- adjacent v, not (Set.member w discovered) ] in
+      let stack' = Set.insert v stack in
+      let discovered' = Set.insert v discovered in
+      foldValidation (dfs stack') discovered' ws <* assert (nowhere, "Detected cycle in constructor calls") (not $ Set.member v stack)
+
+    adjacent :: Id -> [Id]
+    adjacent v = case Map.lookup v g of
+        Just ws -> ws
+        Nothing -> error "Internal error: node must be in the graph"
+
+    calls = fmap findCalls $ contracts
+    g = Map.fromList calls
+    
+    findCalls :: Contract -> (Id, [Id])
+    findCalls c@(Contract (Constructor cname _ _ _ _ _ _ _:_) _) = (cname, callsFromContract c)
+    findCalls _ = error "Internal error: at least one constructor expected"
+  
 --- Finds storage declarations from constructors
 lookupVars :: [U.Contract] -> Store
 lookupVars = foldMap $ \case
