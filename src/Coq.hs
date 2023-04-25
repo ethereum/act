@@ -115,7 +115,7 @@ reachableStep (Behaviour name _ i conds cases _ _ _) =
       <> constructorBody where
     constructorBody = (indent 2) . implication . concat $
       [ [reachableType <> " " <> baseVar <> " " <> stateVar]
-      , coqprop <$> conds ++ cases
+      , coqprop <$> cases ++ conds
       , [ reachableType <> " " <> baseVar <> " "
           <> parens (name' <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)
         ]
