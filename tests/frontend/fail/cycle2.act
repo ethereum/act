@@ -1,0 +1,45 @@
+//  Call graph:
+//
+//      C
+//     / \
+//    A   B
+//         \
+//          D
+//           \
+//            C
+
+constructor of A
+interface constructor()
+
+creates
+   uint x := 0
+
+constructor of B
+interface constructor(uint x)
+
+creates
+   uint y := x
+   D d := D()
+
+behaviour remote of B
+interface set_remote(uint z)
+
+iff
+   CALLVALUE == 0
+
+storage
+   d.x => z
+
+constructor of C
+interface constructor(uint u)
+
+creates
+   B b := B(u)
+
+
+constructor of D
+interface constructor()
+
+creates
+   C c := C(0)
+   uint x := 0
