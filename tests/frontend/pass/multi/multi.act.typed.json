@@ -4,28 +4,25 @@
     {
       "behaviors": [],
       "kind": "Contract",
-      "constructor": [
-        {
-          "kind": "Constructor",
-          "mode": "Pass",
-          "storage": [
-            {
-              "location": {
-                "sort": "int",
-                "item": {
-                  "var": "A.x"
-                }
-              },
-              "value": "0"
-            }
-          ],
-          "preConditions": [],
-          "contract": "A",
-          "interface": "constructor()",
-          "postConditions": [],
-          "invariants": []
-        }
-      ]
+      "constructor": {
+        "kind": "Constructor",
+        "storage": [
+          {
+            "location": {
+              "sort": "int",
+              "item": {
+                "var": "A.x"
+              }
+            },
+            "value": "0"
+          }
+        ],
+        "preConditions": [],
+        "contract": "A",
+        "interface": "constructor()",
+        "postConditions": [],
+        "invariants": []
+      }
     },
     {
       "behaviors": [
@@ -51,7 +48,7 @@
             }
           ],
           "kind": "Behaviour",
-          "mode": "Pass",
+          "case": [],
           "name": "remote",
           "preConditions": [
             {
@@ -61,151 +58,6 @@
                 "0"
               ],
               "symbol": "=="
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "0",
-                    "z"
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    "z",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "0",
-                    {
-                      "Pre": {
-                        "sort": "int",
-                        "item": {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "var": "B.a"
-                            },
-                            "x"
-                          ],
-                          "symbol": "select"
-                        }
-                      }
-                    }
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "Pre": {
-                        "sort": "int",
-                        "item": {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "var": "B.a"
-                            },
-                            "x"
-                          ],
-                          "symbol": "select"
-                        }
-                      }
-                    },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "0",
-                    "Callvalue"
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            }
-          ],
-          "contract": "B",
-          "interface": "set_remote(uint256 z)",
-          "postConditions": [],
-          "returns": null
-        },
-        {
-          "stateUpdates": [
-            {
-              "Constant": {
-                "location": {
-                  "sort": "int",
-                  "item": {
-                    "arity": 2,
-                    "args": [
-                      {
-                        "var": "B.a"
-                      },
-                      "x"
-                    ],
-                    "symbol": "select"
-                  }
-                }
-              }
-            }
-          ],
-          "kind": "Behaviour",
-          "mode": "Fail",
-          "name": "remote",
-          "preConditions": [
-            {
-              "arity": 1,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        "Callvalue",
-                        "0"
-                      ],
-                      "symbol": "=="
-                    },
-                    "True"
-                  ],
-                  "symbol": "and"
-                }
-              ],
-              "symbol": "not"
             },
             {
               "arity": 2,
@@ -340,7 +192,7 @@
             }
           ],
           "kind": "Behaviour",
-          "mode": "Pass",
+          "case": [],
           "name": "multi",
           "preConditions": [
             {
@@ -350,197 +202,6 @@
                 "0"
               ],
               "symbol": "=="
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "0",
-                    "z"
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    "z",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "0",
-                    {
-                      "Pre": {
-                        "sort": "int",
-                        "item": {
-                          "var": "B.y"
-                        }
-                      }
-                    }
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "Pre": {
-                        "sort": "int",
-                        "item": {
-                          "var": "B.y"
-                        }
-                      }
-                    },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "0",
-                    {
-                      "Pre": {
-                        "sort": "int",
-                        "item": {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "var": "B.a"
-                            },
-                            "x"
-                          ],
-                          "symbol": "select"
-                        }
-                      }
-                    }
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "Pre": {
-                        "sort": "int",
-                        "item": {
-                          "arity": 2,
-                          "args": [
-                            {
-                              "var": "B.a"
-                            },
-                            "x"
-                          ],
-                          "symbol": "select"
-                        }
-                      }
-                    },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            },
-            {
-              "arity": 2,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    "0",
-                    "Callvalue"
-                  ],
-                  "symbol": "<="
-                },
-                {
-                  "arity": 2,
-                  "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "symbol": "<="
-                }
-              ],
-              "symbol": "and"
-            }
-          ],
-          "contract": "B",
-          "interface": "set_remote2(uint256 z)",
-          "postConditions": [],
-          "returns": null
-        },
-        {
-          "stateUpdates": [
-            {
-              "Constant": {
-                "location": {
-                  "sort": "int",
-                  "item": {
-                    "var": "B.y"
-                  }
-                }
-              }
-            },
-            {
-              "Constant": {
-                "location": {
-                  "sort": "int",
-                  "item": {
-                    "arity": 2,
-                    "args": [
-                      {
-                        "var": "B.a"
-                      },
-                      "x"
-                    ],
-                    "symbol": "select"
-                  }
-                }
-              }
-            }
-          ],
-          "kind": "Behaviour",
-          "mode": "Fail",
-          "name": "multi",
-          "preConditions": [
-            {
-              "arity": 1,
-              "args": [
-                {
-                  "arity": 2,
-                  "args": [
-                    {
-                      "arity": 2,
-                      "args": [
-                        "Callvalue",
-                        "0"
-                      ],
-                      "symbol": "=="
-                    },
-                    "True"
-                  ],
-                  "symbol": "and"
-                }
-              ],
-              "symbol": "not"
             },
             {
               "arity": 2,
@@ -680,46 +341,43 @@
         }
       ],
       "kind": "Contract",
-      "constructor": [
-        {
-          "kind": "Constructor",
-          "mode": "Pass",
-          "storage": [
-            {
-              "location": {
-                "sort": "int",
-                "item": {
-                  "var": "B.y"
-                }
-              },
-              "value": "0"
-            },
-            {
-              "location": {
-                "sort": "contract",
-                "item": {
-                  "var": "B.a"
-                }
-              },
-              "value": {
-                "arity": 2,
-                "args": [
-                  {
-                    "fun": "A"
-                  },
-                  []
-                ],
-                "symbol": "create"
+      "constructor": {
+        "kind": "Constructor",
+        "storage": [
+          {
+            "location": {
+              "sort": "int",
+              "item": {
+                "var": "B.y"
               }
+            },
+            "value": "0"
+          },
+          {
+            "location": {
+              "sort": "contract",
+              "item": {
+                "var": "B.a"
+              }
+            },
+            "value": {
+              "arity": 2,
+              "args": [
+                {
+                  "fun": "A"
+                },
+                []
+              ],
+              "symbol": "create"
             }
-          ],
-          "preConditions": [],
-          "contract": "B",
-          "interface": "constructor()",
-          "postConditions": [],
-          "invariants": []
-        }
-      ]
+          }
+        ],
+        "preConditions": [],
+        "contract": "B",
+        "interface": "constructor()",
+        "postConditions": [],
+        "invariants": []
+      }
     }
   ],
   "store": {
