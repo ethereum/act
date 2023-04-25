@@ -239,7 +239,7 @@ hevm spec' soljson' solver' smttimeout' smtdebug' = do
           <> zipWith (\i msg -> show (i::Int) <> "\t" <> msg) [1..] failures
     unless (null failures) exitFailure
   where
-    showBehv behv = _name behv <> "(" <> show (_mode behv) <> ")"
+    showBehv behv = _name behv
 
 -------------------
 -- *** Util *** ---

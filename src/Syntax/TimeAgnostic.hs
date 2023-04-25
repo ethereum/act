@@ -108,7 +108,7 @@ data Behaviour t = Behaviour
   , _contract :: Id
   , _interface :: Interface
   , _preconditions :: [Exp ABoolean t] -- if preconditions are not satisfied execution is reverted
-  , _case :: [Exp ABoolean t] -- if preconditions are satisfied and case is not, some other instance of the bahaviour should apply
+  , _case :: [Exp ABoolean t] -- if preconditions are satisfied and a case is not, some other instance of the bahaviour should apply
   , _postconditions :: [Exp ABoolean Timed]
   , _stateUpdates :: [Rewrite t]
   , _returns :: Maybe (TypedExp Timed)

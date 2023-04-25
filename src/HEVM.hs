@@ -131,11 +131,13 @@ checkPostStorage ctx (Behaviour _ _ _ _ _ _ rewrites _) pre post contractMap sol
 -- assumes preconditions as well
 mkPostCondition :: VM -> VM -> SolcJson -> Behaviour -> Map Id Addr -> (Ctx, VMResult) -> SBool
 mkPostCondition preVm postVm solcjson
-  b@(Behaviour _ mode _ _ preCond postCond _ returns)
+  b@(Behaviour _ _ _ preCond ifs postCond _ returns)
   contractMap
   (ctx, vmResult) =
     let storageConstraints = checkPostStorage ctx b preVm postVm contractMap solcjson
-        preCond' = symExpBool ctx (mconcat preCond)
+        preCondPass = symExpBool ctx (mconcat (preCond <> ifs))
+        preCondFail = symExpBool ctx (Neg nowhere (mconcat preCond))
+        
         postCond' = symExpBool ctx (mconcat postCond)
         (actual, reverted) = case vmResult of
           VMSuccess (ConcreteBuffer msg) -> (litBytes msg, sFalse)
@@ -144,17 +146,13 @@ mkPostCondition preVm postVm solcjson
           _ -> ([], sFalse)
         expected = maybe [] (toSymBytes . symExp ctx) returns
 
-    in preCond' .=>
-       (postCond' .&&
-        storageConstraints .&&
-        case mode of
-          Pass -> sNot reverted .&& (actual .== expected)
-          Fail -> reverted
-          OOG -> error "internal error: OOG mode not supported yet")
+    in (preCondPass .=>
+        (postCond' .&& storageConstraints .&& sNot reverted .&& (actual .== expected))) .&&
+       (preCondFail .=> reverted) -- TODO shall we check for postCond' .&& storageConstraints here?
 
 -- | Locate the variables refered to in the act-spec in the vm
 mkVmContext :: SolcJson -> Behaviour -> Map Id Addr -> VM -> VM -> (Ctx, VMResult)
-mkVmContext solcjson b@(Behaviour method _ c1 (Interface _ decls) _ _ updates _) contractMap pre post =
+mkVmContext solcjson b@(Behaviour method c1 (Interface _ decls) _ _ _ updates _) contractMap pre post =
   let args = fromList $ locateCalldata b decls (fst $ view (state . calldata) pre) <$> decls
       env' = makeVmEnv b pre
       -- we should always have a result after executing the vm fully.
@@ -170,7 +168,7 @@ mkVmContext solcjson b@(Behaviour method _ c1 (Interface _ decls) _ _ updates _)
 
 
 makeVmEnv :: Behaviour -> VM -> Map Id SActType
-makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
+makeVmEnv (Behaviour method c1 _ _ _ _ _ _) vm =
   fromList
     [ Caller    |- SymInteger (sFromIntegral $ saddressWord160 (view (state . caller) vm))
     , Callvalue |- let S _ w = view (state . callvalue) vm

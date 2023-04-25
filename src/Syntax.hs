@@ -60,7 +60,7 @@ behvsFromContracts :: [Contract t] -> [Behaviour t]
 behvsFromContracts contracts = concatMap (\(Contract _ b) -> b) contracts
 
 constrFromContracts :: [Contract t] -> [Constructor t]
-constrFromContracts contracts = concatMap (\(Contract c _) -> c) contracts
+constrFromContracts contracts = fmap (\(Contract c _) -> c) contracts
 
 locsFromRewrite :: Rewrite t -> [StorageLocation t]
 locsFromRewrite update = nub $ case update of

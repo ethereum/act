@@ -123,7 +123,7 @@ reachableStep (Behaviour name _ i conds cases _ _ _) =
 
 -- | definition of a base state
 base :: Store -> Constructor -> Fresh T.Text
-base store (Constructor name _ i _ _ _ updates _) = do
+base store (Constructor name i _ _ _ updates _) = do
   name' <- fresh name
   return $ definition name' (envDecl <> " " <> interface i) $
     stateval store (\_ t -> defaultSlotValue t) updates

@@ -229,18 +229,18 @@ indent n text = unlines $ ((Data.List.replicate n ' ') <>) <$> (lines text)
 mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> (String, String)
 mkTerm this accounts Behaviour{..} = (name, term)
   where code = _runtimeCode this
-        pass = _mode == Pass
+        pass = True
         repl '_' = '.'
         repl  c  = c
-        name = _contract <> "_" <> _name <> "_" <> show _mode
+        name = _contract <> "_" <> _name
         term =  "rule [" <> (fmap repl name) <> "]:\n"
              <> "k" |- "#execute => #halt"
              <> "exit-code" |- "1"
              <> "mode" |- "NORMAL"
              <> "schedule" |- "ISTANBUL"
              <> "evm" |- indent 2 ("\n"
-                  <> "output" |- (if pass then kAbiEncode _returns else ".ByteArray")
-                  <> "statusCode" |- kStatus _mode
+                  <> "output" |- kAbiEncode _returns
+                  <> "statusCode" |- "EVMC_SUCCESS" 
                   <> "callStack" |- "CallStack"
                   <> "interimStates" |- "_"
                   <> "touchedAccounts" |- "_"

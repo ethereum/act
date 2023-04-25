@@ -14,11 +14,11 @@ import Type (bound, defaultStore)
 enrich :: Act -> Act
 enrich (Act store contracts) = Act store (enrichContract <$> contracts)
   where
-    enrichContract (Contract ctors behvs) = Contract (enrichConstructor <$> ctors) (enrichBehaviour <$> behvs)
+    enrichContract (Contract ctors behvs) = Contract (enrichConstructor ctors) (enrichBehaviour <$> behvs)
 
 -- |Adds type bounds for calldata , environment vars, and external storage vars as preconditions
 enrichConstructor :: Constructor -> Constructor
-enrichConstructor ctor@(Constructor _ _ (Interface _ decls) pre _ invs _ storageUpdates) =
+enrichConstructor ctor@(Constructor _ (Interface _ decls) pre _ invs _ storageUpdates) =
   ctor { _cpreconditions = pre'
        , _invariants = invs' }
     where
@@ -30,7 +30,7 @@ enrichConstructor ctor@(Constructor _ _ (Interface _ decls) pre _ invs _ storage
 
 -- | Adds type bounds for calldata, environment vars, and storage vars as preconditions
 enrichBehaviour :: Behaviour -> Behaviour
-enrichBehaviour behv@(Behaviour _ _ _ (Interface _ decls) pre _ stateUpdates _) =
+enrichBehaviour behv@(Behaviour _ _ (Interface _ decls) pre _ _ stateUpdates _) =
   behv { _preconditions = pre' }
     where
       pre' = pre
@@ -40,7 +40,7 @@ enrichBehaviour behv@(Behaviour _ _ _ (Interface _ decls) pre _ stateUpdates _) 
 
 -- | Adds type bounds for calldata, environment vars, and storage vars
 enrichInvariant :: Constructor -> Invariant -> Invariant
-enrichInvariant (Constructor _ _ (Interface _ decls) _ _ _ _ _) inv@(Invariant _ preconds storagebounds (predicate,_)) =
+enrichInvariant (Constructor _ (Interface _ decls) _ _ _ _ _) inv@(Invariant _ preconds storagebounds (predicate,_)) =
   inv { _ipreconditions = preconds', _istoragebounds = storagebounds' }
     where
       preconds' = preconds
