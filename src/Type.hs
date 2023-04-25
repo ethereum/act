@@ -469,7 +469,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
     checkTime (getPosEntry entry) <*> (TEntry (getPosEntry entry) Post (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ')
 
   -- TODO other error for unimplemented
-  _ -> throw (getPosn e,"Type mismatch. Expression " <> show e <> " does not have type " <> show typ)
+  _ -> throw (getPosn e,"Type mismatch. Expression does not have type " <> show typ)
 
   where
     polycheck :: Pn -> (forall y. Pn -> SType y -> Exp y t -> Exp y t -> Exp x t) -> U.Expr -> U.Expr -> Err (Exp x t)
