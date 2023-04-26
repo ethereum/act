@@ -12,7 +12,7 @@ module Syntax where
 import Prelude hiding (LT, GT)
 
 import Data.List
-import Data.Map (Map,empty,insertWith,unionsWith)
+import Data.Map (Map,empty,insertWith,unionsWith,unionWith,singleton)
 
 import Syntax.TimeAgnostic as Agnostic
 import qualified Syntax.Annotated as Annotated
@@ -98,6 +98,7 @@ locsFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
+      Create _ _ _ es -> concatMap locsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
       Var {} -> []
@@ -161,6 +162,7 @@ ethEnvFromExp = nub . go
       UIntMax {} -> []
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
+      Create _ _ _ ixs -> concatMap ethEnvFromTypedExp ixs
       TEntry _ _ a -> ethEnvFromItem a
       Var {} -> []
 
@@ -168,7 +170,12 @@ idFromRewrite :: Rewrite t -> Id
 idFromRewrite = onRewrite idFromLocation idFromUpdate
 
 idFromItem :: TStorageItem a t -> Id
-idFromItem (Item _ _ name _) = name
+idFromItem (Item _ _ ref) = idFromStorageRef ref
+
+idFromStorageRef :: StorageRef t -> Id
+idFromStorageRef (SVar _ _ x) = x
+idFromStorageRef (SMapping _ e _) = idFromStorageRef e
+idFromStorageRef (SField _ e _) = idFromStorageRef e
 
 idFromUpdate :: StorageUpdate t -> Id
 idFromUpdate (Update _ item _) = idFromItem item
@@ -180,10 +187,16 @@ contractFromRewrite :: Rewrite t -> Id
 contractFromRewrite = onRewrite contractFromLoc contractFromUpdate
 
 contractFromItem :: TStorageItem a t -> Id
-contractFromItem (Item _ c _ _) = c
+contractFromItem (Item _ _ ref) = contractFromStorageRef ref
+
+contractFromStorageRef :: StorageRef t -> Id
+contractFromStorageRef (SVar _ c _) = c
+contractFromStorageRef (SMapping _ e _) = contractFromStorageRef e
+contractFromStorageRef (SField _ e _) = contractFromStorageRef e
 
 ixsFromItem :: TStorageItem a t -> [TypedExp t]
-ixsFromItem (Item _ _ _ ixs) = ixs
+ixsFromItem (Item _ _ (SMapping _ _ ixs)) = ixs
+ixsFromItem _ = []
 
 contractsInvolved :: Behaviour t -> [Id]
 contractsInvolved = fmap contractFromRewrite . _stateUpdates
@@ -204,7 +217,7 @@ ixsFromRewrite :: Rewrite t -> [TypedExp t]
 ixsFromRewrite = onRewrite ixsFromLocation ixsFromUpdate
 
 itemType :: TStorageItem a t -> ActType
-itemType (Item t _ _ _) = actType t
+itemType (Item t _ _) = actType t
 
 isMapping :: StorageLocation t -> Bool
 isMapping = not . null . ixsFromLocation
@@ -224,9 +237,18 @@ locsFromRewrites rs = [l | Constant l <- rs]
 --------------------------------------
 
 nameFromStorage :: Untyped.Storage -> Id
-nameFromStorage (Untyped.Rewrite (PEntry _ x _) _) = x
-nameFromStorage (Untyped.Constant (PEntry _ x _)) = x
-nameFromStorage store = error $ "Internal error: cannot extract name from " ++ show store
+nameFromStorage (Untyped.Rewrite e _) = nameFromEntry e
+nameFromStorage (Untyped.Constant e) = nameFromEntry e
+
+nameFromEntry :: Entry -> Id
+nameFromEntry (EVar _ x) = x
+nameFromEntry (EMapping _ e _) = nameFromEntry e
+nameFromEntry (EField _ e _) = nameFromEntry e
+
+getPosEntry :: Entry -> Pn
+getPosEntry (EVar pn _) = pn
+getPosEntry (EMapping pn _ _) = pn
+getPosEntry (EField pn _ _) = pn
 
 getPosn :: Expr -> Pn
 getPosn expr = case expr of
@@ -247,11 +269,10 @@ getPosn expr = case expr of
     EDiv pn _ _ -> pn
     EMod pn _ _ -> pn
     EExp pn _ _ -> pn
-    Zoom pn _ _ -> pn
-    EUTEntry pn _ _ -> pn
-    EPreEntry pn _ _ -> pn
-    EPostEntry pn _ _ -> pn
-    Func pn _ _ -> pn
+    ECreate pn _ _ -> pn
+    EUTEntry e -> getPosEntry e
+    EPreEntry e -> getPosEntry e
+    EPostEntry e -> getPosEntry e
     ListConst e -> getPosn e
     ECat pn _ _ -> pn
     ESlice pn _ _ _ -> pn
@@ -289,11 +310,10 @@ idFromRewrites e = case e of
   EDiv _ a b        -> idFromRewrites' [a,b]
   EMod _ a b        -> idFromRewrites' [a,b]
   EExp _ a b        -> idFromRewrites' [a,b]
-  Zoom _ a b        -> idFromRewrites' [a,b]
-  EUTEntry p x es   -> insertWith (<>) x [p] $ idFromRewrites' es
-  EPreEntry p x es  -> insertWith (<>) x [p] $ idFromRewrites' es
-  EPostEntry p x es -> insertWith (<>) x [p] $ idFromRewrites' es
-  Func _ _ es       -> idFromRewrites' es
+  EUTEntry en       -> idFromEntry en
+  EPreEntry en      -> idFromEntry en
+  EPostEntry en     -> idFromEntry en
+  ECreate p x es      -> insertWith (<>) x [p] $ idFromRewrites' es
   ListConst a       -> idFromRewrites a
   ECat _ a b        -> idFromRewrites' [a,b]
   ESlice _ a b c    -> idFromRewrites' [a,b,c]
@@ -309,6 +329,11 @@ idFromRewrites e = case e of
   where
     idFromRewrites' = unionsWith (<>) . fmap idFromRewrites
 
+    idFromEntry :: Entry -> Map Id [Pn]
+    idFromEntry (EVar p x) = singleton x [p]
+    idFromEntry (EMapping _ en xs) = unionWith (<>) (idFromEntry en) (idFromRewrites' xs)
+    idFromEntry (EField _ en _) = idFromEntry en
+    
 -- | True iff the case is a wildcard.
 isWild :: Case -> Bool
 isWild (Case _ (WildExp _) _) = True

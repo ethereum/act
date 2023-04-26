@@ -7,10 +7,9 @@ module Syntax.Untyped (module Syntax.Untyped) where
 
 import Data.Aeson
 import Data.List (intercalate)
-import Data.List.NonEmpty (toList)
+import Data.List.NonEmpty (toList, NonEmpty)
 
 import EVM.ABI (AbiType)
-import EVM.Solidity (SlotType(..))
 
 import Lex
 
@@ -23,8 +22,9 @@ newtype Act = Main [RawBehaviour]
 
 data RawBehaviour
   = Transition Pn Id Id Interface [IffH] Cases Ensures
-  | Definition Pn Id Interface [IffH] Creates [ExtStorage] Ensures Invariants
+  | Definition Pn Id Interface [IffH] Creates Ensures Invariants
   deriving (Eq, Show)
+
 
 type Ensures = [Expr]
 
@@ -45,36 +45,28 @@ data Case = Case Pn Expr Post
   deriving (Eq, Show)
 
 data Post
-  = Post [Storage] [ExtStorage] (Maybe Expr)
+  = Post [Storage] (Maybe Expr)
   deriving (Eq, Show)
 
 newtype Creates = Creates [Assign]
   deriving (Eq, Show)
 
 data Storage
-  = Rewrite Pattern Expr
-  | Constant Pattern
-  deriving (Eq, Show)
-
-data ExtStorage
-  = ExtStorage Id [Storage]
-  | ExtCreates Id Expr [Assign]
-  | WildStorage
+  = Rewrite Entry Expr
+  | Constant Entry
   deriving (Eq, Show)
 
 data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignStruct StorageVar [Defn]
   deriving (Eq, Show)
+-- TODO AssignStruct is never used
 
 data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
   deriving (Eq, Show)
 
-data Pattern
-  = PEntry Pn Id [Expr]
-  | PWild Pn
-  deriving (Eq, Show)
-
 data Entry
-  = Entry Pn Id [Expr]
+  = EVar Pn Id
+  | EMapping Pn Entry [Expr]
+  | EField Pn Entry Id
   deriving (Eq, Show)
 
 data Defn = Defn Expr Expr
@@ -98,12 +90,10 @@ data Expr
   | EDiv Pn Expr Expr
   | EMod Pn Expr Expr
   | EExp Pn Expr Expr
-  | Zoom Pn Expr Expr
-  | EUTEntry Pn Id [Expr]
-  | EPreEntry Pn Id [Expr]
-  | EPostEntry Pn Id [Expr]
---    | Look Pn Id [Expr]
-  | Func Pn Id [Expr]
+  | EUTEntry Entry
+  | EPreEntry Entry
+  | EPostEntry Entry
+  | ECreate Pn Id [Expr]
   | ListConst Expr
   | ECat Pn Expr Expr
   | ESlice Pn Expr Expr Expr
@@ -134,11 +124,38 @@ data EthEnv
   | Nonce
   deriving (Show, Eq)
 
+
+data ValueType
+  = ContractType Id
+  | PrimitiveType AbiType
+  deriving Eq
+
+instance Show ValueType where
+  show (ContractType c) = c
+  show (PrimitiveType t) = show t
+
+data SlotType
+  = StorageMapping (NonEmpty ValueType) ValueType
+  | StorageValue ValueType
+  deriving (Eq)
+
+instance Show SlotType where
+ show (StorageValue t) = show t
+ show (StorageMapping s t) =
+   foldr
+   (\x y ->
+       "mapping("
+       <> show x
+       <> " => "
+       <> y
+       <> ")")
+   (show t) s
+
 data StorageVar = StorageVar Pn SlotType Id
   deriving (Eq, Show)
 
 data Decl = Decl AbiType Id
-  deriving (Eq)
+  deriving Eq
 
 instance Show Decl where
   show (Decl t a) = show t <> " " <> a

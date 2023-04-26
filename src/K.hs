@@ -11,7 +11,7 @@ module K where
 import Prelude hiding (GT, LT)
 
 import Syntax
-import Syntax.Annotated
+import Syntax.Annotated hiding (SlotType(..))
 
 import Error
 import Data.Text (Text, pack, unpack)
@@ -88,11 +88,13 @@ kAbiEncode Nothing = ".ByteArray"
 kAbiEncode (Just (TExp SInteger a)) = "#enc(#uint256" <> kExpr a <> ")"
 kAbiEncode (Just (TExp SBoolean _)) = ".ByteArray"
 kAbiEncode (Just (TExp SByteStr _)) = ".ByteArray"
+kAbiEncode (Just (TExp SContract _)) = error "contracts not supported"
 
 kTypedExpr :: TypedExp -> String
 kTypedExpr (TExp SInteger a) = kExpr a
 kTypedExpr (TExp SBoolean a) = kExpr a
 kTypedExpr (TExp SByteStr _) = error "TODO: add support for TExp SByteStr to kExpr"
+kTypedExpr (TExp SContract _) = error "contracts not supported"
 
 kExpr :: Exp a -> String
 -- integers
@@ -126,6 +128,7 @@ kExpr (Eq _ t a b) =
        SInteger -> eqK "Int"
        SBoolean -> eqK "Bool"
        SByteStr -> eqK "K"
+       SContract -> error "contracts not supported"
 
 -- bytestrings
 kExpr (ByStr _ str) = show str

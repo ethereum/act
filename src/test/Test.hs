@@ -140,7 +140,7 @@ genType typ = case typ of
   ABoolean -> return AbiBoolType
   AByteStr -> return AbiStringType
                    --, return AbiBytesDynamicType -- TODO: needs frontend support
-
+  AContract -> error "contracts not supported"
   where
     validIntSize = elements [ x | x <- [8..256], x `mod` 8 == 0 ]
     validBytesSize = elements [1..32]
@@ -224,6 +224,7 @@ selectName typ (Names ints bools bytes) = do
                 AInteger -> ints
                 ABoolean -> bools
                 AByteStr -> bytes
+                AContract -> error "unsupported type"
   idx <- elements [0..((length names)-1)]
   return $ names!!idx
 
@@ -261,7 +262,7 @@ ident = liftM2 (<>) (listOf1 (elements chars)) (listOf (elements $ chars <> digi
     reserved = -- TODO: add uintX intX and bytesX type names
       [ "behaviour", "of", "interface", "creates", "case", "returns", "storage", "noop", "iff"
       , "and", "not", "or", "true", "false", "mapping", "ensures", "invariants", "if", "then"
-      , "else", "at", "uint", "int", "bytes", "address", "bool", "string", "newAddr" ]
+      , "else", "at", "uint", "int", "bytes", "address", "bool", "string", "newAddr", "create" ]
 
 
 -- ** Debugging Utils ** --

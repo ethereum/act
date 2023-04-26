@@ -40,14 +40,14 @@ import Data.Map.Strict (Map)
 import Data.String (fromString)
 import Data.Text (pack)
 import Data.Vector (fromList)
-import EVM.Solidity (SlotType(..))
 import Data.Singletons (SingI(..))
 
 -- Reexports
+
 import Parse          as Syntax.TimeAgnostic (nowhere)
 import Syntax.Types   as Syntax.TimeAgnostic
 import Syntax.Timing  as Syntax.TimeAgnostic
-import Syntax.Untyped as Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..))
+import Syntax.Untyped as Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..))
 
 -- AST post typechecking
 data Claim t
@@ -57,6 +57,10 @@ data Claim t
   | S Store
 deriving instance Show (InvariantPred t) => Show (Claim t)
 deriving instance Eq   (InvariantPred t) => Eq   (Claim t)
+
+
+-- TODO maybe enforce this structure to Act programs
+-- Store * [Contract of (C, [B], [I],)]
 
 data Transition t
   = Ctor (Constructor t)
@@ -142,25 +146,37 @@ data StorageLocation (t :: Timing) where
 deriving instance Show (StorageLocation t)
 
 _Loc :: TStorageItem a t -> StorageLocation t
-_Loc item@(Item s _ _ _ ) = Loc s item
+_Loc item@(Item s _ _) = Loc s item
 
 instance Eq (StorageLocation t) where
   Loc SType i1 == Loc SType i2 = eqS i1 i2
 
-
--- | References to items in storage, either as a map lookup or as a reading of
--- a simple variable. The list argument is a list of indices; it has entries iff
--- the item is referenced as a map lookup. The type is parametrized on a
+-- | References to items in storage. The type is parametrized on a
 -- timing `t` and a type `a`. `t` can be either `Timed` or `Untimed` and
 -- indicates whether any indices that reference items in storage explicitly
 -- refer to the pre-/post-state, or not. `a` is the type of the item that is
--- referenced.
+-- referenced. Items are also annotated with the original ValueType that
+-- carries more precise type information (e.g., the exact contract type).
 data TStorageItem (a :: ActType) (t :: Timing) where
-  Item :: SType a -> Id -> Id -> [TypedExp t] -> TStorageItem a t
+  Item :: SType a -> ValueType -> StorageRef t -> TStorageItem a t
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
-_Item :: SingI a => Id -> Id -> [TypedExp t] -> TStorageItem a t
+-- | Reference to an item storage. It can be either a bare variable, a
+-- map lookup, or a field selection.
+data StorageRef (t :: Timing) where
+  SVar :: Pn -> Id -> Id -> StorageRef t
+  SMapping :: Pn -> StorageRef t -> [TypedExp t] -> StorageRef t
+  SField :: Pn -> StorageRef t -> Id -> StorageRef t
+deriving instance Show (StorageRef t)
+
+instance Eq (StorageRef t) where
+  SVar _ c x == SVar _ c' x' = c == c' && x == x'
+  SMapping _ r ixs == SMapping _ r' ixs' = r == r' && ixs == ixs'
+  SField _ r x == SField _ r' x' = r == r' && x == x'
+  _ == _ = False
+
+_Item :: SingI a => ValueType -> StorageRef t -> TStorageItem a t
 _Item = Item sing
 
 -- | Expressions for which the return type is known.
@@ -212,7 +228,8 @@ data Exp (a :: ActType) (t :: Timing) where
   ByStr :: Pn -> String -> Exp AByteStr t
   ByLit :: Pn -> ByteString -> Exp AByteStr t
   ByEnv :: Pn -> EthEnv -> Exp AByteStr t
-
+  -- contracts
+  Create   :: Pn -> SType a -> Id -> [TypedExp t] -> Exp a t
   -- polymorphic
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
@@ -220,7 +237,6 @@ data Exp (a :: ActType) (t :: Timing) where
   Var :: Pn -> SType a -> Id -> Exp a t
   TEntry :: Pn -> Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
-
 
 -- Equality modulo source file position.
 instance Eq (Exp a t) where
@@ -260,6 +276,9 @@ instance Eq (Exp a t) where
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
   TEntry _ a t == TEntry _ b u = a == b && t == u
   Var _ _ a == Var _ _ b = a == b
+
+  Create _ _ a b == Create _ _ c d = a == c && b == d
+
   _ == _ = False
 
 
@@ -307,6 +326,8 @@ instance Timable (Exp a) where
     ByStr p x -> ByStr p x
     ByLit p x -> ByLit p x
     ByEnv p x -> ByEnv p x
+    -- contracts
+    Create p t x y -> Create p t x (go <$> y)
     -- polymorphic
     Eq  p s x y -> Eq p s (go x) (go y)
     NEq p s x y -> NEq p s (go x) (go y)
@@ -318,7 +339,12 @@ instance Timable (Exp a) where
       go = setTime time
 
 instance Timable (TStorageItem a) where
-   setTime time (Item t c x ixs) = Item t c x $ setTime time <$> ixs
+   setTime time (Item t vt ref) = Item t vt $ setTime time ref
+
+instance Timable StorageRef where
+  setTime time (SMapping p e ixs) = SMapping p (setTime time e) (setTime time <$> ixs)
+  setTime time (SField p e x) = SField p (setTime time e) x
+  setTime _ (SVar p c x) = SVar p c x
 
 ------------------------
 -- * JSON instances * --
@@ -382,14 +408,23 @@ instance ToJSON (StorageUpdate t) where
   toJSON (Update _ a b) = object [ "location" .= toJSON a ,"value" .= toJSON b ]
 
 instance ToJSON (TStorageItem a t) where
-  toJSON (Item t a b []) = object [ "sort" .= pack (show t)
-                                  , "name" .= String (pack a <> "." <> pack b) ]
-  toJSON (Item _ a b c)  = mapping a b c
+  toJSON (Item t _ a) = object [ "sort" .= pack (show t)
+                               , "item" .= toJSON a ]
 
-mapping :: (ToJSON a1, ToJSON a2, ToJSON a3) => a1 -> a2 -> a3 -> Value
-mapping c a b = object [ "symbol"   .= pack "lookup"
-                       , "arity"    .= Data.Aeson.Types.Number 3
-                       , "args"     .= Array (fromList [toJSON c, toJSON a, toJSON b]) ]
+instance ToJSON (StorageRef t) where
+  toJSON (SVar _ c x) = object [ "var" .=  String (pack c <> "." <> pack x) ]
+  toJSON (SMapping _ e xs) = mapping e xs
+  toJSON (SField _ e x) = field e x
+
+mapping :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
+mapping a b = object [ "symbol"   .= pack "lookup"
+                     , "arity"    .= Data.Aeson.Types.Number 2
+                     , "args"     .= Array (fromList [toJSON a, toJSON b]) ]
+
+field :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
+field a b = object [ "symbol"   .= pack "select"
+                   , "arity"    .= Data.Aeson.Types.Number 2
+                   , "args"     .= Array (fromList [toJSON a, toJSON b]) ]
 
 instance ToJSON (TypedExp t) where
   toJSON (TExp typ a) = object [ "sort"       .= pack (show typ)
@@ -434,6 +469,9 @@ instance ToJSON (Exp a t) where
 
   toJSON (TEntry _ t a) = object [ pack (show t) .= toJSON a ]
   toJSON (Var _ _ a) = toJSON a
+  toJSON (Create _ _ f xs) = object [ "symbol" .= pack "create"
+                                    , "arity"  .= Data.Aeson.Types.Number 2
+                                    , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
 
   toJSON v = error $ "todo: json ast for: " <> show v
 
@@ -486,7 +524,9 @@ eval e = case e of
   NEq _ SByteStr x y -> [ x' /= y' | x' <- eval x, y' <- eval y]
 
   ITE _ a b c   -> eval a >>= \cond -> if cond then eval b else eval c
-  _             -> empty
+
+  Create _ _ _ _ -> error "eval of contracts not supported"
+  _              -> empty
 
 intmin :: Int -> Integer
 intmin a = negate $ 2 ^ (a - 1)

@@ -195,7 +195,7 @@ makeVmEnv (Behaviour method _ c1 _ _ _ _ _) vm =
 
 -- | Locate the variables refered to in the act-spec in the vm
 locateStorage :: Ctx -> SolcJson -> Map Id Addr -> Method -> (VM,VM) -> Rewrite -> (Id, (SActType, SActType))
-locateStorage ctx solcjson contractMap method (pre, post) item =
+locateStorage ctx@(Ctx c _ _ _ _) solcjson contractMap method (pre, post) item =
   let item' = locFromRewrite item
       addr = get (contractFromRewrite item) contractMap
 
@@ -206,7 +206,7 @@ locateStorage ctx solcjson contractMap method (pre, post) item =
       Just (S _ postValue) = readStorage (view storage postContract) (calculateSlot ctx solcjson item')
 
       name :: StorageLocation -> Id
-      name (Loc _ i) = nameFromItem method i
+      name (Loc _ i) = nameFromItem c method i
 
   in (name item',  (SymInteger (sFromIntegral preValue), SymInteger (sFromIntegral postValue)))
 
@@ -306,6 +306,7 @@ symExp ctx (TExp t e) = case t of
   SInteger -> SymInteger $ symExpInt   ctx e
   SBoolean -> SymBool    $ symExpBool  ctx e
   SByteStr -> SymBytes   $ symExpBytes ctx e
+  SContract -> error "calls not supported"
 
 symExpBool :: Ctx -> Exp ABoolean -> SBV Bool
 symExpBool ctx@(Ctx c m args store _) e = case e of
@@ -320,11 +321,13 @@ symExpBool ctx@(Ctx c m args store _) e = case e of
   Neg _ a     -> sNot (symExpBool ctx a)
   LitBool _ a -> literal a
   Var _ _ a   -> get (nameFromArg c m a) (catBools args)
-  TEntry _ t a -> get (nameFromItem m a) (catBools $ timeStore t store)
+  TEntry _ t a -> get (nameFromItem c m a) (catBools $ timeStore t store)
   ITE _ x y z -> ite (symExpBool ctx x) (symExpBool ctx y) (symExpBool ctx z)
   Eq _ SInteger a b -> symExpInt  ctx a .== symExpInt  ctx b
   Eq _ SBoolean a b -> symExpBool  ctx a .== symExpBool  ctx b
   Eq _ SByteStr a b -> symExpBytes  ctx a .== symExpBytes  ctx b
+  Eq _ SContract _ _ -> error "calls not supported"
+  Create _ _ _ _ -> error "calls not supported"
 
 symExpInt :: Ctx -> Exp AInteger -> SBV Integer
 symExpInt ctx@(Ctx c m args store environment) e = case e of
@@ -340,9 +343,10 @@ symExpInt ctx@(Ctx c m args store environment) e = case e of
   UIntMin _ a -> literal $ uintmin a
   UIntMax _ a -> literal $ uintmax a
   Var _ _ a   -> get (nameFromArg c m a) (catInts args)
-  TEntry _ t a -> get (nameFromItem m a) (catInts $ timeStore t store)
+  TEntry _ t a -> get (nameFromItem c m a) (catInts $ timeStore t store)
   IntEnv _ a -> get (nameFromEnv c m a) (catInts environment)
   ITE _ x y z -> ite (symExpBool ctx x) (symExpInt ctx y) (symExpInt ctx z)
+  Create _ _ _ _ -> error "calls not supported"
 
 symExpBytes :: Ctx -> Exp AByteStr -> SBV String
 symExpBytes ctx@(Ctx c m args store environment) e = case e of
@@ -350,10 +354,11 @@ symExpBytes ctx@(Ctx c m args store environment) e = case e of
   Var _ _ a -> get (nameFromArg c m a) (catBytes args)
   ByStr _ a -> literal a
   ByLit _ a -> literal $ toString a
-  TEntry _ t a -> get (nameFromItem m a) (catBytes $ timeStore t store)
+  TEntry _ t a -> get (nameFromItem c m a) (catBytes $ timeStore t store)
   Slice _ a x y -> subStr (symExpBytes ctx a) (symExpInt ctx x) (symExpInt ctx y)
   ByEnv _ a -> get (nameFromEnv c m a) (catBytes environment)
   ITE _ x y z -> ite (symExpBool ctx x) (symExpBytes ctx y) (symExpBytes ctx z)
+  Create _ _ _ _ -> error "calls not supported"
 
 timeStore :: When -> HEVM.Storage -> Map Id SActType
 timeStore Pre  s = fst <$> s
@@ -361,10 +366,15 @@ timeStore Post s = snd <$> s
 
 -- *** SMT Variable Names *** --
 
-nameFromItem :: Method -> TStorageItem a -> Id
-nameFromItem method (Item _ c name ixs) = c @@ method @@ name <> showIxs
+nameFromStorageRef :: ContractName -> Method -> StorageRef -> Id
+nameFromStorageRef c method (SVar _ _ name) = c @@ method @@ name
+nameFromStorageRef c method (SMapping _ e ixs) = nameFromStorageRef c method e <> showIxs
   where
     showIxs = intercalate "-" $ "" : fmap (nameFromTypedExp c method) ixs
+nameFromStorageRef _ _ (SField _ _ _) = error "contracts not supported"
+
+nameFromItem :: ContractName -> Method -> TStorageItem a -> Id
+nameFromItem c method (Item _ _ e) = nameFromStorageRef c method e
 
 nameFromTypedExp :: ContractName -> Method -> TypedExp -> Id
 nameFromTypedExp c method (TExp _ e) = nameFromExp c method e
@@ -402,8 +412,10 @@ nameFromExp c m e = case e of
   ByEnv _ a -> nameFromEnv c m a
 
   Var _ _ a -> nameFromArg c m a
-  TEntry _ _ a -> nameFromItem m a
+  TEntry _ _ a -> nameFromItem c m a
   ITE _ x y z -> "if-" <> nameFromExp c m x <> "-then-" <> nameFromExp c m y <> "-else-" <> nameFromExp c m z
+
+  Create _ _ _ _ -> error "calls not supported"
 
 nameFromDecl :: ContractName -> Method -> Decl -> Id
 nameFromDecl c m (Decl _ name) = nameFromArg c m name

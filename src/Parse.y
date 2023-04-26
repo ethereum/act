@@ -3,7 +3,6 @@ module Parse (module Parse, showposn) where
 import Prelude hiding (EQ, GT, LT)
 import Lex
 import EVM.ABI
-import EVM.Solidity (SlotType(..))
 import qualified Data.List.NonEmpty as NonEmpty
 import Syntax.Untyped
 import Error
@@ -34,6 +33,7 @@ import Data.Validation
   'or'                        { L OR _ }
   'true'                      { L TRUE _ }
   'false'                     { L FALSE _ }
+  'create'                    { L CREATE _ }
   'mapping'                   { L MAPPING _ }
   'ensures'                   { L ENSURES _ }
   'invariants'                { L INVARIANTS _ }
@@ -170,10 +170,9 @@ Constructor : 'constructor' 'of' id
               CInterface
               list(Precondition)
               Creation
-              list(ExtStorage)
               Ensures
               Invariants                              { Definition (posn $3) (name $3)
-                                                         $4 $5 $6 $7 $8 $9 }
+                                                         $4 $5 $6 $7 $8 }
 
 Ensures : optblock('ensures', Expr)                   { $1 }
 
@@ -189,30 +188,26 @@ Cases : Post                                          { Direct $1 }
 Case : 'case' Expr ':' Post                           { Case (posn $1) $2 $4 }
 
 
-Post  : Storage list(ExtStorage)                      { Post $1 $2 Nothing }
-      | list(ExtStorage) Returns                      { Post [] $1 (Just $2) }
-      | nonempty(ExtStorage)                          { Post [] $1 Nothing }
-      | Storage list(ExtStorage) Returns              { Post $1 $2 (Just $3) }
+Post  : Storage                                       { Post $1 Nothing }
+      | Returns                                       { Post [] (Just $1) }
+      | Storage Returns                               { Post $1 (Just $2) }
 
 Returns : 'returns' Expr                              { $2 }
 
 Storage : 'storage' nonempty(Store)                   { $2 }
 
-ExtStorage : 'storage' 'of' id nonempty(Store)        { ExtStorage (name $3) $4 }
-           | 'creates' id 'at' Expr nonempty(Assign)  { ExtCreates (name $2) $4 $5 }
-           | 'storage' 'of' '_' '_' '=>' '_'          { WildStorage }
-
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
-             | 'iff in range' Type nonempty(Expr)     { IffIn (posn $1) $2 $3 }
+             | 'iff in range' AbiType nonempty(Expr)  { IffIn (posn $1) $2 $3 }
 
-Store : Pattern '=>' Expr                             { Rewrite $1 $3 }
-      | Pattern                                       { Constant $1 }
+Store : Entry '=>' Expr                               { Rewrite $1 $3 }
+      | Entry                                         { Constant $1 }
 
-Pattern : id list(Zoom)                               { PEntry (posn $1) (name $1) $2 }
-        | '_'                                         { PWild (posn $1) }
+Entry : id                                            { EVar (posn $1) (name $1) }
+      | Entry '[' Expr ']' list(Index)                { EMapping (posn $2) $1 ($3:$5) }
+      | Entry '.' id                                  { EField (posn $2) $1 (name $3) }
 
-Zoom : '[' Expr ']'                                   { $2 }
-     | '.' Expr                                       { $2 }
+Index : '[' Expr ']'                                  { $2 }
+
 
 Creation : 'creates' list(Assign)                     { Creates $2 }
 
@@ -220,25 +215,28 @@ Assign : StorageVar ':=' Expr                         { AssignVal $1 $3 }
        | StorageVar ':=' '[' seplist(Defn, ',') ']'   { AssignMany $1 $4 }
 
 Defn : Expr ':=' Expr                                 { Defn $1 $3 }
-Decl : Type id                                        { Decl $1 (name $2) }
+Decl : AbiType id                                     { Decl $1 (name $2) }
 
 StorageVar : SlotType id                              { StorageVar (posn $2) $1 (name $2) }
 
-Type : 'uint'
-       { case validsize $1 of
-              True  -> AbiUIntType $1
-              False -> error $ "invalid uint size: uint" <> (show $1)
-       }
-     | 'int'
-       { case validsize $1 of
-              True  -> AbiIntType $1
-              False -> error $ "invalid int size: int" <> (show $1)
-       }
-     | 'bytes'                                        { AbiBytesType $1 }
-     | Type '[' ilit ']'                              { AbiArrayType (fromIntegral $ value $3) $1 }
-     | 'address'                                      { AbiAddressType }
-     | 'bool'                                         { AbiBoolType }
-     | 'string'                                       { AbiStringType }
+AbiType : 'uint'
+         { case validsize $1 of
+	     True  -> AbiUIntType $1
+	     False -> error $ "invalid uint size: uint" <> (show $1)
+	 }
+       | 'int'
+         { case validsize $1 of
+	     True  -> AbiIntType $1
+	     False -> error $ "invalid int size: int" <> (show $1)
+	 }
+       | 'bytes'                                      { AbiBytesType $1 }
+       | AbiType '[' ilit ']'                         { AbiArrayType (fromIntegral $ value $3) $1 }
+       | 'address'                                    { AbiAddressType }
+       | 'bool'                                       { AbiBoolType }
+       | 'string'                                     { AbiStringType }
+
+Type : AbiType                                        { PrimitiveType $1 }
+     | id                                             { ContractType $ name $1 }
 
 SlotType : 'mapping' '(' MappingArgs ')'              { (uncurry StorageMapping) $3 }
          | Type                                       { StorageValue $1 }
@@ -278,12 +276,10 @@ Expr : '(' Expr ')'                                   { $2 }
 
   -- composites
   | 'if' Expr 'then' Expr 'else' Expr                 { EITE (posn $1) $2 $4 $6 }
-  | id list(Zoom)                                     { EUTEntry (posn $1) (name $1) $2 }
-  | 'pre'  '(' id list(Zoom) ')'                      { EPreEntry (posn $1) (name $3) $4 }
-  | 'post' '(' id list(Zoom) ')'                      { EPostEntry (posn $1) (name $3) $4 }
---  | id list(Zoom)                                   { Look (posn $1) (name $1) $2 }
-  | Expr '.' Expr                                     { Zoom (posn $2) $1 $3 }
---  | id '(' seplist(Expr, ',') ')'                   { App    (posn $1) $1 $3 }
+  | Entry                                             { EUTEntry $1 }
+  | 'pre'  '(' Entry ')'                              { EPreEntry $3 }
+  | 'post' '(' Entry ')'                              { EPostEntry $3 }
+  | 'create' id '(' seplist(Expr, ',') ')'            { ECreate (posn $2) (name $2) $4 }
   | Expr '++' Expr                                    { ECat   (posn $2) $1 $3 }
 --  | id '[' Expr '..' Expr ']'                       { ESlice (posn $2) $1 $3 $5 }
   | 'CALLER'                                          { EnvExp (posn $1) Caller }

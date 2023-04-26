@@ -21,7 +21,7 @@ prove that the claims that are being made hold with respect to an implementation
 This document is a high level description of the syntax of
 act specifications.
 For a more formal treatment of the syntax, study the
-definitions of [RefinedAst.hs](https://github.com/ethereum/act/blob/master/src/RefinedAst.hs).
+definitions of [Untyped.hs](https://github.com/ethereum/act/blob/master/src/Untyped.hs).
 
 ## Types
 
@@ -57,7 +57,7 @@ with the signature `add(uint256,uint256)`, and `x` and `y`, will:
 -   return `x + y`      if `0 <= x + y < 2^256`
 -   revert              otherwise
 
-## Contructor
+## Constructor
 
 A `constructor` specification is indicated by the
 `constructor of <contractName>` header, as in:
@@ -101,18 +101,7 @@ creates
   mapping(address => uint) balanceOf :=  [CALLER := _totalSupply]
 ```
 
-### External storage changes (optional)
-
-If the contract creation updates the state of other contracts,
-they should be specified as:
-
-```act
-contract B
-   x => x + 1
-
-contract C
-   y => y - 1
-```
+Storage variables can be either simple ABI types, mappings, or contracts types of contracts that are specified in the same file.
 
 ### Ensures (optional)
 
@@ -172,7 +161,7 @@ iff
   CALLVALUE == 0
 ```
 
-### cases and state updates
+### state updates and returns
 
 Each behaviour must specify the state changes that happens a result of
 a valid call to the method, and its return argument, if any.
@@ -180,8 +169,7 @@ All references to storage variables in `returns` arguments need to
 specify whether they talk about the variable's
 value in the pre- or the poststate, by using `pre(x)` or `post(x)`.
 
-This can be specified in two ways. Either directly, as in:
-
+Example:
 ```act
 
 storage
@@ -192,7 +180,9 @@ storage
 returns post(balanceOf[CALLER])
 ```
 
-or split between a number of cases, as in:
+### cases
+
+State updates and returns can be split between a number of cases, as in:
 
 ```act
 case to == CALLER:
@@ -210,19 +200,6 @@ case to =/= CALLER:
 
 Note that currently, either a `storage` or `returns` section, or both is required in every spec.
 
-### External storage changes (optional)
-
-If the contract method updates the state of other contracts,
-they should be specified as:
-
-```act
-contract B
-   x => x + 1
-
-contract C
-   y => y - 1
-```
-
 ### Ensures (optional)
 
 A list of predicates that should hold over the poststate.
@@ -233,3 +210,56 @@ ensures
 
    x == _x
 ```
+
+## Multiple contracts
+
+Act supports defining multiple contracts in the same file. State variables can have
+contracts types and they can be initiallized by calling the corresponding constructor. 
+The state variables of some contract can be accessed using dot notation `.`.
+
+Example: 
+
+```
+constructor of A
+interface constructor()
+
+creates
+   uint x := 0
+
+constructor of B
+interface constructor()
+
+creates
+   A a := A()
+
+behaviour remote of B
+interface set_a(uint z)
+
+iff
+   CALLVALUE == 0
+
+storage
+   a.x => z
+```
+
+
+
+## Referencing Storage Variables
+
+Storage locations that are read and used in other expressions must be declared in a storage block.
+
+Some examples:
+
+```act
+storage
+  x => y
+  y
+```
+
+```act
+storage
+  x
+  y
+
+returns x + y
+``

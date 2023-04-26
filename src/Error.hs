@@ -32,6 +32,9 @@ type Error e = Validation (NonEmpty (Pn,e))
 throw :: (Pn,e) -> Error e a
 throw msg = Failure [msg]
 
+assert :: (Pn, e) -> Bool -> Error e ()
+assert err b = if b then pure () else throw err
+
 infixr 1 <==<, >==>
 
 -- Like 'Control.Monad.(>=>)' but allows us to chain error-prone

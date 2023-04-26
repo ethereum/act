@@ -477,6 +477,7 @@ parseModel = \case
   SInteger -> _TExp . LitInt  nowhere . read       . parseSMTModel
   SBoolean -> _TExp . LitBool nowhere . readBool   . parseSMTModel
   SByteStr -> _TExp . ByLit   nowhere . fromString . parseSMTModel
+  SContract -> error "unexpected contract type"
   where
     readBool "true" = True
     readBool "false" = False
@@ -586,6 +587,8 @@ expToSMT2 expr = case expr of
   ByLit _ a -> pure $ show a
   ByEnv _ a -> pure $ prettyEnv a
 
+  -- contracts
+  Create _ _ _ _ -> error "contracts not supported"
   -- polymorphic
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
@@ -644,6 +647,7 @@ sType :: ActType -> SMT2
 sType AInteger = "Int"
 sType ABoolean = "Bool"
 sType AByteStr = "String"
+sType AContract = error "contracts not supported"
 
 -- | act -> smt2 type translation
 sType' :: TypedExp -> SMT2
@@ -653,7 +657,12 @@ sType' (TExp t _) = sType $ actType t
 
 -- Construct the smt2 variable name for a given storage item
 nameFromItem :: When -> TStorageItem a -> Id
-nameFromItem whn (Item _ c name _) = c @@ name @@ show whn
+nameFromItem whn (Item _ _ ref) = nameFromStorageRef ref @@ show whn
+
+nameFromStorageRef :: StorageRef -> Id
+nameFromStorageRef (SVar _ c name) = c @@ name
+nameFromStorageRef (SMapping _ e _) = nameFromStorageRef e
+nameFromStorageRef (SField _ _ _) = error "contracts not supported"
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id

@@ -77,6 +77,9 @@ prettyExp e = case e of
   ByLit _ a -> toString a
   ByEnv _ a -> prettyEnv a
 
+  -- contracts
+  Create _ _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
+  
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
   TEntry _ t a -> timeParens t $ prettyItem a
@@ -91,7 +94,6 @@ prettyItem :: TStorageItem a t -> String
 prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
   where
     brackets str = "[" <> str <> "]"
-
 prettyLocation :: StorageLocation t -> String
 prettyLocation (Loc _ item) = prettyItem item
 
@@ -127,17 +129,22 @@ prettyInvPred = prettyExp . untime . fst
     untimeTyped :: TypedExp t -> TypedExp Untimed
     untimeTyped (TExp t e) = TExp t (untime e)
 
+    untimeStorageRef :: StorageRef t -> StorageRef Untimed
+    untimeStorageRef (SVar p c a) = SVar p c a
+    untimeStorageRef (SMapping p e xs) = SMapping p (untimeStorageRef e) (fmap untimeTyped xs)
+    untimeStorageRef (SField p e x) = SField p (untimeStorageRef e) x
+    
     untime :: Exp a t -> Exp a Untimed
     untime e = case e of
       And p a b   -> And p (untime a) (untime b)
       Or p a b    -> Or p (untime a) (untime b)
       Impl p a b  -> Impl p (untime a) (untime b)
-      Eq p t a b    -> Eq p t (untime a) (untime b)
+      Eq p t a b  -> Eq p t (untime a) (untime b)
       LT p a b    -> LT p (untime a) (untime b)
       LEQ p a b   -> LEQ p (untime a) (untime b)
       GT p a b    -> GT p (untime a) (untime b)
       GEQ p a b   -> GEQ p (untime a) (untime b)
-      NEq p t a b   -> NEq p t (untime a) (untime b)
+      NEq p t a b -> NEq p t (untime a) (untime b)
       Neg p a     -> Neg p (untime a)
       Add p a b   -> Add p (untime a) (untime b)
       Sub p a b   -> Sub p (untime a) (untime b)
@@ -154,9 +161,11 @@ prettyInvPred = prettyExp . untime . fst
       UIntMin p a -> UIntMin p a
       UIntMax p a -> UIntMax p a
       LitBool p a -> LitBool p a
+      Create p t f xs -> Create p t f (fmap untimeTyped xs)
       IntEnv p a  -> IntEnv p a
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
-      TEntry p _ (Item t a b c) -> TEntry p Neither (Item t a b (fmap untimeTyped c))
+      TEntry p _ (Item t vt a) -> TEntry p Neither (Item t vt (untimeStorageRef a))
       Var p t a -> Var p t a
+             
