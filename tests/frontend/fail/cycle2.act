@@ -35,7 +35,7 @@ interface constructor(uint u)
 
 creates
    B b := B(u)
-
+   A a := A()
 
 constructor of D
 interface constructor()
