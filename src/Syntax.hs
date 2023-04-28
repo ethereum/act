@@ -149,7 +149,7 @@ callsFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Call _ _ f es -> [f] <> concatMap callsFromTypedExp es
+      Create _ _ f es -> [f] <> concatMap callsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> callsFromItem a
       Var {} -> []
