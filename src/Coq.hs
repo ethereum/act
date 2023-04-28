@@ -43,6 +43,7 @@ header = T.unlines
 -- | produce a coq representation of a specification
 coq :: Act -> T.Text
 coq (Act store contracts) =
+<<<<<<< HEAD
 
   header
   <> stateRecord <> "\n\n"
@@ -62,6 +63,23 @@ coq (Act store contracts) =
 
   groups = groupBy (\b b' -> _name b == _name b')
   cgroups = groupBy (\b b' -> _cname b == _cname b')
+=======
+  T.intercalate "\n\n" $ contractCode store <$> contracts
+
+contractCode :: Store -> Contract -> T.Text
+contractCode store (Contract ctor@Ctor{..} behvs) =
+  "Module " <> _cname <> ".\n" 
+  <> stateRecord
+  <> block (evalSeq (claim store) <$> behvs)
+  <> block (evalSeq retVal         <$> behvs)
+  <> reachable ctor behvs
+  <> "End " <> _cname <> "." 
+
+  where 
+  store' = case M.lookup cid of
+             Just s -> s
+             Nothing -> error "Internal error: constructor not found"
+>>>>>>> c3fcb01 (coq: wip in multiple contracts)
 
   block xs = T.intercalate "\n\n" (concat xs) <> "\n\n"
 
@@ -74,13 +92,13 @@ coq (Act store contracts) =
 
 
 -- | inductive definition of reachable states
-reachable :: [[Constructor]] -> [[Behaviour]] -> T.Text
-reachable constructors groups = inductive
+reachable :: Constructor -> [Behaviour] -> T.Text
+reachable constructors behvs = inductive
   reachableType "" (stateType <> " -> " <> stateType <> " -> Prop") body where
   body = concat $
-    (evalSeq baseCase <$> constructors)
+    (eval baseCase constructor)
     <>
-    (evalSeq reachableStep <$> groups)
+    (evalSeq reachableStep <$> behvs)
 
 -- | non-recursive constructor for the reachable relation
 baseCase :: Constructor -> Fresh T.Text
@@ -171,7 +189,13 @@ updateVar :: [StorageUpdate]
           -> (Id -> SlotType -> T.Text)
           -> (Id, SlotType)
           -> T.Text
-updateVar updates handler (name, t@(StorageValue _)) =
+updateVar updates handler (name, t@(StorageValue (PrimitiveType _))) =
+  parens $ foldl updatedVal (handler name t) (filter (eqName name) updates)
+    where
+      updatedVal _ (Update SByteStr _ _) = error "bytestrings not supported"
+      updatedVal _ (Update _ _ e) = coqexp e
+
+updateVar updates handler (name, t@(StorageValue (ContractType _))) =
   parens $ foldl updatedVal (handler name t) (filter (eqName name) updates)
     where
       updatedVal _ (Update SByteStr _ _) = error "bytestrings not supported"
@@ -220,7 +244,7 @@ slotType (StorageValue val) = valueType val
 
 valueType :: ValueType -> T.Text
 valueType (PrimitiveType t) = abiType t
-valueType (ContractType _) = error "TODO: implement contract types in Coq"
+valueType (ContractType _) = id <> "." <> "State" -- the type of a contract is its state record
 
 -- | coq syntax for an abi type
 abiType :: AbiType -> T.Text
@@ -235,7 +259,7 @@ returnType :: TypedExp -> T.Text
 returnType (TExp SInteger _) = "Z"
 returnType (TExp SBoolean _) = "bool"
 returnType (TExp SByteStr _) = error "bytestrings not supported"
-returnType (TExp SContract _) = error "contracts not supported"
+returnType (TExp SContract _) = error "Internal error: return type cannot be contract"
 
 -- | default value for a given type
 -- this is used in cases where a value is not set in the constructor
@@ -247,9 +271,11 @@ defaultSlotValue (StorageMapping xs t) =
   <> defaultVal t
 defaultSlotValue (StorageValue t) = defaultVal t
 
-defaultVal :: ValueType -> T.Text
-defaultVal (PrimitiveType t) = abiVal t
-defaultVal (ContractType _) = error "TODO: implement contract types in Coq"
+defaultVal :: Store -> ValueType -> T.Text
+defaultVal _ (PrimitiveType t) = abiVal t
+defaultVal store (ContractType id) =
+  parens $ stateConstructor <> T.unwords (map (defaultVal store . snd) (M.toList store'))
+
 
 abiVal :: AbiType -> T.Text
 abiVal (AbiUIntType _) = "0"
@@ -303,7 +329,9 @@ coqexp (ITE _ b e1 e2) = parens $ "if "
 -- Relies on the assumption that Coq record fields have the same name
 -- as the corresponding Haskell constructor
 coqexp (IntEnv _ envVal) = parens (T.pack (show envVal) <> " " <> envVar)
-
+-- Contracts
+coqexp (Var _ SContract _) = T.pack name
+coqexp (Create _ (SContract _) cid args) = cid <> "." <> cid <> " " <> coqargs args
 -- unsupported
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
@@ -311,8 +339,6 @@ coqexp (Var _ SByteStr _) = error "bytestrings not supported"
 coqexp ByStr {} = error "bytestrings not supported"
 coqexp ByLit {} = error "bytestrings not supported"
 coqexp ByEnv {} = error "bytestrings not supported"
-coqexp Create {} = error "contracts not supported"
-coqexp (Var _ SContract _) = error "contracts not supported"
 
 -- | coq syntax for a proposition
 coqprop :: Exp a -> T.Text
@@ -337,14 +363,16 @@ typedexp (TExp _ e) = coqexp e
 entry :: TStorageItem a -> When -> T.Text
 entry (Item SByteStr _ _) _ = error "bytestrings not supported"
 entry _ Post = error "TODO: missing support for poststate references in coq backend"
-entry item _ = case ixsFromItem item of
-  []       -> parens $ T.pack (idFromItem item) <> " " <> stateVar
-  (ix:ixs) -> parens $ T.pack (idFromItem item) <> " " <> stateVar <> " " <> coqargs (ix :| ixs)
+entry (Item _ _ ref) = storageRef ref
 
+storegeRef :: StorageRef -> T.Text
+storageRef (SVar _ cid id) = parens $ T.pack (idFromItem item) <> " " <> stateVar
+storageRef (SMapping _ ref ixs) = parens $  storageRef ref " " <> coqargs ixs
+storageRef (SField _ ref id) = parens $ id <> " " <> storageRef ref 
+  
 -- | coq syntax for a list of arguments
-coqargs :: NonEmpty TypedExp -> T.Text
-coqargs (e :| es) =
-  typedexp e <> " " <> T.unwords (map typedexp es)
+coqargs :: [TypedExp] -> T.Text
+coqargs es = T.unwords (map typedexp es)
 
 fresh :: Id -> Fresh T.Text
 fresh name = state $ \s -> (T.pack (name <> show s), s + 1)
