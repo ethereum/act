@@ -11,27 +11,22 @@ import Syntax.Annotated
 import Type (bound, defaultStore)
 
 -- | Adds extra preconditions to non constructor behaviours based on the types of their variables
-enrich :: [Claim] -> [Claim]
-enrich claims = [S store]
-                <> (I <$> ((\i -> enrichInvariant (definition i) i) <$> invariants))
-                <> (C <$> (enrichConstructor <$> constructors))
-                <> (B <$> (enrichBehaviour <$> behaviours))
+enrich :: Act -> Act
+enrich (Act store contracts) = Act store (enrichContract <$> contracts)
   where
-    store = head [s | S s <- claims]
-    behaviours = [b | B b <- claims]
-    invariants = [i | I i <- claims]
-    constructors = [c | C c <- claims]
-    definition (Invariant c _ _ _) = head [c' | c' <- constructors, _cmode c' == Pass, _cname c' == c]
+    enrichContract (Contract ctors behvs) = Contract (enrichConstructor <$> ctors) (enrichBehaviour <$> behvs)
 
 -- |Adds type bounds for calldata , environment vars, and external storage vars as preconditions
 enrichConstructor :: Constructor -> Constructor
-enrichConstructor ctor@(Constructor _ _ (Interface _ decls) pre _ _ storageUpdates) =
-  ctor { _cpreconditions = pre' }
+enrichConstructor ctor@(Constructor _ _ (Interface _ decls) pre _ invs _ storageUpdates) =
+  ctor { _cpreconditions = pre'
+       , _invariants = invs' }
     where
       pre' = pre
              <> mkCallDataBounds decls
              <> mkStorageBounds storageUpdates
              <> mkEthEnvBounds (ethEnvFromConstructor ctor)
+      invs' = enrichInvariant ctor <$> invs
 
 -- | Adds type bounds for calldata, environment vars, and storage vars as preconditions
 enrichBehaviour :: Behaviour -> Behaviour
@@ -45,7 +40,7 @@ enrichBehaviour behv@(Behaviour _ _ _ (Interface _ decls) pre _ stateUpdates _) 
 
 -- | Adds type bounds for calldata, environment vars, and storage vars
 enrichInvariant :: Constructor -> Invariant -> Invariant
-enrichInvariant (Constructor _ _ (Interface _ decls) _ _ _ _) inv@(Invariant _ preconds storagebounds (predicate,_)) =
+enrichInvariant (Constructor _ _ (Interface _ decls) _ _ _ _ _) inv@(Invariant _ preconds storagebounds (predicate,_)) =
   inv { _ipreconditions = preconds', _istoragebounds = storagebounds' }
     where
       preconds' = preconds

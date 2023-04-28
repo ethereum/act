@@ -10,21 +10,23 @@ import Data.List (intercalate)
 import Data.List.NonEmpty (toList, NonEmpty)
 
 import EVM.ABI (AbiType)
-
 import Lex
 
 type Pn = AlexPosn
 
 type Id = String
 
-newtype Act = Main [RawBehaviour]
+newtype Act = Main [Contract]
   deriving (Eq, Show)
 
-data RawBehaviour
-  = Transition Pn Id Id Interface [IffH] Cases Ensures
-  | Definition Pn Id Interface [IffH] Creates Ensures Invariants
+data Contract = Contract Definition [Transition]
   deriving (Eq, Show)
 
+data Definition = Definition Pn Id Interface [IffH] Creates Ensures Invariants
+  deriving (Eq, Show)
+
+data Transition = Transition Pn Id Id Interface [IffH] Cases Ensures
+  deriving (Eq, Show)
 
 type Ensures = [Expr]
 

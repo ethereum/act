@@ -4,6 +4,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
+{-# Language RecordWildCards #-}
 
 module SMT (
   Solver(..),
@@ -15,6 +16,7 @@ module SMT (
   sendLines,
   runQuery,
   mkPostconditionQueries,
+  mkPostconditionQueriesBehv,
   mkInvariantQueries,
   target,
   getQueryContract,
@@ -94,6 +96,11 @@ instance Pretty SMTExp where
       environment = text ";ENVIRONMENT" <$$> (vsep . (fmap text) . nubOrd . _environment $ e) <> line
       assertions = text ";ASSERTIONS:" <$$> (vsep . (fmap text) . nubOrd . _assertions $ e) <> line
 
+data Transition
+  = Behv Behaviour
+  | Ctor Constructor
+  deriving (Show)
+
 -- | A Query is a structured representation of an SMT query for an individual
 --   expression, along with the metadata needed to extract a model from a satisfiable query
 data Query
@@ -162,8 +169,14 @@ data SolverInstance = SolverInstance
 --    - Asserts that storage has been updated according to the rewrites in the behaviour
 --    - Asserts that the postcondition cannot be reached
 --   If this query is unsatisfiable, then there exists no case where the postcondition can be violated.
-mkPostconditionQueries :: Claim -> [Query]
-mkPostconditionQueries (B behv@(Behaviour _ Pass _ (Interface ifaceName decls) preconds postconds stateUpdates _)) = mkQuery <$> postconds
+mkPostconditionQueries :: Act -> [Query]
+mkPostconditionQueries (Act _ contr) = concatMap mkPostconditionQueriesContract contr
+  where
+    mkPostconditionQueriesContract (Contract constr behvs) =
+      concatMap mkPostconditionQueriesConstr constr <> concatMap mkPostconditionQueriesBehv behvs
+
+mkPostconditionQueriesBehv :: Behaviour -> [Query]
+mkPostconditionQueriesBehv behv@(Behaviour _ Pass _ (Interface ifaceName decls) preconds postconds stateUpdates _) = mkQuery <$> postconds
   where
     -- declare vars
     storage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
@@ -181,7 +194,11 @@ mkPostconditionQueries (B behv@(Behaviour _ Pass _ (Interface ifaceName decls) p
       , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> updates
       }
     mkQuery e = Postcondition (Behv behv) e (mksmt e)
-mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName decls) preconds postconds initialStorage stateUpdates)) = mkQuery <$> postconds
+
+mkPostconditionQueriesBehv _ = []
+
+mkPostconditionQueriesConstr :: Constructor -> [Query]
+mkPostconditionQueriesConstr constructor@(Constructor _ Pass (Interface ifaceName decls) preconds postconds _ initialStorage stateUpdates) = mkQuery <$> postconds
   where
     -- declare vars
     localStorage = declareInitialStorage <$> initialStorage
@@ -201,7 +218,8 @@ mkPostconditionQueries (C constructor@(Constructor _ Pass (Interface ifaceName d
       , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> updates <> initialStorage'
       }
     mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
-mkPostconditionQueries _ = []
+
+mkPostconditionQueriesConstr _ = []
 
 -- | For each invariant in the list of input claims, we first gather all the
 --   specs relevant to that invariant (i.e. the constructor for that contract,
@@ -221,19 +239,20 @@ mkPostconditionQueries _ = []
 --
 --   If all of the queries return `unsat` then we have an inductive proof that
 --   the invariant holds for all possible contract states.
-mkInvariantQueries :: [Claim] -> [Query]
-mkInvariantQueries claims = fmap mkQuery gathered
+mkInvariantQueries :: Act -> [Query]
+mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
   where
     mkQuery (inv, ctor, behvs) = Inv inv (mkInit inv ctor) (fmap (mkBehv inv ctor) behvs)
-    gathered = fmap (\inv -> (inv, getConstructor inv, getBehaviours inv)) [i | I i <- claims]
+    gathered = concatMap getInvariants contracts
 
-    getBehaviours (Invariant c _ _ _) = [b | B b <- claims, matchBehaviour c b]
-    getConstructor (Invariant c _ _ _) = head [c' | C c' <- claims, matchConstructor c c']
-    matchBehaviour contract behv = (_mode behv) == Pass && (_contract behv) == contract
-    matchConstructor contract defn = _cmode defn == Pass && _cname defn == contract
+    getInvariants (Contract ctors behvs) = case filter matchConstructor ctors of
+      c@Constructor{..}:_ -> fmap (\i -> (i, c, behvs)) _invariants
+      _ -> []
+
+    matchConstructor defn = _cmode defn == Pass
 
     mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
-    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ _ (Interface ifaceName decls) preconds _ initialStorage stateUpdates) = (ctor, smt)
+    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ _ (Interface ifaceName decls) preconds _ _ initialStorage stateUpdates) = (ctor, smt)
       where
         -- declare vars
         localStorage = declareInitialStorage <$> initialStorage

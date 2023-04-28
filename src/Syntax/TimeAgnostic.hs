@@ -50,22 +50,13 @@ import Syntax.Timing  as Syntax.TimeAgnostic
 import Syntax.Untyped as Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..))
 
 -- AST post typechecking
-data Claim t
-  = C (Constructor t)
-  | B (Behaviour t)
-  | I (Invariant t)
-  | S Store
-deriving instance Show (InvariantPred t) => Show (Claim t)
-deriving instance Eq   (InvariantPred t) => Eq   (Claim t)
+data Act t = Act Store [Contract t]
+deriving instance Show (InvariantPred t) => Show (Act t)
+deriving instance Eq   (InvariantPred t) => Eq   (Act t)
 
-
--- TODO maybe enforce this structure to Act programs
--- Store * [Contract of (C, [B], [I],)]
-
-data Transition t
-  = Ctor (Constructor t)
-  | Behv (Behaviour t)
-  deriving (Show, Eq)
+data Contract t = Contract [Constructor t] [Behaviour t]
+deriving instance Show (InvariantPred t) => Show (Contract t)
+deriving instance Eq   (InvariantPred t) => Eq   (Contract t)
 
 type Store = Map Id (Map Id SlotType)
 
@@ -105,9 +96,13 @@ data Constructor t = Constructor
   , _cinterface :: Interface
   , _cpreconditions :: [Exp ABoolean t]
   , _cpostconditions :: [Exp ABoolean Timed]
+  , _invariants :: [Invariant t]
   , _initialStorage :: [StorageUpdate t]
   , _cstateUpdates :: [Rewrite t]
-  } deriving (Show, Eq)
+  }
+deriving instance Show (InvariantPred t) => Show (Constructor t)
+deriving instance Eq   (InvariantPred t) => Eq   (Constructor t)
+
 
 data Behaviour t = Behaviour
   { _name :: Id
@@ -353,38 +348,50 @@ instance Timable StorageRef where
 -- TODO dual instances are ugly! But at least it works for now.
 -- It was difficult to construct a function with type:
 -- `InvPredicate t -> Either (Exp Bool Timed,Exp Bool Timed) (Exp Bool Untimed)`
-instance ToJSON (Claim Timed) where
-  toJSON (S storages)          = storeJSON storages
-  toJSON (I inv@Invariant{..}) = invariantJSON inv _predicate
-  toJSON (C ctor)              = toJSON ctor
-  toJSON (B behv)              = toJSON behv
+instance ToJSON (Act Timed) where
+  toJSON (Act storages contracts) = object [ "kind" .= String "Program"
+                                           , "store" .= storeJSON storages
+                                           , "contracts" .= toJSON contracts ]
 
-instance ToJSON (Claim Untimed) where
-  toJSON (S storages)          = storeJSON storages
-  toJSON (I inv@Invariant{..}) = invariantJSON inv _predicate
-  toJSON (C ctor)              = toJSON ctor
-  toJSON (B behv)              = toJSON behv
+instance ToJSON (Act Untimed) where
+  toJSON (Act storages contracts) = object [ "kind" .= String "Program"
+                                           , "store" .= storeJSON storages
+                                           , "contracts" .= toJSON contracts ]
+
+instance ToJSON (Contract Timed) where
+  toJSON (Contract ctor behv) = object [ "kind" .= String "Contract"
+                                           , "constructor" .= toJSON ctor
+                                           , "behaviors" .= toJSON behv ]
+
+instance ToJSON (Contract Untimed) where
+  toJSON (Contract ctor behv) = object [ "kind" .= String "Contract"
+                                           , "constructor" .= toJSON ctor
+                                           , "behaviors" .= toJSON behv ]
+
 
 storeJSON :: Store -> Value
 storeJSON storages = object [ "kind" .= String "Storages"
                             , "storages" .= toJSON storages]
 
-invariantJSON :: ToJSON pred => Invariant t -> pred -> Value
-invariantJSON Invariant{..} predicate = object [ "kind" .= String "Invariant"
-                                               , "predicate" .= toJSON predicate
-                                               , "preconditions" .= toJSON _ipreconditions
-                                               , "storagebounds" .= toJSON _istoragebounds
-                                               , "contract" .= _icontract]
-
-instance ToJSON (Constructor t) where
+instance ToJSON (Constructor Timed) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
                                   , "contract" .= _cname
                                   , "mode" .= (String . pack $ show _cmode)
                                   , "interface" .= (String . pack $ show _cinterface)
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
-                                  , "storage" .= toJSON _initialStorage
-                                  ]
+                                  , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) _invariants
+                                  , "storage" .= toJSON _initialStorage  ]
+
+instance ToJSON (Constructor Untimed) where
+  toJSON Constructor{..} = object [ "kind" .= String "Constructor"
+                                  , "contract" .= _cname
+                                  , "mode" .= (String . pack $ show _cmode)
+                                  , "interface" .= (String . pack $ show _cinterface)
+                                  , "preConditions" .= toJSON _cpreconditions
+                                  , "postConditions" .= toJSON _cpostconditions
+                                  , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) _invariants
+                                  , "storage" .= toJSON _initialStorage  ]
 
 instance ToJSON (Behaviour t) where
   toJSON Behaviour{..} = object [ "kind" .= String "Behaviour"
@@ -395,7 +402,14 @@ instance ToJSON (Behaviour t) where
                                 , "preConditions" .= toJSON _preconditions
                                 , "postConditions" .= toJSON _postconditions
                                 , "stateUpdates" .= toJSON _stateUpdates
-                                , "returns" .= toJSON _returns]
+                                , "returns" .= toJSON _returns ]
+
+invariantJSON :: ToJSON pred => Invariant t -> pred -> Value
+invariantJSON Invariant{..} predicate = object [ "kind" .= String "Invariant"
+                                               , "predicate" .= toJSON predicate
+                                               , "preconditions" .= toJSON _ipreconditions
+                                               , "storagebounds" .= toJSON _istoragebounds
+                                               , "contract" .= _icontract ]
 
 instance ToJSON (Rewrite t) where
   toJSON (Constant a) = object [ "Constant" .= toJSON a ]

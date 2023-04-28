@@ -1,5 +1,66 @@
-[
-  {
+{
+  "kind": "Program",
+  "contracts": [
+    {
+      "behaviors": [],
+      "kind": "Contract",
+      "constructor": [
+        {
+          "kind": "Constructor",
+          "mode": "Pass",
+          "storage": [
+            {
+              "location": {
+                "sort": "int",
+                "item": {
+                  "var": "Modest.x"
+                }
+              },
+              "value": "1"
+            },
+            {
+              "location": {
+                "sort": "int",
+                "item": {
+                  "var": "Modest.y"
+                }
+              },
+              "value": "Caller"
+            }
+          ],
+          "preConditions": [
+            {
+              "arity": 2,
+              "args": [
+                {
+                  "arity": 2,
+                  "args": [
+                    "0",
+                    "Caller"
+                  ],
+                  "symbol": "<="
+                },
+                {
+                  "arity": 2,
+                  "args": [
+                    "Caller",
+                    "1461501637330902918203684832716283019655932542975"
+                  ],
+                  "symbol": "<="
+                }
+              ],
+              "symbol": "and"
+            }
+          ],
+          "contract": "Modest",
+          "interface": "constructor()",
+          "postConditions": [],
+          "invariants": []
+        }
+      ]
+    }
+  ],
+  "store": {
     "storages": {
       "Modest": {
         "x": {
@@ -11,56 +72,5 @@
       }
     },
     "kind": "Storages"
-  },
-  {
-    "kind": "Constructor",
-    "mode": "Pass",
-    "storage": [
-      {
-        "location": {
-          "sort": "int",
-          "item": {
-            "var": "Modest.x"
-          }
-        },
-        "value": "1"
-      },
-      {
-        "location": {
-          "sort": "int",
-          "item": {
-            "var": "Modest.y"
-          }
-        },
-        "value": "Caller"
-      }
-    ],
-    "preConditions": [
-      {
-        "arity": 2,
-        "args": [
-          {
-            "arity": 2,
-            "args": [
-              "0",
-              "Caller"
-            ],
-            "symbol": "<="
-          },
-          {
-            "arity": 2,
-            "args": [
-              "Caller",
-              "1461501637330902918203684832716283019655932542975"
-            ],
-            "symbol": "<="
-          }
-        ],
-        "symbol": "and"
-      }
-    ],
-    "contract": "Modest",
-    "interface": "constructor()",
-    "postConditions": []
   }
-]
+}

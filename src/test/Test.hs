@@ -18,7 +18,7 @@ import Control.Monad.Trans
 import Control.Monad.Reader
 import Data.Maybe (isNothing)
 import qualified Data.Set as Set
-import qualified Data.Map as Map (empty)
+import Data.Map (fromList)
 
 import CLI (compile)
 import Error
@@ -53,13 +53,10 @@ main = defaultMain $ testGroup "act"
          fail spec is also checked.
       -}
       [ testProperty "roundtrip" . withExponents $ do
-          behv@(Behaviour name _ contract iface preconds _ _ _) <- sized genBehv
+          behv@(Behaviour _ _ contract _ preconds _ _ _) <- sized genBehv
           let actual = compile $ prettyBehaviour behv
-              expected = if null preconds then
-                  [ S Map.empty, B behv ]
-                else
-                  [ S Map.empty, B behv
-                  , B $ Behaviour name Fail contract iface [Neg nowhere $ mconcat preconds] [] [] Nothing ]
+              expected = Act (defaultStore contract)
+                [Contract [defaultCtor contract] $ if null preconds then [behv] else [behv, failBehv behv]]
           return $ case actual of
             Success a -> a === expected
             Failure _ -> property False
@@ -71,11 +68,23 @@ main = defaultMain $ testGroup "act"
       ]
   ]
 
+
+failBehv :: Behaviour -> Behaviour
+failBehv (Behaviour name _ contract iface preconds _ _ _) =
+  Behaviour name Fail contract iface [Neg nowhere $ mconcat preconds] [] [] Nothing
+
+defaultStore :: Id -> Store
+defaultStore c = fromList [(c,fromList [])]
+
+defaultCtor :: Id -> Constructor
+defaultCtor c = Constructor {_cname = c, _cmode = Pass, _cinterface = Interface "constructor" [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = [], _cstateUpdates = []}
+
+
 typeCheckSMT :: Solver -> GenT (Reader Bool) Property
 typeCheckSMT solver = do
   behv <- genBehv 3
   let smtconf = SMTConfig solver 1 False
-      smt = mkPostconditionQueries (B behv)
+      smt = mkPostconditionQueriesBehv behv
   pure . monadicIO . run $ runQueries smtconf smt
     where
       runQueries smtconf queries = do
@@ -271,7 +280,7 @@ ident = liftM2 (<>) (listOf1 (elements chars)) (listOf (elements $ chars <> digi
 traceb :: Behaviour -> Behaviour
 traceb b = trace (prettyBehaviour b) b
 
-tracec :: String -> [Claim] -> [Claim]
+tracec :: String -> Act -> Act
 tracec msg cs = trace ("\n" <> msg <> "\n\n" <> unpack (pShow cs)) cs
 
 trace' :: Show a => a -> a

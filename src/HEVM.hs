@@ -11,7 +11,7 @@ module HEVM where
 import Prelude hiding (lookup, GT, LT)
 
 import Syntax
-import Syntax.Annotated as Annotated hiding (S)
+import Syntax.Annotated as Annotated
 
 import Data.ByteString.UTF8 (toString)
 import Data.Text (Text, pack, splitOn)

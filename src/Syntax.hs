@@ -16,7 +16,7 @@ import Data.Map (Map,empty,insertWith,unionsWith,unionWith,singleton)
 
 import Syntax.TimeAgnostic as Agnostic
 import qualified Syntax.Annotated as Annotated
-import           Syntax.Untyped hiding (Constant,Rewrite)
+import           Syntax.Untyped hiding (Constant,Rewrite,Contract)
 import qualified Syntax.Untyped as Untyped
 
 -----------------------------------------
@@ -35,18 +35,30 @@ locsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub 
   <> maybe [] locsFromTypedExp returns
 
 locsFromConstructor :: Annotated.Constructor -> [Annotated.StorageLocation]
-locsFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
+locsFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
   concatMap locsFromExp pre
   <> concatMap locsFromExp post
+  <> concatMap locsFromInvariant inv
   <> concatMap locsFromRewrite rewrites
   <> concatMap locsFromRewrite (Rewrite <$> initialStorage)
+
+locsFromInvariant :: Annotated.Invariant -> [Annotated.StorageLocation]
+locsFromInvariant (Invariant _ pre bounds (predpre, predpost)) =
+  concatMap locsFromExp pre <>  concatMap locsFromExp bounds <>
+  locsFromExp predpre <> locsFromExp predpost
 
 ------------------------------------
 -- * Extract from any typed AST * --
 ------------------------------------
 
-behvsFromClaims :: [Claim t] -> [Behaviour t]
-behvsFromClaims claims = [b | B b <- claims]
+behvsFromAct :: Agnostic.Act t -> [Behaviour t]
+behvsFromAct (Act _ contracts) = behvsFromContracts contracts
+
+behvsFromContracts :: [Contract t] -> [Behaviour t]
+behvsFromContracts contracts = concatMap (\(Contract _ b) -> b) contracts
+
+constrFromContracts :: [Contract t] -> [Constructor t]
+constrFromContracts contracts = concatMap (\(Contract c _) -> c) contracts
 
 locsFromRewrite :: Rewrite t -> [StorageLocation t]
 locsFromRewrite update = nub $ case update of
@@ -60,7 +72,7 @@ locFromUpdate :: StorageUpdate t -> StorageLocation t
 locFromUpdate (Update _ item _) = _Loc item
 
 locsFromItem :: TStorageItem a t -> [StorageLocation t]
-locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
+locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)  
 
 locsFromTypedExp :: TypedExp t -> [StorageLocation t]
 locsFromTypedExp (TExp _ e) = locsFromExp e
@@ -110,12 +122,18 @@ ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nu
   <> concatMap ethEnvFromRewrite rewrites
   <> maybe [] ethEnvFromTypedExp returns
 
-ethEnvFromConstructor :: Constructor t -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ _ pre post initialStorage rewrites) = nub $
+ethEnvFromConstructor :: Annotated.Constructor -> [EthEnv]
+ethEnvFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
   concatMap ethEnvFromExp pre
   <> concatMap ethEnvFromExp post
+  <> concatMap ethEnvFromInvariant inv
   <> concatMap ethEnvFromRewrite rewrites
   <> concatMap ethEnvFromRewrite (Rewrite <$> initialStorage)
+
+ethEnvFromInvariant :: Annotated.Invariant -> [EthEnv]
+ethEnvFromInvariant (Invariant _ pre bounds (predpre, predpost)) =
+  concatMap ethEnvFromExp pre <>  concatMap ethEnvFromExp bounds <>
+  ethEnvFromExp predpre <> ethEnvFromExp predpost
 
 ethEnvFromRewrite :: Rewrite t -> [EthEnv]
 ethEnvFromRewrite rewrite = case rewrite of

@@ -41,24 +41,24 @@ header = T.unlines
   ]
 
 -- | produce a coq representation of a specification
-coq :: [Claim] -> T.Text
-coq claims =
+coq :: Act -> T.Text
+coq (Act store contracts) =
 
   header
   <> stateRecord <> "\n\n"
-  <> block (evalSeq (claim store') <$> groups behaviours)
-  <> block (evalSeq retVal        <$> groups behaviours)
+  <> block (evalSeq (claim store') <$> groups behaviours')
+  <> block (evalSeq retVal        <$> groups behaviours')
   <> block (evalSeq (base store')  <$> cgroups constructors)
-  <> reachable (cgroups constructors) (groups behaviours)
+  <> reachable (cgroups constructors) (groups behaviours')
 
   where
 
   -- currently only supports one contract
-  store' = snd $ head $ M.toList $ head [s | S s <- claims]
+  store' = snd $ head $ M.toList $ store
 
-  behaviours = filter ((== Pass) . _mode) [a | B a <- claims]
+  behaviours' = filter ((== Pass) . _mode) $ behvsFromContracts contracts
 
-  constructors = filter ((== Pass) . _cmode) [c | C c <- claims]
+  constructors = filter ((== Pass) . _cmode) $ constrFromContracts contracts
 
   groups = groupBy (\b b' -> _name b == _name b')
   cgroups = groupBy (\b b' -> _cname b == _cname b')
@@ -73,7 +73,6 @@ coq claims =
     decl (n, s) = (T.pack n) <> " : " <> slotType s
 
 
-
 -- | inductive definition of reachable states
 reachable :: [[Constructor]] -> [[Behaviour]] -> T.Text
 reachable constructors groups = inductive
@@ -85,7 +84,7 @@ reachable constructors groups = inductive
 
 -- | non-recursive constructor for the reachable relation
 baseCase :: Constructor -> Fresh T.Text
-baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _) =
+baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _ _) =
   fresh name >>= continuation where
   continuation name' =
     return $ name'
@@ -124,7 +123,7 @@ reachableStep (Behaviour name _ _ i conds _ _ _) =
 
 -- | definition of a base state
 base :: Store -> Constructor -> Fresh T.Text
-base store (Constructor name _ i _ _ updates _) = do
+base store (Constructor name _ i _ _ _ updates _) = do
   name' <- fresh name
   return $ definition name' (envDecl <> " " <> interface i) $
     stateval store (\_ t -> defaultSlotValue t) updates

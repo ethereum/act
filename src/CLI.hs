@@ -162,7 +162,7 @@ prove file' solver' smttimeout' debug' = do
           smt = if debug' then line <> getSMT query else empty
 
     solverInstance <- spawnSolver config
-    pcResults <- mapM (runQuery solverInstance) (concatMap mkPostconditionQueries claims)
+    pcResults <- mapM (runQuery solverInstance) (mkPostconditionQueries claims)
     invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
     stopSolver solverInstance
 
@@ -195,7 +195,7 @@ k spec' soljson' gas' storage' extractbin' out' = do
   solContents  <- readFile soljson'
   let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
       errKSpecs = do
-        behvs <- toEither $ behvsFromClaims . enrich <$> compile specContents
+        behvs <- toEither $ behvsFromAct . enrich <$> compile specContents
         (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
                               (Solidity.readJSON . pack) solContents
         for behvs (makekSpec sources kOpts) ^. revalidate
@@ -209,7 +209,7 @@ hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
 hevm spec' soljson' solver' smttimeout' smtdebug' = do
   specContents <- readFile spec'
   solContents  <- readFile soljson'
-  let preprocess = do behvs <- behvsFromClaims . enrich <$> compile specContents
+  let preprocess = do behvs <- behvsFromAct . enrich <$> compile specContents
                       (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
                         (Solidity.readJSON . pack) solContents
                       pure (behvs, sources)
@@ -264,8 +264,8 @@ runSMTWithTimeOut solver' maybeTimeout debug' sym
 proceed :: Validate err => String -> err (NonEmpty (Pn, String)) a -> (a -> IO ()) -> IO ()
 proceed contents comp continue = validation (prettyErrs contents) continue (comp ^. revalidate)
 
-compile :: String -> Error String [Claim]
-compile = pure . fmap annotate <==< typecheck <==< parse . lexer
+compile :: String -> Error String Act
+compile = pure . annotate <==< typecheck <==< parse . lexer
 
 prettyErrs :: Traversable t => String -> t (Pn, String) -> IO ()
 prettyErrs contents errs = mapM_ prettyErr errs >> exitFailure
