@@ -28,7 +28,6 @@ import Syntax
 import Syntax.Annotated hiding (Store)
 
 type Store = M.Map Id SlotType
-type Fresh = State Int
 
 header :: T.Text
 header = T.unlines
@@ -49,8 +48,8 @@ contractCode :: Store -> Contract -> T.Text
 contractCode store (Contract ctor@Ctor{..} behvs) =
   "Module " <> _cname <> ".\n" 
   <> stateRecord
-  <> block (evalSeq (claim store) <$> behvs)
-  <> block (evalSeq retVal         <$> behvs)
+  <> block (claim store <$> behvs)
+  <> block (retVal <$> behvs)
   <> reachable ctor behvs
   <> "End " <> _cname <> "." 
 
@@ -76,17 +75,13 @@ reachable constructors behvs = inductive
   body = concat $
     (eval baseCase constructor)
     <>
-    (evalSeq reachableStep <$> behvs)
+    (reachableStep <$> behvs)
 
 -- | non-recursive constructor for the reachable relation
-baseCase :: Constructor -> Fresh T.Text
-baseCase (Constructor name i@(Interface _ decls) conds _ _ _ _) =
-  fresh name >>= continuation where
-  continuation name' =
-    return $ name'
-      <> baseSuffix <> " : "
-      <> universal <> "\n"
-      <> constructorBody where
+baseCase :: Constructor -> T.Text
+baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _ _) =
+  return $ name <> baseSuffix <> " : " <> universal <> "\n" <> constructorBody
+  where
     baseval = parens $ name' <> " " <> envVar <> " " <> arguments i
     constructorBody = (indent 2) . implication . concat $
       [ coqprop <$> conds
@@ -99,16 +94,14 @@ baseCase (Constructor name i@(Interface _ decls) conds _ _ _ _) =
        else interface i) <> ","
 
 -- | recursive constructor for the reachable relation
-reachableStep :: Behaviour -> Fresh T.Text
-reachableStep (Behaviour name _ i conds cases _ _ _) =
-  fresh name >>= continuation where
-  continuation name' =
-    return $ name'
-      <> stepSuffix <> " : forall "
-      <> envDecl <> " "
-      <> parens (baseVar <> " " <> stateVar <> " : " <> stateType) <> " "
-      <> interface i <> ",\n"
-      <> constructorBody where
+reachableStep :: Behaviour -> T.Text
+reachableStep (Behaviour name _ _ i conds _ _ _) =
+  name <> stepSuffix <> " : forall "
+  <> envDecl <> " "
+  <> parens (baseVar <> " " <> stateVar <> " : " <> stateType) <> " "
+  <> interface i <> ",\n"
+  <> constructorBody
+  where
     constructorBody = (indent 2) . implication . concat $
       [ [reachableType <> " " <> baseVar <> " " <> stateVar]
       , coqprop <$> cases ++ conds
@@ -118,29 +111,26 @@ reachableStep (Behaviour name _ i conds cases _ _ _) =
       ]
 
 -- | definition of a base state
-base :: Store -> Constructor -> Fresh T.Text
-base store (Constructor name i _ _ _ updates _) = do
-  name' <- fresh name
-  return $ definition name' (envDecl <> " " <> interface i) $
+base :: Store -> Constructor -> T.Text
+base store (Constructor name _ i _ _ _ updates _) = do
+  definition name (envDecl <> " " <> interface i) $
     stateval store (\_ t -> defaultSlotValue t) updates
 
-claim :: Store -> Behaviour -> Fresh T.Text
-claim store (Behaviour name _ i _ _ _ rewrites _) = do
-  name' <- fresh name
-  return $ definition name' (envDecl <> " " <> stateDecl <> " " <> interface i) $
+claim :: Store -> Behaviour -> T.Text
+claim store (Behaviour name _ _ i _ _ rewrites _) = do
+  definition name (envDecl <> " " <> stateDecl <> " " <> interface i) $
     stateval store (\n _ -> T.pack n <> " " <> stateVar) (updatesFromRewrites rewrites)
 
 -- | inductive definition of a return claim
 -- ignores claims that do not specify a return value
-retVal :: Behaviour -> Fresh T.Text
-retVal (Behaviour name _ i conds cases _ _ (Just r)) =
-  fresh name >>= continuation where
-  continuation name' = return $ inductive
-    (name' <> returnSuffix)
+retVal :: Behaviour -> T.Text
+retVal (Behaviour name _ _ i conds _ _ (Just r)) =
+  inductive
+    (name <> returnSuffix)
     (envDecl <> " " <> stateDecl <> " " <> interface i)
     (returnType r <> " -> Prop")
-    [retname <> introSuffix <> " :\n" <> body] where
-
+    [retname <> introSuffix <> " :\n" <> body]
+  where
     retname = name' <> returnSuffix
     body = indent 2 . implication . concat $
       [ coqprop <$> conds ++ cases
@@ -351,12 +341,6 @@ storageRef (SField _ ref id) = parens $ id <> " " <> storageRef ref
 -- | coq syntax for a list of arguments
 coqargs :: [TypedExp] -> T.Text
 coqargs es = T.unwords (map typedexp es)
-
-fresh :: Id -> Fresh T.Text
-fresh name = state $ \s -> (T.pack (name <> show s), s + 1)
-
-evalSeq :: Traversable t => (a -> Fresh b) -> t a -> t b
-evalSeq f xs = evalState (sequence (f <$> xs)) 0
 
 --- text manipulation ---
 
