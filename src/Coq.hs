@@ -43,27 +43,6 @@ header = T.unlines
 -- | produce a coq representation of a specification
 coq :: Act -> T.Text
 coq (Act store contracts) =
-<<<<<<< HEAD
-
-  header
-  <> stateRecord <> "\n\n"
-  <> block (evalSeq (claim store') <$> groups behaviours')
-  <> block (evalSeq retVal        <$> groups behaviours')
-  <> block (evalSeq (base store')  <$> cgroups constructors)
-  <> reachable (cgroups constructors) (groups behaviours')
-
-  where
-
-  -- currently only supports one contract
-  store' = snd $ head $ M.toList $ store
-
-  behaviours' = behvsFromContracts contracts
-
-  constructors = constrFromContracts contracts
-
-  groups = groupBy (\b b' -> _name b == _name b')
-  cgroups = groupBy (\b b' -> _cname b == _cname b')
-=======
   T.intercalate "\n\n" $ contractCode store <$> contracts
 
 contractCode :: Store -> Contract -> T.Text
@@ -79,7 +58,6 @@ contractCode store (Contract ctor@Ctor{..} behvs) =
   store' = case M.lookup cid of
              Just s -> s
              Nothing -> error "Internal error: constructor not found"
->>>>>>> c3fcb01 (coq: wip in multiple contracts)
 
   block xs = T.intercalate "\n\n" (concat xs) <> "\n\n"
 
