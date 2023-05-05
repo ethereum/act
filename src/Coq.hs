@@ -110,7 +110,7 @@ reachableStep (Behaviour name _ _ i conds _ _ _) =
 base :: Store -> Constructor -> T.Text
 base store (Constructor name _ i _ _ _ updates _) = do
   definition name (envDecl <> " " <> interface i) $
-    stateval store (\_ t -> defaultSlotValue t) updates
+    stateval store (\x -> error $ "Variable " <> show x <> " has not been initialized") updates
 
 claim :: Store -> Behaviour -> T.Text
 claim store (Behaviour name _ _ i _ _ rewrites _) = do
@@ -137,45 +137,59 @@ retVal _ = return ""
 
 -- | produce a state value from a list of storage updates
 -- 'handler' defines what to do in cases where a given name isn't updated
-stateval
-  :: Store
-  -> (Id -> SlotType -> T.Text)
-  -> [StorageUpdate]
-  -> T.Text
-stateval store handler updates = T.unwords $ stateConstructor : fmap (updateVar updates handler) (M.toList store)
+stateval :: Store -> [StorageUpdate] -> T.Text
+stateval store contract updates = T.unwords $ stateConstructor : fmap (\(n, t) -> updateVar store updates (SVar nowhere contract n) t) (M.toList store')
+  where
+    store' = contractStore contract store
 
--- | filter by name
-eqName :: Id -> StorageUpdate -> Bool
-eqName n update = n == idFromUpdate update
+contractStore :: Id -> Store -> Map Id SlotType
+contractStore cid store = case Map.lookup contract store of
+  Just s -> s
+  Nothing -> error "Internal error: cannot find constructor in store"
+  
 
--- | Returns the updated value of a storage variable
-updateVar :: [StorageUpdate]
-          -> (Id -> SlotType -> T.Text)
-          -> (Id, SlotType)
-          -> T.Text
-updateVar updates handler (name, t@(StorageValue (PrimitiveType _))) =
-  parens $ foldl updatedVal (handler name t) (filter (eqName name) updates)
+-- | Check is an update update a specific strage reference
+eqRef :: StorageRef t -> StorageUpdate t -> Bool
+eqRef ref (Update _ (Item _ _ ref') _) = ref == ref'
+
+-- | Check if an update updates a location that is 
+prefixRef :: StorageRef t -> StorageUpdate t -> Bool
+prefixRef ref (Update _ (Item _ _ ref) _) = ref == focus
+
+updateVar :: Store -> [StorageUpdate] -> StorageRef t -> SlotType -> T.Text
+updateVar store updates focus (ContractType cid) =
+  case (constructorUpdates, fieldUpdates) of
+    -- Only some fields are updated
+    ([], updates'@(_:_)) -> T.unwords $ (cid <> "." <> constateConstructor) : fmap (\(n, t) -> updateVar store updates (focus' n) t) (M.toList store)
+    -- No fields are updated, whole contract may be updated with some call to the constructor
+    (updates', []) -> foldl (\ _ (Update _ _ e) -> coqexp e) (storageRef focus) updates'
+    -- The contract is updated with constructor call and field accessing. Unsupported.
+    (_:_, _:_) -> error "Cannot handle multiple updates to contract variable"
+  where
+    focus' x = SField nowhere ref cid x
+    store' = contractStore
+
+    fieldUpdates = filter (prefixFocus focus) updates
+    constructorUpdates = filter (eqFocus focus) updates
+
+updateVar store updates focus (StorageValue (PrimitiveType _)) =
+  parens $ foldl updatedVal (storageRef focus) (filter (eqFocus focus) updates)
     where
       updatedVal _ (Update SByteStr _ _) = error "bytestrings not supported"
       updatedVal _ (Update _ _ e) = coqexp e
 
-updateVar updates handler (name, t@(StorageValue (ContractType _))) =
-  parens $ foldl updatedVal (handler name t) (filter (eqName name) updates)
+updateVar store updates focus (StorageMapping xs res) = parens $
+  lambda n <> foldl updatedMap prestate (filter (prefixFocus focus) updates)
     where
-      updatedVal _ (Update SByteStr _ _) = error "bytestrings not supported"
-      updatedVal _ (Update _ _ e) = coqexp e
-
-updateVar updates handler (name, t@(StorageMapping xs _)) = parens $
-  lambda n <> foldl updatedMap prestate (filter (eqName name) updates)
-    where
-      prestate = parens (handler name t) <> " " <> lambdaArgs n
+      prestate = parens $ storageRef focus <> " " <> lambdaArgs n
       n = length xs
 
       updatedMap _ (Update SByteStr _ _) = error "bytestrings not supported"
       updatedMap prestate' (Update _ item e) =
-        "if " <> boolScope (T.intercalate " && " (map cond (zip (ixsFromItem item) ([0..] :: [Int]))))
+        let ixs = ixsFromRef focus item in
+        "if " <> boolScope (T.intercalate " && " (map cond (zip ixs ([0..] :: [Int]))))
         <> " then " <> coqexp e
-        <> " else " <> parens prestate'
+        <> " else " <> prestate'
 
       cond (TExp argType arg, i) = parens $ anon <> T.pack (show i) <> eqsym argType <> coqexp arg
 
@@ -189,6 +203,12 @@ updateVar updates handler (name, t@(StorageMapping xs _)) = parens $
         SBoolean -> " =?? "
         SByteStr -> error "bytestrings not supported"
         SContract -> error "contracts not supported"
+
+     ixsFromRef _ (SVar _ _ _) = error "Internal error: arguments expected"
+     ixsFromRef _ (SField _ _ _ _) = error "Mappings to contract types are not supported"
+     ixsFromRef ref (SMapping _ ref' ixs) = if ref == ref' then ixs else error "Iternal error: storage reference does not match"
+
+
 
 -- | produce a block of declarations from an interface
 interface :: Interface -> T.Text
@@ -330,9 +350,9 @@ entry _ Post = error "TODO: missing support for poststate references in coq back
 entry (Item _ _ ref) = storageRef ref
 
 storegeRef :: StorageRef -> T.Text
-storageRef (SVar _ cid id) = parens $ T.pack (idFromItem item) <> " " <> stateVar
-storageRef (SMapping _ ref ixs) = parens $  storageRef ref " " <> coqargs ixs
-storageRef (SField _ ref id) = parens $ id <> " " <> storageRef ref
+storageRef (SVar _ _ id) = parens $ id <> " " <> stateVar
+storageRef (SMapping _ ref ixs) = parens $ storageRef ref " " <> coqargs ixs
+storageRef (SField _ ref cid id) = parens $ cid <> "." <> id <> " " <> storageRef ref
 
 -- | coq syntax for a list of arguments
 coqargs :: [TypedExp] -> T.Text
