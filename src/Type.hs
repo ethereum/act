@@ -123,7 +123,7 @@ detectCycle (Act _ contracts) =
     g = Map.fromList calls
     
     findCalls :: Contract -> (Id, [Id])
-    findCalls c@(Contract (Constructor cname _ _ _ _ _ _ _:_) _) = (cname, callsFromContract c)
+    findCalls c@(Contract (Constructor cname _ _ _ _ _ _ _:_) _) = (cname, createsFromContract c)
     findCalls _ = error "Internal error: at least one constructor expected"
   
 --- Finds storage declarations from constructors

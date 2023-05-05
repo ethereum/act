@@ -116,8 +116,8 @@ locsFromExp = nub . go
       TEntry _ _ a -> locsFromItem a
       Var {} -> []
 
-callsFromExp :: Exp a t -> [Id]
-callsFromExp = nub . go
+createsFromExp :: Exp a t -> [Id]
+createsFromExp = nub . go
   where
     go :: Exp a t -> [Id]
     go e = case e of
@@ -149,44 +149,44 @@ callsFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Create _ _ f es -> [f] <> concatMap callsFromTypedExp es
+      Create _ _ f es -> [f] <> concatMap createsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
-      TEntry _ _ a -> callsFromItem a
+      TEntry _ _ a -> createsFromItem a
       Var {} -> []
 
-callsFromItem :: TStorageItem a t -> [Id]
-callsFromItem item = concatMap callsFromTypedExp (ixsFromItem item)  
+createsFromItem :: TStorageItem a t -> [Id]
+createsFromItem item = concatMap createsFromTypedExp (ixsFromItem item)  
 
-callsFromTypedExp :: TypedExp t -> [Id]
-callsFromTypedExp (TExp _ e) = callsFromExp e
+createsFromTypedExp :: TypedExp t -> [Id]
+createsFromTypedExp (TExp _ e) = createsFromExp e
 
-callsFromContract :: Typed.Contract -> [Id]
-callsFromContract (Contract constr behvs) =
-  concatMap callsFromConstructor constr <> concatMap callsFromBehaviour behvs
+createsFromContract :: Typed.Contract -> [Id]
+createsFromContract (Contract constr behvs) =
+  concatMap createsFromConstructor constr <> concatMap createsFromBehaviour behvs
 
-callsFromConstructor :: Typed.Constructor -> [Id] 
-callsFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
-  concatMap callsFromExp pre
-  <> concatMap callsFromExp post
-  <> concatMap callsFromInvariant inv
-  <> concatMap callsFromRewrite rewrites
-  <> concatMap callsFromRewrite (Rewrite <$> initialStorage)
+createsFromConstructor :: Typed.Constructor -> [Id] 
+createsFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
+  concatMap createsFromExp pre
+  <> concatMap createsFromExp post
+  <> concatMap createsFromInvariant inv
+  <> concatMap createsFromRewrite rewrites
+  <> concatMap createsFromRewrite (Rewrite <$> initialStorage)
 
-callsFromInvariant :: Typed.Invariant -> [Id]
-callsFromInvariant (Invariant _ pre bounds ipred) =
-  concatMap callsFromExp pre <>  concatMap callsFromExp bounds <> callsFromExp ipred
+createsFromInvariant :: Typed.Invariant -> [Id]
+createsFromInvariant (Invariant _ pre bounds ipred) =
+  concatMap createsFromExp pre <>  concatMap createsFromExp bounds <> createsFromExp ipred
 
-callsFromRewrite :: Rewrite t ->[Id]
-callsFromRewrite update = nub $ case update of
+createsFromRewrite :: Rewrite t ->[Id]
+createsFromRewrite update = nub $ case update of
   Constant _ -> []
-  Rewrite (Update _ item e) -> callsFromItem item <> callsFromExp e
+  Rewrite (Update _ item e) -> createsFromItem item <> createsFromExp e
 
-callsFromBehaviour :: Behaviour t -> [Id]
-callsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
-  concatMap callsFromExp preconds
-  <> concatMap callsFromExp postconds
-  <> concatMap callsFromRewrite rewrites
-  <> maybe [] callsFromTypedExp returns
+createsFromBehaviour :: Behaviour t -> [Id]
+createsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+  concatMap createsFromExp preconds
+  <> concatMap createsFromExp postconds
+  <> concatMap createsFromRewrite rewrites
+  <> maybe [] createsFromTypedExp returns
 
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
