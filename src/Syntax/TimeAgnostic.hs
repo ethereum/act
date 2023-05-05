@@ -155,7 +155,7 @@ deriving instance Eq (TStorageItem a t)
 data StorageRef (t :: Timing) where
   SVar :: Pn -> Id -> Id -> StorageRef t
   SMapping :: Pn -> StorageRef t -> [TypedExp t] -> StorageRef t
-  SField :: Pn -> StorageRef t -> Id -> StorageRef t
+  SField :: Pn -> StorageRef t -> Id -> Id -> StorageRef t
 deriving instance Show (StorageRef t)
 
 instance Eq (StorageRef t) where
