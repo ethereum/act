@@ -46,16 +46,16 @@ coq (Act store contracts) =
 
 contractCode :: Store -> Contract -> T.Text
 contractCode store (Contract ctor@Constructor{..} behvs) =
-  "Module " <> _cname <> ".\n"
+  "Module " <> T.pack _cname <> ".\n"
   <> stateRecord
-  <> reachable ctor behvs
+  <> base store ctor
   <> block (claim store <$> behvs)
   <> block (retVal <$> behvs)
-  <> base store
-  <> "End " <> _cname <> "."
+  <> reachable ctor behvs
+  <> "End " <> T.pack _cname <> "."
 
   where
-    block xs = T.intercalate "\n\n" (concat xs) <> "\n\n"
+    block xs = T.intercalate "\n\n" xs <> "\n\n"
   
     stateRecord = T.unlines
       [ "Record " <> stateType <> " : Set := " <> stateConstructor
@@ -71,17 +71,14 @@ contractCode store (Contract ctor@Constructor{..} behvs) =
 reachable :: Constructor -> [Behaviour] -> T.Text
 reachable constructor behvs = inductive
   reachableType "" (stateType <> " -> " <> stateType <> " -> Prop") body where
-  body = concat $
-    (eval baseCase constructor)
-    <>
-    (reachableStep <$> behvs)
+  body = (baseCase constructor) : (reachableStep <$> behvs)
 
 -- | non-recursive constructor for the reachable relation
 baseCase :: Constructor -> T.Text
 baseCase (Constructor name i@(Interface _ decls) conds _ _ _ _) =
-  return $ name <> baseSuffix <> " : " <> universal <> "\n" <> constructorBody
+  T.pack name <> baseSuffix <> " : " <> universal <> "\n" <> constructorBody
   where
-    baseval = parens $ name <> " " <> envVar <> " " <> arguments i
+    baseval = parens $ T.pack name <> " " <> envVar <> " " <> arguments i
     constructorBody = (indent 2) . implication . concat $
       [ coqprop <$> conds
       , [reachableType <> " " <> baseval <> " " <> baseval]
@@ -95,7 +92,7 @@ baseCase (Constructor name i@(Interface _ decls) conds _ _ _ _) =
 -- | recursive constructor for the reachable relation
 reachableStep :: Behaviour -> T.Text
 reachableStep (Behaviour name _ i conds cases _ _ _) =
-  name <> stepSuffix <> " : forall "
+  T.pack name <> stepSuffix <> " : forall "
   <> envDecl <> " "
   <> parens (baseVar <> " " <> stateVar <> " : " <> stateType) <> " "
   <> interface i <> ",\n"
@@ -105,7 +102,7 @@ reachableStep (Behaviour name _ i conds cases _ _ _) =
       [ [reachableType <> " " <> baseVar <> " " <> stateVar]
       , coqprop <$> cases ++ conds
       , [ reachableType <> " " <> baseVar <> " "
-          <> parens (name <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)
+          <> parens (T.pack name <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)
         ]
       ]
 
@@ -113,34 +110,34 @@ reachableStep (Behaviour name _ i conds cases _ _ _) =
 base :: Store -> Constructor -> T.Text
 base store (Constructor name i _ _ _ updates _) = do
   definition name (envDecl <> " " <> interface i) $
-    stateval store (\x -> error $ "Variable " <> show x <> " has not been initialized") updates
+    stateval store name updates
 
 claim :: Store -> Behaviour -> T.Text
-claim store (Behaviour name _ _ i _ _ rewrites _) = do
+claim store (Behaviour name cname i _ _ _ rewrites _) = do
   definition name (envDecl <> " " <> stateDecl <> " " <> interface i) $
-    stateval store (\n _ -> T.pack n <> " " <> stateVar) (updatesFromRewrites rewrites)
+    stateval store cname (updatesFromRewrites rewrites)
 
 -- | inductive definition of a return claim
 -- ignores claims that do not specify a return value
 retVal :: Behaviour -> T.Text
 retVal (Behaviour name _ i conds cases _ _ (Just r)) =
   inductive
-    (name <> returnSuffix)
+    (T.pack name <> returnSuffix)
     (envDecl <> " " <> stateDecl <> " " <> interface i)
     (returnType r <> " -> Prop")
     [retname <> introSuffix <> " :\n" <> body]
   where
-    retname = name <> returnSuffix
+    retname = T.pack name <> returnSuffix
     body = indent 2 . implication . concat $
       [ coqprop <$> conds ++ cases
       , [retname <> " " <> envVar <> " " <> stateVar <> " " <> arguments i <> " " <> typedexp r]
       ]
 
-retVal _ = return ""
+retVal _ = ""
 
 -- | produce a state value from a list of storage updates
 -- 'handler' defines what to do in cases where a given name isn't updated
-stateval :: Store -> [StorageUpdate] -> T.Text
+stateval :: Store -> Id -> [StorageUpdate] -> T.Text
 stateval store contract updates = T.unwords $ stateConstructor : fmap (\(n, t) -> updateVar store updates (SVar nowhere contract n) t) (M.toList store')
   where
     store' = contractStore contract store
@@ -166,10 +163,10 @@ baseRef ref (Update _ (Item _ _ ref') _) = hasBase ref'
   
 
 updateVar :: Store -> [StorageUpdate] -> StorageRef -> SlotType -> T.Text
-updateVar store updates focus (ContractType cid) =
+updateVar store updates focus (StorageValue (ContractType cid)) =
   case (constructorUpdates, fieldUpdates) of
     -- Only some fields are updated
-    ([], updates'@(_:_)) -> T.unwords $ (cid <> "." <> stateConstructor) : fmap (\(n, t) -> updateVar store updates (focus' n) t) (M.toList store)
+    ([], updates'@(_:_)) -> T.unwords $ (T.pack cid <> "." <> stateConstructor) : fmap (\(n, t) -> updateVar store updates (focus' n) t) (M.toList store')
     -- No fields are updated, whole contract may be updated with some call to the constructor
     (updates', []) -> foldl (\ _ (Update _ _ e) -> coqexp e) (storageRef focus) updates'
     -- The contract is updated with constructor call and field accessing. Unsupported.
@@ -237,7 +234,7 @@ slotType (StorageValue val) = valueType val
 
 valueType :: ValueType -> T.Text
 valueType (PrimitiveType t) = abiType t
-valueType (ContractType _) = id <> "." <> "State" -- the type of a contract is its state record
+valueType (ContractType id) = T.pack id <> "." <> "State" -- the type of a contract is its state record
 
 -- | coq syntax for an abi type
 abiType :: AbiType -> T.Text
@@ -264,9 +261,9 @@ defaultSlotValue (StorageMapping xs t) =
   <> defaultVal t
 defaultSlotValue (StorageValue t) = defaultVal t
 
-defaultVal :: Store -> ValueType -> T.Text
-defaultVal _ (PrimitiveType t) = abiVal t
-defaultVal store (ContractType id) = error "Contracts must be explicitly initialized"
+defaultVal :: ValueType -> T.Text
+defaultVal (PrimitiveType t) = abiVal t
+defaultVal (ContractType _) = error "Contracts must be explicitly initialized"
   -- parens $ stateConstructor <> T.unwords (map (defaultVal store . snd) (M.toList store'))
 
 
@@ -324,7 +321,7 @@ coqexp (ITE _ b e1 e2) = parens $ "if "
 coqexp (IntEnv _ envVal) = parens (T.pack (show envVal) <> " " <> envVar)
 -- Contracts
 coqexp (Var _ SContract name) = T.pack name
-coqexp (Create _ SContract cid args) = cid <> "." <> cid <> " " <> coqargs args
+coqexp (Create _ SContract cid args) = T.pack cid <> "." <> T.pack cid <> " " <> coqargs args
 -- unsupported
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
@@ -356,12 +353,12 @@ typedexp (TExp _ e) = coqexp e
 entry :: TStorageItem a -> When -> T.Text
 entry (Item SByteStr _ _) _ = error "bytestrings not supported"
 entry _ Post = error "TODO: missing support for poststate references in coq backend"
-entry (Item _ _ ref) = storageRef ref
+entry (Item _ _ ref) _ = storageRef ref
 
 storageRef :: StorageRef -> T.Text
-storageRef (SVar _ _ id) = parens $ id <> " " <> stateVar
-storageRef (SMapping _ ref ixs) = parens $ storageRef ref " " <> coqargs ixs
-storageRef (SField _ ref cid id) = parens $ cid <> "." <> id <> " " <> storageRef ref
+storageRef (SVar _ _ id) = parens $ T.pack id <> " " <> stateVar
+storageRef (SMapping _ ref ixs) = parens $ storageRef ref <> " " <> coqargs ixs
+storageRef (SField _ ref cid id) = parens $ T.pack cid <> "." <> T.pack id <> " " <> storageRef ref
 
 -- | coq syntax for a list of arguments
 coqargs :: [TypedExp] -> T.Text
@@ -369,9 +366,9 @@ coqargs es = T.unwords (map typedexp es)
 
 --- text manipulation ---
 
-definition :: T.Text -> T.Text -> T.Text -> T.Text
+definition :: Id -> T.Text -> T.Text -> T.Text
 definition name args value = T.unlines
-  [ "Definition " <> name <> " " <> args <> " :="
+  [ "Definition " <> T.pack name <> " " <> args <> " :="
   , value
   , "."
   ]
