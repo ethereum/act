@@ -151,7 +151,9 @@ deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
 -- | Reference to an item storage. It can be either a bare variable, a
--- map lookup, or a field selection.
+-- map lookup, or a field selection. Variables and fields are
+-- annotated with two identifiers: the contract that they belong to
+-- and their name.
 data StorageRef (t :: Timing) where
   SVar :: Pn -> Id -> Id -> StorageRef t
   SMapping :: Pn -> StorageRef t -> [TypedExp t] -> StorageRef t
@@ -161,7 +163,7 @@ deriving instance Show (StorageRef t)
 instance Eq (StorageRef t) where
   SVar _ c x == SVar _ c' x' = c == c' && x == x'
   SMapping _ r ixs == SMapping _ r' ixs' = r == r' && ixs == ixs'
-  SField _ r x == SField _ r' x' = r == r' && x == x'
+  SField _ r c x == SField _ r' c' x' = r == r' && c == c' && x == x'
   _ == _ = False
 
 _Item :: SingI a => ValueType -> StorageRef t -> TStorageItem a t
@@ -331,7 +333,7 @@ instance Timable (TStorageItem a) where
 
 instance Timable StorageRef where
   setTime time (SMapping p e ixs) = SMapping p (setTime time e) (setTime time <$> ixs)
-  setTime time (SField p e x) = SField p (setTime time e) x
+  setTime time (SField p e c x) = SField p (setTime time e) c x
   setTime _ (SVar p c x) = SVar p c x
 
 ------------------------
@@ -419,7 +421,7 @@ instance ToJSON (TStorageItem a t) where
 instance ToJSON (StorageRef t) where
   toJSON (SVar _ c x) = object [ "var" .=  String (pack c <> "." <> pack x) ]
   toJSON (SMapping _ e xs) = mapping e xs
-  toJSON (SField _ e x) = field e x
+  toJSON (SField _ e _ x) = field e x
 
 mapping :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
 mapping a b = object [ "symbol"   .= pack "lookup"
