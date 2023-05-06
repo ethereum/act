@@ -78,7 +78,7 @@ reachable constructor behvs = inductive
 
 -- | non-recursive constructor for the reachable relation
 baseCase :: Constructor -> T.Text
-baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _ _) =
+baseCase (Constructor name i@(Interface _ decls) conds _ _ _ _) =
   return $ name <> baseSuffix <> " : " <> universal <> "\n" <> constructorBody
   where
     baseval = parens $ name <> " " <> envVar <> " " <> arguments i
@@ -94,7 +94,7 @@ baseCase (Constructor name _ i@(Interface _ decls) conds _ _ _ _) =
 
 -- | recursive constructor for the reachable relation
 reachableStep :: Behaviour -> T.Text
-reachableStep (Behaviour name _ _ i conds _ _ _) =
+reachableStep (Behaviour name _ i conds cases _ _ _) =
   name <> stepSuffix <> " : forall "
   <> envDecl <> " "
   <> parens (baseVar <> " " <> stateVar <> " : " <> stateType) <> " "
@@ -111,7 +111,7 @@ reachableStep (Behaviour name _ _ i conds _ _ _) =
 
 -- | definition of a base state
 base :: Store -> Constructor -> T.Text
-base store (Constructor name _ i _ _ _ updates _) = do
+base store (Constructor name i _ _ _ updates _) = do
   definition name (envDecl <> " " <> interface i) $
     stateval store (\x -> error $ "Variable " <> show x <> " has not been initialized") updates
 
@@ -123,7 +123,7 @@ claim store (Behaviour name _ _ i _ _ rewrites _) = do
 -- | inductive definition of a return claim
 -- ignores claims that do not specify a return value
 retVal :: Behaviour -> T.Text
-retVal (Behaviour name _ _ i conds _ _ (Just r)) =
+retVal (Behaviour name _ i conds cases _ _ (Just r)) =
   inductive
     (name <> returnSuffix)
     (envDecl <> " " <> stateDecl <> " " <> interface i)
