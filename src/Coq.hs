@@ -17,13 +17,10 @@ module Coq where
 
 import Prelude hiding (GT, LT)
 
-import Data.List.NonEmpty (NonEmpty(..))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict    as M
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
-import Data.List (groupBy)
-import Control.Monad.State
 
 import EVM.ABI
 import Syntax
@@ -49,20 +46,20 @@ contractCode store (Contract ctor@Constructor{..} behvs) =
   "Module " <> T.pack _cname <> ".\n"
   <> stateRecord
   <> base store ctor
-  <> block (claim store <$> behvs)
+  <> block (transition store <$> behvs)
   <> block (retVal <$> behvs)
   <> reachable ctor behvs
   <> "End " <> T.pack _cname <> "."
 
   where
     block xs = T.intercalate "\n\n" xs <> "\n\n"
-  
+
     stateRecord = T.unlines
       [ "Record " <> stateType <> " : Set := " <> stateConstructor
       , "{ " <> T.intercalate ("\n" <> "; ") (map decl (M.toList store'))
       , "}."
       ]
-      
+
     decl (n, s) = (T.pack n) <> " : " <> slotType s
 
     store' = contractStore _cname store
@@ -112,8 +109,8 @@ base store (Constructor name i _ _ _ updates _) = do
   definition name (envDecl <> " " <> interface i) $
     stateval store name updates
 
-claim :: Store -> Behaviour -> T.Text
-claim store (Behaviour name cname i _ _ _ rewrites _) = do
+transition :: Store -> Behaviour -> T.Text
+transition store (Behaviour name cname i _ _ _ rewrites _) = do
   definition name (envDecl <> " " <> stateDecl <> " " <> interface i) $
     stateval store cname (updatesFromRewrites rewrites)
 
@@ -146,7 +143,7 @@ contractStore :: Id -> Store -> Map Id SlotType
 contractStore contract store = case M.lookup contract store of
   Just s -> s
   Nothing -> error "Internal error: cannot find constructor in store"
-  
+
 
 -- | Check is an update update a specific strage reference
 eqRef :: StorageRef -> StorageUpdate -> Bool
@@ -155,18 +152,18 @@ eqRef ref (Update _ (Item _ _ ref') _) = ref == ref'
 -- | Check if an update updates a location that has a given storage
 -- reference as a base
 baseRef :: StorageRef -> StorageUpdate -> Bool
-baseRef ref (Update _ (Item _ _ ref') _) = hasBase ref'
-  where 
+baseRef baseref (Update _ (Item _ _ ref) _) = hasBase ref
+  where
     hasBase (SVar _ _ _) = False
-    hasBase (SMapping _ base _) = ref == base || hasBase base
-    hasBase (SField _ base _ _) = ref == base || hasBase base
-  
+    hasBase (SMapping _ ref' _) = ref' == baseref || hasBase ref'
+    hasBase (SField _ ref' _ _) = ref' == baseref || hasBase ref'
+
 
 updateVar :: Store -> [StorageUpdate] -> StorageRef -> SlotType -> T.Text
 updateVar store updates focus (StorageValue (ContractType cid)) =
   case (constructorUpdates, fieldUpdates) of
     -- Only some fields are updated
-    ([], updates'@(_:_)) -> T.unwords $ (T.pack cid <> "." <> stateConstructor) : fmap (\(n, t) -> updateVar store updates (focus' n) t) (M.toList store')
+    ([], updates'@(_:_)) -> T.unwords $ (T.pack cid <> "." <> stateConstructor) : fmap (\(n, t) -> updateVar store updates' (focus' n) t) (M.toList store')
     -- No fields are updated, whole contract may be updated with some call to the constructor
     (updates', []) -> foldl (\ _ (Update _ _ e) -> coqexp e) (storageRef focus) updates'
     -- The contract is updated with constructor call and field accessing. Unsupported.
@@ -178,13 +175,13 @@ updateVar store updates focus (StorageValue (ContractType cid)) =
     fieldUpdates = filter (baseRef focus) updates
     constructorUpdates = filter (eqRef focus) updates
 
-updateVar store updates focus (StorageValue (PrimitiveType _)) =
+updateVar _ updates focus (StorageValue (PrimitiveType _)) =
   parens $ foldl updatedVal (storageRef focus) (filter (eqRef focus) updates)
     where
       updatedVal _ (Update SByteStr _ _) = error "bytestrings not supported"
       updatedVal _ (Update _ _ e) = coqexp e
 
-updateVar store updates focus (StorageMapping xs res) = parens $
+updateVar _ updates focus (StorageMapping xs _) = parens $
   lambda n <> foldl updatedMap prestate (filter (baseRef focus) updates)
     where
       prestate = parens $ storageRef focus <> " " <> lambdaArgs n
@@ -210,11 +207,6 @@ updateVar store updates focus (StorageMapping xs res) = parens $
         SByteStr -> error "bytestrings not supported"
         SContract -> error "contracts cannot be mapping arguments"
 
-      ixsFromRef _ (SVar _ _ _) = error "Internal error: arguments expected"
-      ixsFromRef _ (SField _ _ _ _) = error "Mappings to contract types are not supported"
-      ixsFromRef ref (SMapping _ ref' ixs) = if ref == ref' then ixs else error "Iternal error: storage reference does not match"
-
-
 
 -- | produce a block of declarations from an interface
 interface :: Interface -> T.Text
@@ -234,7 +226,7 @@ slotType (StorageValue val) = valueType val
 
 valueType :: ValueType -> T.Text
 valueType (PrimitiveType t) = abiType t
-valueType (ContractType id) = T.pack id <> "." <> "State" -- the type of a contract is its state record
+valueType (ContractType cid) = T.pack cid <> "." <> "State" -- the type of a contract is its state record
 
 -- | coq syntax for an abi type
 abiType :: AbiType -> T.Text
@@ -321,7 +313,7 @@ coqexp (ITE _ b e1 e2) = parens $ "if "
 coqexp (IntEnv _ envVal) = parens (T.pack (show envVal) <> " " <> envVar)
 -- Contracts
 coqexp (Var _ SContract name) = T.pack name
-coqexp (Create _ SContract cid args) = T.pack cid <> "." <> T.pack cid <> " " <> coqargs args
+coqexp (Create _ _ cid args) = T.pack cid <> "." <> T.pack cid <> " " <> coqargs args
 -- unsupported
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
@@ -356,9 +348,9 @@ entry _ Post = error "TODO: missing support for poststate references in coq back
 entry (Item _ _ ref) _ = storageRef ref
 
 storageRef :: StorageRef -> T.Text
-storageRef (SVar _ _ id) = parens $ T.pack id <> " " <> stateVar
+storageRef (SVar _ _ name) = parens $ T.pack name <> " " <> stateVar
 storageRef (SMapping _ ref ixs) = parens $ storageRef ref <> " " <> coqargs ixs
-storageRef (SField _ ref cid id) = parens $ T.pack cid <> "." <> T.pack id <> " " <> storageRef ref
+storageRef (SField _ ref cid name) = parens $ T.pack cid <> "." <> T.pack name <> " " <> storageRef ref
 
 -- | coq syntax for a list of arguments
 coqargs :: [TypedExp] -> T.Text
