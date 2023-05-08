@@ -340,7 +340,7 @@ checkEntry env@Env{theirs} (U.EField p e x) =
   checkEntry env e `bindValidation` \(typ, ref) -> case typ of
     StorageValue (ContractType c) -> case Map.lookup c theirs of
       Just cenv -> case Map.lookup x cenv of
-        Just t -> pure (t, SField p ref x)
+        Just t -> pure (t, SField p ref c x)
         Nothing -> throw (p, "Contract " <> c <> " does not have field " <> x)
       Nothing -> error $ "Internal error: Invalid contract type " <> show c
     _ -> throw (p, "Expression should have a mapping type" <> show e)

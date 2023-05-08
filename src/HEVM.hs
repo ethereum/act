@@ -369,7 +369,7 @@ nameFromStorageRef c method (SVar _ _ name) = c @@ method @@ name
 nameFromStorageRef c method (SMapping _ e ixs) = nameFromStorageRef c method e <> showIxs
   where
     showIxs = intercalate "-" $ "" : fmap (nameFromTypedExp c method) ixs
-nameFromStorageRef _ _ (SField _ _ _) = error "contracts not supported"
+nameFromStorageRef _ _ (SField _ _ _ _) = error "contracts not supported"
 
 nameFromItem :: ContractName -> Method -> TStorageItem a -> Id
 nameFromItem c method (Item _ _ e) = nameFromStorageRef c method e
