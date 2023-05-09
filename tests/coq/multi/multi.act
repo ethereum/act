@@ -1,0 +1,28 @@
+constructor of A
+interface constructor()
+
+creates
+   uint x := 0
+   uint y := 41
+
+constructor of B
+interface constructor()
+
+creates
+   uint x := 0
+   A a := create A()
+
+behaviour sety of B
+interface sety(uint z)
+
+storage
+
+  a.y => z
+
+
+behaviour setx of B
+interface setx(uint z)
+
+storage
+
+  a.x => z
