@@ -6,6 +6,8 @@ Require Import Lia.
 
 Require Import ERC20.ERC20.
 
+Import Token.
+
 (* Address should be Z or N? Or int20? *)
 
 Definition MAX_ADDRESS := UINT_MAX 160.
