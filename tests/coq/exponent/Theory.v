@@ -3,9 +3,11 @@ Require Import ActLib.ActLib.
 Require Import Coq.ZArith.ZArith.
 Open Scope Z_scope.
 
+Import Exponent.
+
 Lemma pow_pred : forall a e, 0 < e -> a * a ^ (Z.pred e) = a ^ e.
 Proof.
-  intros.
+  intros a e Hlt.
   apply eq_sym.
   replace (a ^ e) with (a ^ (Z.succ (Z.pred e))).
   - apply Z.pow_succ_r.
