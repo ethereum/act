@@ -35,6 +35,10 @@ throw msg = Failure [msg]
 assert :: (Pn, e) -> Bool -> Error e ()
 assert err b = if b then pure () else throw err
 
+foldValidation :: (b -> a -> Error err b) -> b -> [a] -> Error err b
+foldValidation _ b [] = pure b
+foldValidation f b (a:as) = f b a `bindValidation` \b' -> foldValidation f b' as 
+
 infixr 1 <==<, >==>
 
 -- Like 'Control.Monad.(>=>)' but allows us to chain error-prone

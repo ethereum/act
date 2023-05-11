@@ -16,6 +16,7 @@ import Data.Map (Map,empty,insertWith,unionsWith,unionWith,singleton)
 
 import Syntax.TimeAgnostic as Agnostic
 import qualified Syntax.Annotated as Annotated
+import qualified Syntax.Typed as Typed
 import           Syntax.Untyped hiding (Constant,Rewrite,Contract)
 import qualified Syntax.Untyped as Untyped
 
@@ -114,6 +115,78 @@ locsFromExp = nub . go
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
       Var {} -> []
+
+createsFromExp :: Exp a t -> [Id]
+createsFromExp = nub . go
+  where
+    go :: Exp a t -> [Id]
+    go e = case e of
+      And _ a b   -> go a <> go b
+      Or _ a b    -> go a <> go b
+      Impl _ a b  -> go a <> go b
+      Eq _ _ a b    -> go a <> go b
+      LT _ a b    -> go a <> go b
+      LEQ _ a b   -> go a <> go b
+      GT _ a b    -> go a <> go b
+      GEQ _ a b   -> go a <> go b
+      NEq _ _ a b   -> go a <> go b
+      Neg _ a     -> go a
+      Add _ a b   -> go a <> go b
+      Sub _ a b   -> go a <> go b
+      Mul _ a b   -> go a <> go b
+      Div _ a b   -> go a <> go b
+      Mod _ a b   -> go a <> go b
+      Exp _ a b   -> go a <> go b
+      Cat _ a b   -> go a <> go b
+      Slice _ a b c -> go a <> go b <> go c
+      ByStr {} -> []
+      ByLit {} -> []
+      LitInt {}  -> []
+      IntMin {}  -> []
+      IntMax {}  -> []
+      UIntMin {} -> []
+      UIntMax {} -> []
+      LitBool {} -> []
+      IntEnv {} -> []
+      ByEnv {} -> []
+      Create _ _ f es -> [f] <> concatMap createsFromTypedExp es
+      ITE _ x y z -> go x <> go y <> go z
+      TEntry _ _ a -> createsFromItem a
+      Var {} -> []
+
+createsFromItem :: TStorageItem a t -> [Id]
+createsFromItem item = concatMap createsFromTypedExp (ixsFromItem item)  
+
+createsFromTypedExp :: TypedExp t -> [Id]
+createsFromTypedExp (TExp _ e) = createsFromExp e
+
+createsFromContract :: Typed.Contract -> [Id]
+createsFromContract (Contract constr behvs) =
+  concatMap createsFromConstructor constr <> concatMap createsFromBehaviour behvs
+
+createsFromConstructor :: Typed.Constructor -> [Id] 
+createsFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
+  concatMap createsFromExp pre
+  <> concatMap createsFromExp post
+  <> concatMap createsFromInvariant inv
+  <> concatMap createsFromRewrite rewrites
+  <> concatMap createsFromRewrite (Rewrite <$> initialStorage)
+
+createsFromInvariant :: Typed.Invariant -> [Id]
+createsFromInvariant (Invariant _ pre bounds ipred) =
+  concatMap createsFromExp pre <>  concatMap createsFromExp bounds <> createsFromExp ipred
+
+createsFromRewrite :: Rewrite t ->[Id]
+createsFromRewrite update = nub $ case update of
+  Constant _ -> []
+  Rewrite (Update _ item e) -> createsFromItem item <> createsFromExp e
+
+createsFromBehaviour :: Behaviour t -> [Id]
+createsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+  concatMap createsFromExp preconds
+  <> concatMap createsFromExp postconds
+  <> concatMap createsFromRewrite rewrites
+  <> maybe [] createsFromTypedExp returns
 
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
