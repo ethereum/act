@@ -108,7 +108,7 @@ data Behaviour t = Behaviour
   , _contract :: Id
   , _interface :: Interface
   , _preconditions :: [Exp ABoolean t] -- if preconditions are not satisfied execution is reverted
-  , _case :: [Exp ABoolean t] -- if preconditions are satisfied and a case is not, some other instance of the bahaviour should apply
+  , _caseconditions :: [Exp ABoolean t] -- if preconditions are satisfied and a case condition is not, some other instance of the bahaviour should apply
   , _postconditions :: [Exp ABoolean Timed]
   , _stateUpdates :: [Rewrite t]
   , _returns :: Maybe (TypedExp Timed)
@@ -390,7 +390,7 @@ instance ToJSON (Behaviour t) where
                                 , "contract" .= _contract
                                 , "interface" .= (String . pack $ show _interface)
                                 , "preConditions" .= toJSON _preconditions
-                                , "case" .= toJSON _case
+                                , "case" .= toJSON _caseconditions
                                 , "postConditions" .= toJSON _postconditions
                                 , "stateUpdates" .= toJSON _stateUpdates
                                 , "returns" .= toJSON _returns ]

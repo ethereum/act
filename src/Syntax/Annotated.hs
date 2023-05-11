@@ -60,7 +60,7 @@ instance Annotatable Agnostic.Constructor where
 instance Annotatable Agnostic.Behaviour where
   annotate behv@Behaviour{..} = behv
     { _preconditions = setPre <$> _preconditions
-    , _case = setPre <$> _case
+    , _caseconditions = setPre <$> _caseconditions
     , _stateUpdates  = annotate <$> _stateUpdates
     }
 
