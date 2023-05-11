@@ -74,7 +74,7 @@ locFromUpdate :: StorageUpdate t -> StorageLocation t
 locFromUpdate (Update _ item _) = _Loc item
 
 locsFromItem :: TStorageItem a t -> [StorageLocation t]
-locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)  
+locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
 
 locsFromTypedExp :: TypedExp t -> [StorageLocation t]
 locsFromTypedExp (TExp _ e) = locsFromExp e
@@ -156,7 +156,7 @@ createsFromExp = nub . go
       Var {} -> []
 
 createsFromItem :: TStorageItem a t -> [Id]
-createsFromItem item = concatMap createsFromTypedExp (ixsFromItem item)  
+createsFromItem item = concatMap createsFromTypedExp (ixsFromItem item)
 
 createsFromTypedExp :: TypedExp t -> [Id]
 createsFromTypedExp (TExp _ e) = createsFromExp e
@@ -165,7 +165,7 @@ createsFromContract :: Typed.Contract -> [Id]
 createsFromContract (Contract constr behvs) =
   createsFromConstructor constr <> concatMap createsFromBehaviour behvs
 
-createsFromConstructor :: Typed.Constructor -> [Id] 
+createsFromConstructor :: Typed.Constructor -> [Id]
 createsFromConstructor (Constructor _ _ pre post inv initialStorage rewrites) = nub $
   concatMap createsFromExp pre
   <> concatMap createsFromExp post
@@ -426,8 +426,8 @@ idFromRewrites e = case e of
     idFromEntry (EVar p x) = singleton x [p]
     idFromEntry (EMapping _ en xs) = unionWith (<>) (idFromEntry en) (idFromRewrites' xs)
     idFromEntry (EField _ en _) = idFromEntry en
-    
+
 -- | True iff the case is a wildcard.
-isWild :: Case -> Bool
-isWild (Case _ (WildExp _) _) = True
-isWild _                      = False
+isTrue :: Case -> Bool
+isTrue (Case _ (BoolLit _ True) _) = True
+isTrue _                      = False
