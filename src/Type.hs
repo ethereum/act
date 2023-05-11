@@ -22,8 +22,6 @@ import qualified Data.Map.Strict    as Map -- abandon in favor of [(a,b)]?
 import Data.Typeable hiding (typeRep)
 import Type.Reflection (typeRep)
 
-import Control.Monad.Writer
-import Data.List.Extra (snoc,unsnoc)
 import Data.Function (on)
 import Data.Foldable
 import Data.Traversable
@@ -44,7 +42,7 @@ type Err = Error String
 -- | Typecheck and then detect possible circularities in constructor call graph
 typecheck :: U.Act -> Err Act
 typecheck act = typecheck' act `bindValidation` \t -> t <$ detectCycle t
-  
+
 -- | Main typechecking function.
 typecheck' :: U.Act -> Err Act
 typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store constructors) contracts
@@ -103,7 +101,7 @@ detectCycle (Act _ contracts) =
     doDFS :: Set Id -> Id -> Err (Set Id)
     doDFS visited v = if Set.member v visited then pure visited
       else dfs Set.empty visited v
- 
+
     dfs :: Set Id -> Set Id -> Id -> Err (Set Id)
     dfs stack discovered v =
       if Set.member v stack then throw (nowhere, "Detected cycle in constructor calls")
@@ -121,10 +119,10 @@ detectCycle (Act _ contracts) =
 
     calls = fmap findCalls $ contracts
     g = Map.fromList calls
-    
+
     findCalls :: Contract -> (Id, [Id])
     findCalls c@(Contract (Constructor cname _ _ _ _ _ _) _) = (cname, createsFromContract c)
-  
+
 --- Finds storage declarations from constructors
 lookupVars :: [U.Contract] -> Store
 lookupVars = foldMap $ \case
@@ -198,7 +196,7 @@ checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ 
     env = mkEnv cid store constructors
 
     namesConsistent :: Err ()
-    namesConsistent = 
+    namesConsistent =
       traverse_ (\(U.Transition pn _ cid' _ _ _ _) -> assert (errmsg pn cid') (cid == cid')) trans
 
     errmsg pn cid' = (pn, "Behavior must belong to contract " <> show cid <> " but belongs to contract " <> cid')
@@ -207,30 +205,23 @@ checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ 
 -- checks a transition given a typing of its storage variables
 checkTransition :: Env -> U.Transition -> Err [Behaviour]
 checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs cases posts) =
-  noIllegalWilds *>
   -- constrain integer calldata variables (TODO: other types)
   fmap fmap (makeBehv <$> checkIffs env' iffs <*> traverse (checkExpr env' SBoolean) posts)
-  <*> traverse (checkCase env') normalizedCases
+  <*> traverse (checkCase env') elaborateCases
   where
     env' = addCalldata env decls
 
-    noIllegalWilds :: Err ()
-    noIllegalWilds = case cases of
-      U.Direct   _  -> pure ()
-      U.Branches bs -> for_ (init bs) $ \c@(U.Case p _ _) ->
-                          when (isWild c) (throw (p, "Wildcard pattern must be last case"))  -- TODO test when wildcard isn't last
+    -- make cases non overlapping by negating previous cases that haven't matched
+    elaborateCases :: [U.Case]
+    elaborateCases = case cases of
+      U.Direct   post -> [U.Case nowhere (U.BoolLit nowhere True) post]
+      U.Branches [] -> error "Internal error: branches cannot be empty"
+      U.Branches (U.Case p cond post:cases') -> (U.Case p cond post):makeCases (U.ENot nowhere cond) cases'
 
-    -- translate wildcards into negation of other branches and translate a single case to a wildcard
-    normalizedCases :: [U.Case]
-    normalizedCases = case cases of
-      U.Direct   post -> [U.Case nowhere (U.WildExp nowhere) post]
-      U.Branches bs ->
-        let
-          Just (rest, lastCase@(U.Case pn _ post)) = unsnoc bs
-          negation = U.ENot nowhere $
-                        foldl (\acc (U.Case _ e _) -> U.EOr nowhere e acc) (U.BoolLit nowhere False) rest
-        in rest `snoc` (if isWild lastCase then U.Case pn negation post else lastCase)
-    -- TODO ensure non-overlapping and exhaustiveness (maybe with elaboration and mandatory wildcard?) 
+    makeCases :: U.Expr -> [U.Case] -> [U.Case]
+    makeCases _ [] = []
+    makeCases neg (U.Case p cond post:cases') = (U.Case p (U.EAnd nowhere cond neg) post):(makeCases (U.EAnd nowhere (U.ENot nowhere cond) neg) cases')
+    -- TODO ensure that branches are exhaustive
 
     -- | split case into pass and fail case
     makeBehv :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed)) -> Behaviour
@@ -273,8 +264,7 @@ validSlotType env p (StorageValue t) = validType env p t
 -- | Typechecks a case, returning typed versions of its preconditions, rewrites and return value.
 checkCase :: Env -> U.Case -> Err ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed))
 checkCase env c@(U.Case _ pre post) = do
-  -- TODO isWild checks for WildExp, but WildExp is never generated
-  if' <- traverse (checkExpr env SBoolean) $ if isWild c then [] else [pre]
+  if' <- traverse (checkExpr env SBoolean) $ if isTrue c then [] else [pre]
   (storage,return') <- checkPost env post
   pure (if',storage,return')
 
