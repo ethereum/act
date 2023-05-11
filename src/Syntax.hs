@@ -163,10 +163,10 @@ createsFromTypedExp (TExp _ e) = createsFromExp e
 
 createsFromContract :: Typed.Contract -> [Id]
 createsFromContract (Contract constr behvs) =
-  concatMap createsFromConstructor constr <> concatMap createsFromBehaviour behvs
+  createsFromConstructor constr <> concatMap createsFromBehaviour behvs
 
 createsFromConstructor :: Typed.Constructor -> [Id] 
-createsFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
+createsFromConstructor (Constructor _ _ pre post inv initialStorage rewrites) = nub $
   concatMap createsFromExp pre
   <> concatMap createsFromExp post
   <> concatMap createsFromInvariant inv
