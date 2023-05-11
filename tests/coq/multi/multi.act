@@ -1,11 +1,3 @@
-// Contract A
-constructor of A
-interface constructor()
-
-creates
-   uint x := 0
-   mapping(address => uint) f := []
-
 //Contract B
 constructor of B
 interface constructor(uint u)
@@ -27,6 +19,14 @@ interface setf(address i)
 storage
 
   a.f[i] => 1
+
+// Contract A
+constructor of A
+interface constructor()
+
+creates
+   uint x := 0
+   mapping(address => uint) f := []
 
 //Contract C
 constructor of C
