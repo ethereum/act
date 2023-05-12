@@ -123,8 +123,7 @@ detectCycle (Act _ contracts) =
     g = Map.fromList calls
     
     findCalls :: Contract -> (Id, [Id])
-    findCalls c@(Contract (Constructor cname _ _ _ _ _ _ _:_) _) = (cname, createsFromContract c)
-    findCalls _ = error "Internal error: at least one constructor expected"
+    findCalls c@(Contract (Constructor cname _ _ _ _ _ _) _) = (cname, createsFromContract c)
   
 --- Finds storage declarations from constructors
 lookupVars :: [U.Contract] -> Store
@@ -193,7 +192,7 @@ addCalldata env decls = env{ calldata = abiVars }
 
 checkContract :: Store -> Map Id [AbiType] -> U.Contract -> Err Contract
 checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ _) trans) =
-  Contract <$> (checkDefinition env constr) <*> (concat <$> traverse (checkTransition env) trans) <* namesConsistent
+  Contract <$> checkDefinition env constr <*> (concat <$> traverse (checkTransition env) trans) <* namesConsistent
   where
     env :: Env
     env = mkEnv cid store constructors
@@ -210,10 +209,8 @@ checkTransition :: Env -> U.Transition -> Err [Behaviour]
 checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs cases posts) =
   noIllegalWilds *>
   -- constrain integer calldata variables (TODO: other types)
-  fmap concatMap (caseClaims
-                    <$> checkIffs env' iffs
-                    <*> traverse (checkExpr env' SBoolean) posts)
-    <*> traverse (checkCase env') normalizedCases
+  fmap fmap (makeBehv <$> checkIffs env' iffs <*> traverse (checkExpr env' SBoolean) posts)
+  <*> traverse (checkCase env') normalizedCases
   where
     env' = addCalldata env decls
 
@@ -233,16 +230,13 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs
           negation = U.ENot nowhere $
                         foldl (\acc (U.Case _ e _) -> U.EOr nowhere e acc) (U.BoolLit nowhere False) rest
         in rest `snoc` (if isWild lastCase then U.Case pn negation post else lastCase)
+    -- TODO ensure non-overlapping and exhaustiveness (maybe with elaboration and mandatory wildcard?) 
 
     -- | split case into pass and fail case
-    caseClaims :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed)) -> [Behaviour]
-    caseClaims [] postcs (if',storage,ret) =
-      [ Behaviour name Pass contract iface if' postcs storage ret ]
-    caseClaims iffs' postcs (if',storage,ret) =
-      [ Behaviour name Pass contract iface (if' <> iffs') postcs storage ret,
-        Behaviour name Fail contract iface (if' <> [Neg nowhere (mconcat iffs')]) [] (Constant . locFromRewrite <$> storage) Nothing ]
+    makeBehv :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed)) -> Behaviour
+    makeBehv iffs' postcs (if',storage,ret) = Behaviour name contract iface iffs' if' postcs storage ret
 
-checkDefinition :: Env -> U.Definition -> Err [Constructor]
+checkDefinition :: Env -> U.Definition -> Err Constructor
 checkDefinition env (U.Definition _ contract iface@(Interface _ decls) iffs (U.Creates assigns) postcs invs) =
   do
     stateUpdates <- concat <$> traverse (checkAssign env') assigns
@@ -250,14 +244,10 @@ checkDefinition env (U.Definition _ contract iface@(Interface _ decls) iffs (U.C
     _ <- traverse (validStorage env') assigns
     ensures <- traverse (checkExpr env' SBoolean) postcs
     invs' <- fmap (Invariant contract [] []) <$> traverse (checkExpr env' SBoolean) invs
-    pure $ ctorClaims stateUpdates iffs' ensures invs'
+    pure $ Constructor contract iface iffs' ensures invs' stateUpdates []
   where
     env' = addCalldata env decls
 
-    ctorClaims updates iffs' ensures invs'
-      | null iffs' = [ Constructor contract Pass iface [] ensures invs' updates [] ]
-      | otherwise  = [ Constructor contract Pass iface iffs'                         ensures invs' updates []
-                     , Constructor contract Fail iface [Neg nowhere (mconcat iffs')] ensures invs' []      [] ]
 
 -- | Check if the types of storage variables are valid
 validStorage :: Env -> U.Assign -> Err ()

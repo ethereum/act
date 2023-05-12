@@ -29,14 +29,15 @@ invExp :: Annotated.InvariantPred -> Annotated.Exp ABoolean
 invExp = uncurry (<>)
 
 locsFromBehaviour :: Annotated.Behaviour -> [Annotated.StorageLocation]
-locsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+locsFromBehaviour (Behaviour _ _ _ preconds cases postconds rewrites returns) = nub $
   concatMap locsFromExp preconds
+  <> concatMap locsFromExp cases
   <> concatMap locsFromExp postconds
   <> concatMap locsFromRewrite rewrites
   <> maybe [] locsFromTypedExp returns
 
 locsFromConstructor :: Annotated.Constructor -> [Annotated.StorageLocation]
-locsFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
+locsFromConstructor (Constructor _ _ pre post inv initialStorage rewrites) = nub $
   concatMap locsFromExp pre
   <> concatMap locsFromExp post
   <> concatMap locsFromInvariant inv
@@ -59,7 +60,7 @@ behvsFromContracts :: [Contract t] -> [Behaviour t]
 behvsFromContracts contracts = concatMap (\(Contract _ b) -> b) contracts
 
 constrFromContracts :: [Contract t] -> [Constructor t]
-constrFromContracts contracts = concatMap (\(Contract c _) -> c) contracts
+constrFromContracts contracts = fmap (\(Contract c _) -> c) contracts
 
 locsFromRewrite :: Rewrite t -> [StorageLocation t]
 locsFromRewrite update = nub $ case update of
@@ -162,10 +163,10 @@ createsFromTypedExp (TExp _ e) = createsFromExp e
 
 createsFromContract :: Typed.Contract -> [Id]
 createsFromContract (Contract constr behvs) =
-  concatMap createsFromConstructor constr <> concatMap createsFromBehaviour behvs
+  createsFromConstructor constr <> concatMap createsFromBehaviour behvs
 
 createsFromConstructor :: Typed.Constructor -> [Id] 
-createsFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
+createsFromConstructor (Constructor _ _ pre post inv initialStorage rewrites) = nub $
   concatMap createsFromExp pre
   <> concatMap createsFromExp post
   <> concatMap createsFromInvariant inv
@@ -189,14 +190,15 @@ createsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = n
   <> maybe [] createsFromTypedExp returns
 
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
-ethEnvFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+ethEnvFromBehaviour (Behaviour _ _ _ preconds cases postconds rewrites returns) = nub $
   concatMap ethEnvFromExp preconds
+  <> concatMap ethEnvFromExp cases
   <> concatMap ethEnvFromExp postconds
   <> concatMap ethEnvFromRewrite rewrites
   <> maybe [] ethEnvFromTypedExp returns
 
 ethEnvFromConstructor :: Annotated.Constructor -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ _ pre post inv initialStorage rewrites) = nub $
+ethEnvFromConstructor (Constructor _ _ pre post inv initialStorage rewrites) = nub $
   concatMap ethEnvFromExp pre
   <> concatMap ethEnvFromExp post
   <> concatMap ethEnvFromInvariant inv

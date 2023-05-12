@@ -24,7 +24,7 @@ import CLI (compile)
 import Error
 import Print (prettyBehaviour)
 import SMT
-import Syntax.Annotated hiding (Mode)
+import Syntax.Annotated
 
 import Debug.Trace
 import Text.Pretty.Simple
@@ -53,10 +53,9 @@ main = defaultMain $ testGroup "act"
          fail spec is also checked.
       -}
       [ testProperty "roundtrip" . withExponents $ do
-          behv@(Behaviour _ _ contract _ preconds _ _ _) <- sized genBehv
+          behv@(Behaviour _ contract _ _ _ _ _ _) <- sized genBehv
           let actual = compile $ prettyBehaviour behv
-              expected = Act (defaultStore contract)
-                [Contract [defaultCtor contract] $ if null preconds then [behv] else [behv, failBehv behv]]
+              expected = Act (defaultStore contract) [Contract (defaultCtor contract) [behv]]
           return $ case actual of
             Success a -> a === expected
             Failure _ -> property False
@@ -69,15 +68,11 @@ main = defaultMain $ testGroup "act"
   ]
 
 
-failBehv :: Behaviour -> Behaviour
-failBehv (Behaviour name _ contract iface preconds _ _ _) =
-  Behaviour name Fail contract iface [Neg nowhere $ mconcat preconds] [] [] Nothing
-
 defaultStore :: Id -> Store
 defaultStore c = fromList [(c,fromList [])]
 
 defaultCtor :: Id -> Constructor
-defaultCtor c = Constructor {_cname = c, _cmode = Pass, _cinterface = Interface "constructor" [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = [], _cstateUpdates = []}
+defaultCtor c = Constructor {_cname = c, _cinterface = Interface "constructor" [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = [], _cstateUpdates = []}
 
 
 typeCheckSMT :: Solver -> GenT (Reader Bool) Property
@@ -121,10 +116,10 @@ genBehv n = do
   postconditions <- listOf $ genExpBool abiNames n
   iface <- Interface ifname <$> mkDecls abiNames
   return Behaviour { _name = name
-                   , _mode = Pass
                    , _contract = contract
                    , _interface = iface
                    , _preconditions = preconditions
+                   , _caseconditions = []
                    , _postconditions = postconditions
                    , _stateUpdates = []
                    , _returns = returns

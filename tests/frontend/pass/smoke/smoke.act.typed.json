@@ -6,7 +6,7 @@
         {
           "stateUpdates": [],
           "kind": "Behaviour",
-          "mode": "Pass",
+          "case": [],
           "name": "f",
           "preConditions": [
             {
@@ -42,18 +42,15 @@
         }
       ],
       "kind": "Contract",
-      "constructor": [
-        {
-          "kind": "Constructor",
-          "mode": "Pass",
-          "storage": [],
-          "preConditions": [],
-          "contract": "A",
-          "interface": "constructor()",
-          "postConditions": [],
-          "invariants": []
-        }
-      ]
+      "constructor": {
+        "kind": "Constructor",
+        "storage": [],
+        "preConditions": [],
+        "contract": "A",
+        "interface": "constructor()",
+        "postConditions": [],
+        "invariants": []
+      }
     }
   ],
   "store": {

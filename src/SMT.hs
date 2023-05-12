@@ -173,10 +173,10 @@ mkPostconditionQueries :: Act -> [Query]
 mkPostconditionQueries (Act _ contr) = concatMap mkPostconditionQueriesContract contr
   where
     mkPostconditionQueriesContract (Contract constr behvs) =
-      concatMap mkPostconditionQueriesConstr constr <> concatMap mkPostconditionQueriesBehv behvs
+      mkPostconditionQueriesConstr constr <> concatMap mkPostconditionQueriesBehv behvs
 
 mkPostconditionQueriesBehv :: Behaviour -> [Query]
-mkPostconditionQueriesBehv behv@(Behaviour _ Pass _ (Interface ifaceName decls) preconds postconds stateUpdates _) = mkQuery <$> postconds
+mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preconds ifs postconds stateUpdates _) = mkQuery <$> postconds
   where
     -- declare vars
     storage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
@@ -184,7 +184,7 @@ mkPostconditionQueriesBehv behv@(Behaviour _ Pass _ (Interface ifaceName decls) 
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
 
     -- constraints
-    pres = mkAssert ifaceName <$> preconds
+    pres = mkAssert ifaceName <$> preconds <> ifs
     updates = encodeUpdate ifaceName <$> stateUpdates
 
     mksmt e = SMTExp
@@ -195,10 +195,8 @@ mkPostconditionQueriesBehv behv@(Behaviour _ Pass _ (Interface ifaceName decls) 
       }
     mkQuery e = Postcondition (Behv behv) e (mksmt e)
 
-mkPostconditionQueriesBehv _ = []
-
 mkPostconditionQueriesConstr :: Constructor -> [Query]
-mkPostconditionQueriesConstr constructor@(Constructor _ Pass (Interface ifaceName decls) preconds postconds _ initialStorage stateUpdates) = mkQuery <$> postconds
+mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName decls) preconds postconds _ initialStorage stateUpdates) = mkQuery <$> postconds
   where
     -- declare vars
     localStorage = declareInitialStorage <$> initialStorage
@@ -218,8 +216,6 @@ mkPostconditionQueriesConstr constructor@(Constructor _ Pass (Interface ifaceNam
       , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> updates <> initialStorage'
       }
     mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
-
-mkPostconditionQueriesConstr _ = []
 
 -- | For each invariant in the list of input claims, we first gather all the
 --   specs relevant to that invariant (i.e. the constructor for that contract,
@@ -245,14 +241,10 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     mkQuery (inv, ctor, behvs) = Inv inv (mkInit inv ctor) (fmap (mkBehv inv ctor) behvs)
     gathered = concatMap getInvariants contracts
 
-    getInvariants (Contract ctors behvs) = case filter matchConstructor ctors of
-      c@Constructor{..}:_ -> fmap (\i -> (i, c, behvs)) _invariants
-      _ -> []
-
-    matchConstructor defn = _cmode defn == Pass
+    getInvariants (Contract (c@Constructor{..}) behvs) = fmap (\i -> (i, c, behvs)) _invariants
 
     mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
-    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ _ (Interface ifaceName decls) preconds _ _ initialStorage stateUpdates) = (ctor, smt)
+    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) preconds _ _ initialStorage stateUpdates) = (ctor, smt)
       where
         -- declare vars
         localStorage = declareInitialStorage <$> initialStorage
