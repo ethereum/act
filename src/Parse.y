@@ -151,6 +151,10 @@ nonempty(x) : x                                       { [$1]    }
 list(x) : {- empty -}                                 { []      }
         | x list(x)                                   { $1 : $2 }
 
+caselist(x,y) : x caselist(x,y)                       { $1 : $2 }
+              | x                                     { [$1] }
+              | y                                     { [$1] }
+
 optblock(label, x) : label nonempty(x)                { $2 }
                    | {- empty -}                      { [] }
 
@@ -183,8 +187,7 @@ Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface (name $2) $4 }
 CInterface : 'interface' 'constructor' '(' seplist(Decl, ',') ')' { Interface "constructor" $4 }
 
 Cases : Post                                          { Direct $1 }
-      | nonempty(Case)                                { Branches $1 }
-      | nonempty(Case) WildCase                       { Branches ($1 ++ [$2]) }
+      | caselist(Case, WildCase)                      { Branches $1 }
 
 Case : 'case' Expr ':' Post                           { Case (posn $1) $2 $4 }
 

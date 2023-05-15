@@ -1,0 +1,48 @@
+constructor of C
+interface constructor()
+
+creates
+   uint y := 0
+
+behaviour foo of C
+interface foo(uint flag, uint z)
+
+iff
+   CALLVALUE == 0
+
+case flag == 0:
+
+storage
+  y => z
+
+case flag >= 1:
+
+storage
+  y => z + 1
+
+case flag >= 3:
+
+storage
+  y => z + 2
+
+case flag >= 5 :
+
+storage
+  y
+
+
+behaviour bar of C
+interface bar(uint z)
+
+iff
+   CALLVALUE == 0
+
+case z == 0:
+
+storage
+  y => z
+
+case _:
+
+storage
+  y => 0
