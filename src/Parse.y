@@ -184,9 +184,11 @@ CInterface : 'interface' 'constructor' '(' seplist(Decl, ',') ')' { Interface "c
 
 Cases : Post                                          { Direct $1 }
       | nonempty(Case)                                { Branches $1 }
+      | nonempty(Case) WildCase                       { Branches ($1 ++ [$2]) }
 
 Case : 'case' Expr ':' Post                           { Case (posn $1) $2 $4 }
-     | 'case' '_' ':' Post                            { Case (posn $1) (BoolLit (posn $2) True) $4 }
+
+WildCase : 'case' '_' ':' Post                        { Case (posn $1) (BoolLit (posn $2) True) $4 }
 
 Post  : Storage                                       { Post $1 Nothing }
       | Returns                                       { Post [] (Just $1) }
