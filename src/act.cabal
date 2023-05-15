@@ -32,7 +32,7 @@ common deps
                  ansi-wl-pprint     >= 0.6.9,
                  regex-tdfa,
                  validation         >= 1.1.1,
-                 ordered-containers >= 0.2.3,
+                 ordered-containers >= 0.2.2,
                  extra,
                  singletons,
                  deriving-compat
