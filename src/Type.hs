@@ -102,6 +102,9 @@ typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store cons
 -- the constructor call graph. Throw an error if a cycle is detected.
 topologicalSort :: Act -> Err Act
 topologicalSort (Act store contracts) =
+  -- OM.assoc will return the nodes in the reverse order they were
+  -- visited (post-order). Reversing this gives as a topological
+  -- ordering of the nodes.
   Act store . reverse . map snd . OM.assocs <$> foldValidation doDFS OM.empty (map fst calls)
   where
     doDFS :: OMap Id Contract -> Id -> Err (OMap Id Contract)
@@ -122,12 +125,12 @@ topologicalSort (Act store contracts) =
         Just ws -> ws
         Nothing -> error "Internal error: node must be in the graph"
 
-    calls = fmap findCalls $ contracts
+    calls = fmap findCreates contracts
     g = Map.fromList calls
 
     -- map a contract name to the list of contracts that it calls and its code
-    findCalls :: Contract -> (Id, ([Id], Contract))
-    findCalls c@(Contract (Constructor cname _ _ _ _ _ _) _) = (cname, (createsFromContract c, c))
+    findCreates :: Contract -> (Id, ([Id], Contract))
+    findCreates c@(Contract (Constructor cname _ _ _ _ _ _) _) = (cname, (createsFromContract c, c))
 
 --- Finds storage declarations from constructors
 lookupVars :: [U.Contract] -> Store
