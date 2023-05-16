@@ -268,7 +268,7 @@ idFromItem (Item _ _ ref) = idFromStorageRef ref
 idFromStorageRef :: StorageRef t -> Id
 idFromStorageRef (SVar _ _ x) = x
 idFromStorageRef (SMapping _ e _) = idFromStorageRef e
-idFromStorageRef (SField _ e _) = idFromStorageRef e
+idFromStorageRef (SField _ e _ _) = idFromStorageRef e
 
 idFromUpdate :: StorageUpdate t -> Id
 idFromUpdate (Update _ item _) = idFromItem item
@@ -285,7 +285,7 @@ contractFromItem (Item _ _ ref) = contractFromStorageRef ref
 contractFromStorageRef :: StorageRef t -> Id
 contractFromStorageRef (SVar _ c _) = c
 contractFromStorageRef (SMapping _ e _) = contractFromStorageRef e
-contractFromStorageRef (SField _ e _) = contractFromStorageRef e
+contractFromStorageRef (SField _ e _ _) = contractFromStorageRef e
 
 ixsFromItem :: TStorageItem a t -> [TypedExp t]
 ixsFromItem (Item _ _ (SMapping _ _ ixs)) = ixs

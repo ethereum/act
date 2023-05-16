@@ -19,7 +19,7 @@ interface constructor(uint x)
 
 creates
    uint y := x
-   D d := D()
+   D d := create D()
 
 behaviour remote of B
 interface set_remote(uint z)
@@ -34,12 +34,12 @@ constructor of C
 interface constructor(uint u)
 
 creates
-   B b := B(u)
-   A a := A()
+   B b := create B(u)
+   A a := create A()
 
 constructor of D
 interface constructor()
 
 creates
-   C c := C(0)
+   C c := create C(0)
    uint x := 0

@@ -136,7 +136,7 @@ prettyInvPred = prettyExp . untime . fst
     untimeStorageRef :: StorageRef t -> StorageRef Untimed
     untimeStorageRef (SVar p c a) = SVar p c a
     untimeStorageRef (SMapping p e xs) = SMapping p (untimeStorageRef e) (fmap untimeTyped xs)
-    untimeStorageRef (SField p e x) = SField p (untimeStorageRef e) x
+    untimeStorageRef (SField p e c x) = SField p (untimeStorageRef e) c x
     
     untime :: Exp a t -> Exp a Untimed
     untime e = case e of

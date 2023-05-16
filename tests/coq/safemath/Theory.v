@@ -3,6 +3,8 @@ Require Import ActLib.ActLib.
 Require Import Coq.ZArith.ZArith.
 Open Scope Z_scope.
 
+Import SafeMath.
+
 (* trivial observation that there is only one possible state *)
 Lemma state_constant : forall s, s = state.
 Proof.

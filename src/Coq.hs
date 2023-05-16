@@ -10,13 +10,14 @@
  -}
 
 {-# Language OverloadedStrings #-}
+{-# Language RecordWildCards #-}
 {-# LANGUAGE GADTs #-}
 
 module Coq where
 
 import Prelude hiding (GT, LT)
 
-import Data.List.NonEmpty (NonEmpty(..))
+import Data.Map.Strict (Map)
 import qualified Data.Map.Strict    as M
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
@@ -25,9 +26,8 @@ import Control.Monad.State
 
 import EVM.ABI
 import Syntax
-import Syntax.Annotated hiding (Store)
+import Syntax.Annotated
 
-type Store = M.Map Id SlotType
 type Fresh = State Int
 
 header :: T.Text
@@ -43,55 +43,42 @@ header = T.unlines
 -- | produce a coq representation of a specification
 coq :: Act -> T.Text
 coq (Act store contracts) =
+  header <> (T.intercalate "\n\n" $ contractCode store <$> contracts)
 
-  header
-  <> stateRecord <> "\n\n"
-  <> block (evalSeq (claim store') <$> groups behaviours')
-  <> block (evalSeq retVal        <$> groups behaviours')
-  <> block (evalSeq (base store')  <$> cgroups constructors)
-  <> reachable (cgroups constructors) (groups behaviours')
-
+contractCode :: Store -> Contract -> T.Text
+contractCode store (Contract ctor@Constructor{..} behvs) = T.unlines $
+  [ "Module " <> T.pack _cname <> ".\n" ]
+  <> [ stateRecord ]
+  <> [ base store ctor ]
+  <> (concat (evalSeq (transition store) <$> groups behvs))
+  <> (filter ((/=) "") $ concat (evalSeq retVal <$> groups behvs))
+  <> [ reachable ctor (groups behvs) ]
+  <> [ "End " <> T.pack _cname <> "." ]
   where
+    groups = groupBy (\b b' -> _name b == _name b')
 
-  -- currently only supports one contract
-  store' = snd $ head $ M.toList $ store
+    stateRecord = T.unlines
+      [ "Record " <> stateType <> " : Set := " <> stateConstructor
+      , "{ " <> T.intercalate ("\n" <> "; ") (map decl (M.toList store'))
+      , "}."
+      ]
 
-  behaviours' = behvsFromContracts contracts
-
-  constructors = constrFromContracts contracts
-
-  groups = groupBy (\b b' -> _name b == _name b')
-  cgroups = groupBy (\b b' -> _cname b == _cname b')
-
-  block xs = T.intercalate "\n\n" (concat xs) <> "\n\n"
-
-  stateRecord = T.unlines
-    [ "Record " <> stateType <> " : Set := " <> stateConstructor
-    , "{ " <> T.intercalate ("\n" <> "; ") (map decl (M.toList store'))
-    , "}."
-    ] where
     decl (n, s) = (T.pack n) <> " : " <> slotType s
 
+    store' = contractStore _cname store
 
 -- | inductive definition of reachable states
-reachable :: [[Constructor]] -> [[Behaviour]] -> T.Text
-reachable constructors groups = inductive
+reachable :: Constructor -> [[Behaviour]] -> T.Text
+reachable constructor behvs = inductive
   reachableType "" (stateType <> " -> " <> stateType <> " -> Prop") body where
-  body = concat $
-    (evalSeq baseCase <$> constructors)
-    <>
-    (evalSeq reachableStep <$> groups)
+  body = (baseCase constructor) : concat (evalSeq reachableStep <$> behvs)
 
 -- | non-recursive constructor for the reachable relation
-baseCase :: Constructor -> Fresh T.Text
+baseCase :: Constructor -> T.Text
 baseCase (Constructor name i@(Interface _ decls) conds _ _ _ _) =
-  fresh name >>= continuation where
-  continuation name' =
-    return $ name'
-      <> baseSuffix <> " : "
-      <> universal <> "\n"
-      <> constructorBody where
-    baseval = parens $ name' <> " " <> envVar <> " " <> arguments i
+  T.pack name <> baseSuffix <> " : " <> universal <> "\n" <> constructorBody
+  where
+    baseval = parens $ T.pack name <> " " <> envVar <> " " <> arguments i
     constructorBody = (indent 2) . implication . concat $
       [ coqprop <$> conds
       , [reachableType <> " " <> baseval <> " " <> baseval]
@@ -113,26 +100,26 @@ reachableStep (Behaviour name _ i conds cases _ _ _) =
       <> parens (baseVar <> " " <> stateVar <> " : " <> stateType) <> " "
       <> interface i <> ",\n"
       <> constructorBody where
-    constructorBody = (indent 2) . implication . concat $
-      [ [reachableType <> " " <> baseVar <> " " <> stateVar]
-      , coqprop <$> cases ++ conds
-      , [ reachableType <> " " <> baseVar <> " "
-          <> parens (name' <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)
-        ]
-      ]
+
+    constructorBody = (indent 2) . implication $
+      [ reachableType <> " " <> baseVar <> " " <> stateVar ]
+      <> (coqprop <$> cases ++ conds)
+      <> [ reachableType <> " " <> baseVar <> " "
+           <> parens (name' <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)
+         ]
+
 
 -- | definition of a base state
-base :: Store -> Constructor -> Fresh T.Text
-base store (Constructor name i _ _ _ updates _) = do
-  name' <- fresh name
-  return $ definition name' (envDecl <> " " <> interface i) $
-    stateval store (\_ t -> defaultSlotValue t) updates
+base :: Store -> Constructor -> T.Text
+base store (Constructor name i _ _ _ updates _) =
+  definition (T.pack name) (envDecl <> " " <> interface i) $
+    stateval store name (\_ t -> defaultSlotValue t) updates
 
-claim :: Store -> Behaviour -> Fresh T.Text
-claim store (Behaviour name _ i _ _ _ rewrites _) = do
+transition :: Store -> Behaviour -> Fresh T.Text
+transition store (Behaviour name cname i _ _ _ rewrites _) = do
   name' <- fresh name
   return $ definition name' (envDecl <> " " <> stateDecl <> " " <> interface i) $
-    stateval store (\n _ -> T.pack n <> " " <> stateVar) (updatesFromRewrites rewrites)
+    stateval store cname (\ref _ -> storageRef ref) (updatesFromRewrites rewrites)
 
 -- | inductive definition of a return claim
 -- ignores claims that do not specify a return value
@@ -145,6 +132,7 @@ retVal (Behaviour name _ i conds cases _ _ (Just r)) =
     (returnType r <> " -> Prop")
     [retname <> introSuffix <> " :\n" <> body] where
 
+
     retname = name' <> returnSuffix
     body = indent 2 . implication . concat $
       [ coqprop <$> conds ++ cases
@@ -155,39 +143,65 @@ retVal _ = return ""
 
 -- | produce a state value from a list of storage updates
 -- 'handler' defines what to do in cases where a given name isn't updated
-stateval
-  :: Store
-  -> (Id -> SlotType -> T.Text)
-  -> [StorageUpdate]
-  -> T.Text
-stateval store handler updates = T.unwords $ stateConstructor : fmap (updateVar updates handler) (M.toList store)
+stateval :: Store -> Id -> (StorageRef -> SlotType -> T.Text) -> [StorageUpdate] -> T.Text
+stateval store contract handler updates = T.unwords $ stateConstructor : fmap (\(n, t) -> updateVar store updates handler (SVar nowhere contract n) t) (M.toList store')
+  where
+    store' = contractStore contract store
 
--- | filter by name
-eqName :: Id -> StorageUpdate -> Bool
-eqName n update = n == idFromUpdate update
+contractStore :: Id -> Store -> Map Id SlotType
+contractStore contract store = case M.lookup contract store of
+  Just s -> s
+  Nothing -> error "Internal error: cannot find constructor in store"
 
--- | Returns the updated value of a storage variable
-updateVar :: [StorageUpdate]
-          -> (Id -> SlotType -> T.Text)
-          -> (Id, SlotType)
-          -> T.Text
-updateVar updates handler (name, t@(StorageValue _)) =
-  parens $ foldl updatedVal (handler name t) (filter (eqName name) updates)
+
+-- | Check is an update update a specific strage reference
+eqRef :: StorageRef -> StorageUpdate -> Bool
+eqRef ref (Update _ (Item _ _ ref') _) = ref == ref'
+
+-- | Check if an update updates a location that has a given storage
+-- reference as a base
+baseRef :: StorageRef -> StorageUpdate -> Bool
+baseRef baseref (Update _ (Item _ _ ref) _) = hasBase ref
+  where
+    hasBase (SVar _ _ _) = False
+    hasBase (SMapping _ ref' _) = ref' == baseref || hasBase ref'
+    hasBase (SField _ ref' _ _) = ref' == baseref || hasBase ref'
+
+
+updateVar :: Store -> [StorageUpdate] -> (StorageRef -> SlotType -> T.Text) -> StorageRef -> SlotType -> T.Text
+updateVar store updates handler focus t@(StorageValue (ContractType cid)) =
+  case (constructorUpdates, fieldUpdates) of
+    -- Only some fields are updated
+    ([], updates'@(_:_)) -> parens $ T.unwords $ (T.pack cid <> "." <> stateConstructor) : fmap (\(n, t') -> updateVar store  updates' handler (focus' n) t') (M.toList store')
+    -- No fields are updated, whole contract may be updated with some call to the constructor
+    (updates', []) -> foldl (\ _ (Update _ _ e) -> coqexp e) (handler focus t) updates'
+    -- The contract is updated with constructor call and field accessing. Unsupported.
+    (_:_, _:_) -> error "Cannot handle multiple updates to contract variable"
+  where
+    focus' x = SField nowhere focus cid x
+    store' = contractStore cid store
+
+    fieldUpdates = filter (baseRef focus) updates
+    constructorUpdates = filter (eqRef focus) updates
+
+updateVar _ updates handler focus t@(StorageValue (PrimitiveType _)) =
+  foldl updatedVal (handler focus t) (filter (eqRef focus) updates)
     where
       updatedVal _ (Update SByteStr _ _) = error "bytestrings not supported"
       updatedVal _ (Update _ _ e) = coqexp e
 
-updateVar updates handler (name, t@(StorageMapping xs _)) = parens $
-  lambda n <> foldl updatedMap prestate (filter (eqName name) updates)
+updateVar _ updates handler focus t@(StorageMapping xs _) = parens $
+  lambda n <> foldl updatedMap prestate (filter (baseRef focus) updates)
     where
-      prestate = parens (handler name t) <> " " <> lambdaArgs n
+      prestate = parens $ handler focus t <> " " <> lambdaArgs n
       n = length xs
 
       updatedMap _ (Update SByteStr _ _) = error "bytestrings not supported"
       updatedMap prestate' (Update _ item e) =
-        "if " <> boolScope (T.intercalate " && " (map cond (zip (ixsFromItem item) ([0..] :: [Int]))))
+        let ixs = ixsFromItem item in -- This will not work if the domain is a contract type
+        "if " <> boolScope (T.intercalate " && " (map cond (zip ixs ([0..] :: [Int]))))
         <> " then " <> coqexp e
-        <> " else " <> parens prestate'
+        <> " else " <> prestate'
 
       cond (TExp argType arg, i) = parens $ anon <> T.pack (show i) <> eqsym argType <> coqexp arg
 
@@ -200,7 +214,8 @@ updateVar updates handler (name, t@(StorageMapping xs _)) = parens $
         SInteger -> " =? "
         SBoolean -> " =?? "
         SByteStr -> error "bytestrings not supported"
-        SContract -> error "contracts not supported"
+        SContract -> error "contracts cannot be mapping arguments"
+
 
 -- | produce a block of declarations from an interface
 interface :: Interface -> T.Text
@@ -220,7 +235,7 @@ slotType (StorageValue val) = valueType val
 
 valueType :: ValueType -> T.Text
 valueType (PrimitiveType t) = abiType t
-valueType (ContractType _) = error "TODO: implement contract types in Coq"
+valueType (ContractType cid) = T.pack cid <> "." <> "State" -- the type of a contract is its state record
 
 -- | coq syntax for an abi type
 abiType :: AbiType -> T.Text
@@ -235,12 +250,12 @@ returnType :: TypedExp -> T.Text
 returnType (TExp SInteger _) = "Z"
 returnType (TExp SBoolean _) = "bool"
 returnType (TExp SByteStr _) = error "bytestrings not supported"
-returnType (TExp SContract _) = error "contracts not supported"
+returnType (TExp SContract _) = error "Internal error: return type cannot be contract"
 
 -- | default value for a given type
 -- this is used in cases where a value is not set in the constructor
 defaultSlotValue :: SlotType -> T.Text
-defaultSlotValue (StorageMapping xs t) =
+defaultSlotValue (StorageMapping xs t) = parens $
   "fun "
   <> T.unwords (replicate (length (NE.toList xs)) "_")
   <> " => "
@@ -249,7 +264,7 @@ defaultSlotValue (StorageValue t) = defaultVal t
 
 defaultVal :: ValueType -> T.Text
 defaultVal (PrimitiveType t) = abiVal t
-defaultVal (ContractType _) = error "TODO: implement contract types in Coq"
+defaultVal (ContractType _) = error "Contracts must be explicitly initialized"
 
 abiVal :: AbiType -> T.Text
 abiVal (AbiUIntType _) = "0"
@@ -302,8 +317,10 @@ coqexp (ITE _ b e1 e2) = parens $ "if "
 -- environment values
 -- Relies on the assumption that Coq record fields have the same name
 -- as the corresponding Haskell constructor
-coqexp (IntEnv _ envVal) = parens (T.pack (show envVal) <> " " <> envVar)
-
+coqexp (IntEnv _ envVal) = parens $ T.pack (show envVal) <> " " <> envVar
+-- Contracts
+coqexp (Var _ SContract name) = T.pack name
+coqexp (Create _ _ cid args) = parens $ T.pack cid <> "." <> T.pack cid <> " " <> envVar <> " " <> coqargs args
 -- unsupported
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
@@ -311,8 +328,6 @@ coqexp (Var _ SByteStr _) = error "bytestrings not supported"
 coqexp ByStr {} = error "bytestrings not supported"
 coqexp ByLit {} = error "bytestrings not supported"
 coqexp ByEnv {} = error "bytestrings not supported"
-coqexp Create {} = error "contracts not supported"
-coqexp (Var _ SContract _) = error "contracts not supported"
 
 -- | coq syntax for a proposition
 coqprop :: Exp a -> T.Text
@@ -337,14 +352,16 @@ typedexp (TExp _ e) = coqexp e
 entry :: TStorageItem a -> When -> T.Text
 entry (Item SByteStr _ _) _ = error "bytestrings not supported"
 entry _ Post = error "TODO: missing support for poststate references in coq backend"
-entry item _ = case ixsFromItem item of
-  []       -> parens $ T.pack (idFromItem item) <> " " <> stateVar
-  (ix:ixs) -> parens $ T.pack (idFromItem item) <> " " <> stateVar <> " " <> coqargs (ix :| ixs)
+entry (Item _ _ ref) _ = storageRef ref
+
+storageRef :: StorageRef -> T.Text
+storageRef (SVar _ _ name) = parens $ T.pack name <> " " <> stateVar
+storageRef (SMapping _ ref ixs) = parens $ storageRef ref <> " " <> coqargs ixs
+storageRef (SField _ ref cid name) = parens $ T.pack cid <> "." <> T.pack name <> " " <> storageRef ref
 
 -- | coq syntax for a list of arguments
-coqargs :: NonEmpty TypedExp -> T.Text
-coqargs (e :| es) =
-  typedexp e <> " " <> T.unwords (map typedexp es)
+coqargs :: [TypedExp] -> T.Text
+coqargs es = T.unwords (map typedexp es)
 
 fresh :: Id -> Fresh T.Text
 fresh name = state $ \s -> (T.pack (name <> show s), s + 1)
@@ -364,8 +381,7 @@ definition name args value = T.unlines
 inductive :: T.Text -> T.Text -> T.Text -> [T.Text] -> T.Text
 inductive name args indices constructors = T.unlines
   [ "Inductive " <> name <> " " <> args <> " : " <> indices <> " :="
-  , T.unlines $ ("| " <>) <$> constructors
-  , "."
+  , (T.unlines $ ("| " <>) <$> constructors) <> "."
   ]
 
 -- | multiline implication

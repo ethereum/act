@@ -30,6 +30,8 @@ import Data.Traversable
 import Data.List
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.Map.Ordered (OMap)
+import qualified Data.Map.Ordered as OM
 
 import Syntax
 import Syntax.Timing
@@ -43,8 +45,8 @@ type Err = Error String
 
 -- | Typecheck and then detect possible circularities in constructor call graph
 typecheck :: U.Act -> Err Act
-typecheck act = typecheck' act `bindValidation` \t -> t <$ detectCycle t
-  
+typecheck act = typecheck' act `bindValidation` topologicalSort
+
 -- | Main typechecking function.
 typecheck' :: U.Act -> Err Act
 typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store constructors) contracts
@@ -96,35 +98,40 @@ typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store cons
           in (prependIfNotEmpty e y) <> duplicatesBy f ys
 
 
-detectCycle :: Act -> Err ()
-detectCycle (Act _ contracts) =
-  () <$ foldValidation doDFS Set.empty (map fst calls)
+-- | Sort contracts topologically so there are no backward edges in
+-- the constructor call graph. Throw an error if a cycle is detected.
+topologicalSort :: Act -> Err Act
+topologicalSort (Act store contracts) =
+  -- OM.assoc will return the nodes in the reverse order they were
+  -- visited (post-order). Reversing this gives as a topological
+  -- ordering of the nodes.
+  Act store . reverse . map snd . OM.assocs <$> foldValidation doDFS OM.empty (map fst calls)
   where
-    doDFS :: Set Id -> Id -> Err (Set Id)
-    doDFS visited v = if Set.member v visited then pure visited
+    doDFS :: OMap Id Contract -> Id -> Err (OMap Id Contract)
+    doDFS visited v = if OM.member v visited then pure visited
       else dfs Set.empty visited v
- 
-    dfs :: Set Id -> Set Id -> Id -> Err (Set Id)
-    dfs stack discovered v =
-      if Set.member v stack then throw (nowhere, "Detected cycle in constructor calls")
-      else if Set.member v discovered then pure discovered
-      else
-        let ws = adjacent v in
-        let stack' = Set.insert v stack in
-        let discovered' = Set.insert v discovered in
-        foldValidation (dfs stack') discovered' ws
 
-    adjacent :: Id -> [Id]
+    dfs :: Set Id -> OMap Id Contract -> Id -> Err (OMap Id Contract)
+    dfs stack visited v =
+      if Set.member v stack then throw (nowhere, "Detected cycle in constructor calls")
+      else if OM.member v visited then pure visited
+      else
+        let (ws, code) = adjacent v in
+        let stack' = Set.insert v stack in
+        (OM.|<) (v, code) <$> foldValidation (dfs stack') visited ws
+
+    adjacent :: Id -> ([Id], Contract)
     adjacent v = case Map.lookup v g of
         Just ws -> ws
         Nothing -> error "Internal error: node must be in the graph"
 
-    calls = fmap findCalls $ contracts
+    calls = fmap findCreates contracts
     g = Map.fromList calls
-    
-    findCalls :: Contract -> (Id, [Id])
-    findCalls c@(Contract (Constructor cname _ _ _ _ _ _) _) = (cname, createsFromContract c)
-  
+
+    -- map a contract name to the list of contracts that it calls and its code
+    findCreates :: Contract -> (Id, ([Id], Contract))
+    findCreates c@(Contract (Constructor cname _ _ _ _ _ _) _) = (cname, (createsFromContract c, c))
+
 --- Finds storage declarations from constructors
 lookupVars :: [U.Contract] -> Store
 lookupVars = foldMap $ \case
@@ -340,7 +347,7 @@ checkEntry env@Env{theirs} (U.EField p e x) =
   checkEntry env e `bindValidation` \(typ, ref) -> case typ of
     StorageValue (ContractType c) -> case Map.lookup c theirs of
       Just cenv -> case Map.lookup x cenv of
-        Just t -> pure (t, SField p ref x)
+        Just t -> pure (t, SField p ref c x)
         Nothing -> throw (p, "Contract " <> c <> " does not have field " <> x)
       Nothing -> error $ "Internal error: Invalid contract type " <> show c
     _ -> throw (p, "Expression should have a mapping type" <> show e)
