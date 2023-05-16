@@ -1,0 +1,24 @@
+constructor of C
+interface constructor()
+
+creates
+   uint y := 0
+	
+behaviour foo of C
+interface foo(uint z)
+
+iff
+   CALLVALUE == 0
+
+case z == 0:
+
+storage
+  y => z
+
+case _ :
+
+storage
+  y => 0
+
+ensures 
+  post(y) == 0
