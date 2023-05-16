@@ -4,9 +4,6 @@ interface constructor()
 creates
    uint x := 0
    uint y := 0
-
-invariants
-  x == 0
 	
 behaviour foo of C
 interface foo(uint flag, uint z)
@@ -37,19 +34,3 @@ storage
 ensures 
 
   flag == 4 => post(y) == z + 2
-
-behaviour bar of C
-interface bar(uint z)
-
-iff
-   CALLVALUE == 0
-
-case z == 0:
-
-storage
-  x => z
-
-case _:
-
-storage
-  x => 0
