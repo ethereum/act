@@ -27,7 +27,6 @@ jobs:
           skipPush: true
           signingKey: ''
       - name: test
-        run: nix shell --ignore-environment --command "cabal new-update && make test"
+        run: nix develop --ignore-environment --command bash -c "cabal new-update && make test"
       - name: build
-        run: nix build -A act
-
+        run: nix build .#act

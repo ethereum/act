@@ -14,7 +14,7 @@ jobs:
           name: dapp
 
       - name: build docs
-        run: nix shell --ignore-environment --command "make docs"
+        run: nix develop --ignore-environment --command make docs
 
       - name: publish docs
         uses: JamesIves/github-pages-deploy-action@4.1.4

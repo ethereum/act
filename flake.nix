@@ -11,18 +11,19 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         gitignore = pkgs.nix-gitignore.gitignoreSourcePure [ ./.gitignore ];
-      in rec {
-        packages.act = (pkgs.haskellPackages.callCabal2nixWithOptions "act" (gitignore ./src) "-fci" {})
+        act = (pkgs.haskellPackages.callCabal2nixWithOptions "act" (gitignore ./src) "-fci" {})
           .overrideAttrs (attrs : {
             buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc4 ];
           });
+      in rec {
+        packages.act = act;
         packages.default = packages.act;
 
         apps.act = flake-utils.lib.mkApp { drv = packages.act; };
         apps.default = apps.act;
 
-        shell = pkgs.haskellPackages.shellFor {
-          packages = p: [ p.act ];
+        devShell = pkgs.haskellPackages.shellFor {
+          packages = _: [ act ];
           buildInputs = with pkgs.haskellPackages; [
             cabal-install
             haskell-language-server
