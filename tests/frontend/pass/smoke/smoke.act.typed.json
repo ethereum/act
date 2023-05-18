@@ -1,62 +1,62 @@
 {
-  "kind": "Program",
   "contracts": [
     {
       "behaviors": [
         {
-          "stateUpdates": [],
-          "kind": "Behaviour",
           "case": [],
+          "contract": "A",
+          "interface": "f(uint256 x)",
+          "kind": "Behaviour",
           "name": "f",
+          "postConditions": [],
           "preConditions": [
             {
-              "arity": 2,
               "args": [
                 {
-                  "arity": 2,
                   "args": [
                     "0",
                     "x"
                   ],
+                  "arity": 2,
                   "symbol": "<="
                 },
                 {
-                  "arity": 2,
                   "args": [
                     "x",
                     "115792089237316195423570985008687907853269984665640564039457584007913129639935"
                   ],
+                  "arity": 2,
                   "symbol": "<="
                 }
               ],
+              "arity": 2,
               "symbol": "and"
             }
           ],
-          "contract": "A",
-          "interface": "f(uint256 x)",
-          "postConditions": [],
           "returns": {
             "expression": "1",
             "sort": "int"
-          }
+          },
+          "stateUpdates": []
         }
       ],
-      "kind": "Contract",
       "constructor": {
-        "kind": "Constructor",
-        "storage": [],
-        "preConditions": [],
         "contract": "A",
         "interface": "constructor()",
+        "invariants": [],
+        "kind": "Constructor",
         "postConditions": [],
-        "invariants": []
-      }
+        "preConditions": [],
+        "storage": []
+      },
+      "kind": "Contract"
     }
   ],
+  "kind": "Program",
   "store": {
+    "kind": "Storages",
     "storages": {
       "A": {}
-    },
-    "kind": "Storages"
+    }
   }
 }
