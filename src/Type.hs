@@ -233,7 +233,9 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs
       U.Direct   post -> [U.Case nowhere (U.WildExp nowhere) post]
       U.Branches bs ->
         let
-          Just (rest, lastCase@(U.Case pn _ post)) = unsnoc bs
+          (rest, lastCase@(U.Case pn _ post)) = case unsnoc bs of
+                                                  Just r -> r
+                                                  Nothing -> error "Internal error: branches cannot be empty"
           negation = U.ENot nowhere $
                         foldl (\acc (U.Case _ e _) -> U.EOr nowhere e acc) (U.BoolLit nowhere False) rest
         in rest `snoc` (if isWild lastCase then U.Case pn negation post else lastCase)

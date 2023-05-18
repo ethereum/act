@@ -12,6 +12,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 {-|
 Module      : Syntax.TimeAgnostic
@@ -41,6 +42,7 @@ import Data.String (fromString)
 import Data.Text (pack)
 import Data.Vector (fromList)
 import Data.Singletons (SingI(..))
+import Data.Kind
 
 -- Reexports
 
@@ -86,7 +88,7 @@ deriving instance Eq   (InvariantPred t) => Eq   (Invariant t)
 -- two predicates which explicitly reference the pre- and the post-state, respectively.
 -- Furthermore, if we know the predicate type we can always deduce the timing, not
 -- only vice versa.
-type family InvariantPred (t :: Timing) = (pred :: *) | pred -> t where
+type family InvariantPred (t :: Timing) = (pred :: Type) | pred -> t where
   InvariantPred Untimed = Exp ABoolean Untimed
   InvariantPred Timed   = (Exp ABoolean Timed, Exp ABoolean Timed)
 
@@ -474,7 +476,7 @@ instance ToJSON (Exp a t) where
   toJSON (ByLit _ a) = String . pack $ show a
   toJSON (ByEnv _ a) = String . pack $ show a
 
-  toJSON (TEntry _ t a) = object [ pack (show t) .= toJSON a ]
+  toJSON (TEntry _ t a) = object [ fromString (show t) .= toJSON a ]
   toJSON (Var _ _ a) = toJSON a
   toJSON (Create _ _ f xs) = object [ "symbol" .= pack "create"
                                     , "arity"  .= Data.Aeson.Types.Number 2

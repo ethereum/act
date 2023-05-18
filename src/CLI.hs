@@ -191,8 +191,8 @@ k spec' soljson' gas' storage' extractbin' out' = do
   let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
       errKSpecs = do
         behvs <- toEither $ behvsFromAct . enrich <$> compile specContents
-        (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
-                              (Solidity.readJSON . pack) solContents
+        (Solidity.Contracts sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
+                              (Solidity.readStdJSON  . pack) solContents
         for behvs (makekSpec sources kOpts) ^. revalidate
   proceed specContents errKSpecs $ \kSpecs -> do
     let printFile (filename, content) = case out' of
