@@ -1,0 +1,24 @@
+constructor of C
+interface constructor()
+
+creates
+   uint x := 0
+
+invariants
+  x == 0
+	
+behaviour bar of C
+interface bar(uint z)
+
+iff
+   CALLVALUE == 0
+
+case z == 0:
+
+storage
+  x => z
+
+case true:
+
+storage
+  x => 0
