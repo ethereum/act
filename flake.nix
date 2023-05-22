@@ -29,7 +29,7 @@
             haskell-language-server
             pkgs.jq
             pkgs.z3
-            pkgs.cvc5
+            pkgs.cvc4
             pkgs.coq
             pkgs.solc
             pkgs.mdbook
