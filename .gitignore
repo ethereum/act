@@ -25,3 +25,6 @@ src/dist/
 
 # mdbook
 doc/book
+
+# direnv
+.direnv/
