@@ -176,7 +176,7 @@ mkPostconditionQueries (Act _ contr) = concatMap mkPostconditionQueriesContract 
       mkPostconditionQueriesConstr constr <> concatMap mkPostconditionQueriesBehv behvs
 
 mkPostconditionQueriesBehv :: Behaviour -> [Query]
-mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preconds ifs postconds stateUpdates _) = mkQuery <$> postconds
+mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preconds caseconds postconds stateUpdates _) = mkQuery <$> postconds
   where
     -- declare vars
     storage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
@@ -184,7 +184,7 @@ mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preco
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
 
     -- constraints
-    pres = mkAssert ifaceName <$> preconds <> ifs
+    pres = mkAssert ifaceName <$> preconds <> caseconds
     updates = encodeUpdate ifaceName <$> stateUpdates
 
     mksmt e = SMTExp
@@ -284,7 +284,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
         -- constraints
         preInv = mkAssert ctorIface $ invPre
         postInv = mkAssert ctorIface . Neg nowhere $ invPost
-        behvConds = mkAssert behvIface <$> _preconditions behv
+        behvConds = mkAssert behvIface <$> _preconditions behv <> _caseconditions behv
         invConds' = mkAssert ctorIface <$> invConds <> invStorageBounds
         implicitLocs' = encodeUpdate ctorIface <$> implicitLocs
         updates = encodeUpdate behvIface <$> _stateUpdates behv
