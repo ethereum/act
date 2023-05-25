@@ -176,7 +176,6 @@ defaultStore =
    (Origin, AInteger),
    (Nonce, AInteger),
    (Calldepth, AInteger)
-   --others TODO
   ]
 
 
