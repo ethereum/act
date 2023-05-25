@@ -25,6 +25,7 @@ import qualified Data.Text.IO as TIO
 import qualified Data.Map.Strict as Map
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import Control.Monad
@@ -41,6 +42,16 @@ import K hiding (normalize, indent)
 import SMT
 import Type
 import Coq hiding (indent)
+import Expr
+
+import Debug.Trace
+
+import EVM.SymExec
+import qualified EVM.Solvers as Solvers
+import EVM.Solidity
+import qualified EVM.Types as Types
+import qualified EVM.Expr as Expr
+import qualified EVM.Fetch as Fetch
 
 --command line options
 data Command w
@@ -117,6 +128,11 @@ type' :: FilePath -> IO ()
 type' f = do
   contents <- readFile f
   validation (prettyErrs contents) (B.putStrLn . encode) (enrich <$> compile contents)
+
+type'' :: FilePath -> IO Act
+type'' f = do
+  contents <- readFile f
+  validation (\_ -> pure $ Act Map.empty []) pure (enrich <$> compile contents)
 
 prove :: FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
 prove file' solver' smttimeout' debug' = do
@@ -199,6 +215,40 @@ k spec' soljson' gas' storage' extractbin' out' = do
           Nothing -> putStrLn (filename <> ".k") >> putStrLn content
           Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
     forM_ kSpecs printFile
+
+
+hevm :: FilePath -> Text -> FilePath -> IO [EquivResult]
+hevm actspec cid sol = do
+  specContents <- readFile actspec
+  solContents  <- TIO.readFile sol
+  let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
+  bytecode <- fmap fromJust $ solcRuntime cid solContents
+  let actbehvs = translateAct act
+  Solvers.withSolvers Solvers.Z3 1 Nothing $ \solvers -> do
+    solbehvs <- removeFails <$> getBranches solvers bytecode
+    traceShowM solbehvs
+    traceShowM actbehvs
+    equivalenceCheck' solvers solbehvs actbehvs defaultVeriOpts
+  where
+    -- decompiles the given bytecode into a list of branches
+    getBranches solvers bs = do
+      let
+        bytecode = if BS.null bs then BS.pack [0] else bs
+        prestate = abstractVM calldata bytecode Nothing Types.AbstractStore
+      expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
+      let simpl = if True then (Expr.simplify expr) else expr
+      pure $ flattenExpr simpl
+
+    removeFails branches = filter isSuccess branches
+
+    isSuccess (Types.Success _ _ _) = True
+    isSuccess _ = False
+                                    
+    calldata = (Types.WriteByte (Types.Lit 0x0) (Types.LitByte 119) (Types.WriteByte (Types.Lit 0x1) (Types.LitByte 22) (Types.WriteByte (Types.Lit 0x2) (Types.LitByte 2) (Types.WriteByte (Types.Lit 0x3) (Types.LitByte 247) (Types.WriteWord (Types.Lit 0x4) (Types.Var "x") (Types.WriteWord (Types.Lit 0x24) (Types.Var "y") (Types.AbstractBuf "txdata")))))),[Types.PAnd (Types.PGEq (Types.Max (Types.Lit 0x44) (Types.BufLength (Types.AbstractBuf "txdata"))) (Types.Lit 0x44)) (Types.PLT (Types.Max (Types.Lit 0x44) (Types.BufLength (Types.AbstractBuf "txdata"))) (Types.Lit 0x10000000000000000)),Types.PAnd (Types.PGEq (Types.Var "y") (Types.Lit 0x0)) (Types.PLEq (Types.Var "y") (Types.Lit 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)),Types.PAnd (Types.PGEq (Types.Var "x") (Types.Lit 0x0)) (Types.PLEq (Types.Var "x") (Types.Lit 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))])
+
+
+
+
 
 -- hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
 -- hevm spec' soljson' solver' smttimeout' smtdebug' = do
