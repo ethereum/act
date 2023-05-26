@@ -37,6 +37,7 @@ import Syntax
 import Syntax.Timing
 import qualified Syntax.Untyped as U
 import Syntax.Typed
+import Syntax.Untyped (makeIface)
 import Error
 
 import Data.Type.Equality (TestEquality(..))
@@ -71,11 +72,8 @@ typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store cons
     noDuplicateInterfaces :: Err ()
     noDuplicateInterfaces =
       noDuplicates
-        [(pn, contract ++ "." ++ (show iface)) | U.Transition pn _ contract iface _ _ _ <- transitions]
+        [(pn, contract ++ "." ++ (makeIface iface)) | U.Transition pn _ contract iface _ _ _ <- transitions]
         $ \c -> "Multiple definitions of Interface " <> c
-    -- TODO this check allows interface declarations with the same name and argument types but
-    -- different argument names (e.g. f(uint x) and f(uint z)). This potentially problematic since
-    -- it is not possible to disambiguate. Such declarations are disallowed in Solidity
 
     noDuplicateBehaviourNames :: Err ()
     noDuplicateBehaviourNames =
@@ -245,14 +243,14 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs
     makeBehv iffs' postcs (if',storage,ret) = Behaviour name contract iface iffs' if' postcs storage ret
 
 checkDefinition :: Env -> U.Definition -> Err Constructor
-checkDefinition env (U.Definition _ contract iface@(Interface _ decls) iffs (U.Creates assigns) postcs invs) =
+checkDefinition env (U.Definition _ contract (Interface _ decls) iffs (U.Creates assigns) postcs invs) =
   do
     stateUpdates <- concat <$> traverse (checkAssign env') assigns
     iffs' <- checkIffs env' iffs
     _ <- traverse (validStorage env') assigns
     ensures <- traverse (checkExpr env' SBoolean) postcs
     invs' <- fmap (Invariant contract [] []) <$> traverse (checkExpr env' SBoolean) invs
-    pure $ Constructor contract iface iffs' ensures invs' stateUpdates []
+    pure $ Constructor contract (Interface contract decls) iffs' ensures invs' stateUpdates []
   where
     env' = addCalldata env decls
 
@@ -440,7 +438,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SInteger, U.IntLit  p v1)    -> pure $ LitInt  p v1
   -- Constructor calls
   (SContract, U.ECreate p c args) -> case Map.lookup c constructors of
-    Just typs -> Create p SContract c <$> checkIxs env p args (fmap PrimitiveType typs)
+    Just typs -> Create p c <$> checkIxs env p args (fmap PrimitiveType typs)
     Nothing -> throw (p, "Unknown constructor " <> show c)
   -- Control
   (_, U.EITE p v1 v2 v3) ->
@@ -501,7 +499,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
 contractId :: Exp AContract t -> Id
 contractId (ITE _ _ a _) = contractId a
 contractId (Var _ _ _) = error "Internal error: calldata variables cannot have contract types"
-contractId (Create _ _ c _) = c
+contractId (Create _ c _) = c
 contractId (TEntry _ _ (Item _ (ContractType c) _)) = c
 contractId (TEntry _ _ (Item _ _ _)) = error "Internal error: entry does not have contract type"
 
