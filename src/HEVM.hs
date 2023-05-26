@@ -14,15 +14,19 @@
 module Expr where
 
 import qualified Data.Map as M
+import Data.Text (Text)
+import Data.List
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B8 (pack)
 
 import Syntax.Annotated
+import Syntax.Untyped (makeIface)
 import Syntax
 
 import qualified EVM.Types as Types
 import EVM.Concrete (createAddress)
 import EVM.Expr hiding (op2)
+import EVM.SymExec
 
 -- decompile :: Contract -> ByteString -> IO (Map Interface [Expr End])
 
@@ -46,13 +50,48 @@ slotMap contracts =
     addVars addr upds =
       foldl (\layout (upd, i) -> M.insert (idFromUpdate upd) (addr, i) layout) M.empty $ zip upds [0..]
 
+-- TODO move this to HEVM
+type Calldata = (Types.Expr Types.Buf, [Types.Prop])
 
-translateAct :: Act -> [Types.Expr Types.End]
+-- Create a calldata that matches the interface of a certain behaviour
+-- or constructor. Use an abstract txdata buffer as the base.
+makeCalldata :: Interface -> Calldata
+makeCalldata iface@(Interface _ decls) =
+  let
+    mkArg :: Decl -> CalldataFragment
+    mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
+    makeSig = T.pack $ makeIface iface
+    calldatas = fmap mkArg decls
+    (cdBuf, props) = combineFragments calldatas (Types.AbstractBuf "txdata")
+    withSelector = writeSelector cdBuf makeSig
+    sizeConstraints
+      = (bufLength withSelector Types..>= cdLen calldatas)
+      Types..&& (bufLength withSelector Types..< (Types.Lit (2 ^ (64 :: Integer))))
+  in (withSelector, sizeConstraints : props)
+
+translateAct :: Act -> [([Types.Expr Types.End], Calldata)]
 translateAct (Act _ contracts) =
   let slots = slotMap contracts in
-  concatMap (\(Contract _ behvs) -> map (translateBehv slots) behvs) contracts
-
+  concatMap (\(Contract constr behvs) -> translateConstructor slots constr : translateBehvs slots behvs) contracts
   
+translateConstructor :: Layout -> Constructor -> ([Types.Expr Types.End], Calldata)
+translateConstructor layout (Constructor cid iface preconds _ _ upds _) =
+  ([Types.Success (fmap toProp $ preconds) (returnsToExpr Nothing) (updatesToExpr layout cid upds)],
+   makeCalldata iface)
+
+translateBehvs :: Layout -> [Behaviour] -> [([Types.Expr Types.End], Calldata)]
+translateBehvs layout behvs =
+  let groups = (groupBy sameIface behvs) :: [[Behaviour]] in
+  fmap (\behvs -> (fmap (translateBehv layout) behvs, behvCalldata behvs)) groups
+  where
+    behvCalldata (Behaviour _ _ iface _ _ _ _ _:_) = makeCalldata iface
+    behvCalldata [] = error "Internal error: behaviour groups cannot be empty"
+
+    -- TODO remove reduntant name in behaviours
+    sameIface (Behaviour _ _ iface  _ _ _ _ _) (Behaviour _ _ iface' _ _ _ _ _) =
+      makeIface iface == makeIface iface'
+  
+
 translateBehv :: Layout -> Behaviour -> Types.Expr Types.End
 translateBehv layout (Behaviour _ cid _ preconds caseconds _ upds ret) =  
   Types.Success (fmap toProp $ preconds <> caseconds) (returnsToExpr ret) (rewritesToExpr layout cid upds)
@@ -62,7 +101,13 @@ rewritesToExpr layout cid rewrites = foldl (flip $ rewriteToExpr layout cid) Typ
 
 rewriteToExpr :: Layout -> Id -> Rewrite -> Types.Expr Types.Storage -> Types.Expr Types.Storage
 rewriteToExpr _ _ (Constant _) state = state
-rewriteToExpr layout cid (Rewrite (Update typ i@(Item _ _ ref) e)) state =
+rewriteToExpr layout cid (Rewrite upd) state = updateToExpr layout cid upd state
+
+updatesToExpr :: Layout -> Id -> [StorageUpdate] -> Types.Expr Types.Storage
+updatesToExpr layout cid upds = foldl (flip $ updateToExpr layout cid) Types.AbstractStore upds
+
+updateToExpr :: Layout -> Id -> StorageUpdate -> Types.Expr Types.Storage -> Types.Expr Types.Storage
+updateToExpr layout cid (Update typ i@(Item _ _ ref) e) state =
   case typ of
     SInteger -> Types.SStore (Types.Lit $ fromIntegral addr) offset e' state
     SBoolean -> Types.SStore (Types.Lit $ fromIntegral addr) offset e' state
@@ -80,7 +125,7 @@ returnsToExpr (Just r) = typedExpToBuf r
 offsetFromRef :: Integer -> StorageRef -> Types.Expr Types.EWord
 offsetFromRef slot (SVar _ _ _) = Types.Lit $ fromIntegral slot
 offsetFromRef slot (SMapping _ _ ixs) = 
-  foldl (\slot i -> Types.keccak ((wordToBuf slot) <> (typedExpToBuf i))) (Types.Lit $ fromIntegral slot) ixs
+  foldl (\slot' i -> Types.keccak ((wordToBuf slot') <> (typedExpToBuf i))) (Types.Lit $ fromIntegral slot) ixs
 offsetFromRef _ (SField _ _ _ _) = error "TODO contracts not supported"
 
 wordToBuf :: Types.Expr Types.EWord -> Types.Expr Types.Buf
@@ -140,11 +185,14 @@ toProp (Syntax.Annotated.GT _ e1 e2) = op2 Types.PGT e1 e2
 toProp (LitBool _ b) = Types.PBool b
 toProp (Eq _ SInteger e1 e2) = Types.PEq (toExpr e1) (toExpr e2)
 toProp (Eq _ SBoolean e1 e2) = Types.PEq (toExpr e1) (toExpr e2)
+toProp (Eq _ _ _ _) = error "unsupported"
 toProp (NEq _ SInteger e1 e2) = Types.PNeg $ Types.PEq (toExpr e1) (toExpr e2)
 toProp (NEq _ SBoolean e1 e2) = Types.PNeg $ Types.PEq (toExpr e1) (toExpr e2)
+toProp (NEq _ _ _ _) = error "unsupported"
 toProp (ITE _ _ _ _) = error "Internal error: expecting flat expression"
 toProp (Var _ _ _) = error "TODO" -- (Types.Var (T.pack x)) -- vars can only be words? TODO other types
 toProp (TEntry _ _ _) = error "TODO" -- Types.SLoad addr idx 
+
 
 toExpr :: forall a. Exp a -> Types.Expr (ExprType a)
 -- booleans
@@ -181,13 +229,15 @@ toExpr (ByStr _ str) = Types.ConcreteBuf (B8.pack str)
 toExpr (ByLit _ bs) = Types.ConcreteBuf bs
 toExpr (ByEnv _ env) = ethEnvToBuf env
 -- contracts
-toExpr (Create _ typ cid args) = error "TODO"
+toExpr (Create _ cid args) = error "TODO"
 -- polymorphic
 toExpr (Eq _ SInteger e1 e2) = Types.Eq (toExpr e1) (toExpr e2)
 toExpr (Eq _ SBoolean e1 e2) = Types.Eq (toExpr e1) (toExpr e2)
+toExpr (Eq _ _ _ _) = error "unsupported"
 
 toExpr (NEq _ SInteger e1 e2) = Types.Not $ Types.Eq (toExpr e1) (toExpr e2)
 toExpr (NEq _ SBoolean e1 e2) = Types.Not $ Types.Eq (toExpr e1) (toExpr e2)
+toExpr (NEq _ _ _ _) = error "unsupported"
 
 toExpr (ITE _ _ _ _) = error "Internal error: expecting flat expression"
 

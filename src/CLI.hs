@@ -217,21 +217,22 @@ k spec' soljson' gas' storage' extractbin' out' = do
     forM_ kSpecs printFile
 
 
-hevm :: FilePath -> Text -> FilePath -> IO [EquivResult]
+hevm :: FilePath -> Text -> FilePath -> IO [[EquivResult]]
 hevm actspec cid sol = do
   specContents <- readFile actspec
   solContents  <- TIO.readFile sol
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
   bytecode <- fmap fromJust $ solcRuntime cid solContents
   let actbehvs = translateAct act
-  Solvers.withSolvers Solvers.Z3 1 Nothing $ \solvers -> do
-    solbehvs <- removeFails <$> getBranches solvers bytecode
-    traceShowM solbehvs
-    traceShowM actbehvs
-    equivalenceCheck' solvers solbehvs actbehvs defaultVeriOpts
+  sequence $ flip fmap actbehvs $ \(behvs,calldata) ->
+    Solvers.withSolvers Solvers.Z3 1 Nothing $ \solvers -> do
+      solbehvs <- removeFails <$> getBranches solvers bytecode calldata
+      traceShowM solbehvs
+      traceShowM behvs
+      equivalenceCheck' solvers solbehvs behvs defaultVeriOpts
   where
     -- decompiles the given bytecode into a list of branches
-    getBranches solvers bs = do
+    getBranches solvers bs calldata = do
       let
         bytecode = if BS.null bs then BS.pack [0] else bs
         prestate = abstractVM calldata bytecode Nothing Types.AbstractStore
@@ -243,9 +244,6 @@ hevm actspec cid sol = do
 
     isSuccess (Types.Success _ _ _) = True
     isSuccess _ = False
-                                    
-    calldata = (Types.WriteByte (Types.Lit 0x0) (Types.LitByte 119) (Types.WriteByte (Types.Lit 0x1) (Types.LitByte 22) (Types.WriteByte (Types.Lit 0x2) (Types.LitByte 2) (Types.WriteByte (Types.Lit 0x3) (Types.LitByte 247) (Types.WriteWord (Types.Lit 0x4) (Types.Var "x") (Types.WriteWord (Types.Lit 0x24) (Types.Var "y") (Types.AbstractBuf "txdata")))))),[Types.PAnd (Types.PGEq (Types.Max (Types.Lit 0x44) (Types.BufLength (Types.AbstractBuf "txdata"))) (Types.Lit 0x44)) (Types.PLT (Types.Max (Types.Lit 0x44) (Types.BufLength (Types.AbstractBuf "txdata"))) (Types.Lit 0x10000000000000000)),Types.PAnd (Types.PGEq (Types.Var "y") (Types.Lit 0x0)) (Types.PLEq (Types.Var "y") (Types.Lit 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)),Types.PAnd (Types.PGEq (Types.Var "x") (Types.Lit 0x0)) (Types.PLEq (Types.Var "x") (Types.Lit 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))])
-
 
 
 
