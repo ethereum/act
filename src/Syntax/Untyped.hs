@@ -167,3 +167,8 @@ instance ToJSON SlotType where
   toJSON (StorageMapping ixTypes valType) = object [ "type" .= String "mapping"
                                                    , "ixTypes" .= show (toList ixTypes)
                                                    , "valType" .= show valType]
+
+-- Create the string that is used to construct the function selector
+makeIface :: Interface -> String
+makeIface (Interface a decls) =
+ a <> "(" <> intercalate "," (fmap (\(Decl typ _) -> show typ) decls) <> ")"
