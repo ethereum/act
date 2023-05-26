@@ -113,4 +113,5 @@ tests/%.postcondition.fail:
 # 	./bin/act hevm --spec tests/hevm/fail/$*.act --soljson tests/hevm/fail/$*.sol.json && exit 1 || echo 0
 # 	rm tests/hevm/fail/$*.sol.json
 
-test: test-parse test-type test-invariant test-postcondition test-coq test-hevm test-cabal
+test-ci: test-parse test-type test-invariant test-postcondition test-coq test-hevm
+test: test-ci test-cabal

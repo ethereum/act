@@ -20,6 +20,8 @@ src/dist/
 *.glob
 **/CoqMakefile
 **/CoqMakefile.conf
+**/.CoqMakefile.d
+**/.lia.cache
 *.aux
 **/.coqdeps.d
 

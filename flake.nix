@@ -36,9 +36,6 @@
             pkgs.mdbook-mermaid
           ];
           withHoogle = true;
-          shellHook = ''
-            export PATH=${toString ./bin}:$PATH
-          '';
         };
       }
   );
