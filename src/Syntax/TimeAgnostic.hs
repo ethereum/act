@@ -221,7 +221,7 @@ data Exp (a :: ActType) (t :: Timing) where
   ByLit :: Pn -> ByteString -> Exp AByteStr t
   ByEnv :: Pn -> EthEnv -> Exp AByteStr t
   -- contracts
-  Create   :: Pn -> SType a -> Id -> [TypedExp t] -> Exp a t
+  Create   :: Pn -> Id -> [TypedExp t] -> Exp AContract t
   -- polymorphic
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
@@ -269,7 +269,7 @@ instance Eq (Exp a t) where
   TEntry _ a t == TEntry _ b u = a == b && t == u
   Var _ _ a == Var _ _ b = a == b
 
-  Create _ _ a b == Create _ _ c d = a == c && b == d
+  Create _ a b == Create _ c d = a == c && b == d
 
   _ == _ = False
 
@@ -319,7 +319,7 @@ instance Timable (Exp a) where
     ByLit p x -> ByLit p x
     ByEnv p x -> ByEnv p x
     -- contracts
-    Create p t x y -> Create p t x (go <$> y)
+    Create p x y -> Create p x (go <$> y)
     -- polymorphic
     Eq  p s x y -> Eq p s (go x) (go y)
     NEq p s x y -> NEq p s (go x) (go y)
@@ -478,7 +478,7 @@ instance ToJSON (Exp a t) where
 
   toJSON (TEntry _ t a) = object [ fromString (show t) .= toJSON a ]
   toJSON (Var _ _ a) = toJSON a
-  toJSON (Create _ _ f xs) = object [ "symbol" .= pack "create"
+  toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                     , "arity"  .= Data.Aeson.Types.Number 2
                                     , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
 
@@ -534,7 +534,7 @@ eval e = case e of
 
   ITE _ a b c   -> eval a >>= \cond -> if cond then eval b else eval c
 
-  Create _ _ _ _ -> error "eval of contracts not supported"
+  Create _ _ _ -> error "eval of contracts not supported"
   _              -> empty
 
 intmin :: Int -> Integer

@@ -112,7 +112,7 @@ locsFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Create _ _ _ es -> concatMap locsFromTypedExp es
+      Create _ _ es -> concatMap locsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
       Var {} -> []
@@ -150,7 +150,7 @@ createsFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Create _ _ f es -> [f] <> concatMap createsFromTypedExp es
+      Create _ f es -> [f] <> concatMap createsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> createsFromItem a
       Var {} -> []
@@ -255,7 +255,7 @@ ethEnvFromExp = nub . go
       UIntMax {} -> []
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
-      Create _ _ _ ixs -> concatMap ethEnvFromTypedExp ixs
+      Create _ _ ixs -> concatMap ethEnvFromTypedExp ixs
       TEntry _ _ a -> ethEnvFromItem a
       Var {} -> []
 

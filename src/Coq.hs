@@ -320,7 +320,7 @@ coqexp (ITE _ b e1 e2) = parens $ "if "
 coqexp (IntEnv _ envVal) = parens $ T.pack (show envVal) <> " " <> envVar
 -- Contracts
 coqexp (Var _ SContract name) = T.pack name
-coqexp (Create _ _ cid args) = parens $ T.pack cid <> "." <> T.pack cid <> " " <> envVar <> " " <> coqargs args
+coqexp (Create _ cid args) = parens $ T.pack cid <> "." <> T.pack cid <> " " <> envVar <> " " <> coqargs args
 -- unsupported
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
