@@ -12,22 +12,17 @@
 module CLI (main, compile, proceed) where
 
 import Data.Aeson hiding (Bool, Number)
-import EVM.SymExec (ProofResult(..))
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr, stdout)
-import Data.SBV hiding (preprocess, sym, prove)
 import Data.Text (pack, unpack)
 import Data.List
-import Data.Either (lefts)
 import Data.Maybe
-import Data.Tree
 import Data.Traversable
 import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import qualified Data.Map.Strict as Map
-import System.Environment (setEnv)
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 
 import qualified Data.ByteString.Lazy.Char8 as B
@@ -46,7 +41,6 @@ import K hiding (normalize, indent)
 import SMT
 import Type
 import Coq hiding (indent)
-import HEVM
 
 --command line options
 data Command w
@@ -100,7 +94,8 @@ main = do
       Prove file' solver' smttimeout' debug' -> prove file' solver' smttimeout' debug'
       Coq f -> coq' f
       K spec' soljson' gas' storage' extractbin' out' -> k spec' soljson' gas' storage' extractbin' out'
-      HEVM spec' soljson' solver' smttimeout' debug' -> hevm spec' soljson' solver' smttimeout' debug'
+      HEVM _ _ _ _ _ -> error "Unimplemented"
+      -- HEVM spec' soljson' solver' smttimeout' debug' -> hevm spec' soljson' solver' smttimeout' debug'
 
 
 ---------------------------------
@@ -196,8 +191,8 @@ k spec' soljson' gas' storage' extractbin' out' = do
   let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
       errKSpecs = do
         behvs <- toEither $ behvsFromAct . enrich <$> compile specContents
-        (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
-                              (Solidity.readJSON . pack) solContents
+        (Solidity.Contracts sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
+                              (Solidity.readStdJSON  . pack) solContents
         for behvs (makekSpec sources kOpts) ^. revalidate
   proceed specContents errKSpecs $ \kSpecs -> do
     let printFile (filename, content) = case out' of
@@ -205,41 +200,41 @@ k spec' soljson' gas' storage' extractbin' out' = do
           Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
     forM_ kSpecs printFile
 
-hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
-hevm spec' soljson' solver' smttimeout' smtdebug' = do
-  specContents <- readFile spec'
-  solContents  <- readFile soljson'
-  let preprocess = do behvs <- behvsFromAct . enrich <$> compile specContents
-                      (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
-                        (Solidity.readJSON . pack) solContents
-                      pure (behvs, sources)
-  proceed specContents preprocess $ \(specs, sources) -> do
-    -- TODO: prove constructor too
-    passes <- forM specs $ \behv -> do
-      res <- runSMTWithTimeOut solver' smttimeout' smtdebug' $ proveBehaviour sources behv
-      case res of
-        Qed posts -> let msg = "Successfully proved " <> showBehv behv <> ", "
-                            <> show (length $ last $ levels posts) <> " cases."
-                      in putStrLn msg >> return (Right msg)
-        Cex _     -> let msg = "Failed to prove " <> showBehv behv
-                      in putStrLn msg >> return (Left msg)
-        Timeout _ -> let msg = "Solver timeout when attempting to prove " <> showBehv behv
-                      in putStrLn msg >> return (Left msg)
-    let failures = lefts passes
+-- hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
+-- hevm spec' soljson' solver' smttimeout' smtdebug' = do
+--   specContents <- readFile spec'
+--   solContents  <- readFile soljson'
+--   let preprocess = do behvs <- behvsFromAct . enrich <$> compile specContents
+--                       (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
+--                         (Solidity.readJSON . pack) solContents
+--                       pure (behvs, sources)
+--   proceed specContents preprocess $ \(specs, sources) -> do
+--     -- TODO: prove constructor too
+--     passes <- forM specs $ \behv -> do
+--       res <- runSMTWithTimeOut solver' smttimeout' smtdebug' $ proveBehaviour sources behv
+--       case res of
+--         Qed posts -> let msg = "Successfully proved " <> showBehv behv <> ", "
+--                             <> show (length $ last $ levels posts) <> " cases."
+--                       in putStrLn msg >> return (Right msg)
+--         Cex _     -> let msg = "Failed to prove " <> showBehv behv
+--                       in putStrLn msg >> return (Left msg)
+--         Timeout _ -> let msg = "Solver timeout when attempting to prove " <> showBehv behv
+--                       in putStrLn msg >> return (Left msg)
+--     let failures = lefts passes
 
-    putStrLn . unlines $
-      if null failures
-        then [ "==== SUCCESS ===="
-             , "All behaviours implemented as specified ∎."
-             ]
-        else [ "==== FAILURE ===="
-             , show (length failures) <> " out of " <> show (length passes) <> " claims unproven:"
-             , ""
-             ]
-          <> zipWith (\i msg -> show (i::Int) <> "\t" <> msg) [1..] failures
-    unless (null failures) exitFailure
-  where
-    showBehv behv = _name behv
+--     putStrLn . unlines $
+--       if null failures
+--         then [ "==== SUCCESS ===="
+--              , "All behaviours implemented as specified ∎."
+--              ]
+--         else [ "==== FAILURE ===="
+--              , show (length failures) <> " out of " <> show (length passes) <> " claims unproven:"
+--              , ""
+--              ]
+--           <> zipWith (\i msg -> show (i::Int) <> "\t" <> msg) [1..] failures
+--     unless (null failures) exitFailure
+--   where
+--     showBehv behv = _name behv
 
 -------------------
 -- *** Util *** ---
@@ -247,18 +242,18 @@ hevm spec' soljson' solver' smttimeout' smtdebug' = do
 
 
 -- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
-runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic a -> IO a
-runSMTWithTimeOut solver' maybeTimeout debug' sym
-  | solver' == Just "cvc4" = do
-      setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --incremental --interactive --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
-      res <- runSMTWith cvc4{verbose=debug'} sym
-      setEnv "SBV_CVC4_OPTIONS" ""
-      return res
-  | solver' == Just "z3" = runwithz3
-  | isNothing solver' = runwithz3
-  | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
- where timeout = fromMaybe 20000 maybeTimeout
-       runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
+-- runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic a -> IO a
+-- runSMTWithTimeOut solver' maybeTimeout debug' sym
+--   | solver' == Just "cvc4" = do
+--       setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --incremental --interactive --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
+--       res <- runSMTWith cvc4{verbose=debug'} sym
+--       setEnv "SBV_CVC4_OPTIONS" ""
+--       return res
+--   | solver' == Just "z3" = runwithz3
+--   | isNothing solver' = runwithz3
+--   | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
+--  where timeout = fromMaybe 20000 maybeTimeout
+--        runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
 
 -- | Fail on error, or proceed with continuation
 proceed :: Validate err => String -> err (NonEmpty (Pn, String)) a -> (a -> IO ()) -> IO ()

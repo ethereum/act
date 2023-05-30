@@ -18,7 +18,7 @@ import Data.Text (Text, pack, unpack)
 import Data.List hiding (group)
 import Data.Maybe
 import qualified Data.Text as Text
-import EVM.Types hiding (Whiff(..))
+import EVM.Types hiding (Expr(..))
 
 import EVM.Solidity (SolcContract(..), StorageItem(..), SlotType(..))
 import Data.Map.Strict (Map) -- abandon in favor of [(a,b)]?
@@ -53,7 +53,7 @@ makekSpec :: Map Text SolcContract -> KOptions -> Behaviour -> Err (String, Stri
 makekSpec sources _ behaviour =
   let this = _contract behaviour
       names = Map.fromList $ fmap (\(a, b) -> (getContractName a, b)) (Map.toList sources)
-      hasLayout = Map.foldr ((&&) . isJust . _storageLayout) True sources
+      hasLayout = Map.foldr ((&&) . isJust . (\ SolcContract{..} -> storageLayout)) True sources
   in
     if hasLayout then do
       thisSource <- validate
@@ -181,21 +181,21 @@ normalize pass entries = foldr (\a acc -> case a of
         showSList = unwords
 
 kSlot :: Rewrite -> StorageItem -> (String, Int)
-kSlot update StorageItem{..} = case _type of
-  (StorageValue _) -> (show _slot, _offset)
+kSlot update StorageItem{..} = case slotType of
+  (StorageValue _) -> (show slot, offset)
   (StorageMapping _ _) -> if null (ixsFromRewrite update)
     then error $ "internal error: kSlot. Please report: " <> show update
     else ( "#hashedLocation(\"Solidity\", "
-             <> show _slot <> ", " <> unwords (kTypedExpr <$> ixsFromRewrite update) <> ")"
-         , _offset )
+             <> show slot <> ", " <> unwords (kTypedExpr <$> ixsFromRewrite update) <> ")"
+         , offset )
 
 kAccount :: Bool -> Id -> SolcContract -> [Rewrite] -> String
-kAccount pass name source updates =
+kAccount pass name SolcContract{..} updates =
   "account" |- ("\n"
    <> "acctID" |- kVar name
    <> "balance" |- (kVar name <> "_balance") -- needs to be constrained to uint256
-   <> "code" |- (kByteStack (_runtimeCode source))
-   <> "storage" |- (normalize pass ( fmap (kStorageEntry (fromJust (_storageLayout source))) updates) <> "\n.Map")
+   <> "code" |- (kByteStack runtimeCode)
+   <> "storage" |- (normalize pass ( fmap (kStorageEntry (fromJust storageLayout)) updates) <> "\n.Map")
    <> "origStorage" |- ".Map" -- need to be generalized once "kStorageEntry" is implemented
    <> "nonce" |- "_"
       )
@@ -227,8 +227,8 @@ indent :: Int -> String -> String
 indent n text = unlines $ ((Data.List.replicate n ' ') <>) <$> (lines text)
 
 mkTerm :: SolcContract -> Map Id SolcContract -> Behaviour -> (String, String)
-mkTerm this accounts Behaviour{..} = (name, term)
-  where code = _runtimeCode this
+mkTerm SolcContract{..} accounts Behaviour{..} = (name, term)
+  where code = runtimeCode
         pass = True
         repl '_' = '.'
         repl  c  = c

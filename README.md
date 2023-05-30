@@ -23,7 +23,7 @@ More in depth documentation can be found in [The Act Book](https://ethereum.gith
 With nix:
 
 ```sh
-nix build -f default.nix exe
+nix build
 ```
 
 # Developing
@@ -31,15 +31,15 @@ nix build -f default.nix exe
 Enter a nix-shell to get the dependencies of the project:
 
 ```sh
-nix-shell
+nix develop
 ```
 
 you can then use `cabal` as normal:
 
 ```sh
 cd src
-cabal v2-build # build
-cabal v2-repl  # enter a repl instance
+cabal build # build
+cabal repl  # enter a repl instance
 ```
 
 to execute the unit tests:
@@ -50,6 +50,7 @@ cd src && cabal v2-test # run haskell tests
 ```
 
 To update the project dependencies run:
+
 ```sh
-nix-shell --command niv update
+nix flake update
 ```

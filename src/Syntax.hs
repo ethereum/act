@@ -11,7 +11,7 @@ module Syntax where
 
 import Prelude hiding (LT, GT)
 
-import Data.List
+import Data.List hiding (singleton)
 import Data.Map (Map,empty,insertWith,unionsWith,unionWith,singleton)
 
 import Syntax.TimeAgnostic as Agnostic

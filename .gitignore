@@ -20,8 +20,13 @@ src/dist/
 *.glob
 **/CoqMakefile
 **/CoqMakefile.conf
+**/.CoqMakefile.d
+**/.lia.cache
 *.aux
 **/.coqdeps.d
 
 # mdbook
 doc/book
+
+# direnv
+.direnv/

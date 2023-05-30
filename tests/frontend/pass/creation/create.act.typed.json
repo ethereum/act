@@ -1,63 +1,64 @@
 {
-  "kind": "Program",
   "contracts": [
     {
       "behaviors": [],
-      "kind": "Contract",
       "constructor": {
+        "contract": "Modest",
+        "interface": "constructor()",
+        "invariants": [],
         "kind": "Constructor",
+        "postConditions": [],
+        "preConditions": [
+          {
+            "args": [
+              {
+                "args": [
+                  "0",
+                  "Caller"
+                ],
+                "arity": 2,
+                "symbol": "<="
+              },
+              {
+                "args": [
+                  "Caller",
+                  "1461501637330902918203684832716283019655932542975"
+                ],
+                "arity": 2,
+                "symbol": "<="
+              }
+            ],
+            "arity": 2,
+            "symbol": "and"
+          }
+        ],
         "storage": [
           {
             "location": {
-              "sort": "int",
               "item": {
                 "var": "Modest.x"
-              }
+              },
+              "sort": "int"
             },
             "value": "1"
           },
           {
             "location": {
-              "sort": "int",
               "item": {
                 "var": "Modest.y"
-              }
+              },
+              "sort": "int"
             },
             "value": "Caller"
           }
-        ],
-        "preConditions": [
-          {
-            "arity": 2,
-            "args": [
-              {
-                "arity": 2,
-                "args": [
-                  "0",
-                  "Caller"
-                ],
-                "symbol": "<="
-              },
-              {
-                "arity": 2,
-                "args": [
-                  "Caller",
-                  "1461501637330902918203684832716283019655932542975"
-                ],
-                "symbol": "<="
-              }
-            ],
-            "symbol": "and"
-          }
-        ],
-        "contract": "Modest",
-        "interface": "constructor()",
-        "postConditions": [],
-        "invariants": []
-      }
+        ]
+      },
+      "kind": "Contract"
     }
   ],
+  "kind": "Program",
   "store": {
+    "kind": "Storages",
     "storages": {
       "Modest": {
         "x": {
@@ -67,7 +68,6 @@
           "type": "address"
         }
       }
-    },
-    "kind": "Storages"
+    }
   }
 }
