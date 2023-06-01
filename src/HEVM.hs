@@ -18,6 +18,7 @@ import Data.Text (Text)
 import Data.List
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B8 (pack)
+import Control.Concurrent.Async
 
 import Syntax.Annotated
 import Syntax.Untyped (makeIface)
@@ -27,6 +28,12 @@ import qualified EVM.Types as Types
 import EVM.Concrete (createAddress)
 import EVM.Expr hiding (op2)
 import EVM.SymExec
+import EVM.SMT (assertProps)
+import qualified EVM.SMT as EVM
+import EVM.Solvers
+
+
+import Debug.Trace
 
 -- decompile :: Contract -> ByteString -> IO (Map Interface [Expr End])
 
@@ -36,22 +43,15 @@ type family ExprType a where
   ExprType 'AByteStr  = Types.Buf
   ExprType 'AContract = Types.EWord -- adress?
 
-
 type Layout = M.Map Id (M.Map Id (Types.Addr, Integer))
 
 ethrunAddress :: Types.Addr
 ethrunAddress = Types.Addr 0x00a329c0648769a73afac7f9381e08fb43dbea72
 
-slotMap :: [Contract] -> Layout
-slotMap contracts =
-  foldl (\layout (Contract Constructor{..} _) ->
-            let addr = createAddress ethrunAddress 1 in -- for now all contracts have the same address
-            let varmap = addVars addr _initialStorage in
-              M.insert _cname varmap layout
-        ) M.empty contracts
-  where
-    addVars addr upds =
-      foldl (\layout (upd, i) -> M.insert (idFromUpdate upd) (addr, i) layout) M.empty $ zip upds [0..]
+slotMap :: Store -> Layout
+slotMap store =
+  let addr = createAddress ethrunAddress 1 in -- for now all contracts have the same address
+  M.map (M.map (\(_, slot) -> (addr, slot))) store
 
 -- TODO move this to HEVM
 type Calldata = (Types.Expr Types.Buf, [Types.Prop])
@@ -69,7 +69,7 @@ makeCalldata iface@(Interface _ decls) =
     withSelector = writeSelector cdBuf makeSig
     sizeConstraints
       = (bufLength withSelector Types..>= cdLen calldatas)
-      Types..&& (bufLength withSelector Types..< (Types.Lit (2 ^ (64 :: Integer))))
+        Types..&& (bufLength withSelector Types..< (Types.Lit (2 ^ (64 :: Integer))))
   in (withSelector, sizeConstraints : props)
 
 makeCtrCalldata :: Interface -> Calldata
@@ -94,8 +94,8 @@ combineFragments' fragments start base = go (Types.Lit start) fragments (base, [
 
 
 translateAct :: Act -> [([Types.Expr Types.End], Calldata)]
-translateAct (Act _ contracts) =
-  let slots = slotMap contracts in
+translateAct (Act store contracts) =
+  let slots = slotMap store in
   concatMap (\(Contract constr behvs) -> translateBehvs slots behvs) contracts
 
 translateConstructor :: Layout -> Constructor -> ([Types.Expr Types.End], Calldata)
@@ -149,7 +149,7 @@ returnsToExpr layout (Just r) = typedExpToBuf layout r
 offsetFromRef :: Layout -> Integer -> StorageRef -> Types.Expr Types.EWord
 offsetFromRef _ slot (SVar _ _ _) = Types.Lit $ fromIntegral slot
 offsetFromRef layout slot (SMapping _ _ ixs) =
-  foldl (\slot' i -> Types.keccak ((wordToBuf slot') <> (typedExpToBuf layout i))) (Types.Lit $ fromIntegral slot) ixs
+  foldl (\slot' i -> Types.keccak ((typedExpToBuf layout i) <> (wordToBuf slot'))) (Types.Lit $ fromIntegral slot) ixs
 offsetFromRef _ _ (SField _ _ _ _) = error "TODO contracts not supported"
 
 wordToBuf :: Types.Expr Types.EWord -> Types.Expr Types.Buf
@@ -176,7 +176,7 @@ getSlot layout cid name =
   case M.lookup cid layout of
     Just m -> case M.lookup name m of
       Just v -> v
-      Nothing -> error "Internal error: invalid variable name"
+      Nothing -> error $ "Internal error: invalid variable name: " <> show name
     Nothing -> error "Internal error: invalid contract name"
 
 refOffset :: Layout -> StorageRef -> (Types.Addr, Types.Expr Types.EWord)
@@ -186,7 +186,7 @@ refOffset layout (SVar _ cid name) =
 refOffset layout (SMapping _ ref ixs) =
   let (addr, slot) = refOffset layout ref in
   (addr,
-   foldl (\slot' i -> Types.keccak ((wordToBuf slot') <> (typedExpToBuf layout i))) slot ixs)
+   foldl (\slot' i -> Types.keccak ((typedExpToBuf layout i) <> (wordToBuf slot'))) slot ixs)
 
 refOffset _ _ = error "TODO"
 
@@ -207,6 +207,7 @@ ethEnvToWord Difficulty = error "TODO"
 
 ethEnvToBuf :: EthEnv -> Types.Expr Types.Buf
 ethEnvToBuf _ = error "Internal error: there are no bytestring environment values"
+
 
 toProp :: Layout -> Exp ABoolean -> Types.Prop
 toProp layout = \case
@@ -294,3 +295,38 @@ toExpr layout = \case
   where
     op2 :: forall a b. (Types.Expr (ExprType b) -> Types.Expr (ExprType b) -> a) -> Exp b -> Exp b -> a
     op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
+
+
+-- | Find the input space of an expr list
+inputSpace :: [Types.Expr Types.End] -> [Types.Prop]
+inputSpace exprs = concatMap aux exprs
+  where
+    aux :: Types.Expr Types.End -> [Types.Prop]
+    aux (Types.Success c _ _) = c
+    aux _ = error "List should only contain success behaviours"
+
+-- | Check whether two lists of behaviours cover exactly the same input space
+checkInputSpaces :: SolverGroup -> [Types.Expr Types.End] -> [Types.Expr Types.End] -> IO [EquivResult]
+checkInputSpaces solvers l1 l2 = do
+  let p1 = inputSpace l1
+  let p2 = inputSpace l2
+  let queries = fmap assertProps [ [ Types.PNeg (Types.por p1), Types.por p2 ]
+                               , [ Types.por p1, Types.PNeg (Types.por p2) ] ]
+  results <- fmap toVRes <$> mapConcurrently (checkSat solvers) queries
+  case all isQed results of
+    True -> pure [Qed ()]
+    False -> pure $ filter (/= Qed ()) results
+
+    where
+      toVRes :: CheckSatResult -> EquivResult
+      toVRes res = case res of
+        Sat cex -> Cex cex
+        EVM.Solvers.Unknown -> Timeout ()
+        Unsat -> Qed ()
+        Error e -> error $ "Internal Error: solver responded with error: " <> show e
+
+
+-- TODO this is also defined in hevm-cli
+getCex :: ProofResult a b c -> Maybe b
+getCex (Cex c) = Just c
+getCex _ = Nothing
