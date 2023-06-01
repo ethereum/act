@@ -63,7 +63,7 @@ contractCode store (Contract ctor@Constructor{..} behvs) = T.unlines $
       , "}."
       ]
 
-    decl (n, s) = (T.pack n) <> " : " <> slotType s
+    decl (n, (s, _)) = (T.pack n) <> " : " <> slotType s
 
     store' = contractStore _cname store
 
@@ -144,11 +144,11 @@ retVal _ = return ""
 -- | produce a state value from a list of storage updates
 -- 'handler' defines what to do in cases where a given name isn't updated
 stateval :: Store -> Id -> (StorageRef -> SlotType -> T.Text) -> [StorageUpdate] -> T.Text
-stateval store contract handler updates = T.unwords $ stateConstructor : fmap (\(n, t) -> updateVar store updates handler (SVar nowhere contract n) t) (M.toList store')
+stateval store contract handler updates = T.unwords $ stateConstructor : fmap (\(n, (t, _)) -> updateVar store updates handler (SVar nowhere contract n) t) (M.toList store')
   where
     store' = contractStore contract store
 
-contractStore :: Id -> Store -> Map Id SlotType
+contractStore :: Id -> Store -> Map Id (SlotType, Integer)
 contractStore contract store = case M.lookup contract store of
   Just s -> s
   Nothing -> error "Internal error: cannot find constructor in store"
@@ -172,7 +172,7 @@ updateVar :: Store -> [StorageUpdate] -> (StorageRef -> SlotType -> T.Text) -> S
 updateVar store updates handler focus t@(StorageValue (ContractType cid)) =
   case (constructorUpdates, fieldUpdates) of
     -- Only some fields are updated
-    ([], updates'@(_:_)) -> parens $ T.unwords $ (T.pack cid <> "." <> stateConstructor) : fmap (\(n, t') -> updateVar store  updates' handler (focus' n) t') (M.toList store')
+    ([], updates'@(_:_)) -> parens $ T.unwords $ (T.pack cid <> "." <> stateConstructor) : fmap (\(n, (t', _)) -> updateVar store  updates' handler (focus' n) t') (M.toList store')
     -- No fields are updated, whole contract may be updated with some call to the constructor
     (updates', []) -> foldl (\ _ (Update _ _ e) -> coqexp e) (handler focus t) updates'
     -- The contract is updated with constructor call and field accessing. Unsupported.

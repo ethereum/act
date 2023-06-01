@@ -134,7 +134,12 @@ topologicalSort (Act store contracts) =
 lookupVars :: [U.Contract] -> Store
 lookupVars = foldMap $ \case
   U.Contract (U.Definition  _ contract _ _ (U.Creates assigns) _ _) _ ->
-    Map.singleton contract . Map.fromList $ snd . fromAssign <$> assigns
+    Map.singleton contract . Map.fromList $ addSlot $ snd . fromAssign <$> assigns
+  where
+    addSlot :: [(Id, SlotType)] -> [(Id, (SlotType, Integer))]
+    addSlot l = zipWith (\(name, typ) slot -> (name, (typ, slot))) l [0..] 
+    
+
 
 lookupConstructors :: [U.Contract] -> Map Id [AbiType]
 lookupConstructors = foldMap $ \case
@@ -180,7 +185,7 @@ defaultStore =
 mkEnv :: Id -> Store -> Map Id [AbiType] -> Env
 mkEnv contract store constructors = Env
   { contract = contract
-  , store    = fromMaybe mempty (Map.lookup contract store)
+  , store    = Map.map fst $ fromMaybe mempty (Map.lookup contract store)
   , theirs   = store
   , calldata = mempty
   , constructors = constructors
@@ -328,7 +333,7 @@ checkPost env@Env{contract,theirs} (U.Post storage maybeReturn) = do
     focus :: Id -> Env
     focus name = env
       { contract = name
-      , store    = Map.findWithDefault mempty name theirs
+      , store    = Map.map fst $ Map.findWithDefault mempty name theirs
       }
 
 checkEntry :: forall t. Typeable t => Env -> U.Entry -> Err (SlotType, StorageRef t)
@@ -346,7 +351,7 @@ checkEntry env@Env{theirs} (U.EField p e x) =
   checkEntry env e `bindValidation` \(typ, ref) -> case typ of
     StorageValue (ContractType c) -> case Map.lookup c theirs of
       Just cenv -> case Map.lookup x cenv of
-        Just t -> pure (t, SField p ref c x)
+        Just (t, _) -> pure (t, SField p ref c x)
         Nothing -> throw (p, "Contract " <> c <> " does not have field " <> x)
       Nothing -> error $ "Internal error: Invalid contract type " <> show c
     _ -> throw (p, "Expression should have a mapping type" <> show e)

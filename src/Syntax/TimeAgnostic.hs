@@ -60,7 +60,9 @@ data Contract t = Contract (Constructor t) [Behaviour t]
 deriving instance Show (InvariantPred t) => Show (Contract t)
 deriving instance Eq   (InvariantPred t) => Eq   (Contract t)
 
-type Store = Map Id (Map Id SlotType)
+-- For each contract, it stores the type of a storage variables and
+-- the order in which they are declared
+type Store = Map Id (Map Id (SlotType, Integer))
 
 -- | Represents a contract level invariant along with some associated metadata.
 -- The invariant is defined in the context of the constructor, but must also be
@@ -377,7 +379,7 @@ instance ToJSON (Constructor Timed) where
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
                                   , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) _invariants
-                                  , "storage" .= toJSON _initialStorage  ]
+                                  , "initial storage" .= toJSON _initialStorage  ]
 
 instance ToJSON (Constructor Untimed) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
