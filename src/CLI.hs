@@ -49,7 +49,7 @@ import Debug.Trace
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
-import qualified EVM.Types as Types
+import qualified EVM.Types as Expr
 import qualified EVM.Expr as Expr
 import qualified EVM.Fetch as Fetch
 
@@ -217,33 +217,58 @@ k spec' soljson' gas' storage' extractbin' out' = do
     forM_ kSpecs printFile
 
 
-hevm :: FilePath -> Text -> FilePath -> IO [[EquivResult]]
+hevm :: FilePath -> Text -> FilePath -> IO ()
 hevm actspec cid sol = do
   specContents <- readFile actspec
   solContents  <- TIO.readFile sol
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
   bytecode <- fmap fromJust $ solcRuntime cid solContents
   let actbehvs = translateAct act
-  sequence $ flip fmap actbehvs $ \(behvs,calldata) ->
+  sequence_ $ flip fmap actbehvs $ \(behvs,calldata) ->
     Solvers.withSolvers Solvers.Z3 1 Nothing $ \solvers -> do
       solbehvs <- removeFails <$> getBranches solvers bytecode calldata
+      traceM "Solidity"
       traceShowM solbehvs
+      traceM "ACT"
       traceShowM behvs
-      equivalenceCheck' solvers solbehvs behvs defaultVeriOpts
+      -- equivalence check
+      putStrLn "Checking if behaviours are equivalent"
+      checkResult =<< equivalenceCheck' solvers solbehvs behvs defaultVeriOpts
+      -- exhaustiveness sheck
+      putStrLn "Checking if the input space is the same"
+      checkResult =<< checkInputSpaces solvers solbehvs behvs
   where
     -- decompiles the given bytecode into a list of branches
     getBranches solvers bs calldata = do
       let
         bytecode = if BS.null bs then BS.pack [0] else bs
-        prestate = abstractVM calldata bytecode Nothing Types.AbstractStore
+        prestate = abstractVM calldata bytecode Nothing Expr.AbstractStore
       expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
       let simpl = if True then (Expr.simplify expr) else expr
       pure $ flattenExpr simpl
 
     removeFails branches = filter isSuccess branches
 
-    isSuccess (Types.Success _ _ _) = True
+    isSuccess (Expr.Success _ _ _) = True
     isSuccess _ = False
+
+    checkResult :: [EquivResult] -> IO ()
+    checkResult res =
+      traceShow res $ 
+      case any isCex res of
+        False -> do
+          putStrLn "No discrepancies found"
+          when (any isTimeout res) $ do
+            putStrLn "But timeout(s) occurred"
+            exitFailure
+        True -> do
+          let cexs = mapMaybe getCex res
+          TIO.putStrLn . Text.unlines $
+            [ "Not equivalent. The following inputs result in differing behaviours:"
+            , "" , "-----", ""
+            ] <> (intersperse (Text.unlines [ "", "-----" ]) $ fmap (formatCex (Expr.AbstractBuf "txdata")) cexs)
+          exitFailure
+
 
 
 
