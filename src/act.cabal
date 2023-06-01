@@ -30,7 +30,8 @@ common deps
                  ordered-containers >= 0.2.2,
                  extra,
                  singletons,
-                 deriving-compat
+                 deriving-compat,
+                 async              >= 2.2.4,
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans -Wno-unticked-promoted-constructors
   else
