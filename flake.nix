@@ -34,6 +34,7 @@
             pkgs.solc
             pkgs.mdbook
             pkgs.mdbook-mermaid
+            pkgs.mdbook-katex
           ];
           withHoogle = true;
           shellHook = ''

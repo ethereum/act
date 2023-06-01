@@ -1,5 +1,5 @@
 [book]
-authors = ["David Terry"]
+authors = ["dxo"]
 language = "en"
 multilingual = false
 src = "src"
@@ -8,6 +8,8 @@ title = "The Act Book"
 [preprocessor]
 [preprocessor.mermaid]
 command = "mdbook-mermaid"
+[preprocessor.katex]
+after = ["links"]
 
 [output]
 [output.html]
