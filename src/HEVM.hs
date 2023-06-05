@@ -17,8 +17,11 @@ import qualified Data.Map as M
 import Data.Text (Text)
 import Data.List
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.IO as TL
 import qualified Data.ByteString.Char8 as B8 (pack)
 import Control.Concurrent.Async
+import Control.Monad
 
 import Syntax.Annotated
 import Syntax.Untyped (makeIface)
@@ -28,10 +31,9 @@ import qualified EVM.Types as Types
 import EVM.Concrete (createAddress)
 import EVM.Expr hiding (op2)
 import EVM.SymExec
-import EVM.SMT (assertProps)
+import EVM.SMT (assertProps, formatSMT2)
 import qualified EVM.SMT as EVM
 import EVM.Solvers
-
 
 import Debug.Trace
 
@@ -65,7 +67,7 @@ makeCalldata iface@(Interface _ decls) =
     mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
     makeSig = T.pack $ makeIface iface
     calldatas = fmap mkArg decls
-    (cdBuf, props) = combineFragments calldatas (Types.AbstractBuf "txdata")
+    (cdBuf, props) = combineFragments calldatas (Types.ConcreteBuf "")
     withSelector = writeSelector cdBuf makeSig
     sizeConstraints
       = (bufLength withSelector Types..>= cdLen calldatas)
@@ -299,19 +301,25 @@ toExpr layout = \case
 
 -- | Find the input space of an expr list
 inputSpace :: [Types.Expr Types.End] -> [Types.Prop]
-inputSpace exprs = concatMap aux exprs
+inputSpace exprs = map aux exprs
   where
-    aux :: Types.Expr Types.End -> [Types.Prop]
-    aux (Types.Success c _ _) = c
+    aux :: Types.Expr Types.End -> Types.Prop
+    aux (Types.Success c _ _) = Types.pand c
     aux _ = error "List should only contain success behaviours"
 
 -- | Check whether two lists of behaviours cover exactly the same input space
-checkInputSpaces :: SolverGroup -> [Types.Expr Types.End] -> [Types.Expr Types.End] -> IO [EquivResult]
-checkInputSpaces solvers l1 l2 = do
+checkInputSpaces :: SolverGroup -> VeriOpts -> [Types.Expr Types.End] -> [Types.Expr Types.End] -> IO [EquivResult]
+checkInputSpaces solvers opts l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
   let queries = fmap assertProps [ [ Types.PNeg (Types.por p1), Types.por p2 ]
                                , [ Types.por p1, Types.PNeg (Types.por p2) ] ]
+      
+  when True $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
+    TL.writeFile
+      ("query-" <> show idx <> ".smt2")
+      (formatSMT2 q <> "\n\n(check-sat)")
+
   results <- fmap toVRes <$> mapConcurrently (checkSat solvers) queries
   case all isQed results of
     True -> pure [Qed ()]

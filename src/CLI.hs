@@ -236,7 +236,7 @@ hevm actspec cid sol = do
       checkResult =<< equivalenceCheck' solvers solbehvs behvs defaultVeriOpts
       -- exhaustiveness sheck
       putStrLn "Checking if the input space is the same"
-      checkResult =<< checkInputSpaces solvers solbehvs behvs
+      checkResult =<< checkInputSpaces solvers debugVeriOpts solbehvs behvs
   where
     -- decompiles the given bytecode into a list of branches
     getBranches solvers bs calldata = do
