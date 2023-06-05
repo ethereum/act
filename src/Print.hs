@@ -68,9 +68,10 @@ prettyExp e = case e of
   Mod _ a b -> print2 "%" a b
   Exp _ a b -> print2 "^" a b
   UIntMax _ a -> show $ uintmax a
-  UIntMin _ a -> show $ uintmin a
+  UIntMin _ a -> show $ uintmax a
   IntMax _ a -> show $ intmax a
   IntMin _ a -> show $ intmin a
+  InRange _ a b -> "inrange(" <> show a <> ", " <> show b <> ")"
   LitInt _ a -> show a
   IntEnv _ a -> prettyEnv a
 
@@ -164,6 +165,7 @@ prettyInvPred = prettyExp . untime . fst
       IntMax p a  -> IntMax p a
       UIntMin p a -> UIntMin p a
       UIntMax p a -> UIntMax p a
+      InRange p a b -> InRange p a (untime b)
       LitBool p a -> LitBool p a
       Create p f xs -> Create p f (fmap untimeTyped xs)
       IntEnv p a  -> IntEnv p a

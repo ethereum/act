@@ -9,7 +9,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# Language TupleSections #-}
 
-module Type (typecheck, bound, lookupVars, defaultStore, Err) where
+module Type (typecheck, lookupVars, defaultStore, Err) where
 
 import Prelude hiding (GT, LT)
 
@@ -137,8 +137,8 @@ lookupVars = foldMap $ \case
     Map.singleton contract . Map.fromList $ addSlot $ snd . fromAssign <$> assigns
   where
     addSlot :: [(Id, SlotType)] -> [(Id, (SlotType, Integer))]
-    addSlot l = zipWith (\(name, typ) slot -> (name, (typ, slot))) l [0..] 
-    
+    addSlot l = zipWith (\(name, typ) slot -> (name, (typ, slot))) l [0..]
+
 
 
 lookupConstructors :: [U.Contract] -> Map Id [AbiType]
@@ -207,7 +207,7 @@ checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ 
     env = mkEnv cid store constructors
 
     namesConsistent :: Err ()
-    namesConsistent = 
+    namesConsistent =
       traverse_ (\(U.Transition pn _ cid' _ _ _ _) -> assert (errmsg pn cid') (cid == cid')) trans
 
     errmsg pn cid' = (pn, "Behavior must belong to contract " <> show cid <> " but belongs to contract " <> cid')
@@ -241,7 +241,7 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs
           negation = U.ENot nowhere $
                         foldl (\acc (U.Case _ e _) -> U.EOr nowhere e acc) (U.BoolLit nowhere False) rest
         in rest `snoc` (if isWild lastCase then U.Case pn negation post else lastCase)
-    -- TODO ensure non-overlapping and exhaustiveness (maybe with elaboration and mandatory wildcard?) 
+    -- TODO ensure non-overlapping and exhaustiveness (maybe with elaboration and mandatory wildcard?)
 
     -- | split case into pass and fail case
     makeBehv :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed)) -> Behaviour
@@ -385,24 +385,24 @@ checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
 checkIffs env = foldr check (pure [])
   where
     check (U.Iff   _     exps) acc = mappend <$> traverse (checkExpr env SBoolean) exps <*> acc
-    check (U.IffIn _ typ exps) acc = mappend <$> traverse (fmap (bound $ PrimitiveType typ) . checkExpr env SInteger) exps <*> acc
+    check (U.IffIn _ typ exps) acc = mappend <$> (mconcat <$> traverse (fmap (genInRange typ) . checkExpr env SInteger) exps) <*> acc
 
-bound :: ValueType -> Exp AInteger t -> Exp ABoolean t
-bound (PrimitiveType typ) e = And nowhere (LEQ nowhere (lowerBound typ) e) $ LEQ nowhere e (upperBound typ)
-bound (ContractType _) _ = error $ "upperBound not implemented for constract types"
-
-lowerBound :: AbiType -> Exp AInteger t
-lowerBound (AbiIntType a) = IntMin nowhere a
--- todo: other negatives?
-lowerBound _ = LitInt nowhere 0
-
--- todo, the rest
-upperBound :: AbiType -> Exp AInteger t
-upperBound (AbiUIntType  n) = UIntMax nowhere n
-upperBound (AbiIntType   n) = IntMax nowhere n
-upperBound AbiAddressType   = UIntMax nowhere 160
-upperBound (AbiBytesType n) = UIntMax nowhere (8 * n)
-upperBound typ = error $ "upperBound not implemented for " ++ show typ
+genInRange :: AbiType -> Exp AInteger t -> [Exp ABoolean t]
+genInRange t e@(LitInt _ _) = [InRange nowhere t e]
+genInRange t e@(Var _ _ _)  = [InRange nowhere t e]
+genInRange t e@(TEntry _ _ _)  = [InRange nowhere t e]
+genInRange t e@(Add _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange t e@(Sub _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange t e@(Mul _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange t e@(Div _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange t e@(Mod _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange t e@(Exp _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange _ (IntMin _ _)  = error "Internal error: invalid in range expression"
+genInRange _ (IntMax _ _)  = error "Internal error: invalid in range expression"
+genInRange _ (UIntMin _ _) = error "Internal error: invalid in range expression"
+genInRange _ (UIntMax _ _) = error "Internal error: invalid in range expression"
+genInRange _ (ITE _ _ _ _) = error "Internal error: invalid in range expression"
+genInRange _ (IntEnv _ _) = error "Internal error: invalid in range expression"
 
 -- | Attempt to construct a `TypedExp` whose type matches the supplied `ValueType`.
 -- The target timing parameter will be whatever is required by the caller.

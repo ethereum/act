@@ -590,6 +590,7 @@ expToSMT2 expr = case expr of
   IntMax _ a -> pure . show $ intmax a
   UIntMin _ a -> pure . show $ uintmin a
   UIntMax _ a -> pure . show $ uintmax a
+  InRange _ t e -> expToSMT2 (bound t e)
 
   -- bytestrings
   Cat _ a b -> binop "str.++" a b

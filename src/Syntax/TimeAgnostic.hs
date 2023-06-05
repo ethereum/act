@@ -216,6 +216,7 @@ data Exp (a :: ActType) (t :: Timing) where
   IntMax :: Pn -> Int -> Exp AInteger t
   UIntMin :: Pn -> Int -> Exp AInteger t
   UIntMax :: Pn -> Int -> Exp AInteger t
+  InRange :: Pn -> AbiType -> Exp AInteger t -> Exp ABoolean t
   -- bytestrings
   Cat :: Pn -> Exp AByteStr t -> Exp AByteStr t -> Exp AByteStr t
   Slice :: Pn -> Exp AByteStr t -> Exp AInteger t -> Exp AInteger t -> Exp AByteStr t
@@ -257,6 +258,7 @@ instance Eq (Exp a t) where
   IntMax _ a == IntMax _ b = a == b
   UIntMin _ a == UIntMin _ b = a == b
   UIntMax _ a == UIntMax _ b = a == b
+  InRange _ a b == InRange _ c d  = a == c && b == d
 
   Cat _ a b == Cat _ c d = a == c && b == d
   Slice _ a b c == Slice _ d e f = a == d && b == e && c == f
@@ -314,6 +316,8 @@ instance Timable (Exp a) where
     IntMax p x -> IntMax p x
     UIntMin p x -> UIntMin p x
     UIntMax p x -> UIntMax p x
+    InRange p b e -> InRange p b (go e)
+
     -- bytestrings
     Cat p x y -> Cat p (go x) (go y)
     Slice p x y z -> Slice p (go x) (go y) (go z)
@@ -452,6 +456,9 @@ instance ToJSON (Exp a t) where
   toJSON (IntMax _ a) = toJSON $ show $ intmax a
   toJSON (UIntMin _ a) = toJSON $ show $ uintmin a
   toJSON (UIntMax _ a) = toJSON $ show $ uintmax a
+  toJSON (InRange _ a b) = object [ "symbol"   .= pack ("inrange" <> show a)
+                                  , "arity"    .= Data.Aeson.Types.Number 1
+                                  , "args"     .= Array (fromList [toJSON b]) ]
   toJSON (IntEnv _ a) = String $ pack $ show a
   toJSON (ITE _ a b c) = object [ "symbol"   .= pack "ite"
                                 , "arity"    .= Data.Aeson.Types.Number 3
@@ -516,6 +523,7 @@ eval e = case e of
   IntMax  _ a   -> pure $ intmax  a
   UIntMin _ a   -> pure $ uintmin a
   UIntMax _ a   -> pure $ uintmax a
+  InRange _ _ _ -> error "TODO eval in range"
 
   Cat _ s t     -> [s' <> t' | s' <- eval s, t' <- eval t]
   Slice _ s a b -> [BS.pack . genericDrop a' . genericTake b' $ s'

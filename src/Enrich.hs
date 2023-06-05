@@ -8,7 +8,7 @@ import Data.List (nub)
 
 import Syntax
 import Syntax.Annotated
-import Type (bound, defaultStore)
+import Type (defaultStore)
 
 -- | Adds extra preconditions to non constructor behaviours based on the types of their variables
 enrich :: Act -> Act
@@ -54,7 +54,7 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
   where
     mkBound :: EthEnv -> Maybe (Exp ABoolean)
     mkBound e = case lookup e defaultStore of
-      Just AInteger -> Just $ bound (PrimitiveType $ toAbiType e) (IntEnv nowhere e)
+      Just AInteger -> Just $ bound (toAbiType e) (IntEnv nowhere e)
       _ -> Nothing
 
     toAbiType :: EthEnv -> AbiType
@@ -83,9 +83,10 @@ mkStorageBounds refs = catMaybes $ mkBound <$> refs
     mkBound _ = Nothing
 
     fromItem :: TStorageItem AInteger -> Exp ABoolean
-    fromItem item@(Item _ vt _) = bound vt (TEntry nowhere Pre item)
+    fromItem item@(Item _ (PrimitiveType vt) _) = bound vt (TEntry nowhere Pre item)
+    fromItem (Item _ (ContractType _) _) = LitBool nowhere True
 
 mkCallDataBounds :: [Decl] -> [Exp ABoolean]
 mkCallDataBounds = concatMap $ \(Decl typ name) -> case fromAbiType typ of
-  AInteger -> [bound (PrimitiveType typ) (_Var name)]
+  AInteger -> [bound typ (_Var name)]
   _ -> []

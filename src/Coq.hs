@@ -12,6 +12,8 @@
 {-# Language OverloadedStrings #-}
 {-# Language RecordWildCards #-}
 {-# LANGUAGE GADTs #-}
+{-# Language DataKinds #-}
+
 
 module Coq where
 
@@ -304,6 +306,8 @@ coqexp (IntMin _ n)  = parens $ "INT_MIN "  <> T.pack (show n)
 coqexp (IntMax _ n)  = parens $ "INT_MAX "  <> T.pack (show n)
 coqexp (UIntMin _ n) = parens $ "UINT_MIN " <> T.pack (show n)
 coqexp (UIntMax _ n) = parens $ "UINT_MAX " <> T.pack (show n)
+
+coqexp (InRange _ t e) = coqexp (bound t e)
 
 -- polymorphic
 coqexp (TEntry _ w e) = entry e w
