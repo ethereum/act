@@ -227,13 +227,16 @@ hevm actspec cid sol = do
   sequence_ $ flip fmap actbehvs $ \(behvs,calldata) ->
     Solvers.withSolvers Solvers.Z3 1 Nothing $ \solvers -> do
       solbehvs <- removeFails <$> getBranches solvers bytecode calldata
+      traceM "Calldata"
+      traceShowM (fst calldata)
+      traceShowM (snd calldata)
       traceM "Solidity"
       traceShowM solbehvs
       traceM "ACT"
       traceShowM behvs
       -- equivalence check
       putStrLn "Checking if behaviours are equivalent"
-      checkResult =<< equivalenceCheck' solvers solbehvs behvs defaultVeriOpts
+      checkResult =<< equivalenceCheck' solvers solbehvs behvs debugVeriOpts
       -- exhaustiveness sheck
       putStrLn "Checking if the input space is the same"
       checkResult =<< checkInputSpaces solvers debugVeriOpts solbehvs behvs
@@ -254,7 +257,7 @@ hevm actspec cid sol = do
 
     checkResult :: [EquivResult] -> IO ()
     checkResult res =
-      traceShow res $ 
+      traceShow res $
       case any isCex res of
         False -> do
           putStrLn "No discrepancies found"

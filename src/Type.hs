@@ -397,12 +397,12 @@ genInRange t e@(Mul _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genIn
 genInRange t e@(Div _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
 genInRange t e@(Mod _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
 genInRange t e@(Exp _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
-genInRange _ (IntMin _ _)  = error "Internal error: invalid in range expression"
-genInRange _ (IntMax _ _)  = error "Internal error: invalid in range expression"
-genInRange _ (UIntMin _ _) = error "Internal error: invalid in range expression"
-genInRange _ (UIntMax _ _) = error "Internal error: invalid in range expression"
-genInRange _ (ITE _ _ _ _) = error "Internal error: invalid in range expression"
-genInRange _ (IntEnv _ _) = error "Internal error: invalid in range expression"
+genInRange t e@(IntEnv _ _) = [InRange nowhere t e]
+genInRange _ (IntMin _ _)  = error "Internal error: invalid range expression"
+genInRange _ (IntMax _ _)  = error "Internal error: invalid range expression"
+genInRange _ (UIntMin _ _) = error "Internal error: invalid range expression"
+genInRange _ (UIntMax _ _) = error "Internal error: invalid range expression"
+genInRange _ (ITE _ _ _ _) = error "Internal error: invalid range expression"
 
 -- | Attempt to construct a `TypedExp` whose type matches the supplied `ValueType`.
 -- The target timing parameter will be whatever is required by the caller.

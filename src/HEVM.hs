@@ -22,6 +22,7 @@ import qualified Data.Text.Lazy.IO as TL
 import qualified Data.ByteString.Char8 as B8 (pack)
 import Control.Concurrent.Async
 import Control.Monad
+import Data.DoubleWord
 
 import Syntax.Annotated
 import Syntax.Untyped (makeIface)
@@ -29,11 +30,12 @@ import Syntax
 
 import qualified EVM.Types as Types
 import EVM.Concrete (createAddress)
-import EVM.Expr hiding (op2)
+import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec
 import EVM.SMT (assertProps, formatSMT2)
 import qualified EVM.SMT as EVM
 import EVM.Solvers
+import EVM.ABI
 
 import Debug.Trace
 
@@ -102,8 +104,10 @@ translateAct (Act store contracts) =
 
 translateConstructor :: Layout -> Constructor -> ([Types.Expr Types.End], Calldata)
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) =
-  ([Types.Success (fmap (toProp layout) $ preconds) (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
-   makeCtrCalldata iface)
+  ([Types.Success (snd calldata <> (fmap (toProp layout) $ preconds)) (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
+   calldata)
+
+  where calldata = makeCtrCalldata iface
 
 translateBehvs :: Layout -> [Behaviour] -> [([Types.Expr Types.End], Calldata)]
 translateBehvs layout behvs =
@@ -231,13 +235,14 @@ toProp layout = \case
   (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
   (Var _ _ _) -> error "TODO" -- (Types.Var (T.pack x)) -- vars can only be words? TODO other types
   (TEntry _ _ _) -> error "TODO" -- Types.SLoad addr idx
-
+  (InRange _ t e) -> toProp layout (inRange t e)
   where
     op2 :: forall a b. (Types.Expr (ExprType b) -> Types.Expr (ExprType b) -> a) -> Exp b -> Exp b -> a
     op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
 
     pop2 :: forall a. (Types.Prop -> Types.Prop -> a) -> Exp ABoolean -> Exp ABoolean -> a
     pop2 op e1 e2 = op (toProp layout e1) (toProp layout e2)
+
 
 
 toExpr :: forall a. Layout -> Exp a -> Types.Expr (ExprType a)
@@ -266,6 +271,7 @@ toExpr layout = \case
   (IntMax _ n) -> Types.Lit (fromIntegral $ intmax n)
   (UIntMin _ n) -> Types.Lit (fromIntegral $ uintmin n)
   (UIntMax _ n) -> Types.Lit (fromIntegral $ uintmax n)
+  (InRange _ t e) -> toExpr layout (inRange t e)
   -- bytestrings
   (Cat _ e1 e2) -> error "TODO"
   (Slice _ bs start end) -> error "TODO"
@@ -314,7 +320,7 @@ checkInputSpaces solvers opts l1 l2 = do
   let p2 = inputSpace l2
   let queries = fmap assertProps [ [ Types.PNeg (Types.por p1), Types.por p2 ]
                                , [ Types.por p1, Types.PNeg (Types.por p2) ] ]
-      
+
   when True $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
       ("query-" <> show idx <> ".smt2")
@@ -338,3 +344,29 @@ checkInputSpaces solvers opts l1 l2 = do
 getCex :: ProofResult a b c -> Maybe b
 getCex (Cex c) = Just c
 getCex _ = Nothing
+
+
+inRange :: AbiType -> Exp AInteger -> Exp ABoolean
+-- if the type has the type of machine word then check per operation
+inRange (AbiUIntType 256) e = checkOp e
+inRange (AbiIntType 256) e = error "TODO signed integers"
+-- otherwise insert range bounds
+inRange t e = bound t e
+
+
+checkOp :: Exp AInteger -> Exp ABoolean
+checkOp (LitInt _ i) = LitBool nowhere $ i <= (fromIntegral (maxBound :: Word256))
+checkOp (Var _ _ _)  = LitBool nowhere True
+checkOp (TEntry _ _ _)  = LitBool nowhere True
+checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
+checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
+checkOp e@(Mul _ e1 _) = LEQ nowhere e e1
+checkOp (Div _ _ _) = LitBool nowhere True
+checkOp (Mod _ _ _) = LitBool nowhere True
+checkOp (Exp _ _ _) = error "TODO check for exponentiation overflow"
+checkOp (IntMin _ _)  = error "Internal error: invalid in range expression"
+checkOp (IntMax _ _)  = error "Internal error: invalid in range expression"
+checkOp (UIntMin _ _) = error "Internal error: invalid in range expression"
+checkOp (UIntMax _ _) = error "Internal error: invalid in range expression"
+checkOp (ITE _ _ _ _) = error "Internal error: invalid in range expression"
+checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
