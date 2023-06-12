@@ -14,10 +14,8 @@
 module Expr where
 
 import qualified Data.Map as M
-import Data.Text (Text)
 import Data.List
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
 import qualified Data.ByteString.Char8 as B8 (pack)
 import Control.Concurrent.Async
@@ -33,13 +31,7 @@ import EVM.Concrete (createAddress)
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec
 import EVM.SMT (assertProps, formatSMT2)
-import qualified EVM.SMT as EVM
 import EVM.Solvers
-import EVM.ABI
-
-import Debug.Trace
-
--- decompile :: Contract -> ByteString -> IO (Map Interface [Expr End])
 
 type family ExprType a where
   ExprType 'AInteger  = Types.EWord
@@ -77,7 +69,7 @@ makeCalldata iface@(Interface _ decls) =
   in (withSelector, sizeConstraints : props)
 
 makeCtrCalldata :: Interface -> Calldata
-makeCtrCalldata iface@(Interface _ decls) =
+makeCtrCalldata (Interface _ decls) =
   let
     mkArg :: Decl -> CalldataFragment
     mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
@@ -100,7 +92,7 @@ combineFragments' fragments start base = go (Types.Lit start) fragments (base, [
 translateAct :: Act -> [([Types.Expr Types.End], Calldata)]
 translateAct (Act store contracts) =
   let slots = slotMap store in
-  concatMap (\(Contract constr behvs) -> translateBehvs slots behvs) contracts
+  concatMap (\(Contract _ behvs) -> translateBehvs slots behvs) contracts
 
 translateConstructor :: Layout -> Constructor -> ([Types.Expr Types.End], Calldata)
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) =
@@ -112,7 +104,7 @@ translateConstructor layout (Constructor cid iface preconds _ _ upds _) =
 translateBehvs :: Layout -> [Behaviour] -> [([Types.Expr Types.End], Calldata)]
 translateBehvs layout behvs =
   let groups = (groupBy sameIface behvs) :: [[Behaviour]] in
-  fmap (\behvs -> (fmap (translateBehv layout) behvs, behvCalldata behvs)) groups
+  fmap (\behvs' -> (fmap (translateBehv layout) behvs', behvCalldata behvs')) groups
   where
     behvCalldata (Behaviour _ _ iface _ _ _ _ _:_) = makeCalldata iface
     behvCalldata [] = error "Internal error: behaviour groups cannot be empty"
@@ -273,8 +265,8 @@ toExpr layout = \case
   (UIntMax _ n) -> Types.Lit (fromIntegral $ uintmax n)
   (InRange _ t e) -> toExpr layout (inRange t e)
   -- bytestrings
-  (Cat _ e1 e2) -> error "TODO"
-  (Slice _ bs start end) -> error "TODO"
+  (Cat _ _ _) -> error "TODO"
+  (Slice _ _ _ _) -> error "TODO"
   -- Types.CopySlice (toExpr start) (Types.Lit 0) -- src and dst offset
   -- (Types.Add (Types.Sub (toExp end) (toExpr start)) (Types.Lit 0)) -- size
   -- (toExpr bs) (Types.ConcreteBuf "") -- src and dst
@@ -282,7 +274,7 @@ toExpr layout = \case
   (ByLit _ bs) -> Types.ConcreteBuf bs
   (ByEnv _ env) -> ethEnvToBuf env
   -- contracts
-  (Create _ cid args) -> error "TODO"
+  (Create _ _ _) -> error "TODO"
   -- polymorphic
   (Eq _ SInteger e1 e2) -> op2 Types.Eq e1 e2
   (Eq _ SBoolean e1 e2) -> op2 Types.Eq e1 e2
@@ -299,9 +291,10 @@ toExpr layout = \case
   (TEntry _ _ (Item SInteger _ ref)) ->
     let (addr, slot) = refOffset layout ref in
     Types.SLoad (litAddr addr) slot Types.AbstractStore
+  e ->  error $ "TODO: " <> show e
 
   where
-    op2 :: forall a b. (Types.Expr (ExprType b) -> Types.Expr (ExprType b) -> a) -> Exp b -> Exp b -> a
+    op2 :: forall b c. (Types.Expr (ExprType c) -> Types.Expr (ExprType c) -> b) -> Exp c -> Exp c -> b
     op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
 
 
@@ -315,7 +308,7 @@ inputSpace exprs = map aux exprs
 
 -- | Check whether two lists of behaviours cover exactly the same input space
 checkInputSpaces :: SolverGroup -> VeriOpts -> [Types.Expr Types.End] -> [Types.Expr Types.End] -> IO [EquivResult]
-checkInputSpaces solvers opts l1 l2 = do
+checkInputSpaces solvers _ l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
   let queries = fmap assertProps [ [ Types.PNeg (Types.por p1), Types.por p2 ]
@@ -349,7 +342,7 @@ getCex _ = Nothing
 inRange :: AbiType -> Exp AInteger -> Exp ABoolean
 -- if the type has the type of machine word then check per operation
 inRange (AbiUIntType 256) e = checkOp e
-inRange (AbiIntType 256) e = error "TODO signed integers"
+inRange (AbiIntType 256) _ = error "TODO signed integers"
 -- otherwise insert range bounds
 inRange t e = bound t e
 

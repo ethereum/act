@@ -51,15 +51,10 @@ import Syntax.Annotated
 import Print
 import Type (defaultStore)
 
+import EVM.Solvers (Solver(..))
+
 --- ** Data ** ---
 
-
-data Solver = Z3 | CVC4
-  deriving Eq
-
-instance Show Solver where
-  show Z3 = "z3"
-  show CVC4 = "cvc4"
 
 data SMTConfig = SMTConfig
   { _solver :: Solver
@@ -340,12 +335,13 @@ solverArgs (SMTConfig solver timeout _) = case solver of
   Z3 ->
     [ "-in"
     , "-t:" <> show timeout]
-  CVC4 ->
+  CVC5 ->
     [ "--lang=smt"
     , "--interactive"
     , "--no-interactive-prompt"
     , "--produce-models"
     , "--tlimit-per=" <> show timeout]
+  _ -> error "Unsupported solver"
 
 -- | Spawns a solver instance, and sets the various global config options that we use for our queries
 spawnSolver :: SMTConfig -> IO SolverInstance
