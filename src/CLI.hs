@@ -42,7 +42,7 @@ import K hiding (normalize, indent)
 import SMT
 import Type
 import Coq hiding (indent)
-import Expr
+import HEVM
 
 import Debug.Trace
 
@@ -78,7 +78,8 @@ data Command w
                     }
 
   | HEVM            { spec       :: w ::: String               <?> "Path to spec"
-                    , soljson    :: w ::: String               <?> "Path to .sol.json"
+                    , sol        :: w ::: String               <?> "Path to .sol"
+                    , contract   :: w ::: String               <?> "Contract name"
                     , solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
                     , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
@@ -102,11 +103,10 @@ main = do
       Lex f -> lex' f
       Parse f -> parse' f
       Type f -> type' f
-      Prove file' solver' smttimeout' debug' -> prove file' solver' smttimeout' debug'
+      Prove file' solver' smttimeout' debug' -> prove file' (parseSolver solver') smttimeout' debug'
       Coq f -> coq' f
       K spec' soljson' gas' storage' extractbin' out' -> k spec' soljson' gas' storage' extractbin' out'
-      HEVM _ _ _ _ _ -> error "Unimplemented"
-      -- HEVM spec' soljson' solver' smttimeout' debug' -> hevm spec' soljson' solver' smttimeout' debug'
+      HEVM spec' sol' contract' solver' smttimeout' debug' -> hevm spec' (Text.pack contract') sol' (parseSolver solver') smttimeout' debug'
 
 
 ---------------------------------
@@ -129,20 +129,22 @@ type' f = do
   contents <- readFile f
   validation (prettyErrs contents) (B.putStrLn . encode) (enrich <$> compile contents)
 
-type'' :: FilePath -> IO Act
-type'' f = do
-  contents <- readFile f
-  validation (\_ -> pure $ Act Map.empty []) pure (enrich <$> compile contents)
+-- type'' :: FilePath -> IO Act
+-- type'' f = do
+--   contents <- readFile f
+--   validation (\_ -> pure $ Act Map.empty []) pure (enrich <$> compile contents)
 
-prove :: FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
+parseSolver :: Maybe Text -> Solvers.Solver
+parseSolver s = case s of
+                  Nothing -> Solvers.Z3
+                  Just s' -> case Text.unpack s' of
+                              "z3" -> Solvers.Z3
+                              "cvc5" -> Solvers.CVC5
+                              input -> error $ "unrecognised solver: " <> input
+
+prove :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 prove file' solver' smttimeout' debug' = do
-  let
-    parseSolver s = case s of
-      Just "z3" -> SMT.Z3
-      Just "cvc4" -> SMT.CVC4
-      Nothing -> SMT.Z3
-      Just _ -> error "unrecognized solver"
-    config = SMT.SMTConfig (parseSolver solver') (fromMaybe 20000 smttimeout') debug'
+  let config = SMT.SMTConfig solver' (fromMaybe 20000 smttimeout') debug'
   contents <- readFile file'
   proceed contents (enrich <$> compile contents) $ \claims -> do
     let
@@ -217,15 +219,16 @@ k spec' soljson' gas' storage' extractbin' out' = do
     forM_ kSpecs printFile
 
 
-hevm :: FilePath -> Text -> FilePath -> IO ()
-hevm actspec cid sol = do
+
+hevm :: FilePath -> Text -> FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+hevm actspec cid sol' solver' _ _ = do
   specContents <- readFile actspec
-  solContents  <- TIO.readFile sol
+  solContents  <- TIO.readFile sol'
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
   bytecode <- fmap fromJust $ solcRuntime cid solContents
   let actbehvs = translateAct act
   sequence_ $ flip fmap actbehvs $ \(behvs,calldata) ->
-    Solvers.withSolvers Solvers.Z3 1 Nothing $ \solvers -> do
+    Solvers.withSolvers solver' 1 Nothing $ \solvers -> do
       solbehvs <- removeFails <$> getBranches solvers bytecode calldata
       traceM "Calldata"
       traceShowM (fst calldata)
