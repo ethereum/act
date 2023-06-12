@@ -11,7 +11,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Expr where
+module HEVM where
 
 import qualified Data.Map as M
 import Data.List
