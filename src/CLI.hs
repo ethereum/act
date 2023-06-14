@@ -24,6 +24,7 @@ import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import qualified Data.Map.Strict as Map
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
+import GHC.Natural
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as B
@@ -221,14 +222,14 @@ k spec' soljson' gas' storage' extractbin' out' = do
 
 
 hevm :: FilePath -> Text -> FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
-hevm actspec cid sol' solver' _ _ = do
+hevm actspec cid sol' solver' timeout _ = do
   specContents <- readFile actspec
   solContents  <- TIO.readFile sol'
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
   bytecode <- fmap fromJust $ solcRuntime cid solContents
   let actbehvs = translateAct act
   sequence_ $ flip fmap actbehvs $ \(behvs,calldata) ->
-    Solvers.withSolvers solver' 1 Nothing $ \solvers -> do
+    Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
       solbehvs <- removeFails <$> getBranches solvers bytecode calldata
       traceM "Calldata"
       traceShowM (fst calldata)

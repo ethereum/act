@@ -5,7 +5,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "github:nixos/nixpkgs";
     hevmUpstream = {
-      url = "github:ethereum/hevm/87a171da0437ac4902a723b78352a3e509c7dcc9";
+      url = "github:ethereum/hevm/81f75a2ca34f5bb3202d207c3c07ca1740842717";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -31,7 +31,9 @@
         apps.act = flake-utils.lib.mkApp { drv = packages.act; };
         apps.default = apps.act;
 
-        devShell = myHaskellPackages.shellFor {
+        devShell = with pkgs;
+          let libraryPath = "${lib.makeLibraryPath [ libff secp256k1 gmp ]}";
+          in myHaskellPackages.shellFor {
           packages = _: [ act ];
           buildInputs = with pkgs.haskellPackages; [
             cabal-install
