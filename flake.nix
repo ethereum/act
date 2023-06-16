@@ -5,7 +5,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "github:nixos/nixpkgs";
     hevmUpstream = {
-      url = "github:ethereum/hevm/81f75a2ca34f5bb3202d207c3c07ca1740842717";
+      url = "github:ethereum/hevm/cd3440a26a7445f8acce84109db2179748c679aa";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -22,7 +22,7 @@
 	};
         act = (myHaskellPackages.callCabal2nixWithOptions "act" (gitignore ./src) "-fci" {})
           .overrideAttrs (attrs : {
-            buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc4 ];
+            buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc4 pkgs.cvc5 ];
           });
       in rec {
         packages.act = act;
@@ -41,6 +41,7 @@
             pkgs.jq
             pkgs.z3
             pkgs.cvc4
+            pkgs.cvc5
             pkgs.coq
             pkgs.solc
             pkgs.mdbook
@@ -50,6 +51,7 @@
           withHoogle = true;
           shellHook = ''
             export PATH=$(pwd)/bin:$PATH
+	    export DYLD_LIBRARY_PATH="${libraryPath}"
           '';
         };
       }
