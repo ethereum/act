@@ -385,7 +385,6 @@ checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
 checkIffs env = foldr check (pure [])
   where
     check (U.Iff   _     exps) acc = mappend <$> traverse (checkExpr env SBoolean) exps <*> acc
-    check (U.IffIn _ typ exps) acc = mappend <$> (mconcat <$> traverse (fmap (genInRange typ) . checkExpr env SInteger) exps) <*> acc
 
 genInRange :: AbiType -> Exp AInteger t -> [Exp ABoolean t]
 genInRange t e@(LitInt _ _) = [InRange nowhere t e]
@@ -418,6 +417,10 @@ typedExp env e = findSuccess (throw (getPosn e, "Cannot find a valid type for ex
                    , TExp SContract  <$> checkExpr env SContract e
                    ]
 
+andExps :: [Exp ABoolean t] -> Exp ABoolean t
+andExps [] = LitBool nowhere True
+andExps (c:cs) = foldl (\cs' c' -> And nowhere c' cs') c cs
+
 -- | Check the type of an expression and construct a typed expression
 checkExpr :: forall a t. Typeable t => Env -> SType a -> U.Expr -> Err (Exp a t)
 checkExpr env@Env{constructors} typ e = case (typ, e) of
@@ -433,6 +436,8 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SBoolean, U.EEq     p v1 v2) -> polycheck p Eq v1 v2
   (SBoolean, U.ENeq    p v1 v2) -> polycheck p NEq v1 v2
   (SBoolean, U.BoolLit p v1)    -> pure $ LitBool p v1
+  (SBoolean, U.EInRange _ abityp v) -> andExps <$> genInRange abityp <$> checkExpr env SInteger v
+
   -- Arithemetic expressions
   (SInteger, U.EAdd    p v1 v2) -> Add p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
   (SInteger, U.ESub    p v1 v2) -> Sub p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2

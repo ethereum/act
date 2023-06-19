@@ -26,7 +26,7 @@ import Data.Validation
   'returns'                   { L RETURNS _ }
   'storage'                   { L STORAGE _ }
   'noop'                      { L NOOP _ }
-  'iff in range'              { L IFFINRANGE _ }
+  'inRange'                   { L INRANGE _ }
   'iff'                       { L IFF _ }
   'and'                       { L AND _ }
   'not'                       { L NOT _ }
@@ -197,7 +197,6 @@ Returns : 'returns' Expr                              { $2 }
 Storage : 'storage' nonempty(Store)                   { $2 }
 
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
-             | 'iff in range' AbiType nonempty(Expr)  { IffIn (posn $1) $2 $3 }
 
 Store : Entry '=>' Expr                               { Rewrite $1 $3 }
       | Entry                                         { Constant $1 }
@@ -245,6 +244,7 @@ SlotType : 'mapping' '(' MappingArgs ')'              { (uncurry StorageMapping)
 MappingArgs : Type '=>' Type                          { ($1 NonEmpty.:| [], $3) }
             | Type '=>' 'mapping' '(' MappingArgs ')' { (NonEmpty.cons $1 (fst $5), snd $5)  }
 
+
 Expr : '(' Expr ')'                                   { $2 }
 
   -- terminals
@@ -265,7 +265,7 @@ Expr : '(' Expr ')'                                   { $2 }
   | Expr '>'   Expr                                   { EGT   (posn $2) $1 $3 }
   | 'true'                                            { BoolLit (posn $1) True }
   | 'false'                                           { BoolLit (posn $1) False }
-
+  | 'inRange' '(' AbiType ',' Expr ')'                { EInRange (posn $1) $3 $5 }
   -- integer expressions
   | Expr '+'   Expr                                   { EAdd (posn $2)  $1 $3 }
   | Expr '-'   Expr                                   { ESub (posn $2)  $1 $3 }

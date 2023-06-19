@@ -382,6 +382,7 @@ getPosn expr = case expr of
     EnvExp pn _ -> pn
     IntLit pn _ -> pn
     BoolLit pn _ -> pn
+    EInRange pn _ _ -> pn
 
 posFromDef :: Defn -> Pn
 posFromDef (Defn e _) = getPosn e
@@ -423,6 +424,7 @@ idFromRewrites e = case e of
   EnvExp {}         -> empty
   IntLit {}         -> empty
   BoolLit {}        -> empty
+  EInRange _ _ a    -> idFromRewrites a
   where
     idFromRewrites' = unionsWith (<>) . fmap idFromRewrites
 
