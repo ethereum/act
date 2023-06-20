@@ -316,7 +316,7 @@ checkInputSpaces solvers _ l1 l2 = do
 
   when True $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
-      ("query-" <> show idx <> ".smt2")
+      ("input-query-" <> show idx <> ".smt2")
       (formatSMT2 q <> "\n\n(check-sat)")
 
   results <- fmap toVRes <$> mapConcurrently (checkSat solvers) queries
