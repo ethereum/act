@@ -8,3 +8,4 @@
   - [Coq](./coq.md)
   - [Hevm](./hevm.md)
 - [Internals](./internals.md)
+- [HEVM Equivalence](./equiv.md)
