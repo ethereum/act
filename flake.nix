@@ -4,14 +4,23 @@
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "github:nixos/nixpkgs";
+    hevmUpstream = {
+      url = "github:ethereum/hevm/6aa10d18f03ef7b65dad6b86e9b99ff1bb305c16";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, ... }:
+  outputs = { self, nixpkgs, flake-utils, hevmUpstream, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         gitignore = pkgs.nix-gitignore.gitignoreSourcePure [ ./.gitignore ];
-        act = (pkgs.haskellPackages.callCabal2nixWithOptions "act" (gitignore ./src) "-fci" {})
+	myHaskellPackages = pkgs.haskellPackages.override {
+          overrides = self: super: rec {
+	    hevm = hevmUpstream.packages.${system}.noTests;
+          };
+	};
+        act = (myHaskellPackages.callCabal2nixWithOptions "act" (gitignore ./src) "-fci" {})
           .overrideAttrs (attrs : {
             buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc4 ];
           });
@@ -22,7 +31,7 @@
         apps.act = flake-utils.lib.mkApp { drv = packages.act; };
         apps.default = apps.act;
 
-        devShell = pkgs.haskellPackages.shellFor {
+        devShell = myHaskellPackages.shellFor {
           packages = _: [ act ];
           buildInputs = with pkgs.haskellPackages; [
             cabal-install
