@@ -12,11 +12,11 @@ nodes, that contain the possible successful results of the
 computation. The Expr representation of the EVM bytecode can also be
 flattened to a list of result nodes from which we only keep the
 successful executions, filtering out failed and partial execution
-paths and
+paths.
 
 A success node in Expr, `Success cond res storage`, is a leaf in the
 Expr tree representation and contains the path conditions, `cond` that
-lead to the leaf, the result buffer `buf`, and the end state
+lead to the leaf, the result buffer `res`, and the end state
 `storage`.
 
 
@@ -25,15 +25,15 @@ To check equivalence between the two Expr representations the
 following checks are performed. 
 
 ### Result equivalence
-The two list of `Success` node are being checked for equivalence using
+The two list of `Success` nodes are checked for equivalence using
 the HEVM equivalence checker. For each pair of nodes in the two lists,
-we check that of all inputs that satisfy the path conditions the
+we check that for all inputs that satisfy the combined path conditions the
 result and final storage the same. 
 
 ### Input space equivalence
-Since the input space of the two list is not necessarily exhaustive,
-since some input may lead to failed execution paths that are not
-present in the list, we need to check that the input space of the two
+Since the input space of the two lists is not necessarily exhaustive,
+some inputs may lead to failed execution paths that are not
+present in the list. We therefore need to check that the input space of the two
 lists are the same. That is, there must not be inputs that satisfy
 some path condition in the first list but not the second and vice verse. 
 
