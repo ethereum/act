@@ -62,7 +62,7 @@ data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignS
   deriving (Eq, Show)
 -- TODO AssignStruct is never used
 
-data IffH = Iff Pn [Expr]
+data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
   deriving (Eq, Show)
 
 data Entry

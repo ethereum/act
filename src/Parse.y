@@ -26,6 +26,7 @@ import Data.Validation
   'returns'                   { L RETURNS _ }
   'storage'                   { L STORAGE _ }
   'noop'                      { L NOOP _ }
+  'iff in range'              { L IFFINRANGE _ }
   'inRange'                   { L INRANGE _ }
   'iff'                       { L IFF _ }
   'and'                       { L AND _ }
@@ -197,6 +198,7 @@ Returns : 'returns' Expr                              { $2 }
 Storage : 'storage' nonempty(Store)                   { $2 }
 
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
+             | 'iff in range' AbiType nonempty(Expr)  { IffIn (posn $1) $2 $3 }
 
 Store : Entry '=>' Expr                               { Rewrite $1 $3 }
       | Entry                                         { Constant $1 }

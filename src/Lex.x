@@ -37,6 +37,7 @@ tokens :-
   storage                               { mk STORAGE }
   noop                                  { mk NOOP }
 
+  iff $white+ in $white+ range          { mk IFFINRANGE }
   inRange                               { mk INRANGE }
   iff                                   { mk IFF }
   and                                   { mk AND }
@@ -131,6 +132,7 @@ data LEX =
   | RETURNS
   | STORAGE
   | NOOP
+  | IFFINRANGE
   | INRANGE
   | IFF
   | AND

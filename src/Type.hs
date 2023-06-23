@@ -385,6 +385,7 @@ checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
 checkIffs env = foldr check (pure [])
   where
     check (U.Iff   _     exps) acc = mappend <$> traverse (checkExpr env SBoolean) exps <*> acc
+    check (U.IffIn _ typ exps) acc = mappend <$> (mconcat <$> traverse (fmap (genInRange typ) . checkExpr env SInteger) exps) <*> acc
 
 genInRange :: AbiType -> Exp AInteger t -> [Exp ABoolean t]
 genInRange t e@(LitInt _ _) = [InRange nowhere t e]
