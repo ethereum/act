@@ -25,7 +25,7 @@ To check equivalence between the two Expr representations the
 following checks are performed. 
 
 ### Result equivalence
-The two list of `Success` node are being checked for equivalence using
+The two list of `Success` nodes are checked for equivalence using
 the HEVM equivalence checker. For each pair of nodes in the two lists,
 we check that of all inputs that satisfy the path conditions the
 result and final storage the same. 
