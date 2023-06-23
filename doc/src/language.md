@@ -213,11 +213,12 @@ ensures
 
 ## Multiple contracts
 
-Act supports defining multiple contracts in the same file. State variables can have
-contracts types and they can be initiallized by calling the corresponding constructor. 
-The state variables of some contract can be accessed using dot notation `.`.
+Act supports defining multiple contracts in the same file. State
+variables can have contracts types and they can be initialized by
+calling the corresponding constructor.  The state variables of some
+contract can be accessed using dot notation `.`.
 
-Example: 
+Example:
 
 ```
 constructor of A
@@ -240,4 +241,40 @@ iff
 
 storage
    a.x => z
+```
+
+
+## Range predicates
+Often, to accurately specify a contract, we need to assume that
+arithmetic operations do not overflow. This is done with built-in
+*in-range* predicates. For example, in the iff conditions of a
+constructor of behaviour we can write
+
+
+```
+iff
+   inRange(uint256, (a + b) - c)
+   CALLVALUE =/= 0
+```
+
+meaning that all subexpressions of `(a + b) - c` will always be in the
+range of a 256-bit integer and no overflow or underflow occurs.
+
+Such in range predicates can be conditional, for example
+
+```
+CALLER =/= x => inRange(uint256, (a + b) - c)
+```
+
+
+To conveniently pack many in range predicates together Act provides an
+alternative form of iff conditions
+
+```
+iff
+   CALLVALUE =/= 0
+
+iff in range uint256
+   (a + b) - c
+   d - e
 ```
