@@ -31,7 +31,7 @@ we check that for all inputs that satisfy the combined path conditions the
 result and final storage the same. 
 
 ### Input space equivalence
-Since the input space of the two list is not necessarily exhaustive,
+Since the input space of the two lists is not necessarily exhaustive,
 since some input may lead to failed execution paths that are not
 present in the list, we need to check that the input space of the two
 lists are the same. That is, there must not be inputs that satisfy
