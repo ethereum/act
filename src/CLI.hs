@@ -132,11 +132,6 @@ type' f = do
   contents <- readFile f
   validation (prettyErrs contents) (B.putStrLn . encode) (enrich <$> compile contents)
 
--- type'' :: FilePath -> IO Act
--- type'' f = do
---   contents <- readFile f
---   validation (\_ -> pure $ Act Map.empty []) pure (enrich <$> compile contents)
-
 parseSolver :: Maybe Text -> Solvers.Solver
 parseSolver s = case s of
                   Nothing -> Solvers.Z3
