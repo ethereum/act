@@ -46,8 +46,6 @@ import Type
 import Coq hiding (indent)
 import HEVM
 
-import Debug.Trace
-
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
@@ -260,7 +258,6 @@ hevm actspec cid sol' solver' timeout _ = do
     
     checkResult :: [EquivResult] -> IO ()
     checkResult res =
-      traceShow res $
       case any isCex res of
         False -> do
           putStrLn "No discrepancies found"
