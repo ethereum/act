@@ -17,6 +17,7 @@ import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr, stdout)
 import Data.Text (pack, unpack)
 import Data.List
+import Data.Containers.ListUtils
 import Data.Maybe
 import Data.Traversable
 import qualified EVM.Solidity as Solidity
@@ -50,6 +51,7 @@ import Debug.Trace
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
+import qualified EVM.Format as Format
 import qualified EVM.Types as Expr
 import qualified EVM.Expr as Expr
 import qualified EVM.Fetch as Fetch
@@ -247,17 +249,19 @@ hevm actspec cid sol' solver' timeout _ = do
       expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
       let simpl = if True then (Expr.simplify expr) else expr
       let nodes = flattenExpr simpl
-      mapM_ partialWarning nodes
+
+      when (any isPartial nodes) $ do
+        putStrLn ""
+        putStrLn "WARNING: hevm was only able to partially explore the given contract due to the following issues:"
+        putStrLn ""
+        TIO.putStrLn . Text.unlines . fmap (Format.indent 2 . ("- " <>)) . fmap Format.formatPartial . nubOrd $ (getPartials nodes)
+
       pure nodes
 
     removeFails branches = filter isSuccess $ branches
 
     isSuccess (Expr.Success _ _ _) = True
     isSuccess _ = False
-
-    partialWarning :: Expr.Expr Expr.End -> IO ()
-    partialWarning (Expr.Partial _ _) = putStrLn "Warning: partial execution traces were encoutered in HEVM"
-    partialWarning _ = pure ()
     
     checkResult :: [EquivResult] -> IO ()
     checkResult res =
