@@ -16,7 +16,7 @@ paths.
 
 A success node in Expr, `Success cond res storage`, is a leaf in the
 Expr tree representation and contains the path conditions, `cond` that
-lead to the leaf, the result buffer `buf`, and the end state
+lead to the leaf, the result buffer `res`, and the end state
 `storage`.
 
 
