@@ -22,7 +22,7 @@
 	};
         act = (myHaskellPackages.callCabal2nixWithOptions "act" (gitignore ./src) "-fci" {})
           .overrideAttrs (attrs : {
-            buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc4 pkgs.cvc5 ];
+            buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc5 ];
           });
       in rec {
         packages.act = act;
@@ -40,7 +40,6 @@
             haskell-language-server
             pkgs.jq
             pkgs.z3
-            pkgs.cvc4
             pkgs.cvc5
             pkgs.coq
             pkgs.solc
