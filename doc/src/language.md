@@ -214,7 +214,7 @@ ensures
 ## Multiple contracts
 
 Act supports defining multiple contracts in the same file. State
-variables can have contracts types and they can be initialized by
+variables can have contract types and they can be initialized by
 calling the corresponding constructor.  The state variables of some
 contract can be accessed using dot notation `.`.
 
