@@ -230,14 +230,8 @@ hevm actspec cid sol' solver' timeout _ = do
   let actbehvs = translateAct act
   sequence_ $ flip fmap actbehvs $ \(behvs,calldata) ->
     Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
+    
       solbehvs <- removeFails <$> getBranches solvers bytecode calldata
-      traceM "Calldata"
-      traceShowM (fst calldata)
-      traceShowM (snd calldata)
-      traceM "Solidity"
-      traceShowM solbehvs
-      traceM "ACT"
-      traceShowM behvs
       -- equivalence check
       putStrLn "Checking if behaviours are equivalent"
       checkResult =<< equivalenceCheck' solvers solbehvs behvs debugVeriOpts
@@ -252,13 +246,19 @@ hevm actspec cid sol' solver' timeout _ = do
         prestate = abstractVM calldata bytecode Nothing Expr.AbstractStore
       expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
       let simpl = if True then (Expr.simplify expr) else expr
-      pure $ flattenExpr simpl
+      let nodes = flattenExpr simpl
+      mapM_ partialWarning nodes
+      pure nodes
 
-    removeFails branches = filter isSuccess branches
+    removeFails branches = filter isSuccess $ branches
 
     isSuccess (Expr.Success _ _ _) = True
     isSuccess _ = False
 
+    partialWarning :: Expr.Expr Expr.End -> IO ()
+    partialWarning (Expr.Partial _ _) = putStrLn "Warning: partial execution traces were encoutered in HEVM"
+    partialWarning _ = pure ()
+    
     checkResult :: [EquivResult] -> IO ()
     checkResult res =
       traceShow res $
