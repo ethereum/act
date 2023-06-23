@@ -12,7 +12,7 @@ nodes, that contain the possible successful results of the
 computation. The Expr representation of the EVM bytecode can also be
 flattened to a list of result nodes from which we only keep the
 successful executions, filtering out failed and partial execution
-paths and
+paths.
 
 A success node in Expr, `Success cond res storage`, is a leaf in the
 Expr tree representation and contains the path conditions, `cond` that
