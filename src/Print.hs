@@ -68,7 +68,7 @@ prettyExp e = case e of
   Mod _ a b -> print2 "%" a b
   Exp _ a b -> print2 "^" a b
   UIntMax _ a -> show $ uintmax a
-  UIntMin _ a -> show $ uintmax a
+  UIntMin _ a -> show $ uintmin a
   IntMax _ a -> show $ intmax a
   IntMin _ a -> show $ intmin a
   InRange _ a b -> "inrange(" <> show a <> ", " <> show b <> ")"
