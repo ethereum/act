@@ -27,7 +27,7 @@ following checks are performed.
 ### Result equivalence
 The two list of `Success` nodes are checked for equivalence using
 the HEVM equivalence checker. For each pair of nodes in the two lists,
-we check that of all inputs that satisfy the path conditions the
+we check that for all inputs that satisfy the combined path conditions the
 result and final storage the same. 
 
 ### Input space equivalence
