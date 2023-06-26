@@ -10,6 +10,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+
 
 module HEVM where
 
@@ -308,13 +310,13 @@ inputSpace exprs = map aux exprs
 
 -- | Check whether two lists of behaviours cover exactly the same input space
 checkInputSpaces :: SolverGroup -> VeriOpts -> [Types.Expr Types.End] -> [Types.Expr Types.End] -> IO [EquivResult]
-checkInputSpaces solvers _ l1 l2 = do
+checkInputSpaces solvers opts l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
   let queries = fmap assertProps [ [ Types.PNeg (Types.por p1), Types.por p2 ]
                                , [ Types.por p1, Types.PNeg (Types.por p2) ] ]
 
-  when True $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
+  when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
       ("input-query-" <> show idx <> ".smt2")
       (formatSMT2 q <> "\n\n(check-sat)")
