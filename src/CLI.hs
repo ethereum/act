@@ -50,8 +50,8 @@ import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
 import qualified EVM.Format as Format
-import qualified EVM.Types as Expr
-import qualified EVM.Expr as Expr
+import qualified EVM.Types as EVM
+import qualified EVM.Expr as EVM
 import qualified EVM.Fetch as Fetch
 
 --command line options
@@ -238,9 +238,9 @@ hevm actspec cid sol' solver' timeout _ = do
     getBranches solvers bs calldata = do
       let
         bytecode = if BS.null bs then BS.pack [0] else bs
-        prestate = abstractVM calldata bytecode Nothing Expr.AbstractStore
+        prestate = abstractVM calldata bytecode Nothing EVM.AbstractStore
       expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
-      let simpl = if True then (Expr.simplify expr) else expr
+      let simpl = if True then (EVM.simplify expr) else expr
       let nodes = flattenExpr simpl
 
       when (any isPartial nodes) $ do
@@ -253,7 +253,7 @@ hevm actspec cid sol' solver' timeout _ = do
 
     removeFails branches = filter isSuccess $ branches
 
-    isSuccess (Expr.Success _ _ _) = True
+    isSuccess (EVM.Success _ _ _) = True
     isSuccess _ = False
     
     checkResult :: [EquivResult] -> IO ()
@@ -269,7 +269,7 @@ hevm actspec cid sol' solver' timeout _ = do
           TIO.putStrLn . Text.unlines $
             [ "Not equivalent. The following inputs result in differing behaviours:"
             , "" , "-----", ""
-            ] <> (intersperse (Text.unlines [ "", "-----" ]) $ fmap (formatCex (Expr.AbstractBuf "txdata")) cexs)
+            ] <> (intersperse (Text.unlines [ "", "-----" ]) $ fmap (formatCex (EVM.AbstractBuf "txdata")) cexs)
           exitFailure
 
 

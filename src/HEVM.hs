@@ -195,7 +195,7 @@ ethEnvToWord Callvalue = EVM.CallValue 0
 ethEnvToWord Caller = EVM.Caller 0
 ethEnvToWord Origin = EVM.Origin
 ethEnvToWord Blocknumber = EVM.BlockNumber
-ethEnvToWord Blockhash = EVM.BlockHash 0
+ethEnvToWord Blockhash = error "TODO" -- EVM.BlockHash ??
 ethEnvToWord Chainid = EVM.ChainId
 ethEnvToWord Gaslimit = EVM.GasLimit
 ethEnvToWord Coinbase = EVM.Coinbase
@@ -209,112 +209,112 @@ ethEnvToBuf :: EthEnv -> EVM.Expr EVM.Buf
 ethEnvToBuf _ = error "Internal error: there are no bytestring environment values"
 
 
-toProp :: Layout -> Exp ABoolean -> Types.Prop
+toProp :: Layout -> Exp ABoolean -> EVM.Prop
 toProp layout = \case
-  (And _ e1 e2) -> pop2 Types.PAnd e1 e2
-  (Or _ e1 e2) -> pop2 Types.POr e1 e2
-  (Impl _ e1 e2) -> pop2 Types.PImpl e1 e2
-  (Neg _ e1) -> Types.PNeg (toProp layout e1)
-  (Syntax.Annotated.LT _ e1 e2) -> op2 Types.PLT e1 e2
-  (LEQ _ e1 e2) -> op2 Types.PLEq e1 e2
-  (GEQ _ e1 e2) -> op2 Types.PGEq e1 e2
-  (Syntax.Annotated.GT _ e1 e2) -> op2 Types.PGT e1 e2
-  (LitBool _ b) -> Types.PBool b
-  (Eq _ SInteger e1 e2) -> op2 Types.PEq e1 e2
-  (Eq _ SBoolean e1 e2) -> op2 Types.PEq e1 e2
+  (And _ e1 e2) -> pop2 EVM.PAnd e1 e2
+  (Or _ e1 e2) -> pop2 EVM.POr e1 e2
+  (Impl _ e1 e2) -> pop2 EVM.PImpl e1 e2
+  (Neg _ e1) -> EVM.PNeg (toProp layout e1)
+  (Syntax.Annotated.LT _ e1 e2) -> op2 EVM.PLT e1 e2
+  (LEQ _ e1 e2) -> op2 EVM.PLEq e1 e2
+  (GEQ _ e1 e2) -> op2 EVM.PGEq e1 e2
+  (Syntax.Annotated.GT _ e1 e2) -> op2 EVM.PGT e1 e2
+  (LitBool _ b) -> EVM.PBool b
+  (Eq _ SInteger e1 e2) -> op2 EVM.PEq e1 e2
+  (Eq _ SBoolean e1 e2) -> op2 EVM.PEq e1 e2
   (Eq _ _ _ _) -> error "unsupported"
-  (NEq _ SInteger e1 e2) -> Types.PNeg $ op2 Types.PEq e1 e2
-  (NEq _ SBoolean e1 e2) -> Types.PNeg $ op2 Types.PEq e1 e2
+  (NEq _ SInteger e1 e2) -> EVM.PNeg $ op2 EVM.PEq e1 e2
+  (NEq _ SBoolean e1 e2) -> EVM.PNeg $ op2 EVM.PEq e1 e2
   (NEq _ _ _ _) -> error "unsupported"
   (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
-  (Var _ _ _) -> error "TODO" -- (Types.Var (T.pack x)) -- vars can only be words? TODO other types
-  (TEntry _ _ _) -> error "TODO" -- Types.SLoad addr idx
+  (Var _ _ _) -> error "TODO" -- (EVM.Var (T.pack x)) -- vars can only be words? TODO other types
+  (TEntry _ _ _) -> error "TODO" -- EVM.SLoad addr idx
   (InRange _ t e) -> toProp layout (inRange t e)
   where
-    op2 :: forall a b. (Types.Expr (ExprType b) -> Types.Expr (ExprType b) -> a) -> Exp b -> Exp b -> a
+    op2 :: forall a b. (EVM.Expr (ExprType b) -> EVM.Expr (ExprType b) -> a) -> Exp b -> Exp b -> a
     op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
 
-    pop2 :: forall a. (Types.Prop -> Types.Prop -> a) -> Exp ABoolean -> Exp ABoolean -> a
+    pop2 :: forall a. (EVM.Prop -> EVM.Prop -> a) -> Exp ABoolean -> Exp ABoolean -> a
     pop2 op e1 e2 = op (toProp layout e1) (toProp layout e2)
 
 
 
-toExpr :: forall a. Layout -> Exp a -> Types.Expr (ExprType a)
+toExpr :: forall a. Layout -> Exp a -> EVM.Expr (ExprType a)
 toExpr layout = \case
   -- booleans
-  (And _ e1 e2) -> op2 Types.And e1 e2
-  (Or _ e1 e2) -> op2 Types.Or e1 e2
-  (Impl _ e1 e2) -> op2 (\x y -> Types.Or (Types.Not x) y) e1 e2
-  (Neg _ e1) -> Types.Not (toExpr layout e1)
-  (Syntax.Annotated.LT _ e1 e2) -> op2 Types.LT e1 e2
-  (LEQ _ e1 e2) -> op2 Types.LEq e1 e2
-  (GEQ _ e1 e2) -> op2 Types.GEq e1 e2
-  (Syntax.Annotated.GT _ e1 e2) -> op2 Types.GT e1 e2
-  (LitBool _ b) -> Types.Lit (fromIntegral $ fromEnum $ b)
+  (And _ e1 e2) -> op2 EVM.And e1 e2
+  (Or _ e1 e2) -> op2 EVM.Or e1 e2
+  (Impl _ e1 e2) -> op2 (\x y -> EVM.Or (EVM.Not x) y) e1 e2
+  (Neg _ e1) -> EVM.Not (toExpr layout e1)
+  (Syntax.Annotated.LT _ e1 e2) -> op2 EVM.LT e1 e2
+  (LEQ _ e1 e2) -> op2 EVM.LEq e1 e2
+  (GEQ _ e1 e2) -> op2 EVM.GEq e1 e2
+  (Syntax.Annotated.GT _ e1 e2) -> op2 EVM.GT e1 e2
+  (LitBool _ b) -> EVM.Lit (fromIntegral $ fromEnum $ b)
   -- integers
-  (Add _ e1 e2) -> op2 Types.Add e1 e2
-  (Sub _ e1 e2) -> op2 Types.Sub e1 e2
-  (Mul _ e1 e2) -> op2 Types.Mul e1 e2
-  (Div _ e1 e2) -> op2 Types.Div e1 e2
-  (Mod _ e1 e2) -> op2 Types.Mod e1 e2 -- which mod?
-  (Exp _ e1 e2) -> op2 Types.Exp e1 e2
-  (LitInt _ n) -> Types.Lit (fromIntegral n)
+  (Add _ e1 e2) -> op2 EVM.Add e1 e2
+  (Sub _ e1 e2) -> op2 EVM.Sub e1 e2
+  (Mul _ e1 e2) -> op2 EVM.Mul e1 e2
+  (Div _ e1 e2) -> op2 EVM.Div e1 e2
+  (Mod _ e1 e2) -> op2 EVM.Mod e1 e2 -- which mod?
+  (Exp _ e1 e2) -> op2 EVM.Exp e1 e2
+  (LitInt _ n) -> EVM.Lit (fromIntegral n)
   (IntEnv _ env) -> ethEnvToWord env
   -- bounds
-  (IntMin _ n) -> Types.Lit (fromIntegral $ intmin n)
-  (IntMax _ n) -> Types.Lit (fromIntegral $ intmax n)
-  (UIntMin _ n) -> Types.Lit (fromIntegral $ uintmin n)
-  (UIntMax _ n) -> Types.Lit (fromIntegral $ uintmax n)
+  (IntMin _ n) -> EVM.Lit (fromIntegral $ intmin n)
+  (IntMax _ n) -> EVM.Lit (fromIntegral $ intmax n)
+  (UIntMin _ n) -> EVM.Lit (fromIntegral $ uintmin n)
+  (UIntMax _ n) -> EVM.Lit (fromIntegral $ uintmax n)
   (InRange _ t e) -> toExpr layout (inRange t e)
   -- bytestrings
   (Cat _ _ _) -> error "TODO"
   (Slice _ _ _ _) -> error "TODO"
-  -- Types.CopySlice (toExpr start) (Types.Lit 0) -- src and dst offset
-  -- (Types.Add (Types.Sub (toExp end) (toExpr start)) (Types.Lit 0)) -- size
-  -- (toExpr bs) (Types.ConcreteBuf "") -- src and dst
-  (ByStr _ str) -> Types.ConcreteBuf (B8.pack str)
-  (ByLit _ bs) -> Types.ConcreteBuf bs
+  -- EVM.CopySlice (toExpr start) (EVM.Lit 0) -- src and dst offset
+  -- (EVM.Add (EVM.Sub (toExp end) (toExpr start)) (EVM.Lit 0)) -- size
+  -- (toExpr bs) (EVM.ConcreteBuf "") -- src and dst
+  (ByStr _ str) -> EVM.ConcreteBuf (B8.pack str)
+  (ByLit _ bs) -> EVM.ConcreteBuf bs
   (ByEnv _ env) -> ethEnvToBuf env
   -- contracts
   (Create _ _ _) -> error "TODO"
   -- polymorphic
-  (Eq _ SInteger e1 e2) -> op2 Types.Eq e1 e2
-  (Eq _ SBoolean e1 e2) -> op2 Types.Eq e1 e2
+  (Eq _ SInteger e1 e2) -> op2 EVM.Eq e1 e2
+  (Eq _ SBoolean e1 e2) -> op2 EVM.Eq e1 e2
   (Eq _ _ _ _) -> error "unsupported"
 
-  (NEq _ SInteger e1 e2) -> Types.Not $ op2 Types.Eq e1 e2
-  (NEq _ SBoolean e1 e2) -> Types.Not $ op2 Types.Eq e1 e2
+  (NEq _ SInteger e1 e2) -> EVM.Not $ op2 EVM.Eq e1 e2
+  (NEq _ SBoolean e1 e2) -> EVM.Not $ op2 EVM.Eq e1 e2
   (NEq _ _ _ _) -> error "unsupported"
 
   (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
 
-  (Var _ SInteger x) -> (Types.Var (T.pack x)) -- vars can only be words? TODO other types
+  (Var _ SInteger x) -> (EVM.Var (T.pack x)) -- vars can only be words? TODO other types
 
   (TEntry _ _ (Item SInteger _ ref)) ->
     let (addr, slot) = refOffset layout ref in
-    Types.SLoad (litAddr addr) slot Types.AbstractStore
+    EVM.SLoad (litAddr addr) slot EVM.AbstractStore
   e ->  error $ "TODO: " <> show e
 
   where
-    op2 :: forall b c. (Types.Expr (ExprType c) -> Types.Expr (ExprType c) -> b) -> Exp c -> Exp c -> b
+    op2 :: forall b c. (EVM.Expr (ExprType c) -> EVM.Expr (ExprType c) -> b) -> Exp c -> Exp c -> b
     op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
 
 
 -- | Find the input space of an expr list
-inputSpace :: [Types.Expr Types.End] -> [Types.Prop]
+inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
 inputSpace exprs = map aux exprs
   where
-    aux :: Types.Expr Types.End -> Types.Prop
-    aux (Types.Success c _ _) = Types.pand c
+    aux :: EVM.Expr EVM.End -> EVM.Prop
+    aux (EVM.Success c _ _) = EVM.pand c
     aux _ = error "List should only contain success behaviours"
 
 -- | Check whether two lists of behaviours cover exactly the same input space
-checkInputSpaces :: SolverGroup -> VeriOpts -> [Types.Expr Types.End] -> [Types.Expr Types.End] -> IO [EquivResult]
+checkInputSpaces :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> IO [EquivResult]
 checkInputSpaces solvers opts l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
-  let queries = fmap assertProps [ [ Types.PNeg (Types.por p1), Types.por p2 ]
-                               , [ Types.por p1, Types.PNeg (Types.por p2) ] ]
+  let queries = fmap assertProps [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
+                               , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
