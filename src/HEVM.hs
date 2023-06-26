@@ -28,7 +28,7 @@ import Syntax.Annotated
 import Syntax.Untyped (makeIface)
 import Syntax
 
-import qualified EVM.Types as Types
+import qualified EVM.Types as EVM
 import EVM.Concrete (createAddress)
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec
@@ -36,15 +36,15 @@ import EVM.SMT (assertProps, formatSMT2)
 import EVM.Solvers
 
 type family ExprType a where
-  ExprType 'AInteger  = Types.EWord
-  ExprType 'ABoolean  = Types.EWord
-  ExprType 'AByteStr  = Types.Buf
-  ExprType 'AContract = Types.EWord -- adress?
+  ExprType 'AInteger  = EVM.EWord
+  ExprType 'ABoolean  = EVM.EWord
+  ExprType 'AByteStr  = EVM.Buf
+  ExprType 'AContract = EVM.EWord -- address?
 
-type Layout = M.Map Id (M.Map Id (Types.Addr, Integer))
+type Layout = M.Map Id (M.Map Id (EVM.Addr, Integer))
 
-ethrunAddress :: Types.Addr
-ethrunAddress = Types.Addr 0x00a329c0648769a73afac7f9381e08fb43dbea72
+ethrunAddress :: EVM.Addr
+ethrunAddress = EVM.Addr 0x00a329c0648769a73afac7f9381e08fb43dbea72
 
 slotMap :: Store -> Layout
 slotMap store =
@@ -52,7 +52,7 @@ slotMap store =
   M.map (M.map (\(_, slot) -> (addr, slot))) store
 
 -- TODO move this to HEVM
-type Calldata = (Types.Expr Types.Buf, [Types.Prop])
+type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
 
 -- Create a calldata that matches the interface of a certain behaviour
 -- or constructor. Use an abstract txdata buffer as the base.
@@ -63,11 +63,11 @@ makeCalldata iface@(Interface _ decls) =
     mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
     makeSig = T.pack $ makeIface iface
     calldatas = fmap mkArg decls
-    (cdBuf, props) = combineFragments calldatas (Types.ConcreteBuf "")
+    (cdBuf, props) = combineFragments calldatas (EVM.ConcreteBuf "")
     withSelector = writeSelector cdBuf makeSig
     sizeConstraints
-      = (bufLength withSelector Types..>= cdLen calldatas)
-        Types..&& (bufLength withSelector Types..< (Types.Lit (2 ^ (64 :: Integer))))
+      = (bufLength withSelector EVM..>= cdLen calldatas)
+        EVM..&& (bufLength withSelector EVM..< (EVM.Lit (2 ^ (64 :: Integer))))
   in (withSelector, sizeConstraints : props)
 
 makeCtrCalldata :: Interface -> Calldata
@@ -76,34 +76,34 @@ makeCtrCalldata (Interface _ decls) =
     mkArg :: Decl -> CalldataFragment
     mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
     calldatas = fmap mkArg decls
-    (cdBuf, props) = combineFragments' calldatas 0 (Types.AbstractBuf "txdata")
+    (cdBuf, props) = combineFragments' calldatas 0 (EVM.AbstractBuf "txdata")
   in (cdBuf, props)
 
 -- TODO move to HEVM
-combineFragments' :: [CalldataFragment] -> Types.W256 -> Types.Expr Types.Buf -> (Types.Expr Types.Buf, [Types.Prop])
-combineFragments' fragments start base = go (Types.Lit start) fragments (base, [])
+combineFragments' :: [CalldataFragment] -> EVM.W256 -> EVM.Expr EVM.Buf -> (EVM.Expr EVM.Buf, [EVM.Prop])
+combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
   where
-    go :: Types.Expr Types.EWord -> [CalldataFragment] -> (Types.Expr Types.Buf, [Types.Prop]) -> (Types.Expr Types.Buf, [Types.Prop])
+    go :: EVM.Expr EVM.EWord -> [CalldataFragment] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> (EVM.Expr EVM.Buf, [EVM.Prop])
     go _ [] acc = acc
     go idx (f:rest) (buf, ps) =
       case f of
-        St p w -> go (add idx (Types.Lit 32)) rest (writeWord idx w buf, p <> ps)
+        St p w -> go (add idx (EVM.Lit 32)) rest (writeWord idx w buf, p <> ps)
         s -> error $ "unsupported cd fragment: " <> show s
 
 
-translateAct :: Act -> [([Types.Expr Types.End], Calldata)]
+translateAct :: Act -> [([EVM.Expr EVM.End], Calldata)]
 translateAct (Act store contracts) =
   let slots = slotMap store in
   concatMap (\(Contract _ behvs) -> translateBehvs slots behvs) contracts
 
-translateConstructor :: Layout -> Constructor -> ([Types.Expr Types.End], Calldata)
+translateConstructor :: Layout -> Constructor -> ([EVM.Expr EVM.End], Calldata)
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) =
-  ([Types.Success (snd calldata <> (fmap (toProp layout) $ preconds)) (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
+  ([EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
    calldata)
 
   where calldata = makeCtrCalldata iface
 
-translateBehvs :: Layout -> [Behaviour] -> [([Types.Expr Types.End], Calldata)]
+translateBehvs :: Layout -> [Behaviour] -> [([EVM.Expr EVM.End], Calldata)]
 translateBehvs layout behvs =
   let groups = (groupBy sameIface behvs) :: [[Behaviour]] in
   fmap (\behvs' -> (fmap (translateBehv layout) behvs', behvCalldata behvs')) groups
@@ -116,25 +116,25 @@ translateBehvs layout behvs =
       makeIface iface == makeIface iface'
 
 
-translateBehv :: Layout -> Behaviour -> Types.Expr Types.End
+translateBehv :: Layout -> Behaviour -> EVM.Expr EVM.End
 translateBehv layout (Behaviour _ cid _ preconds caseconds _ upds ret) =
-  Types.Success (fmap (toProp layout) $ preconds <> caseconds) (returnsToExpr layout ret) (rewritesToExpr layout cid upds)
+  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) (returnsToExpr layout ret) (rewritesToExpr layout cid upds)
 
-rewritesToExpr :: Layout -> Id -> [Rewrite] -> Types.Expr Types.Storage
-rewritesToExpr layout cid rewrites = foldl (flip $ rewriteToExpr layout cid) Types.AbstractStore rewrites
+rewritesToExpr :: Layout -> Id -> [Rewrite] -> EVM.Expr EVM.Storage
+rewritesToExpr layout cid rewrites = foldl (flip $ rewriteToExpr layout cid) EVM.AbstractStore rewrites
 
-rewriteToExpr :: Layout -> Id -> Rewrite -> Types.Expr Types.Storage -> Types.Expr Types.Storage
+rewriteToExpr :: Layout -> Id -> Rewrite -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
 rewriteToExpr _ _ (Constant _) state = state
 rewriteToExpr layout cid (Rewrite upd) state = updateToExpr layout cid upd state
 
-updatesToExpr :: Layout -> Id -> [StorageUpdate] -> Types.Expr Types.Storage
-updatesToExpr layout cid upds = foldl (flip $ updateToExpr layout cid) Types.AbstractStore upds
+updatesToExpr :: Layout -> Id -> [StorageUpdate] -> EVM.Expr EVM.Storage
+updatesToExpr layout cid upds = foldl (flip $ updateToExpr layout cid) EVM.AbstractStore upds
 
-updateToExpr :: Layout -> Id -> StorageUpdate -> Types.Expr Types.Storage -> Types.Expr Types.Storage
+updateToExpr :: Layout -> Id -> StorageUpdate -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
 updateToExpr layout cid (Update typ i@(Item _ _ ref) e) state =
   case typ of
-    SInteger -> Types.SStore (Types.Lit $ fromIntegral addr) offset e' state
-    SBoolean -> Types.SStore (Types.Lit $ fromIntegral addr) offset e' state
+    SInteger -> EVM.SStore (EVM.Lit $ fromIntegral addr) offset e' state
+    SBoolean -> EVM.SStore (EVM.Lit $ fromIntegral addr) offset e' state
     SByteStr -> error "Bytestrings not supported"
     SContract -> error "Contracts not supported"
   where
@@ -142,36 +142,36 @@ updateToExpr layout cid (Update typ i@(Item _ _ ref) e) state =
     offset = offsetFromRef layout slot ref
     e' = toExpr layout e
 
-returnsToExpr :: Layout -> Maybe TypedExp -> Types.Expr Types.Buf
-returnsToExpr _ Nothing = Types.ConcreteBuf ""
+returnsToExpr :: Layout -> Maybe TypedExp -> EVM.Expr EVM.Buf
+returnsToExpr _ Nothing = EVM.ConcreteBuf ""
 returnsToExpr layout (Just r) = typedExpToBuf layout r
 
-offsetFromRef :: Layout -> Integer -> StorageRef -> Types.Expr Types.EWord
-offsetFromRef _ slot (SVar _ _ _) = Types.Lit $ fromIntegral slot
+offsetFromRef :: Layout -> Integer -> StorageRef -> EVM.Expr EVM.EWord
+offsetFromRef _ slot (SVar _ _ _) = EVM.Lit $ fromIntegral slot
 offsetFromRef layout slot (SMapping _ _ ixs) =
-  foldl (\slot' i -> Types.keccak ((typedExpToBuf layout i) <> (wordToBuf slot'))) (Types.Lit $ fromIntegral slot) ixs
+  foldl (\slot' i -> EVM.keccak ((typedExpToBuf layout i) <> (wordToBuf slot'))) (EVM.Lit $ fromIntegral slot) ixs
 offsetFromRef _ _ (SField _ _ _ _) = error "TODO contracts not supported"
 
-wordToBuf :: Types.Expr Types.EWord -> Types.Expr Types.Buf
-wordToBuf w = Types.WriteWord (Types.Lit 0) w (Types.ConcreteBuf "")
+wordToBuf :: EVM.Expr EVM.EWord -> EVM.Expr EVM.Buf
+wordToBuf w = EVM.WriteWord (EVM.Lit 0) w (EVM.ConcreteBuf "")
 
-wordToProp :: Types.Expr Types.EWord -> Types.Prop
-wordToProp w = Types.PNeg (Types.PEq w (Types.Lit 0))
+wordToProp :: EVM.Expr EVM.EWord -> EVM.Prop
+wordToProp w = EVM.PNeg (EVM.PEq w (EVM.Lit 0))
 
-typedExpToBuf :: Layout -> TypedExp -> Types.Expr Types.Buf
+typedExpToBuf :: Layout -> TypedExp -> EVM.Expr EVM.Buf
 typedExpToBuf layout expr =
   case expr of
     TExp styp e -> expToBuf layout styp e
 
-expToBuf :: forall a. Layout -> SType a -> Exp a  -> Types.Expr Types.Buf
+expToBuf :: forall a. Layout -> SType a -> Exp a  -> EVM.Expr EVM.Buf
 expToBuf layout styp e =
   case styp of
-    SInteger -> Types.WriteWord (Types.Lit 0) (toExpr layout e) (Types.ConcreteBuf "")
-    SBoolean -> Types.WriteWord (Types.Lit 0) (toExpr layout e) (Types.ConcreteBuf "")
+    SInteger -> EVM.WriteWord (EVM.Lit 0) (toExpr layout e) (EVM.ConcreteBuf "")
+    SBoolean -> EVM.WriteWord (EVM.Lit 0) (toExpr layout e) (EVM.ConcreteBuf "")
     SByteStr -> toExpr layout e
     SContract -> error "Internal error: expecting primitive type"
 
-getSlot :: Layout -> Id -> Id -> (Types.Addr, Integer)
+getSlot :: Layout -> Id -> Id -> (EVM.Addr, Integer)
 getSlot layout cid name =
   case M.lookup cid layout of
     Just m -> case M.lookup name m of
@@ -179,33 +179,33 @@ getSlot layout cid name =
       Nothing -> error $ "Internal error: invalid variable name: " <> show name
     Nothing -> error "Internal error: invalid contract name"
 
-refOffset :: Layout -> StorageRef -> (Types.Addr, Types.Expr Types.EWord)
+refOffset :: Layout -> StorageRef -> (EVM.Addr, EVM.Expr EVM.EWord)
 refOffset layout (SVar _ cid name) =
   let (addr, slot) = getSlot layout cid name in
-  (addr, Types.Lit $ fromIntegral slot)
+  (addr, EVM.Lit $ fromIntegral slot)
 refOffset layout (SMapping _ ref ixs) =
   let (addr, slot) = refOffset layout ref in
   (addr,
-   foldl (\slot' i -> Types.keccak ((typedExpToBuf layout i) <> (wordToBuf slot'))) slot ixs)
+   foldl (\slot' i -> EVM.keccak ((typedExpToBuf layout i) <> (wordToBuf slot'))) slot ixs)
 
 refOffset _ _ = error "TODO"
 
-ethEnvToWord :: EthEnv -> Types.Expr Types.EWord
-ethEnvToWord Callvalue = Types.CallValue 0
-ethEnvToWord Caller = Types.Caller 0
-ethEnvToWord Origin = Types.Origin
-ethEnvToWord Blocknumber = Types.BlockNumber
-ethEnvToWord Blockhash = error "TODO" -- Types.BlockHash ??  missing EWord!
-ethEnvToWord Chainid = Types.ChainId
-ethEnvToWord Gaslimit = Types.GasLimit
-ethEnvToWord Coinbase = Types.Coinbase
-ethEnvToWord Timestamp = Types.Timestamp
+ethEnvToWord :: EthEnv -> EVM.Expr EVM.EWord
+ethEnvToWord Callvalue = EVM.CallValue 0
+ethEnvToWord Caller = EVM.Caller 0
+ethEnvToWord Origin = EVM.Origin
+ethEnvToWord Blocknumber = EVM.BlockNumber
+ethEnvToWord Blockhash = EVM.BlockHash 0
+ethEnvToWord Chainid = EVM.ChainId
+ethEnvToWord Gaslimit = EVM.GasLimit
+ethEnvToWord Coinbase = EVM.Coinbase
+ethEnvToWord Timestamp = EVM.Timestamp
 ethEnvToWord This = error "TODO"
 ethEnvToWord Nonce = error "TODO"
 ethEnvToWord Calldepth = error "TODO"
 ethEnvToWord Difficulty = error "TODO"
 
-ethEnvToBuf :: EthEnv -> Types.Expr Types.Buf
+ethEnvToBuf :: EthEnv -> EVM.Expr EVM.Buf
 ethEnvToBuf _ = error "Internal error: there are no bytestring environment values"
 
 
