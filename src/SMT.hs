@@ -338,8 +338,8 @@ solverArgs (SMTConfig solver timeout _) = case solver of
   CVC5 ->
     [ "--lang=smt"
     , "--interactive"
-    , "--no-interactive-prompt"
     , "--produce-models"
+    , "--print-success"
     , "--tlimit-per=" <> show timeout]
   _ -> error "Unsupported solver"
 
@@ -367,8 +367,8 @@ sendLines solver smt = case smt of
   hd : tl -> do
     suc <- sendCommand solver hd
     if suc == "success"
-       then sendLines solver tl
-       else pure (Just suc)
+    then sendLines solver tl
+    else pure (Just suc)
 
 -- | Sends a single command to the solver, returns the first available line from the output buffer
 sendCommand :: SolverInstance -> SMT2 -> IO String
