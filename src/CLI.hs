@@ -253,7 +253,7 @@ hevm actspec cid sol' solver' timeout _ = do
 
     removeFails branches = filter isSuccess $ branches
 
-    isSuccess (EVM.Success _ _ _) = True
+    isSuccess (EVM.Success _ _ _ _) = True
     isSuccess _ = False
     
     checkResult :: [EquivResult] -> IO ()

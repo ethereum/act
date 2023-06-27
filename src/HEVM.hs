@@ -98,7 +98,7 @@ translateAct (Act store contracts) =
 
 translateConstructor :: Layout -> Constructor -> ([EVM.Expr EVM.End], Calldata)
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) =
-  ([EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
+  ([EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
    calldata)
 
   where calldata = makeCtrCalldata iface
@@ -118,7 +118,7 @@ translateBehvs layout behvs =
 
 translateBehv :: Layout -> Behaviour -> EVM.Expr EVM.End
 translateBehv layout (Behaviour _ cid _ preconds caseconds _ upds ret) =
-  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) (returnsToExpr layout ret) (rewritesToExpr layout cid upds)
+  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) mempty (returnsToExpr layout ret) (rewritesToExpr layout cid upds)
 
 rewritesToExpr :: Layout -> Id -> [Rewrite] -> EVM.Expr EVM.Storage
 rewritesToExpr layout cid rewrites = foldl (flip $ rewriteToExpr layout cid) EVM.AbstractStore rewrites
@@ -305,7 +305,7 @@ inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
 inputSpace exprs = map aux exprs
   where
     aux :: EVM.Expr EVM.End -> EVM.Prop
-    aux (EVM.Success c _ _) = EVM.pand c
+    aux (EVM.Success c _ _ _) = EVM.pand c
     aux _ = error "List should only contain success behaviours"
 
 -- | Check whether two lists of behaviours cover exactly the same input space
