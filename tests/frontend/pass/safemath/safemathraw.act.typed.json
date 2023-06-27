@@ -14,37 +14,29 @@
               "args": [
                 {
                   "args": [
-                    "0",
-                    {
-                      "args": [
-                        "x",
-                        "y"
-                      ],
-                      "arity": 2,
-                      "symbol": "+"
-                    }
+                    "x",
+                    "y"
                   ],
                   "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "args": [
-                        "x",
-                        "y"
-                      ],
-                      "arity": 2,
-                      "symbol": "+"
-                    },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
+                  "symbol": "+"
                 }
               ],
-              "arity": 2,
-              "symbol": "and"
+              "arity": 1,
+              "symbol": "inrangeuint256"
+            },
+            {
+              "args": [
+                "x"
+              ],
+              "arity": 1,
+              "symbol": "inrangeuint256"
+            },
+            {
+              "args": [
+                "y"
+              ],
+              "arity": 1,
+              "symbol": "inrangeuint256"
             },
             {
               "args": [
@@ -137,12 +129,12 @@
       ],
       "constructor": {
         "contract": "SafeAdd",
-        "interface": "constructor()",
+        "initial storage": [],
+        "interface": "SafeAdd()",
         "invariants": [],
         "kind": "Constructor",
         "postConditions": [],
-        "preConditions": [],
-        "storage": []
+        "preConditions": []
       },
       "kind": "Contract"
     }

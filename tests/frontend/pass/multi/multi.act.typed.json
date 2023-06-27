@@ -4,12 +4,7 @@
       "behaviors": [],
       "constructor": {
         "contract": "A",
-        "interface": "constructor()",
-        "invariants": [],
-        "kind": "Constructor",
-        "postConditions": [],
-        "preConditions": [],
-        "storage": [
+        "initial storage": [
           {
             "location": {
               "item": {
@@ -19,7 +14,12 @@
             },
             "value": "0"
           }
-        ]
+        ],
+        "interface": "A()",
+        "invariants": [],
+        "kind": "Constructor",
+        "postConditions": [],
+        "preConditions": []
       },
       "kind": "Contract"
     },
@@ -341,12 +341,7 @@
       ],
       "constructor": {
         "contract": "B",
-        "interface": "constructor()",
-        "invariants": [],
-        "kind": "Constructor",
-        "postConditions": [],
-        "preConditions": [],
-        "storage": [
+        "initial storage": [
           {
             "location": {
               "item": {
@@ -374,7 +369,12 @@
               "symbol": "create"
             }
           }
-        ]
+        ],
+        "interface": "B()",
+        "invariants": [],
+        "kind": "Constructor",
+        "postConditions": [],
+        "preConditions": []
       },
       "kind": "Contract"
     }
@@ -384,17 +384,26 @@
     "kind": "Storages",
     "storages": {
       "A": {
-        "x": {
-          "type": "uint256"
-        }
+        "x": [
+          {
+            "type": "uint256"
+          },
+          0
+        ]
       },
       "B": {
-        "a": {
-          "type": "A"
-        },
-        "y": {
-          "type": "uint256"
-        }
+        "a": [
+          {
+            "type": "A"
+          },
+          1
+        ],
+        "y": [
+          {
+            "type": "uint256"
+          },
+          0
+        ]
       }
     }
   }

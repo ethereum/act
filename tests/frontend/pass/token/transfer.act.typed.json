@@ -3598,7 +3598,57 @@
       ],
       "constructor": {
         "contract": "Token",
-        "interface": "constructor(string _symbol, string _name, string _version, uint256 _totalSupply)",
+        "initial storage": [
+          {
+            "location": {
+              "item": {
+                "var": "Token.name"
+              },
+              "sort": "bytestring"
+            },
+            "value": "_name"
+          },
+          {
+            "location": {
+              "item": {
+                "var": "Token.symbol"
+              },
+              "sort": "bytestring"
+            },
+            "value": "_symbol"
+          },
+          {
+            "location": {
+              "item": {
+                "var": "Token.totalSupply"
+              },
+              "sort": "int"
+            },
+            "value": "_totalSupply"
+          },
+          {
+            "location": {
+              "item": {
+                "args": [
+                  {
+                    "var": "Token.balanceOf"
+                  },
+                  [
+                    {
+                      "expression": "Caller",
+                      "sort": "int"
+                    }
+                  ]
+                ],
+                "arity": 2,
+                "symbol": "lookup"
+              },
+              "sort": "int"
+            },
+            "value": "_totalSupply"
+          }
+        ],
+        "interface": "Token(string _symbol, string _name, string _version, uint256 _totalSupply)",
         "invariants": [
           {
             "contract": "Token",
@@ -3868,56 +3918,6 @@
             "arity": 2,
             "symbol": "and"
           }
-        ],
-        "storage": [
-          {
-            "location": {
-              "item": {
-                "var": "Token.name"
-              },
-              "sort": "bytestring"
-            },
-            "value": "_name"
-          },
-          {
-            "location": {
-              "item": {
-                "var": "Token.symbol"
-              },
-              "sort": "bytestring"
-            },
-            "value": "_symbol"
-          },
-          {
-            "location": {
-              "item": {
-                "var": "Token.totalSupply"
-              },
-              "sort": "int"
-            },
-            "value": "_totalSupply"
-          },
-          {
-            "location": {
-              "item": {
-                "args": [
-                  {
-                    "var": "Token.balanceOf"
-                  },
-                  [
-                    {
-                      "expression": "Caller",
-                      "sort": "int"
-                    }
-                  ]
-                ],
-                "arity": 2,
-                "symbol": "lookup"
-              },
-              "sort": "int"
-            },
-            "value": "_totalSupply"
-          }
         ]
       },
       "kind": "Contract"
@@ -3928,25 +3928,40 @@
     "kind": "Storages",
     "storages": {
       "Token": {
-        "allowance": {
-          "ixTypes": "[address,address]",
-          "type": "mapping",
-          "valType": "uint256"
-        },
-        "balanceOf": {
-          "ixTypes": "[address]",
-          "type": "mapping",
-          "valType": "uint256"
-        },
-        "name": {
-          "type": "string"
-        },
-        "symbol": {
-          "type": "string"
-        },
-        "totalSupply": {
-          "type": "uint256"
-        }
+        "allowance": [
+          {
+            "ixTypes": "[address,address]",
+            "type": "mapping",
+            "valType": "uint256"
+          },
+          4
+        ],
+        "balanceOf": [
+          {
+            "ixTypes": "[address]",
+            "type": "mapping",
+            "valType": "uint256"
+          },
+          3
+        ],
+        "name": [
+          {
+            "type": "string"
+          },
+          0
+        ],
+        "symbol": [
+          {
+            "type": "string"
+          },
+          1
+        ],
+        "totalSupply": [
+          {
+            "type": "uint256"
+          },
+          2
+        ]
       }
     }
   }
