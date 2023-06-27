@@ -347,7 +347,8 @@ coqprop (LT _ e1 e2)   = parens $ coqexp e1 <> " < "  <> coqexp e2
 coqprop (LEQ _ e1 e2)  = parens $ coqexp e1 <> " <= " <> coqexp e2
 coqprop (GT _ e1 e2)   = parens $ coqexp e1 <> " > "  <> coqexp e2
 coqprop (GEQ _ e1 e2)  = parens $ coqexp e1 <> " >= " <> coqexp e2
-coqprop _ = error "ill formed proposition"
+coqprop (InRange _ t e) = coqprop (bound t e)
+coqprop e = error "ill formed proposition: " <> T.pack (show e)
 
 -- | coq syntax for a typed expression
 typedexp :: TypedExp -> T.Text
