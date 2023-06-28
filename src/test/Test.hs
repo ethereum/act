@@ -29,6 +29,7 @@ import Syntax.Annotated
 import Text.Pretty.Simple
 import Data.Text.Lazy as T (unpack)
 
+import Debug.Trace
 
 -- Transformer stack to keep track of whether we are to generate expressions
 -- with exponentiation or not (for compatibility with SMT).
