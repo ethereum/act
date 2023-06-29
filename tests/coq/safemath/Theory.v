@@ -24,6 +24,8 @@ Proof.
     - assumption.
     - assumption.
     - assumption.
+    - assumption.
+    - assumption.
   } {
     intros. destruct H.
     split. assumption.

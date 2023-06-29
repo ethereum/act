@@ -42,12 +42,12 @@
       ],
       "constructor": {
         "contract": "A",
-        "interface": "constructor()",
+        "initial storage": [],
+        "interface": "A()",
         "invariants": [],
         "kind": "Constructor",
         "postConditions": [],
-        "preConditions": [],
-        "storage": []
+        "preConditions": []
       },
       "kind": "Contract"
     }

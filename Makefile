@@ -89,19 +89,19 @@ tests/%.type.fail:
 
 tests/%.invariant.pass:
 	./bin/act prove --file tests/$*
-	./bin/act prove --solver cvc4 --file tests/$*
+	./bin/act prove --solver cvc5 --file tests/$*
 
 tests/%.invariant.fail:
 	./bin/act prove --file tests/$* && exit 1 || echo 0
-	./bin/act prove --solver cvc4 --file tests/$* && exit 1 || echo 0
+	./bin/act prove --solver cvc5 --file tests/$* && exit 1 || echo 0
 
 tests/%.postcondition.pass:
 	./bin/act prove --file tests/$*
-	./bin/act prove --solver cvc4 --file tests/$*
+	./bin/act prove --solver cvc5 --file tests/$*
 
 tests/%.postcondition.fail:
 	./bin/act prove --file tests/$* && exit 1 || echo 0
-	./bin/act prove --solver cvc4 --file tests/$* && exit 1 || echo 0
+	./bin/act prove --solver cvc5 --file tests/$* && exit 1 || echo 0
 
 # tests/hevm/pass/%.act.hevm.pass:
 # 	solc --combined-json=bin,bin-runtime,ast,metadata,abi,srcmap,srcmap-runtime,storage-layout tests/hevm/pass/$*.sol > tests/hevm/pass/$*.sol.json

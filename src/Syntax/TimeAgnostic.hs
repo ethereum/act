@@ -60,7 +60,9 @@ data Contract t = Contract (Constructor t) [Behaviour t]
 deriving instance Show (InvariantPred t) => Show (Contract t)
 deriving instance Eq   (InvariantPred t) => Eq   (Contract t)
 
-type Store = Map Id (Map Id SlotType)
+-- For each contract, it stores the type of a storage variables and
+-- the order in which they are declared
+type Store = Map Id (Map Id (SlotType, Integer))
 
 -- | Represents a contract level invariant along with some associated metadata.
 -- The invariant is defined in the context of the constructor, but must also be
@@ -214,6 +216,7 @@ data Exp (a :: ActType) (t :: Timing) where
   IntMax :: Pn -> Int -> Exp AInteger t
   UIntMin :: Pn -> Int -> Exp AInteger t
   UIntMax :: Pn -> Int -> Exp AInteger t
+  InRange :: Pn -> AbiType -> Exp AInteger t -> Exp ABoolean t
   -- bytestrings
   Cat :: Pn -> Exp AByteStr t -> Exp AByteStr t -> Exp AByteStr t
   Slice :: Pn -> Exp AByteStr t -> Exp AInteger t -> Exp AInteger t -> Exp AByteStr t
@@ -221,7 +224,7 @@ data Exp (a :: ActType) (t :: Timing) where
   ByLit :: Pn -> ByteString -> Exp AByteStr t
   ByEnv :: Pn -> EthEnv -> Exp AByteStr t
   -- contracts
-  Create   :: Pn -> SType a -> Id -> [TypedExp t] -> Exp a t
+  Create   :: Pn -> Id -> [TypedExp t] -> Exp AContract t
   -- polymorphic
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
@@ -255,6 +258,7 @@ instance Eq (Exp a t) where
   IntMax _ a == IntMax _ b = a == b
   UIntMin _ a == UIntMin _ b = a == b
   UIntMax _ a == UIntMax _ b = a == b
+  InRange _ a b == InRange _ c d  = a == c && b == d
 
   Cat _ a b == Cat _ c d = a == c && b == d
   Slice _ a b c == Slice _ d e f = a == d && b == e && c == f
@@ -269,7 +273,7 @@ instance Eq (Exp a t) where
   TEntry _ a t == TEntry _ b u = a == b && t == u
   Var _ _ a == Var _ _ b = a == b
 
-  Create _ _ a b == Create _ _ c d = a == c && b == d
+  Create _ a b == Create _ c d = a == c && b == d
 
   _ == _ = False
 
@@ -312,6 +316,8 @@ instance Timable (Exp a) where
     IntMax p x -> IntMax p x
     UIntMin p x -> UIntMin p x
     UIntMax p x -> UIntMax p x
+    InRange p b e -> InRange p b (go e)
+
     -- bytestrings
     Cat p x y -> Cat p (go x) (go y)
     Slice p x y z -> Slice p (go x) (go y) (go z)
@@ -319,7 +325,7 @@ instance Timable (Exp a) where
     ByLit p x -> ByLit p x
     ByEnv p x -> ByEnv p x
     -- contracts
-    Create p t x y -> Create p t x (go <$> y)
+    Create p x y -> Create p x (go <$> y)
     -- polymorphic
     Eq  p s x y -> Eq p s (go x) (go y)
     NEq p s x y -> NEq p s (go x) (go y)
@@ -377,7 +383,7 @@ instance ToJSON (Constructor Timed) where
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
                                   , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) _invariants
-                                  , "storage" .= toJSON _initialStorage  ]
+                                  , "initial storage" .= toJSON _initialStorage  ]
 
 instance ToJSON (Constructor Untimed) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
@@ -450,6 +456,9 @@ instance ToJSON (Exp a t) where
   toJSON (IntMax _ a) = toJSON $ show $ intmax a
   toJSON (UIntMin _ a) = toJSON $ show $ uintmin a
   toJSON (UIntMax _ a) = toJSON $ show $ uintmax a
+  toJSON (InRange _ a b) = object [ "symbol"   .= pack ("inrange" <> show a)
+                                  , "arity"    .= Data.Aeson.Types.Number 1
+                                  , "args"     .= Array (fromList [toJSON b]) ]
   toJSON (IntEnv _ a) = String $ pack $ show a
   toJSON (ITE _ a b c) = object [ "symbol"   .= pack "ite"
                                 , "arity"    .= Data.Aeson.Types.Number 3
@@ -478,7 +487,7 @@ instance ToJSON (Exp a t) where
 
   toJSON (TEntry _ t a) = object [ fromString (show t) .= toJSON a ]
   toJSON (Var _ _ a) = toJSON a
-  toJSON (Create _ _ f xs) = object [ "symbol" .= pack "create"
+  toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                     , "arity"  .= Data.Aeson.Types.Number 2
                                     , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
 
@@ -514,6 +523,7 @@ eval e = case e of
   IntMax  _ a   -> pure $ intmax  a
   UIntMin _ a   -> pure $ uintmin a
   UIntMax _ a   -> pure $ uintmax a
+  InRange _ _ _ -> error "TODO eval in range"
 
   Cat _ s t     -> [s' <> t' | s' <- eval s, t' <- eval t]
   Slice _ s a b -> [BS.pack . genericDrop a' . genericTake b' $ s'
@@ -534,7 +544,7 @@ eval e = case e of
 
   ITE _ a b c   -> eval a >>= \cond -> if cond then eval b else eval c
 
-  Create _ _ _ _ -> error "eval of contracts not supported"
+  Create _ _ _ -> error "eval of contracts not supported"
   _              -> empty
 
 intmin :: Int -> Integer

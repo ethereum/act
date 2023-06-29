@@ -17,6 +17,7 @@ import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr, stdout)
 import Data.Text (pack, unpack)
 import Data.List
+import Data.Containers.ListUtils
 import Data.Maybe
 import Data.Traversable
 import qualified EVM.Solidity as Solidity
@@ -24,7 +25,9 @@ import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import qualified Data.Map.Strict as Map
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
+import GHC.Natural
 
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import Control.Monad
@@ -41,6 +44,15 @@ import K hiding (normalize, indent)
 import SMT
 import Type
 import Coq hiding (indent)
+import HEVM
+
+import EVM.SymExec
+import qualified EVM.Solvers as Solvers
+import EVM.Solidity
+import qualified EVM.Format as Format
+import qualified EVM.Types as EVM
+import qualified EVM.Expr as EVM
+import qualified EVM.Fetch as Fetch
 
 --command line options
 data Command w
@@ -67,7 +79,8 @@ data Command w
                     }
 
   | HEVM            { spec       :: w ::: String               <?> "Path to spec"
-                    , soljson    :: w ::: String               <?> "Path to .sol.json"
+                    , sol        :: w ::: String               <?> "Path to .sol"
+                    , contract   :: w ::: String               <?> "Contract name"
                     , solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
                     , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
@@ -91,11 +104,10 @@ main = do
       Lex f -> lex' f
       Parse f -> parse' f
       Type f -> type' f
-      Prove file' solver' smttimeout' debug' -> prove file' solver' smttimeout' debug'
+      Prove file' solver' smttimeout' debug' -> prove file' (parseSolver solver') smttimeout' debug'
       Coq f -> coq' f
       K spec' soljson' gas' storage' extractbin' out' -> k spec' soljson' gas' storage' extractbin' out'
-      HEVM _ _ _ _ _ -> error "Unimplemented"
-      -- HEVM spec' soljson' solver' smttimeout' debug' -> hevm spec' soljson' solver' smttimeout' debug'
+      HEVM spec' sol' contract' solver' smttimeout' debug' -> hevm spec' (Text.pack contract') sol' (parseSolver solver') smttimeout' debug'
 
 
 ---------------------------------
@@ -118,15 +130,17 @@ type' f = do
   contents <- readFile f
   validation (prettyErrs contents) (B.putStrLn . encode) (enrich <$> compile contents)
 
-prove :: FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
+parseSolver :: Maybe Text -> Solvers.Solver
+parseSolver s = case s of
+                  Nothing -> Solvers.Z3
+                  Just s' -> case Text.unpack s' of
+                              "z3" -> Solvers.Z3
+                              "cvc5" -> Solvers.CVC5
+                              input -> error $ "unrecognised solver: " <> input
+
+prove :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 prove file' solver' smttimeout' debug' = do
-  let
-    parseSolver s = case s of
-      Just "z3" -> SMT.Z3
-      Just "cvc4" -> SMT.CVC4
-      Nothing -> SMT.Z3
-      Just _ -> error "unrecognized solver"
-    config = SMT.SMTConfig (parseSolver solver') (fromMaybe 20000 smttimeout') debug'
+  let config = SMT.SMTConfig solver' (fromMaybe 20000 smttimeout') debug'
   contents <- readFile file'
   proceed contents (enrich <$> compile contents) $ \claims -> do
     let
@@ -199,6 +213,68 @@ k spec' soljson' gas' storage' extractbin' out' = do
           Nothing -> putStrLn (filename <> ".k") >> putStrLn content
           Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
     forM_ kSpecs printFile
+
+
+
+hevm :: FilePath -> Text -> FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+hevm actspec cid sol' solver' timeout _ = do
+  specContents <- readFile actspec
+  solContents  <- TIO.readFile sol'
+  let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
+  bytecode <- fmap fromJust $ solcRuntime cid solContents
+  let actbehvs = translateAct act
+  sequence_ $ flip fmap actbehvs $ \(behvs,calldata) ->
+    Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
+    
+      solbehvs <- removeFails <$> getBranches solvers bytecode calldata
+      -- equivalence check
+      putStrLn "Checking if behaviours are equivalent"
+      checkResult =<< equivalenceCheck' solvers solbehvs behvs debugVeriOpts
+      -- exhaustiveness sheck
+      putStrLn "Checking if the input space is the same"
+      checkResult =<< checkInputSpaces solvers debugVeriOpts solbehvs behvs
+  where
+    -- decompiles the given bytecode into a list of branches
+    getBranches solvers bs calldata = do
+      let
+        bytecode = if BS.null bs then BS.pack [0] else bs
+        prestate = abstractVM calldata bytecode Nothing EVM.AbstractStore
+      expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
+      let simpl = if True then (EVM.simplify expr) else expr
+      let nodes = flattenExpr simpl
+
+      when (any isPartial nodes) $ do
+        putStrLn ""
+        putStrLn "WARNING: hevm was only able to partially explore the given contract due to the following issues:"
+        putStrLn ""
+        TIO.putStrLn . Text.unlines . fmap (Format.indent 2 . ("- " <>)) . fmap Format.formatPartial . nubOrd $ (getPartials nodes)
+
+      pure nodes
+
+    removeFails branches = filter isSuccess $ branches
+
+    isSuccess (EVM.Success _ _ _ _) = True
+    isSuccess _ = False
+    
+    checkResult :: [EquivResult] -> IO ()
+    checkResult res =
+      case any isCex res of
+        False -> do
+          putStrLn "No discrepancies found"
+          when (any isTimeout res) $ do
+            putStrLn "But timeout(s) occurred"
+            exitFailure
+        True -> do
+          let cexs = mapMaybe getCex res
+          TIO.putStrLn . Text.unlines $
+            [ "Not equivalent. The following inputs result in differing behaviours:"
+            , "" , "-----", ""
+            ] <> (intersperse (Text.unlines [ "", "-----" ]) $ fmap (formatCex (EVM.AbstractBuf "txdata")) cexs)
+          exitFailure
+
+
+
+
 
 -- hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
 -- hevm spec' soljson' solver' smttimeout' smtdebug' = do

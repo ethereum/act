@@ -2,6 +2,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE RankNTypes #-}
 
 {-|
 Module      : Syntax
@@ -109,10 +110,11 @@ locsFromExp = nub . go
       IntMax {}  -> []
       UIntMin {} -> []
       UIntMax {} -> []
+      InRange _ _ a -> go a
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Create _ _ _ es -> concatMap locsFromTypedExp es
+      Create _ _ es -> concatMap locsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
       Var {} -> []
@@ -147,10 +149,11 @@ createsFromExp = nub . go
       IntMax {}  -> []
       UIntMin {} -> []
       UIntMax {} -> []
+      InRange _ _ a -> go a
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Create _ _ f es -> [f] <> concatMap createsFromTypedExp es
+      Create _ f es -> [f] <> concatMap createsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> createsFromItem a
       Var {} -> []
@@ -253,9 +256,10 @@ ethEnvFromExp = nub . go
       IntMax {} -> []
       UIntMin {} -> []
       UIntMax {} -> []
+      InRange _ _ a -> go a
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
-      Create _ _ _ ixs -> concatMap ethEnvFromTypedExp ixs
+      Create _ _ ixs -> concatMap ethEnvFromTypedExp ixs
       TEntry _ _ a -> ethEnvFromItem a
       Var {} -> []
 
@@ -378,6 +382,7 @@ getPosn expr = case expr of
     EnvExp pn _ -> pn
     IntLit pn _ -> pn
     BoolLit pn _ -> pn
+    EInRange pn _ _ -> pn
 
 posFromDef :: Defn -> Pn
 posFromDef (Defn e _) = getPosn e
@@ -419,6 +424,7 @@ idFromRewrites e = case e of
   EnvExp {}         -> empty
   IntLit {}         -> empty
   BoolLit {}        -> empty
+  EInRange _ _ a    -> idFromRewrites a
   where
     idFromRewrites' = unionsWith (<>) . fmap idFromRewrites
 
@@ -431,3 +437,19 @@ idFromRewrites e = case e of
 isWild :: Case -> Bool
 isWild (Case _ (WildExp _) _) = True
 isWild _                      = False
+
+bound :: AbiType -> Exp AInteger t -> Exp ABoolean t
+bound typ e = And nowhere (LEQ nowhere (lowerBound typ) e) $ LEQ nowhere e (upperBound typ)
+
+lowerBound :: forall t. AbiType -> Exp AInteger t
+lowerBound (AbiIntType a) = IntMin nowhere a
+-- todo: other negatives?
+lowerBound _ = LitInt nowhere 0
+
+-- todo, the rest
+upperBound :: forall t. AbiType -> Exp AInteger t
+upperBound (AbiUIntType  n) = UIntMax nowhere n
+upperBound (AbiIntType   n) = IntMax nowhere n
+upperBound AbiAddressType   = UIntMax nowhere 160
+upperBound (AbiBytesType n) = UIntMax nowhere (8 * n)
+upperBound typ = error $ "upperBound not implemented for " ++ show typ

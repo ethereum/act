@@ -10,3 +10,30 @@ iff
     CALLVALUE == 0
 
 returns x + y
+
+behaviour mul of SafeAdd
+interface mul(uint256 x, uint256 y)
+
+iff in range uint256
+
+    x * y
+
+iff
+
+    CALLVALUE == 0
+
+returns x * y
+
+
+behaviour double of SafeAdd
+interface double(uint256 x)
+
+iff in range uint256
+
+    2 * x
+
+iff
+
+    CALLVALUE == 0
+
+returns 2 * x

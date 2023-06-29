@@ -51,15 +51,10 @@ import Syntax.Annotated
 import Print
 import Type (defaultStore)
 
+import EVM.Solvers (Solver(..))
+
 --- ** Data ** ---
 
-
-data Solver = Z3 | CVC4
-  deriving Eq
-
-instance Show Solver where
-  show Z3 = "z3"
-  show CVC4 = "cvc4"
 
 data SMTConfig = SMTConfig
   { _solver :: Solver
@@ -340,12 +335,13 @@ solverArgs (SMTConfig solver timeout _) = case solver of
   Z3 ->
     [ "-in"
     , "-t:" <> show timeout]
-  CVC4 ->
+  CVC5 ->
     [ "--lang=smt"
     , "--interactive"
-    , "--no-interactive-prompt"
     , "--produce-models"
+    , "--print-success"
     , "--tlimit-per=" <> show timeout]
+  _ -> error "Unsupported solver"
 
 -- | Spawns a solver instance, and sets the various global config options that we use for our queries
 spawnSolver :: SMTConfig -> IO SolverInstance
@@ -371,8 +367,8 @@ sendLines solver smt = case smt of
   hd : tl -> do
     suc <- sendCommand solver hd
     if suc == "success"
-       then sendLines solver tl
-       else pure (Just suc)
+    then sendLines solver tl
+    else pure (Just suc)
 
 -- | Sends a single command to the solver, returns the first available line from the output buffer
 sendCommand :: SolverInstance -> SMT2 -> IO String
@@ -590,6 +586,7 @@ expToSMT2 expr = case expr of
   IntMax _ a -> pure . show $ intmax a
   UIntMin _ a -> pure . show $ uintmin a
   UIntMax _ a -> pure . show $ uintmax a
+  InRange _ t e -> expToSMT2 (bound t e)
 
   -- bytestrings
   Cat _ a b -> binop "str.++" a b
@@ -599,7 +596,7 @@ expToSMT2 expr = case expr of
   ByEnv _ a -> pure $ prettyEnv a
 
   -- contracts
-  Create _ _ _ _ -> error "contracts not supported"
+  Create _ _ _ -> error "contracts not supported"
   -- polymorphic
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)

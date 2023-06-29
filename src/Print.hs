@@ -71,6 +71,7 @@ prettyExp e = case e of
   UIntMin _ a -> show $ uintmin a
   IntMax _ a -> show $ intmax a
   IntMin _ a -> show $ intmin a
+  InRange _ a b -> "inrange(" <> show a <> ", " <> show b <> ")"
   LitInt _ a -> show a
   IntEnv _ a -> prettyEnv a
 
@@ -82,7 +83,7 @@ prettyExp e = case e of
   ByEnv _ a -> prettyEnv a
 
   -- contracts
-  Create _ _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
+  Create _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
   
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
@@ -164,8 +165,9 @@ prettyInvPred = prettyExp . untime . fst
       IntMax p a  -> IntMax p a
       UIntMin p a -> UIntMin p a
       UIntMax p a -> UIntMax p a
+      InRange p a b -> InRange p a (untime b)
       LitBool p a -> LitBool p a
-      Create p t f xs -> Create p t f (fmap untimeTyped xs)
+      Create p f xs -> Create p f (fmap untimeTyped xs)
       IntEnv p a  -> IntEnv p a
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)

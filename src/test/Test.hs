@@ -26,9 +26,10 @@ import Print (prettyBehaviour)
 import SMT
 import Syntax.Annotated
 
-import Debug.Trace
 import Text.Pretty.Simple
 import Data.Text.Lazy as T (unpack)
+
+import Debug.Trace
 
 -- Transformer stack to keep track of whether we are to generate expressions
 -- with exponentiation or not (for compatibility with SMT).
@@ -72,7 +73,7 @@ defaultStore :: Id -> Store
 defaultStore c = fromList [(c,fromList [])]
 
 defaultCtor :: Id -> Constructor
-defaultCtor c = Constructor {_cname = c, _cinterface = Interface "constructor" [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = [], _cstateUpdates = []}
+defaultCtor c = Constructor {_cname = c, _cinterface = Interface c [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = [], _cstateUpdates = []}
 
 
 typeCheckSMT :: Solver -> GenT (Reader Bool) Property

@@ -9,7 +9,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# Language TupleSections #-}
 
-module Type (typecheck, bound, lookupVars, defaultStore, Err) where
+module Type (typecheck, lookupVars, defaultStore, Err) where
 
 import Prelude hiding (GT, LT)
 
@@ -37,6 +37,7 @@ import Syntax
 import Syntax.Timing
 import qualified Syntax.Untyped as U
 import Syntax.Typed
+import Syntax.Untyped (makeIface)
 import Error
 
 import Data.Type.Equality (TestEquality(..))
@@ -71,11 +72,8 @@ typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store cons
     noDuplicateInterfaces :: Err ()
     noDuplicateInterfaces =
       noDuplicates
-        [(pn, contract ++ "." ++ (show iface)) | U.Transition pn _ contract iface _ _ _ <- transitions]
+        [(pn, contract ++ "." ++ (makeIface iface)) | U.Transition pn _ contract iface _ _ _ <- transitions]
         $ \c -> "Multiple definitions of Interface " <> c
-    -- TODO this check allows interface declarations with the same name and argument types but
-    -- different argument names (e.g. f(uint x) and f(uint z)). This potentially problematic since
-    -- it is not possible to disambiguate. Such declarations are disallowed in Solidity
 
     noDuplicateBehaviourNames :: Err ()
     noDuplicateBehaviourNames =
@@ -136,7 +134,12 @@ topologicalSort (Act store contracts) =
 lookupVars :: [U.Contract] -> Store
 lookupVars = foldMap $ \case
   U.Contract (U.Definition  _ contract _ _ (U.Creates assigns) _ _) _ ->
-    Map.singleton contract . Map.fromList $ snd . fromAssign <$> assigns
+    Map.singleton contract . Map.fromList $ addSlot $ snd . fromAssign <$> assigns
+  where
+    addSlot :: [(Id, SlotType)] -> [(Id, (SlotType, Integer))]
+    addSlot l = zipWith (\(name, typ) slot -> (name, (typ, slot))) l [0..]
+
+
 
 lookupConstructors :: [U.Contract] -> Map Id [AbiType]
 lookupConstructors = foldMap $ \case
@@ -176,14 +179,13 @@ defaultStore =
    (Origin, AInteger),
    (Nonce, AInteger),
    (Calldepth, AInteger)
-   --others TODO
   ]
 
 
 mkEnv :: Id -> Store -> Map Id [AbiType] -> Env
 mkEnv contract store constructors = Env
   { contract = contract
-  , store    = fromMaybe mempty (Map.lookup contract store)
+  , store    = Map.map fst $ fromMaybe mempty (Map.lookup contract store)
   , theirs   = store
   , calldata = mempty
   , constructors = constructors
@@ -205,7 +207,7 @@ checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ 
     env = mkEnv cid store constructors
 
     namesConsistent :: Err ()
-    namesConsistent = 
+    namesConsistent =
       traverse_ (\(U.Transition pn _ cid' _ _ _ _) -> assert (errmsg pn cid') (cid == cid')) trans
 
     errmsg pn cid' = (pn, "Behavior must belong to contract " <> show cid <> " but belongs to contract " <> cid')
@@ -239,21 +241,21 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs
           negation = U.ENot nowhere $
                         foldl (\acc (U.Case _ e _) -> U.EOr nowhere e acc) (U.BoolLit nowhere False) rest
         in rest `snoc` (if isWild lastCase then U.Case pn negation post else lastCase)
-    -- TODO ensure non-overlapping and exhaustiveness (maybe with elaboration and mandatory wildcard?) 
+    -- TODO ensure non-overlapping and exhaustiveness (maybe with elaboration and mandatory wildcard?)
 
     -- | split case into pass and fail case
     makeBehv :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed)) -> Behaviour
     makeBehv iffs' postcs (if',storage,ret) = Behaviour name contract iface iffs' if' postcs storage ret
 
 checkDefinition :: Env -> U.Definition -> Err Constructor
-checkDefinition env (U.Definition _ contract iface@(Interface _ decls) iffs (U.Creates assigns) postcs invs) =
+checkDefinition env (U.Definition _ contract (Interface _ decls) iffs (U.Creates assigns) postcs invs) =
   do
     stateUpdates <- concat <$> traverse (checkAssign env') assigns
     iffs' <- checkIffs env' iffs
     _ <- traverse (validStorage env') assigns
     ensures <- traverse (checkExpr env' SBoolean) postcs
     invs' <- fmap (Invariant contract [] []) <$> traverse (checkExpr env' SBoolean) invs
-    pure $ Constructor contract iface iffs' ensures invs' stateUpdates []
+    pure $ Constructor contract (Interface contract decls) iffs' ensures invs' stateUpdates []
   where
     env' = addCalldata env decls
 
@@ -331,7 +333,7 @@ checkPost env@Env{contract,theirs} (U.Post storage maybeReturn) = do
     focus :: Id -> Env
     focus name = env
       { contract = name
-      , store    = Map.findWithDefault mempty name theirs
+      , store    = Map.map fst $ Map.findWithDefault mempty name theirs
       }
 
 checkEntry :: forall t. Typeable t => Env -> U.Entry -> Err (SlotType, StorageRef t)
@@ -349,7 +351,7 @@ checkEntry env@Env{theirs} (U.EField p e x) =
   checkEntry env e `bindValidation` \(typ, ref) -> case typ of
     StorageValue (ContractType c) -> case Map.lookup c theirs of
       Just cenv -> case Map.lookup x cenv of
-        Just t -> pure (t, SField p ref c x)
+        Just (t, _) -> pure (t, SField p ref c x)
         Nothing -> throw (p, "Contract " <> c <> " does not have field " <> x)
       Nothing -> error $ "Internal error: Invalid contract type " <> show c
     _ -> throw (p, "Expression should have a mapping type" <> show e)
@@ -383,24 +385,24 @@ checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
 checkIffs env = foldr check (pure [])
   where
     check (U.Iff   _     exps) acc = mappend <$> traverse (checkExpr env SBoolean) exps <*> acc
-    check (U.IffIn _ typ exps) acc = mappend <$> traverse (fmap (bound $ PrimitiveType typ) . checkExpr env SInteger) exps <*> acc
+    check (U.IffIn _ typ exps) acc = mappend <$> (mconcat <$> traverse (fmap (genInRange typ) . checkExpr env SInteger) exps) <*> acc
 
-bound :: ValueType -> Exp AInteger t -> Exp ABoolean t
-bound (PrimitiveType typ) e = And nowhere (LEQ nowhere (lowerBound typ) e) $ LEQ nowhere e (upperBound typ)
-bound (ContractType _) _ = error $ "upperBound not implemented for constract types"
-
-lowerBound :: AbiType -> Exp AInteger t
-lowerBound (AbiIntType a) = IntMin nowhere a
--- todo: other negatives?
-lowerBound _ = LitInt nowhere 0
-
--- todo, the rest
-upperBound :: AbiType -> Exp AInteger t
-upperBound (AbiUIntType  n) = UIntMax nowhere n
-upperBound (AbiIntType   n) = IntMax nowhere n
-upperBound AbiAddressType   = UIntMax nowhere 160
-upperBound (AbiBytesType n) = UIntMax nowhere (8 * n)
-upperBound typ = error $ "upperBound not implemented for " ++ show typ
+genInRange :: AbiType -> Exp AInteger t -> [Exp ABoolean t]
+genInRange t e@(LitInt _ _) = [InRange nowhere t e]
+genInRange t e@(Var _ _ _)  = [InRange nowhere t e]
+genInRange t e@(TEntry _ _ _)  = [InRange nowhere t e]
+genInRange t e@(Add _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange t e@(Sub _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange t e@(Mul _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange t e@(Div _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange t e@(Mod _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange t e@(Exp _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
+genInRange t e@(IntEnv _ _) = [InRange nowhere t e]
+genInRange _ (IntMin _ _)  = error "Internal error: invalid range expression"
+genInRange _ (IntMax _ _)  = error "Internal error: invalid range expression"
+genInRange _ (UIntMin _ _) = error "Internal error: invalid range expression"
+genInRange _ (UIntMax _ _) = error "Internal error: invalid range expression"
+genInRange _ (ITE _ _ _ _) = error "Internal error: invalid range expression"
 
 -- | Attempt to construct a `TypedExp` whose type matches the supplied `ValueType`.
 -- The target timing parameter will be whatever is required by the caller.
@@ -415,6 +417,10 @@ typedExp env e = findSuccess (throw (getPosn e, "Cannot find a valid type for ex
                    , TExp SByteStr <$> checkExpr env SByteStr e
                    , TExp SContract  <$> checkExpr env SContract e
                    ]
+
+andExps :: [Exp ABoolean t] -> Exp ABoolean t
+andExps [] = LitBool nowhere True
+andExps (c:cs) = foldl (\cs' c' -> And nowhere c' cs') c cs
 
 -- | Check the type of an expression and construct a typed expression
 checkExpr :: forall a t. Typeable t => Env -> SType a -> U.Expr -> Err (Exp a t)
@@ -431,6 +437,8 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SBoolean, U.EEq     p v1 v2) -> polycheck p Eq v1 v2
   (SBoolean, U.ENeq    p v1 v2) -> polycheck p NEq v1 v2
   (SBoolean, U.BoolLit p v1)    -> pure $ LitBool p v1
+  (SBoolean, U.EInRange _ abityp v) -> andExps <$> genInRange abityp <$> checkExpr env SInteger v
+
   -- Arithemetic expressions
   (SInteger, U.EAdd    p v1 v2) -> Add p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
   (SInteger, U.ESub    p v1 v2) -> Sub p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
@@ -441,7 +449,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SInteger, U.IntLit  p v1)    -> pure $ LitInt  p v1
   -- Constructor calls
   (SContract, U.ECreate p c args) -> case Map.lookup c constructors of
-    Just typs -> Create p SContract c <$> checkIxs env p args (fmap PrimitiveType typs)
+    Just typs -> Create p c <$> checkIxs env p args (fmap PrimitiveType typs)
     Nothing -> throw (p, "Unknown constructor " <> show c)
   -- Control
   (_, U.EITE p v1 v2 v3) ->
@@ -502,7 +510,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
 contractId :: Exp AContract t -> Id
 contractId (ITE _ _ a _) = contractId a
 contractId (Var _ _ _) = error "Internal error: calldata variables cannot have contract types"
-contractId (Create _ _ c _) = c
+contractId (Create _ c _) = c
 contractId (TEntry _ _ (Item _ (ContractType c) _)) = c
 contractId (TEntry _ _ (Item _ _ _)) = error "Internal error: entry does not have contract type"
 

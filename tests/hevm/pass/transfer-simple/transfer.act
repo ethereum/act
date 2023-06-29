@@ -1,0 +1,28 @@
+constructor of Token
+interface constructor(uint _totalSupply)
+
+creates
+  mapping(address => uint) balanceOf := [CALLER := _totalSupply]
+
+behaviour transfer of Token
+interface transfer(uint256 value, address to)
+
+
+iff
+
+  CALLVALUE == 0
+  CALLER =/= to => inRange(uint256, balanceOf[to] + value)
+  inRange(uint256,balanceOf[CALLER] - value)
+
+case CALLER =/= to:
+  
+  storage
+
+    balanceOf[CALLER]  => balanceOf[CALLER] - value
+    balanceOf[to]      => balanceOf[to] + value
+
+  returns 1
+
+  case CALLER == to:
+
+  returns 1
