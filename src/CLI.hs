@@ -8,6 +8,7 @@
 {-# Language TypeOperators #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module CLI (main, compile, proceed) where
 
@@ -18,8 +19,6 @@ import System.IO (hPutStrLn, stderr, stdout)
 import Data.Text (pack, unpack)
 import Data.List
 import Data.Maybe
-import Data.Traversable
-import qualified EVM.Solidity as Solidity
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import qualified Data.Map.Strict as Map
@@ -35,10 +34,8 @@ import Error
 import Lex (lexer, AlexPosn(..))
 import Options.Generic
 import Parse
-import Syntax
 import Syntax.Annotated
 import Enrich
-import K hiding (normalize, indent)
 import SMT
 import Type
 import Coq hiding (indent)
@@ -49,6 +46,7 @@ import qualified EVM.Solvers as Solvers
 import EVM.Solidity
 import qualified EVM.Types as EVM
 
+import Debug.Trace
 --command line options
 data Command w
   = Lex             { file       :: w ::: String               <?> "Path to file"}
@@ -65,16 +63,9 @@ data Command w
 
   | Coq             { file       :: w ::: String               <?> "Path to file"}
 
-  | K               { spec       :: w ::: String               <?> "Path to spec"
-                    , soljson    :: w ::: String               <?> "Path to .sol.json"
-                    , gas        :: w ::: Maybe [(Id, String)] <?> "Gas usage per spec"
-                    , storage    :: w ::: Maybe String         <?> "Path to storage definitions"
-                    , extractbin :: w ::: Bool                 <?> "Put EVM bytecode in separate file"
-                    , out        :: w ::: Maybe String         <?> "output directory"
-                    }
-
   | HEVM            { spec       :: w ::: String               <?> "Path to spec"
-                    , sol        :: w ::: String               <?> "Path to .sol"
+                    , sol        :: w ::: Maybe String         <?> "Path to .sol"
+                    , code       :: w ::: Maybe ByteString     <?> "Program bytecode"
                     , contract   :: w ::: String               <?> "Contract name"
                     , solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
@@ -101,8 +92,7 @@ main = do
       Type f -> type' f
       Prove file' solver' smttimeout' debug' -> prove file' (parseSolver solver') smttimeout' debug'
       Coq f -> coq' f
-      K spec' soljson' gas' storage' extractbin' out' -> k spec' soljson' gas' storage' extractbin' out'
-      HEVM spec' sol' contract' solver' smttimeout' debug' -> hevm spec' (Text.pack contract') sol' (parseSolver solver') smttimeout' debug'
+      HEVM spec' sol' soljson' contract' solver' smttimeout' debug' -> hevm spec' (Text.pack contract') sol' soljson' (parseSolver solver') smttimeout' debug'
 
 
 ---------------------------------
@@ -193,30 +183,12 @@ coq' f = do
   proceed contents (enrich <$> compile contents) $ \claims ->
     TIO.putStr $ coq claims
 
-k :: FilePath -> FilePath -> Maybe [(Id, String)] -> Maybe String -> Bool -> Maybe String -> IO ()
-k spec' soljson' gas' storage' extractbin' out' = do
-  specContents <- readFile spec'
-  solContents  <- readFile soljson'
-  let kOpts = KOptions (maybe mempty Map.fromList gas') storage' extractbin'
-      errKSpecs = do
-        behvs <- toEither $ behvsFromAct . enrich <$> compile specContents
-        (Solidity.Contracts sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
-                              (Solidity.readStdJSON  . pack) solContents
-        for behvs (makekSpec sources kOpts) ^. revalidate
-  proceed specContents errKSpecs $ \kSpecs -> do
-    let printFile (filename, content) = case out' of
-          Nothing -> putStrLn (filename <> ".k") >> putStrLn content
-          Just dir -> writeFile (dir <> "/" <> filename <> ".k") content
-    forM_ kSpecs printFile
 
-
-
-hevm :: FilePath -> Text -> FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
-hevm actspec cid sol' solver' timeout _ = do
+hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+hevm actspec cid sol' code' solver' timeout _ = do
   specContents <- readFile actspec
-  solContents  <- TIO.readFile sol'
+  bytecode <- getBytecode sol' code'
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
-  bytecode <- fmap fromJust $ solcRuntime cid solContents
   let actbehvs = translateAct act
   sequence_ $ flip fmap actbehvs $ \(name,behvs,calldata) ->
     Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
@@ -239,6 +211,17 @@ hevm actspec cid sol' solver' timeout _ = do
 
     isSuccess (EVM.Success _ _ _ _) = True
     isSuccess _ = False
+
+    getBytecode solfile code =
+      case (solfile, code) of
+        (Just f, Nothing) -> do
+          solContents  <- TIO.readFile f
+          bin <- solcRuntime cid solContents
+          traceShowM bin
+          fmap fromJust $ solcRuntime cid solContents
+        (Nothing, Just c) -> pure c
+        (Nothing, Nothing) -> error "No Solidity file or bytecode."
+        (Just _, Just _) -> error "Both Solidity file and bytecode are given. Please specify only one."
 
 -------------------
 -- *** Util *** ---
