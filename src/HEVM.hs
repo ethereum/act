@@ -98,23 +98,24 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
         s -> error $ "unsupported cd fragment: " <> show s
 
 
-translateAct :: Act -> [([EVM.Expr EVM.End], Calldata)]
+translateAct :: Act -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateAct (Act store contracts) =
   let slots = slotMap store in
   concatMap (\(Contract _ behvs) -> translateBehvs slots behvs) contracts
 
-translateConstructor :: Layout -> Constructor -> ([EVM.Expr EVM.End], Calldata)
+translateConstructor :: Layout -> Constructor -> (Id, [EVM.Expr EVM.End], Calldata)
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) =
-  ([EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
+  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
    calldata)
 
   where calldata = makeCtrCalldata iface
 
-translateBehvs :: Layout -> [Behaviour] -> [([EVM.Expr EVM.End], Calldata)]
+translateBehvs :: Layout -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateBehvs layout behvs =
   let groups = (groupBy sameIface behvs) :: [[Behaviour]] in
-  fmap (\behvs' -> (fmap (translateBehv layout) behvs', behvCalldata behvs')) groups
+  fmap (\behvs' -> (behvName behvs', fmap (translateBehv layout) behvs', behvCalldata behvs')) groups
   where
+
     behvCalldata (Behaviour _ _ iface _ _ _ _ _:_) = makeCalldata iface
     behvCalldata [] = error "Internal error: behaviour groups cannot be empty"
 
@@ -122,6 +123,8 @@ translateBehvs layout behvs =
     sameIface (Behaviour _ _ iface  _ _ _ _ _) (Behaviour _ _ iface' _ _ _ _ _) =
       makeIface iface == makeIface iface'
 
+    behvName (Behaviour _ _ (Interface name _) _ _ _ _ _:_) = name
+    behvName [] = error "Internal error: behaviour groups cannot be empty"
 
 translateBehv :: Layout -> Behaviour -> EVM.Expr EVM.End
 translateBehv layout (Behaviour _ cid _ preconds caseconds _ upds ret) =
