@@ -6,7 +6,6 @@ iff in range uint256
     x + y
 
 iff
-
     CALLVALUE == 0
 
 returns x + y
@@ -23,7 +22,6 @@ iff
     CALLVALUE == 0
 
 returns x * y
-
 
 behaviour double of SafeAdd
 interface double(uint256 x)
