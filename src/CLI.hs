@@ -223,39 +223,28 @@ hevm actspec cid sol' solver' timeout _ = do
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
   bytecode <- fmap fromJust $ solcRuntime cid solContents
   let actbehvs = translateAct act
-  sequence_ $ flip fmap actbehvs $ \(behvs,calldata) ->
+  sequence_ $ flip fmap actbehvs $ \(name,behvs,calldata) ->
     Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-    
       solbehvs <- removeFails <$> getBranches solvers bytecode calldata
+      putStrLn $ "Checking behavior " <> name <> " of Act"
       -- equivalence check
-      putStrLn "Checking if behaviours are equivalent"
+      putStrLn "Checking if behaviour is matched by EVM"
       checkResult =<< equivalenceCheck' solvers solbehvs behvs debugVeriOpts
-      -- exhaustiveness sheck
-      putStrLn "Checking if the input space is the same"
+      -- input space exhaustiveness check
+      putStrLn "Checking if the input spaces are the same"
       checkResult =<< checkInputSpaces solvers debugVeriOpts solbehvs behvs
+
+  -- ABI exhaustiveness sheck
+  Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
+    putStrLn "Checking if the ABI of the contract matches the specification"
+    checkResult =<< checkAbi solvers debugVeriOpts act bytecode
+
   where
-    -- decompiles the given bytecode into a list of branches
-    getBranches solvers bs calldata = do
-      let
-        bytecode = if BS.null bs then BS.pack [0] else bs
-        prestate = abstractVM calldata bytecode Nothing EVM.AbstractStore
-      expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
-      let simpl = if True then (EVM.simplify expr) else expr
-      let nodes = flattenExpr simpl
-
-      when (any isPartial nodes) $ do
-        putStrLn ""
-        putStrLn "WARNING: hevm was only able to partially explore the given contract due to the following issues:"
-        putStrLn ""
-        TIO.putStrLn . Text.unlines . fmap (Format.indent 2 . ("- " <>)) . fmap Format.formatPartial . nubOrd $ (getPartials nodes)
-
-      pure nodes
-
     removeFails branches = filter isSuccess $ branches
 
     isSuccess (EVM.Success _ _ _ _) = True
     isSuccess _ = False
-    
+
     checkResult :: [EquivResult] -> IO ()
     checkResult res =
       case any isCex res of
