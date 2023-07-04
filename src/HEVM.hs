@@ -361,7 +361,9 @@ checkOp (Var _ _ _)  = LitBool nowhere True
 checkOp (TEntry _ _ _)  = LitBool nowhere True
 checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
 checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
-checkOp e@(Mul _ e1 _) = LEQ nowhere e e1
+checkOp (Mul _ e1 e2) = Or nowhere (Eq nowhere SInteger e1 (LitInt nowhere 0))
+                          (Impl nowhere (NEq nowhere SInteger e1 (LitInt nowhere 0))
+                            (Eq nowhere SInteger e2 (Div nowhere (Mul nowhere e1 e2) e1)))
 checkOp (Div _ _ _) = LitBool nowhere True
 checkOp (Mod _ _ _) = LitBool nowhere True
 checkOp (Exp _ _ _) = error "TODO check for exponentiation overflow"
@@ -394,14 +396,16 @@ checkAbi solver opts act bytecode = do
 
   where
     actSig (Behaviour _ _ iface _ _ _ _ _) = T.pack $ makeIface iface
-    -- TODO multiple contracts
     actSigs (Act _ [(Contract _ behvs)]) = actSig <$> behvs
+    -- TODO multiple contracts
+    actSigs (Act _ _) = error "TODO multiple contracts"
 
     checkBehv :: [EVM.Prop] -> EVM.Expr EVM.End -> [EVM.Prop]
     checkBehv assertions (EVM.Success cnstr _ _ _) = assertions <> cnstr
     checkBehv _ (EVM.Failure _ _ _) = []
     checkBehv _ (EVM.Partial _ _ _) = []
-    checkBehv _ (EVM.ITE _ _ _) = error "HEVM behaviours must be flattened"
+    checkBehv _ (EVM.ITE _ _ _) = error "Internal error: HEVM behaviours must be flattened"
+    checkBehv _ (EVM.GVar _) = error "Internal error: unepected GVar"
 
 
 -- | decompiles the given EVM bytecode into a list of Expr branches
@@ -422,28 +426,6 @@ getBranches solvers bs calldata = do
 
       pure nodes
 
-
--- --   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
---     TL.writeFile
---       ("input-query-" <> show idx <> ".smt2")
---       (formatSMT2 q <> "\n\n(check-sat)")
-
---   results <- fmap toVRes <$> mapConcurrently (checkSat solvers) queries
---   case all isQed results of
---     True -> pure [Qed ()]
---     False -> pure $ filter (/= Qed ()) results
-
---     where
---       toVRes :: CheckSatResult -> EquivResult
---       toVRes res = case res of
---         Sat cex -> Cex cex
---         EVM.Solvers.Unknown -> Timeout ()
---         Unsat -> Qed ()
---         Error e -> error $ "Internal Error: solver responded with error: " <> show e
-
-
---   fmap checkBehv behvs
---   -- ensure that cnstr is
 
 readSelector :: EVM.Expr EVM.Buf -> EVM.Expr EVM.EWord
 readSelector txdata =
