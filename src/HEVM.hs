@@ -17,9 +17,13 @@ module HEVM where
 
 import qualified Data.Map as M
 import Data.List
+import Data.Containers.ListUtils (nubOrd)
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import qualified Data.Text.Lazy.IO as TL
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8 (pack)
+import Data.Text.Encoding (encodeUtf8)
 import Control.Concurrent.Async
 import Control.Monad
 import Data.DoubleWord
@@ -34,6 +38,9 @@ import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec
 import EVM.SMT (assertProps, formatSMT2)
 import EVM.Solvers
+import qualified EVM.Format as Format
+import qualified EVM.Fetch as Fetch
+
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -314,7 +321,7 @@ checkInputSpaces solvers opts l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
   let queries = fmap assertProps [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
-                               , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
+                                 , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
@@ -326,13 +333,12 @@ checkInputSpaces solvers opts l1 l2 = do
     True -> pure [Qed ()]
     False -> pure $ filter (/= Qed ()) results
 
-    where
-      toVRes :: CheckSatResult -> EquivResult
-      toVRes res = case res of
-        Sat cex -> Cex cex
-        EVM.Solvers.Unknown -> Timeout ()
-        Unsat -> Qed ()
-        Error e -> error $ "Internal Error: solver responded with error: " <> show e
+toVRes :: CheckSatResult -> EquivResult
+toVRes res = case res of
+  Sat cex -> Cex cex
+  EVM.Solvers.Unknown -> Timeout ()
+  Unsat -> Qed ()
+  Error e -> error $ "Internal Error: solver responded with error: " <> show e
 
 
 -- TODO this is also defined in hevm-cli
@@ -365,3 +371,97 @@ checkOp (UIntMin _ _) = error "Internal error: invalid in range expression"
 checkOp (UIntMax _ _) = error "Internal error: invalid in range expression"
 checkOp (ITE _ _ _ _) = error "Internal error: invalid in range expression"
 checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
+
+
+-- | Checks whether all successful EVM behaviors are withing the
+-- interfaces specified by Act
+checkAbi :: SolverGroup -> VeriOpts -> Act -> BS.ByteString -> IO [EquivResult]
+checkAbi solver opts act bytecode = do
+  let txdata = EVM.AbstractBuf "txdata"
+  let selectorProps = assertSelector txdata <$> actSigs act
+  evmBehvs <- getBranches solver bytecode (txdata, [])
+  let queries =  fmap assertProps $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
+
+  when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
+    TL.writeFile
+      ("abi-query-" <> show idx <> ".smt2")
+      (formatSMT2 q <> "\n\n(check-sat)")
+
+  results <- fmap toVRes <$> mapConcurrently (checkSat solver) queries
+  case all isQed results of
+    True -> pure [Qed ()]
+    False -> pure $ filter (/= Qed ()) results
+
+  where
+    actSig (Behaviour _ _ iface _ _ _ _ _) = T.pack $ makeIface iface
+    -- TODO multiple contracts
+    actSigs (Act _ [(Contract _ behvs)]) = actSig <$> behvs
+
+    checkBehv :: [EVM.Prop] -> EVM.Expr EVM.End -> [EVM.Prop]
+    checkBehv assertions (EVM.Success cnstr _ _ _) = assertions <> cnstr
+    checkBehv _ (EVM.Failure _ _ _) = []
+    checkBehv _ (EVM.Partial _ _ _) = []
+    checkBehv _ (EVM.ITE _ _ _) = error "HEVM behaviours must be flattened"
+
+
+-- | decompiles the given EVM bytecode into a list of Expr branches
+getBranches :: SolverGroup -> BS.ByteString -> Calldata -> IO [EVM.Expr EVM.End]
+getBranches solvers bs calldata = do
+      let
+        bytecode = if BS.null bs then BS.pack [0] else bs
+        prestate = abstractVM calldata bytecode Nothing EVM.AbstractStore
+      expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
+      let simpl = if True then (simplify expr) else expr
+      let nodes = flattenExpr simpl
+
+      when (any isPartial nodes) $ do
+        putStrLn ""
+        putStrLn "WARNING: hevm was only able to partially explore the given contract due to the following issues:"
+        putStrLn ""
+        TIO.putStrLn . T.unlines . fmap (Format.indent 2 . ("- " <>)) . fmap Format.formatPartial . nubOrd $ (getPartials nodes)
+
+      pure nodes
+
+
+-- --   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
+--     TL.writeFile
+--       ("input-query-" <> show idx <> ".smt2")
+--       (formatSMT2 q <> "\n\n(check-sat)")
+
+--   results <- fmap toVRes <$> mapConcurrently (checkSat solvers) queries
+--   case all isQed results of
+--     True -> pure [Qed ()]
+--     False -> pure $ filter (/= Qed ()) results
+
+--     where
+--       toVRes :: CheckSatResult -> EquivResult
+--       toVRes res = case res of
+--         Sat cex -> Cex cex
+--         EVM.Solvers.Unknown -> Timeout ()
+--         Unsat -> Qed ()
+--         Error e -> error $ "Internal Error: solver responded with error: " <> show e
+
+
+--   fmap checkBehv behvs
+--   -- ensure that cnstr is
+
+readSelector :: EVM.Expr EVM.Buf -> EVM.Expr EVM.EWord
+readSelector txdata =
+    EVM.JoinBytes (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.ReadByte (EVM.Lit 0x0) txdata)
+                  (EVM.ReadByte (EVM.Lit 0x1) txdata)
+                  (EVM.ReadByte (EVM.Lit 0x2) txdata)
+                  (EVM.ReadByte (EVM.Lit 0x3) txdata)
+
+
+assertSelector ::  EVM.Expr EVM.Buf -> T.Text -> EVM.Prop
+assertSelector txdata sig =
+  EVM.PNeg (EVM.PEq sel (readSelector txdata))
+  where
+    sel = EVM.Lit $ fromIntegral $ (EVM.abiKeccak (encodeUtf8 sig)).unFunctionSelector
