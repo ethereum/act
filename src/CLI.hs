@@ -167,7 +167,7 @@ prove file' solver' smttimeout' debug' = do
 
     solverInstance <- spawnSolver config
     pcResults <- mapM (runQuery solverInstance) (mkPostconditionQueries claims)
-    invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
+:    invResults <- mapM (runQuery solverInstance) (mkInvariantQueries claims)
     stopSolver solverInstance
 
     let
@@ -239,6 +239,63 @@ hevm actspec cid sol' solver' timeout _ = do
 
     isSuccess (EVM.Success _ _ _ _) = True
     isSuccess _ = False
+
+    checkResult :: [EquivResult] -> IO ()
+    checkResult res =
+      case any isCex res of
+        False -> do
+          putStrLn "No discrepancies found"
+          when (any isTimeout res) $ do
+            putStrLn "But timeout(s) occurred"
+            exitFailure
+        True -> do
+          let cexs = mapMaybe getCex res
+          TIO.putStrLn . Text.unlines $
+            [ "Not equivalent. The following inputs result in differing behaviours:"
+            , "" , "-----", ""
+            ] <> (intersperse (Text.unlines [ "", "-----" ]) $ fmap (formatCex (EVM.AbstractBuf "txdata")) cexs)
+          exitFailure
+
+
+
+
+
+-- hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
+-- hevm spec' soljson' solver' smttimeout' smtdebug' = do
+--   specContents <- readFile spec'
+--   solContents  <- readFile soljson'
+--   let preprocess = do behvs <- behvsFromAct . enrich <$> compile specContents
+--                       (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
+--                         (Solidity.readJSON . pack) solContents
+--                       pure (behvs, sources)
+--   proceed specContents preprocess $ \(specs, sources) -> do
+--     -- TODO: prove constructor too
+--     passes <- forM specs $ \behv -> do
+--       res <- runSMTWithTimeOut solver' smttimeout' smtdebug' $ proveBehaviour sources behv
+--       case res of
+--         Qed posts -> let msg = "Successfully proved " <> showBehv behv <> ", "
+--                             <> show (length $ last $ levels posts) <> " cases."
+--                       in putStrLn msg >> return (Right msg)
+--         Cex _     -> let msg = "Failed to prove " <> showBehv behv
+--                       in putStrLn msg >> return (Left msg)
+--         Timeout _ -> let msg = "Solver timeout when attempting to prove " <> showBehv behv
+--                       in putStrLn msg >> return (Left msg)
+--     let failures = lefts passes
+
+--     putStrLn . unlines $
+--       if null failures
+--         then [ "==== SUCCESS ===="
+--              , "All behaviours implemented as specified ∎."
+--              ]
+--         else [ "==== FAILURE ===="
+--              , show (length failures) <> " out of " <> show (length passes) <> " claims unproven:"
+--              , ""
+--              ]
+--           <> zipWith (\i msg -> show (i::Int) <> "\t" <> msg) [1..] failures
+--     unless (null failures) exitFailure
+--   where
+--     showBehv behv = _name behv
+>>>>>>> f81360a (cli: new check and cleanup)
 
 -------------------
 -- *** Util *** ---
