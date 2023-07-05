@@ -27,6 +27,8 @@ import Data.Text.Encoding (encodeUtf8)
 import Control.Concurrent.Async
 import Control.Monad
 import Data.DoubleWord
+import Data.Maybe
+import System.Exit ( exitFailure )
 
 import Syntax.Annotated
 import Syntax.Untyped (makeIface)
@@ -35,8 +37,9 @@ import Syntax
 import qualified EVM.Types as EVM
 import EVM.Concrete (createAddress)
 import EVM.Expr hiding (op2, inRange)
-import EVM.SymExec
-import EVM.SMT (assertProps, formatSMT2)
+import EVM.SymExec hiding (EquivResult)
+import qualified EVM.SymExec as SymExec (EquivResult)
+import EVM.SMT (SMTCex(..), assertProps, formatSMT2)
 import EVM.Solvers
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
@@ -50,6 +53,11 @@ type family ExprType a where
 
 type Layout = M.Map Id (M.Map Id (EVM.Addr, Integer))
 
+-- TODO move this to HEVM
+type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
+
+type EquivResult = ProofResult () (T.Text, SMTCex) ()
+
 ethrunAddress :: EVM.Addr
 ethrunAddress = EVM.Addr 0x00a329c0648769a73afac7f9381e08fb43dbea72
 
@@ -57,9 +65,6 @@ slotMap :: Store -> Layout
 slotMap store =
   let addr = createAddress ethrunAddress 1 in -- for now all contracts have the same address
   M.map (M.map (\(_, slot) -> (addr, slot))) store
-
--- TODO move this to HEVM
-type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
 
 -- Create a calldata that matches the interface of a certain behaviour
 -- or constructor. Use an abstract txdata buffer as the base.
@@ -97,6 +102,8 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
         St p w -> go (add idx (EVM.Lit 32)) rest (writeWord idx w buf, p <> ps)
         s -> error $ "unsupported cd fragment: " <> show s
 
+
+-- * Act translation
 
 translateAct :: Act -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateAct (Act store contracts) =
@@ -310,6 +317,18 @@ toExpr layout = \case
     op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
 
 
+-- * Equivalence checking
+
+-- | Wrapper for the equivalenceCheck function of hevm
+checkEquiv :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> IO [EquivResult]
+checkEquiv solvers opts l1 l2 = 
+  (fmap toEquivRes) <$> equivalenceCheck' solvers l1 l2 opts
+  where    
+    toEquivRes :: SymExec.EquivResult -> EquivResult
+    toEquivRes (Cex cex) = Cex ("\x1b[1mThe following input results in different behaviours\x1b[m", cex)
+    toEquivRes (Qed a) = Qed a
+    toEquivRes (Timeout b) = Timeout b
+  
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
 inputSpace exprs = map aux exprs
@@ -331,23 +350,15 @@ checkInputSpaces solvers opts l1 l2 = do
       ("input-query-" <> show idx <> ".smt2")
       (formatSMT2 q <> "\n\n(check-sat)")
 
-  results <- fmap toVRes <$> mapConcurrently (checkSat solvers) queries
-  case all isQed results of
+  results <- mapConcurrently (checkSat solvers) queries
+  let results' = case results of
+                   [r1, r2] -> [ toVRes "\x1b[1mThe following inputs are accepted by Act but not EVM\x1b[m" r1
+                               , toVRes "\x1b[1mThe following inputs are accepted by EVM but not Act\x1b[m" r2 ]
+                   _ -> error "Internal error: impossible"
+
+  case all isQed results' of
     True -> pure [Qed ()]
-    False -> pure $ filter (/= Qed ()) results
-
-toVRes :: CheckSatResult -> EquivResult
-toVRes res = case res of
-  Sat cex -> Cex cex
-  EVM.Solvers.Unknown -> Timeout ()
-  Unsat -> Qed ()
-  Error e -> error $ "Internal Error: solver responded with error: " <> show e
-
-
--- TODO this is also defined in hevm-cli
-getCex :: ProofResult a b c -> Maybe b
-getCex (Cex c) = Just c
-getCex _ = Nothing
+    False -> pure $ filter (/= Qed ()) results'
 
 
 inRange :: AbiType -> Exp AInteger -> Exp ABoolean
@@ -391,8 +402,8 @@ checkAbi solver opts act bytecode = do
     TL.writeFile
       ("abi-query-" <> show idx <> ".smt2")
       (formatSMT2 q <> "\n\n(check-sat)")
-
-  results <- fmap toVRes <$> mapConcurrently (checkSat solver) queries
+  
+  results <- fmap (toVRes msg) <$> mapConcurrently (checkSat solver) queries
   case all isQed results of
     True -> pure [Qed ()]
     False -> pure $ filter (/= Qed ()) results
@@ -410,6 +421,7 @@ checkAbi solver opts act bytecode = do
     checkBehv _ (EVM.ITE _ _ _) = error "Internal error: HEVM behaviours must be flattened"
     checkBehv _ (EVM.GVar _) = error "Internal error: unepected GVar"
 
+    msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
 
 -- | decompiles the given EVM bytecode into a list of Expr branches
 getBranches :: SolverGroup -> BS.ByteString -> Calldata -> IO [EVM.Expr EVM.End]
@@ -428,7 +440,6 @@ getBranches solvers bs calldata = do
         TIO.putStrLn . T.unlines . fmap (Format.indent 2 . ("- " <>)) . fmap Format.formatPartial . nubOrd $ (getPartials nodes)
 
       pure nodes
-
 
 readSelector :: EVM.Expr EVM.Buf -> EVM.Expr EVM.EWord
 readSelector txdata =
@@ -450,3 +461,38 @@ assertSelector txdata sig =
   EVM.PNeg (EVM.PEq sel (readSelector txdata))
   where
     sel = EVM.Lit $ fromIntegral $ (EVM.abiKeccak (encodeUtf8 sig)).unFunctionSelector
+
+
+
+-- * Utils
+
+toVRes :: T.Text -> CheckSatResult -> EquivResult
+toVRes msg res = case res of
+  Sat cex -> Cex (msg, cex)
+  EVM.Solvers.Unknown -> Timeout ()
+  Unsat -> Qed ()
+  Error e -> error $ "Internal Error: solver responded with error: " <> show e
+
+
+-- TODO this is also defined in hevm-cli
+getCex :: ProofResult a b c -> Maybe b
+getCex (Cex c) = Just c
+getCex _ = Nothing
+
+
+checkResult :: [EquivResult] -> IO ()
+checkResult res =
+  case any isCex res of
+    False -> do
+      putStrLn "\x1b[42mNo discrepancies found\x1b[m"
+      when (any isTimeout res) $ do
+        putStrLn "But timeout(s) occurred"
+        exitFailure
+    True -> do
+      let cexs = mapMaybe getCex res
+      TIO.putStrLn . T.unlines $
+        [ "\x1b[41mNot equivalent.\x1b[m"
+        , "" , "-----", ""
+        ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (EVM.AbstractBuf "txdata") cex) cexs)
+      exitFailure
+

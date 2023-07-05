@@ -226,17 +226,17 @@ hevm actspec cid sol' solver' timeout _ = do
   sequence_ $ flip fmap actbehvs $ \(name,behvs,calldata) ->
     Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
       solbehvs <- removeFails <$> getBranches solvers bytecode calldata
-      putStrLn $ "Checking behavior " <> name <> " of Act"
+      putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> " of Act\x1b[m"
       -- equivalence check
-      putStrLn "Checking if behaviour is matched by EVM"
-      checkResult =<< equivalenceCheck' solvers solbehvs behvs debugVeriOpts
+      putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
+      checkResult =<< checkEquiv solvers debugVeriOpts solbehvs behvs
       -- input space exhaustiveness check
-      putStrLn "Checking if the input spaces are the same"
+      putStrLn "\x1b[1mChecking if the input spaces are the same\x1b[m"
       checkResult =<< checkInputSpaces solvers debugVeriOpts solbehvs behvs
 
   -- ABI exhaustiveness sheck
   Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-    putStrLn "Checking if the ABI of the contract matches the specification"
+    putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
     checkResult =<< checkAbi solvers debugVeriOpts act bytecode
 
   where
@@ -245,80 +245,9 @@ hevm actspec cid sol' solver' timeout _ = do
     isSuccess (EVM.Success _ _ _ _) = True
     isSuccess _ = False
 
-    checkResult :: [EquivResult] -> IO ()
-    checkResult res =
-      case any isCex res of
-        False -> do
-          putStrLn "No discrepancies found"
-          when (any isTimeout res) $ do
-            putStrLn "But timeout(s) occurred"
-            exitFailure
-        True -> do
-          let cexs = mapMaybe getCex res
-          TIO.putStrLn . Text.unlines $
-            [ "Not equivalent. The following inputs result in differing behaviours:"
-            , "" , "-----", ""
-            ] <> (intersperse (Text.unlines [ "", "-----" ]) $ fmap (formatCex (EVM.AbstractBuf "txdata")) cexs)
-          exitFailure
-
-
-
-
-
--- hevm :: FilePath -> FilePath -> Maybe Text -> Maybe Integer -> Bool -> IO ()
--- hevm spec' soljson' solver' smttimeout' smtdebug' = do
---   specContents <- readFile spec'
---   solContents  <- readFile soljson'
---   let preprocess = do behvs <- behvsFromAct . enrich <$> compile specContents
---                       (sources, _, _) <- validate [(nowhere, "Could not read sol.json")]
---                         (Solidity.readJSON . pack) solContents
---                       pure (behvs, sources)
---   proceed specContents preprocess $ \(specs, sources) -> do
---     -- TODO: prove constructor too
---     passes <- forM specs $ \behv -> do
---       res <- runSMTWithTimeOut solver' smttimeout' smtdebug' $ proveBehaviour sources behv
---       case res of
---         Qed posts -> let msg = "Successfully proved " <> showBehv behv <> ", "
---                             <> show (length $ last $ levels posts) <> " cases."
---                       in putStrLn msg >> return (Right msg)
---         Cex _     -> let msg = "Failed to prove " <> showBehv behv
---                       in putStrLn msg >> return (Left msg)
---         Timeout _ -> let msg = "Solver timeout when attempting to prove " <> showBehv behv
---                       in putStrLn msg >> return (Left msg)
---     let failures = lefts passes
-
---     putStrLn . unlines $
---       if null failures
---         then [ "==== SUCCESS ===="
---              , "All behaviours implemented as specified ∎."
---              ]
---         else [ "==== FAILURE ===="
---              , show (length failures) <> " out of " <> show (length passes) <> " claims unproven:"
---              , ""
---              ]
---           <> zipWith (\i msg -> show (i::Int) <> "\t" <> msg) [1..] failures
---     unless (null failures) exitFailure
---   where
---     showBehv behv = _name behv
-
 -------------------
 -- *** Util *** ---
 -------------------
-
-
--- cvc4 sets timeout via a commandline option instead of smtlib `(set-option)`
--- runSMTWithTimeOut :: Maybe Text -> Maybe Integer -> Bool -> Symbolic a -> IO a
--- runSMTWithTimeOut solver' maybeTimeout debug' sym
---   | solver' == Just "cvc4" = do
---       setEnv "SBV_CVC4_OPTIONS" ("--lang=smt --incremental --interactive --no-interactive-prompt --model-witness-value --tlimit-per=" <> show timeout)
---       res <- runSMTWith cvc4{verbose=debug'} sym
---       setEnv "SBV_CVC4_OPTIONS" ""
---       return res
---   | solver' == Just "z3" = runwithz3
---   | isNothing solver' = runwithz3
---   | otherwise = error "Unknown solver. Currently supported solvers; z3, cvc4"
---  where timeout = fromMaybe 20000 maybeTimeout
---        runwithz3 = runSMTWith z3{verbose=debug'} $ (setTimeOut timeout) >> sym
 
 -- | Fail on error, or proceed with continuation
 proceed :: Validate err => String -> err (NonEmpty (Pn, String)) a -> (a -> IO ()) -> IO ()
