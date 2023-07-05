@@ -355,6 +355,7 @@ checkInputSpaces solvers opts l1 l2 = do
                    [r1, r2] -> [ toVRes "\x1b[1mThe following inputs are accepted by Act but not EVM\x1b[m" r1
                                , toVRes "\x1b[1mThe following inputs are accepted by EVM but not Act\x1b[m" r2 ]
                    _ -> error "Internal error: impossible"
+
   case all isQed results' of
     True -> pure [Qed ()]
     False -> pure $ filter (/= Qed ()) results'
@@ -440,7 +441,6 @@ getBranches solvers bs calldata = do
 
       pure nodes
 
-
 readSelector :: EVM.Expr EVM.Buf -> EVM.Expr EVM.EWord
 readSelector txdata =
     EVM.JoinBytes (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
@@ -463,6 +463,10 @@ assertSelector txdata sig =
     sel = EVM.Lit $ fromIntegral $ (EVM.abiKeccak (encodeUtf8 sig)).unFunctionSelector
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> fc15ff8 (hevm: output formating and cleanup)
 -- * Utils
 
 toVRes :: T.Text -> CheckSatResult -> EquivResult
@@ -494,3 +498,7 @@ checkResult res =
         , "" , "-----", ""
         ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (EVM.AbstractBuf "txdata") cex) cexs)
       exitFailure
+<<<<<<< HEAD
+=======
+
+>>>>>>> fc15ff8 (hevm: output formating and cleanup)

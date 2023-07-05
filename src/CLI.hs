@@ -297,6 +297,8 @@ hevm actspec cid sol' solver' timeout _ = do
 --     showBehv behv = _name behv
 >>>>>>> f81360a (cli: new check and cleanup)
 
+=======
+>>>>>>> fc15ff8 (hevm: output formating and cleanup)
 -------------------
 -- *** Util *** ---
 -------------------
