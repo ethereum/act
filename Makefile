@@ -43,7 +43,7 @@ postcondition_pass=$(wildcard tests/postconditions/pass/*.act) $(typing_pass)
 postcondition_fail=$(wildcard tests/postconditions/fail/*.act)
 
 # supposed to pass, but timeout
-hevm_buggy=tests/hevm/pass/safemath/safemath.act tests/hevm/pass/transfer/transfer.act
+hevm_buggy=tests/hevm/pass/transfer/transfer.act tests/hevm/pass/simple/simple.act
 # supposed to pass
 hevm_pass=$(filter-out $(hevm_buggy), $(wildcard tests/hevm/pass/*/*.act))
 # supposed to fail
@@ -65,8 +65,7 @@ test-parse: parser compiler $(parser_pass:=.parse.pass) $(parser_fail:=.parse.fa
 test-type: parser compiler $(typing_pass:=.type.pass) $(typing_fail:=.type.fail)
 test-invariant: parser compiler $(invariant_pass:=.invariant.pass) $(invariant_fail:=.invariant.fail)
 test-postcondition: parser compiler $(postcondition_pass:=.postcondition.pass) $(postcondition_fail:=.postcondition.fail)
-test-hevm:
-# test-hevm: parser compiler $(hevm_pass:=.hevm.pass) $(hevm_fail:=.hevm.fail)
+test-hevm: parser compiler $(hevm_pass:=.hevm.pass) # $(hevm_fail:=.hevm.fail)
 test-cabal: src/*.hs
 	cd src && cabal v2-run test
 
@@ -103,10 +102,11 @@ tests/%.postcondition.fail:
 	./bin/act prove --file tests/$* && exit 1 || echo 0
 	./bin/act prove --solver cvc5 --file tests/$* && exit 1 || echo 0
 
-# tests/hevm/pass/%.act.hevm.pass:
-# 	solc --combined-json=bin,bin-runtime,ast,metadata,abi,srcmap,srcmap-runtime,storage-layout tests/hevm/pass/$*.sol > tests/hevm/pass/$*.sol.json
-# 	./bin/act hevm --spec tests/hevm/pass/$*.act --soljson tests/hevm/pass/$*.sol.json
-# 	rm tests/hevm/pass/$*.sol.json
+tests/hevm/pass/%.act.hevm.pass:
+	# $(eval CONTRACT := $(shell awk '/contract/{ print $$2 }' tests/hevm/pass/$*.sol))
+	$(shell cat output/Input.bin-runtime)
+	# ./bin/act hevm --spec tests/hevm/pass/$*.act --code $(shell cat output/$(CONTRACT).bin-runtime) --contract $(CONTRACT)
+	# rm output/$(CONTRACT).bin-runtime
 
 # tests/hevm/fail/%.act.hevm.fail:
 # 	solc --combined-json=bin,bin-runtime,ast,metadata,abi,srcmap,srcmap-runtime,storage-layout tests/hevm/fail/$*.sol > tests/hevm/fail/$*.sol.json
