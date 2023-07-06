@@ -103,10 +103,8 @@ tests/%.postcondition.fail:
 	./bin/act prove --solver cvc5 --file tests/$* && exit 1 || echo 0
 
 tests/hevm/pass/%.act.hevm.pass:
-	# $(eval CONTRACT := $(shell awk '/contract/{ print $$2 }' tests/hevm/pass/$*.sol))
-	$(shell cat output/Input.bin-runtime)
-	# ./bin/act hevm --spec tests/hevm/pass/$*.act --code $(shell cat output/$(CONTRACT).bin-runtime) --contract $(CONTRACT)
-	# rm output/$(CONTRACT).bin-runtime
+	$(eval CONTRACT := $(shell awk '/contract/{ print $$2 }' tests/hevm/pass/$*.sol))
+	./bin/act hevm --spec tests/hevm/pass/$*.act --sol tests/hevm/pass/$*.sol --contract $(CONTRACT)
 
 # tests/hevm/fail/%.act.hevm.fail:
 # 	solc --combined-json=bin,bin-runtime,ast,metadata,abi,srcmap,srcmap-runtime,storage-layout tests/hevm/fail/$*.sol > tests/hevm/fail/$*.sol.json
