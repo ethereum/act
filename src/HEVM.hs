@@ -75,12 +75,12 @@ makeCalldata iface@(Interface _ decls) =
     mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
     makeSig = T.pack $ makeIface iface
     calldatas = fmap mkArg decls
-    (cdBuf, props) = combineFragments calldatas (EVM.ConcreteBuf "")
+    (cdBuf, _) = combineFragments calldatas (EVM.ConcreteBuf "")
     withSelector = writeSelector cdBuf makeSig
     sizeConstraints
       = (bufLength withSelector EVM..>= cdLen calldatas)
         EVM..&& (bufLength withSelector EVM..< (EVM.Lit (2 ^ (64 :: Integer))))
-  in (withSelector, sizeConstraints : props)
+  in (withSelector, [sizeConstraints])
 
 makeCtrCalldata :: Interface -> Calldata
 makeCtrCalldata (Interface _ decls) =
@@ -394,7 +394,7 @@ checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
 checkAbi :: SolverGroup -> VeriOpts -> Act -> BS.ByteString -> IO [EquivResult]
 checkAbi solver opts act bytecode = do
   let txdata = EVM.AbstractBuf "txdata"
-  let selectorProps = assertSelector txdata <$> actSigs act
+  let selectorProps = assertSelector txdata <$> nubOrd (actSigs act)
   evmBehvs <- getBranches solver bytecode (txdata, [])
   let queries =  fmap assertProps $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
 

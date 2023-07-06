@@ -17,7 +17,6 @@ import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr, stdout)
 import Data.Text (pack, unpack)
 import Data.List
-import Data.Containers.ListUtils
 import Data.Maybe
 import Data.Traversable
 import qualified EVM.Solidity as Solidity
@@ -27,7 +26,6 @@ import qualified Data.Map.Strict as Map
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import GHC.Natural
 
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as B
 
 import Control.Monad
@@ -49,10 +47,7 @@ import HEVM
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
-import qualified EVM.Format as Format
 import qualified EVM.Types as EVM
-import qualified EVM.Expr as EVM
-import qualified EVM.Fetch as Fetch
 
 --command line options
 data Command w
@@ -226,7 +221,7 @@ hevm actspec cid sol' solver' timeout _ = do
   sequence_ $ flip fmap actbehvs $ \(name,behvs,calldata) ->
     Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
       solbehvs <- removeFails <$> getBranches solvers bytecode calldata
-      putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> " of Act\x1b[m"
+      putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
       -- equivalence check
       putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
       checkResult =<< checkEquiv solvers debugVeriOpts solbehvs behvs
