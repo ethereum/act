@@ -44,6 +44,7 @@ import HEVM
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
+import qualified EVM.Format as Format
 import qualified EVM.Types as EVM
 
 import Debug.Trace
@@ -187,7 +188,7 @@ coq' f = do
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec cid sol' code' solver' timeout _ = do
   specContents <- readFile actspec
-  bytecode <- getBytecode sol' code'
+  bytecode <- getBytecode
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
   let actbehvs = translateAct act
   sequence_ $ flip fmap actbehvs $ \(name,behvs,calldata) ->
@@ -212,15 +213,14 @@ hevm actspec cid sol' code' solver' timeout _ = do
     isSuccess (EVM.Success _ _ _ _) = True
     isSuccess _ = False
 
-    getBytecode solfile code =
-      case (solfile, code) of
+    getBytecode =
+      case (sol', code') of
         (Just f, Nothing) -> do
           solContents  <- TIO.readFile f
           bin <- solcRuntime cid solContents
-          traceShowM bin
           fmap fromJust $ solcRuntime cid solContents
-        (Nothing, Just c) -> pure c
-        (Nothing, Nothing) -> error "No Solidity file or bytecode."
+        (Nothing, Just c) -> pure $ Format.hexByteString "" c
+        (Nothing, Nothing) -> error "No EVM input is given. Please provide a Solidity file or EVM bytecode"
         (Just _, Just _) -> error "Both Solidity file and bytecode are given. Please specify only one."
 
 -------------------
