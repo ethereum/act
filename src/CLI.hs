@@ -16,12 +16,11 @@ import Data.Aeson hiding (Bool, Number)
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr, stdout)
-import Data.Text (pack, unpack)
+import Data.Text (unpack)
 import Data.List
 import Data.Maybe
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
-import qualified Data.Map.Strict as Map
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import GHC.Natural
 
@@ -47,7 +46,6 @@ import EVM.Solidity
 import qualified EVM.Format as Format
 import qualified EVM.Types as EVM
 
-import Debug.Trace
 --command line options
 data Command w
   = Lex             { file       :: w ::: String               <?> "Path to file"}
@@ -57,7 +55,7 @@ data Command w
   | Type            { file       :: w ::: String               <?> "Path to file"}
 
   | Prove           { file       :: w ::: String               <?> "Path to file"
-                    , solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
+                    , solver     :: w ::: Maybe Text           <?> "SMT solver: cvc5 (default) or z3"
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
                     , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
                     }
@@ -68,7 +66,7 @@ data Command w
                     , sol        :: w ::: Maybe String         <?> "Path to .sol"
                     , code       :: w ::: Maybe ByteString     <?> "Program bytecode"
                     , contract   :: w ::: String               <?> "Contract name"
-                    , solver     :: w ::: Maybe Text           <?> "SMT solver: z3 (default) or cvc4"
+                    , solver     :: w ::: Maybe Text           <?> "SMT solver: cvc5 (default) or z3"
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
                     , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
                     }
@@ -118,7 +116,7 @@ type' f = do
 
 parseSolver :: Maybe Text -> Solvers.Solver
 parseSolver s = case s of
-                  Nothing -> Solvers.Z3
+                  Nothing -> Solvers.CVC5
                   Just s' -> case Text.unpack s' of
                               "z3" -> Solvers.Z3
                               "cvc5" -> Solvers.CVC5
@@ -217,7 +215,6 @@ hevm actspec cid sol' code' solver' timeout _ = do
       case (sol', code') of
         (Just f, Nothing) -> do
           solContents  <- TIO.readFile f
-          bin <- solcRuntime cid solContents
           fmap fromJust $ solcRuntime cid solContents
         (Nothing, Just c) -> pure $ Format.hexByteString "" c
         (Nothing, Nothing) -> error "No EVM input is given. Please provide a Solidity file or EVM bytecode"
