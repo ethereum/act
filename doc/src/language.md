@@ -198,7 +198,44 @@ case to =/= CALLER:
    returns post(balanceOf[CALLER])
 ```
 
-Note that currently, either a `storage` or `returns` section, or both is required in every spec.
+Note that either a `storage` or `returns` section, or both is required
+in every spec.
+
+Cases are ordered in the sense that a case can match only if the
+conditions of preceding cases are false. This is necessary to avoid
+ambuigity when the conditions of more than one cases are true at the
+same time. Therefore, a case analysis of the form
+
+```
+case c1:
+  spec1
+
+case c2:
+  spec2
+
+...
+
+case cn:
+  specn
+
+```
+
+is elaborated into
+
+```
+case c1:
+  spec1
+
+case ~ c1 /\ c2:
+  spec2
+
+...
+
+case ~ c1 /\ ... /\ ~ c(n-2) /\ cn:
+  specn
+
+```
+
 
 ### Ensures (optional)
 
@@ -214,10 +251,10 @@ ensures
 ## Multiple contracts
 
 Act supports defining multiple contracts in the same file. State variables can have
-contracts types and they can be initiallized by calling the corresponding constructor. 
+contracts types and they can be initiallized by calling the corresponding constructor.
 The state variables of some contract can be accessed using dot notation `.`.
 
-Example: 
+Example:
 
 ```
 constructor of A
