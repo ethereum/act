@@ -65,7 +65,7 @@ test-parse: parser compiler $(parser_pass:=.parse.pass) $(parser_fail:=.parse.fa
 test-type: parser compiler $(typing_pass:=.type.pass) $(typing_fail:=.type.fail)
 test-invariant: parser compiler $(invariant_pass:=.invariant.pass) $(invariant_fail:=.invariant.fail)
 test-postcondition: parser compiler $(postcondition_pass:=.postcondition.pass) $(postcondition_fail:=.postcondition.fail)
-test-hevm: parser compiler $(hevm_pass:=.hevm.pass) # $(hevm_fail:=.hevm.fail)
+test-hevm: parser compiler $(hevm_pass:=.hevm.pass) $(hevm_fail:=.hevm.fail)
 test-cabal: src/*.hs
 	cd src && cabal v2-run test
 
@@ -106,10 +106,9 @@ tests/hevm/pass/%.act.hevm.pass:
 	$(eval CONTRACT := $(shell awk '/contract/{ print $$2 }' tests/hevm/pass/$*.sol))
 	./bin/act hevm --spec tests/hevm/pass/$*.act --sol tests/hevm/pass/$*.sol --contract $(CONTRACT)
 
-# tests/hevm/fail/%.act.hevm.fail:
-# 	solc --combined-json=bin,bin-runtime,ast,metadata,abi,srcmap,srcmap-runtime,storage-layout tests/hevm/fail/$*.sol > tests/hevm/fail/$*.sol.json
-# 	./bin/act hevm --spec tests/hevm/fail/$*.act --soljson tests/hevm/fail/$*.sol.json && exit 1 || echo 0
-# 	rm tests/hevm/fail/$*.sol.json
+tests/hevm/fail/%.act.hevm.fail:
+	$(eval CONTRACT := $(shell awk '/contract/{ print $$2 }' tests/hevm/fail/$*.sol))
+	./bin/act hevm --spec tests/hevm/fail/$*.act --sol tests/hevm/fail/$*.sol --contract $(CONTRACT) && exit 1 || echo 0
 
 test-ci: test-parse test-type test-invariant test-postcondition test-coq test-hevm
 test: test-ci test-cabal
