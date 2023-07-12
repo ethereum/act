@@ -44,6 +44,7 @@ import EVM.Solvers
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
 
+import Debug.Trace
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -88,7 +89,7 @@ makeCtrCalldata (Interface _ decls) =
     mkArg :: Decl -> CalldataFragment
     mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
     calldatas = fmap mkArg decls
-    (cdBuf, props) = combineFragments' calldatas 0 (EVM.AbstractBuf "txdata")
+    (cdBuf, props) = combineFragments' calldatas 0 (EVM.ConcreteBuf "")-- (EVM.AbstractBuf "txdata")
   in (cdBuf, props)
 
 -- TODO move to HEVM
@@ -110,9 +111,13 @@ translateAct (Act store contracts) =
   let slots = slotMap store in
   concatMap (\(Contract _ behvs) -> translateBehvs slots behvs) contracts
 
-translateConstructor :: Layout -> Constructor -> (Id, [EVM.Expr EVM.End], Calldata)
-translateConstructor layout (Constructor cid iface preconds _ _ upds _) =
-  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
+translateActConstr :: Act -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
+translateActConstr (Act store [Contract ctor _]) bytecode = translateConstructor (slotMap store) ctor bytecode
+translateActConstr (Act _ _) _ = error "TODO multiple contracts"
+
+translateConstructor :: Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
+translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode =
+  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds)],
    calldata)
 
   where calldata = makeCtrCalldata iface
@@ -321,14 +326,37 @@ toExpr layout = \case
 
 -- | Wrapper for the equivalenceCheck function of hevm
 checkEquiv :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> IO [EquivResult]
-checkEquiv solvers opts l1 l2 = 
+checkEquiv solvers opts l1 l2 =
+  trace "In check equiv" $
+  traceShow l1 $ traceShow l2 $
   (fmap toEquivRes) <$> equivalenceCheck' solvers l1 l2 opts
   where    
     toEquivRes :: SymExec.EquivResult -> EquivResult
     toEquivRes (Cex cex) = Cex ("\x1b[1mThe following input results in different behaviours\x1b[m", cex)
     toEquivRes (Qed a) = Qed a
     toEquivRes (Timeout b) = Timeout b
-  
+
+
+checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Act -> IO [EquivResult]
+checkConstructors solvers opts initcode runtimecode act = do
+  let (id, actbehvs, calldata) = translateActConstr act runtimecode
+  traceShowM calldata
+  let initVM = abstractVM calldata initcode Nothing EVM.AbstractStore True
+  expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
+  let simpl = if True then (simplify expr) else expr
+  let solbehvs = removeFails $ flattenExpr simpl
+  TIO.putStrLn $ T.unlines $ Format.formatExpr <$> solbehvs
+  TIO.putStrLn $ T.unlines $ Format.formatExpr <$> actbehvs
+  checkEquiv solvers opts solbehvs actbehvs
+  -- let nodes = flattenExpr simpl
+  -- putStrLn $ T.unpack $ Format.formatExpr simpl
+  where
+    removeFails branches = filter isSuccess $ branches
+
+    isSuccess (EVM.Success _ _ _ _) = True
+    isSuccess _ = False
+
+
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
 inputSpace exprs = map aux exprs
@@ -428,7 +456,7 @@ getBranches :: SolverGroup -> BS.ByteString -> Calldata -> IO [EVM.Expr EVM.End]
 getBranches solvers bs calldata = do
       let
         bytecode = if BS.null bs then BS.pack [0] else bs
-        prestate = abstractVM calldata bytecode Nothing EVM.AbstractStore
+        prestate = abstractVM calldata bytecode Nothing EVM.AbstractStore False
       expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
       let simpl = if True then (simplify expr) else expr
       let nodes = flattenExpr simpl

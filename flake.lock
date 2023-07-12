@@ -110,20 +110,20 @@
         "nixpkgs": [
           "nixpkgs"
         ],
-        "nixpkgs-solc": "nixpkgs-solc",
         "solidity": "solidity"
       },
       "locked": {
-        "lastModified": 1688045477,
-        "narHash": "sha256-lmKH1vu0Ho1Qmpl/ePGhODbSomw7hfIxXDY1z+J4OQI=",
+        "lastModified": 1689076029,
+        "narHash": "sha256-yCMXJabiR8NS7hq91OrzJhhcOjfFsyr6jKYfUInDoJ4=",
         "owner": "ethereum",
         "repo": "hevm",
-        "rev": "bd77dfeb58f6ee6ce2165576683743ce4894af5f",
+        "rev": "e9a08736ad66dbc235890e85d1d00e6ca3bfc897",
         "type": "github"
       },
       "original": {
         "owner": "ethereum",
         "repo": "hevm",
+        "rev": "e9a08736ad66dbc235890e85d1d00e6ca3bfc897",
         "type": "github"
       }
     },
@@ -139,22 +139,6 @@
       "original": {
         "id": "nixpkgs",
         "type": "indirect"
-      }
-    },
-    "nixpkgs-solc": {
-      "locked": {
-        "lastModified": 1672059513,
-        "narHash": "sha256-4R7lESB3biVNyE6rXkjw3mhowzg4zTQgZElM4/dRUv8=",
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "1b71def42b74811323de2df52f180b795ec506fc",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "1b71def42b74811323de2df52f180b795ec506fc",
-        "type": "github"
       }
     },
     "nixpkgs_2": {

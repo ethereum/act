@@ -18,13 +18,18 @@ import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr, stdout)
 import Data.Text (unpack)
 import Data.List
+import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import GHC.Natural
 
+import Optics.Core hiding ((^.))
+import Optics.Operators.Unsafe
+
 import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.ByteString as BS
 
 import Control.Monad
 import Control.Lens.Getter
@@ -186,24 +191,30 @@ coq' f = do
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec cid sol' code' solver' timeout _ = do
   specContents <- readFile actspec
-  bytecode <- getBytecode
+  (initcode, bytecode) <- getBytecode
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
   let actbehvs = translateAct act
-  sequence_ $ flip fmap actbehvs $ \(name,behvs,calldata) ->
-    Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-      solbehvs <- removeFails <$> getBranches solvers bytecode calldata
-      putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
-      -- equivalence check
-      putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
-      checkResult =<< checkEquiv solvers debugVeriOpts solbehvs behvs
-      -- input space exhaustiveness check
-      putStrLn "\x1b[1mChecking if the input spaces are the same\x1b[m"
-      checkResult =<< checkInputSpaces solvers debugVeriOpts solbehvs behvs
+  -- sequence_ $ flip fmap actbehvs $ \(name,behvs,calldata) ->    
+  --   Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
+  --     solbehvs <- removeFails <$> getBranches solvers bytecode calldata
+  --     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
+  --     -- equivalence check
+  --     putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
+  --     checkResult =<< checkEquiv solvers debugVeriOpts solbehvs behvs
+  --     -- input space exhaustiveness check
+  --     putStrLn "\x1b[1mChecking if the input spaces are the same\x1b[m"
+  --     checkResult =<< checkInputSpaces solvers debugVeriOpts solbehvs behvs    
+  -- -- ABI exhaustiveness sheck
 
-  -- ABI exhaustiveness sheck
+  -- Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
+  --   putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
+  --   checkResult =<< checkAbi solvers debugVeriOpts act bytecode
+
+  -- Constructor check
   Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-    putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
-    checkResult =<< checkAbi solvers debugVeriOpts act bytecode
+    putStrLn "\x1b[1mChecking if constructors are equivalent\x1b[m"
+    checkResult =<< checkConstructors solvers debugVeriOpts initcode bytecode act
+    -- checkResult =<< checkAbi solvers debugVeriOpts act bytecode
 
   where
     removeFails branches = filter isSuccess $ branches
@@ -211,14 +222,26 @@ hevm actspec cid sol' code' solver' timeout _ = do
     isSuccess (EVM.Success _ _ _ _) = True
     isSuccess _ = False
 
+    getBytecode :: IO (BS.ByteString, BS.ByteString)
     getBytecode =
       case (sol', code') of
         (Just f, Nothing) -> do
           solContents  <- TIO.readFile f
-          fmap fromJust $ solcRuntime cid solContents
-        (Nothing, Just c) -> pure $ Format.hexByteString "" c
+          (init, runtime) <- bytecodes cid solContents
+          pure $  (fromJust init, fromJust runtime)
+        (Nothing, Just c) -> error "No init code" -- pure $ Format.hexByteString "" c
         (Nothing, Nothing) -> error "No EVM input is given. Please provide a Solidity file or EVM bytecode"
         (Just _, Just _) -> error "Both Solidity file and bytecode are given. Please specify only one."
+
+
+bytecodes :: Text -> Text -> IO (Maybe BS.ByteString, Maybe BS.ByteString)
+bytecodes contract src = do
+  (json, path) <- solidity' src
+  let (Contracts sol, _, _) = fromJust $ readStdJSON json
+  pure $ ((Map.lookup (path <> ":" <> contract) sol) <&> (.creationCode),
+          (Map.lookup (path <> ":" <> contract) sol) <&> (.runtimeCode))
+
+
 
 -------------------
 -- *** Util *** ---
