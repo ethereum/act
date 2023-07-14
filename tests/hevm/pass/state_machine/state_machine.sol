@@ -1,9 +1,14 @@
 contract StateMachine {
     uint x;
-  
-    function f() public {      
+
+    constructor () {
+	x = 0;
+    }
+
+
+    function f() public {
         require(x == 0);
-        x = 1;             
+        x = 1;
     }
 
     function g() public {

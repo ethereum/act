@@ -3,6 +3,10 @@ interface constructor()
 
 creates
 
+iff
+
+  CALLAVALUE == 0
+
   mapping (uint=>uint) x := []
 
 behaviour f of A
