@@ -69,7 +69,8 @@ data Command w
 
   | HEVM            { spec       :: w ::: String               <?> "Path to spec"
                     , sol        :: w ::: Maybe String         <?> "Path to .sol"
-                    , code       :: w ::: Maybe ByteString     <?> "Program bytecode"
+                    , code       :: w ::: Maybe ByteString     <?> "Runtime code"
+                    , initcode   :: w ::: Maybe ByteString     <?> "Initial code"
                     , contract   :: w ::: String               <?> "Contract name"
                     , solver     :: w ::: Maybe Text           <?> "SMT solver: cvc5 (default) or z3"
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
@@ -96,7 +97,7 @@ main = do
       Type f -> type' f
       Prove file' solver' smttimeout' debug' -> prove file' (parseSolver solver') smttimeout' debug'
       Coq f -> coq' f
-      HEVM spec' sol' soljson' contract' solver' smttimeout' debug' -> hevm spec' (Text.pack contract') sol' soljson' (parseSolver solver') smttimeout' debug'
+      HEVM spec' sol' code' initcode' contract' solver' smttimeout' debug' -> hevm spec' (Text.pack contract') sol' code' initcode' (parseSolver solver') smttimeout' debug'
 
 
 ---------------------------------
@@ -188,50 +189,33 @@ coq' f = do
     TIO.putStr $ coq claims
 
 
-hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
-hevm actspec cid sol' code' solver' timeout _ = do
+hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+hevm actspec cid sol' code' initcode' solver' timeout _ = do
   specContents <- readFile actspec
   (initcode, bytecode) <- getBytecode
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
-  let actbehvs = translateAct act
-  -- sequence_ $ flip fmap actbehvs $ \(name,behvs,calldata) ->    
-  --   Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-  --     solbehvs <- removeFails <$> getBranches solvers bytecode calldata
-  --     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
-  --     -- equivalence check
-  --     putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
-  --     checkResult =<< checkEquiv solvers debugVeriOpts solbehvs behvs
-  --     -- input space exhaustiveness check
-  --     putStrLn "\x1b[1mChecking if the input spaces are the same\x1b[m"
-  --     checkResult =<< checkInputSpaces solvers debugVeriOpts solbehvs behvs    
-  -- -- ABI exhaustiveness sheck
 
-  -- Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-  --   putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
-  --   checkResult =<< checkAbi solvers debugVeriOpts act bytecode
-
-  -- Constructor check
   Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-    putStrLn "\x1b[1mChecking if constructors are equivalent\x1b[m"
-    checkResult =<< checkConstructors solvers debugVeriOpts initcode bytecode act
-    -- checkResult =<< checkAbi solvers debugVeriOpts act bytecode
+    -- Constructor check
+    checkConstructors solvers debugVeriOpts initcode bytecode act
+    -- Behavours check
+    checkBehaviours solvers debugVeriOpts bytecode act
+    -- ABI exhaustiveness sheck
+    checkAbi solvers debugVeriOpts act bytecode
 
   where
-    removeFails branches = filter isSuccess $ branches
-
-    isSuccess (EVM.Success _ _ _ _) = True
-    isSuccess _ = False
-
     getBytecode :: IO (BS.ByteString, BS.ByteString)
     getBytecode =
-      case (sol', code') of
-        (Just f, Nothing) -> do
+      case (sol', code', initcode') of
+        (Just f, Nothing, Nothing) -> do
           solContents  <- TIO.readFile f
           (init, runtime) <- bytecodes cid solContents
           pure $  (fromJust init, fromJust runtime)
-        (Nothing, Just c) -> error "No init code" -- pure $ Format.hexByteString "" c
-        (Nothing, Nothing) -> error "No EVM input is given. Please provide a Solidity file or EVM bytecode"
-        (Just _, Just _) -> error "Both Solidity file and bytecode are given. Please specify only one."
+        (Nothing, Just c, Just i) -> pure (i, c)
+        (Nothing, Nothing, _) -> error "No runtime code is given"
+        (Nothing, _, Nothing) -> error "No initial code is given"
+        (Just _, Just _, _) -> error "Both Solidity file and bytecode are given. Please specify only one."
+        (Just _, _, Just _) -> error "Both Solidity file and bytecode are given. Please specify only one."
 
 
 bytecodes :: Text -> Text -> IO (Maybe BS.ByteString, Maybe BS.ByteString)

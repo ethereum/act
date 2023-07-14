@@ -106,8 +106,8 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
 
 -- * Act translation
 
-translateAct :: Act -> [(Id, [EVM.Expr EVM.End], Calldata)]
-translateAct (Act store contracts) =
+translateActBehvs :: Act -> [(Id, [EVM.Expr EVM.End], Calldata)]
+translateActBehvs (Act store contracts) =
   let slots = slotMap store in
   concatMap (\(Contract _ behvs) -> translateBehvs slots behvs) contracts
 
@@ -119,7 +119,6 @@ translateConstructor :: Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode =
   (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds)],
    calldata)
-
   where calldata = makeCtrCalldata iface
 
 translateBehvs :: Layout -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
@@ -327,35 +326,49 @@ toExpr layout = \case
 -- | Wrapper for the equivalenceCheck function of hevm
 checkEquiv :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> IO [EquivResult]
 checkEquiv solvers opts l1 l2 =
-  trace "In check equiv" $
-  traceShow l1 $ traceShow l2 $
-  (fmap toEquivRes) <$> equivalenceCheck' solvers l1 l2 opts
-  where    
+  fmap toEquivRes <$> equivalenceCheck' solvers l1 l2 opts
+  where
     toEquivRes :: SymExec.EquivResult -> EquivResult
     toEquivRes (Cex cex) = Cex ("\x1b[1mThe following input results in different behaviours\x1b[m", cex)
     toEquivRes (Qed a) = Qed a
     toEquivRes (Timeout b) = Timeout b
 
 
-checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Act -> IO [EquivResult]
+checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Act -> IO ()
 checkConstructors solvers opts initcode runtimecode act = do
   let (id, actbehvs, calldata) = translateActConstr act runtimecode
-  traceShowM calldata
   let initVM = abstractVM calldata initcode Nothing EVM.AbstractStore True
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
   let solbehvs = removeFails $ flattenExpr simpl
-  TIO.putStrLn $ T.unlines $ Format.formatExpr <$> solbehvs
-  TIO.putStrLn $ T.unlines $ Format.formatExpr <$> actbehvs
-  checkEquiv solvers opts solbehvs actbehvs
-  -- let nodes = flattenExpr simpl
-  -- putStrLn $ T.unpack $ Format.formatExpr simpl
+  putStrLn "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
+  checkResult =<< checkEquiv solvers opts solbehvs actbehvs
+  putStrLn "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
+  checkResult =<< checkInputSpaces solvers opts solbehvs actbehvs
   where
     removeFails branches = filter isSuccess $ branches
 
     isSuccess (EVM.Success _ _ _ _) = True
     isSuccess _ = False
 
+
+checkBehaviours :: SolverGroup -> VeriOpts -> ByteString -> Act -> IO ()
+checkBehaviours solvers opts bytecode act = do
+  let actbehvs = translateActBehvs act
+  flip mapConcurrently_ actbehvs $ \(name,behvs,calldata) -> do
+    solbehvs <- removeFails <$> getBranches solvers bytecode calldata
+    putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
+    -- equivalence check
+    putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
+    checkResult =<< checkEquiv solvers debugVeriOpts solbehvs behvs
+    -- input space exhaustiveness check
+    putStrLn "\x1b[1mChecking if the input spaces are the same\x1b[m"
+    checkResult =<< checkInputSpaces solvers debugVeriOpts solbehvs behvs
+    where
+      removeFails branches = filter isSuccess $ branches
+
+      isSuccess (EVM.Success _ _ _ _) = True
+      isSuccess _ = False
 
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
@@ -419,8 +432,9 @@ checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
 
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
-checkAbi :: SolverGroup -> VeriOpts -> Act -> BS.ByteString -> IO [EquivResult]
+checkAbi :: SolverGroup -> VeriOpts -> Act -> BS.ByteString -> IO ()
 checkAbi solver opts act bytecode = do
+  putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs act)
   evmBehvs <- getBranches solver bytecode (txdata, [])
@@ -430,11 +444,8 @@ checkAbi solver opts act bytecode = do
     TL.writeFile
       ("abi-query-" <> show idx <> ".smt2")
       (formatSMT2 q <> "\n\n(check-sat)")
-  
-  results <- fmap (toVRes msg) <$> mapConcurrently (checkSat solver) queries
-  case all isQed results of
-    True -> pure [Qed ()]
-    False -> pure $ filter (/= Qed ()) results
+
+  checkResult =<< fmap (toVRes msg) <$> mapConcurrently (checkSat solver) queries
 
   where
     actSig (Behaviour _ _ iface _ _ _ _ _) = T.pack $ makeIface iface
@@ -523,4 +534,3 @@ checkResult res =
         , "" , "-----", ""
         ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (EVM.AbstractBuf "txdata") cex) cexs)
       exitFailure
-
