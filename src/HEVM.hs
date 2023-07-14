@@ -320,6 +320,33 @@ toExpr layout = \case
     op2 :: forall b c. (EVM.Expr (ExprType c) -> EVM.Expr (ExprType c) -> b) -> Exp c -> Exp c -> b
     op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
 
+inRange :: AbiType -> Exp AInteger -> Exp ABoolean
+-- if the type has the type of machine word then check per operation
+inRange (AbiUIntType 256) e = checkOp e
+inRange (AbiIntType 256) _ = error "TODO signed integers"
+-- otherwise insert range bounds
+inRange t e = bound t e
+
+
+checkOp :: Exp AInteger -> Exp ABoolean
+checkOp (LitInt _ i) = LitBool nowhere $ i <= (fromIntegral (maxBound :: Word256))
+checkOp (Var _ _ _)  = LitBool nowhere True
+checkOp (TEntry _ _ _)  = LitBool nowhere True
+checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
+checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
+checkOp (Mul _ e1 e2) = Or nowhere (Eq nowhere SInteger e1 (LitInt nowhere 0))
+                          (Impl nowhere (NEq nowhere SInteger e1 (LitInt nowhere 0))
+                            (Eq nowhere SInteger e2 (Div nowhere (Mul nowhere e1 e2) e1)))
+checkOp (Div _ _ _) = LitBool nowhere True
+checkOp (Mod _ _ _) = LitBool nowhere True
+checkOp (Exp _ _ _) = error "TODO check for exponentiation overflow"
+checkOp (IntMin _ _)  = error "Internal error: invalid in range expression"
+checkOp (IntMax _ _)  = error "Internal error: invalid in range expression"
+checkOp (UIntMin _ _) = error "Internal error: invalid in range expression"
+checkOp (UIntMax _ _) = error "Internal error: invalid in range expression"
+checkOp (ITE _ _ _ _) = error "Internal error: invalid in range expression"
+checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
+
 
 -- * Equivalence checking
 
@@ -400,34 +427,6 @@ checkInputSpaces solvers opts l1 l2 = do
   case all isQed results' of
     True -> pure [Qed ()]
     False -> pure $ filter (/= Qed ()) results'
-
-
-inRange :: AbiType -> Exp AInteger -> Exp ABoolean
--- if the type has the type of machine word then check per operation
-inRange (AbiUIntType 256) e = checkOp e
-inRange (AbiIntType 256) _ = error "TODO signed integers"
--- otherwise insert range bounds
-inRange t e = bound t e
-
-
-checkOp :: Exp AInteger -> Exp ABoolean
-checkOp (LitInt _ i) = LitBool nowhere $ i <= (fromIntegral (maxBound :: Word256))
-checkOp (Var _ _ _)  = LitBool nowhere True
-checkOp (TEntry _ _ _)  = LitBool nowhere True
-checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
-checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
-checkOp (Mul _ e1 e2) = Or nowhere (Eq nowhere SInteger e1 (LitInt nowhere 0))
-                          (Impl nowhere (NEq nowhere SInteger e1 (LitInt nowhere 0))
-                            (Eq nowhere SInteger e2 (Div nowhere (Mul nowhere e1 e2) e1)))
-checkOp (Div _ _ _) = LitBool nowhere True
-checkOp (Mod _ _ _) = LitBool nowhere True
-checkOp (Exp _ _ _) = error "TODO check for exponentiation overflow"
-checkOp (IntMin _ _)  = error "Internal error: invalid in range expression"
-checkOp (IntMax _ _)  = error "Internal error: invalid in range expression"
-checkOp (UIntMin _ _) = error "Internal error: invalid in range expression"
-checkOp (UIntMax _ _) = error "Internal error: invalid in range expression"
-checkOp (ITE _ _ _ _) = error "Internal error: invalid in range expression"
-checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
 
 
 -- | Checks whether all successful EVM behaviors are withing the

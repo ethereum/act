@@ -12,7 +12,7 @@
 
 module CLI (main, compile, proceed) where
 
-import Data.Aeson hiding (Bool, Number)
+import Data.Aeson hiding (Bool, Number, json)
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr, stdout)
@@ -25,8 +25,6 @@ import qualified Data.Text.IO as TIO
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import GHC.Natural
 
-import Optics.Core hiding ((^.))
-import Optics.Operators.Unsafe
 
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString as BS
@@ -48,8 +46,6 @@ import HEVM
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
-import qualified EVM.Format as Format
-import qualified EVM.Types as EVM
 
 --command line options
 data Command w
@@ -190,18 +186,19 @@ coq' f = do
 
 
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
-hevm actspec cid sol' code' initcode' solver' timeout _ = do
+hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
-  (initcode, bytecode) <- getBytecode
+  (initcode'', bytecode) <- getBytecode
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
+  let opts = if debug' then debugVeriOpts else defaultVeriOpts
 
   Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
     -- Constructor check
-    checkConstructors solvers debugVeriOpts initcode bytecode act
+    checkConstructors solvers opts initcode'' bytecode act
     -- Behavours check
-    checkBehaviours solvers debugVeriOpts bytecode act
+    checkBehaviours solvers opts bytecode act
     -- ABI exhaustiveness sheck
-    checkAbi solvers debugVeriOpts act bytecode
+    checkAbi solvers opts act bytecode
 
   where
     getBytecode :: IO (BS.ByteString, BS.ByteString)
@@ -209,8 +206,7 @@ hevm actspec cid sol' code' initcode' solver' timeout _ = do
       case (sol', code', initcode') of
         (Just f, Nothing, Nothing) -> do
           solContents  <- TIO.readFile f
-          (init, runtime) <- bytecodes cid solContents
-          pure $  (fromJust init, fromJust runtime)
+          bytecodes cid solContents
         (Nothing, Just c, Just i) -> pure (i, c)
         (Nothing, Nothing, _) -> error "No runtime code is given"
         (Nothing, _, Nothing) -> error "No initial code is given"
@@ -218,12 +214,12 @@ hevm actspec cid sol' code' initcode' solver' timeout _ = do
         (Just _, _, Just _) -> error "Both Solidity file and bytecode are given. Please specify only one."
 
 
-bytecodes :: Text -> Text -> IO (Maybe BS.ByteString, Maybe BS.ByteString)
-bytecodes contract src = do
+bytecodes :: Text -> Text -> IO (BS.ByteString, BS.ByteString)
+bytecodes cid src = do
   (json, path) <- solidity' src
-  let (Contracts sol, _, _) = fromJust $ readStdJSON json
-  pure $ ((Map.lookup (path <> ":" <> contract) sol) <&> (.creationCode),
-          (Map.lookup (path <> ":" <> contract) sol) <&> (.runtimeCode))
+  let (Contracts sol', _, _) = fromJust $ readStdJSON json
+  pure $ ((fromJust . Map.lookup (path <> ":" <> cid) $ sol').creationCode,
+          (fromJust . Map.lookup (path <> ":" <> cid) $ sol').runtimeCode)
 
 
 
