@@ -1,6 +1,8 @@
 constructor of Token
 interface constructor(uint _totalSupply)
 
+iff CALLVALUE == 0
+
 creates
   mapping(address => uint) balanceOf := [CALLER := _totalSupply]
 
