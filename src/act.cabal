@@ -33,7 +33,6 @@ common deps
                  deriving-compat,
                  async              >= 2.2.4,
                  data-dword         >= 0.3.2.1,
-                 optics-core        >= 0.4.1,
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans -Wno-unticked-promoted-constructors
   else
