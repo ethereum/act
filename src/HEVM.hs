@@ -389,7 +389,7 @@ checkOp (ITE _ _ _ _) = error "Internal error: invalid in range expression"
 checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
 
 
--- | Checks whether all successful EVM behaviors are withing the
+-- | Checks whether all successful EVM behaviors are within the
 -- interfaces specified by Act
 checkAbi :: SolverGroup -> VeriOpts -> Act -> BS.ByteString -> IO [EquivResult]
 checkAbi solver opts act bytecode = do
