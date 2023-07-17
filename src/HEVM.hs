@@ -44,8 +44,6 @@ import EVM.Solvers
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
 
-import Debug.Trace
-
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -363,7 +361,7 @@ checkEquiv solvers opts l1 l2 =
 
 checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Act -> IO ()
 checkConstructors solvers opts initcode runtimecode act = do
-  let (id, actbehvs, calldata) = translateActConstr act runtimecode
+  let (_, actbehvs, calldata) = translateActConstr act runtimecode
   let initVM = abstractVM calldata initcode Nothing EVM.AbstractStore True
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
