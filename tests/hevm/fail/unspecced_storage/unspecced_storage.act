@@ -1,11 +1,11 @@
 constructor of A
 interface constructor()
 
-creates
-
 iff
 
-  CALLAVALUE == 0
+  CALLVALUE == 0
+
+creates
 
   mapping (uint=>uint) x := []
 
