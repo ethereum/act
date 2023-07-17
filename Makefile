@@ -43,7 +43,7 @@ postcondition_pass=$(wildcard tests/postconditions/pass/*.act) $(typing_pass)
 postcondition_fail=$(wildcard tests/postconditions/fail/*.act)
 
 # supposed to pass, but timeout
-hevm_buggy=tests/hevm/pass/transfer/transfer.act tests/hevm/pass/simple/simple.act tests/hevm/pass/maps/maps.act
+hevm_buggy=tests/hevm/pass/transfer/transfer.act
 # supposed to pass
 hevm_pass=$(filter-out $(hevm_buggy), $(wildcard tests/hevm/pass/*/*.act))
 # supposed to fail

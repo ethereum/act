@@ -382,7 +382,7 @@ checkConstructors solvers opts initcode runtimecode act = do
 checkBehaviours :: SolverGroup -> VeriOpts -> ByteString -> Act -> IO ()
 checkBehaviours solvers opts bytecode act = do
   let actbehvs = translateActBehvs act
-  flip mapConcurrently_ actbehvs $ \(name,behvs,calldata) -> do
+  flip mapM_ actbehvs $ \(name,behvs,calldata) -> do
     solbehvs <- removeFails <$> getBranches solvers bytecode calldata
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
