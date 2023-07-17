@@ -387,10 +387,10 @@ checkBehaviours solvers opts bytecode act = do
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
-    checkResult =<< checkEquiv solvers debugVeriOpts solbehvs behvs
+    checkResult =<< checkEquiv solvers opts solbehvs behvs
     -- input space exhaustiveness check
     putStrLn "\x1b[1mChecking if the input spaces are the same\x1b[m"
-    checkResult =<< checkInputSpaces solvers debugVeriOpts solbehvs behvs
+    checkResult =<< checkInputSpaces solvers opts solbehvs behvs
     where
       removeFails branches = filter isSuccess $ branches
 
