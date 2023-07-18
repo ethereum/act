@@ -4,9 +4,16 @@ interface constructor(uint _totalSupply)
 creates
   mapping(address => uint) balanceOf := [CALLER := _totalSupply]
 
+behaviour balanceOf of Token
+interface balanceOf(address x)
+
+iff CALLVALUE == 0
+
+returns
+  pre(balanceOf[x])
+
 behaviour transfer of Token
 interface transfer(uint256 value, address to)
-
 
 iff
 
@@ -23,6 +30,6 @@ case CALLER =/= to:
 
   returns 1
 
-  case CALLER == to:
+case CALLER == to:
 
   returns 1

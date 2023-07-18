@@ -1,16 +1,16 @@
 pragma solidity >=0.4.21;
 
 contract SafeAdd {
-    function add(uint x, uint y) public pure returns (uint z) {
-        require((z = x + y) >= x);
-    }
-    
-    function mul(uint x, uint y) public pure returns (uint z) {
-        require((z = x * y) >= x);
+    function add(uint x, uint y) public pure returns (uint) {
+	return (x + y);
     }
 
-    function double(uint x) public pure returns (uint z) {
-	require((z = 2 * x) >= x);
+    function mul(uint x, uint y) public pure returns (uint) {
+	return (x * y);
+    }
+
+    function double(uint x) public pure returns (uint) {
+	return (2*x);
     }
 
 }

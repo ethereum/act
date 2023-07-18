@@ -17,12 +17,18 @@ module HEVM where
 
 import qualified Data.Map as M
 import Data.List
+import Data.Containers.ListUtils (nubOrd)
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import qualified Data.Text.Lazy.IO as TL
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8 (pack)
+import Data.Text.Encoding (encodeUtf8)
 import Control.Concurrent.Async
 import Control.Monad
 import Data.DoubleWord
+import Data.Maybe
+import System.Exit ( exitFailure )
 
 import Syntax.Annotated
 import Syntax.Untyped (makeIface)
@@ -31,9 +37,13 @@ import Syntax
 import qualified EVM.Types as EVM
 import EVM.Concrete (createAddress)
 import EVM.Expr hiding (op2, inRange)
-import EVM.SymExec
-import EVM.SMT (assertProps, formatSMT2)
+import EVM.SymExec hiding (EquivResult)
+import qualified EVM.SymExec as SymExec (EquivResult)
+import EVM.SMT (SMTCex(..), assertProps, formatSMT2)
 import EVM.Solvers
+import qualified EVM.Format as Format
+import qualified EVM.Fetch as Fetch
+
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -43,6 +53,11 @@ type family ExprType a where
 
 type Layout = M.Map Id (M.Map Id (EVM.Addr, Integer))
 
+-- TODO move this to HEVM
+type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
+
+type EquivResult = ProofResult () (T.Text, SMTCex) ()
+
 ethrunAddress :: EVM.Addr
 ethrunAddress = EVM.Addr 0x00a329c0648769a73afac7f9381e08fb43dbea72
 
@@ -50,9 +65,6 @@ slotMap :: Store -> Layout
 slotMap store =
   let addr = createAddress ethrunAddress 1 in -- for now all contracts have the same address
   M.map (M.map (\(_, slot) -> (addr, slot))) store
-
--- TODO move this to HEVM
-type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
 
 -- Create a calldata that matches the interface of a certain behaviour
 -- or constructor. Use an abstract txdata buffer as the base.
@@ -63,12 +75,12 @@ makeCalldata iface@(Interface _ decls) =
     mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
     makeSig = T.pack $ makeIface iface
     calldatas = fmap mkArg decls
-    (cdBuf, props) = combineFragments calldatas (EVM.ConcreteBuf "")
+    (cdBuf, _) = combineFragments calldatas (EVM.ConcreteBuf "")
     withSelector = writeSelector cdBuf makeSig
     sizeConstraints
       = (bufLength withSelector EVM..>= cdLen calldatas)
         EVM..&& (bufLength withSelector EVM..< (EVM.Lit (2 ^ (64 :: Integer))))
-  in (withSelector, sizeConstraints : props)
+  in (withSelector, [sizeConstraints])
 
 makeCtrCalldata :: Interface -> Calldata
 makeCtrCalldata (Interface _ decls) =
@@ -91,23 +103,26 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
         s -> error $ "unsupported cd fragment: " <> show s
 
 
-translateAct :: Act -> [([EVM.Expr EVM.End], Calldata)]
+-- * Act translation
+
+translateAct :: Act -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateAct (Act store contracts) =
   let slots = slotMap store in
   concatMap (\(Contract _ behvs) -> translateBehvs slots behvs) contracts
 
-translateConstructor :: Layout -> Constructor -> ([EVM.Expr EVM.End], Calldata)
+translateConstructor :: Layout -> Constructor -> (Id, [EVM.Expr EVM.End], Calldata)
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) =
-  ([EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
+  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
    calldata)
 
   where calldata = makeCtrCalldata iface
 
-translateBehvs :: Layout -> [Behaviour] -> [([EVM.Expr EVM.End], Calldata)]
+translateBehvs :: Layout -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateBehvs layout behvs =
   let groups = (groupBy sameIface behvs) :: [[Behaviour]] in
-  fmap (\behvs' -> (fmap (translateBehv layout) behvs', behvCalldata behvs')) groups
+  fmap (\behvs' -> (behvName behvs', fmap (translateBehv layout) behvs', behvCalldata behvs')) groups
   where
+
     behvCalldata (Behaviour _ _ iface _ _ _ _ _:_) = makeCalldata iface
     behvCalldata [] = error "Internal error: behaviour groups cannot be empty"
 
@@ -115,6 +130,8 @@ translateBehvs layout behvs =
     sameIface (Behaviour _ _ iface  _ _ _ _ _) (Behaviour _ _ iface' _ _ _ _ _) =
       makeIface iface == makeIface iface'
 
+    behvName (Behaviour _ _ (Interface name _) _ _ _ _ _:_) = name
+    behvName [] = error "Internal error: behaviour groups cannot be empty"
 
 translateBehv :: Layout -> Behaviour -> EVM.Expr EVM.End
 translateBehv layout (Behaviour _ cid _ preconds caseconds _ upds ret) =
@@ -300,6 +317,18 @@ toExpr layout = \case
     op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
 
 
+-- * Equivalence checking
+
+-- | Wrapper for the equivalenceCheck function of hevm
+checkEquiv :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> IO [EquivResult]
+checkEquiv solvers opts l1 l2 = 
+  (fmap toEquivRes) <$> equivalenceCheck' solvers l1 l2 opts
+  where    
+    toEquivRes :: SymExec.EquivResult -> EquivResult
+    toEquivRes (Cex cex) = Cex ("\x1b[1mThe following input results in different behaviours\x1b[m", cex)
+    toEquivRes (Qed a) = Qed a
+    toEquivRes (Timeout b) = Timeout b
+  
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
 inputSpace exprs = map aux exprs
@@ -314,31 +343,22 @@ checkInputSpaces solvers opts l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
   let queries = fmap assertProps [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
-                               , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
+                                 , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
       ("input-query-" <> show idx <> ".smt2")
       (formatSMT2 q <> "\n\n(check-sat)")
 
-  results <- fmap toVRes <$> mapConcurrently (checkSat solvers) queries
-  case all isQed results of
+  results <- mapConcurrently (checkSat solvers) queries
+  let results' = case results of
+                   [r1, r2] -> [ toVRes "\x1b[1mThe following inputs are accepted by Act but not EVM\x1b[m" r1
+                               , toVRes "\x1b[1mThe following inputs are accepted by EVM but not Act\x1b[m" r2 ]
+                   _ -> error "Internal error: impossible"
+
+  case all isQed results' of
     True -> pure [Qed ()]
-    False -> pure $ filter (/= Qed ()) results
-
-    where
-      toVRes :: CheckSatResult -> EquivResult
-      toVRes res = case res of
-        Sat cex -> Cex cex
-        EVM.Solvers.Unknown -> Timeout ()
-        Unsat -> Qed ()
-        Error e -> error $ "Internal Error: solver responded with error: " <> show e
-
-
--- TODO this is also defined in hevm-cli
-getCex :: ProofResult a b c -> Maybe b
-getCex (Cex c) = Just c
-getCex _ = Nothing
+    False -> pure $ filter (/= Qed ()) results'
 
 
 inRange :: AbiType -> Exp AInteger -> Exp ABoolean
@@ -355,7 +375,9 @@ checkOp (Var _ _ _)  = LitBool nowhere True
 checkOp (TEntry _ _ _)  = LitBool nowhere True
 checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
 checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
-checkOp e@(Mul _ e1 _) = LEQ nowhere e e1
+checkOp (Mul _ e1 e2) = Or nowhere (Eq nowhere SInteger e1 (LitInt nowhere 0))
+                          (Impl nowhere (NEq nowhere SInteger e1 (LitInt nowhere 0))
+                            (Eq nowhere SInteger e2 (Div nowhere (Mul nowhere e1 e2) e1)))
 checkOp (Div _ _ _) = LitBool nowhere True
 checkOp (Mod _ _ _) = LitBool nowhere True
 checkOp (Exp _ _ _) = error "TODO check for exponentiation overflow"
@@ -365,3 +387,112 @@ checkOp (UIntMin _ _) = error "Internal error: invalid in range expression"
 checkOp (UIntMax _ _) = error "Internal error: invalid in range expression"
 checkOp (ITE _ _ _ _) = error "Internal error: invalid in range expression"
 checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
+
+
+-- | Checks whether all successful EVM behaviors are within the
+-- interfaces specified by Act
+checkAbi :: SolverGroup -> VeriOpts -> Act -> BS.ByteString -> IO [EquivResult]
+checkAbi solver opts act bytecode = do
+  let txdata = EVM.AbstractBuf "txdata"
+  let selectorProps = assertSelector txdata <$> nubOrd (actSigs act)
+  evmBehvs <- getBranches solver bytecode (txdata, [])
+  let queries =  fmap assertProps $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
+
+  when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
+    TL.writeFile
+      ("abi-query-" <> show idx <> ".smt2")
+      (formatSMT2 q <> "\n\n(check-sat)")
+  
+  results <- fmap (toVRes msg) <$> mapConcurrently (checkSat solver) queries
+  case all isQed results of
+    True -> pure [Qed ()]
+    False -> pure $ filter (/= Qed ()) results
+
+  where
+    actSig (Behaviour _ _ iface _ _ _ _ _) = T.pack $ makeIface iface
+    actSigs (Act _ [(Contract _ behvs)]) = actSig <$> behvs
+    -- TODO multiple contracts
+    actSigs (Act _ _) = error "TODO multiple contracts"
+
+    checkBehv :: [EVM.Prop] -> EVM.Expr EVM.End -> [EVM.Prop]
+    checkBehv assertions (EVM.Success cnstr _ _ _) = assertions <> cnstr
+    checkBehv _ (EVM.Failure _ _ _) = []
+    checkBehv _ (EVM.Partial _ _ _) = []
+    checkBehv _ (EVM.ITE _ _ _) = error "Internal error: HEVM behaviours must be flattened"
+    checkBehv _ (EVM.GVar _) = error "Internal error: unepected GVar"
+
+    msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
+
+-- | decompiles the given EVM bytecode into a list of Expr branches
+getBranches :: SolverGroup -> BS.ByteString -> Calldata -> IO [EVM.Expr EVM.End]
+getBranches solvers bs calldata = do
+      let
+        bytecode = if BS.null bs then BS.pack [0] else bs
+        prestate = abstractVM calldata bytecode Nothing EVM.AbstractStore
+      expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
+      let simpl = if True then (simplify expr) else expr
+      let nodes = flattenExpr simpl
+
+      when (any isPartial nodes) $ do
+        putStrLn ""
+        putStrLn "WARNING: hevm was only able to partially explore the given contract due to the following issues:"
+        putStrLn ""
+        TIO.putStrLn . T.unlines . fmap (Format.indent 2 . ("- " <>)) . fmap Format.formatPartial . nubOrd $ (getPartials nodes)
+
+      pure nodes
+
+readSelector :: EVM.Expr EVM.Buf -> EVM.Expr EVM.EWord
+readSelector txdata =
+    EVM.JoinBytes (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0) (EVM.LitByte 0)
+                  (EVM.ReadByte (EVM.Lit 0x0) txdata)
+                  (EVM.ReadByte (EVM.Lit 0x1) txdata)
+                  (EVM.ReadByte (EVM.Lit 0x2) txdata)
+                  (EVM.ReadByte (EVM.Lit 0x3) txdata)
+
+
+assertSelector ::  EVM.Expr EVM.Buf -> T.Text -> EVM.Prop
+assertSelector txdata sig =
+  EVM.PNeg (EVM.PEq sel (readSelector txdata))
+  where
+    sel = EVM.Lit $ fromIntegral $ (EVM.abiKeccak (encodeUtf8 sig)).unFunctionSelector
+
+
+
+-- * Utils
+
+toVRes :: T.Text -> CheckSatResult -> EquivResult
+toVRes msg res = case res of
+  Sat cex -> Cex (msg, cex)
+  EVM.Solvers.Unknown -> Timeout ()
+  Unsat -> Qed ()
+  Error e -> error $ "Internal Error: solver responded with error: " <> show e
+
+
+-- TODO this is also defined in hevm-cli
+getCex :: ProofResult a b c -> Maybe b
+getCex (Cex c) = Just c
+getCex _ = Nothing
+
+
+checkResult :: [EquivResult] -> IO ()
+checkResult res =
+  case any isCex res of
+    False -> do
+      putStrLn "\x1b[42mNo discrepancies found\x1b[m"
+      when (any isTimeout res) $ do
+        putStrLn "But timeout(s) occurred"
+        exitFailure
+    True -> do
+      let cexs = mapMaybe getCex res
+      TIO.putStrLn . T.unlines $
+        [ "\x1b[41mNot equivalent.\x1b[m"
+        , "" , "-----", ""
+        ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (EVM.AbstractBuf "txdata") cex) cexs)
+      exitFailure
+
