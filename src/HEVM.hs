@@ -321,14 +321,14 @@ toExpr layout = \case
 
 -- | Wrapper for the equivalenceCheck function of hevm
 checkEquiv :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> IO [EquivResult]
-checkEquiv solvers opts l1 l2 = 
+checkEquiv solvers opts l1 l2 =
   (fmap toEquivRes) <$> equivalenceCheck' solvers l1 l2 opts
-  where    
+  where
     toEquivRes :: SymExec.EquivResult -> EquivResult
     toEquivRes (Cex cex) = Cex ("\x1b[1mThe following input results in different behaviours\x1b[m", cex)
     toEquivRes (Qed a) = Qed a
     toEquivRes (Timeout b) = Timeout b
-  
+
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
 inputSpace exprs = map aux exprs
@@ -402,7 +402,7 @@ checkAbi solver opts act bytecode = do
     TL.writeFile
       ("abi-query-" <> show idx <> ".smt2")
       (formatSMT2 q <> "\n\n(check-sat)")
-  
+
   results <- fmap (toVRes msg) <$> mapConcurrently (checkSat solver) queries
   case all isQed results of
     True -> pure [Qed ()]
@@ -495,4 +495,3 @@ checkResult res =
         , "" , "-----", ""
         ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (EVM.AbstractBuf "txdata") cex) cexs)
       exitFailure
-

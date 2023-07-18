@@ -43,6 +43,7 @@ import HEVM
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
+import qualified EVM.Format as Format
 import qualified EVM.Types as EVM
 
 --command line options
