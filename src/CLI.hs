@@ -91,9 +91,13 @@ main = do
       Lex f -> lex' f
       Parse f -> parse' f
       Type f -> type' f
-      Prove file' solver' smttimeout' debug' -> prove file' (parseSolver solver') smttimeout' debug'
+      Prove file' solver' smttimeout' debug' -> do
+        solver'' <- parseSolver solver'
+        prove file' solver'' smttimeout' debug'
       Coq f -> coq' f
-      HEVM spec' sol' code' initcode' contract' solver' smttimeout' debug' -> hevm spec' (Text.pack contract') sol' code' initcode' (parseSolver solver') smttimeout' debug'
+      HEVM spec' sol' code' initcode' contract' solver' smttimeout' debug' -> do
+        solver'' <- parseSolver solver'
+        hevm spec' (Text.pack contract') sol' code' initcode' solver'' smttimeout' debug'
 
 
 ---------------------------------
@@ -116,13 +120,13 @@ type' f = do
   contents <- readFile f
   validation (prettyErrs contents) (B.putStrLn . encode) (enrich <$> compile contents)
 
-parseSolver :: Maybe Text -> Solvers.Solver
+parseSolver :: Maybe Text -> IO Solvers.Solver
 parseSolver s = case s of
-                  Nothing -> Solvers.CVC5
+                  Nothing -> pure Solvers.CVC5
                   Just s' -> case Text.unpack s' of
-                              "z3" -> Solvers.Z3
-                              "cvc5" -> Solvers.CVC5
-                              input -> error $ "unrecognised solver: " <> input
+                              "z3" -> pure Solvers.Z3
+                              "cvc5" -> pure Solvers.CVC5
+                              input -> render (text $ "unrecognised solver: " <> input) >> exitFailure
 
 prove :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 prove file' solver' smttimeout' debug' = do
@@ -208,10 +212,10 @@ hevm actspec cid sol' code' initcode' solver' timeout debug' = do
           solContents  <- TIO.readFile f
           bytecodes cid solContents
         (Nothing, Just c, Just i) -> pure (i, c)
-        (Nothing, Nothing, _) -> error "No runtime code is given"
-        (Nothing, _, Nothing) -> error "No initial code is given"
-        (Just _, Just _, _) -> error "Both Solidity file and bytecode are given. Please specify only one."
-        (Just _, _, Just _) -> error "Both Solidity file and bytecode are given. Please specify only one."
+        (Nothing, Nothing, _) -> render (text "No runtime code is given") >> exitFailure
+        (Nothing, _, Nothing) -> render (text "No initial code is given") >> exitFailure
+        (Just _, Just _, _) -> render (text "Both Solidity file and runtime code are given. Please specify only one.") >> exitFailure
+        (Just _, _, Just _) -> render (text "Both Solidity file and initial code are given. Please specify only one.") >> exitFailure
 
 
 bytecodes :: Text -> Text -> IO (BS.ByteString, BS.ByteString)
