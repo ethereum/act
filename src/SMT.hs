@@ -11,6 +11,7 @@ module SMT (
   SMTConfig(..),
   Query(..),
   SMTResult(..),
+  Transition(..),
   spawnSolver,
   stopSolver,
   sendLines,
@@ -25,7 +26,10 @@ module SMT (
   ifExists,
   getBehvName,
   identifier,
-  getSMT
+  getSMT,
+  checkSat,
+  getPostconditionModel,
+  mkNonoverapQuery
 ) where
 
 import Prelude hiding (GT, LT)
@@ -52,6 +56,8 @@ import Print
 import Type (defaultStore)
 
 import EVM.Solvers (Solver(..))
+
+import Debug.Trace
 
 --- ** Data ** ---
 
@@ -312,6 +318,7 @@ runQuery solver query@(Inv (Invariant _ _ _ predicate) (ctor, ctorSMT) behvs) = 
 -- provided `modelFn` to extract a model if the solver returns `sat`
 checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO SMTResult
 checkSat solver modelFn smt = do
+  traceShowM (lines . show . pretty $ smt) 
   err <- sendLines solver ("(reset)" : (lines . show . pretty $ smt))
   case err of
     Nothing -> do
@@ -686,6 +693,43 @@ nameFromVarId name = [behvName @@ name | behvName <- ask]
 
 (@@) :: String -> String -> String
 x @@ y = x <> "_" <> y
+
+-- TODO this is duplicated in hevm Keccak.hs but not exported
+combine :: [a] -> [(a,a)]
+combine lst = combine' lst []
+  where
+    combine' [] acc = concat acc
+    combine' (x:xs) acc =
+      let xcomb = [ (x, y) | y <- xs] in
+      combine' xs (xcomb:acc)
+
+mkNonoverapQuery :: [Behaviour] -> (Behaviour, SMTExp)
+mkNonoverapQuery behvs@(behv@(Behaviour _ _ (Interface ifaceName decls) preconds _ _ _ _):_) = traceShow caseconds $  
+  (behv, mkSMT)
+  where
+    -- declare vars
+    allUpdates = concatMap _stateUpdates behvs
+    -- TODO declare storage using the global store
+    storage = concatMap (declareStorageLocation . locFromRewrite) allUpdates
+    -- interface should be the same for all behaviours of the same interface
+    args = declareArg ifaceName <$> decls
+    envs = declareEthEnv <$> concatMap ethEnvFromBehaviour behvs
+    -- preconds should be the same for all behaviours of the same interface
+    pres = mkAssert ifaceName <$> preconds  
+    
+    caseconds = concatMap _caseconditions behvs -- each casecond is wither a singleton or empty
+      
+    mkSMT = SMTExp
+      { _storage = storage
+      , _calldata = args
+      , _environment = envs
+      , _assertions = [allPairs]
+      }
+
+    allPairs = mkAssert ifaceName <$> mkOr $ (\(x, y) -> And nowhere x y) <$> combine caseconds
+
+    mkOr [] = LitBool nowhere False
+    mkOr (c:cs) = Or nowhere c (mkOr cs)
 
 --- ** Util ** ---
 

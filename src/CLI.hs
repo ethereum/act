@@ -42,6 +42,7 @@ import SMT
 import Type
 import Coq hiding (indent)
 import HEVM
+import SMTChecks
 
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
@@ -188,7 +189,12 @@ coq' f = do
   proceed contents (enrich <$> compile contents) $ \claims ->
     TIO.putStr $ coq claims
 
-
+checkOverlaps :: FilePath -> IO ()
+checkOverlaps actspec = do
+  specContents <- readFile actspec
+  let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
+  checkCases act 
+  
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
