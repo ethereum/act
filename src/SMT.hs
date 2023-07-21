@@ -11,6 +11,9 @@ module SMT (
   SMTConfig(..),
   Query(..),
   SMTResult(..),
+  SMTExp(..),
+  SolverInstance(..),
+  Model(..),
   Transition(..),
   spawnSolver,
   stopSolver,
@@ -29,7 +32,13 @@ module SMT (
   getSMT,
   checkSat,
   getPostconditionModel,
-  mkNonoverapQuery
+  mkAssert,
+  declareStorage,
+  declareArg,
+  declareEthEnv,
+  getStorageValue,
+  getCalldataValue,
+  getEnvironmentValue,
 ) where
 
 import Prelude hiding (GT, LT)
@@ -56,8 +65,6 @@ import Print
 import Type (defaultStore)
 
 import EVM.Solvers (Solver(..))
-
-import Debug.Trace
 
 --- ** Data ** ---
 
@@ -200,7 +207,7 @@ mkPostconditionQueriesConstr :: Constructor -> [Query]
 mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName decls) preconds postconds _ initialStorage stateUpdates) = mkQuery <$> postconds
   where
     -- declare vars
-    localStorage = declareInitialStorage <$> initialStorage
+    localStorage = concatMap declareInitialStorage initialStorage
     externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
@@ -248,7 +255,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) preconds _ _ initialStorage stateUpdates) = (ctor, smt)
       where
         -- declare vars
-        localStorage = declareInitialStorage <$> initialStorage
+        localStorage = concatMap declareInitialStorage initialStorage
         externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
         args = declareArg ifaceName <$> decls
         envs = declareEthEnv <$> ethEnvFromConstructor ctor
@@ -318,7 +325,6 @@ runQuery solver query@(Inv (Invariant _ _ _ predicate) (ctor, ctorSMT) behvs) = 
 -- provided `modelFn` to extract a model if the solver returns `sat`
 checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO SMTResult
 checkSat solver modelFn smt = do
-  traceShowM (lines . show . pretty $ smt) 
   err <- sendLines solver ("(reset)" : (lines . show . pretty $ smt))
   case err of
     Nothing -> do
@@ -528,14 +534,20 @@ encodeInitialStorage behvName (Update _ item expr) =
     expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
+
+-- | declares a storage location with the given timing
+declareStorage :: [When] -> StorageLocation -> [SMT2]
+declareStorage times (Loc _ item@(Item _ _ ref)) = case ref of
+  SVar _ _ _ ->  (\t -> constant (nameFromItem t item) (itemType item)) <$> times
+  SMapping _ (SVar _ _ _) ixs -> (\t -> array (nameFromItem t item) ixs (itemType item)) <$> times
+  _ -> error "TODO : SMT cannot handle multiple contracts"
+
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
-declareInitialStorage :: StorageUpdate -> SMT2
-declareInitialStorage (locFromUpdate -> Loc _ item) = case ixsFromItem item of
-  []       -> constant (nameFromItem Post item)             (itemType item)
-  (ix:ixs) -> array    (nameFromItem Post item) (ix :| ixs) (itemType item)
+declareInitialStorage :: StorageUpdate -> [SMT2]
+declareInitialStorage upd = declareStorage [Post] (locFromUpdate upd)
 
--- | encodes a storge update rewrite as an smt assertion
+-- | encodes a storage update rewrite as an smt assertion
 encodeUpdate :: Id -> Rewrite -> SMT2
 encodeUpdate _        (Constant loc)   = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
 encodeUpdate behvName (Rewrite update) = encodeInitialStorage behvName update
@@ -543,11 +555,7 @@ encodeUpdate behvName (Rewrite update) = encodeInitialStorage behvName update
 -- | declares a storage location that exists both in the pre state and the post
 --   state (i.e. anything except a loc created by a constructor claim)
 declareStorageLocation :: StorageLocation -> [SMT2]
-declareStorageLocation (Loc _ item) = case ixsFromItem item of
-  []       -> [ constant (nameFromItem Pre item) (itemType item)
-              , constant (nameFromItem Post item) (itemType item) ]
-  (ix:ixs) -> [ array (nameFromItem Pre item) (ix :| ixs) (itemType item)
-              , array (nameFromItem Post item) (ix :| ixs) (itemType item) ]
+declareStorageLocation item = declareStorage [Pre, Post] item
 
 -- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
@@ -645,8 +653,8 @@ mkAssert :: Id -> Exp ABoolean -> SMT2
 mkAssert c e = "(assert " <> withInterface c (expToSMT2 e) <> ")"
 
 -- | declare a (potentially nested) array in smt2
-array :: Id -> NonEmpty TypedExp -> ActType -> SMT2
-array name (hd :| tl) ret = "(declare-const " <> name <> " (Array " <> sType' hd <> " " <> valueDecl tl <> "))"
+array :: Id -> [TypedExp] -> ActType -> SMT2
+array name args ret = "(declare-const " <> name <> valueDecl args <> ")"
   where
     valueDecl [] = sType ret
     valueDecl (h : t) = "(Array " <> sType' h <> " " <> valueDecl t <> ")"
@@ -693,43 +701,6 @@ nameFromVarId name = [behvName @@ name | behvName <- ask]
 
 (@@) :: String -> String -> String
 x @@ y = x <> "_" <> y
-
--- TODO this is duplicated in hevm Keccak.hs but not exported
-combine :: [a] -> [(a,a)]
-combine lst = combine' lst []
-  where
-    combine' [] acc = concat acc
-    combine' (x:xs) acc =
-      let xcomb = [ (x, y) | y <- xs] in
-      combine' xs (xcomb:acc)
-
-mkNonoverapQuery :: [Behaviour] -> (Behaviour, SMTExp)
-mkNonoverapQuery behvs@(behv@(Behaviour _ _ (Interface ifaceName decls) preconds _ _ _ _):_) = traceShow caseconds $  
-  (behv, mkSMT)
-  where
-    -- declare vars
-    allUpdates = concatMap _stateUpdates behvs
-    -- TODO declare storage using the global store
-    storage = concatMap (declareStorageLocation . locFromRewrite) allUpdates
-    -- interface should be the same for all behaviours of the same interface
-    args = declareArg ifaceName <$> decls
-    envs = declareEthEnv <$> concatMap ethEnvFromBehaviour behvs
-    -- preconds should be the same for all behaviours of the same interface
-    pres = mkAssert ifaceName <$> preconds  
-    
-    caseconds = concatMap _caseconditions behvs -- each casecond is wither a singleton or empty
-      
-    mkSMT = SMTExp
-      { _storage = storage
-      , _calldata = args
-      , _environment = envs
-      , _assertions = [allPairs]
-      }
-
-    allPairs = mkAssert ifaceName <$> mkOr $ (\(x, y) -> And nowhere x y) <$> combine caseconds
-
-    mkOr [] = LitBool nowhere False
-    mkOr (c:cs) = Or nowhere c (mkOr cs)
 
 --- ** Util ** ---
 

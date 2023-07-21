@@ -42,7 +42,7 @@ import SMT
 import Type
 import Coq hiding (indent)
 import HEVM
-import SMTChecks
+import Consistency
 
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
@@ -192,23 +192,35 @@ coq' f = do
 checkOverlaps :: FilePath -> IO ()
 checkOverlaps actspec = do
   specContents <- readFile actspec
-  let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
-  checkCases act 
-  
+  proceed specContents (enrich <$> compile specContents) $ \act -> do
+    res <- checkCases act
+    mapM_ checkRes res
+  where
+    checkRes :: (Id, SMT.SMTResult) -> IO ()
+    checkRes (name, res) =
+      case res of
+        Sat model -> failMsg ("Cases overlapping for behavior " <> name <> ".") (pretty model)
+        Unsat -> passMsg $ "Cases nonoverlapping for behavior" <> name <> "."
+        Unknown -> errorMsg $ "Solver timeour. Cannot prove that cases are nonoverlapping for behavior " <> name <> "."
+        SMT.Error _ err -> errorMsg $ "Solver error: " <> err <> "\nCannot prove that cases are nonoverlapping for behavior " <> name <> "."
+
+    passMsg str = render (green $ text str)
+    failMsg str model = render (red (text str) <> line <> model <> line) >> exitFailure
+    errorMsg str = render (text str <> line) >> exitFailure
+
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec cid sol' code' initcode' solver' timeout debug' = do
-  specContents <- readFile actspec
-  (initcode'', bytecode) <- getBytecode
-  let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
   let opts = if debug' then debugVeriOpts else defaultVeriOpts
-
-  Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-    -- Constructor check
-    checkConstructors solvers opts initcode'' bytecode act
-    -- Behavours check
-    checkBehaviours solvers opts bytecode act
-    -- ABI exhaustiveness sheck
-    checkAbi solvers opts act bytecode
+  (initcode'', bytecode) <- getBytecode
+  specContents <- readFile actspec
+  proceed specContents (enrich <$> compile specContents) $ \act -> do
+    Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
+      -- Constructor check
+      checkConstructors solvers opts initcode'' bytecode act
+      -- Behavours check
+      checkBehaviours solvers opts bytecode act
+      -- ABI exhaustiveness sheck
+      checkAbi solvers opts act bytecode
 
   where
     getBytecode :: IO (BS.ByteString, BS.ByteString)
