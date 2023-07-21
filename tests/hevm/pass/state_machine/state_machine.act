@@ -1,6 +1,10 @@
 constructor of StateMachine
 interface constructor()
 
+iff
+
+  CALLVALUE == 0
+
 creates
   uint256 x := 0
 

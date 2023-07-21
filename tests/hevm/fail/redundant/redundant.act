@@ -3,6 +3,10 @@ interface constructor()
 
 creates
 
+iff
+
+  CALLVALUE == 0
+
   uint x := 0
 
 behaviour f of A

@@ -1,12 +1,20 @@
 constructor of A
 interface constructor()
 
+iff
+
+  CALLVALUE == 0
+
 creates
 
   mapping (uint=>uint) x := []
 
 behaviour f of A
 interface f()
+
+iff
+
+  CALLVALUE == 0
 
 storage
 

@@ -44,7 +44,6 @@ import EVM.Solvers
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
 
-
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -88,7 +87,10 @@ makeCtrCalldata (Interface _ decls) =
     mkArg :: Decl -> CalldataFragment
     mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
     calldatas = fmap mkArg decls
-    (cdBuf, props) = combineFragments' calldatas 0 (EVM.AbstractBuf "txdata")
+    -- We need to use a concrete buf as a base here because hevm bails when trying to execute with an abstract buf
+    -- This is because hevm ends up trying to execute a codecopy with a symbolic size, which is unsupported atm
+    -- This is probably unsound, but theres not a lot we can do about it at the moment...
+    (cdBuf, props) = combineFragments' calldatas 0 (EVM.ConcreteBuf "")
   in (cdBuf, props)
 
 -- TODO move to HEVM
@@ -105,16 +107,19 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
 
 -- * Act translation
 
-translateAct :: Act -> [(Id, [EVM.Expr EVM.End], Calldata)]
-translateAct (Act store contracts) =
+translateActBehvs :: Act -> [(Id, [EVM.Expr EVM.End], Calldata)]
+translateActBehvs (Act store contracts) =
   let slots = slotMap store in
   concatMap (\(Contract _ behvs) -> translateBehvs slots behvs) contracts
 
-translateConstructor :: Layout -> Constructor -> (Id, [EVM.Expr EVM.End], Calldata)
-translateConstructor layout (Constructor cid iface preconds _ _ upds _) =
-  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (returnsToExpr layout Nothing) (updatesToExpr layout cid upds)],
-   calldata)
+translateActConstr :: Act -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
+translateActConstr (Act store [Contract ctor _]) bytecode = translateConstructor (slotMap store) ctor bytecode
+translateActConstr (Act _ _) _ = error "TODO multiple contracts"
 
+translateConstructor :: Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
+translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode =
+  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds)],
+   calldata)
   where calldata = makeCtrCalldata iface
 
 translateBehvs :: Layout -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
@@ -316,18 +321,82 @@ toExpr layout = \case
     op2 :: forall b c. (EVM.Expr (ExprType c) -> EVM.Expr (ExprType c) -> b) -> Exp c -> Exp c -> b
     op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
 
+inRange :: AbiType -> Exp AInteger -> Exp ABoolean
+-- if the type has the type of machine word then check per operation
+inRange (AbiUIntType 256) e = checkOp e
+inRange (AbiIntType 256) _ = error "TODO signed integers"
+-- otherwise insert range bounds
+inRange t e = bound t e
+
+
+checkOp :: Exp AInteger -> Exp ABoolean
+checkOp (LitInt _ i) = LitBool nowhere $ i <= (fromIntegral (maxBound :: Word256))
+checkOp (Var _ _ _)  = LitBool nowhere True
+checkOp (TEntry _ _ _)  = LitBool nowhere True
+checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
+checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
+checkOp (Mul _ e1 e2) = Or nowhere (Eq nowhere SInteger e1 (LitInt nowhere 0))
+                          (Impl nowhere (NEq nowhere SInteger e1 (LitInt nowhere 0))
+                            (Eq nowhere SInteger e2 (Div nowhere (Mul nowhere e1 e2) e1)))
+checkOp (Div _ _ _) = LitBool nowhere True
+checkOp (Mod _ _ _) = LitBool nowhere True
+checkOp (Exp _ _ _) = error "TODO check for exponentiation overflow"
+checkOp (IntMin _ _)  = error "Internal error: invalid in range expression"
+checkOp (IntMax _ _)  = error "Internal error: invalid in range expression"
+checkOp (UIntMin _ _) = error "Internal error: invalid in range expression"
+checkOp (UIntMax _ _) = error "Internal error: invalid in range expression"
+checkOp (ITE _ _ _ _) = error "Internal error: invalid in range expression"
+checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
+
 
 -- * Equivalence checking
 
 -- | Wrapper for the equivalenceCheck function of hevm
 checkEquiv :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> IO [EquivResult]
 checkEquiv solvers opts l1 l2 =
-  (fmap toEquivRes) <$> equivalenceCheck' solvers l1 l2 opts
+  fmap toEquivRes <$> equivalenceCheck' solvers l1 l2 opts
   where
     toEquivRes :: SymExec.EquivResult -> EquivResult
     toEquivRes (Cex cex) = Cex ("\x1b[1mThe following input results in different behaviours\x1b[m", cex)
     toEquivRes (Qed a) = Qed a
     toEquivRes (Timeout b) = Timeout b
+
+
+checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Act -> IO ()
+checkConstructors solvers opts initcode runtimecode act = do
+  let (_, actbehvs, calldata) = translateActConstr act runtimecode
+  let initVM = abstractVM calldata initcode Nothing EVM.AbstractStore True
+  expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
+  let simpl = if True then (simplify expr) else expr
+  let solbehvs = removeFails $ flattenExpr simpl
+  putStrLn "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
+  checkResult =<< checkEquiv solvers opts solbehvs actbehvs
+  putStrLn "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
+  checkResult =<< checkInputSpaces solvers opts solbehvs actbehvs
+  where
+    removeFails branches = filter isSuccess $ branches
+
+    isSuccess (EVM.Success _ _ _ _) = True
+    isSuccess _ = False
+
+
+checkBehaviours :: SolverGroup -> VeriOpts -> ByteString -> Act -> IO ()
+checkBehaviours solvers opts bytecode act = do
+  let actbehvs = translateActBehvs act
+  flip mapM_ actbehvs $ \(name,behvs,calldata) -> do
+    solbehvs <- removeFails <$> getBranches solvers bytecode calldata
+    putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
+    -- equivalence check
+    putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
+    checkResult =<< checkEquiv solvers opts solbehvs behvs
+    -- input space exhaustiveness check
+    putStrLn "\x1b[1mChecking if the input spaces are the same\x1b[m"
+    checkResult =<< checkInputSpaces solvers opts solbehvs behvs
+    where
+      removeFails branches = filter isSuccess $ branches
+
+      isSuccess (EVM.Success _ _ _ _) = True
+      isSuccess _ = False
 
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
@@ -361,38 +430,11 @@ checkInputSpaces solvers opts l1 l2 = do
     False -> pure $ filter (/= Qed ()) results'
 
 
-inRange :: AbiType -> Exp AInteger -> Exp ABoolean
--- if the type has the type of machine word then check per operation
-inRange (AbiUIntType 256) e = checkOp e
-inRange (AbiIntType 256) _ = error "TODO signed integers"
--- otherwise insert range bounds
-inRange t e = bound t e
-
-
-checkOp :: Exp AInteger -> Exp ABoolean
-checkOp (LitInt _ i) = LitBool nowhere $ i <= (fromIntegral (maxBound :: Word256))
-checkOp (Var _ _ _)  = LitBool nowhere True
-checkOp (TEntry _ _ _)  = LitBool nowhere True
-checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
-checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
-checkOp (Mul _ e1 e2) = Or nowhere (Eq nowhere SInteger e1 (LitInt nowhere 0))
-                          (Impl nowhere (NEq nowhere SInteger e1 (LitInt nowhere 0))
-                            (Eq nowhere SInteger e2 (Div nowhere (Mul nowhere e1 e2) e1)))
-checkOp (Div _ _ _) = LitBool nowhere True
-checkOp (Mod _ _ _) = LitBool nowhere True
-checkOp (Exp _ _ _) = error "TODO check for exponentiation overflow"
-checkOp (IntMin _ _)  = error "Internal error: invalid in range expression"
-checkOp (IntMax _ _)  = error "Internal error: invalid in range expression"
-checkOp (UIntMin _ _) = error "Internal error: invalid in range expression"
-checkOp (UIntMax _ _) = error "Internal error: invalid in range expression"
-checkOp (ITE _ _ _ _) = error "Internal error: invalid in range expression"
-checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
-
-
--- | Checks whether all successful EVM behaviors are within the
+-- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
-checkAbi :: SolverGroup -> VeriOpts -> Act -> BS.ByteString -> IO [EquivResult]
+checkAbi :: SolverGroup -> VeriOpts -> Act -> BS.ByteString -> IO ()
 checkAbi solver opts act bytecode = do
+  putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs act)
   evmBehvs <- getBranches solver bytecode (txdata, [])
@@ -403,10 +445,7 @@ checkAbi solver opts act bytecode = do
       ("abi-query-" <> show idx <> ".smt2")
       (formatSMT2 q <> "\n\n(check-sat)")
 
-  results <- fmap (toVRes msg) <$> mapConcurrently (checkSat solver) queries
-  case all isQed results of
-    True -> pure [Qed ()]
-    False -> pure $ filter (/= Qed ()) results
+  checkResult =<< fmap (toVRes msg) <$> mapConcurrently (checkSat solver) queries
 
   where
     actSig (Behaviour _ _ iface _ _ _ _ _) = T.pack $ makeIface iface
@@ -428,7 +467,7 @@ getBranches :: SolverGroup -> BS.ByteString -> Calldata -> IO [EVM.Expr EVM.End]
 getBranches solvers bs calldata = do
       let
         bytecode = if BS.null bs then BS.pack [0] else bs
-        prestate = abstractVM calldata bytecode Nothing EVM.AbstractStore
+        prestate = abstractVM calldata bytecode Nothing EVM.AbstractStore False
       expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
       let simpl = if True then (simplify expr) else expr
       let nodes = flattenExpr simpl

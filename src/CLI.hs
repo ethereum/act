@@ -12,19 +12,22 @@
 
 module CLI (main, compile, proceed) where
 
-import Data.Aeson hiding (Bool, Number)
+import Data.Aeson hiding (Bool, Number, json)
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr, stdout)
 import Data.Text (unpack)
 import Data.List
+import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import GHC.Natural
 
+
 import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.ByteString as BS
 
 import Control.Monad
 import Control.Lens.Getter
@@ -43,8 +46,6 @@ import HEVM
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
-import qualified EVM.Format as Format
-import qualified EVM.Types as EVM
 
 --command line options
 data Command w
@@ -64,7 +65,8 @@ data Command w
 
   | HEVM            { spec       :: w ::: String               <?> "Path to spec"
                     , sol        :: w ::: Maybe String         <?> "Path to .sol"
-                    , code       :: w ::: Maybe ByteString     <?> "Program bytecode"
+                    , code       :: w ::: Maybe ByteString     <?> "Runtime code"
+                    , initcode   :: w ::: Maybe ByteString     <?> "Initial code"
                     , contract   :: w ::: String               <?> "Contract name"
                     , solver     :: w ::: Maybe Text           <?> "SMT solver: cvc5 (default) or z3"
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
@@ -89,9 +91,13 @@ main = do
       Lex f -> lex' f
       Parse f -> parse' f
       Type f -> type' f
-      Prove file' solver' smttimeout' debug' -> prove file' (parseSolver solver') smttimeout' debug'
+      Prove file' solver' smttimeout' debug' -> do
+        solver'' <- parseSolver solver'
+        prove file' solver'' smttimeout' debug'
       Coq f -> coq' f
-      HEVM spec' sol' soljson' contract' solver' smttimeout' debug' -> hevm spec' (Text.pack contract') sol' soljson' (parseSolver solver') smttimeout' debug'
+      HEVM spec' sol' code' initcode' contract' solver' smttimeout' debug' -> do
+        solver'' <- parseSolver solver'
+        hevm spec' (Text.pack contract') sol' code' initcode' solver'' smttimeout' debug'
 
 
 ---------------------------------
@@ -114,13 +120,13 @@ type' f = do
   contents <- readFile f
   validation (prettyErrs contents) (B.putStrLn . encode) (enrich <$> compile contents)
 
-parseSolver :: Maybe Text -> Solvers.Solver
+parseSolver :: Maybe Text -> IO Solvers.Solver
 parseSolver s = case s of
-                  Nothing -> Solvers.CVC5
+                  Nothing -> pure Solvers.CVC5
                   Just s' -> case Text.unpack s' of
-                              "z3" -> Solvers.Z3
-                              "cvc5" -> Solvers.CVC5
-                              input -> error $ "unrecognised solver: " <> input
+                              "z3" -> pure Solvers.Z3
+                              "cvc5" -> pure Solvers.CVC5
+                              input -> render (text $ "unrecognised solver: " <> input) >> exitFailure
 
 prove :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 prove file' solver' smttimeout' debug' = do
@@ -183,42 +189,43 @@ coq' f = do
     TIO.putStr $ coq claims
 
 
-hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
-hevm actspec cid sol' code' solver' timeout _ = do
+hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
-  bytecode <- getBytecode
+  (initcode'', bytecode) <- getBytecode
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
-  let actbehvs = translateAct act
-  sequence_ $ flip fmap actbehvs $ \(name,behvs,calldata) ->
-    Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-      solbehvs <- removeFails <$> getBranches solvers bytecode calldata
-      putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
-      -- equivalence check
-      putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
-      checkResult =<< checkEquiv solvers debugVeriOpts solbehvs behvs
-      -- input space exhaustiveness check
-      putStrLn "\x1b[1mChecking if the input spaces are the same\x1b[m"
-      checkResult =<< checkInputSpaces solvers debugVeriOpts solbehvs behvs
+  let opts = if debug' then debugVeriOpts else defaultVeriOpts
 
-  -- ABI exhaustiveness sheck
   Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-    putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
-    checkResult =<< checkAbi solvers debugVeriOpts act bytecode
+    -- Constructor check
+    checkConstructors solvers opts initcode'' bytecode act
+    -- Behavours check
+    checkBehaviours solvers opts bytecode act
+    -- ABI exhaustiveness sheck
+    checkAbi solvers opts act bytecode
 
   where
-    removeFails branches = filter isSuccess $ branches
-
-    isSuccess (EVM.Success _ _ _ _) = True
-    isSuccess _ = False
-
+    getBytecode :: IO (BS.ByteString, BS.ByteString)
     getBytecode =
-      case (sol', code') of
-        (Just f, Nothing) -> do
+      case (sol', code', initcode') of
+        (Just f, Nothing, Nothing) -> do
           solContents  <- TIO.readFile f
-          fmap fromJust $ solcRuntime cid solContents
-        (Nothing, Just c) -> pure $ Format.hexByteString "" c
-        (Nothing, Nothing) -> error "No EVM input is given. Please provide a Solidity file or EVM bytecode"
-        (Just _, Just _) -> error "Both Solidity file and bytecode are given. Please specify only one."
+          bytecodes cid solContents
+        (Nothing, Just c, Just i) -> pure (i, c)
+        (Nothing, Nothing, _) -> render (text "No runtime code is given") >> exitFailure
+        (Nothing, _, Nothing) -> render (text "No initial code is given") >> exitFailure
+        (Just _, Just _, _) -> render (text "Both Solidity file and runtime code are given. Please specify only one.") >> exitFailure
+        (Just _, _, Just _) -> render (text "Both Solidity file and initial code are given. Please specify only one.") >> exitFailure
+
+
+bytecodes :: Text -> Text -> IO (BS.ByteString, BS.ByteString)
+bytecodes cid src = do
+  (json, path) <- solidity' src
+  let (Contracts sol', _, _) = fromJust $ readStdJSON json
+  pure $ ((fromJust . Map.lookup (path <> ":" <> cid) $ sol').creationCode,
+          (fromJust . Map.lookup (path <> ":" <> cid) $ sol').runtimeCode)
+
+
 
 -------------------
 -- *** Util *** ---
