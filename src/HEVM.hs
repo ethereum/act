@@ -87,7 +87,10 @@ makeCtrCalldata (Interface _ decls) =
     mkArg :: Decl -> CalldataFragment
     mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
     calldatas = fmap mkArg decls
-    (cdBuf, props) = combineFragments' calldatas 0 (EVM.ConcreteBuf "")-- (EVM.AbstractBuf "txdata")
+    -- We need to use a concrete buf as a base here because hevm bails when trying to execute with an abstract buf
+    -- This is because hevm ends up trying to execute a codecopy with a symbolic size, which is unsupported atm
+    -- This is probably unsound, but theres not a lot we can do about it at the moment...
+    (cdBuf, props) = combineFragments' calldatas 0 (EVM.ConcreteBuf "")
   in (cdBuf, props)
 
 -- TODO move to HEVM
