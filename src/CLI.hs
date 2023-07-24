@@ -189,12 +189,10 @@ coq' f = do
   proceed contents (enrich <$> compile contents) $ \claims ->
     TIO.putStr $ coq claims
 
-checkOverlaps :: FilePath -> IO ()
-checkOverlaps actspec = do
-  specContents <- readFile actspec
-  proceed specContents (enrich <$> compile specContents) $ \act -> do
-    res <- checkCases act
-    mapM_ checkRes res
+checkOverlaps :: Act -> IO ()
+checkOverlaps act = do
+  res <- checkCases act
+  mapM_ checkRes res
   where
     checkRes :: (Id, SMT.SMTResult) -> IO ()
     checkRes (name, res) =
@@ -214,6 +212,7 @@ hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   (initcode'', bytecode) <- getBytecode
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \act -> do
+    checkOverlaps act
     Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
       -- Constructor check
       checkConstructors solvers opts initcode'' bytecode act
