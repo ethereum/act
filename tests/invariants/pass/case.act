@@ -18,7 +18,7 @@ case z == 0:
 storage
   x => z
 
-case 0 <= z:
+case 0 < z:
 
 storage
   x => 0

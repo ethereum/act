@@ -15,6 +15,7 @@ module SMT (
   SolverInstance(..),
   Model(..),
   Transition(..),
+  SMT2,
   spawnSolver,
   stopSolver,
   sendLines,

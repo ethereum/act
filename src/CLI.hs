@@ -190,6 +190,13 @@ coq' f = do
     TIO.putStr $ coq claims
 
 
+checkOverlaps :: FilePath -> IO ()
+checkOverlaps actspec = do
+  specContents <- readFile actspec
+  proceed specContents (enrich <$> compile specContents) $ \act -> do
+    checkCases act
+
+
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   let opts = if debug' then debugVeriOpts else defaultVeriOpts
@@ -213,10 +220,10 @@ hevm actspec cid sol' code' initcode' solver' timeout debug' = do
           solContents  <- TIO.readFile f
           bytecodes cid solContents
         (Nothing, Just c, Just i) -> pure (i, c)
-        (Nothing, Nothing, _) -> render (text "No runtime code is given") >> exitFailure
-        (Nothing, _, Nothing) -> render (text "No initial code is given") >> exitFailure
-        (Just _, Just _, _) -> render (text "Both Solidity file and runtime code are given. Please specify only one.") >> exitFailure
-        (Just _, _, Just _) -> render (text "Both Solidity file and initial code are given. Please specify only one.") >> exitFailure
+        (Nothing, Nothing, _) -> render (text "No runtime code is given" <> line) >> exitFailure
+        (Nothing, _, Nothing) -> render (text "No initial code is given" <> line) >> exitFailure
+        (Just _, Just _, _) -> render (text "Both Solidity file and runtime code are given. Please specify only one." <> line) >> exitFailure
+        (Just _, _, Just _) -> render (text "Both Solidity file and initial code are given. Please specify only one." <> line) >> exitFailure
 
 
 bytecodes :: Text -> Text -> IO (BS.ByteString, BS.ByteString)
