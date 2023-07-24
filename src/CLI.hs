@@ -189,22 +189,6 @@ coq' f = do
   proceed contents (enrich <$> compile contents) $ \claims ->
     TIO.putStr $ coq claims
 
-checkOverlaps :: Act -> IO ()
-checkOverlaps act = do
-  res <- checkCases act
-  mapM_ checkRes res
-  where
-    checkRes :: (Id, SMT.SMTResult) -> IO ()
-    checkRes (name, res) =
-      case res of
-        Sat model -> failMsg ("Cases overlapping for behavior " <> name <> ".") (pretty model)
-        Unsat -> passMsg $ "Cases nonoverlapping for behavior" <> name <> "."
-        Unknown -> errorMsg $ "Solver timeour. Cannot prove that cases are nonoverlapping for behavior " <> name <> "."
-        SMT.Error _ err -> errorMsg $ "Solver error: " <> err <> "\nCannot prove that cases are nonoverlapping for behavior " <> name <> "."
-
-    passMsg str = render (green $ text str)
-    failMsg str model = render (red (text str) <> line <> model <> line) >> exitFailure
-    errorMsg str = render (text str <> line) >> exitFailure
 
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec cid sol' code' initcode' solver' timeout debug' = do
@@ -212,7 +196,7 @@ hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   (initcode'', bytecode) <- getBytecode
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \act -> do
-    checkOverlaps act
+    checkCases act
     Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
       -- Constructor check
       checkConstructors solvers opts initcode'' bytecode act
