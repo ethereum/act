@@ -19,6 +19,7 @@ import System.IO (hPutStrLn, stderr, stdout)
 import Data.Text (unpack)
 import Data.List
 import qualified Data.Map as Map
+
 import Data.Maybe
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
@@ -119,7 +120,9 @@ parse' f = do
 type' :: FilePath -> IO ()
 type' f = do
   contents <- readFile f
-  validation (prettyErrs contents) (B.putStrLn . encode) (enrich <$> compile contents)
+  proceed contents (enrich <$> compile contents) $ \claims -> do
+    checkCases claims
+    B.putStrLn $ encode claims
 
 parseSolver :: Maybe Text -> IO Solvers.Solver
 parseSolver s = case s of
@@ -134,6 +137,7 @@ prove file' solver' smttimeout' debug' = do
   let config = SMT.SMTConfig solver' (fromMaybe 20000 smttimeout') debug'
   contents <- readFile file'
   proceed contents (enrich <$> compile contents) $ \claims -> do
+    checkCases claims
     let
       catModels results = [m | Sat m <- results]
       catErrors results = [e | e@SMT.Error {} <- results]
@@ -186,7 +190,8 @@ prove file' solver' smttimeout' debug' = do
 coq' :: FilePath -> IO ()
 coq' f = do
   contents <- readFile f
-  proceed contents (enrich <$> compile contents) $ \claims ->
+  proceed contents (enrich <$> compile contents) $ \claims -> do
+    checkCases claims
     TIO.putStr $ coq claims
 
 
@@ -203,7 +208,7 @@ hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   (initcode'', bytecode) <- getBytecode
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \act -> do
-    checkCases act
+    -- checkCases act
     Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
       -- Constructor check
       checkConstructors solvers opts initcode'' bytecode act

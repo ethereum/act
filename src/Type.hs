@@ -285,7 +285,7 @@ validSlotType env p (StorageValue t) = validType env p t
 checkCase :: Env -> U.Case -> Err ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed))
 checkCase env c@(U.Case _ pre post) = do
   -- TODO isWild checks for WildExp, but WildExp is never generated
-  if' <- traverse (checkExpr env SBoolean) $ if isWild c then [] else [pre]
+  if' <- traverse (checkExpr env SBoolean) $ if isWild c then [U.BoolLit nowhere True] else [pre]
   (storage,return') <- checkPost env post
   pure (if',storage,return')
 

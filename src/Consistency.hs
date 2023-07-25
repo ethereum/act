@@ -24,8 +24,6 @@ import Syntax.Annotated
 import SMT
 import Syntax.Untyped (makeIface)
 
-import Debug.Trace
-
 -- TODO this is duplicated in hevm Keccak.hs but not exported
 combine :: [a] -> [(a,a)]
 combine lst = combine' lst []
@@ -88,15 +86,14 @@ checkCases (Act _ contracts) = do
   let config = SMT.SMTConfig CVC5 50000 True -- TODO make this parametrizable
   solver <- spawnSolver config
   let qs = mkCaseQuery mkNonoverlapAssertion <$> groups
-  r <- flip mapConcurrently qs (\(name, q, getModel) -> do
-                                   res <- checkSat solver getModel q
-                                   pure (name, res))
+  r <- flip mapM qs (\(name, q, getModel) -> do
+                        res <- checkSat solver getModel q
+                        pure (name, res))
   mapM_ (checkRes "nonoverlapping") r
   let qs' = mkCaseQuery mkExhaustiveAssertion <$> groups
-  r' <- flip mapConcurrently qs' (\(name, q, getModel) -> do
-                                    traceShowM q
-                                    res <- checkSat solver getModel q
-                                    pure (name, res))
+  r' <- flip mapM qs' (\(name, q, getModel) -> do
+                          res <- checkSat solver getModel q
+                          pure (name, res))
   mapM_ (checkRes "exhaustive") r'
 
     where
@@ -108,7 +105,7 @@ checkCases (Act _ contracts) = do
       checkRes check (name, res) =
         case res of
           Sat model -> failMsg ("Cases are not " <> check <> " for behavior " <> name <> ".") (pretty model)
-          Unsat -> passMsg $ "Cases are " <> check <> " for behavior " <> name <> "."
+          Unsat -> pure () -- passMsg $ "Cases are " <> check <> " for behavior " <> name <> "."
           Unknown -> errorMsg $ "Solver timeour. Cannot prove that cases are " <> check <> " for behavior " <> name <> "."
           SMT.Error _ err -> errorMsg $ "Solver error: " <> err <> "\nCannot prove that cases are " <>  check <> " for behavior " <> name <> "."
 
