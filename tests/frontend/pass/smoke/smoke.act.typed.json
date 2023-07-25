@@ -3,7 +3,9 @@
     {
       "behaviors": [
         {
-          "case": [],
+          "case": [
+            "True"
+          ],
           "contract": "A",
           "interface": "f(uint256 x)",
           "kind": "Behaviour",

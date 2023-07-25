@@ -26,7 +26,9 @@
     {
       "behaviors": [
         {
-          "case": [],
+          "case": [
+            "True"
+          ],
           "contract": "B",
           "interface": "set_remote(uint256 z)",
           "kind": "Behaviour",
@@ -159,7 +161,9 @@
           ]
         },
         {
-          "case": [],
+          "case": [
+            "True"
+          ],
           "contract": "B",
           "interface": "set_remote2(uint256 z)",
           "kind": "Behaviour",

@@ -31,7 +31,7 @@ Proof.
     rewrite Z.sub_1_r.
     rewrite <- (pow_pred (b STATE) (e STATE - 1)).
     + rewrite Z.mul_assoc. reflexivity.
-    + apply Z.gt_lt in H0.
+    + apply Z.gt_lt in H1.
       apply (proj1 (Z.sub_lt_mono_r 1 (e STATE) 1)).
       assumption.
 Qed.

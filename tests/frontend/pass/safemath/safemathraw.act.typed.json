@@ -3,7 +3,9 @@
     {
       "behaviors": [
         {
-          "case": [],
+          "case": [
+            "True"
+          ],
           "contract": "SafeAdd",
           "interface": "add(uint256 x, uint256 y)",
           "kind": "Behaviour",
