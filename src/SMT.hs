@@ -538,10 +538,12 @@ encodeInitialStorage behvName (Update _ item expr) =
 
 -- | declares a storage location with the given timing
 declareStorage :: [When] -> StorageLocation -> [SMT2]
-declareStorage times (Loc _ item@(Item _ _ ref)) = case ref of
-  SVar _ _ _ ->  (\t -> constant (nameFromItem t item) (itemType item)) <$> times
-  SMapping _ (SVar _ _ _) ixs -> (\t -> array (nameFromItem t item) ixs (itemType item)) <$> times
-  _ -> error "TODO : SMT cannot handle multiple contracts"
+declareStorage times (Loc _ item@(Item _ _ ref)) = declareRef ref
+  where
+    declareRef (SVar _ _ _) = (\t -> constant (nameFromItem t item) (itemType item) ) <$> times
+    declareRef (SMapping _ _ ixs) = (\t -> array (nameFromItem t item) ixs (itemType item)) <$> times
+    declareRef (SField _ ref' _ _) = declareRef ref'
+
 
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
@@ -686,7 +688,7 @@ nameFromItem whn (Item _ _ ref) = nameFromStorageRef ref @@ show whn
 nameFromStorageRef :: StorageRef -> Id
 nameFromStorageRef (SVar _ c name) = c @@ name
 nameFromStorageRef (SMapping _ e _) = nameFromStorageRef e
-nameFromStorageRef (SField _ _ _ _) = error "contracts not supported"
+nameFromStorageRef (SField _ ref c x) = nameFromStorageRef ref @@ c @@ x
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id
