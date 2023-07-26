@@ -26,7 +26,7 @@ prettyBehaviour (Behaviour name contract interface preconditions cases postcondi
     prettyPre p = header "iff" >-< block (prettyExp <$> p)
 
     prettyCases [] = ""
-    prettyCases p = header "case" >-< block (prettyExp <$> p)
+    prettyCases p = header "case" >-< block (prettyExp <$> p) <> ":"
 
     prettyStorage [] = ""
     prettyStorage s = header "storage" >-< block (prettyState <$> s)
