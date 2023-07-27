@@ -195,11 +195,11 @@ coq' f = do
     TIO.putStr $ coq claims
 
 
-checkOverlaps :: FilePath -> IO ()
-checkOverlaps actspec = do
-  specContents <- readFile actspec
-  proceed specContents (enrich <$> compile specContents) $ \act -> do
-    checkCases act
+-- checkOverlaps :: FilePath -> IO ()
+-- checkOverlaps actspec = do
+--   specContents <- readFile actspec
+--   proceed specContents (enrich <$> compile specContents) $ \act -> do
+--     checkCases act
 
 
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()

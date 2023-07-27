@@ -14,7 +14,6 @@ module Consistency (
 import Prelude hiding (GT, LT)
 
 import Data.List
-import Control.Concurrent.Async
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import System.Exit (exitFailure)
 import System.IO (stdout)
@@ -48,7 +47,7 @@ mkExhaustiveAssertion caseconds =
   where
     mkAnd r c = And nowhere (Neg nowhere c) r
 
--- | Create query for cases 
+-- | Create a query for cases
 mkCaseQuery :: ([Exp ABoolean] -> Exp ABoolean) -> [Behaviour] -> (Id, SMTExp, (SolverInstance -> IO Model))
 mkCaseQuery props behvs@((Behaviour _ _ (Interface ifaceName decls) preconds _ _ _ _):_) =
   (ifaceName, mkSMT, getModel)
@@ -78,8 +77,7 @@ mkCaseQuery props behvs@((Behaviour _ _ (Interface ifaceName decls) preconds _ _
         }
 mkCaseQuery _ [] = error "Internal error: behaviours cannot be empty"
 
--- | Checks exhaustiveness of cases
-
+-- | Checks nonoverlapping and exhaustiveness of cases
 checkCases :: Act -> IO ()
 checkCases (Act _ contracts) = do
   let groups = concatMap (\(Contract _ behvs) -> groupBy sameIface behvs) contracts
@@ -105,11 +103,10 @@ checkCases (Act _ contracts) = do
       checkRes check (name, res) =
         case res of
           Sat model -> failMsg ("Cases are not " <> check <> " for behavior " <> name <> ".") (pretty model)
-          Unsat -> pure () -- passMsg $ "Cases are " <> check <> " for behavior " <> name <> "."
+          Unsat -> pure ()
           Unknown -> errorMsg $ "Solver timeour. Cannot prove that cases are " <> check <> " for behavior " <> name <> "."
           SMT.Error _ err -> errorMsg $ "Solver error: " <> err <> "\nCannot prove that cases are " <>  check <> " for behavior " <> name <> "."
 
-      passMsg str = render (green $ text str <> line)
       failMsg str model = render (red (text str) <> line <> model <> line) >> exitFailure
       errorMsg str = render (text str <> line) >> exitFailure
 
