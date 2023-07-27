@@ -28,7 +28,7 @@ frontend_pass=$(wildcard tests/frontend/pass/*/*.act)
 frontend_fail=$(wildcard tests/frontend/fail/*/*.act)
 
 parser_pass=$(frontend_pass)
-typing_pass=$(filter-out $(failing_typing), $(parser_pass))	
+typing_pass=$(filter-out $(failing_typing), $(parser_pass))
 # supposed to fail
 typing_fail=$(frontend_fail)
 parser_fail=$(filter-out $(typing_fail), $(frontend_fail))

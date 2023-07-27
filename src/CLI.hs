@@ -19,7 +19,6 @@ import System.IO (hPutStrLn, stderr, stdout)
 import Data.Text (unpack)
 import Data.List
 import qualified Data.Map as Map
-
 import Data.Maybe
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
@@ -208,7 +207,7 @@ hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   (initcode'', bytecode) <- getBytecode
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \act -> do
-    -- checkCases act
+    checkCases act
     Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
       -- Constructor check
       checkConstructors solvers opts initcode'' bytecode act
