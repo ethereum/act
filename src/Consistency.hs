@@ -16,12 +16,12 @@ import Prelude hiding (GT, LT)
 import Data.List
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import System.Exit (exitFailure)
-import System.IO (stdout)
 
 import Syntax
 import Syntax.Annotated
 import SMT
 import Syntax.Untyped (makeIface)
+import Print
 
 -- TODO this is duplicated in hevm Keccak.hs but not exported
 combine :: [a] -> [(a,a)]
@@ -32,15 +32,19 @@ combine lst = combine' lst []
       let xcomb = [ (x, y) | y <- xs] in
       combine' xs (xcomb:acc)
 
--- | Checks non-overlapping cases
+-- | Checks non-overlapping cases,
+-- For every pair of case conditions we assert that they are true
+-- simultaneously. The query must be unsat.
 mkNonoverlapAssertion :: [Exp ABoolean] -> Exp ABoolean
 mkNonoverlapAssertion caseconds =
   mkOr $ (\(x, y) -> And nowhere x y) <$> combine caseconds
-  where 
+  where
     mkOr [] = LitBool nowhere False
     mkOr (c:cs) = Or nowhere c (mkOr cs)
 
--- | Checks exhaustiveness of cases
+-- | Checks exhaustiveness of cases.
+-- We assert that none of the case conditions are true at the same
+-- time. The query must be unsat.
 mkExhaustiveAssertion :: [Exp ABoolean] -> Exp ABoolean
 mkExhaustiveAssertion caseconds =
   foldl mkAnd (LitBool nowhere True) caseconds
@@ -56,7 +60,7 @@ mkCaseQuery props behvs@((Behaviour _ _ (Interface ifaceName decls) preconds _ _
     env = concatMap ethEnvFromBehaviour behvs
     pres = mkAssert ifaceName <$> preconds
     caseconds = concatMap _caseconditions behvs
-      
+
     mkSMT = SMTExp
       { _storage = concatMap (declareStorage [Pre]) locs
       , _calldata = declareArg ifaceName <$> decls
@@ -95,7 +99,7 @@ checkCases (Act _ contracts) = do
   mapM_ (checkRes "exhaustive") r'
 
     where
-    
+
       sameIface (Behaviour _ _ iface  _ _ _ _ _) (Behaviour _ _ iface' _ _ _ _ _) =
         makeIface iface == makeIface iface'
 
@@ -109,9 +113,3 @@ checkCases (Act _ contracts) = do
 
       failMsg str model = render (red (text str) <> line <> model <> line) >> exitFailure
       errorMsg str = render (text str <> line) >> exitFailure
-
-
--- XXX Duplicate
--- | prints a Doc, with wider output than the built in `putDoc`
-render :: Doc -> IO ()
-render doc = displayIO stdout (renderPretty 0.9 120 doc)

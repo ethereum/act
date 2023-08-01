@@ -15,7 +15,7 @@ module CLI (main, compile, proceed) where
 import Data.Aeson hiding (Bool, Number, json)
 import GHC.Generics
 import System.Exit ( exitFailure )
-import System.IO (hPutStrLn, stderr, stdout)
+import System.IO (hPutStrLn, stderr)
 import Data.Text (unpack)
 import Data.List
 import qualified Data.Map as Map
@@ -43,6 +43,7 @@ import Type
 import Coq hiding (indent)
 import HEVM
 import Consistency
+import Print
 
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
@@ -194,13 +195,6 @@ coq' f = do
     TIO.putStr $ coq claims
 
 
--- checkOverlaps :: FilePath -> IO ()
--- checkOverlaps actspec = do
---   specContents <- readFile actspec
---   proceed specContents (enrich <$> compile specContents) $ \act -> do
---     checkCases act
-
-
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   let opts = if debug' then debugVeriOpts else defaultVeriOpts
@@ -274,7 +268,3 @@ prettyErrs contents errs = mapM_ prettyErr errs >> exitFailure
       safeDrop _ [] = []
       safeDrop _ [a] = [a]
       safeDrop n (_:xs) = safeDrop (n-1) xs
-
--- | prints a Doc, with wider output than the built in `putDoc`
-render :: Doc -> IO ()
-render doc = displayIO stdout (renderPretty 0.9 120 doc)
