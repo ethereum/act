@@ -55,7 +55,11 @@ data Command w
 
   | Parse           { file       :: w ::: String               <?> "Path to file"}
 
-  | Type            { file       :: w ::: String               <?> "Path to file"}
+  | Type            { file       :: w ::: String               <?> "Path to file"
+                    , solver     :: w ::: Maybe Text           <?> "SMT solver: cvc5 (default) or z3"
+                    , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
+                    , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
+                    }
 
   | Prove           { file       :: w ::: String               <?> "Path to file"
                     , solver     :: w ::: Maybe Text           <?> "SMT solver: cvc5 (default) or z3"
@@ -63,7 +67,11 @@ data Command w
                     , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
                     }
 
-  | Coq             { file       :: w ::: String               <?> "Path to file"}
+  | Coq             { file       :: w ::: String               <?> "Path to file"
+                    , solver     :: w ::: Maybe Text           <?> "SMT solver: cvc5 (default) or z3"
+                    , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
+                    , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
+                    }
 
   | HEVM            { spec       :: w ::: String               <?> "Path to spec"
                     , sol        :: w ::: Maybe String         <?> "Path to .sol"
@@ -92,11 +100,15 @@ main = do
     case cmd of
       Lex f -> lex' f
       Parse f -> parse' f
-      Type f -> type' f
+      Type f solver' smttimeout' debug' -> do
+        solver'' <- parseSolver solver'
+        type' f solver'' smttimeout' debug'
       Prove file' solver' smttimeout' debug' -> do
         solver'' <- parseSolver solver'
         prove file' solver'' smttimeout' debug'
-      Coq f -> coq' f
+      Coq f solver' smttimeout' debug' -> do
+        solver'' <- parseSolver solver'
+        coq' f solver'' smttimeout' debug'
       HEVM spec' sol' code' initcode' contract' solver' smttimeout' debug' -> do
         solver'' <- parseSolver solver'
         hevm spec' (Text.pack contract') sol' code' initcode' solver'' smttimeout' debug'
@@ -117,11 +129,11 @@ parse' f = do
   contents <- readFile f
   validation (prettyErrs contents) print (parse $ lexer contents)
 
-type' :: FilePath -> IO ()
-type' f = do
+type' :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+type' f solver' smttimeout' debug' = do
   contents <- readFile f
   proceed contents (enrich <$> compile contents) $ \claims -> do
-    checkCases claims
+    checkCases claims solver' smttimeout' debug'
     B.putStrLn $ encode claims
 
 parseSolver :: Maybe Text -> IO Solvers.Solver
@@ -137,7 +149,7 @@ prove file' solver' smttimeout' debug' = do
   let config = SMT.SMTConfig solver' (fromMaybe 20000 smttimeout') debug'
   contents <- readFile file'
   proceed contents (enrich <$> compile contents) $ \claims -> do
-    checkCases claims
+    checkCases claims solver' smttimeout' debug'
     let
       catModels results = [m | Sat m <- results]
       catErrors results = [e | e@SMT.Error {} <- results]
@@ -187,11 +199,11 @@ prove file' solver' smttimeout' debug' = do
     unless (fst invOutput && fst pcOutput) exitFailure
 
 
-coq' :: FilePath -> IO ()
-coq' f = do
+coq' :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+coq' f solver' smttimeout' debug' = do
   contents <- readFile f
   proceed contents (enrich <$> compile contents) $ \claims -> do
-    checkCases claims
+    checkCases claims solver' smttimeout' debug' 
     TIO.putStr $ coq claims
 
 
@@ -201,7 +213,7 @@ hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   (initcode'', bytecode) <- getBytecode
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \act -> do
-    checkCases act
+    checkCases act solver' timeout debug'
     Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
       -- Constructor check
       checkConstructors solvers opts initcode'' bytecode act

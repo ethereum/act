@@ -16,12 +16,15 @@ import Prelude hiding (GT, LT)
 import Data.List
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import System.Exit (exitFailure)
+import Data.Maybe
 
 import Syntax
 import Syntax.Annotated
 import SMT
 import Syntax.Untyped (makeIface)
 import Print
+
+import qualified EVM.Solvers as Solvers
 
 -- TODO this is duplicated in hevm Keccak.hs but not exported
 combine :: [a] -> [(a,a)]
@@ -82,10 +85,10 @@ mkCaseQuery props behvs@((Behaviour _ _ (Interface ifaceName decls) preconds _ _
 mkCaseQuery _ [] = error "Internal error: behaviours cannot be empty"
 
 -- | Checks nonoverlapping and exhaustiveness of cases
-checkCases :: Act -> IO ()
-checkCases (Act _ contracts) = do
+checkCases :: Act -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+checkCases (Act _ contracts) solver smttimeout debug = do
   let groups = concatMap (\(Contract _ behvs) -> groupBy sameIface behvs) contracts
-  let config = SMT.SMTConfig CVC5 50000 True -- TODO make this parametrizable
+  let config = SMT.SMTConfig solver (fromMaybe 20000 smttimeout) debug
   solver <- spawnSolver config
   let qs = mkCaseQuery mkNonoverlapAssertion <$> groups
   r <- flip mapM qs (\(name, q, getModel) -> do
