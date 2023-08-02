@@ -86,9 +86,9 @@ mkCaseQuery _ [] = error "Internal error: behaviours cannot be empty"
 
 -- | Checks nonoverlapping and exhaustiveness of cases
 checkCases :: Act -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
-checkCases (Act _ contracts) solver smttimeout debug = do
+checkCases (Act _ contracts) solver' smttimeout debug = do
   let groups = concatMap (\(Contract _ behvs) -> groupBy sameIface behvs) contracts
-  let config = SMT.SMTConfig solver (fromMaybe 20000 smttimeout) debug
+  let config = SMT.SMTConfig solver' (fromMaybe 20000 smttimeout) debug
   solver <- spawnSolver config
   let qs = mkCaseQuery mkNonoverlapAssertion <$> groups
   r <- flip mapM qs (\(name, q, getModel) -> do
