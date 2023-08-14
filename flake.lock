@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "cabal-head": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1691811891,
+        "narHash": "sha256-e/dXo93pNSva1aKDpuO392Nig1M51Us96Qm0Peb/3bQ=",
+        "owner": "haskell",
+        "repo": "cabal",
+        "rev": "e77f13945d66fb829525c7249d97a6ad29fc701b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "haskell",
+        "repo": "cabal",
+        "type": "github"
+      }
+    },
     "ethereum-tests": {
       "flake": false,
       "locked": {
@@ -103,6 +119,7 @@
     },
     "hevmUpstream": {
       "inputs": {
+        "cabal-head": "cabal-head",
         "ethereum-tests": "ethereum-tests",
         "flake-compat": "flake-compat",
         "flake-utils": "flake-utils_2",
@@ -113,17 +130,16 @@
         "solidity": "solidity"
       },
       "locked": {
-        "lastModified": 1689591967,
-        "narHash": "sha256-FJuWEGyWMNk05zQ7WtHNK53gPbERBPQwmVFdWLxQQCU=",
+        "lastModified": 1691584337,
+        "narHash": "sha256-UPXhPPP5wIXuCfhJG61ZW0tMNEKJC5dHpczaJN/jeFQ=",
         "owner": "ethereum",
         "repo": "hevm",
-        "rev": "308cf16788c29a3e98542d87125d3ffb237615e1",
+        "rev": "3c7e719829fbd952dc94330c707fe282a9d8c876",
         "type": "github"
       },
       "original": {
         "owner": "ethereum",
         "repo": "hevm",
-        "rev": "308cf16788c29a3e98542d87125d3ffb237615e1",
         "type": "github"
       }
     },

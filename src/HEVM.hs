@@ -37,7 +37,7 @@ import Syntax
 import qualified EVM.Types as EVM
 import EVM.Concrete (createAddress)
 import EVM.Expr hiding (op2, inRange)
-import EVM.SymExec hiding (EquivResult)
+import EVM.SymExec hiding (EquivResult, isPartial)
 import qualified EVM.SymExec as SymExec (EquivResult)
 import EVM.SMT (SMTCex(..), assertProps, formatSMT2)
 import EVM.Solvers
@@ -213,8 +213,8 @@ refOffset layout (SMapping _ ref ixs) =
 refOffset _ _ = error "TODO"
 
 ethEnvToWord :: EthEnv -> EVM.Expr EVM.EWord
-ethEnvToWord Callvalue = EVM.CallValue 0
-ethEnvToWord Caller = EVM.Caller 0
+ethEnvToWord Callvalue = TxValue 0
+ethEnvToWord Caller = error "TODO" -- EVM.Caller 0
 ethEnvToWord Origin = EVM.Origin
 ethEnvToWord Blocknumber = EVM.BlockNumber
 ethEnvToWord Blockhash = error "TODO" -- EVM.BlockHash ??
@@ -511,12 +511,6 @@ toVRes msg res = case res of
   EVM.Solvers.Unknown -> Timeout ()
   Unsat -> Qed ()
   Error e -> error $ "Internal Error: solver responded with error: " <> show e
-
-
--- TODO this is also defined in hevm-cli
-getCex :: ProofResult a b c -> Maybe b
-getCex (Cex c) = Just c
-getCex _ = Nothing
 
 
 checkResult :: [EquivResult] -> IO ()
