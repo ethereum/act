@@ -118,7 +118,7 @@ translateActConstr (Act _ _) _ = error "TODO multiple contracts"
 
 translateConstructor :: Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode =
-  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds)],
+  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds (EVM.ConcreteStore mempty))],
    calldata)
   where calldata = makeCtrCalldata iface
 
@@ -149,8 +149,8 @@ rewriteToExpr :: Layout -> Id -> Rewrite -> EVM.Expr EVM.Storage -> EVM.Expr EVM
 rewriteToExpr _ _ (Constant _) state = state
 rewriteToExpr layout cid (Rewrite upd) state = updateToExpr layout cid upd state
 
-updatesToExpr :: Layout -> Id -> [StorageUpdate] -> EVM.Expr EVM.Storage
-updatesToExpr layout cid upds = foldl (flip $ updateToExpr layout cid) EVM.AbstractStore upds
+updatesToExpr :: Layout -> Id -> [StorageUpdate] -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
+updatesToExpr layout cid upds initstore = foldl (flip $ updateToExpr layout cid) initstore upds
 
 updateToExpr :: Layout -> Id -> StorageUpdate -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
 updateToExpr layout cid (Update typ i@(Item _ _ ref) e) state =
@@ -365,7 +365,7 @@ checkEquiv solvers opts l1 l2 =
 checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Act -> IO ()
 checkConstructors solvers opts initcode runtimecode act = do
   let (_, actbehvs, calldata) = translateActConstr act runtimecode
-  let initVM = abstractVM calldata initcode Nothing EVM.AbstractStore True
+  let initVM = abstractVM calldata initcode Nothing (EVM.ConcreteStore mempty) True
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
   let solbehvs = removeFails $ flattenExpr simpl
