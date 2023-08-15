@@ -50,7 +50,7 @@ type family ExprType a where
   ExprType 'AByteStr  = EVM.Buf
   ExprType 'AContract = EVM.EWord -- address?
 
-type Layout = M.Map Id (M.Map Id (EVM.Addr, Integer))
+type Layout = M.Map Id (M.Map Id (EVM.Expr EVM.EAddr, Integer))
 
 -- TODO move this to HEVM
 type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
@@ -119,7 +119,7 @@ translateActConstr (Act _ _) _ = error "TODO multiple contracts"
 translateConstructor :: Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode =
   (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds (EVM.ConcreteStore mempty))],
-   calldata)
+  calldata)
   where calldata = makeCtrCalldata iface
 
 translateBehvs :: Layout -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
@@ -155,8 +155,8 @@ updatesToExpr layout cid upds initstore = foldl (flip $ updateToExpr layout cid)
 updateToExpr :: Layout -> Id -> StorageUpdate -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
 updateToExpr layout cid (Update typ i@(Item _ _ ref) e) state =
   case typ of
-    SInteger -> EVM.SStore (EVM.Lit $ fromIntegral addr) offset e' state
-    SBoolean -> EVM.SStore (EVM.Lit $ fromIntegral addr) offset e' state
+    SInteger -> EVM.SStore offset e' state
+    SBoolean -> EVM.SStore offset e' state
     SByteStr -> error "Bytestrings not supported"
     SContract -> error "Contracts not supported"
   where
@@ -213,7 +213,7 @@ refOffset layout (SMapping _ ref ixs) =
 refOffset _ _ = error "TODO"
 
 ethEnvToWord :: EthEnv -> EVM.Expr EVM.EWord
-ethEnvToWord Callvalue = TxValue 0
+ethEnvToWord Callvalue = EVM.TxValue
 ethEnvToWord Caller = error "TODO" -- EVM.Caller 0
 ethEnvToWord Origin = EVM.Origin
 ethEnvToWord Blocknumber = EVM.BlockNumber
