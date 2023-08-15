@@ -55,6 +55,8 @@ type Layout = M.Map Id (M.Map Id (EVM.Expr EVM.EAddr, Integer))
 -- TODO move this to HEVM
 type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
 
+type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract)
+
 type EquivResult = ProofResult () (T.Text, SMTCex) ()
 
 ethrunAddress :: EVM.Addr
@@ -118,9 +120,16 @@ translateActConstr (Act _ _) _ = error "TODO multiple contracts"
 
 translateConstructor :: Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode =
-  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds (EVM.ConcreteStore mempty))],
+  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds initmap)],
   calldata)
-  where calldata = makeCtrCalldata iface
+  where
+    calldata = makeCtrCalldata iface
+    initcontract = C { code  = RuntimeCode (ConcreteRuntimeCode bytecode)
+                     , storage = EVM.ConcreteStore mempty
+                     , balance = Lit 0 -- TODO
+                     , nonce = Nothing -- TODO
+                     } 
+    initmap = M.fromList [(LitAddr ethrunAddress, initcontract)]
 
 translateBehvs :: Layout -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateBehvs layout behvs =
@@ -149,20 +158,24 @@ rewriteToExpr :: Layout -> Id -> Rewrite -> EVM.Expr EVM.Storage -> EVM.Expr EVM
 rewriteToExpr _ _ (Constant _) state = state
 rewriteToExpr layout cid (Rewrite upd) state = updateToExpr layout cid upd state
 
-updatesToExpr :: Layout -> Id -> [StorageUpdate] -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
-updatesToExpr layout cid upds initstore = foldl (flip $ updateToExpr layout cid) initstore upds
+updatesToExpr :: Layout -> Id -> [StorageUpdate] -> ContractMap -> ContractMap
+updatesToExpr layout cid upds initmap = foldl (flip $ updateToExpr layout cid) initstore upds
 
-updateToExpr :: Layout -> Id -> StorageUpdate -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
+updateToExpr :: Layout -> Id -> StorageUpdate -> ContractMap -> ContractMap
 updateToExpr layout cid (Update typ i@(Item _ _ ref) e) state =
   case typ of
-    SInteger -> EVM.SStore offset e' state
-    SBoolean -> EVM.SStore offset e' state
+    SInteger -> map'
+    SBoolean -> map'
     SByteStr -> error "Bytestrings not supported"
     SContract -> error "Contracts not supported"
   where
     (addr, slot) = getSlot layout cid (idFromItem i)
     offset = offsetFromRef layout slot ref
     e' = toExpr layout e
+    addr' = EVM.Lit $ fromIntegral addr
+    map' = case M.lookup addr' map of
+      Just (C contract) -> M.insert addr' (contract { storage = EVM.SStore offset e' (storage contract) })
+      Nothing -> error "Internal error contract not found"      
 
 returnsToExpr :: Layout -> Maybe TypedExp -> EVM.Expr EVM.Buf
 returnsToExpr _ Nothing = EVM.ConcreteBuf ""
