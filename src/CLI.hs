@@ -47,6 +47,8 @@ import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
 
+
+
 --command line options
 data Command w
   = Lex             { file       :: w ::: String               <?> "Path to file"}
@@ -197,7 +199,7 @@ hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   let opts = if debug' then debugVeriOpts else defaultVeriOpts
 
   Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-    -- Constructor check
+    -- -- -- Constructor check
     checkConstructors solvers opts initcode'' bytecode act
     -- Behavours check
     checkBehaviours solvers opts bytecode act

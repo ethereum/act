@@ -63,10 +63,12 @@ type EquivResult = ProofResult () (T.Text, SMTCex) ()
 ethrunAddress :: EVM.Addr
 ethrunAddress = EVM.Addr 0x00a329c0648769a73afac7f9381e08fb43dbea72
 
+initAddr :: EVM.Expr EVM.EAddr
+initAddr = EVM.SymAddr "entrypoint"
+
 slotMap :: Store -> Layout
 slotMap store =
-  let addr = createAddress ethrunAddress 1 in -- for now all contracts have the same address
-  M.map (M.map (\(_, slot) -> (addr, slot))) store
+  M.map (M.map (\(_, slot) -> (initAddr, slot))) store
 
 -- Create a calldata that matches the interface of a certain behaviour
 -- or constructor. Use an abstract txdata buffer as the base.
@@ -126,11 +128,11 @@ translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
-                         , EVM.storage = EVM.ConcreteStore mempty
-                         , EVM.balance = EVM.Lit 0 -- TODO
-                         , EVM.nonce = Nothing -- TODO
+                         , EVM.storage = EVM.AbstractStore (EVM.SymAddr "entrypoint") -- XXX why abstract store?
+                         , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
+                         , EVM.nonce = Just 1 -- TODO
                          }
-    initmap = M.fromList [(EVM.LitAddr ethrunAddress, initcontract)]
+    initmap = M.fromList [(initAddr, initcontract)]
 
 translateBehvs :: Layout -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateBehvs layout behvs =
@@ -156,11 +158,11 @@ rewritesToExpr :: Layout -> Id -> [Rewrite] -> ContractMap
 rewritesToExpr layout cid rewrites = foldl (flip $ rewriteToExpr layout cid) initmap rewrites
   where
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode "")
-                         , EVM.storage = EVM.AbstractStore (createAddress ethrunAddress 1)
-                         , EVM.balance = EVM.Lit 0 -- TODO
-                         , EVM.nonce = Nothing -- TODO
+                         , EVM.storage = EVM.AbstractStore initAddr
+                         , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
+                         , EVM.nonce = Just 0
                          }
-    initmap = M.fromList [(EVM.LitAddr ethrunAddress, initcontract)]
+    initmap = M.fromList [(initAddr, initcontract)]
 
 rewriteToExpr :: Layout -> Id -> Rewrite -> ContractMap -> ContractMap
 rewriteToExpr _ _ (Constant _) cmap = cmap
