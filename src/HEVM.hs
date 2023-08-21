@@ -36,7 +36,6 @@ import Syntax.Untyped (makeIface)
 import Syntax
 
 import qualified EVM.Types as EVM hiding (Contract(..))
-import EVM.Concrete (createAddress)
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial)
 import qualified EVM.SymExec as SymExec (EquivResult)
@@ -175,8 +174,8 @@ updatesToExpr layout cid upds initmap = foldl (flip $ updateToExpr layout cid) i
 updateToExpr :: Layout -> Id -> StorageUpdate -> ContractMap -> ContractMap
 updateToExpr layout cid (Update typ i@(Item _ _ ref) e) cmap =
   case typ of
-    SInteger -> M.insert addr (contract { EVM.storage = EVM.SStore offset e' contract.storage }) cmap
-    SBoolean -> M.insert addr (contract { EVM.storage = EVM.SStore offset e' contract.storage }) cmap
+    SInteger -> M.insert addr (updateStorage (EVM.SStore offset e') contract) cmap
+    SBoolean -> M.insert addr (updateStorage (EVM.SStore offset e') contract) cmap
     SByteStr -> error "Bytestrings not supported"
     SContract -> error "Contracts not supported"
   where
@@ -185,7 +184,11 @@ updateToExpr layout cid (Update typ i@(Item _ _ ref) e) cmap =
     e' = toExpr layout e
     contract = case  M.lookup addr cmap of -- TODO fromMaybe
       Just c' -> c'
-      Nothing -> error "Internal error contract not found"
+      Nothing -> error "Internal error: contract not found"
+
+    updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
+    updateStorage upd c'@(EVM.C _ _ _ _) = c' { EVM.storage = upd c'.storage }
+    updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable:r"
 
 returnsToExpr :: Layout -> Maybe TypedExp -> EVM.Expr EVM.Buf
 returnsToExpr _ Nothing = EVM.ConcreteBuf ""
@@ -410,6 +413,7 @@ checkBehaviours solvers opts bytecode act = do
   let actbehvs = translateActBehvs act bytecode
   flip mapM_ actbehvs $ \(name,behvs,calldata) -> do
     solbehvs <- removeFails <$> getBranches solvers bytecode calldata
+    putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     checkResult =<< checkEquiv solvers opts solbehvs behvs
