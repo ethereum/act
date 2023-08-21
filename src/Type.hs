@@ -159,7 +159,7 @@ data Env = Env
   { contract     :: Id               -- ^ The name of the current contract.
   , store        :: Map Id SlotType  -- ^ This contract's storage entry names and their types.
   , theirs       :: Store            -- ^ Mapping from contract names to a map of their entry names and their types.
-  , calldata     :: Map Id ActType   -- ^ The calldata var names and their types.
+  , calldata     :: Map Id AbiType   -- ^ The calldata var names and their types.
   , constructors :: Map Id [AbiType] -- ^ Interfaces of contract contructors (we only allow constructor calls ATM)
   }
 
@@ -195,7 +195,7 @@ mkEnv contract store constructors = Env
 addCalldata :: Env -> [Decl] -> Env
 addCalldata env decls = env{ calldata = abiVars }
   where
-   abiVars = Map.fromList $ map (\(Decl typ var) -> (var, fromAbiType typ)) decls
+   abiVars = Map.fromList $ map (\(Decl typ var) -> (var, typ)) decls
 
 
 
@@ -389,7 +389,7 @@ checkIffs env = foldr check (pure [])
 
 genInRange :: AbiType -> Exp AInteger t -> [Exp ABoolean t]
 genInRange t e@(LitInt _ _) = [InRange nowhere t e]
-genInRange t e@(Var _ _ _)  = [InRange nowhere t e]
+genInRange t e@(Var _ _ _ _)  = [InRange nowhere t e]
 genInRange t e@(TEntry _ _ _)  = [InRange nowhere t e]
 genInRange t e@(Add _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
 genInRange t e@(Sub _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
@@ -501,7 +501,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
     checkCalldataEntry Env{store,calldata} (U.EVar p name) = case (Map.lookup name store, Map.lookup name calldata) of
       (Nothing, Nothing) -> throw (p, "Unknown variable " <> name)
       (Just _, Just _)   -> throw (p, "Ambiguous variable " <> name)
-      (Nothing, Just (FromAct varType)) -> Var p typ name <$ checkEq p typ varType
+      (Nothing, Just at@(FromAbi varType)) -> Var p typ at name <$ checkEq p typ varType
       (Just _, Nothing) -> error "Internal error: variable must be in calldata"
     checkCalldataEntry _ _ =  error "Internal error: variable cannot be mapping or contract field"
 
@@ -509,7 +509,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
 -- | Find the contract id of an expression with contract type
 contractId :: Exp AContract t -> Id
 contractId (ITE _ _ a _) = contractId a
-contractId (Var _ _ _) = error "Internal error: calldata variables cannot have contract types"
+contractId (Var _ _ _ _) = error "Internal error: calldata variables cannot have contract types"
 contractId (Create _ c _) = c
 contractId (TEntry _ _ (Item _ (ContractType c) _)) = c
 contractId (TEntry _ _ (Item _ _ _)) = error "Internal error: entry does not have contract type"

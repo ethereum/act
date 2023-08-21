@@ -229,7 +229,7 @@ data Exp (a :: ActType) (t :: Timing) where
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   ITE :: Pn -> Exp ABoolean t -> Exp a t -> Exp a t -> Exp a t
-  Var :: Pn -> SType a -> Id -> Exp a t
+  Var :: Pn -> SType a -> AbiType -> Id -> Exp a t
   TEntry :: Pn -> Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
 
@@ -271,7 +271,7 @@ instance Eq (Exp a t) where
 
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
   TEntry _ a t == TEntry _ b u = a == b && t == u
-  Var _ _ a == Var _ _ b = a == b
+  Var _ _ _ a == Var _ _ _ b = a == b
 
   Create _ a b == Create _ c d = a == c && b == d
 
@@ -331,7 +331,7 @@ instance Timable (Exp a) where
     NEq p s x y -> NEq p s (go x) (go y)
     ITE p x y z -> ITE p (go x) (go y) (go z)
     TEntry p _ item -> TEntry p time (go item)
-    Var p t x -> Var p t x
+    Var p t a x -> Var p t a x
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
@@ -486,7 +486,7 @@ instance ToJSON (Exp a t) where
   toJSON (ByEnv _ a) = String . pack $ show a
 
   toJSON (TEntry _ t a) = object [ fromString (show t) .= toJSON a ]
-  toJSON (Var _ _ a) = toJSON a
+  toJSON (Var _ _ _ a) = toJSON a
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                     , "arity"  .= Data.Aeson.Types.Number 2
                                     , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
@@ -559,5 +559,5 @@ uintmin _ = 0
 uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
-_Var :: SingI a => Id -> Exp a t
-_Var = Var nowhere sing
+_Var :: SingI a => AbiType -> Id -> Exp a t
+_Var atyp = Var nowhere sing atyp

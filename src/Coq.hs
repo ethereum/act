@@ -281,7 +281,7 @@ coqexp :: Exp a -> T.Text
 -- booleans
 coqexp (LitBool _ True)  = "true"
 coqexp (LitBool _ False) = "false"
-coqexp (Var _ SBoolean name)  = T.pack name
+coqexp (Var _ SBoolean _ name)  = T.pack name
 coqexp (And _ e1 e2)  = parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
 coqexp (Or _ e1 e2)   = parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
 coqexp (Impl _ e1 e2) = parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
@@ -295,7 +295,7 @@ coqexp (GEQ _ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
 
 -- integers
 coqexp (LitInt _ i) = T.pack $ show i
-coqexp (Var _ SInteger name)  = T.pack name
+coqexp (Var _ SInteger _ name) = T.pack name
 coqexp (Add _ e1 e2) = parens $ coqexp e1 <> " + " <> coqexp e2
 coqexp (Sub _ e1 e2) = parens $ coqexp e1 <> " - " <> coqexp e2
 coqexp (Mul _ e1 e2) = parens $ coqexp e1 <> " * " <> coqexp e2
@@ -323,12 +323,12 @@ coqexp (ITE _ b e1 e2) = parens $ "if "
 -- as the corresponding Haskell constructor
 coqexp (IntEnv _ envVal) = parens $ T.pack (show envVal) <> " " <> envVar
 -- Contracts
-coqexp (Var _ SContract name) = T.pack name
+coqexp (Var _ SContract _ name) = T.pack name
 coqexp (Create _ cid args) = parens $ T.pack cid <> "." <> T.pack cid <> " " <> envVar <> " " <> coqargs args
 -- unsupported
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
-coqexp (Var _ SByteStr _) = error "bytestrings not supported"
+coqexp (Var _ SByteStr _ _) = error "bytestrings not supported"
 coqexp ByStr {} = error "bytestrings not supported"
 coqexp ByLit {} = error "bytestrings not supported"
 coqexp ByEnv {} = error "bytestrings not supported"
