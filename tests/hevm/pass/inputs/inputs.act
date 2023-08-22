@@ -1,0 +1,12 @@
+behaviour test of Inputs
+interface test(uint128 x)
+
+iff
+
+  CALLVALUE == 0
+  x > 0
+
+iff in range uint128
+    (x+1)
+
+returns (x+1)

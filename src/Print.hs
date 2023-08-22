@@ -5,6 +5,8 @@ module Print where
 
 import Prelude hiding (GT, LT)
 import Data.ByteString.UTF8 (toString)
+import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), brackets)
+import System.IO (stdout)
 
 import Data.List
 
@@ -26,7 +28,7 @@ prettyBehaviour (Behaviour name contract interface preconditions cases postcondi
     prettyPre p = header "iff" >-< block (prettyExp <$> p)
 
     prettyCases [] = ""
-    prettyCases p = header "case" >-< block (prettyExp <$> p)
+    prettyCases p = header "case" >-< block (prettyExp <$> p) <> ":"
 
     prettyStorage [] = ""
     prettyStorage s = header "storage" >-< block (prettyState <$> s)
@@ -84,7 +86,7 @@ prettyExp e = case e of
 
   -- contracts
   Create _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
-  
+
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
   TEntry _ t a -> timeParens t $ prettyItem a
@@ -138,7 +140,7 @@ prettyInvPred = prettyExp . untime . fst
     untimeStorageRef (SVar p c a) = SVar p c a
     untimeStorageRef (SMapping p e xs) = SMapping p (untimeStorageRef e) (fmap untimeTyped xs)
     untimeStorageRef (SField p e c x) = SField p (untimeStorageRef e) c x
-    
+
     untime :: Exp a t -> Exp a Untimed
     untime e = case e of
       And p a b   -> And p (untime a) (untime b)
@@ -174,4 +176,8 @@ prettyInvPred = prettyExp . untime . fst
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
       TEntry p _ (Item t vt a) -> TEntry p Neither (Item t vt (untimeStorageRef a))
       Var p t a -> Var p t a
-             
+
+
+-- | prints a Doc, with wider output than the built in `putDoc`
+render :: Doc -> IO ()
+render doc = displayIO stdout (renderPretty 0.9 120 doc)
