@@ -12,7 +12,7 @@ creates
    A a := create A()
 
 behaviour remote of B
-interface set_remote(uint z)
+interface remote(uint z)
 
 iff
    CALLVALUE == 0
@@ -21,7 +21,7 @@ storage
    a.x => z
 
 behaviour multi of B
-interface set_remote2(uint z)
+interface multi(uint z)
 
 iff
    CALLVALUE == 0

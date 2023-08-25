@@ -198,9 +198,9 @@ hevm actspec cid sol' code' initcode' solver' timeout debug' = do
 
   Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
     -- Constructor check
-    checkConstructors solvers opts initcode'' bytecode act
+    checkConstructors solvers opts initcode'' bytecode act (unpack cid)
     -- Behavours check
-    checkBehaviours solvers opts bytecode act
+    checkBehaviours solvers opts bytecode act (unpack cid)
     -- ABI exhaustiveness sheck
     checkAbi solvers opts act bytecode
 

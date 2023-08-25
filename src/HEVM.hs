@@ -112,14 +112,21 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
 
 -- * Act translation
 
-translateActBehvs :: Act -> BS.ByteString -> [(Id, [EVM.Expr EVM.End], Calldata)]
-translateActBehvs (Act store contracts) bytecode =
+translateActBehvs :: Act -> BS.ByteString -> Id -> [(Id, [EVM.Expr EVM.End], Calldata)]
+translateActBehvs (Act store contracts) bytecode cid =
   let slots = slotMap store in
   concatMap (\(Contract _ behvs) -> translateBehvs slots bytecode behvs) contracts
 
-translateActConstr :: Act -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
-translateActConstr (Act store [Contract ctor _]) bytecode = translateConstructor (slotMap store) ctor bytecode
-translateActConstr (Act _ _) _ = error "TODO multiple contracts"
+  where
+    contracts' = filter (\(Contract constructor _) -> _cname constructor == cid) contracts
+
+translateActConstr :: Act -> BS.ByteString -> Id -> (Id, [EVM.Expr EVM.End], Calldata)
+translateActConstr (Act store contracts) bytecode cid = translateConstructor (slotMap store) ctor bytecode
+  where
+    ctor = case find (\(Contract constructor _) -> _cname constructor == cid) contracts of
+             Just (Contract ctor _)  -> ctor
+             Nothing -> error $ "Contract " <> cid <> " not found in Act spec"
+
 
 translateConstructor :: Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode =
@@ -393,9 +400,9 @@ checkEquiv solvers opts l1 l2 =
     toEquivRes (Timeout b) = Timeout b
 
 
-checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Act -> IO ()
-checkConstructors solvers opts initcode runtimecode act = do
-  let (_, actbehvs, calldata) = translateActConstr act runtimecode
+checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Act -> Id -> IO ()
+checkConstructors solvers opts initcode runtimecode act ctor = do
+  let (_, actbehvs, calldata) = translateActConstr act runtimecode ctor
   initVM <- stToIO $ abstractVM calldata initcode Nothing True
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
@@ -408,9 +415,9 @@ checkConstructors solvers opts initcode runtimecode act = do
     removeFails branches = filter isSuccess $ branches
 
 
-checkBehaviours :: SolverGroup -> VeriOpts -> ByteString -> Act -> IO ()
-checkBehaviours solvers opts bytecode act = do
-  let actbehvs = translateActBehvs act bytecode
+checkBehaviours :: SolverGroup -> VeriOpts -> ByteString -> Act -> Id -> IO ()
+checkBehaviours solvers opts bytecode act ctor = do
+  let actbehvs = translateActBehvs act bytecode ctor
   flip mapM_ actbehvs $ \(name,behvs,calldata) -> do
     solbehvs <- removeFails <$> getBranches solvers bytecode calldata
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
