@@ -193,18 +193,17 @@ coq' f = do
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec _ sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
-  let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
-  cmap <- createContractMap act
+  let (Act store contracts) = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
+  cmap <- createContractMap contracts
 
   let opts = if debug' then debugVeriOpts else defaultVeriOpts
 
   Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
-    checkContracts solvers opts cmap
+    checkContracts solvers opts store cmap
   where
 
-    createContractMap :: Act -> IO (Map Id (Contract, BS.ByteString, BS.ByteString))
-    createContractMap act = do
-      let (Act _ contracts) = act
+    createContractMap :: [Contract] -> IO (Map Id (Contract, BS.ByteString, BS.ByteString))
+    createContractMap contracts = do
       foldM (\cmap spec'@(Contract cnstr _) -> do
                 let cid =  _cname cnstr
                 (initcode'', runtimecode') <- getBytecode cid -- TODO do not reread the file each time
