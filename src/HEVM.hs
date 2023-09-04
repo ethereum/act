@@ -44,6 +44,7 @@ import EVM.Solvers
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
 
+import Debug.Trace
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -115,8 +116,7 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
 translateActBehvs :: Act -> BS.ByteString -> Id -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateActBehvs (Act store contracts) bytecode cid =
   let slots = slotMap store in
-  concatMap (\(Contract _ behvs) -> translateBehvs slots bytecode behvs) contracts
-
+  concatMap (\(Contract _ behvs) -> translateBehvs slots bytecode behvs) contracts'
   where
     contracts' = filter (\(Contract constructor _) -> _cname constructor == cid) contracts
 
@@ -124,7 +124,7 @@ translateActConstr :: Act -> BS.ByteString -> Id -> (Id, [EVM.Expr EVM.End], Cal
 translateActConstr (Act store contracts) bytecode cid = translateConstructor (slotMap store) ctor bytecode
   where
     ctor = case find (\(Contract constructor _) -> _cname constructor == cid) contracts of
-             Just (Contract ctor _)  -> ctor
+             Just (Contract c _)  -> c
              Nothing -> error $ "Contract " <> cid <> " not found in Act spec"
 
 
@@ -179,12 +179,12 @@ updatesToExpr :: Layout -> Id -> [StorageUpdate] -> ContractMap -> ContractMap
 updatesToExpr layout cid upds initmap = foldl (flip $ updateToExpr layout cid) initmap upds
 
 updateToExpr :: Layout -> Id -> StorageUpdate -> ContractMap -> ContractMap
-updateToExpr layout cid (Update typ i@(Item _ _ ref) e) cmap =
+updateToExpr layout cid upd@(Update typ i@(Item _ _ ref) e) cmap =
   case typ of
     SInteger -> M.insert addr (updateStorage (EVM.SStore offset e') contract) cmap
     SBoolean -> M.insert addr (updateStorage (EVM.SStore offset e') contract) cmap
     SByteStr -> error "Bytestrings not supported"
-    SContract -> error "Contracts not supported"
+    SContract -> error $ "Contracts not supported. Expression: " <> show upd
   where
     (addr, slot) = getSlot layout cid (idFromItem i)
     offset = offsetFromRef layout slot ref
@@ -406,7 +406,9 @@ checkConstructors solvers opts initcode runtimecode act ctor = do
   initVM <- stToIO $ abstractVM calldata initcode Nothing True
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
+  traceM (T.unpack $ Format.formatExpr simpl)
   let solbehvs = removeFails $ flattenExpr simpl
+  mapM_ (traceM . T.unpack . Format.formatExpr) actbehvs
   putStrLn "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult =<< checkEquiv solvers opts solbehvs actbehvs
   putStrLn "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
@@ -464,8 +466,8 @@ checkInputSpaces solvers opts l1 l2 = do
 
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
-checkAbi :: SolverGroup -> VeriOpts -> Act -> BS.ByteString -> IO ()
-checkAbi solver opts act bytecode = do
+checkAbi :: SolverGroup -> VeriOpts -> Act -> BS.ByteString -> Id -> IO ()
+checkAbi solver opts act bytecode cid = do
   putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs act)
@@ -481,9 +483,10 @@ checkAbi solver opts act bytecode = do
 
   where
     actSig (Behaviour _ _ iface _ _ _ _ _) = T.pack $ makeIface iface
-    actSigs (Act _ [(Contract _ behvs)]) = actSig <$> behvs
-    -- TODO multiple contracts
-    actSigs (Act _ _) = error "TODO multiple contracts"
+    actSigs (Act _ contracts) =
+      case find (\(Contract constructor _) -> _cname constructor == cid) contracts of
+        Just (Contract _ behvs)  -> actSig <$> behvs
+        Nothing -> error $ "Internal error: Contract " <> cid <> " not found in Act spec"
 
     checkBehv :: [EVM.Prop] -> EVM.Expr EVM.End -> [EVM.Prop]
     checkBehv assertions (EVM.Success cnstr _ _ _) = assertions <> cnstr
@@ -493,6 +496,18 @@ checkAbi solver opts act bytecode = do
     checkBehv _ (EVM.GVar _) = error "Internal error: unepected GVar"
 
     msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
+
+checkContracts :: SolverGroup -> VeriOpts -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> IO ()
+checkContracts solvers opts cmap = error "TODO"
+
+    -- -- Constructor check
+    -- checkConstructors solvers opts initcode bytecode act (unpack cid)
+    -- -- Behavours check
+    -- checkBehaviours solvers opts bytecode act (unpack cid)
+    -- -- ABI exhaustiveness sheck
+    -- checkAbi solvers opts act bytecode (unpack cid)
+
+
 
 -- | decompiles the given EVM bytecode into a list of Expr branches
 getBranches :: SolverGroup -> BS.ByteString -> Calldata -> IO [EVM.Expr EVM.End]

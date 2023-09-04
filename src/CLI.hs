@@ -19,6 +19,7 @@ import System.IO (hPutStrLn, stderr, stdout)
 import Data.Text (unpack)
 import Data.List
 import qualified Data.Map as Map
+import Data.Map (Map)
 import Data.Maybe
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
@@ -190,28 +191,33 @@ coq' f = do
 
 
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
-hevm actspec cid sol' code' initcode' solver' timeout debug' = do
+hevm actspec _ sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
-  (initcode'', bytecode) <- getBytecode
   let act = validation (\_ -> error "Too bad") id (enrich <$> compile specContents)
+  cmap <- createContractMap act
+
   let opts = if debug' then debugVeriOpts else defaultVeriOpts
 
-  Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-    -- Constructor check
-    checkConstructors solvers opts initcode'' bytecode act (unpack cid)
-    -- Behavours check
-    checkBehaviours solvers opts bytecode act (unpack cid)
-    -- ABI exhaustiveness sheck
-    checkAbi solvers opts act bytecode
-
+  Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
+    checkContracts solvers opts cmap
   where
-    getBytecode :: IO (BS.ByteString, BS.ByteString)
-    getBytecode =
+
+    createContractMap :: Act -> IO (Map Id (Contract, BS.ByteString, BS.ByteString))
+    createContractMap act = do
+      let (Act _ contracts) = act
+      foldM (\cmap spec'@(Contract cnstr _) -> do
+                let cid =  _cname cnstr
+                (initcode'', runtimecode') <- getBytecode cid -- TODO do not reread the file each time
+                pure $ Map.insert cid (spec', initcode'', runtimecode') cmap
+            ) mempty contracts
+
+    getBytecode :: Id -> IO (BS.ByteString, BS.ByteString)
+    getBytecode cid =
       case (sol', code', initcode') of
         (Just f, Nothing, Nothing) -> do
           solContents  <- TIO.readFile f
-          bytecodes cid solContents
-        (Nothing, Just c, Just i) -> pure (i, c)
+          bytecodes (Text.pack cid) solContents
+        (Nothing, Just _, Just _) -> render (text "Only Solidity file supported") >> exitFailure -- pure (i, c)
         (Nothing, Nothing, _) -> render (text "No runtime code is given") >> exitFailure
         (Nothing, _, Nothing) -> render (text "No initial code is given") >> exitFailure
         (Just _, Just _, _) -> render (text "Both Solidity file and runtime code are given. Please specify only one.") >> exitFailure
