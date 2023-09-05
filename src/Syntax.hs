@@ -342,6 +342,9 @@ nameFromEntry (EVar _ x) = x
 nameFromEntry (EMapping _ e _) = nameFromEntry e
 nameFromEntry (EField _ e _) = nameFromEntry e
 
+nameFromBehv :: Annotated.Behaviour -> Id
+nameFromBehv (Behaviour _ _ (Interface ifaceName _) _ _ _ _ _) = ifaceName
+
 getPosEntry :: Entry -> Pn
 getPosEntry (EVar pn _) = pn
 getPosEntry (EMapping pn _ _) = pn

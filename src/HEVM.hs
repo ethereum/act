@@ -128,7 +128,7 @@ translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
-                         , EVM.storage = EVM.AbstractStore (EVM.SymAddr "entrypoint") -- XXX why abstract store?
+                         , EVM.storage = EVM.ConcreteStore mempty
                          , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
                          , EVM.nonce = Just 1 -- TODO
                          }

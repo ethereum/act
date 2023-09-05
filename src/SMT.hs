@@ -11,6 +11,11 @@ module SMT (
   SMTConfig(..),
   Query(..),
   SMTResult(..),
+  SMTExp(..),
+  SolverInstance(..),
+  Model(..),
+  Transition(..),
+  SMT2,
   spawnSolver,
   stopSolver,
   sendLines,
@@ -25,7 +30,16 @@ module SMT (
   ifExists,
   getBehvName,
   identifier,
-  getSMT
+  getSMT,
+  checkSat,
+  getPostconditionModel,
+  mkAssert,
+  declareStorage,
+  declareArg,
+  declareEthEnv,
+  getStorageValue,
+  getCalldataValue,
+  getEnvironmentValue,
 ) where
 
 import Prelude hiding (GT, LT)
@@ -194,7 +208,7 @@ mkPostconditionQueriesConstr :: Constructor -> [Query]
 mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName decls) preconds postconds _ initialStorage stateUpdates) = mkQuery <$> postconds
   where
     -- declare vars
-    localStorage = declareInitialStorage <$> initialStorage
+    localStorage = concatMap declareInitialStorage initialStorage
     externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
@@ -242,7 +256,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) preconds _ _ initialStorage stateUpdates) = (ctor, smt)
       where
         -- declare vars
-        localStorage = declareInitialStorage <$> initialStorage
+        localStorage = concatMap declareInitialStorage initialStorage
         externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
         args = declareArg ifaceName <$> decls
         envs = declareEthEnv <$> ethEnvFromConstructor ctor
@@ -521,14 +535,22 @@ encodeInitialStorage behvName (Update _ item expr) =
     expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
+
+-- | declares a storage location with the given timing
+declareStorage :: [When] -> StorageLocation -> [SMT2]
+declareStorage times (Loc _ item@(Item _ _ ref)) = declareRef ref
+  where
+    declareRef (SVar _ _ _) = (\t -> constant (nameFromItem t item) (itemType item) ) <$> times
+    declareRef (SMapping _ _ ixs) = (\t -> array (nameFromItem t item) ixs (itemType item)) <$> times
+    declareRef (SField _ ref' _ _) = declareRef ref'
+
+
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
-declareInitialStorage :: StorageUpdate -> SMT2
-declareInitialStorage (locFromUpdate -> Loc _ item) = case ixsFromItem item of
-  []       -> constant (nameFromItem Post item)             (itemType item)
-  (ix:ixs) -> array    (nameFromItem Post item) (ix :| ixs) (itemType item)
+declareInitialStorage :: StorageUpdate -> [SMT2]
+declareInitialStorage upd = declareStorage [Post] (locFromUpdate upd)
 
--- | encodes a storge update rewrite as an smt assertion
+-- | encodes a storage update rewrite as an smt assertion
 encodeUpdate :: Id -> Rewrite -> SMT2
 encodeUpdate _        (Constant loc)   = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
 encodeUpdate behvName (Rewrite update) = encodeInitialStorage behvName update
@@ -536,11 +558,7 @@ encodeUpdate behvName (Rewrite update) = encodeInitialStorage behvName update
 -- | declares a storage location that exists both in the pre state and the post
 --   state (i.e. anything except a loc created by a constructor claim)
 declareStorageLocation :: StorageLocation -> [SMT2]
-declareStorageLocation (Loc _ item) = case ixsFromItem item of
-  []       -> [ constant (nameFromItem Pre item) (itemType item)
-              , constant (nameFromItem Post item) (itemType item) ]
-  (ix:ixs) -> [ array (nameFromItem Pre item) (ix :| ixs) (itemType item)
-              , array (nameFromItem Post item) (ix :| ixs) (itemType item) ]
+declareStorageLocation item = declareStorage [Pre, Post] item
 
 -- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
@@ -638,8 +656,8 @@ mkAssert :: Id -> Exp ABoolean -> SMT2
 mkAssert c e = "(assert " <> withInterface c (expToSMT2 e) <> ")"
 
 -- | declare a (potentially nested) array in smt2
-array :: Id -> NonEmpty TypedExp -> ActType -> SMT2
-array name (hd :| tl) ret = "(declare-const " <> name <> " (Array " <> sType' hd <> " " <> valueDecl tl <> "))"
+array :: Id -> [TypedExp] -> ActType -> SMT2
+array name args ret = "(declare-const " <> name <> valueDecl args <> ")"
   where
     valueDecl [] = sType ret
     valueDecl (h : t) = "(Array " <> sType' h <> " " <> valueDecl t <> ")"
@@ -670,7 +688,7 @@ nameFromItem whn (Item _ _ ref) = nameFromStorageRef ref @@ show whn
 nameFromStorageRef :: StorageRef -> Id
 nameFromStorageRef (SVar _ c name) = c @@ name
 nameFromStorageRef (SMapping _ e _) = nameFromStorageRef e
-nameFromStorageRef (SField _ _ _ _) = error "contracts not supported"
+nameFromStorageRef (SField _ ref c x) = nameFromStorageRef ref @@ c @@ x
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id

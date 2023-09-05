@@ -23,3 +23,11 @@ case 10 <= z and z < 100:
     storage
 
         x => if z == 50 then 3 else 2
+
+
+
+case z >= 100:
+
+    storage
+
+        x => if z == 50 then 3 else 2
