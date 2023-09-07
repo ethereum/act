@@ -115,10 +115,9 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
 
 -- * Act translation
 
-translateActBehvs :: Store -> [Behaviour] -> BS.ByteString -> [(Id, [EVM.Expr EVM.End], Calldata)]
-translateActBehvs store behvs bytecode =
-  let slots = slotMap store in
-  translateBehvs slots bytecode behvs
+translateActBehvs :: CodeMap -> Store -> [Behaviour] -> BS.ByteString -> [(Id, [EVM.Expr EVM.End], Calldata)]
+translateActBehvs codemap store behvs bytecode =
+  translateBehvs codemap (slotMap store) bytecode behvs
 
 translateActConstr :: CodeMap -> Store -> Contract -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
 translateActConstr codemap store (Contract ctor _) bytecode = translateConstructor codemap (slotMap store) ctor bytecode
@@ -136,10 +135,10 @@ translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) 
                          }
     initmap = M.fromList [(initAddr, initcontract)]
 
-translateBehvs :: Layout -> BS.ByteString -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
-translateBehvs layout bytecode behvs =
+translateBehvs :: CodeMap -> Layout -> BS.ByteString -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
+translateBehvs codemap layout bytecode behvs =
   let groups = (groupBy sameIface behvs) :: [[Behaviour]] in
-  fmap (\behvs' -> (behvName behvs', fmap (translateBehv layout bytecode) behvs', behvCalldata behvs')) groups
+  fmap (\behvs' -> (behvName behvs', fmap (translateBehv codemap layout bytecode) behvs', behvCalldata behvs')) groups
   where
 
     behvCalldata (Behaviour _ _ iface _ _ _ _ _:_) = makeCalldata iface
@@ -152,12 +151,12 @@ translateBehvs layout bytecode behvs =
     behvName (Behaviour _ _ (Interface name _) _ _ _ _ _:_) = name
     behvName [] = error "Internal error: behaviour groups cannot be empty"
 
-translateBehv :: Layout -> BS.ByteString -> Behaviour -> EVM.Expr EVM.End
-translateBehv layout bytecode (Behaviour _ cid _ preconds caseconds _ upds ret) =
-  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) mempty (returnsToExpr layout ret) (rewritesToExpr layout cid upds bytecode)
+translateBehv :: CodeMap -> Layout -> BS.ByteString -> Behaviour -> EVM.Expr EVM.End
+translateBehv codemap layout bytecode (Behaviour _ cid _ preconds caseconds _ upds ret) =
+  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) mempty (returnsToExpr layout ret) (rewritesToExpr codemap layout cid upds bytecode)
 
-rewritesToExpr :: CodeMap -> Layout -> Id -> EVM.Exp EVM.EAddr -> [Rewrite] -> BS.ByteString -> ContractMap
-rewritesToExpr codemap layout cid caddr rewrites bytecode = foldl (flip $ rewriteToExpr codemap layout cid caddr) initmap rewrites
+rewritesToExpr :: CodeMap -> Layout -> Id -> [Rewrite] -> BS.ByteString -> ContractMap
+rewritesToExpr codemap layout cid rewrites bytecode = foldl (flip $ rewriteToExpr codemap layout cid initAddr) initmap rewrites
   where
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                          , EVM.storage = EVM.AbstractStore initAddr
@@ -166,22 +165,22 @@ rewritesToExpr codemap layout cid caddr rewrites bytecode = foldl (flip $ rewrit
                          }
     initmap = M.fromList [(initAddr, initcontract)]
 
-rewriteToExpr :: CodeMap -> Layout -> Id -> EVM.Exp EVM.EAddr -> Rewrite -> ContractMap -> ContractMap
-rewriteToExpr _ _ _ (Constant _) cmap = cmap
+rewriteToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> Rewrite -> ContractMap -> ContractMap
+rewriteToExpr _ _ _ _ (Constant _) cmap = cmap
 rewriteToExpr codemap layout cid caddr (Rewrite upd) cmap = updateToExpr codemap layout cid caddr upd cmap
 
-updatesToExpr :: CodeMap -> Layout -> Id -> EVM.Exp EVM.EAddr -> [StorageUpdate] -> ContractMap -> ContractMap
+updatesToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> [StorageUpdate] -> ContractMap -> ContractMap
 updatesToExpr codemap layout cid caddr upds initmap = foldl (flip $ updateToExpr codemap layout cid caddr) initmap upds
 
-updateToExpr :: CodeMap -> Layout -> Id -> EVM.Exp EVM.EAddr -> StorageUpdate -> ContractMap -> ContractMap
+updateToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> StorageUpdate -> ContractMap -> ContractMap
 updateToExpr codemap layout cid caddr upd@(Update typ i@(Item _ _ ref) e) cmap =
   case typ of
     SInteger -> M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap
     SBoolean -> M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap 
     SByteStr -> error "Bytestrings not supported"
-    SContract -> createContract codemap cmap e
+    SContract -> createContract codemap layout cmap e
   where
-    slot = getSlot layout cid ref
+    slot = getSlot layout cid (idFromItem i)
     offset = offsetFromRef layout slot ref
 
     e' = toExpr layout e
@@ -193,7 +192,7 @@ updateToExpr codemap layout cid caddr upd@(Update typ i@(Item _ _ ref) e) cmap =
     updateStorage updfun c'@(EVM.C _ _ _ _) = c' { EVM.storage = updfun c'.storage }
     updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable:r"
 
-createContract :: CodeMap -> Layout -> ContractMap -> EVM.Expr EContract -> ContractMap
+createContract :: CodeMap -> Layout -> ContractMap -> Exp AContract -> ContractMap
 createContract codemap layout cmap (Create pn cid args) =
   case M.lookup cid codemap of
     Just (Contract (Constructor cid iface preconds _ _ upds _) _, _, bytecode) ->
@@ -204,11 +203,11 @@ createContract codemap layout cmap (Create pn cid args) =
                            , EVM.nonce = Just 0
                            } in
       let upds' = upds in -- TODO subst args iface upds in
-      updatesToExpr (M.insert freshAddr contract codemap) layout cid freshAddr upds'
+      updatesToExpr codemap layout cid freshAddr upds' (M.insert freshAddr contract cmap)
     Nothing -> error "Internal error: constructor not found"
 
 
-createContract _ _ _ = error "Internal error: constructor call expected"
+createContract _ _ _ _ = error "Internal error: constructor call expected"
   
 
 returnsToExpr :: Layout -> Maybe TypedExp -> EVM.Expr EVM.Buf
@@ -240,7 +239,7 @@ expToBuf layout styp e =
     SByteStr -> toExpr layout e
     SContract -> error "Internal error: expecting primitive type"
 
-getSlot :: Layout -> Id -> Id -> (EVM.Expr EVM.EAddr, Integer)
+getSlot :: Layout -> Id -> Id -> Integer
 getSlot layout cid name =
   case M.lookup cid layout of
     Just m -> case M.lookup name m of
@@ -359,8 +358,8 @@ toExpr layout = \case
     fromCalldataFramgment $ symAbiArg (T.pack x) typ
 
   (TEntry _ _ (Item SInteger _ ref)) ->
-    let (addr, slot) = refOffset layout ref in
-    EVM.SLoad slot (EVM.AbstractStore addr)
+    let slot = refOffset layout ref in
+    EVM.SLoad slot (EVM.AbstractStore initAddr) -- TODO fix address
   e ->  error $ "TODO: " <> show e
 
   where
@@ -412,9 +411,9 @@ checkEquiv solvers opts l1 l2 =
     toEquivRes (Timeout b) = Timeout b
 
 
-checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Store -> Contract -> IO ()
-checkConstructors solvers opts initcode runtimecode store contract = do
-  let (_, actbehvs, calldata) = translateActConstr store contract runtimecode
+checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> IO ()
+checkConstructors solvers opts initcode runtimecode store contract codemap = do
+  let (_, actbehvs, calldata) = translateActConstr codemap store contract runtimecode
   initVM <- stToIO $ abstractVM calldata initcode Nothing True
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
@@ -429,9 +428,9 @@ checkConstructors solvers opts initcode runtimecode store contract = do
     removeFails branches = filter isSuccess $ branches
 
 
-checkBehaviours :: SolverGroup -> VeriOpts -> ByteString -> Store -> Contract -> IO ()
-checkBehaviours solvers opts bytecode store (Contract _ behvs) = do
-  let actbehvs = translateActBehvs store behvs bytecode
+checkBehaviours :: SolverGroup -> VeriOpts -> ByteString -> Store -> Contract -> CodeMap -> IO ()
+checkBehaviours solvers opts bytecode store (Contract _ behvs) codemap = do
+  let actbehvs = translateActBehvs codemap store behvs bytecode
   flip mapM_ actbehvs $ \(name,behvs',calldata) -> do
     solbehvs <- removeFails <$> getBranches solvers bytecode calldata
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
@@ -507,15 +506,15 @@ checkAbi solver opts contract bytecode = do
     msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
 
 checkContracts :: SolverGroup -> VeriOpts -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> IO ()
-checkContracts solvers opts store cmap =
+checkContracts solvers opts store codemap =
   mapM_ (\(_, (contract, initcode, bytecode)) -> do
             -- Constructor check
-            checkConstructors solvers opts initcode bytecode store contract
+            checkConstructors solvers opts initcode bytecode store contract codemap
             -- Behavours check
-            checkBehaviours solvers opts bytecode store contract
+            checkBehaviours solvers opts bytecode store contract codemap
             -- ABI exhaustiveness sheck
             checkAbi solvers opts contract bytecode
-        ) (M.toList cmap)
+        ) (M.toList codemap)
 
 
 
