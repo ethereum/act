@@ -52,12 +52,14 @@ type family ExprType a where
   ExprType 'AByteStr  = EVM.Buf
   ExprType 'AContract = EVM.EWord -- address?
 
-type Layout = M.Map Id (M.Map Id (EVM.Expr EVM.EAddr, Integer))
+type Layout = M.Map Id (M.Map Id Integer)
 
 -- TODO move this to HEVM
 type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
 
 type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract)
+
+type CodeMap = M.Map Id (Contract, BS.ByteString, BS.ByteString)
 
 type EquivResult = ProofResult () (T.Text, SMTCex) ()
 
@@ -69,7 +71,7 @@ initAddr = EVM.SymAddr "entrypoint"
 
 slotMap :: Store -> Layout
 slotMap store =
-  M.map (M.map (\(_, slot) -> (initAddr, slot))) store
+  M.map (M.map (\(_, slot) -> slot)) store
 
 -- Create a calldata that matches the interface of a certain behaviour
 -- or constructor. Use an abstract txdata buffer as the base.
@@ -118,13 +120,13 @@ translateActBehvs store behvs bytecode =
   let slots = slotMap store in
   translateBehvs slots bytecode behvs
 
-translateActConstr :: Store -> Contract -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
-translateActConstr store (Contract ctor _) bytecode = translateConstructor (slotMap store) ctor bytecode
+translateActConstr :: CodeMap -> Store -> Contract -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
+translateActConstr codemap store (Contract ctor _) bytecode = translateConstructor codemap (slotMap store) ctor bytecode
 
-translateConstructor :: Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
-translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode =
-  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds initmap)],
-  calldata)
+translateConstructor :: CodeMap -> Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
+translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) bytecode =
+  ("Test", [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr codemap layout cid initAddr upds initmap)],
+   calldata)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -154,41 +156,60 @@ translateBehv :: Layout -> BS.ByteString -> Behaviour -> EVM.Expr EVM.End
 translateBehv layout bytecode (Behaviour _ cid _ preconds caseconds _ upds ret) =
   EVM.Success (fmap (toProp layout) $ preconds <> caseconds) mempty (returnsToExpr layout ret) (rewritesToExpr layout cid upds bytecode)
 
-rewritesToExpr :: Layout -> Id -> [Rewrite] -> BS.ByteString -> ContractMap
-rewritesToExpr layout cid rewrites bytecode = foldl (flip $ rewriteToExpr layout cid) initmap rewrites
+rewritesToExpr :: CodeMap -> Layout -> Id -> EVM.Exp EVM.EAddr -> [Rewrite] -> BS.ByteString -> ContractMap
+rewritesToExpr codemap layout cid caddr rewrites bytecode = foldl (flip $ rewriteToExpr codemap layout cid caddr) initmap rewrites
   where
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                          , EVM.storage = EVM.AbstractStore initAddr
-                         , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
+                         , EVM.balance = EVM.Balance initAddr
                          , EVM.nonce = Just 0
                          }
     initmap = M.fromList [(initAddr, initcontract)]
 
-rewriteToExpr :: Layout -> Id -> Rewrite -> ContractMap -> ContractMap
-rewriteToExpr _ _ (Constant _) cmap = cmap
-rewriteToExpr layout cid (Rewrite upd) cmap = updateToExpr layout cid upd cmap
+rewriteToExpr :: CodeMap -> Layout -> Id -> EVM.Exp EVM.EAddr -> Rewrite -> ContractMap -> ContractMap
+rewriteToExpr _ _ _ (Constant _) cmap = cmap
+rewriteToExpr codemap layout cid caddr (Rewrite upd) cmap = updateToExpr codemap layout cid caddr upd cmap
 
-updatesToExpr :: Layout -> Id -> [StorageUpdate] -> ContractMap -> ContractMap
-updatesToExpr layout cid upds initmap = foldl (flip $ updateToExpr layout cid) initmap upds
+updatesToExpr :: CodeMap -> Layout -> Id -> EVM.Exp EVM.EAddr -> [StorageUpdate] -> ContractMap -> ContractMap
+updatesToExpr codemap layout cid caddr upds initmap = foldl (flip $ updateToExpr codemap layout cid caddr) initmap upds
 
-updateToExpr :: Layout -> Id -> StorageUpdate -> ContractMap -> ContractMap
-updateToExpr layout cid upd@(Update typ i@(Item _ _ ref) e) cmap =
+updateToExpr :: CodeMap -> Layout -> Id -> EVM.Exp EVM.EAddr -> StorageUpdate -> ContractMap -> ContractMap
+updateToExpr codemap layout cid caddr upd@(Update typ i@(Item _ _ ref) e) cmap =
   case typ of
-    SInteger -> M.insert addr (updateStorage (EVM.SStore offset e') contract) cmap
-    SBoolean -> M.insert addr (updateStorage (EVM.SStore offset e') contract) cmap
+    SInteger -> M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap
+    SBoolean -> M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap 
     SByteStr -> error "Bytestrings not supported"
-    SContract -> error $ "Contracts not supported. Expression: " <> show upd
+    SContract -> createContract codemap cmap e
   where
-    (addr, slot) = getSlot layout cid (idFromItem i)
+    slot = getSlot layout cid ref
     offset = offsetFromRef layout slot ref
+
     e' = toExpr layout e
-    contract = case  M.lookup addr cmap of -- TODO fromMaybe
+    contract = case M.lookup caddr cmap of -- TODO fromMaybe
       Just c' -> c'
       Nothing -> error "Internal error: contract not found"
 
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateStorage updfun c'@(EVM.C _ _ _ _) = c' { EVM.storage = updfun c'.storage }
     updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable:r"
+
+createContract :: CodeMap -> Layout -> ContractMap -> EVM.Expr EContract -> ContractMap
+createContract codemap layout cmap (Create pn cid args) =
+  case M.lookup cid codemap of
+    Just (Contract (Constructor cid iface preconds _ _ upds _) _, _, bytecode) ->
+      let freshAddr = EVM.SymAddr "symaddr1" in -- TODO fresh address
+      let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
+                           , EVM.storage = EVM.AbstractStore freshAddr
+                           , EVM.balance = EVM.Balance freshAddr 
+                           , EVM.nonce = Just 0
+                           } in
+      let upds' = upds in -- TODO subst args iface upds in
+      updatesToExpr (M.insert freshAddr contract codemap) layout cid freshAddr upds'
+    Nothing -> error "Internal error: constructor not found"
+
+
+createContract _ _ _ = error "Internal error: constructor call expected"
+  
 
 returnsToExpr :: Layout -> Maybe TypedExp -> EVM.Expr EVM.Buf
 returnsToExpr _ Nothing = EVM.ConcreteBuf ""
@@ -227,15 +248,13 @@ getSlot layout cid name =
       Nothing -> error $ "Internal error: invalid variable name: " <> show name
     Nothing -> error "Internal error: invalid contract name"
 
-refOffset :: Layout -> StorageRef -> (EVM.Expr EVM.EAddr, EVM.Expr EVM.EWord)
+refOffset :: Layout -> StorageRef -> EVM.Expr EVM.EWord
 refOffset layout (SVar _ cid name) =
-  let (addr, slot) = getSlot layout cid name in
-  (addr, EVM.Lit $ fromIntegral slot)
+  let slot = getSlot layout cid name in
+  EVM.Lit $ fromIntegral slot
 refOffset layout (SMapping _ ref ixs) =
-  let (addr, slot) = refOffset layout ref in
-  (addr,
-   foldl (\slot' i -> EVM.keccak ((typedExpToBuf layout i) <> (wordToBuf slot'))) slot ixs)
-
+  let slot = refOffset layout ref in
+  foldl (\slot' i -> EVM.keccak ((typedExpToBuf layout i) <> (wordToBuf slot'))) slot ixs
 refOffset _ _ = error "TODO"
 
 ethEnvToWord :: EthEnv -> EVM.Expr EVM.EWord
