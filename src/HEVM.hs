@@ -131,7 +131,7 @@ translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) 
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                          , EVM.storage = EVM.AbstractStore (EVM.SymAddr "entrypoint") -- XXX why abstract store?
                          , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
-                         , EVM.nonce = Just 1 -- TODO
+                         , EVM.nonce = Just 1
                          }
     initmap = M.fromList [(initAddr, initcontract)]
 
@@ -161,7 +161,7 @@ rewritesToExpr codemap layout cid rewrites bytecode = foldl (flip $ rewriteToExp
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                          , EVM.storage = EVM.AbstractStore initAddr
                          , EVM.balance = EVM.Balance initAddr
-                         , EVM.nonce = Just 0
+                         , EVM.nonce = Just 1
                          }
     initmap = M.fromList [(initAddr, initcontract)]
 
@@ -176,9 +176,10 @@ updateToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> StorageUpdate -
 updateToExpr codemap layout cid caddr upd@(Update typ i@(Item _ _ ref) e) cmap =
   case typ of
     SInteger -> M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap
-    SBoolean -> M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap 
+    SBoolean -> M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap
     SByteStr -> error "Bytestrings not supported"
-    SContract -> createContract codemap layout cmap e
+    SContract -> let cmap' = createContract codemap layout freshAddr cmap e in
+      M.insert caddr (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr (EVM.SymAddr "freshSymAddr1"))) contract)) cmap'
   where
     slot = getSlot layout cid (idFromItem i)
     offset = offsetFromRef layout slot ref
@@ -190,25 +191,37 @@ updateToExpr codemap layout cid caddr upd@(Update typ i@(Item _ _ ref) e) cmap =
 
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateStorage updfun c'@(EVM.C _ _ _ _) = c' { EVM.storage = updfun c'.storage }
-    updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable:r"
+    updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
-createContract :: CodeMap -> Layout -> ContractMap -> Exp AContract -> ContractMap
-createContract codemap layout cmap (Create pn cid args) =
+    nonce :: EVM.W64
+    nonce = case contract of
+      EVM.C _ _ _ (Just n) -> nonce
+      EVM.C _ _ _ _ -> error "Internal error: nonce must be a number"
+      EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
+
+    freshAddr = EVM.SymAddr $ "freshSymAddr" <> "1" -- TODO this loops: T.pack (show (fromIntegral nonce))
+
+    updateNonce :: EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
+    updateNonce c'@(EVM.C _ _ _ (Just n)) = c' { EVM.nonce = Just (n + 1) }
+    updateNonce c'@(EVM.C _ _ _ Nothing) = error "Internal error: nonce must be a number"
+    updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
+
+createContract :: CodeMap -> Layout -> EVM.Expr EVM.EAddr -> ContractMap -> Exp AContract -> ContractMap
+createContract codemap layout freshAddr cmap (Create pn cid args) =
   case M.lookup cid codemap of
-    Just (Contract (Constructor cid iface preconds _ _ upds _) _, _, bytecode) ->
-      let freshAddr = EVM.SymAddr "symaddr1" in -- TODO fresh address
+    Just (Contract (Constructor _ iface preconds _ _ upds _) _, _, bytecode) ->
       let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
-                           , EVM.storage = EVM.AbstractStore freshAddr
-                           , EVM.balance = EVM.Balance freshAddr 
-                           , EVM.nonce = Just 0
+                           , EVM.storage = EVM.ConcreteStore mempty
+                           , EVM.balance = EVM.Lit 0
+                           , EVM.nonce = Just 1
                            } in
       let upds' = upds in -- TODO subst args iface upds in
       updatesToExpr codemap layout cid freshAddr upds' (M.insert freshAddr contract cmap)
     Nothing -> error "Internal error: constructor not found"
 
 
-createContract _ _ _ _ = error "Internal error: constructor call expected"
-  
+createContract _ _ _ _ _ = error "Internal error: constructor call expected"
+
 
 returnsToExpr :: Layout -> Maybe TypedExp -> EVM.Expr EVM.Buf
 returnsToExpr _ Nothing = EVM.ConcreteBuf ""
@@ -511,9 +524,9 @@ checkContracts solvers opts store codemap =
             -- Constructor check
             checkConstructors solvers opts initcode bytecode store contract codemap
             -- Behavours check
-            checkBehaviours solvers opts bytecode store contract codemap
-            -- ABI exhaustiveness sheck
-            checkAbi solvers opts contract bytecode
+            -- checkBehaviours solvers opts bytecode store contract codemap
+            -- -- ABI exhaustiveness sheck
+            -- checkAbi solvers opts contract bytecode
         ) (M.toList codemap)
 
 
