@@ -129,8 +129,8 @@ translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) 
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
-                         , EVM.storage = EVM.AbstractStore (EVM.SymAddr "entrypoint") -- XXX why abstract store?
-                         , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
+                         , EVM.storage = EVM.ConcreteStore mempty
+                         , EVM.balance = EVM.Lit 0
                          , EVM.nonce = Just 1
                          }
     initmap = M.fromList [(initAddr, initcontract)]
@@ -159,8 +159,8 @@ rewritesToExpr :: CodeMap -> Layout -> Id -> [Rewrite] -> BS.ByteString -> Contr
 rewritesToExpr codemap layout cid rewrites bytecode = foldl (flip $ rewriteToExpr codemap layout cid initAddr) initmap rewrites
   where
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
-                         , EVM.storage = EVM.AbstractStore initAddr
-                         , EVM.balance = EVM.Balance initAddr
+                         , EVM.storage = EVM.ConcreteStore mempty
+                         , EVM.balance = EVM.Lit 0
                          , EVM.nonce = Just 1
                          }
     initmap = M.fromList [(initAddr, initcontract)]
