@@ -11,9 +11,12 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE TypeApplications #-}
 
 
 module HEVM where
+
+import Prelude hiding (GT, LT)
 
 import qualified Data.Map as M
 import Data.List
@@ -30,10 +33,13 @@ import Data.DoubleWord
 import Data.Maybe
 import System.Exit ( exitFailure )
 import Control.Monad.ST (stToIO)
+import Data.Type.Equality (TestEquality(..), (:~:)(..))
+import Data.Singletons
 
 import Syntax.Annotated
 import Syntax.Untyped (makeIface)
 import Syntax
+import Syntax.Types
 
 import qualified EVM.Types as EVM hiding (Contract(..))
 import EVM.Expr hiding (op2, inRange)
@@ -124,7 +130,7 @@ translateActConstr codemap store (Contract ctor _) bytecode = translateConstruct
 
 translateConstructor :: CodeMap -> Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
 translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) bytecode =
-  ("Test", [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr codemap layout cid initAddr upds initmap)],
+  ("Test", [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds) <> symAddrCnstr) mempty (EVM.ConcreteBuf bytecode) cmap],
    calldata)
   where
     calldata = makeCtrCalldata iface
@@ -134,6 +140,14 @@ translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) 
                          , EVM.nonce = Just 1
                          }
     initmap = M.fromList [(initAddr, initcontract)]
+    symAddrCnstr = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show $ fromIntegral i))) (EVM.Lit 0))) [1..nonce-1]
+    cmap = updatesToExpr codemap layout cid initAddr upds initmap
+    nonce = case M.lookup initAddr cmap of
+                 Just (EVM.C _ _ _ n') -> case n' of
+                                            Just n -> n
+                                            Nothing -> error "Internal error: expecing nonce"
+                 Nothing -> error "Internal error: init contract not found"
+
 
 translateBehvs :: CodeMap -> Layout -> BS.ByteString -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateBehvs codemap layout bytecode behvs =
@@ -199,7 +213,7 @@ updateToExpr codemap layout cid caddr upd@(Update typ i@(Item _ _ ref) e) cmap =
       EVM.C _ _ _ _ -> error "Internal error: nonce must be a number"
       EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
 
-    freshAddr = EVM.SymAddr $ "freshSymAddr" <> "1" -- TODO this loops: T.pack (show (fromIntegral nonce))
+    freshAddr = EVM.SymAddr $ "freshSymAddr1" -- TODO this loops: T.pack (show (fromIntegral nonce))
 
     updateNonce :: EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateNonce c'@(EVM.C _ _ _ (Just n)) = c' { EVM.nonce = Just (n + 1) }
@@ -215,12 +229,70 @@ createContract codemap layout freshAddr cmap (Create pn cid args) =
                            , EVM.balance = EVM.Lit 0
                            , EVM.nonce = Just 1
                            } in
-      let upds' = upds in -- TODO subst args iface upds in
+      let upds' = substUpds (makeSubstMap iface args) upds in -- TODO subst args iface upds in
       updatesToExpr codemap layout cid freshAddr upds' (M.insert freshAddr contract cmap)
     Nothing -> error "Internal error: constructor not found"
-
-
 createContract _ _ _ _ _ = error "Internal error: constructor call expected"
+
+-- | Substitutions
+
+makeSubstMap :: Interface -> [TypedExp] -> M.Map Id TypedExp
+makeSubstMap (Interface _ decls) args =
+  M.fromList $ zipWith (\(Decl _ x) texp -> (x, texp)) decls args
+
+substUpds :: M.Map Id TypedExp -> [StorageUpdate] -> [StorageUpdate]
+substUpds map upds = fmap (substUpd map) upds
+
+substUpd :: M.Map Id TypedExp -> StorageUpdate -> StorageUpdate
+substUpd map (Update s item exp) = Update s (substItem map item) (substExp map exp)
+
+substItem :: M.Map Id TypedExp -> TStorageItem a -> TStorageItem a
+substItem = undefined
+  
+substExp :: M.Map Id TypedExp -> Exp a -> Exp a
+substExp map exp = case exp of
+  And pn a b -> And pn (substExp map a) (substExp map b)
+  Or pn a b -> Or pn (substExp map a) (substExp map b)
+  Impl pn a b -> Impl pn (substExp map a) (substExp map b)
+  Neg pn a -> Neg pn (substExp map a)
+  LT pn a b -> LT pn (substExp map a) (substExp map b)
+  LEQ pn a b -> LEQ pn (substExp map a) (substExp map b)
+  GEQ pn a b -> GEQ pn (substExp map a) (substExp map b)
+  GT pn a b -> GT pn (substExp map a) (substExp map b)
+  LitBool _ _ -> exp
+
+  Add pn a b -> Add pn (substExp map a) (substExp map b)
+  Sub pn a b -> Sub pn (substExp map a) (substExp map b)
+  Mul pn a b -> Mul pn (substExp map a) (substExp map b)
+  Div pn a b -> Div pn (substExp map a) (substExp map b)
+  Mod pn a b -> Mod pn (substExp map a) (substExp map b)
+  Exp pn a b -> Exp pn (substExp map a) (substExp map b)
+  LitInt _ _ -> exp
+  IntEnv _ _ -> exp
+
+  IntMin _ _ -> exp
+  IntMax _ _ -> exp
+  UIntMin _ _ -> exp
+  UIntMax _ _ -> exp
+  InRange _ _ _ -> exp
+
+  Cat pn a b -> Cat pn (substExp map a) (substExp map b)
+  Slice pn a b c -> Slice pn (substExp map a) (substExp map b) (substExp map c)
+  ByStr _ _ -> exp
+  ByLit _ _ -> exp
+  ByEnv _ _ -> exp
+
+  Eq pn st a b -> Eq pn st (substExp map a) (substExp map b)
+  NEq pn st a b -> NEq pn st (substExp map a) (substExp map b)
+
+  ITE pn a b c -> ITE pn (substExp map a) (substExp map b) (substExp map c)
+  TEntry _ _ _ -> exp
+  Var pn st abi x -> case M.lookup x map of
+    Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
+    Nothing -> exp
+
+  Create pn a b -> undefined
+
 
 
 returnsToExpr :: Layout -> Maybe TypedExp -> EVM.Expr EVM.Buf
