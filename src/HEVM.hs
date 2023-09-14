@@ -146,6 +146,7 @@ translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) 
                  Just (EVM.C _ _ _ n') -> case n' of
                                             Just n -> n
                                             Nothing -> error "Internal error: expecing nonce"
+                 Just (EVM.GVar _) -> error "Internal error: unexpected GVar"
                  Nothing -> error "Internal error: init contract not found"
 
 
@@ -187,7 +188,7 @@ updatesToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> [StorageUpdate
 updatesToExpr codemap layout cid caddr upds initmap = foldl (flip $ updateToExpr codemap layout cid caddr) initmap upds
 
 updateToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> StorageUpdate -> ContractMap -> ContractMap
-updateToExpr codemap layout cid caddr upd@(Update typ i@(Item _ _ ref) e) cmap =
+updateToExpr codemap layout cid caddr (Update typ i@(Item _ _ ref) e) cmap =
   case typ of
     SInteger -> M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap
     SBoolean -> M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap
@@ -209,7 +210,7 @@ updateToExpr codemap layout cid caddr upd@(Update typ i@(Item _ _ ref) e) cmap =
 
     nonce :: EVM.W64
     nonce = case contract of
-      EVM.C _ _ _ (Just n) -> nonce
+      EVM.C _ _ _ (Just n) -> n
       EVM.C _ _ _ _ -> error "Internal error: nonce must be a number"
       EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
 
@@ -217,11 +218,11 @@ updateToExpr codemap layout cid caddr upd@(Update typ i@(Item _ _ ref) e) cmap =
 
     updateNonce :: EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateNonce c'@(EVM.C _ _ _ (Just n)) = c' { EVM.nonce = Just (n + 1) }
-    updateNonce c'@(EVM.C _ _ _ Nothing) = error "Internal error: nonce must be a number"
+    updateNonce (EVM.C _ _ _ Nothing) = error "Internal error: nonce must be a number"
     updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
 createContract :: CodeMap -> Layout -> EVM.Expr EVM.EAddr -> ContractMap -> Exp AContract -> ContractMap
-createContract codemap layout freshAddr cmap (Create pn cid args) =
+createContract codemap layout freshAddr cmap (Create _ cid args) =
   case M.lookup cid codemap of
     Just (Contract (Constructor _ iface preconds _ _ upds _) _, _, bytecode) ->
       let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -241,57 +242,68 @@ makeSubstMap (Interface _ decls) args =
   M.fromList $ zipWith (\(Decl _ x) texp -> (x, texp)) decls args
 
 substUpds :: M.Map Id TypedExp -> [StorageUpdate] -> [StorageUpdate]
-substUpds map upds = fmap (substUpd map) upds
+substUpds subst upds = fmap (substUpd subst) upds
 
 substUpd :: M.Map Id TypedExp -> StorageUpdate -> StorageUpdate
-substUpd map (Update s item exp) = Update s (substItem map item) (substExp map exp)
+substUpd subst (Update s item expr) = Update s (substItem subst item) (substExp subst expr)
 
 substItem :: M.Map Id TypedExp -> TStorageItem a -> TStorageItem a
-substItem = undefined
-  
+substItem subst (Item st vt sref) = Item st vt (substStorageRef subst sref)
+
+substStorageRef :: M.Map Id TypedExp -> StorageRef -> StorageRef
+substStorageRef _ var@(SVar _ _ _) = var
+substStorageRef subst (SMapping pn sref args) = SMapping pn (substStorageRef subst sref) (substArgs subst args)
+substStorageRef subst (SField pn sref x y) = SField pn (substStorageRef subst sref) x y
+
+substArgs :: M.Map Id TypedExp -> [TypedExp] -> [TypedExp]
+substArgs subst exps = fmap (substTExp subst) exps
+
+substTExp :: M.Map Id TypedExp -> TypedExp -> TypedExp
+substTExp subst (TExp st expr) = TExp st (substExp subst expr)
+
 substExp :: M.Map Id TypedExp -> Exp a -> Exp a
-substExp map exp = case exp of
-  And pn a b -> And pn (substExp map a) (substExp map b)
-  Or pn a b -> Or pn (substExp map a) (substExp map b)
-  Impl pn a b -> Impl pn (substExp map a) (substExp map b)
-  Neg pn a -> Neg pn (substExp map a)
-  LT pn a b -> LT pn (substExp map a) (substExp map b)
-  LEQ pn a b -> LEQ pn (substExp map a) (substExp map b)
-  GEQ pn a b -> GEQ pn (substExp map a) (substExp map b)
-  GT pn a b -> GT pn (substExp map a) (substExp map b)
-  LitBool _ _ -> exp
+substExp subst expr = case expr of
+  And pn a b -> And pn (substExp subst a) (substExp subst b)
+  Or pn a b -> Or pn (substExp subst a) (substExp subst b)
+  Impl pn a b -> Impl pn (substExp subst a) (substExp subst b)
+  Neg pn a -> Neg pn (substExp subst a)
+  LT pn a b -> LT pn (substExp subst a) (substExp subst b)
+  LEQ pn a b -> LEQ pn (substExp subst a) (substExp subst b)
+  GEQ pn a b -> GEQ pn (substExp subst a) (substExp subst b)
+  GT pn a b -> GT pn (substExp subst a) (substExp subst b)
+  LitBool _ _ -> expr
 
-  Add pn a b -> Add pn (substExp map a) (substExp map b)
-  Sub pn a b -> Sub pn (substExp map a) (substExp map b)
-  Mul pn a b -> Mul pn (substExp map a) (substExp map b)
-  Div pn a b -> Div pn (substExp map a) (substExp map b)
-  Mod pn a b -> Mod pn (substExp map a) (substExp map b)
-  Exp pn a b -> Exp pn (substExp map a) (substExp map b)
-  LitInt _ _ -> exp
-  IntEnv _ _ -> exp
+  Add pn a b -> Add pn (substExp subst a) (substExp subst b)
+  Sub pn a b -> Sub pn (substExp subst a) (substExp subst b)
+  Mul pn a b -> Mul pn (substExp subst a) (substExp subst b)
+  Div pn a b -> Div pn (substExp subst a) (substExp subst b)
+  Mod pn a b -> Mod pn (substExp subst a) (substExp subst b)
+  Exp pn a b -> Exp pn (substExp subst a) (substExp subst b)
+  LitInt _ _ -> expr
+  IntEnv _ _ -> expr
 
-  IntMin _ _ -> exp
-  IntMax _ _ -> exp
-  UIntMin _ _ -> exp
-  UIntMax _ _ -> exp
-  InRange _ _ _ -> exp
+  IntMin _ _ -> expr
+  IntMax _ _ -> expr
+  UIntMin _ _ -> expr
+  UIntMax _ _ -> expr
+  InRange _ _ _ -> expr
 
-  Cat pn a b -> Cat pn (substExp map a) (substExp map b)
-  Slice pn a b c -> Slice pn (substExp map a) (substExp map b) (substExp map c)
-  ByStr _ _ -> exp
-  ByLit _ _ -> exp
-  ByEnv _ _ -> exp
+  Cat pn a b -> Cat pn (substExp subst a) (substExp subst b)
+  Slice pn a b c -> Slice pn (substExp subst a) (substExp subst b) (substExp subst c)
+  ByStr _ _ -> expr
+  ByLit _ _ -> expr
+  ByEnv _ _ -> expr
 
-  Eq pn st a b -> Eq pn st (substExp map a) (substExp map b)
-  NEq pn st a b -> NEq pn st (substExp map a) (substExp map b)
+  Eq pn st a b -> Eq pn st (substExp subst a) (substExp subst b)
+  NEq pn st a b -> NEq pn st (substExp subst a) (substExp subst b)
 
-  ITE pn a b c -> ITE pn (substExp map a) (substExp map b) (substExp map c)
-  TEntry _ _ _ -> exp
-  Var pn st abi x -> case M.lookup x map of
+  ITE pn a b c -> ITE pn (substExp subst a) (substExp subst b) (substExp subst c)
+  TEntry _ _ _ -> expr
+  Var _ st _ x -> case M.lookup x subst of
     Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
-    Nothing -> exp
+    Nothing -> expr
 
-  Create pn a b -> undefined
+  Create pn a b -> Create pn a (substArgs subst b)
 
 
 
