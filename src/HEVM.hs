@@ -233,6 +233,10 @@ createContract codemap layout freshAddr cmap (Create _ cid args) =
       let subst = makeSubstMap iface args in
       let preconds' = fmap (toProp layout) $ fmap (substExp subst) preconds in
       let upds' = substUpds subst upds in -- TODO subst args iface upds in
+      trace "Before" $
+      traceShow preconds $
+      trace "After" $     
+      traceShow (fmap (substExp subst) preconds) $
       updatesToExpr codemap layout cid freshAddr upds' (M.insert freshAddr contract cmap, preconds')
     Nothing -> error "Internal error: constructor not found"
 createContract _ _ _ _ _ = error "Internal error: constructor call expected"
@@ -288,7 +292,7 @@ substExp subst expr = case expr of
   IntMax _ _ -> expr
   UIntMin _ _ -> expr
   UIntMax _ _ -> expr
-  InRange _ _ _ -> expr
+  InRange pn t a -> InRange pn t (substExp subst a)
 
   Cat pn a b -> Cat pn (substExp subst a) (substExp subst b)
   Slice pn a b c -> Slice pn (substExp subst a) (substExp subst b) (substExp subst c)
