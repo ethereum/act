@@ -1,0 +1,59 @@
+constructor of A
+interface constructor()
+
+iff
+   CALLVALUE == 0
+
+creates
+   uint x := 0
+
+
+behaviour x of A
+interface x()
+
+iff
+   CALLVALUE == 0
+
+returns
+   pre(x)
+
+behaviour set_x of A
+interface set_x(uint z)
+
+iff
+   CALLVALUE == 0
+
+storage
+   x => z
+
+
+constructor of B
+interface constructor()
+
+iff
+   CALLVALUE == 0
+
+creates
+   uint y := 0
+   A a := create A()
+
+behaviour remote of B
+interface remote(uint z)
+
+iff
+   CALLVALUE == 0
+
+storage
+   a.x => z
+
+behaviour multi of B
+interface multi(uint z)
+
+iff
+   CALLVALUE == 0
+
+storage
+   y => 1
+   a.x => z
+
+
