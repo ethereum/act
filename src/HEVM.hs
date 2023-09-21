@@ -214,7 +214,7 @@ updateToExpr codemap layout cid caddr (Update typ i@(Item _ _ ref) e) (cmap, con
       EVM.C _ _ _ _ -> error "Internal error: nonce must be a number"
       EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
 
-    freshAddr = EVM.SymAddr $ "freshSymAddr1" -- TODO this loops: T.pack (show (fromIntegral nonce))
+    freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show $ fromIntegral nonce)
 
     updateNonce :: EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateNonce c'@(EVM.C _ _ _ (Just n)) = c' { EVM.nonce = Just (n + 1) }
