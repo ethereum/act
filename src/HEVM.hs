@@ -34,12 +34,10 @@ import Data.Maybe
 import System.Exit ( exitFailure )
 import Control.Monad.ST (stToIO)
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
-import Data.Singletons
 
 import Syntax.Annotated
 import Syntax.Untyped (makeIface)
 import Syntax
-import Syntax.Types
 
 import qualified EVM.Types as EVM hiding (Contract(..))
 import EVM.Expr hiding (op2, inRange)
@@ -140,11 +138,13 @@ translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) 
                          , EVM.nonce = Just 1
                          }
     initmap = M.fromList [(initAddr, initcontract)]
-    symAddrCnstr = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show $ fromIntegral i))) (EVM.Lit 0))) [1..nonce-1]
+    symAddrCnstr = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..nonce-1]
     (cmap, conds) = updatesToExpr codemap layout cid initAddr upds (initmap, [])
+
+    nonce :: Integer
     nonce = case M.lookup initAddr cmap of
                  Just (EVM.C _ _ _ n') -> case n' of
-                                            Just n -> n
+                                            Just n -> fromIntegral n
                                             Nothing -> error "Internal error: expecing nonce"
                  Just (EVM.GVar _) -> error "Internal error: unexpected GVar"
                  Nothing -> error "Internal error: init contract not found"
@@ -208,13 +208,13 @@ updateToExpr codemap layout cid caddr (Update typ i@(Item _ _ ref) e) (cmap, con
     updateStorage updfun c'@(EVM.C _ _ _ _) = c' { EVM.storage = updfun c'.storage }
     updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
-    nonce :: EVM.W64
+    nonce :: Integer
     nonce = case contract of
-      EVM.C _ _ _ (Just n) -> n
+      EVM.C _ _ _ (Just n) -> fromIntegral n
       EVM.C _ _ _ _ -> error "Internal error: nonce must be a number"
       EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
 
-    freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show $ fromIntegral nonce)
+    freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show nonce)
 
     updateNonce :: EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateNonce c'@(EVM.C _ _ _ (Just n)) = c' { EVM.nonce = Just (n + 1) }
