@@ -60,6 +60,9 @@ type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract)
 
 type EquivResult = ProofResult () (T.Text, SMTCex) ()
 
+abstRefineDefault :: EVM.AbstRefineConfig
+abstRefineDefault = EVM.AbstRefineConfig False False
+
 ethrunAddress :: EVM.Addr
 ethrunAddress = EVM.Addr 0x00a329c0648769a73afac7f9381e08fb43dbea72
 
@@ -129,7 +132,7 @@ translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                          , EVM.storage = EVM.ConcreteStore mempty
-                         , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
+                         , EVM.balance = EVM.Lit 0
                          , EVM.nonce = Just 1 -- TODO
                          }
     initmap = M.fromList [(initAddr, initcontract)]
@@ -160,7 +163,7 @@ rewritesToExpr layout cid rewrites bytecode = foldl (flip $ rewriteToExpr layout
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                          , EVM.storage = EVM.AbstractStore initAddr
                          , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
-                         , EVM.nonce = Just 0
+                         , EVM.nonce = Just 1
                          }
     initmap = M.fromList [(initAddr, initcontract)]
 
@@ -436,8 +439,8 @@ checkInputSpaces :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr E
 checkInputSpaces solvers opts l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
-  let queries = fmap assertProps [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
-                                 , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
+  let queries = fmap (assertProps abstRefineDefault) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
+                                                     , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
@@ -463,7 +466,7 @@ checkAbi solver opts act bytecode = do
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs act)
   evmBehvs <- getBranches solver bytecode (txdata, [])
-  let queries =  fmap assertProps $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
+  let queries =  fmap (assertProps abstRefineDefault) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
