@@ -194,7 +194,7 @@ updateToExpr codemap layout cid caddr (Update typ i@(Item _ _ ref) e) (cmap, con
     SBoolean -> (M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap, conds)
     SByteStr -> error "Bytestrings not supported"
     SContract -> let (cmap', preconds) = createContract codemap layout freshAddr cmap e in
-      (M.insert caddr (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr (EVM.SymAddr "freshSymAddr1"))) contract)) cmap', conds <> preconds)
+      (M.insert caddr (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) cmap', conds <> preconds)
   where
     slot = getSlot layout cid (idFromItem i)
     offset = offsetFromRef layout slot ref
@@ -233,10 +233,10 @@ createContract codemap layout freshAddr cmap (Create _ cid args) =
       let subst = makeSubstMap iface args in
       let preconds' = fmap (toProp layout) $ fmap (substExp subst) preconds in
       let upds' = substUpds subst upds in -- TODO subst args iface upds in
-      trace "Before" $
-      traceShow preconds $
-      trace "After" $     
-      traceShow (fmap (substExp subst) preconds) $
+      -- trace "Before" $
+      -- traceShow preconds $
+      -- trace "After" $     
+      -- traceShow (fmap (substExp subst) preconds) $
       updatesToExpr codemap layout cid freshAddr upds' (M.insert freshAddr contract cmap, preconds')
     Nothing -> error "Internal error: constructor not found"
 createContract _ _ _ _ _ = error "Internal error: constructor call expected"
@@ -520,8 +520,9 @@ checkConstructors solvers opts initcode runtimecode store contract codemap = do
   initVM <- stToIO $ abstractVM calldata initcode Nothing True
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
-  traceM (T.unpack $ Format.formatExpr simpl)
+  -- traceM (T.unpack $ Format.formatExpr simpl)
   let solbehvs = removeFails $ flattenExpr simpl
+  -- mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
   mapM_ (traceM . T.unpack . Format.formatExpr) actbehvs
   putStrLn "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult =<< checkEquiv solvers opts solbehvs actbehvs
