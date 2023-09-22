@@ -615,9 +615,9 @@ checkContracts solvers opts store codemap =
             -- Constructor check
             checkConstructors solvers opts initcode bytecode store contract codemap
             -- Behavours check
-            -- checkBehaviours solvers opts bytecode store contract codemap
-            -- -- ABI exhaustiveness sheck
-            -- checkAbi solvers opts contract bytecode
+            checkBehaviours solvers opts bytecode store contract codemap
+            -- ABI exhaustiveness sheck
+            checkAbi solvers opts contract bytecode
         ) (M.toList codemap)
 
 
