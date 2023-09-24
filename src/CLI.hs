@@ -24,6 +24,7 @@ import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import GHC.Natural
+import Data.Function ((&))
 
 
 import qualified Data.ByteString.Lazy.Char8 as B
@@ -48,6 +49,9 @@ import Print
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
+
+import Text.Regex.TDFA ((=~))
+import Text.Regex.TDFA (getAllTextMatches)
 
 --command line options
 data Command w
@@ -238,7 +242,13 @@ hevm actspec cid sol' code' initcode' solver' timeout debug' = do
 
 bytecodes :: Text -> Text -> IO (BS.ByteString, BS.ByteString)
 bytecodes cid src = do
-  (json, path) <- solidity' src
+
+  (json, path) <- ("// ?SPDX-License-Identifier: ?.*" :: String)
+                & \regex -> getAllTextMatches ((Text.unpack src) =~ regex)
+                & map Text.pack
+                & foldr (\v acc -> Text.replace v Text.empty acc) src
+                & solidity'
+
   let (Contracts sol', _, _) = fromJust $ readStdJSON json
   pure $ ((fromJust . Map.lookup (path <> ":" <> cid) $ sol').creationCode,
           (fromJust . Map.lookup (path <> ":" <> cid) $ sol').runtimeCode)
