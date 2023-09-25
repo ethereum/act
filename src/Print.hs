@@ -90,7 +90,7 @@ prettyExp e = case e of
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
   TEntry _ t a -> timeParens t $ prettyItem a
-  Var _ _ x -> x
+  Var _ _ _ x -> x
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
@@ -175,9 +175,8 @@ prettyInvPred = prettyExp . untime . fst
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
       TEntry p _ (Item t vt a) -> TEntry p Neither (Item t vt (untimeStorageRef a))
-      Var p t a -> Var p t a
-
-
+      Var p t at a -> Var p t at a
+             
 -- | prints a Doc, with wider output than the built in `putDoc`
 render :: Doc -> IO ()
 render doc = displayIO stdout (renderPretty 0.9 120 doc)

@@ -619,7 +619,7 @@ expToSMT2 expr = case expr of
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
   ITE _ a b c -> triop "ite" a b c
-  Var _ _ a -> nameFromVarId a
+  Var _ _ _ a -> nameFromVarId a
   TEntry _ w item -> entry item w
   where
     unop :: String -> Exp a -> Ctx SMT2

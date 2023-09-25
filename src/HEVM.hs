@@ -29,15 +29,15 @@ import Control.Monad
 import Data.DoubleWord
 import Data.Maybe
 import System.Exit ( exitFailure )
+import Control.Monad.ST (stToIO)
 
 import Syntax.Annotated
 import Syntax.Untyped (makeIface)
 import Syntax
 
-import qualified EVM.Types as EVM
-import EVM.Concrete (createAddress)
+import qualified EVM.Types as EVM hiding (Contract(..))
 import EVM.Expr hiding (op2, inRange)
-import EVM.SymExec hiding (EquivResult)
+import EVM.SymExec hiding (EquivResult, isPartial)
 import qualified EVM.SymExec as SymExec (EquivResult)
 import EVM.SMT (SMTCex(..), assertProps, formatSMT2)
 import EVM.Solvers
@@ -50,20 +50,27 @@ type family ExprType a where
   ExprType 'AByteStr  = EVM.Buf
   ExprType 'AContract = EVM.EWord -- address?
 
-type Layout = M.Map Id (M.Map Id (EVM.Addr, Integer))
+type Layout = M.Map Id (M.Map Id (EVM.Expr EVM.EAddr, Integer))
 
 -- TODO move this to HEVM
 type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
 
+type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract)
+
 type EquivResult = ProofResult () (T.Text, SMTCex) ()
+
+abstRefineDefault :: EVM.AbstRefineConfig
+abstRefineDefault = EVM.AbstRefineConfig False False
 
 ethrunAddress :: EVM.Addr
 ethrunAddress = EVM.Addr 0x00a329c0648769a73afac7f9381e08fb43dbea72
 
+initAddr :: EVM.Expr EVM.EAddr
+initAddr = EVM.SymAddr "entrypoint"
+
 slotMap :: Store -> Layout
 slotMap store =
-  let addr = createAddress ethrunAddress 1 in -- for now all contracts have the same address
-  M.map (M.map (\(_, slot) -> (addr, slot))) store
+  M.map (M.map (\(_, slot) -> (initAddr, slot))) store
 
 -- Create a calldata that matches the interface of a certain behaviour
 -- or constructor. Use an abstract txdata buffer as the base.
@@ -71,7 +78,7 @@ makeCalldata :: Interface -> Calldata
 makeCalldata iface@(Interface _ decls) =
   let
     mkArg :: Decl -> CalldataFragment
-    mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
+    mkArg (Decl typ x) = symAbiArg (T.pack x) typ
     makeSig = T.pack $ makeIface iface
     calldatas = fmap mkArg decls
     (cdBuf, _) = combineFragments calldatas (EVM.ConcreteBuf "")
@@ -85,7 +92,7 @@ makeCtrCalldata :: Interface -> Calldata
 makeCtrCalldata (Interface _ decls) =
   let
     mkArg :: Decl -> CalldataFragment
-    mkArg (Decl typ x)  = symAbiArg (T.pack x) typ
+    mkArg (Decl typ x) = symAbiArg (T.pack x) typ
     calldatas = fmap mkArg decls
     -- We need to use a concrete buf as a base here because hevm bails when trying to execute with an abstract buf
     -- This is because hevm ends up trying to execute a codecopy with a symbolic size, which is unsupported atm
@@ -107,10 +114,10 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
 
 -- * Act translation
 
-translateActBehvs :: Act -> [(Id, [EVM.Expr EVM.End], Calldata)]
-translateActBehvs (Act store contracts) =
+translateActBehvs :: Act -> BS.ByteString -> [(Id, [EVM.Expr EVM.End], Calldata)]
+translateActBehvs (Act store contracts) bytecode =
   let slots = slotMap store in
-  concatMap (\(Contract _ behvs) -> translateBehvs slots behvs) contracts
+  concatMap (\(Contract _ behvs) -> translateBehvs slots bytecode behvs) contracts
 
 translateActConstr :: Act -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
 translateActConstr (Act store [Contract ctor _]) bytecode = translateConstructor (slotMap store) ctor bytecode
@@ -118,14 +125,21 @@ translateActConstr (Act _ _) _ = error "TODO multiple contracts"
 
 translateConstructor :: Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
 translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode =
-  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds (EVM.ConcreteStore mempty))],
-   calldata)
-  where calldata = makeCtrCalldata iface
+  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds initmap)],
+  calldata)
+  where
+    calldata = makeCtrCalldata iface
+    initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
+                         , EVM.storage = EVM.ConcreteStore mempty
+                         , EVM.balance = EVM.Lit 0
+                         , EVM.nonce = Just 1
+                         }
+    initmap = M.fromList [(initAddr, initcontract)]
 
-translateBehvs :: Layout -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
-translateBehvs layout behvs =
+translateBehvs :: Layout -> BS.ByteString -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
+translateBehvs layout bytecode behvs =
   let groups = (groupBy sameIface behvs) :: [[Behaviour]] in
-  fmap (\behvs' -> (behvName behvs', fmap (translateBehv layout) behvs', behvCalldata behvs')) groups
+  fmap (\behvs' -> (behvName behvs', fmap (translateBehv layout bytecode) behvs', behvCalldata behvs')) groups
   where
 
     behvCalldata (Behaviour _ _ iface _ _ _ _ _:_) = makeCalldata iface
@@ -138,31 +152,43 @@ translateBehvs layout behvs =
     behvName (Behaviour _ _ (Interface name _) _ _ _ _ _:_) = name
     behvName [] = error "Internal error: behaviour groups cannot be empty"
 
-translateBehv :: Layout -> Behaviour -> EVM.Expr EVM.End
-translateBehv layout (Behaviour _ cid _ preconds caseconds _ upds ret) =
-  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) mempty (returnsToExpr layout ret) (rewritesToExpr layout cid upds)
+translateBehv :: Layout -> BS.ByteString -> Behaviour -> EVM.Expr EVM.End
+translateBehv layout bytecode (Behaviour _ cid _ preconds caseconds _ upds ret) =
+  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) mempty (returnsToExpr layout ret) (rewritesToExpr layout cid upds bytecode)
 
-rewritesToExpr :: Layout -> Id -> [Rewrite] -> EVM.Expr EVM.Storage
-rewritesToExpr layout cid rewrites = foldl (flip $ rewriteToExpr layout cid) EVM.AbstractStore rewrites
+rewritesToExpr :: Layout -> Id -> [Rewrite] -> BS.ByteString -> ContractMap
+rewritesToExpr layout cid rewrites bytecode = foldl (flip $ rewriteToExpr layout cid) initmap rewrites
+  where
+    initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
+                         , EVM.storage = EVM.AbstractStore initAddr
+                         , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
+                         , EVM.nonce = Just 0
+                         }
+    initmap = M.fromList [(initAddr, initcontract)]
 
-rewriteToExpr :: Layout -> Id -> Rewrite -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
-rewriteToExpr _ _ (Constant _) state = state
-rewriteToExpr layout cid (Rewrite upd) state = updateToExpr layout cid upd state
+rewriteToExpr :: Layout -> Id -> Rewrite -> ContractMap -> ContractMap
+rewriteToExpr _ _ (Constant _) cmap = cmap
+rewriteToExpr layout cid (Rewrite upd) cmap = updateToExpr layout cid upd cmap
 
-updatesToExpr :: Layout -> Id -> [StorageUpdate] -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
-updatesToExpr layout cid upds initstore = foldl (flip $ updateToExpr layout cid) initstore upds
+updatesToExpr :: Layout -> Id -> [StorageUpdate] -> ContractMap -> ContractMap
+updatesToExpr layout cid upds initmap = foldl (flip $ updateToExpr layout cid) initmap upds
 
-updateToExpr :: Layout -> Id -> StorageUpdate -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
-updateToExpr layout cid (Update typ i@(Item _ _ ref) e) state =
+updateToExpr :: Layout -> Id -> StorageUpdate -> ContractMap -> ContractMap
+updateToExpr layout cid (Update typ i@(Item _ _ ref) e) cmap =
   case typ of
-    SInteger -> EVM.SStore (EVM.Lit $ fromIntegral addr) offset e' state
-    SBoolean -> EVM.SStore (EVM.Lit $ fromIntegral addr) offset e' state
+    SInteger -> M.insert addr (updateStorage (EVM.SStore offset e') contract) cmap
+    SBoolean -> M.insert addr (updateStorage (EVM.SStore offset e') contract) cmap
     SByteStr -> error "Bytestrings not supported"
     SContract -> error "Contracts not supported"
   where
     (addr, slot) = getSlot layout cid (idFromItem i)
     offset = offsetFromRef layout slot ref
     e' = toExpr layout e
+    contract = fromMaybe (error "Internal error: contract not found") $ M.lookup addr cmap
+
+    updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
+    updateStorage upd c'@(EVM.C _ _ _ _) = c' { EVM.storage = upd c'.storage }
+    updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
 returnsToExpr :: Layout -> Maybe TypedExp -> EVM.Expr EVM.Buf
 returnsToExpr _ Nothing = EVM.ConcreteBuf ""
@@ -193,7 +219,7 @@ expToBuf layout styp e =
     SByteStr -> toExpr layout e
     SContract -> error "Internal error: expecting primitive type"
 
-getSlot :: Layout -> Id -> Id -> (EVM.Addr, Integer)
+getSlot :: Layout -> Id -> Id -> (EVM.Expr EVM.EAddr, Integer)
 getSlot layout cid name =
   case M.lookup cid layout of
     Just m -> case M.lookup name m of
@@ -201,7 +227,7 @@ getSlot layout cid name =
       Nothing -> error $ "Internal error: invalid variable name: " <> show name
     Nothing -> error "Internal error: invalid contract name"
 
-refOffset :: Layout -> StorageRef -> (EVM.Addr, EVM.Expr EVM.EWord)
+refOffset :: Layout -> StorageRef -> (EVM.Expr EVM.EAddr, EVM.Expr EVM.EWord)
 refOffset layout (SVar _ cid name) =
   let (addr, slot) = getSlot layout cid name in
   (addr, EVM.Lit $ fromIntegral slot)
@@ -213,11 +239,11 @@ refOffset layout (SMapping _ ref ixs) =
 refOffset _ _ = error "TODO"
 
 ethEnvToWord :: EthEnv -> EVM.Expr EVM.EWord
-ethEnvToWord Callvalue = EVM.CallValue 0
-ethEnvToWord Caller = EVM.Caller 0
+ethEnvToWord Callvalue = EVM.TxValue
+ethEnvToWord Caller = EVM.WAddr $ EVM.SymAddr "caller"
 ethEnvToWord Origin = EVM.Origin
 ethEnvToWord Blocknumber = EVM.BlockNumber
-ethEnvToWord Blockhash = error "TODO" -- EVM.BlockHash ??
+ethEnvToWord Blockhash = error "TODO" -- TODO argument of EVM.BlockHash ??
 ethEnvToWord Chainid = EVM.ChainId
 ethEnvToWord Gaslimit = EVM.GasLimit
 ethEnvToWord Coinbase = EVM.Coinbase
@@ -249,7 +275,7 @@ toProp layout = \case
   (NEq _ SBoolean e1 e2) -> EVM.PNeg $ op2 EVM.PEq e1 e2
   (NEq _ _ _ _) -> error "unsupported"
   (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
-  (Var _ _ _) -> error "TODO" -- (EVM.Var (T.pack x)) -- vars can only be words? TODO other types
+  (Var _ _ _ _) -> error "TODO"
   (TEntry _ _ _) -> error "TODO" -- EVM.SLoad addr idx
   (InRange _ t e) -> toProp layout (inRange t e)
   where
@@ -310,16 +336,21 @@ toExpr layout = \case
 
   (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
 
-  (Var _ SInteger x) -> (EVM.Var (T.pack x)) -- vars can only be words? TODO other types
+  (Var _ SInteger typ x) ->  -- TODO other types
+    fromCalldataFramgment $ symAbiArg (T.pack x) typ
 
   (TEntry _ _ (Item SInteger _ ref)) ->
     let (addr, slot) = refOffset layout ref in
-    EVM.SLoad (litAddr addr) slot EVM.AbstractStore
+    EVM.SLoad slot (EVM.AbstractStore addr)
   e ->  error $ "TODO: " <> show e
 
   where
     op2 :: forall b c. (EVM.Expr (ExprType c) -> EVM.Expr (ExprType c) -> b) -> Exp c -> Exp c -> b
     op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
+
+    fromCalldataFramgment :: CalldataFragment -> EVM.Expr EVM.EWord
+    fromCalldataFramgment (St _ word) = word
+    fromCalldataFramgment _ = error "Internal error: only static types are supported"
 
 inRange :: AbiType -> Exp AInteger -> Exp ABoolean
 -- if the type has the type of machine word then check per operation
@@ -331,7 +362,7 @@ inRange t e = bound t e
 
 checkOp :: Exp AInteger -> Exp ABoolean
 checkOp (LitInt _ i) = LitBool nowhere $ i <= (fromIntegral (maxBound :: Word256))
-checkOp (Var _ _ _)  = LitBool nowhere True
+checkOp (Var _ _ _ _)  = LitBool nowhere True
 checkOp (TEntry _ _ _)  = LitBool nowhere True
 checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
 checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
@@ -365,7 +396,7 @@ checkEquiv solvers opts l1 l2 =
 checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Act -> IO ()
 checkConstructors solvers opts initcode runtimecode act = do
   let (_, actbehvs, calldata) = translateActConstr act runtimecode
-  let initVM = abstractVM calldata initcode Nothing (EVM.ConcreteStore mempty) True
+  initVM <- stToIO $ abstractVM calldata initcode Nothing True
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
   let solbehvs = removeFails $ flattenExpr simpl
@@ -376,13 +407,10 @@ checkConstructors solvers opts initcode runtimecode act = do
   where
     removeFails branches = filter isSuccess $ branches
 
-    isSuccess (EVM.Success _ _ _ _) = True
-    isSuccess _ = False
-
 
 checkBehaviours :: SolverGroup -> VeriOpts -> ByteString -> Act -> IO ()
 checkBehaviours solvers opts bytecode act = do
-  let actbehvs = translateActBehvs act
+  let actbehvs = translateActBehvs act bytecode
   flip mapM_ actbehvs $ \(name,behvs,calldata) -> do
     solbehvs <- removeFails <$> getBranches solvers bytecode calldata
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
@@ -394,9 +422,6 @@ checkBehaviours solvers opts bytecode act = do
     checkResult =<< checkInputSpaces solvers opts solbehvs behvs
     where
       removeFails branches = filter isSuccess $ branches
-
-      isSuccess (EVM.Success _ _ _ _) = True
-      isSuccess _ = False
 
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
@@ -411,8 +436,8 @@ checkInputSpaces :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr E
 checkInputSpaces solvers opts l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
-  let queries = fmap assertProps [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
-                                 , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
+  let queries = fmap (assertProps abstRefineDefault) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
+                                                     , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
@@ -438,7 +463,7 @@ checkAbi solver opts act bytecode = do
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs act)
   evmBehvs <- getBranches solver bytecode (txdata, [])
-  let queries =  fmap assertProps $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
+  let queries =  fmap (assertProps abstRefineDefault) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
@@ -465,9 +490,8 @@ checkAbi solver opts act bytecode = do
 -- | decompiles the given EVM bytecode into a list of Expr branches
 getBranches :: SolverGroup -> BS.ByteString -> Calldata -> IO [EVM.Expr EVM.End]
 getBranches solvers bs calldata = do
-      let
-        bytecode = if BS.null bs then BS.pack [0] else bs
-        prestate = abstractVM calldata bytecode Nothing EVM.AbstractStore False
+      let bytecode = if BS.null bs then BS.pack [0] else bs
+      prestate <- stToIO $ abstractVM calldata bytecode Nothing False
       expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
       let simpl = if True then (simplify expr) else expr
       let nodes = flattenExpr simpl
@@ -511,12 +535,6 @@ toVRes msg res = case res of
   EVM.Solvers.Unknown -> Timeout ()
   Unsat -> Qed ()
   Error e -> error $ "Internal Error: solver responded with error: " <> show e
-
-
--- TODO this is also defined in hevm-cli
-getCex :: ProofResult a b c -> Maybe b
-getCex (Cex c) = Just c
-getCex _ = Nothing
 
 
 checkResult :: [EquivResult] -> IO ()

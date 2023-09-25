@@ -161,12 +161,12 @@ genTypedExp names n = oneof
 
 -- TODO: literals, cat slice, ITE, storage, ByStr
 genExpBytes :: Names -> Int -> ExpoGen (Exp AByteStr)
-genExpBytes names _ = _Var <$> selectName AByteStr names
+genExpBytes names _ = _Var (AbiBytesType 32) <$> selectName AByteStr names
 
 -- TODO: ITE, storage
 genExpBool :: Names -> Int -> ExpoGen (Exp ABoolean)
 genExpBool names 0 = oneof
-  [ _Var <$> selectName ABoolean names
+  [ _Var AbiBoolType <$> selectName ABoolean names
   , LitBool nowhere <$> liftGen arbitrary
   ]
 genExpBool names n = oneof
@@ -192,7 +192,7 @@ genExpBool names n = oneof
 genExpInt :: Names -> Int -> ExpoGen (Exp AInteger)
 genExpInt names 0 = oneof
   [ LitInt nowhere <$> liftGen arbitrary
-  , _Var <$> selectName AInteger names
+  , _Var (AbiUIntType 256) <$> selectName AInteger names
   , return $ IntEnv nowhere Caller
   , return $ IntEnv nowhere Callvalue
   , return $ IntEnv nowhere Calldepth
