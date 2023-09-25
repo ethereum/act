@@ -132,7 +132,7 @@ translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                          , EVM.storage = EVM.ConcreteStore mempty
                          , EVM.balance = EVM.Lit 0
-                         , EVM.nonce = Just 1 -- TODO
+                         , EVM.nonce = Just 1
                          }
     initmap = M.fromList [(initAddr, initcontract)]
 
@@ -184,13 +184,11 @@ updateToExpr layout cid (Update typ i@(Item _ _ ref) e) cmap =
     (addr, slot) = getSlot layout cid (idFromItem i)
     offset = offsetFromRef layout slot ref
     e' = toExpr layout e
-    contract = case  M.lookup addr cmap of -- TODO fromMaybe
-      Just c' -> c'
-      Nothing -> error "Internal error: contract not found"
+    contract = fromMaybe (error "Internal error: contract not found") $ M.lookup addr cmap
 
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateStorage upd c'@(EVM.C _ _ _ _) = c' { EVM.storage = upd c'.storage }
-    updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable:r"
+    updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
 returnsToExpr :: Layout -> Maybe TypedExp -> EVM.Expr EVM.Buf
 returnsToExpr _ Nothing = EVM.ConcreteBuf ""
@@ -245,7 +243,7 @@ ethEnvToWord Callvalue = EVM.TxValue
 ethEnvToWord Caller = EVM.WAddr $ EVM.SymAddr "caller"
 ethEnvToWord Origin = EVM.Origin
 ethEnvToWord Blocknumber = EVM.BlockNumber
-ethEnvToWord Blockhash = error "TODO" -- EVM.BlockHash ??
+ethEnvToWord Blockhash = error "TODO" -- TODO argument of EVM.BlockHash ??
 ethEnvToWord Chainid = EVM.ChainId
 ethEnvToWord Gaslimit = EVM.GasLimit
 ethEnvToWord Coinbase = EVM.Coinbase
