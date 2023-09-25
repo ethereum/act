@@ -44,7 +44,6 @@ import EVM.Solvers
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
 
-
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -163,7 +162,7 @@ rewritesToExpr layout cid rewrites bytecode = foldl (flip $ rewriteToExpr layout
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                          , EVM.storage = EVM.AbstractStore initAddr
                          , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
-                         , EVM.nonce = Just 1
+                         , EVM.nonce = Just 0
                          }
     initmap = M.fromList [(initAddr, initcontract)]
 
