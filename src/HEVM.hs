@@ -178,8 +178,8 @@ rewritesToExpr codemap layout cid rewrites bytecode = foldl (flip $ rewriteToExp
   where
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                          , EVM.storage = EVM.ConcreteStore mempty
-                         , EVM.balance = EVM.Lit 0
-                         , EVM.nonce = Just 1
+                         , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
+                         , EVM.nonce = Just 0
                          }
     initmap = M.fromList [(initAddr, initcontract)]
 
@@ -525,7 +525,7 @@ checkConstructors solvers opts initcode runtimecode store contract codemap = do
   -- traceM (T.unpack $ Format.formatExpr simpl)
   let solbehvs = removeFails $ flattenExpr simpl
   -- mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
-  mapM_ (traceM . T.unpack . Format.formatExpr) actbehvs
+  -- mapM_ (traceM . T.unpack . Format.formatExpr) actbehvs
   putStrLn "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult =<< checkEquiv solvers opts solbehvs actbehvs
   putStrLn "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
