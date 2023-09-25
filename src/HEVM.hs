@@ -177,7 +177,7 @@ rewritesToExpr :: CodeMap -> Layout -> Id -> [Rewrite] -> BS.ByteString -> Contr
 rewritesToExpr codemap layout cid rewrites bytecode = foldl (flip $ rewriteToExpr codemap layout cid initAddr) initmap rewrites
   where
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
-                         , EVM.storage = EVM.ConcreteStore mempty
+                         , EVM.storage = EVM.AbstractStore initAddr
                          , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
                          , EVM.nonce = Just 0
                          }
