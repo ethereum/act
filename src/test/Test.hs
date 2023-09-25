@@ -7,7 +7,7 @@ module Main where
 
 import Prelude hiding (GT, LT)
 import Test.Tasty
-import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property, (===), property)
+import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property, (===), counterexample)
 import Test.QuickCheck.Instances.ByteString()
 import Test.QuickCheck.GenT
 import Test.QuickCheck.Monadic
@@ -59,7 +59,7 @@ main = defaultMain $ testGroup "act"
               expected = Act (defaultStore contract) [Contract (defaultCtor contract) [behv]]
           return $ case actual of
             Success a -> a === expected
-            Failure _ -> property False
+            Failure err -> counterexample ("Internal error: compilation of Act failed\n" <> show err) False
       ]
 
   , testGroup "smt"
@@ -120,7 +120,7 @@ genBehv n = do
                    , _contract = contract
                    , _interface = iface
                    , _preconditions = preconditions
-                   , _caseconditions = []
+                   , _caseconditions = [LitBool nowhere True]
                    , _postconditions = postconditions
                    , _stateUpdates = []
                    , _returns = returns

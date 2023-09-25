@@ -67,6 +67,9 @@ type CodeMap = M.Map Id (Contract, BS.ByteString, BS.ByteString)
 
 type EquivResult = ProofResult () (T.Text, SMTCex) ()
 
+abstRefineDefault :: EVM.AbstRefineConfig
+abstRefineDefault = EVM.AbstRefineConfig False False
+
 ethrunAddress :: EVM.Addr
 ethrunAddress = EVM.Addr 0x00a329c0648769a73afac7f9381e08fb43dbea72
 
@@ -200,9 +203,7 @@ updateToExpr codemap layout cid caddr (Update typ i@(Item _ _ ref) e) (cmap, con
     offset = offsetFromRef layout slot ref
 
     e' = toExpr layout e
-    contract = case M.lookup caddr cmap of -- TODO fromMaybe
-      Just c' -> c'
-      Nothing -> error "Internal error: contract not found"
+    contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr cmap
 
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateStorage updfun c'@(EVM.C _ _ _ _) = c' { EVM.storage = updfun c'.storage }
@@ -364,7 +365,7 @@ ethEnvToWord Callvalue = EVM.TxValue
 ethEnvToWord Caller = EVM.WAddr $ EVM.SymAddr "caller"
 ethEnvToWord Origin = EVM.Origin
 ethEnvToWord Blocknumber = EVM.BlockNumber
-ethEnvToWord Blockhash = error "TODO" -- EVM.BlockHash ??
+ethEnvToWord Blockhash = error "TODO" -- TODO argument of EVM.BlockHash ??
 ethEnvToWord Chainid = EVM.ChainId
 ethEnvToWord Gaslimit = EVM.GasLimit
 ethEnvToWord Coinbase = EVM.Coinbase
@@ -463,6 +464,7 @@ toExpr layout = \case
   (TEntry _ _ (Item SInteger _ ref)) ->
     let slot = refOffset layout ref in
     EVM.SLoad slot (EVM.AbstractStore initAddr) -- TODO fix address
+
   e ->  error $ "TODO: " <> show e
 
   where
@@ -560,8 +562,8 @@ checkInputSpaces :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr E
 checkInputSpaces solvers opts l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
-  let queries = fmap assertProps [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
-                                 , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
+  let queries = fmap (assertProps abstRefineDefault) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
+                                                     , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
@@ -587,7 +589,7 @@ checkAbi solver opts contract bytecode = do
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs contract)
   evmBehvs <- getBranches solver bytecode (txdata, [])
-  let queries =  fmap assertProps $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
+  let queries =  fmap (assertProps abstRefineDefault) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
     TL.writeFile
