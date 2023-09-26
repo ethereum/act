@@ -63,6 +63,9 @@ type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
 
 type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract)
 
+-- | For each contract in the Act spec, put in a codemap its Act
+-- specification, init code, and runtimecode. This is being looked up
+-- when we encounter a constructor call.
 type CodeMap = M.Map Id (Contract, BS.ByteString, BS.ByteString)
 
 type EquivResult = ProofResult () (T.Text, SMTCex) ()
@@ -233,7 +236,7 @@ createContract codemap layout freshAddr cmap (Create _ cid args) =
                            } in
       let subst = makeSubstMap iface args in
       let preconds' = fmap (toProp layout) $ fmap (substExp subst) preconds in
-      let upds' = substUpds subst upds in -- TODO subst args iface upds in
+      let upds' = substUpds subst upds in
       -- trace "Before" $
       -- traceShow preconds $
       -- trace "After" $     
@@ -365,7 +368,7 @@ ethEnvToWord Callvalue = EVM.TxValue
 ethEnvToWord Caller = EVM.WAddr $ EVM.SymAddr "caller"
 ethEnvToWord Origin = EVM.Origin
 ethEnvToWord Blocknumber = EVM.BlockNumber
-ethEnvToWord Blockhash = EVM.BlockHash $ Lit 0
+ethEnvToWord Blockhash = EVM.BlockHash $ EVM.Lit 0
 ethEnvToWord Chainid = EVM.ChainId
 ethEnvToWord Gaslimit = EVM.GasLimit
 ethEnvToWord Coinbase = EVM.Coinbase
