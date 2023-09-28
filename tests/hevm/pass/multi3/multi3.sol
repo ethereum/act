@@ -4,25 +4,22 @@ contract A {
     constructor (uint z)  {
 	x = z + 1;
     }
-
-    function set_x(uint z) public {
-	x = z;
-    }
 }
 
 contract B {
-    uint public z;
+    uint z;
 
     constructor (uint i)  {
 	z = i + 42;
     }
+
 }
 
 contract C {
 
-    uint public y;
-    A public a;
-    B public b;
+    uint y;
+    A a;
+    B b;
 
     constructor(uint u) {
 	y = 0;

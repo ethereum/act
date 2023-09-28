@@ -22,15 +22,14 @@ returns
 
 
 // contract B
-
 constructor of B
-interface constructor(uint z)
+interface constructor(uint i)
 iff
    CALLVALUE == 0
-   inRange(uint256, z + 42)
+   inRange(uint256, i + 42)
 
 creates
-   uint x := z + 42
+   uint z := i + 42
 
 
 // contract C
@@ -39,8 +38,10 @@ interface constructor(uint u)
 
 iff
    CALLVALUE == 0
+   inRange(uint256, u + 1)
+   inRange(uint256, u + 42)
 
 creates
    uint y := 0
    A a := create A(u)
-   B b := create B(u) 
+   B b := create B(u)

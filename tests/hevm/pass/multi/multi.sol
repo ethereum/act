@@ -1,5 +1,5 @@
 contract A {
-    uint public x;
+    uint x;
 
     constructor ()  {
 	x = 0;
@@ -12,20 +12,20 @@ contract A {
 
 contract B {
 
-    uint public y;
-    A public a;
+    uint y;
+    A a;
 
     constructor() {
 	y = 0;
 	a = new A();
     }
 
-    function remote(uint z) public {
-	a.set_x(z);
-    }
+    /* function remote(uint z) public { */
+    /* 	a.set_x(z); */
+    /* } */
 
-    function multi(uint z) public {
-	y = 1;
-	a.set_x(z);
-    }
+    /* function multi(uint z) public { */
+    /* 	y = 1; */
+    /* 	a.set_x(z); */
+    /* } */
 }

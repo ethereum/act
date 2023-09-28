@@ -12,20 +12,21 @@ contract A {
 
 contract B {
 
-    uint public y;
-    A public a;
+    uint y;
+    A a;
 
     constructor(uint u) {
 	y = 0;
 	a = new A(u);
     }
 
-    function remote(uint z) public {
-	a.set_x(z);
-    }
+    /* TODO */
+    /* function remote(uint z) public { */
+    /* 	a.set_x(z); */
+    /* } */
 
-    function multi(uint z) public {
-	y = 1;
-	a.set_x(z);
-    }
+    /* function multi(uint z) public { */
+    /* 	y = 1; */
+    /* 	a.set_x(z); */
+    /* } */
 }
