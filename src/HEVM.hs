@@ -48,7 +48,6 @@ import EVM.Solvers
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
 
-import Debug.Trace
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -239,7 +238,7 @@ createContract codemap layout freshAddr cmap (Create _ cid args) =
       let upds' = substUpds subst upds in
       -- trace "Before" $
       -- traceShow preconds $
-      -- trace "After" $     
+      -- trace "After" $
       -- traceShow (fmap (substExp subst) preconds) $
       updatesToExpr codemap layout cid freshAddr upds' (M.insert freshAddr contract cmap, preconds')
     Nothing -> error "Internal error: constructor not found"
