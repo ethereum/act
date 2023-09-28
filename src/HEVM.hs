@@ -134,7 +134,7 @@ translateActConstr codemap store (Contract ctor _) bytecode = translateConstruct
 
 translateConstructor :: CodeMap -> Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
 translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) bytecode =
-  ("Test", [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds) <> symAddrCnstr <> conds) mempty (EVM.ConcreteBuf bytecode) cmap],
+  ("Test", [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds) <> symAddrCnstr) mempty (EVM.ConcreteBuf bytecode) cmap],
    calldata)
   where
     calldata = makeCtrCalldata iface
@@ -617,6 +617,7 @@ checkAbi solver opts contract bytecode = do
 checkContracts :: SolverGroup -> VeriOpts -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> IO ()
 checkContracts solvers opts store codemap =
   mapM_ (\(_, (contract, initcode, bytecode)) -> do
+            putStrLn $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
             -- Constructor check
             checkConstructors solvers opts initcode bytecode store contract codemap
             -- Behavours check
