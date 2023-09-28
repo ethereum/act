@@ -145,7 +145,7 @@ translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) 
                          }
     initmap = M.fromList [(initAddr, initcontract)]
     symAddrCnstr = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..nonce-1]
-    (cmap, conds) = updatesToExpr codemap layout cid initAddr upds (initmap, [])
+    (cmap, _) = updatesToExpr codemap layout cid initAddr upds (initmap, []) -- TODO remove caller preconditions from the return type if not needed
 
     nonce :: Integer
     nonce = case M.lookup initAddr cmap of
