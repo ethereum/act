@@ -78,7 +78,6 @@ data Command w
                     , sol        :: w ::: Maybe String         <?> "Path to .sol"
                     , code       :: w ::: Maybe ByteString     <?> "Runtime code"
                     , initcode   :: w ::: Maybe ByteString     <?> "Initial code"
-                    , contract   :: w ::: String               <?> "Contract name"
                     , solver     :: w ::: Maybe Text           <?> "SMT solver: cvc5 (default) or z3"
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
                     , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
@@ -110,9 +109,9 @@ main = do
       Coq f solver' smttimeout' debug' -> do
         solver'' <- parseSolver solver'
         coq' f solver'' smttimeout' debug'
-      HEVM spec' sol' code' initcode' contract' solver' smttimeout' debug' -> do
+      HEVM spec' sol' code' initcode' solver' smttimeout' debug' -> do
         solver'' <- parseSolver solver'
-        hevm spec' (Text.pack contract') sol' code' initcode' solver'' smttimeout' debug'
+        hevm spec' sol' code' initcode' solver'' smttimeout' debug'
 
 
 ---------------------------------
@@ -208,8 +207,8 @@ coq' f solver' smttimeout' debug' = do
     TIO.putStr $ coq claims
 
 
-hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
-hevm actspec _ sol' code' initcode' solver' timeout debug' = do
+hevm :: FilePath -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+hevm actspec sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
