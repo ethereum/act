@@ -1,16 +1,13 @@
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE NoFieldSelectors #-}
 
 
 module HEVM where
@@ -35,7 +32,7 @@ import Syntax.Annotated
 import Syntax.Untyped (makeIface)
 import Syntax
 
-import qualified EVM.Types as EVM hiding (Contract(..))
+import qualified EVM.Types as EVM hiding (Contract(..), FrameState(..))
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial)
 import qualified EVM.SymExec as SymExec (EquivResult)
@@ -240,8 +237,8 @@ refOffset _ _ = error "TODO"
 
 ethEnvToWord :: EthEnv -> EVM.Expr EVM.EWord
 ethEnvToWord Callvalue = EVM.TxValue
-ethEnvToWord Caller = EVM.WAddr $ EVM.SymAddr "caller"
-ethEnvToWord Origin = EVM.Origin
+ethEnvToWord Caller = EVM.WAddr (EVM.SymAddr "caller")
+ethEnvToWord Origin = EVM.WAddr (EVM.SymAddr "origin")
 ethEnvToWord Blocknumber = EVM.BlockNumber
 ethEnvToWord Blockhash = error "TODO" -- TODO argument of EVM.BlockHash ??
 ethEnvToWord Chainid = EVM.ChainId

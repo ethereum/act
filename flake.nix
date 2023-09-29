@@ -46,6 +46,8 @@
             pkgs.mdbook
             pkgs.mdbook-mermaid
             pkgs.mdbook-katex
+            pkgs.secp256k1
+            pkgs.libff
           ];
           withHoogle = true;
           shellHook = ''

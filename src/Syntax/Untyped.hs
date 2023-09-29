@@ -33,7 +33,7 @@ type Ensures = [Expr]
 type Invariants = [Expr]
 
 data Interface = Interface Id [Decl]
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show Interface where
   show (Interface a d) = a <> "(" <> intercalate ", " (fmap show d) <> ")"
@@ -158,7 +158,7 @@ data StorageVar = StorageVar Pn SlotType Id
   deriving (Eq, Show)
 
 data Decl = Decl AbiType Id
-  deriving Eq
+  deriving (Eq, Ord)
 
 instance Show Decl where
   show (Decl t a) = show t <> " " <> a
