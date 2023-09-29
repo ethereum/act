@@ -37,13 +37,15 @@ prettyCtor (Constructor name interface pres posts invs initStore stateUpdates)
   <> prettyInvs invs
   where
     prettyCreates [] = ""
-    prettyCreates s = header "creates" >-< block (prettyUpdate <$> s)
+    prettyCreates s = header "creates" >-< block (prettyUpdate' <$> s)
 
     prettyOther [] = ""
     prettyOther _ = error "TODO: pretty print otherStorage"
 
     prettyInvs [] = ""
     prettyInvs _ = error "TODO: pretty print invariants"
+
+    prettyUpdate' (Update _ item e) = prettyItem item <> " := " <> prettyExp e
 
 
 prettyBehaviour :: Behaviour t -> String
