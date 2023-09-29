@@ -34,6 +34,7 @@ import Data.Maybe (fromJust)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Typeable
+import EVM.ABI (AbiKind(..), abiKind)
 import EVM.Fetch qualified as Fetch
 import EVM.Format (formatExpr)
 import EVM.Solidity hiding (SlotType(..))
@@ -41,7 +42,7 @@ import EVM.Solidity qualified as EVM (SlotType(..))
 import EVM.Types qualified as EVM
 import EVM.Solvers (SolverGroup, withSolvers, Solver(..))
 import EVM.SymExec
-import EVM.Expr (simplify, isSuccess)
+import EVM.Expr qualified as Expr
 import GHC.IO
 
 import Syntax.Annotated
@@ -57,7 +58,7 @@ import Print
 data EVMContract = EVMContract
   { name :: Text
   , storageLayout :: Map Text StorageItem
-  , runtime :: Map Interface (Set (EVM.Expr EVM.End))
+  , runtime :: Map Method (Set (EVM.Expr EVM.End))
   , creation :: (Interface, Set (EVM.Expr EVM.End))
   }
   deriving (Show, Eq)
@@ -80,29 +81,27 @@ summarize solvers contract = do
       -- TODO: doesn't this have a 4 byte gap at the front?
       let args = (flip combineFragments) (EVM.ConcreteBuf "") $ fmap (uncurry symAbiArg) contract.constructorInputs
       initVM <- stToIO $ abstractVM (fst args, []) contract.creationCode Nothing True
-      expr <- simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
+      expr <- Expr.simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
       let branches = flattenExpr expr
       if any isPartial branches
       then pure . Left $ "partially explored branches in creation code:\n" <> T.unlines (fmap formatExpr (filter isPartial branches))
       else do
-        let sucs = Set.fromList . filter isSuccess . flattenExpr $ expr
+        let sucs = Set.fromList . filter Expr.isSuccess . flattenExpr $ expr
         pure . Right $ (ctorIface contract.constructorInputs, sucs)
 
-    runtime :: IO (Either Text (Map Interface (Set (EVM.Expr EVM.End))))
     runtime = do
       behvs <- fmap Map.elems $ forM contract.abiMap $ \method -> do
         let calldata = first (`writeSelector` method.methodSignature)
                      . (flip combineFragments) (EVM.AbstractBuf "txdata")
                      $ fmap (uncurry symAbiArg) method.inputs
         prestate <- stToIO $ abstractVM (fst calldata, []) contract.runtimeCode Nothing False
-        expr <- simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
+        expr <- Expr.simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
         let branches = flattenExpr expr
         if any isPartial branches
         then pure . Left $ "partially explored branches in runtime code:\n" <> T.unlines (fmap formatExpr (filter isPartial branches))
         else do
-          let sucs = Set.fromList . filter isSuccess . flattenExpr $ expr
-          let iface = behvIface method
-          pure . Right $ (iface, sucs)
+          let sucs = Set.fromList . filter Expr.isSuccess . flattenExpr $ expr
+          pure . Right $ (method, sucs)
       pure . fmap Map.fromList . sequence $ behvs
 
 
@@ -124,6 +123,7 @@ mkStore c = Map.singleton (T.unpack c.name) (Map.mapKeys T.unpack $ fmap fromite
     convslot (EVM.StorageMapping a b) = StorageMapping (fmap PrimitiveType a) (PrimitiveType b)
     convslot (EVM.StorageValue a) = StorageValue (PrimitiveType a)
 
+-- | Build an act constructor spec from the summarized bytecode
 mkConstructor :: EVMContract -> Either Text Constructor
 mkConstructor cs
   | Set.size (snd cs.creation) == 1 =
@@ -143,24 +143,37 @@ mkConstructor cs
         _ -> Left "unexpected unsucessful branch"
   | otherwise = Left "TODO: decompile constructors with multiple branches"
 
+-- | Build behaviour specs from the summarized bytecode
 mkBehvs :: EVMContract -> Either Text [Behaviour]
 mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList c.runtime)
   where
-    mkbehv :: Interface -> EVM.Expr EVM.End -> Either Text Behaviour
-    mkbehv iface@(Interface method _) (EVM.Success props _ _ _) = do
+    mkbehv :: Method -> EVM.Expr EVM.End -> Either Text Behaviour
+    mkbehv method (EVM.Success props _ retBuf _) = do
       pres <- mapM fromProp props
+      ret <- case method.output of
+        [] -> Right Nothing
+        [(_, typ)] -> case abiKind typ of
+          Static -> case typ of
+            AbiTupleType _ -> Left "cannot decompile methods that return a tuple"
+            AbiFunctionType -> Left "cannot decompile methods that return a function pointer"
+            _ -> do
+              v <- fromWord . Expr.readWord (EVM.Lit 0) $ retBuf
+              pure . Just . TExp SInteger $ v
+          Dynamic -> Left "cannot decompile methods that return dynamically sized types"
+        _ -> Left "cannot decompile methods with multiple return types"
       pure $ Behaviour
         { _contract = T.unpack c.name
-        , _interface = iface
-        , _name = method
+        , _interface = behvIface method
+        , _name = T.unpack method.name
         , _preconditions = pres
         , _caseconditions = mempty -- TODO: what to do here?
         , _postconditions = mempty
         , _stateUpdates = mempty -- TODO
-        , _returns = Nothing -- TODO
+        , _returns = ret
         }
     mkbehv _ _ = Left "unexpected unsucessful branch"
 
+-- | Convert an HEVM Prop into a boolean Exp
 fromProp :: EVM.Prop -> Either Text (Exp ABoolean)
 fromProp p = case p of
   EVM.PEq (a :: EVM.Expr t) b -> case eqT @t @EVM.EWord of
@@ -176,6 +189,7 @@ fromProp p = case p of
   EVM.PImpl a b -> liftM2 (Impl nowhere) (fromProp a) (fromProp b)
   EVM.PBool a -> pure $ LitBool nowhere a
 
+-- | Convert an HEVM word into an integer Exp
 fromWord :: EVM.Expr EVM.EWord -> Either Text (Exp AInteger)
 fromWord w = case w of
   EVM.Lit a -> Right $ LitInt nowhere (toInteger a)
@@ -190,7 +204,7 @@ fromWord w = case w of
 
 -- Verification ------------------------------------------------------------------------------------
 
-
+-- | Verify that the decompiled spec is equivalent to the input bytecodes
 verifyDecompilation :: ByteString -> ByteString -> Act -> IO ()
 verifyDecompilation creation runtime spec =
   withSolvers CVC5 4 Nothing $ \solvers -> do
