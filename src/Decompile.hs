@@ -45,6 +45,7 @@ import GHC.IO
 
 import Syntax.Annotated
 import HEVM
+import Print
 
 
 data EVMContract = EVMContract
@@ -118,6 +119,7 @@ mkConstructor cs
   | Set.size (snd cs.creation) == 1 =
       case head (Set.elems (snd cs.creation)) of
         EVM.Success props _ _ _ -> do
+          traceShowM props
           ps <- mapM fromProp props
           pure $ Constructor
             { _cname = T.unpack cs.name
@@ -201,5 +203,7 @@ test = do
           ExceptT (pure $ translate exprs)
         case spec of
           Left e -> print e
-          Right s -> verifyDecompilation c.creationCode c.runtimeCode s
+          Right s -> do
+            putStrLn $ prettyAct s
+            verifyDecompilation c.creationCode c.runtimeCode s
 
