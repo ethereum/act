@@ -35,6 +35,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Typeable
 import EVM.Fetch qualified as Fetch
+import EVM.Format (formatExpr)
 import EVM.Solidity hiding (SlotType(..))
 import EVM.Solidity qualified as EVM (SlotType(..))
 import EVM.Types qualified as EVM
@@ -48,6 +49,11 @@ import HEVM
 import Print
 
 
+-- Sumarization ------------------------------------------------------------------------------------
+
+
+-- | The result of summarization.
+-- Contains metadata describing the abi and storage layout, as well as summaries of all branches in the input program.
 data EVMContract = EVMContract
   { name :: Text
   , storageLayout :: Map Text StorageItem
@@ -56,57 +62,61 @@ data EVMContract = EVMContract
   }
   deriving (Show, Eq)
 
--- | Explore both the initcode and runtimecode of the contract
-explore :: SolverGroup -> SolcContract -> IO (Either Text EVMContract)
-explore solvers contract = do
-  ctor <- exploreCreation solvers contract
-  behvs <- exploreRuntime solvers contract
+-- | Decompile the runtime and creation bytecodes into hevm expressions
+summarize :: SolverGroup -> SolcContract -> IO (Either Text EVMContract)
+summarize solvers contract = do
   runExceptT $ do
-    storage <- ExceptT . pure
-      $ toErr "missing storage layout in compiler output" contract.storageLayout
+    ctor <- ExceptT creation
+    behvs <- ExceptT runtime
+    layout <- ExceptT . pure . toErr "missing storage layout in solc output" $ contract.storageLayout
     pure $ EVMContract
       { name = contract.contractName
-      , storageLayout = storage
+      , storageLayout = layout
       , runtime = behvs
       , creation = ctor
       }
+  where
+    creation = do
+      -- TODO: doesn't this have a 4 byte gap at the front?
+      let args = (flip combineFragments) (EVM.ConcreteBuf "") $ fmap (uncurry symAbiArg) contract.constructorInputs
+      initVM <- stToIO $ abstractVM (fst args, []) contract.creationCode Nothing True
+      expr <- simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
+      let branches = flattenExpr expr
+      if any isPartial branches
+      then pure . Left $ "partially explored branches in creation code:\n" <> T.unlines (fmap formatExpr (filter isPartial branches))
+      else do
+        let sucs = Set.fromList . filter isSuccess . flattenExpr $ expr
+        pure . Right $ (ctorIface contract.constructorInputs, sucs)
 
-exploreRuntime :: SolverGroup -> SolcContract -> IO (Map Interface (Set (EVM.Expr EVM.End)))
-exploreRuntime solvers contract = fmap (Map.fromList . Map.elems) $ forM contract.abiMap $ \method -> do
-    let calldata = first (`writeSelector` method.methodSignature)
-                 . (flip combineFragments) (EVM.AbstractBuf "txdata")
-                 $ fmap (uncurry symAbiArg) method.inputs
-    prestate <- stToIO $ abstractVM (fst calldata, []) contract.runtimeCode Nothing False
-    expr <- simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
-    let sucs = Set.fromList . filter isSuccess . flattenExpr $ expr
-    let iface = behvIface method
-    pure (iface, sucs)
+    runtime :: IO (Either Text (Map Interface (Set (EVM.Expr EVM.End))))
+    runtime = do
+      behvs <- fmap Map.elems $ forM contract.abiMap $ \method -> do
+        let calldata = first (`writeSelector` method.methodSignature)
+                     . (flip combineFragments) (EVM.AbstractBuf "txdata")
+                     $ fmap (uncurry symAbiArg) method.inputs
+        prestate <- stToIO $ abstractVM (fst calldata, []) contract.runtimeCode Nothing False
+        expr <- simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
+        let branches = flattenExpr expr
+        if any isPartial branches
+        then pure . Left $ "partially explored branches in runtime code:\n" <> T.unlines (fmap formatExpr (filter isPartial branches))
+        else do
+          let sucs = Set.fromList . filter isSuccess . flattenExpr $ expr
+          let iface = behvIface method
+          pure . Right $ (iface, sucs)
+      pure . fmap Map.fromList . sequence $ behvs
 
-exploreCreation :: SolverGroup -> SolcContract -> IO (Interface, Set (EVM.Expr EVM.End))
-exploreCreation solvers contract = do
-  -- TODO: doesn't this have a 4 byte gap at the front?
-  let args = (flip combineFragments) (EVM.ConcreteBuf "") $ fmap (uncurry symAbiArg) contract.constructorInputs
-  initVM <- stToIO $ abstractVM (fst args, []) contract.creationCode Nothing True
-  expr <- simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
-  let sucs = Set.fromList . filter isSuccess . flattenExpr $ expr
-  pure (ctorIface contract.constructorInputs, sucs)
 
-toErr :: Text -> Maybe a -> Either Text a
-toErr _ (Just a) = Right a
-toErr msg Nothing = Left msg
+-- Translation -------------------------------------------------------------------------------------
 
-ctorIface :: [(Text, AbiType)] -> Interface
-ctorIface args = Interface "constructor" (fmap (\(n, t) -> Decl t (T.unpack n)) args)
 
-behvIface :: Method -> Interface
-behvIface method = Interface (T.unpack method.name) (fmap (\(n, t) -> Decl t (T.unpack n)) method.inputs)
-
+-- | Translate the summarized bytecode into an act expression
 translate :: EVMContract -> Either Text Act
 translate c = do
   contract <- liftM2 Contract (mkConstructor c) (mkBehvs c)
   let store = mkStore c
   pure $ Act store [contract]
 
+-- | Build an Act Store from a solc storage layout
 mkStore :: EVMContract -> Store
 mkStore c = Map.singleton (T.unpack c.name) (Map.mapKeys T.unpack $ fmap fromitem c.storageLayout)
   where
@@ -130,8 +140,8 @@ mkConstructor cs
             , _initialStorage = mempty -- TODO
             , _cstateUpdates = mempty -- TODO
             }
-        _ -> error "unexpected unsucessful branch"
-  | otherwise = error "TODO: decompile constructors with multiple branches"
+        _ -> Left "unexpected unsucessful branch"
+  | otherwise = Left "TODO: decompile constructors with multiple branches"
 
 mkBehvs :: EVMContract -> Either Text [Behaviour]
 mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList c.runtime)
@@ -149,7 +159,7 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
         , _stateUpdates = mempty -- TODO
         , _returns = Nothing -- TODO
         }
-    mkbehv _ _ = error "unexpected unsucessful branch"
+    mkbehv _ _ = Left "unexpected unsucessful branch"
 
 fromProp :: EVM.Prop -> Either Text (Exp ABoolean)
 fromProp p = case p of
@@ -177,6 +187,10 @@ fromWord w = case w of
   EVM.TxValue -> Right $ IntEnv nowhere Callvalue
   _ -> Left $ "unable to decompile: " <> T.pack (show w)
 
+
+-- Verification ------------------------------------------------------------------------------------
+
+
 verifyDecompilation :: ByteString -> ByteString -> Act -> IO ()
 verifyDecompilation creation runtime spec =
   withSolvers CVC5 4 Nothing $ \solvers -> do
@@ -189,7 +203,23 @@ verifyDecompilation creation runtime spec =
     checkAbi solvers opts spec runtime
 
 
--- get full SolcContract from foundry project
+-- Helpers -----------------------------------------------------------------------------------------
+
+
+toErr :: Text -> Maybe a -> Either Text a
+toErr _ (Just a) = Right a
+toErr msg Nothing = Left msg
+
+ctorIface :: [(Text, AbiType)] -> Interface
+ctorIface args = Interface "constructor" (fmap (\(n, t) -> Decl t (T.unpack n)) args)
+
+behvIface :: Method -> Interface
+behvIface method = Interface (T.unpack method.name) (fmap (\(n, t) -> Decl t (T.unpack n)) method.inputs)
+
+
+-- Repl Stuff --------------------------------------------------------------------------------------
+
+
 test :: IO ()
 test = do
   cs <- readBuildOutput "/home/me/src/mine/scratch/solidity" Foundry
@@ -199,11 +229,10 @@ test = do
       withSolvers CVC5 4 Nothing $ \solvers -> do
         let c = fromJust $ Map.lookup "src/basic.sol:Basic" o
         spec <- runExceptT $ do
-          exprs <- ExceptT $ explore solvers c
+          exprs <- ExceptT $ summarize solvers c
           ExceptT (pure $ translate exprs)
         case spec of
           Left e -> print e
           Right s -> do
             putStrLn $ prettyAct s
             verifyDecompilation c.creationCode c.runtimeCode s
-
