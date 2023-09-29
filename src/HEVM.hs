@@ -128,12 +128,12 @@ translateActBehvs :: CodeMap -> Store -> [Behaviour] -> BS.ByteString -> [(Id, [
 translateActBehvs codemap store behvs bytecode =
   translateBehvs codemap (slotMap store) bytecode behvs
 
-translateActConstr :: CodeMap -> Store -> Contract -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
+translateActConstr :: CodeMap -> Store -> Contract -> BS.ByteString -> ([EVM.Expr EVM.End], Calldata)
 translateActConstr codemap store (Contract ctor _) bytecode = translateConstructor codemap (slotMap store) ctor bytecode
 
-translateConstructor :: CodeMap -> Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata)
+translateConstructor :: CodeMap -> Layout -> Constructor -> BS.ByteString -> ([EVM.Expr EVM.End], Calldata)
 translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) bytecode =
-  ("Test", [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds) <> symAddrCnstr) mempty (EVM.ConcreteBuf bytecode) cmap],
+  ([EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds) <> symAddrCnstr) mempty (EVM.ConcreteBuf bytecode) cmap],
    calldata)
   where
     calldata = makeCtrCalldata iface
@@ -520,7 +520,7 @@ checkEquiv solvers opts l1 l2 =
 
 checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> IO ()
 checkConstructors solvers opts initcode runtimecode store contract codemap = do
-  let (_, actbehvs, calldata) = translateActConstr codemap store contract runtimecode
+  let (actbehvs, calldata) = translateActConstr codemap store contract runtimecode
   initVM <- stToIO $ abstractVM calldata initcode Nothing True
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
