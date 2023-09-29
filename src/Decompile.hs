@@ -21,6 +21,8 @@ module Decompile where
 
 import Prelude hiding (LT, GT)
 
+import Debug.Trace
+
 import Control.Monad.Except
 import Control.Monad.Extra
 import Data.List
@@ -47,6 +49,7 @@ import GHC.IO
 import Syntax.Annotated
 import HEVM
 import Print
+import Enrich (enrich)
 
 
 -- Sumarization ------------------------------------------------------------------------------------
@@ -79,7 +82,8 @@ summarize solvers contract = do
   where
     creation = do
       -- TODO: doesn't this have a 4 byte gap at the front?
-      let args = (flip combineFragments) (EVM.ConcreteBuf "") $ fmap (uncurry symAbiArg) contract.constructorInputs
+      let fragments = fmap (uncurry symAbiArg) contract.constructorInputs
+          args = combineFragments' fragments 0 (EVM.ConcreteBuf "")
       initVM <- stToIO $ abstractVM (fst args, []) contract.creationCode Nothing True
       expr <- Expr.simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
       let branches = flattenExpr expr
@@ -126,15 +130,22 @@ mkConstructor :: EVMContract -> Either Text Constructor
 mkConstructor cs
   | Set.size (snd cs.creation) == 1 =
       case head (Set.elems (snd cs.creation)) of
-        EVM.Success props _ _ _ -> do
+        EVM.Success props _ _ state -> do
           ps <- mapM fromProp props
+          updates <- case Map.toList state of
+            [(EVM.SymAddr "entrypoint", contract)] -> do
+              partitioned <- partitionStorage contract.storage
+              mkRewrites cs.name (invertLayout cs.storageLayout) partitioned
+            [(_, _)] -> error $ "Internal Error: state contains a single entry for an unexpected contract:\n" <> show state
+            [] -> error "Internal Error: unexpected empty state"
+            _ -> Left "cannot decompile methods that update storage on other contracts"
           pure $ Constructor
             { _cname = T.unpack cs.name
             , _cinterface = fst cs.creation
             , _cpreconditions = ps
             , _cpostconditions = mempty
             , _invariants = mempty
-            , _initialStorage = mempty -- TODO
+            , _initialStorage = updates
             , _cstateUpdates = mempty -- TODO
             }
         _ -> Left "unexpected unsucessful branch"
@@ -146,6 +157,7 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
   where
     mkbehv :: Method -> EVM.Expr EVM.End -> Either Text Behaviour
     mkbehv method (EVM.Success props _ retBuf state) = do
+      traceShowM props
       pres <- mapM fromProp props
       ret <- case method.output of
         [] -> Right Nothing
@@ -172,13 +184,13 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
         , _preconditions = pres
         , _caseconditions = mempty -- TODO: what to do here?
         , _postconditions = mempty
-        , _stateUpdates = rewrites
+        , _stateUpdates = fmap Rewrite rewrites
         , _returns = ret
         }
     mkbehv _ _ = Left "unexpected unsucessful branch"
 
 -- TODO: we probably need to diff against the prestore or smth to be sound here
-mkRewrites :: Text -> Map (Integer, Integer) (Text, SlotType) -> DistinctStore -> Either Text [Rewrite]
+mkRewrites :: Text -> Map (Integer, Integer) (Text, SlotType) -> DistinctStore -> Either Text [StorageUpdate]
 mkRewrites cname layout (DistinctStore writes) = forM (Map.toList writes) $ \(slot,item) ->
     case Map.lookup (toInteger slot, 0) layout of
       Just (name, typ) -> case typ of
@@ -189,7 +201,7 @@ mkRewrites cname layout (DistinctStore writes) = forM (Map.toList writes) $ \(sl
               AbiFunctionType -> Left "cannot decompile methods that store function pointers"
               _ -> do
                   val <- fromWord item
-                  pure (Rewrite (Update SInteger (Item SInteger v (SVar nowhere (T.unpack cname) (T.unpack name))) val))
+                  pure (Update SInteger (Item SInteger v (SVar nowhere (T.unpack cname) (T.unpack name))) val)
             Dynamic -> Left "cannot decompile methods that store dynamically sized types"
           ContractType {} -> Left "cannot decompile contracts that have contract types in storage"
         StorageMapping {} -> Left "cannot decompile contracts that write to mappings"
@@ -231,9 +243,9 @@ fromProp p = case p of
     Nothing -> Left $ "cannot decompile props comparing equality of non word terms: " <> T.pack (show p)
     Just Refl -> liftM2 (Eq nowhere SInteger) (fromWord a) (fromWord b)
   EVM.PLT a b -> liftM2 (LT nowhere) (fromWord a) (fromWord b)
-  EVM.PGT a b -> liftM2 (LT nowhere) (fromWord a) (fromWord b)
-  EVM.PGEq a b -> liftM2 (LT nowhere) (fromWord a) (fromWord b)
-  EVM.PLEq a b -> liftM2 (LT nowhere) (fromWord a) (fromWord b)
+  EVM.PGT a b -> liftM2 (GT nowhere) (fromWord a) (fromWord b)
+  EVM.PGEq a b -> liftM2 (GEQ nowhere) (fromWord a) (fromWord b)
+  EVM.PLEq a b -> liftM2 (LEQ nowhere) (fromWord a) (fromWord b)
   EVM.PNeg a -> fmap (Neg nowhere) (fromProp a)
   EVM.PAnd a b -> liftM2 (And nowhere) (fromProp a) (fromProp b)
   EVM.POr a b -> liftM2 (Or nowhere) (fromProp a) (fromProp b)
@@ -250,6 +262,10 @@ fromWord w = case w of
     a' <- fromWord a
     Right $ ITE nowhere (Eq nowhere SInteger a' (LitInt nowhere 0)) (LitInt nowhere 1) (LitInt nowhere 0)
   EVM.TxValue -> Right $ IntEnv nowhere Callvalue
+  EVM.LT a b -> do
+    a' <- fromWord a
+    b' <- fromWord b
+    Right $ ITE nowhere (LT nowhere a' b') (LitInt nowhere 1) (LitInt nowhere 0)
   _ -> Left $ "unable to decompile: " <> T.pack (show w)
 
 
@@ -312,4 +328,4 @@ test = do
           Left e -> print e
           Right s -> do
             putStrLn $ prettyAct s
-            verifyDecompilation c.creationCode c.runtimeCode s
+            verifyDecompilation c.creationCode c.runtimeCode (enrich s)
