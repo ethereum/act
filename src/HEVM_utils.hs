@@ -19,22 +19,24 @@ module HEVM_utils where
 import Prelude hiding (GT, LT)
 
 import Data.Containers.ListUtils (nubOrd)
+import Data.List
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.ByteString as BS
 import Control.Monad
-import Control.Monad.ST (stToIO)
+import Control.Monad.ST (stToIO, ST)
 
 import Syntax.Annotated
 import Syntax.Untyped (makeIface)
 
-import qualified EVM.Types as EVM hiding (Contract(..))
+import qualified EVM.Types as EVM
 import EVM.Expr hiding (op2, inRange)
-import EVM.SymExec hiding (EquivResult, isPartial)
+import EVM.SymExec hiding (EquivResult, isPartial, abstractVM, loadSymVM)
 import EVM.Solvers
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
-
+import qualified EVM as EVM
+import EVM.FeeSchedule (feeSchedule)
 
 -- TODO move this to HEVM
 type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
@@ -79,10 +81,9 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
         s -> error $ "unsupported cd fragment: " <> show s
 
 -- | decompiles the given EVM bytecode into a list of Expr branches
-getRuntimeBranches :: SolverGroup -> BS.ByteString -> Calldata -> IO [EVM.Expr EVM.End]
-getRuntimeBranches solvers bs calldata = do
-      let bytecode = if BS.null bs then BS.pack [0] else bs
-      prestate <- stToIO $ abstractVM calldata bytecode Nothing False
+getRuntimeBranches :: SolverGroup -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> Calldata -> IO [EVM.Expr EVM.End]
+getRuntimeBranches solvers contracts calldata = do
+      prestate <- stToIO $ abstractVM contracts calldata
       expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
       let simpl = if True then (simplify expr) else expr
       let nodes = flattenExpr simpl
@@ -98,13 +99,13 @@ getRuntimeBranches solvers bs calldata = do
 
 -- | decompiles the given EVM initcode into a list of Expr branches
 getInitcodeBranches :: SolverGroup -> BS.ByteString -> Calldata -> IO [EVM.Expr EVM.End]
-getInitcodeBranches solvers initcode calldata = do  
-  initVM <- stToIO $ abstractVM calldata initcode Nothing True
+getInitcodeBranches solvers initcode calldata = do
+  initVM <- stToIO $ abstractInitVM initcode calldata
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
   -- traceM (T.unpack $ Format.formatExpr simpl)
-  let nodes = flattenExpr simpl  
-      
+  let nodes = flattenExpr simpl
+
   when (any isPartial nodes) $ do
     putStrLn ""
     putStrLn "WARNING: hevm was only able to partially explore the given contract due to the following issues:"
@@ -112,3 +113,59 @@ getInitcodeBranches solvers initcode calldata = do
     TIO.putStrLn . T.unlines . fmap (Format.indent 2 . ("- " <>)) . fmap Format.formatPartial . nubOrd $ (getPartials nodes)
 
   pure nodes
+
+
+abstractInitVM :: ByteString -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM s)
+abstractInitVM contractCode cd = do
+  let value = EVM.TxValue
+  let code = EVM.InitCode contractCode (fst cd)
+  loadSymVM (EVM.SymAddr "entrypoint", EVM.initialContract code) [] value cd True
+
+abstractVM :: [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM s)
+abstractVM contracts cd = do
+  let value = EVM.TxValue
+  let (c, cs) = findInitContract
+  loadSymVM c cs value cd False
+
+  where
+    findInitContract :: ((EVM.Expr 'EVM.EAddr, EVM.Contract), [(EVM.Expr 'EVM.EAddr, EVM.Contract)])
+    findInitContract =
+      case partition (\(a, _) -> a == EVM.SymAddr "entrypoint") contracts of
+        ([c], cs) -> (c, cs)
+        _ -> error "Internal error: address entrypoint expected exactly once"
+
+
+loadSymVM
+  :: (EVM.Expr EVM.EAddr, EVM.Contract)
+  -> [(EVM.Expr EVM.EAddr, EVM.Contract)]
+  -> EVM.Expr EVM.EWord
+  -> (EVM.Expr EVM.Buf, [EVM.Prop])
+  -> Bool
+  -> ST s (EVM.VM s)
+loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create =
+  (EVM.makeVm $ EVM.VMOpts
+    { contract = entrycontract
+    , otherContracts = othercontracts
+    , calldata = cd
+    , value = callvalue
+    , baseState = EVM.AbstractBase
+    , address = entryaddr
+    , caller = EVM.SymAddr "caller"
+    , origin = EVM.SymAddr "origin"
+    , coinbase = EVM.SymAddr "coinbase"
+    , number = 0
+    , timestamp = EVM.Lit 0
+    , blockGaslimit = 0
+    , gasprice = 0
+    , prevRandao = 42069
+    , gas = 0xffffffffffffffff
+    , gaslimit = 0xffffffffffffffff
+    , baseFee = 0
+    , priorityFee = 0
+    , maxCodeSize = 0xffffffff
+    , schedule = feeSchedule
+    , chainId = 1
+    , create = create
+    , txAccessList = mempty
+    , allowFFI = False
+    })

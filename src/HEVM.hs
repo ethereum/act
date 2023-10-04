@@ -12,7 +12,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TypeApplications #-}
-
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE NoFieldSelectors #-}
 
 module HEVM where
 
@@ -32,7 +33,6 @@ import Control.Monad
 import Data.DoubleWord
 import Data.Maybe
 import System.Exit ( exitFailure )
-import Control.Monad.ST (stToIO)
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 
 import Syntax.Annotated
@@ -40,14 +40,14 @@ import Syntax.Untyped (makeIface)
 import Syntax
 import HEVM_utils
 
-import qualified EVM.Types as EVM hiding (Contract(..))
+import qualified EVM.Types as EVM
+import qualified EVM as EVM
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial)
 import qualified EVM.SymExec as SymExec (EquivResult)
 import EVM.SMT (SMTCex(..), assertProps, formatSMT2)
 import EVM.Solvers
 import qualified EVM.Format as Format
-import qualified EVM.Fetch as Fetch
 
 import Debug.Trace
 
@@ -81,9 +81,9 @@ slotMap store =
 
 -- * Act translation
 
-translateActBehvs :: CodeMap -> Store -> [Behaviour] -> BS.ByteString -> [(Id, [EVM.Expr EVM.End], Calldata)]
-translateActBehvs codemap store behvs bytecode =
-  translateBehvs codemap (slotMap store) bytecode behvs
+translateActBehvs :: CodeMap -> Store -> [Behaviour] -> BS.ByteString -> ContractMap -> [(Id, [EVM.Expr EVM.End], Calldata)]
+translateActBehvs codemap store behvs bytecode cmap =
+  translateBehvs codemap (slotMap store) bytecode cmap behvs
 
 translateActConstr :: CodeMap -> Store -> Contract -> BS.ByteString -> ([EVM.Expr EVM.End], Calldata)
 translateActConstr codemap store (Contract ctor _) bytecode = translateConstructor codemap (slotMap store) ctor bytecode
@@ -112,10 +112,10 @@ translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) 
                  Nothing -> error "Internal error: init contract not found"
 
 
-translateBehvs :: CodeMap -> Layout -> BS.ByteString -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
-translateBehvs codemap layout bytecode behvs =
+translateBehvs :: CodeMap -> Layout -> BS.ByteString -> ContractMap -> [Behaviour] -> [(Id, [EVM.Expr EVM.End], Calldata)]
+translateBehvs codemap layout bytecode cmap behvs =
   let groups = (groupBy sameIface behvs) :: [[Behaviour]] in
-  fmap (\behvs' -> (behvName behvs', fmap (translateBehv codemap layout bytecode) behvs', behvCalldata behvs')) groups
+  fmap (\behvs' -> (behvName behvs', fmap (translateBehv codemap layout bytecode cmap) behvs', behvCalldata behvs')) groups
   where
 
     behvCalldata (Behaviour _ _ iface _ _ _ _ _:_) = makeCalldata iface
@@ -128,23 +128,16 @@ translateBehvs codemap layout bytecode behvs =
     behvName (Behaviour _ _ (Interface name _) _ _ _ _ _:_) = name
     behvName [] = error "Internal error: behaviour groups cannot be empty"
 
-translateBehv :: CodeMap -> Layout -> BS.ByteString -> Behaviour -> EVM.Expr EVM.End
-translateBehv codemap layout bytecode (Behaviour _ cid _ preconds caseconds _ upds ret) =
-  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) mempty (returnsToExpr layout ret) (rewritesToExpr codemap layout cid upds bytecode)
+translateBehv :: CodeMap -> Layout -> BS.ByteString -> ContractMap -> Behaviour -> EVM.Expr EVM.End
+translateBehv codemap layout bytecode cmap (Behaviour _ cid _ preconds caseconds _ upds ret) =
+  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) mempty (returnsToExpr layout ret) (rewritesToExpr codemap layout cid bytecode cmap upds)
 
-rewritesToExpr :: CodeMap -> Layout -> Id -> [Rewrite] -> BS.ByteString -> ContractMap
-rewritesToExpr codemap layout cid rewrites bytecode = foldl (flip $ rewriteToExpr codemap layout cid initAddr) initmap rewrites
-  where
-    initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
-                         , EVM.storage = EVM.AbstractStore initAddr
-                         , EVM.balance = EVM.Balance (EVM.SymAddr "entrypoint")
-                         , EVM.nonce = Just 0
-                         }
-    initmap = M.fromList [(initAddr, initcontract)]
+rewritesToExpr :: CodeMap -> Layout -> Id -> BS.ByteString -> ContractMap -> [Rewrite] -> ContractMap
+rewritesToExpr codemap layout cid bytecode cmap rewrites = foldl (rewriteToExpr codemap layout cid initAddr) cmap rewrites
 
-rewriteToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> Rewrite -> ContractMap -> ContractMap
-rewriteToExpr _ _ _ _ (Constant _) cmap = cmap
-rewriteToExpr codemap layout cid caddr (Rewrite upd) cmap = fst $ updateToExpr codemap layout cid caddr upd (cmap, [])
+rewriteToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> ContractMap -> Rewrite -> ContractMap
+rewriteToExpr _ _ _ _ cmap (Constant _) = cmap
+rewriteToExpr codemap layout cid caddr cmap (Rewrite upd) = fst $ updateToExpr codemap layout cid caddr upd (cmap, [])
 
 updatesToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> [StorageUpdate] -> (ContractMap, [EVM.Prop]) -> (ContractMap, [EVM.Prop])
 updatesToExpr codemap layout cid caddr upds initmap = foldl (flip $ updateToExpr codemap layout cid caddr) initmap upds
@@ -468,7 +461,7 @@ checkEquiv solvers opts l1 l2 =
     toEquivRes (Timeout b) = Timeout b
 
 
-checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> IO ()
+checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> IO ContractMap
 checkConstructors solvers opts initcode runtimecode store contract codemap = do
   let (actbehvs, calldata) = translateActConstr codemap store contract runtimecode
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
@@ -479,15 +472,20 @@ checkConstructors solvers opts initcode runtimecode store contract codemap = do
   checkResult =<< checkEquiv solvers opts solbehvs actbehvs
   putStrLn "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
   checkResult =<< checkInputSpaces solvers opts solbehvs actbehvs
+  pure $ getContractMap actbehvs
   where
     removeFails branches = filter isSuccess $ branches
 
+getContractMap :: [EVM.Expr EVM.End] -> ContractMap
+getContractMap [EVM.Success _ _ _ m] = m
+getContractMap _ = error "Internal error: unexpected shape of Act translation"
 
-checkBehaviours :: SolverGroup -> VeriOpts -> ByteString -> Store -> Contract -> CodeMap -> IO ()
-checkBehaviours solvers opts bytecode store (Contract _ behvs) codemap = do
-  let actbehvs = translateActBehvs codemap store behvs bytecode
+checkBehaviours :: SolverGroup -> VeriOpts -> ByteString -> Store -> Contract -> CodeMap -> ContractMap -> IO ()
+checkBehaviours solvers opts bytecode store (Contract _ behvs) codemap cmap = do
+  let (actstorage, hevmstorage) = createStorage cmap
+  let actbehvs = translateActBehvs codemap store behvs bytecode actstorage
   flip mapM_ actbehvs $ \(name,behvs',calldata) -> do
-    solbehvs <- removeFails <$> getRuntimeBranches solvers bytecode calldata
+    solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
 
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     traceShowM "Solidity behaviors"
@@ -500,6 +498,39 @@ checkBehaviours solvers opts bytecode store (Contract _ behvs) codemap = do
     checkResult =<< checkInputSpaces solvers opts solbehvs behvs'
     where
       removeFails branches = filter isSuccess $ branches
+
+
+createStorage :: ContractMap -> (ContractMap, [(EVM.Expr EVM.EAddr, EVM.Contract)])
+createStorage cmap =
+  let cmap' = M.mapWithKey makeContract cmap in
+  let contracts = fmap (\(addr, c) -> (addr, toContract c)) $ M.toList cmap' in
+  (cmap', contracts)
+
+  where
+    traverseStorage :: EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
+    traverseStorage (EVM.SStore offset (EVM.WAddr addr) storage) =
+      EVM.SStore offset (EVM.WAddr addr) (traverseStorage storage)
+    traverseStorage (EVM.SStore _ _ storage) = traverseStorage storage
+    traverseStorage _ = error "Internal error: unexpected storage shape"
+
+    makeContract :: EVM.Expr EVM.EAddr -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
+    makeContract addr (EVM.C code storage _ _) = EVM.C code (traverseStorage storage) (EVM.Balance addr) (Just 0)
+    makeContract _ (EVM.GVar _) = error "Internal error: contract cannot be gvar"
+
+    toContract :: EVM.Expr EVM.EContract -> EVM.Contract
+    toContract (EVM.C code storage balance nonce) = EVM.Contract
+      { EVM.code        = code
+      , EVM.storage     = storage
+      , EVM.origStorage = storage
+      , EVM.balance     = balance
+      , EVM.nonce       = nonce
+      , EVM.codehash    = EVM.hashcode code
+      , EVM.opIxMap     = EVM.mkOpIxMap code
+      , EVM.codeOps     = EVM.mkCodeOps code
+      , EVM.external    = False
+      }
+    toContract (EVM.GVar _) = error "Internal error: contract cannot be gvar"
+
 
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
@@ -540,7 +571,7 @@ checkAbi solver opts contract bytecode = do
   putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs contract)
-  evmBehvs <- getRuntimeBranches solver bytecode (txdata, [])
+  evmBehvs <- getRuntimeBranches solver [] (txdata, []) -- XXX TODO what to put here???
   let queries =  fmap (assertProps abstRefineDefault) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
@@ -568,9 +599,9 @@ checkContracts solvers opts store codemap =
   mapM_ (\(_, (contract, initcode, bytecode)) -> do
             putStrLn $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
             -- Constructor check
-            checkConstructors solvers opts initcode bytecode store contract codemap
+            cmap <- checkConstructors solvers opts initcode bytecode store contract codemap
             -- Behavours check
-            checkBehaviours solvers opts bytecode store contract codemap
+            checkBehaviours solvers opts bytecode store contract codemap cmap
             -- ABI exhaustiveness sheck
             checkAbi solvers opts contract bytecode
         ) (M.toList codemap)
