@@ -58,7 +58,7 @@ type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract)
 type EquivResult = ProofResult () (T.Text, SMTCex) ()
 
 abstRefineDefault :: EVM.AbstRefineConfig
-abstRefineDefault = EVM.AbstRefineConfig False False
+abstRefineDefault = EVM.AbstRefineConfig True False
 
 ethrunAddress :: EVM.Addr
 ethrunAddress = EVM.Addr 0x00a329c0648769a73afac7f9381e08fb43dbea72

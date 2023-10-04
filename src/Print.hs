@@ -118,7 +118,7 @@ prettyExp e = case e of
   UIntMin _ a -> show $ uintmin a
   IntMax _ a -> show $ intmax a
   IntMin _ a -> show $ intmin a
-  InRange _ a b -> "inrange(" <> show a <> ", " <> show b <> ")"
+  InRange _ a b -> "inrange(" <> show a <> ", " <> prettyExp b <> ")"
   LitInt _ a -> show a
   IntEnv _ a -> prettyEnv a
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -16,6 +17,10 @@ This module decompiles EVM bytecode into an Act spec. It operates as follows
 2. Transform that Expr into one that can be safely represented using Integers
 3. Convert that Expr into an Act spec (trusts solc compiler output)
 4. Compile the generated Act spec back to Expr and check equivalence (solc compiler output no longer trusted)
+
+Still required is a stage that transforms the Expr into one that can be safely represented by Integers. This could work as follows:
+  1. wrap all arithmetic expressions in a mod uint256
+  2. walk up the tree from the bottom, asking the solver at each node whether or not the mod can be eliminated
 -}
 module Decompile where
 
@@ -33,6 +38,7 @@ import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.IO qualified as T
 import Data.Tuple.Extra
 import Data.Typeable
 import EVM.ABI (AbiKind(..), abiKind)
@@ -44,7 +50,7 @@ import EVM.Types qualified as EVM
 import EVM.Solvers (SolverGroup, withSolvers, Solver(..))
 import EVM.SymExec
 import EVM.Expr qualified as Expr
-import GHC.IO
+import GHC.IO hiding (liftIO)
 
 import Syntax.Annotated
 import HEVM
@@ -115,7 +121,12 @@ summarize solvers contract = do
 -- | Translate the summarized bytecode into an act expression
 translate :: EVMContract -> Either Text Act
 translate c = do
-  contract <- liftM2 Contract (mkConstructor c) (mkBehvs c)
+  traceM "translating constructor"
+  ctor <- mkConstructor c
+  traceM "translating behaviours"
+  behvs <- mkBehvs c
+  traceM "done"
+  let contract = Contract ctor behvs
   let store = mkStore c
   pure $ Act store [contract]
 
@@ -131,7 +142,7 @@ mkConstructor cs
   | Set.size (snd cs.creation) == 1 =
       case head (Set.elems (snd cs.creation)) of
         EVM.Success props _ _ state -> do
-          ps <- mapM fromProp props
+          ps <- flattenProps <$> mapM (fromProp (invertLayout cs.storageLayout)) props
           updates <- case Map.toList state of
             [(EVM.SymAddr "entrypoint", contract)] -> do
               partitioned <- partitionStorage contract.storage
@@ -142,13 +153,13 @@ mkConstructor cs
           pure $ Constructor
             { _cname = T.unpack cs.name
             , _cinterface = fst cs.creation
-            , _cpreconditions = ps
+            , _cpreconditions = nub ps
             , _cpostconditions = mempty
             , _invariants = mempty
             , _initialStorage = updates
             , _cstateUpdates = mempty -- TODO
             }
-        _ -> Left "unexpected unsucessful branch"
+        _ -> error "Internal Error: mkConstructor called on a non Success branch"
   | otherwise = Left "TODO: decompile constructors with multiple branches"
 
 -- | Build behaviour specs from the summarized bytecode
@@ -158,7 +169,7 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
     mkbehv :: Method -> EVM.Expr EVM.End -> Either Text Behaviour
     mkbehv method (EVM.Success props _ retBuf state) = do
       traceShowM props
-      pres <- mapM fromProp props
+      pres <- flattenProps <$> mapM (fromProp (invertLayout c.storageLayout)) props
       ret <- case method.output of
         [] -> Right Nothing
         [(_, typ)] -> case abiKind typ of
@@ -166,7 +177,7 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
             AbiTupleType _ -> Left "cannot decompile methods that return a tuple"
             AbiFunctionType -> Left "cannot decompile methods that return a function pointer"
             _ -> do
-              v <- fromWord . Expr.readWord (EVM.Lit 0) $ retBuf
+              v <- fromWord (invertLayout c.storageLayout) . Expr.readWord (EVM.Lit 0) $ retBuf
               pure . Just . TExp SInteger $ v
           Dynamic -> Left "cannot decompile methods that return dynamically sized types"
         _ -> Left "cannot decompile methods with multiple return types"
@@ -181,13 +192,13 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
         { _contract = T.unpack c.name
         , _interface = behvIface method
         , _name = T.unpack method.name
-        , _preconditions = pres
+        , _preconditions = nub pres
         , _caseconditions = mempty -- TODO: what to do here?
         , _postconditions = mempty
         , _stateUpdates = fmap Rewrite rewrites
         , _returns = ret
         }
-    mkbehv _ _ = Left "unexpected unsucessful branch"
+    mkbehv _ _ = error "Internal Error: mkbehv called on a non Success branch"
 
 -- TODO: we probably need to diff against the prestore or smth to be sound here
 mkRewrites :: Text -> Map (Integer, Integer) (Text, SlotType) -> DistinctStore -> Either Text [StorageUpdate]
@@ -200,7 +211,7 @@ mkRewrites cname layout (DistinctStore writes) = forM (Map.toList writes) $ \(sl
               AbiTupleType _ -> Left "cannot decompile methods that write to tuple in storage"
               AbiFunctionType -> Left "cannot decompile methods that store function pointers"
               _ -> do
-                  val <- fromWord item
+                  val <- fromWord layout item
                   pure (Update SInteger (Item SInteger v (SVar nowhere (T.unpack cname) (T.unpack name))) val)
             Dynamic -> Left "cannot decompile methods that store dynamically sized types"
           ContractType {} -> Left "cannot decompile contracts that have contract types in storage"
@@ -228,45 +239,120 @@ partitionStorage = go mempty
 
     -- this is safe because:
     --   1. we traverse top down
-    --   2. we only consider lit keys in go
+    --   2. we only consider Lit keys
     checkedInsert curr (key, val) = case Map.lookup key curr of
       -- if a key was already written to higher in the write chain, ignore this write
       Just _ -> curr
       -- if this is the first time we have seen a key then insert it
       Nothing -> Map.insert key val curr
 
+-- | strips away all the extraneous ite noise that the evm bool's introduce
+evalBool :: Exp ABoolean -> Exp ABoolean
+evalBool = go
+  where
+    go :: Exp ABoolean -> Exp ABoolean
+    go (Neg _ (Neg _ p)) = p
+    go (Eq _ SInteger (ITE _ a (LitInt _ 1) (LitInt _ 0)) (LitInt _ 1)) = go a
+    go (Eq _ SInteger (ITE _ a (LitInt _ 1) (LitInt _ 0)) (LitInt _ 0)) = go (Neg nowhere (go a))
+
+    -- this is the condition we get for a non overflowing uint multiplication
+    --    ~ ((x != 0) & ~ (in_range 256 x))
+    -- -> ~ (x != 0) | ~ (~ (in_range 256 x))
+    -- -> x == 0 | in_range 256 x
+    -- -> in_range 256 x
+    go (Neg _ (And _ (Neg _ (Eq _ SInteger a (LitInt _ 0))) (Neg _ (InRange _ (AbiUIntType sz) (Mul _ b c)))))
+      | a == b = InRange nowhere (AbiUIntType sz) (Mul nowhere a c)
+
+    go (e) = e
+
+-- splits conjunctions into separate props
+flattenProps :: [Exp ABoolean] -> [Exp ABoolean]
+flattenProps = concatMap go
+  where
+    go :: Exp ABoolean -> [Exp ABoolean]
+    go (And _ a b) = [a, b]
+    go a = [a]
 
 -- | Convert an HEVM Prop into a boolean Exp
-fromProp :: EVM.Prop -> Either Text (Exp ABoolean)
-fromProp p = case p of
-  EVM.PEq (a :: EVM.Expr t) b -> case eqT @t @EVM.EWord of
-    Nothing -> Left $ "cannot decompile props comparing equality of non word terms: " <> T.pack (show p)
-    Just Refl -> liftM2 (Eq nowhere SInteger) (fromWord a) (fromWord b)
-  EVM.PLT a b -> liftM2 (LT nowhere) (fromWord a) (fromWord b)
-  EVM.PGT a b -> liftM2 (GT nowhere) (fromWord a) (fromWord b)
-  EVM.PGEq a b -> liftM2 (GEQ nowhere) (fromWord a) (fromWord b)
-  EVM.PLEq a b -> liftM2 (LEQ nowhere) (fromWord a) (fromWord b)
-  EVM.PNeg a -> fmap (Neg nowhere) (fromProp a)
-  EVM.PAnd a b -> liftM2 (And nowhere) (fromProp a) (fromProp b)
-  EVM.POr a b -> liftM2 (Or nowhere) (fromProp a) (fromProp b)
-  EVM.PImpl a b -> liftM2 (Impl nowhere) (fromProp a) (fromProp b)
-  EVM.PBool a -> pure $ LitBool nowhere a
+fromProp :: Map (Integer, Integer) (Text, SlotType) -> EVM.Prop -> Either Text (Exp ABoolean)
+fromProp l p = evalBool <$> go p
+  where
+    go (EVM.PEq (a :: EVM.Expr t) b) = case eqT @t @EVM.EWord of
+         Nothing -> Left $ "cannot decompile props comparing equality of non word terms: " <> T.pack (show p)
+         Just Refl -> liftM2 (Eq nowhere SInteger) (fromWord l a) (fromWord l b)
+    go (EVM.PLT a b) = liftM2 (LT nowhere) (fromWord l a) (fromWord l b)
+    go (EVM.PGT a b) = liftM2 (GT nowhere) (fromWord l a) (fromWord l b)
+    go (EVM.PGEq a b) = liftM2 (GEQ nowhere) (fromWord l a) (fromWord l b)
+    go (EVM.PLEq a b) = liftM2 (LEQ nowhere) (fromWord l a) (fromWord l b)
+    go (EVM.PNeg a) = fmap (Neg nowhere) (go a)
+    go (EVM.PAnd a b) = liftM2 (And nowhere) (go a) (go b)
+    go (EVM.POr a b) = liftM2 (Or nowhere) (go a) (go b)
+    go (EVM.PImpl a b) = liftM2 (Impl nowhere) (go a) (go b)
+    go (EVM.PBool a) = pure $ LitBool nowhere a
+
+pattern MAX_UINT :: EVM.W256
+pattern MAX_UINT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 -- | Convert an HEVM word into an integer Exp
-fromWord :: EVM.Expr EVM.EWord -> Either Text (Exp AInteger)
-fromWord w = case w of
-  EVM.Lit a -> Right $ LitInt nowhere (toInteger a)
-  -- TODO: get the actual abi type from the compiler output
-  EVM.Var a -> Right $ Var nowhere SInteger (AbiBytesType 32) (T.unpack a)
-  EVM.IsZero a -> do
-    a' <- fromWord a
-    Right $ ITE nowhere (Eq nowhere SInteger a' (LitInt nowhere 0)) (LitInt nowhere 1) (LitInt nowhere 0)
-  EVM.TxValue -> Right $ IntEnv nowhere Callvalue
-  EVM.LT a b -> do
-    a' <- fromWord a
-    b' <- fromWord b
-    Right $ ITE nowhere (LT nowhere a' b') (LitInt nowhere 1) (LitInt nowhere 0)
-  _ -> Left $ "unable to decompile: " <> T.pack (show w)
+fromWord :: Map (Integer, Integer) (Text, SlotType) -> EVM.Expr EVM.EWord -> Either Text (Exp AInteger)
+fromWord layout w = go w
+  where
+    err e = Left $ "unable to convert to word: " <> T.pack (show e) <> "\nouter expression: " <> T.pack (show w)
+    evmbool c = ITE nowhere c (LitInt nowhere 1) (LitInt nowhere 0)
+
+    -- identifiers
+
+    go (EVM.Lit a) = Right $ LitInt nowhere (toInteger a)
+    -- TODO: get the actual abi type from the compiler output
+    go (EVM.Var a) = Right $ Var nowhere SInteger (AbiBytesType 32) (T.unpack a)
+    go (EVM.TxValue) = Right $ IntEnv nowhere Callvalue
+
+    -- overflow checks
+
+    -- x + y
+    -- ~x < y -> MAX_UINT - x < y -> MAX_UINT < x + y (i.e. overflow)
+    go (EVM.LT (EVM.Not a) b) = do
+         a' <- go a
+         b' <- go b
+         pure $ evmbool (Neg nowhere $ InRange nowhere (AbiUIntType 256) (Add nowhere a' b'))
+    -- x * y
+    -- x > 0 && MAX_UINT / x < y -> x > 0 && MAX_UINT < x * y (i.e. overflow)
+    go (EVM.And (EVM.IsZero (EVM.IsZero a)) (EVM.LT (EVM.Div (EVM.Lit MAX_UINT) b) c))
+      | a == b = do
+        a' <- go a
+        c' <- go c
+        pure $ evmbool $ And nowhere (Neg nowhere (Eq nowhere SInteger a' (LitInt nowhere 0))) (Neg nowhere $ InRange nowhere (AbiUIntType 256) (Mul nowhere a' c'))
+
+    -- booleans
+
+    go (EVM.LT a b) = do
+         a' <- go a
+         b' <- go b
+         Right $ evmbool (LT nowhere a' b')
+    go (EVM.IsZero a) = do
+         a' <- go a
+         Right $ evmbool (Eq nowhere SInteger a' (LitInt nowhere 0))
+
+    -- arithmetic
+
+    go (EVM.Add a b) = liftM2 (Add nowhere) (go a) (go b)
+    go (EVM.Sub a b) = liftM2 (Sub nowhere) (go a) (go b)
+    go (EVM.Div a b) = liftM2 (Div nowhere) (go a) (go b)
+    go (EVM.Mul a b) = liftM2 (Mul nowhere) (go a) (go b)
+    go (EVM.Mod a b) = liftM2 (Mod nowhere) (go a) (go b)
+
+    -- storage
+
+    -- read from the prestore with a concrete index
+    go (EVM.SLoad (EVM.Lit idx) (EVM.AbstractStore _)) =
+         case Map.lookup (toInteger idx, 0) layout of
+           Nothing -> Left "read from a storage location that is not present in the solc layout"
+           Just (nm, tp) -> case tp of
+             -- TODO: get lookup contract name by address
+             StorageValue t@(PrimitiveType _) -> Right $ TEntry nowhere Pre (Item SInteger t (SVar nowhere (T.unpack "Basic") (T.unpack nm)))
+             _ -> Left $ "unable to handle storage reads for variables of type: " <> T.pack (show tp)
+
+    go e = err e
 
 
 -- Verification ------------------------------------------------------------------------------------
@@ -320,12 +406,15 @@ test = do
     Left e -> print e
     Right (BuildOutput (Contracts o) _) -> do
       withSolvers CVC5 4 Nothing $ \solvers -> do
-        let c = fromJust $ Map.lookup "src/basic.sol:Basic" o
+        let c = fromJust $ Map.lookup "src/closing_solidity.sol:MiniClosing" o
         spec <- runExceptT $ do
           exprs <- ExceptT $ summarize solvers c
-          ExceptT (pure $ translate exprs)
+          liftIO $ print exprs
+          ExceptT $ pure (translate exprs)
         case spec of
-          Left e -> print e
+          Left e -> do
+            T.putStrLn "summarization failed:"
+            T.putStrLn e
           Right s -> do
             putStrLn $ prettyAct s
             verifyDecompilation c.creationCode c.runtimeCode (enrich s)
