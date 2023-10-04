@@ -48,6 +48,7 @@ import EVM.Solvers
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
 
+import Debug.Trace
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -193,7 +194,7 @@ updatesToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> [StorageUpdate
 updatesToExpr codemap layout cid caddr upds initmap = foldl (flip $ updateToExpr codemap layout cid caddr) initmap upds
 
 updateToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> StorageUpdate -> (ContractMap, [EVM.Prop]) -> (ContractMap, [EVM.Prop])
-updateToExpr codemap layout cid caddr (Update typ i@(Item _ _ ref) e) (cmap, conds) =
+updateToExpr codemap layout _ caddr (Update typ (Item _ _ ref) e) (cmap, conds) =
   case typ of
     SInteger -> (M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap, conds)
     SBoolean -> (M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap, conds)
@@ -201,8 +202,7 @@ updateToExpr codemap layout cid caddr (Update typ i@(Item _ _ ref) e) (cmap, con
     SContract -> let (cmap', preconds) = createContract codemap layout freshAddr cmap e in
       (M.insert caddr (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) cmap', conds <> preconds)
   where
-    slot = getSlot layout cid (idFromItem i)
-    offset = offsetFromRef layout slot ref
+    offset = refOffset layout ref
 
     e' = toExpr layout e
     contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr cmap
@@ -319,12 +319,6 @@ substExp subst expr = case expr of
 returnsToExpr :: Layout -> Maybe TypedExp -> EVM.Expr EVM.Buf
 returnsToExpr _ Nothing = EVM.ConcreteBuf ""
 returnsToExpr layout (Just r) = typedExpToBuf layout r
-
-offsetFromRef :: Layout -> Integer -> StorageRef -> EVM.Expr EVM.EWord
-offsetFromRef _ slot (SVar _ _ _) = EVM.Lit $ fromIntegral slot
-offsetFromRef layout slot (SMapping _ _ ixs) =
-  foldl (\slot' i -> EVM.keccak ((typedExpToBuf layout i) <> (wordToBuf slot'))) (EVM.Lit $ fromIntegral slot) ixs
-offsetFromRef _ _ (SField _ _ _ _) = error "TODO contracts not supported"
 
 wordToBuf :: EVM.Expr EVM.EWord -> EVM.Expr EVM.Buf
 wordToBuf w = EVM.WriteWord (EVM.Lit 0) w (EVM.ConcreteBuf "")
@@ -448,7 +442,7 @@ toExpr layout = \case
   (ByLit _ bs) -> EVM.ConcreteBuf bs
   (ByEnv _ env) -> ethEnvToBuf env
   -- contracts
-  (Create _ _ _) -> error "TODO"
+  (Create _ _ _) -> error "internal error: Create calls not supported in this context"
   -- polymorphic
   (Eq _ SInteger e1 e2) -> op2 EVM.Eq e1 e2
   (Eq _ SBoolean e1 e2) -> op2 EVM.Eq e1 e2
@@ -541,7 +535,10 @@ checkBehaviours solvers opts bytecode store (Contract _ behvs) codemap = do
   let actbehvs = translateActBehvs codemap store behvs bytecode
   flip mapM_ actbehvs $ \(name,behvs',calldata) -> do
     solbehvs <- removeFails <$> getBranches solvers bytecode calldata
+
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
+    traceShowM "Solidity behaviors"
+    mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
     -- equivalence check
     putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     checkResult =<< checkEquiv solvers opts solbehvs behvs'
