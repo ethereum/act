@@ -38,6 +38,7 @@ import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import Syntax.Annotated
 import Syntax.Untyped (makeIface)
 import Syntax
+import HEVM_utils
 
 import qualified EVM.Types as EVM hiding (Contract(..))
 import EVM.Expr hiding (op2, inRange)
@@ -58,9 +59,6 @@ type family ExprType a where
 
 type Layout = M.Map Id (M.Map Id Integer)
 
--- TODO move this to HEVM
-type Calldata = (EVM.Expr EVM.Buf, [EVM.Prop])
-
 type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract)
 
 -- | For each contract in the Act spec, put in a codemap its Act
@@ -73,54 +71,12 @@ type EquivResult = ProofResult () (T.Text, SMTCex) ()
 abstRefineDefault :: EVM.AbstRefineConfig
 abstRefineDefault = EVM.AbstRefineConfig False False
 
-ethrunAddress :: EVM.Addr
-ethrunAddress = EVM.Addr 0x00a329c0648769a73afac7f9381e08fb43dbea72
-
 initAddr :: EVM.Expr EVM.EAddr
 initAddr = EVM.SymAddr "entrypoint"
 
 slotMap :: Store -> Layout
 slotMap store =
   M.map (M.map (\(_, slot) -> slot)) store
-
--- Create a calldata that matches the interface of a certain behaviour
--- or constructor. Use an abstract txdata buffer as the base.
-makeCalldata :: Interface -> Calldata
-makeCalldata iface@(Interface _ decls) =
-  let
-    mkArg :: Decl -> CalldataFragment
-    mkArg (Decl typ x) = symAbiArg (T.pack x) typ
-    makeSig = T.pack $ makeIface iface
-    calldatas = fmap mkArg decls
-    (cdBuf, _) = combineFragments calldatas (EVM.ConcreteBuf "")
-    withSelector = writeSelector cdBuf makeSig
-    sizeConstraints
-      = (bufLength withSelector EVM..>= cdLen calldatas)
-        EVM..&& (bufLength withSelector EVM..< (EVM.Lit (2 ^ (64 :: Integer))))
-  in (withSelector, [sizeConstraints])
-
-makeCtrCalldata :: Interface -> Calldata
-makeCtrCalldata (Interface _ decls) =
-  let
-    mkArg :: Decl -> CalldataFragment
-    mkArg (Decl typ x) = symAbiArg (T.pack x) typ
-    calldatas = fmap mkArg decls
-    -- We need to use a concrete buf as a base here because hevm bails when trying to execute with an abstract buf
-    -- This is because hevm ends up trying to execute a codecopy with a symbolic size, which is unsupported atm
-    -- This is probably unsound, but theres not a lot we can do about it at the moment...
-    (cdBuf, props) = combineFragments' calldatas 0 (EVM.ConcreteBuf "")
-  in (cdBuf, props)
-
--- TODO move to HEVM
-combineFragments' :: [CalldataFragment] -> EVM.W256 -> EVM.Expr EVM.Buf -> (EVM.Expr EVM.Buf, [EVM.Prop])
-combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
-  where
-    go :: EVM.Expr EVM.EWord -> [CalldataFragment] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> (EVM.Expr EVM.Buf, [EVM.Prop])
-    go _ [] acc = acc
-    go idx (f:rest) (buf, ps) =
-      case f of
-        St p w -> go (add idx (EVM.Lit 32)) rest (writeWord idx w buf, p <> ps)
-        s -> error $ "unsupported cd fragment: " <> show s
 
 
 -- * Act translation
@@ -515,11 +471,8 @@ checkEquiv solvers opts l1 l2 =
 checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> IO ()
 checkConstructors solvers opts initcode runtimecode store contract codemap = do
   let (actbehvs, calldata) = translateActConstr codemap store contract runtimecode
-  initVM <- stToIO $ abstractVM calldata initcode Nothing True
-  expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
-  let simpl = if True then (simplify expr) else expr
-  -- traceM (T.unpack $ Format.formatExpr simpl)
-  let solbehvs = removeFails $ flattenExpr simpl
+  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
+
   -- mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
   -- mapM_ (traceM . T.unpack . Format.formatExpr) actbehvs
   putStrLn "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
@@ -534,7 +487,7 @@ checkBehaviours :: SolverGroup -> VeriOpts -> ByteString -> Store -> Contract ->
 checkBehaviours solvers opts bytecode store (Contract _ behvs) codemap = do
   let actbehvs = translateActBehvs codemap store behvs bytecode
   flip mapM_ actbehvs $ \(name,behvs',calldata) -> do
-    solbehvs <- removeFails <$> getBranches solvers bytecode calldata
+    solbehvs <- removeFails <$> getRuntimeBranches solvers bytecode calldata
 
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     traceShowM "Solidity behaviors"
@@ -587,7 +540,7 @@ checkAbi solver opts contract bytecode = do
   putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs contract)
-  evmBehvs <- getBranches solver bytecode (txdata, [])
+  evmBehvs <- getRuntimeBranches solver bytecode (txdata, [])
   let queries =  fmap (assertProps abstRefineDefault) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
@@ -622,24 +575,6 @@ checkContracts solvers opts store codemap =
             checkAbi solvers opts contract bytecode
         ) (M.toList codemap)
 
-
-
--- | decompiles the given EVM bytecode into a list of Expr branches
-getBranches :: SolverGroup -> BS.ByteString -> Calldata -> IO [EVM.Expr EVM.End]
-getBranches solvers bs calldata = do
-      let bytecode = if BS.null bs then BS.pack [0] else bs
-      prestate <- stToIO $ abstractVM calldata bytecode Nothing False
-      expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
-      let simpl = if True then (simplify expr) else expr
-      let nodes = flattenExpr simpl
-
-      when (any isPartial nodes) $ do
-        putStrLn ""
-        putStrLn "WARNING: hevm was only able to partially explore the given contract due to the following issues:"
-        putStrLn ""
-        TIO.putStrLn . T.unlines . fmap (Format.indent 2 . ("- " <>)) . fmap Format.formatPartial . nubOrd $ (getPartials nodes)
-
-      pure nodes
 
 readSelector :: EVM.Expr EVM.Buf -> EVM.Expr EVM.EWord
 readSelector txdata =
