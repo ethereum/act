@@ -132,7 +132,7 @@ abstractVM contracts cd = do
     findInitContract =
       case partition (\(a, _) -> a == EVM.SymAddr "entrypoint") contracts of
         ([c], cs) -> (c, cs)
-        _ -> error "Internal error: address entrypoint expected exactly once"
+        _ -> error $ "Internal error: address entrypoint expected exactly once " <> show contracts 
 
 
 loadSymVM

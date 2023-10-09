@@ -485,6 +485,8 @@ checkBehaviours solvers opts bytecode store (Contract _ behvs) codemap cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = translateActBehvs codemap store behvs bytecode actstorage
   flip mapM_ actbehvs $ \(name,behvs',calldata) -> do
+    traceM "Act storage:"
+    traceShowM actstorage
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
 
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
@@ -507,14 +509,15 @@ createStorage cmap =
   (cmap', contracts)
 
   where
-    traverseStorage :: EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
-    traverseStorage (EVM.SStore offset (EVM.WAddr addr) storage) =
-      EVM.SStore offset (EVM.WAddr addr) (traverseStorage storage)
-    traverseStorage (EVM.SStore _ _ storage) = traverseStorage storage
-    traverseStorage _ = error "Internal error: unexpected storage shape"
+    traverseStorage ::  EVM.Expr EVM.EAddr -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
+    traverseStorage addr (EVM.SStore offset (EVM.WAddr symaddr) storage) =
+      EVM.SStore offset (EVM.WAddr symaddr) (traverseStorage addr storage)
+    traverseStorage addr (EVM.SStore _ _ storage) = traverseStorage addr storage
+    traverseStorage addr s@(EVM.ConcreteStore _) = (EVM.AbstractStore addr)
+    traverseStorage _ _ = error "Internal error: unexpected storage shape"
 
     makeContract :: EVM.Expr EVM.EAddr -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
-    makeContract addr (EVM.C code storage _ _) = EVM.C code (traverseStorage storage) (EVM.Balance addr) (Just 0)
+    makeContract addr (EVM.C code storage _ _) = EVM.C code (traverseStorage addr storage) (EVM.Balance addr) (Just 0)
     makeContract _ (EVM.GVar _) = error "Internal error: contract cannot be gvar"
 
     toContract :: EVM.Expr EVM.EContract -> EVM.Contract
@@ -566,12 +569,13 @@ checkInputSpaces solvers opts l1 l2 = do
 
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
-checkAbi :: SolverGroup -> VeriOpts -> Contract -> BS.ByteString -> IO ()
-checkAbi solver opts contract bytecode = do
+checkAbi :: SolverGroup -> VeriOpts -> Contract -> BS.ByteString -> ContractMap -> IO ()
+checkAbi solver opts contract bytecode cmap = do
   putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
+  let (_, hevmstorage) = createStorage cmap
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs contract)
-  evmBehvs <- getRuntimeBranches solver [] (txdata, []) -- XXX TODO what to put here???
+  evmBehvs <- getRuntimeBranches solver hevmstorage (txdata, [])
   let queries =  fmap (assertProps abstRefineDefault) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
 
   when opts.debug $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
@@ -603,7 +607,7 @@ checkContracts solvers opts store codemap =
             -- Behavours check
             checkBehaviours solvers opts bytecode store contract codemap cmap
             -- ABI exhaustiveness sheck
-            checkAbi solvers opts contract bytecode
+            checkAbi solvers opts contract bytecode cmap
         ) (M.toList codemap)
 
 
