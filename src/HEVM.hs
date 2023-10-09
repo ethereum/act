@@ -517,15 +517,14 @@ checkBehaviours solvers opts bytecode store (Contract _ behvs) codemap cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = translateActBehvs codemap store behvs bytecode actstorage
   flip mapM_ actbehvs $ \(name,behvs',calldata) -> do
-    traceM "Act storage:"
-    traceShowM actstorage
+    -- traceM "Act storage:"
+    -- traceShowM actstorage
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
-
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
-    traceShowM "Solidity behaviors"
-    mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
-    traceShowM "Act behaviors"
-    mapM_ (traceM . T.unpack . Format.formatExpr) behvs'
+    -- traceShowM "Solidity behaviors"
+    -- mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
+    -- traceShowM "Act behaviors"
+    -- mapM_ (traceM . T.unpack . Format.formatExpr) behvs'
     -- equivalence check
     putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     checkResult =<< checkEquiv solvers opts solbehvs behvs'
