@@ -145,16 +145,19 @@ updatesToExpr codemap layout cid caddr upds initmap = foldl (flip $ updateToExpr
 updateToExpr :: CodeMap -> Layout -> Id -> EVM.Expr EVM.EAddr -> StorageUpdate -> (ContractMap, [EVM.Prop]) -> (ContractMap, [EVM.Prop])
 updateToExpr codemap layout _ caddr (Update typ (Item _ _ ref) e) (cmap, conds) =
   case typ of
-    SInteger -> (M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap, conds)
-    SBoolean -> (M.insert caddr (updateStorage (EVM.SStore offset e') contract) cmap, conds)
+    SInteger -> (M.insert caddr' (updateStorage (EVM.SStore offset e') contract) cmap, conds)
+    SBoolean -> (M.insert caddr' (updateStorage (EVM.SStore offset e') contract) cmap, conds)
     SByteStr -> error "Bytestrings not supported"
     SContract -> let (cmap', preconds) = createContract codemap layout freshAddr cmap e in
-      (M.insert caddr (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) cmap', conds <> preconds)
+      (M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) cmap', conds <> preconds)
   where
     offset = refOffset layout ref
 
     e' = toExpr layout e
-    contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr cmap
+
+    caddr' = refAddr layout cmap caddr ref
+    contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
+
 
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateStorage updfun c'@(EVM.C _ _ _ _) = c' { EVM.storage = updfun c'.storage }
@@ -303,7 +306,36 @@ refOffset layout (SVar _ cid name) =
 refOffset layout (SMapping _ ref ixs) =
   let slot = refOffset layout ref in
   foldl (\slot' i -> EVM.keccak ((typedExpToBuf layout i) <> (wordToBuf slot'))) slot ixs
-refOffset _ _ = error "TODO"
+refOffset layout (SField _ _ cid name) =
+  let slot = getSlot layout cid name in
+  EVM.Lit $ fromIntegral slot
+
+refAddr :: Layout -> ContractMap -> EVM.Expr EVM.EAddr -> StorageRef -> EVM.Expr EVM.EAddr
+refAddr _ _ caddr (SVar _ _ _) = caddr
+refAddr layout cmap caddr (SField _ ref _ _) = getAddr caddr ref
+  where
+    -- find the contract that is stored in the given reference, that should contain an address
+    getAddr :: EVM.Expr EVM.EAddr -> StorageRef -> EVM.Expr EVM.EAddr
+    getAddr caddr (SVar _ c x) =
+      case M.lookup caddr cmap of
+        Just (EVM.C _ storage _ _) ->
+          let slot = EVM.Lit $ fromIntegral $ getSlot layout c x in
+          case simplify (EVM.SLoad slot storage) of
+            EVM.WAddr symaddr -> symaddr
+            _ -> error "Internal error: did not find a symbolic address"
+        Just _ -> error "Internal error: unepected GVar "
+        Nothing -> error "Internal error: contract not found"
+    getAddr caddr (SField _ ref c x) =
+      let caddr' = getAddr caddr ref in
+      case M.lookup caddr' cmap of
+        Just (EVM.C _ storage _ _) ->
+          let slot = EVM.Lit $ fromIntegral $ getSlot layout c x in
+          case simplify (EVM.SLoad slot storage) of
+            EVM.WAddr symaddr -> symaddr
+            _ -> error "Internal error: did not find a symbolic address"
+        Just _ -> error "Internal error: unepected GVar "
+        Nothing -> error "Internal error: contract not found"
+
 
 ethEnvToWord :: EthEnv -> EVM.Expr EVM.EWord
 ethEnvToWord Callvalue = EVM.TxValue
@@ -492,6 +524,8 @@ checkBehaviours solvers opts bytecode store (Contract _ behvs) codemap cmap = do
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     traceShowM "Solidity behaviors"
     mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
+    traceShowM "Act behaviors"
+    mapM_ (traceM . T.unpack . Format.formatExpr) behvs'
     -- equivalence check
     putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     checkResult =<< checkEquiv solvers opts solbehvs behvs'
@@ -657,5 +691,6 @@ checkResult res =
       TIO.putStrLn . T.unlines $
         [ "\x1b[41mNot equivalent.\x1b[m"
         , "" , "-----", ""
-        ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (EVM.AbstractBuf "txdata") cex) cexs)
+        ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" -- <> formatCex (EVM.AbstractBuf "txdata") cex
+                                                             ) cexs)
       exitFailure
