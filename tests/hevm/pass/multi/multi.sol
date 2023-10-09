@@ -20,12 +20,13 @@ contract B {
 	a = new A();
     }
 
-    /* function remote(uint z) public { */
-    /* 	a.set_x(z); */
-    /* } */
+    function remote(uint z) public returns (uint){
+	a.set_x(z);
+	return 0;
+    }
 
-    /* function multi(uint z) public { */
-    /* 	y = 1; */
-    /* 	a.set_x(z); */
-    /* } */
+    function multi(uint z) public {
+	y = z;
+	a.set_x(42);
+    }
 }
