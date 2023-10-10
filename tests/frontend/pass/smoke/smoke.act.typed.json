@@ -1,13 +1,26 @@
 {
   "contracts": [
     {
-      "behaviors": [
+      "behaviours": [
         {
           "case": [
-            "True"
+            {
+              "literal": "True",
+              "type": "bool"
+            }
           ],
           "contract": "A",
-          "interface": "f(uint256 x)",
+          "interface": {
+            "args": [
+              {
+                "abitype": "uint256",
+                "id": "\"x\"",
+                "kind": "Declaration"
+              }
+            ],
+            "id": "\"f\"",
+            "kind": "Interface"
+          },
           "kind": "Behaviour",
           "name": "f",
           "postConditions": [],
@@ -16,15 +29,24 @@
               "args": [
                 {
                   "args": [
-                    "0",
-                    "x"
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "type": "int",
+                      "var": "x"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "x",
+                    {
+                      "type": "int",
+                      "var": "x"
+                    },
                     "115792089237316195423570985008687907853269984665640564039457584007913129639935"
                   ],
                   "arity": 2,
@@ -36,7 +58,11 @@
             }
           ],
           "returns": {
-            "expression": "1",
+            "expression": {
+              "literal": "1",
+              "type": "int"
+            },
+            "kind": "TypedExpr",
             "sort": "int"
           },
           "stateUpdates": []
@@ -45,7 +71,11 @@
       "constructor": {
         "contract": "A",
         "initial storage": [],
-        "interface": "A()",
+        "interface": {
+          "args": [],
+          "id": "\"A\"",
+          "kind": "Interface"
+        },
         "invariants": [],
         "kind": "Constructor",
         "postConditions": [],
@@ -54,7 +84,7 @@
       "kind": "Contract"
     }
   ],
-  "kind": "Program",
+  "kind": "Act",
   "store": {
     "kind": "Storages",
     "storages": {
