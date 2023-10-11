@@ -7,9 +7,10 @@ module Syntax.Untyped (module Syntax.Untyped) where
 
 import Data.Aeson
 import Data.List (intercalate)
-import Data.List.NonEmpty (toList, NonEmpty)
+import Data.List.NonEmpty (NonEmpty)
+import Data.Text as T (pack)
 
-import EVM.ABI (AbiType)
+import EVM.ABI (AbiType(..))
 import Lex
 
 type Pn = AlexPosn
@@ -154,6 +155,7 @@ instance Show SlotType where
        <> ")")
    (show t) s
 
+
 data StorageVar = StorageVar Pn SlotType Id
   deriving (Eq, Show)
 
@@ -164,10 +166,41 @@ instance Show Decl where
   show (Decl t a) = show t <> " " <> a
 
 instance ToJSON SlotType where
-  toJSON (StorageValue t) = object ["type" .= show t]
-  toJSON (StorageMapping ixTypes valType) = object [ "type" .= String "mapping"
-                                                   , "ixTypes" .= show (toList ixTypes)
-                                                   , "valType" .= show valType]
+  toJSON (StorageValue t) = object ["kind" .= String "ValueType"
+                                   , "valueType" .= toJSON t]
+  toJSON (StorageMapping ixTypes resType) = object [ "kind" .= String "MappingType"
+                                                   , "ixTypes" .= toJSON ixTypes
+                                                   , "resType" .= toJSON resType]
+
+
+instance ToJSON ValueType where
+  toJSON (ContractType c) = object [ "kind" .= String "ContractType"
+                                   , "name" .= show c ]
+  toJSON (PrimitiveType abiType) = object [ "kind" .= String "AbiType"
+                                          , "abiType" .= toJSON abiType ]
+
+
+instance ToJSON AbiType where
+  toJSON (AbiUIntType n)          = object [ "type" .= String "UInt"
+                                           , "size" .= String (T.pack $ show n) ]
+  toJSON (AbiIntType n)           = object [ "type" .= String "Int"
+                                           , "size" .= String (T.pack $ show n) ]
+  toJSON AbiAddressType           = object [ "type" .= String "Address" ]
+  toJSON AbiBoolType              = object [ "type" .= String "Bool" ]
+  toJSON (AbiBytesType n)         = object [ "type" .= String "Bytes"
+                                           , "size" .= String (T.pack $ show n) ]
+  toJSON AbiBytesDynamicType      = object [ "type" .= String "BytesDynamic" ]
+  toJSON AbiStringType            = object [ "type" .= String "String" ]
+  toJSON (AbiArrayDynamicType t)  = object [ "type" .= String "ArrayDynamic"
+                                        , "arrayType" .= toJSON t ]
+  toJSON (AbiArrayType n t)       = object [ "type" .= String "Array"
+                                           , "arrayType" .= toJSON t
+                                           , "size" .= String (T.pack $ show n) ]
+  toJSON (AbiTupleType ts)        = object [ "type" .= String "Tuple"
+                                           , "elemTypes" .= toJSON ts ]
+  toJSON (AbiFunctionType)        = object [ "type" .= String "Function" ]
+
+
 
 -- Create the string that is used to construct the function selector
 makeIface :: Interface -> String
