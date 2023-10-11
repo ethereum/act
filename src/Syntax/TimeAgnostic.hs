@@ -462,7 +462,7 @@ field a c x = object [ "kind"      .= pack "Field"
 
 instance ToJSON (TypedExp t) where
   toJSON (TExp typ a) = object [ "kind"       .= pack "TypedExpr"
-                               , "sort"       .= pack (show typ)
+                               , "type"       .= pack (show typ)
                                , "expression" .= toJSON a ]
 
 instance ToJSON (Exp a t) where
