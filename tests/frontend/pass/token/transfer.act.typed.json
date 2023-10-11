@@ -4943,35 +4943,86 @@
       "Token": {
         "allowance": [
           {
-            "ixTypes": "[address,address]",
-            "type": "mapping",
-            "valType": "uint256"
+            "ixTypes": [
+              {
+                "abiType": {
+                  "type": "Address"
+                },
+                "kind": "AbiType"
+              },
+              {
+                "abiType": {
+                  "type": "Address"
+                },
+                "kind": "AbiType"
+              }
+            ],
+            "kind": "MappingType",
+            "resType": {
+              "abiType": {
+                "size": "256",
+                "type": "UInt"
+              },
+              "kind": "AbiType"
+            }
           },
           4
         ],
         "balanceOf": [
           {
-            "ixTypes": "[address]",
-            "type": "mapping",
-            "valType": "uint256"
+            "ixTypes": [
+              {
+                "abiType": {
+                  "type": "Address"
+                },
+                "kind": "AbiType"
+              }
+            ],
+            "kind": "MappingType",
+            "resType": {
+              "abiType": {
+                "size": "256",
+                "type": "UInt"
+              },
+              "kind": "AbiType"
+            }
           },
           3
         ],
         "name": [
           {
-            "type": "string"
+            "kind": "ValueType",
+            "valueType": {
+              "abiType": {
+                "type": "String"
+              },
+              "kind": "AbiType"
+            }
           },
           0
         ],
         "symbol": [
           {
-            "type": "string"
+            "kind": "ValueType",
+            "valueType": {
+              "abiType": {
+                "type": "String"
+              },
+              "kind": "AbiType"
+            }
           },
           1
         ],
         "totalSupply": [
           {
-            "type": "uint256"
+            "kind": "ValueType",
+            "valueType": {
+              "abiType": {
+                "size": "256",
+                "type": "UInt"
+              },
+              "kind": "AbiType"
+            }
           },
           2
         ]

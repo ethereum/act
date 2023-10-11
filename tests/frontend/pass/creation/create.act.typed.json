@@ -77,13 +77,26 @@
       "Modest": {
         "x": [
           {
-            "type": "uint256"
+            "kind": "ValueType",
+            "valueType": {
+              "abiType": {
+                "size": "256",
+                "type": "UInt"
+              },
+              "kind": "AbiType"
+            }
           },
           0
         ],
         "y": [
           {
-            "type": "address"
+            "kind": "ValueType",
+            "valueType": {
+              "abiType": {
+                "type": "Address"
+              },
+              "kind": "AbiType"
+            }
           },
           1
         ]

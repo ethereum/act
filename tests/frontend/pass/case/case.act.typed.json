@@ -559,7 +559,14 @@
       "C": {
         "x": [
           {
-            "type": "uint256"
+            "kind": "ValueType",
+            "valueType": {
+              "abiType": {
+                "size": "256",
+                "type": "UInt"
+              },
+              "kind": "AbiType"
+            }
           },
           0
         ]

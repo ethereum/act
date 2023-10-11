@@ -496,7 +496,14 @@
       "A": {
         "x": [
           {
-            "type": "uint256"
+            "kind": "ValueType",
+            "valueType": {
+              "abiType": {
+                "size": "256",
+                "type": "UInt"
+              },
+              "kind": "AbiType"
+            }
           },
           0
         ]
@@ -504,13 +511,24 @@
       "B": {
         "a": [
           {
-            "type": "A"
+            "kind": "ValueType",
+            "valueType": {
+              "kind": "ContractType",
+              "name": "\"A\""
+            }
           },
           1
         ],
         "y": [
           {
-            "type": "uint256"
+            "kind": "ValueType",
+            "valueType": {
+              "abiType": {
+                "size": "256",
+                "type": "UInt"
+              },
+              "kind": "AbiType"
+            }
           },
           0
         ]
