@@ -63,7 +63,7 @@
               "type": "int"
             },
             "kind": "TypedExpr",
-            "sort": "int"
+            "type": "int"
           },
           "stateUpdates": []
         }

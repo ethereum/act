@@ -188,7 +188,7 @@
               "symbol": "+"
             },
             "kind": "TypedExpr",
-            "sort": "int"
+            "type": "int"
           },
           "stateUpdates": []
         }
