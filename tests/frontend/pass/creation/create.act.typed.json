@@ -1,30 +1,41 @@
 {
   "contracts": [
     {
-      "behaviors": [],
+      "behaviours": [],
       "constructor": {
         "contract": "Modest",
         "initial storage": [
           {
             "location": {
               "item": {
-                "var": "Modest.x"
+                "contract": "Modest",
+                "kind": "SVar",
+                "svar": "x"
               },
-              "sort": "int"
+              "type": "int"
             },
-            "value": "1"
+            "value": {
+              "literal": "1",
+              "type": "int"
+            }
           },
           {
             "location": {
               "item": {
-                "var": "Modest.y"
+                "contract": "Modest",
+                "kind": "SVar",
+                "svar": "y"
               },
-              "sort": "int"
+              "type": "int"
             },
             "value": "Caller"
           }
         ],
-        "interface": "Modest()",
+        "interface": {
+          "args": [],
+          "id": "\"Modest\"",
+          "kind": "Interface"
+        },
         "invariants": [],
         "kind": "Constructor",
         "postConditions": [],
@@ -33,7 +44,10 @@
             "args": [
               {
                 "args": [
-                  "0",
+                  {
+                    "literal": "0",
+                    "type": "int"
+                  },
                   "Caller"
                 ],
                 "arity": 2,
@@ -56,20 +70,33 @@
       "kind": "Contract"
     }
   ],
-  "kind": "Program",
+  "kind": "Act",
   "store": {
     "kind": "Storages",
     "storages": {
       "Modest": {
         "x": [
           {
-            "type": "uint256"
+            "kind": "ValueType",
+            "valueType": {
+              "abiType": {
+                "size": "256",
+                "type": "UInt"
+              },
+              "kind": "AbiType"
+            }
           },
           0
         ],
         "y": [
           {
-            "type": "address"
+            "kind": "ValueType",
+            "valueType": {
+              "abiType": {
+                "type": "Address"
+              },
+              "kind": "AbiType"
+            }
           },
           1
         ]
