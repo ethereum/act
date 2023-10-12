@@ -90,7 +90,7 @@ translateActConstr codemap store (Contract ctor _) bytecode = translateConstruct
 
 translateConstructor :: CodeMap -> Layout -> Constructor -> BS.ByteString -> ([EVM.Expr EVM.End], Calldata)
 translateConstructor codemap layout (Constructor cid iface preconds _ _ upds _) bytecode =
-  ([EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds) <> symAddrCnstr) mempty (EVM.ConcreteBuf bytecode) cmap],
+  ([EVM.Success (snd calldata <> (fmap (toProp layout (EVM.SymAddr "entrypoint") initmap) $ preconds) <> symAddrCnstr) mempty (EVM.ConcreteBuf bytecode) cmap],
    calldata)
   where
     calldata = makeCtrCalldata iface
@@ -130,7 +130,8 @@ translateBehvs codemap layout bytecode cmap behvs =
 
 translateBehv :: CodeMap -> Layout -> BS.ByteString -> ContractMap -> Behaviour -> EVM.Expr EVM.End
 translateBehv codemap layout bytecode cmap (Behaviour _ cid _ preconds caseconds _ upds ret) =
-  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) mempty (returnsToExpr layout ret) (rewritesToExpr codemap layout cid bytecode cmap upds)
+  EVM.Success (fmap (toProp layout (EVM.SymAddr "entrypoint") cmap) $ preconds <> caseconds)
+    mempty (returnsToExpr layout (EVM.SymAddr "entrypoint") cmap ret) (rewritesToExpr codemap layout cid bytecode cmap upds)
 
 rewritesToExpr :: CodeMap -> Layout -> Id -> BS.ByteString -> ContractMap -> [Rewrite] -> ContractMap
 rewritesToExpr codemap layout cid bytecode cmap rewrites = foldl (rewriteToExpr codemap layout cid initAddr) cmap rewrites
@@ -151,11 +152,11 @@ updateToExpr codemap layout _ caddr (Update typ (Item _ _ ref) e) (cmap, conds) 
     SContract -> let (cmap', preconds) = createContract codemap layout freshAddr cmap e in
       (M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) cmap', conds <> preconds)
   where
-    offset = refOffset layout ref
+    offset = refOffset layout caddr cmap ref
 
-    e' = toExpr layout e
+    e' = toExpr layout caddr cmap e
 
-    caddr' = refAddr layout cmap caddr ref
+    caddr' = baseAddr layout cmap caddr ref
     contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
 
 
@@ -186,7 +187,7 @@ createContract codemap layout freshAddr cmap (Create _ cid args) =
                            , EVM.nonce = Just 1
                            } in
       let subst = makeSubstMap iface args in
-      let preconds' = fmap (toProp layout) $ fmap (substExp subst) preconds in
+      let preconds' = fmap (toProp layout freshAddr cmap) $ fmap (substExp subst) preconds in
       let upds' = substUpds subst upds in
       -- trace "Before" $
       -- traceShow preconds $
@@ -268,9 +269,9 @@ substExp subst expr = case expr of
 
 
 
-returnsToExpr :: Layout -> Maybe TypedExp -> EVM.Expr EVM.Buf
-returnsToExpr _ Nothing = EVM.ConcreteBuf ""
-returnsToExpr layout (Just r) = typedExpToBuf layout r
+returnsToExpr :: Layout -> EVM.Expr EVM.EAddr -> ContractMap -> Maybe TypedExp -> EVM.Expr EVM.Buf
+returnsToExpr _ _ _ Nothing = EVM.ConcreteBuf ""
+returnsToExpr layout caddr cmap (Just r) = typedExpToBuf layout caddr cmap r
 
 wordToBuf :: EVM.Expr EVM.EWord -> EVM.Expr EVM.Buf
 wordToBuf w = EVM.WriteWord (EVM.Lit 0) w (EVM.ConcreteBuf "")
@@ -278,17 +279,17 @@ wordToBuf w = EVM.WriteWord (EVM.Lit 0) w (EVM.ConcreteBuf "")
 wordToProp :: EVM.Expr EVM.EWord -> EVM.Prop
 wordToProp w = EVM.PNeg (EVM.PEq w (EVM.Lit 0))
 
-typedExpToBuf :: Layout -> TypedExp -> EVM.Expr EVM.Buf
-typedExpToBuf layout expr =
+typedExpToBuf :: Layout -> EVM.Expr EVM.EAddr -> ContractMap -> TypedExp -> EVM.Expr EVM.Buf
+typedExpToBuf layout caddr cmap expr =
   case expr of
-    TExp styp e -> expToBuf layout styp e
+    TExp styp e -> expToBuf layout caddr cmap styp e
 
-expToBuf :: forall a. Layout -> SType a -> Exp a  -> EVM.Expr EVM.Buf
-expToBuf layout styp e =
+expToBuf :: forall a. Layout -> EVM.Expr EVM.EAddr -> ContractMap -> SType a -> Exp a  -> EVM.Expr EVM.Buf
+expToBuf layout caddr cmap styp e =
   case styp of
-    SInteger -> EVM.WriteWord (EVM.Lit 0) (toExpr layout e) (EVM.ConcreteBuf "")
-    SBoolean -> EVM.WriteWord (EVM.Lit 0) (toExpr layout e) (EVM.ConcreteBuf "")
-    SByteStr -> toExpr layout e
+    SInteger -> EVM.WriteWord (EVM.Lit 0) (toExpr layout caddr cmap e) (EVM.ConcreteBuf "")
+    SBoolean -> EVM.WriteWord (EVM.Lit 0) (toExpr layout caddr cmap e) (EVM.ConcreteBuf "")
+    SByteStr -> toExpr layout caddr cmap e
     SContract -> error "Internal error: expecting primitive type"
 
 getSlot :: Layout -> Id -> Id -> Integer
@@ -299,43 +300,44 @@ getSlot layout cid name =
       Nothing -> error $ "Internal error: invalid variable name: " <> show name
     Nothing -> error "Internal error: invalid contract name"
 
-refOffset :: Layout -> StorageRef -> EVM.Expr EVM.EWord
-refOffset layout (SVar _ cid name) =
+refOffset :: Layout -> EVM.Expr EVM.EAddr -> ContractMap -> StorageRef -> EVM.Expr EVM.EWord
+refOffset layout _ _ (SVar _ cid name) =
   let slot = getSlot layout cid name in
   EVM.Lit $ fromIntegral slot
-refOffset layout (SMapping _ ref ixs) =
-  let slot = refOffset layout ref in
-  foldl (\slot' i -> EVM.keccak ((typedExpToBuf layout i) <> (wordToBuf slot'))) slot ixs
-refOffset layout (SField _ _ cid name) =
+refOffset layout caddr cmap (SMapping _ ref ixs) =
+  let slot = refOffset layout caddr cmap ref in
+  foldl (\slot' i -> EVM.keccak ((typedExpToBuf layout caddr cmap i) <> (wordToBuf slot'))) slot ixs
+refOffset layout _ _ (SField _ _ cid name) =
   let slot = getSlot layout cid name in
   EVM.Lit $ fromIntegral slot
 
+baseAddr :: Layout -> ContractMap -> EVM.Expr EVM.EAddr -> StorageRef -> EVM.Expr EVM.EAddr
+baseAddr _ _ caddr (SVar _ _ _) = caddr
+baseAddr layout cmap caddr (SField _ ref _ _) = refAddr layout cmap caddr ref
+baseAddr layout cmap caddr (SMapping _ ref _) = refAddr layout cmap caddr ref
+
+-- | find the contract that is stored in the given reference of contract type
 refAddr :: Layout -> ContractMap -> EVM.Expr EVM.EAddr -> StorageRef -> EVM.Expr EVM.EAddr
-refAddr _ _ caddr (SVar _ _ _) = caddr
-refAddr layout cmap caddr (SField _ ref _ _) = getAddr caddr ref
-  where
-    -- find the contract that is stored in the given reference, that should contain an address
-    getAddr :: EVM.Expr EVM.EAddr -> StorageRef -> EVM.Expr EVM.EAddr
-    getAddr caddr (SVar _ c x) =
-      case M.lookup caddr cmap of
-        Just (EVM.C _ storage _ _) ->
-          let slot = EVM.Lit $ fromIntegral $ getSlot layout c x in
+refAddr layout cmap caddr (SVar _ c x) =
+  case M.lookup caddr cmap of
+    Just (EVM.C _ storage _ _) ->
+      let slot = EVM.Lit $ fromIntegral $ getSlot layout c x in
+        case simplify (EVM.SLoad slot storage) of
+          EVM.WAddr symaddr -> symaddr
+          _ -> error "Internal error: did not find a symbolic address"
+    Just _ -> error "Internal error: unepected GVar "
+    Nothing -> error "Internal error: contract not found"
+refAddr layout cmap caddr (SField _ ref c x) =
+  let caddr' = refAddr layout cmap caddr ref in
+    case M.lookup caddr' cmap of
+      Just (EVM.C _ storage _ _) ->
+        let slot = EVM.Lit $ fromIntegral $ getSlot layout c x in
           case simplify (EVM.SLoad slot storage) of
             EVM.WAddr symaddr -> symaddr
             _ -> error "Internal error: did not find a symbolic address"
-        Just _ -> error "Internal error: unepected GVar "
-        Nothing -> error "Internal error: contract not found"
-    getAddr caddr (SField _ ref c x) =
-      let caddr' = getAddr caddr ref in
-      case M.lookup caddr' cmap of
-        Just (EVM.C _ storage _ _) ->
-          let slot = EVM.Lit $ fromIntegral $ getSlot layout c x in
-          case simplify (EVM.SLoad slot storage) of
-            EVM.WAddr symaddr -> symaddr
-            _ -> error "Internal error: did not find a symbolic address"
-        Just _ -> error "Internal error: unepected GVar "
-        Nothing -> error "Internal error: contract not found"
-
+      Just _ -> error "Internal error: unepected GVar "
+      Nothing -> error "Internal error: contract not found"
+refAddr _ _ _ (SMapping _ _ _) = error "Internal error: mapping address not suppported"
 
 ethEnvToWord :: EthEnv -> EVM.Expr EVM.EWord
 ethEnvToWord Callvalue = EVM.TxValue
@@ -356,12 +358,12 @@ ethEnvToBuf :: EthEnv -> EVM.Expr EVM.Buf
 ethEnvToBuf _ = error "Internal error: there are no bytestring environment values"
 
 
-toProp :: Layout -> Exp ABoolean -> EVM.Prop
-toProp layout = \case
+toProp :: Layout -> EVM.Expr EVM.EAddr -> ContractMap -> Exp ABoolean -> EVM.Prop
+toProp layout caddr cmap = \case
   (And _ e1 e2) -> pop2 EVM.PAnd e1 e2
   (Or _ e1 e2) -> pop2 EVM.POr e1 e2
   (Impl _ e1 e2) -> pop2 EVM.PImpl e1 e2
-  (Neg _ e1) -> EVM.PNeg (toProp layout e1)
+  (Neg _ e1) -> EVM.PNeg (toProp layout caddr cmap e1)
   (Syntax.Annotated.LT _ e1 e2) -> op2 EVM.PLT e1 e2
   (LEQ _ e1 e2) -> op2 EVM.PLEq e1 e2
   (GEQ _ e1 e2) -> op2 EVM.PGEq e1 e2
@@ -376,23 +378,23 @@ toProp layout = \case
   (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
   (Var _ _ _ _) -> error "TODO"
   (TEntry _ _ _) -> error "TODO" -- EVM.SLoad addr idx
-  (InRange _ t e) -> toProp layout (inRange t e)
+  (InRange _ t e) -> toProp layout  caddr cmap (inRange t e)
   where
     op2 :: forall a b. (EVM.Expr (ExprType b) -> EVM.Expr (ExprType b) -> a) -> Exp b -> Exp b -> a
-    op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
+    op2 op e1 e2 = op (toExpr layout caddr cmap e1) (toExpr layout caddr cmap e2)
 
     pop2 :: forall a. (EVM.Prop -> EVM.Prop -> a) -> Exp ABoolean -> Exp ABoolean -> a
-    pop2 op e1 e2 = op (toProp layout e1) (toProp layout e2)
+    pop2 op e1 e2 = op (toProp layout caddr cmap e1) (toProp layout caddr cmap e2)
 
 
 
-toExpr :: forall a. Layout -> Exp a -> EVM.Expr (ExprType a)
-toExpr layout = \case
+toExpr :: forall a. Layout -> EVM.Expr EVM.EAddr -> ContractMap -> Exp a -> EVM.Expr (ExprType a)
+toExpr layout caddr cmap = \case
   -- booleans
   (And _ e1 e2) -> op2 EVM.And e1 e2
   (Or _ e1 e2) -> op2 EVM.Or e1 e2
   (Impl _ e1 e2) -> op2 (\x y -> EVM.Or (EVM.Not x) y) e1 e2
-  (Neg _ e1) -> EVM.Not (toExpr layout e1)
+  (Neg _ e1) -> EVM.Not (toExpr layout caddr cmap e1)
   (Syntax.Annotated.LT _ e1 e2) -> op2 EVM.LT e1 e2
   (LEQ _ e1 e2) -> op2 EVM.LEq e1 e2
   (GEQ _ e1 e2) -> op2 EVM.GEq e1 e2
@@ -412,7 +414,7 @@ toExpr layout = \case
   (IntMax _ n) -> EVM.Lit (fromIntegral $ intmax n)
   (UIntMin _ n) -> EVM.Lit (fromIntegral $ uintmin n)
   (UIntMax _ n) -> EVM.Lit (fromIntegral $ uintmax n)
-  (InRange _ t e) -> toExpr layout (inRange t e)
+  (InRange _ t e) -> toExpr layout caddr cmap (inRange t e)
   -- bytestrings
   (Cat _ _ _) -> error "TODO"
   (Slice _ _ _ _) -> error "TODO"
@@ -439,14 +441,19 @@ toExpr layout = \case
     fromCalldataFramgment $ symAbiArg (T.pack x) typ
 
   (TEntry _ _ (Item SInteger _ ref)) ->
-    let slot = refOffset layout ref in
-    EVM.SLoad slot (EVM.AbstractStore initAddr) -- TODO fix address
+    let slot = refOffset layout caddr cmap ref
+        caddr' = baseAddr layout cmap caddr ref
+        contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
+        storage = case contract of
+          EVM.C _ s _ _  -> s
+          EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
+    in EVM.SLoad slot storage
 
   e ->  error $ "TODO: " <> show e
 
   where
     op2 :: forall b c. (EVM.Expr (ExprType c) -> EVM.Expr (ExprType c) -> b) -> Exp c -> Exp c -> b
-    op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
+    op2 op e1 e2 = op (toExpr layout caddr cmap e1) (toExpr layout caddr cmap e2)
 
     fromCalldataFramgment :: CalldataFragment -> EVM.Expr EVM.EWord
     fromCalldataFramgment (St _ word) = word
@@ -546,7 +553,7 @@ createStorage cmap =
     traverseStorage addr (EVM.SStore offset (EVM.WAddr symaddr) storage) =
       EVM.SStore offset (EVM.WAddr symaddr) (traverseStorage addr storage)
     traverseStorage addr (EVM.SStore _ _ storage) = traverseStorage addr storage
-    traverseStorage addr s@(EVM.ConcreteStore _) = (EVM.AbstractStore addr)
+    traverseStorage addr (EVM.ConcreteStore _) = (EVM.AbstractStore addr)
     traverseStorage _ _ = error "Internal error: unexpected storage shape"
 
     makeContract :: EVM.Expr EVM.EAddr -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
