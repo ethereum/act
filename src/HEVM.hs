@@ -116,7 +116,7 @@ getCaddr = do
 localCaddr :: EVM.Expr EVM.EAddr -> ActM a -> ActM a
 localCaddr caddr m = do
   env <- get
-  put (\env -> env { caddr = caddr })
+  put (env { caddr = caddr })
   res <- m
   put env
   pure res
@@ -125,14 +125,14 @@ localCaddr caddr m = do
 
 translateActConstr :: CodeMap -> Store -> Contract -> BS.ByteString -> ([EVM.Expr EVM.End], Calldata)
 translateActConstr codemap store (Contract ctor _) bytecode =
-  runReader env $ translateConstructor ctor bytecode
+  fst $ runState env $ translateConstructor ctor bytecode
   where
     env = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint")
     fresh = 0
 
 translateActBehvs :: CodeMap -> Store -> [Behaviour] -> BS.ByteString -> ContractMap -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateActBehvs codemap store behvs bytecode cmap =
-  runReader env $ translateBehvs bytecode cmap behvs
+  fst $ runState env $ translateBehvs bytecode cmap behvs
   where
     env = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint")
     fresh = 0 -- this is OK only because behaviours do not call constructors
@@ -153,7 +153,7 @@ translateConstructor bytecode (Constructor cid iface preconds _ _ upds _)  = do
 
     -- TODO remove when hevm PR is merged
     symAddrCnstr n = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..n-1]
-    nonce :: ContractMap -? Integer
+    nonce :: ContractMap -> Integer
     nonce cmap = case M.lookup initAddr cmap of
                    Just (EVM.C _ _ _ n') -> case n' of
                                               Just n -> fromIntegral n
@@ -162,7 +162,7 @@ translateConstructor bytecode (Constructor cid iface preconds _ _ upds _)  = do
                    Nothing -> error "Internal error: init contract not found"
 
 translateBehvs :: BS.ByteString -> ContractMap -> [Behaviour] ->  ActM [(Id, [EVM.Expr EVM.End], Calldata)]
-translateBehvs bytecode cmap bevhs = do
+translateBehvs bytecode cmap behvs = do
   let groups = (groupBy sameIface behvs) :: [[Behaviour]]
   mapM (\behvs' -> do
            exprs <- mapM (translateBehv cmap) behvs'
@@ -178,27 +178,27 @@ translateBehvs bytecode cmap bevhs = do
     behvName (Behaviour _ _ (Interface name _) _ _ _ _ _:_) = name
     behvName [] = error "Internal error: behaviour groups cannot be empty"
 
-translateBehv :: ContractMap -> Behaviour -> ActM EVM.Expr EVM.End
+translateBehv :: ContractMap -> Behaviour -> ActM (EVM.Expr EVM.End)
 translateBehv cmap (Behaviour _ cid _ preconds caseconds _ upds ret) = do
   preconds' <- mapM toProp preconds
   ret' <- returnsToExpr cmap ret
   state <- rewritesToExpr cid cmap upds
-  pure $ EVM.Success (preconds' <> caseconds) mempty rets state
+  pure $ EVM.Success (preconds' <> caseconds) mempty ret' state
 
 rewritesToExpr :: Id -> ContractMap -> [Rewrite] -> ActM ContractMap
 rewritesToExpr cid cmap rewrites = foldM (rewriteToExpr cid initAddr) cmap rewrites
 
 rewriteToExpr :: Id -> EVM.Expr EVM.EAddr -> ContractMap -> Rewrite -> ActM ContractMap
 rewriteToExpr _ _ cmap (Constant _) = cmap
-rewriteToExpr cid caddr cmap (Rewrite upd) = do0
+rewriteToExpr cid caddr cmap (Rewrite upd) = do
   (cmap', _) <- updateToExpr cid caddr upd (cmap, [])
   pure cmap'
 
 updatesToExpr :: Id -> EVM.Expr EVM.EAddr -> [StorageUpdate] -> ContractMap -> ActM ContractMap
-updatesToExpr cid caddr upds initmap = foldM (flip $ updateToExpr codemap layout cid caddr) initmap upds
+updatesToExpr cid caddr upds initmap = foldM (flip $ updateToExpr cid caddr) initmap upds
 
-updateToExpr :: CodeMap -> Layout -> Id -> StorageUpdate -> ContractMap -> ActM ContractMap
-updateToExpr codemap layout cid (Update typ (Item _ _ ref) e) (cmap, conds) = do
+updateToExpr :: Id -> StorageUpdate -> ContractMap -> ActM ContractMap
+updateToExpr cid (Update typ (Item _ _ ref) e) (cmap, conds) = do
   caddr' <- baseAddr cmap ref
   offset <- refOffset cmap ref
   case typ of
@@ -212,7 +212,7 @@ updateToExpr codemap layout cid (Update typ (Item _ _ ref) e) (cmap, conds) = do
     SContract -> do
      fresh <- getFresh
      let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
-     cmap' <- localCaddr freshAddr $ createContract cmap e
+     cmap' <- localCaddr freshAddr $ createContract cmap freshAddr e
      pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) cmap'
   where
     e' = toExpr cmap e
@@ -228,9 +228,9 @@ updateToExpr codemap layout cid (Update typ (Item _ _ ref) e) (cmap, conds) = do
     updateNonce (EVM.C _ _ _ Nothing) = error "Internal error: nonce must be a number"
     updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
-createContract :: ContractMap -> Exp AContract -> ActM ContractMap
-createContract cmap (Create _ cid args) = d0
-  case M.lookup cid codemap of
+createContract :: ContractMap -> EVM.Expr EVM.EAddr -> Exp AContract -> ActM ContractMap
+createContract cmap freshAddr (Create _ cid args) = do
+  case M.lookup cid cmap of
     Just (Contract (Constructor _ iface preconds _ _ upds _) _, _, bytecode) -> do
       let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                            , EVM.storage = EVM.ConcreteStore mempty
@@ -239,15 +239,15 @@ createContract cmap (Create _ cid args) = d0
                            }
       let subst = makeSubstMap iface args
 
-      preconds' <- mapM (toProp cmap) $ fmap (substExp subst) preconds in
-      let upds' = substUpds subst upds in
+      preconds' <- mapM (toProp cmap) $ fmap (substExp subst) preconds
+      let upds' = substUpds subst upds
       -- trace "Before" $
       -- traceShow preconds $
       -- trace "After" $
       -- traceShow (fmap (substExp subst) preconds) $
       updatesToExpr cid upds' (M.insert freshAddr contract cmap)
     Nothing -> error "Internal error: constructor not found"
-createContract _ _ = error "Internal error: constructor call expected"
+createContract _ _ _ = error "Internal error: constructor call expected"
 
 -- | Substitutions
 
@@ -322,7 +322,7 @@ substExp subst expr = case expr of
 
 
 returnsToExpr :: ContractMap -> Maybe TypedExp -> ActM (EVM.Expr EVM.Buf)
-returnsToExpr _ Nothing = EVM.ConcreteBuf ""
+returnsToExpr _ Nothing = pure $ EVM.ConcreteBuf ""
 returnsToExpr cmap (Just r) = typedExpToBuf cmap r
 
 wordToBuf :: EVM.Expr EVM.EWord -> EVM.Expr EVM.Buf
@@ -388,20 +388,20 @@ refAddr cmap (SVar _ c x) = do
       let slot = EVM.Lit $ fromIntegral $ getSlot layout c x
       case simplify (EVM.SLoad slot storage) of
         EVM.WAddr symaddr -> pure symaddr
-       _ -> error "Internal error: did not find a symbolic address"
+        _ -> error "Internal error: did not find a symbolic address"
     Just _ -> error "Internal error: unepected GVar "
     Nothing -> error "Internal error: contract not found"
 refAddr cmap (SField _ ref c x) = do
   layout <- getLayout
   caddr' <- refAddr cmap ref
-    case M.lookup caddr' cmap of
-      Just (EVM.C _ storage _ _) ->
-        let slot = EVM.Lit $ fromIntegral $ getSlot layout c x
-        case simplify (EVM.SLoad slot storage) of
-          EVM.WAddr symaddr -> pure symaddr
-          _ -> error "Internal error: did not find a symbolic address"
-      Just _ -> error "Internal error: unepected GVar "
-      Nothing -> error "Internal error: contract not found"
+  case M.lookup caddr' cmap of
+    Just (EVM.C _ storage _ _) -> do
+      let slot = EVM.Lit $ fromIntegral $ getSlot layout c x
+      case simplify (EVM.SLoad slot storage) of
+        EVM.WAddr symaddr -> pure symaddr
+        _ -> error "Internal error: did not find a symbolic address"
+    Just _ -> error "Internal error: unepected GVar "
+    Nothing -> error "Internal error: contract not found"
 refAddr _ _ _ (SMapping _ _ _) = error "Internal error: mapping address not suppported"
 
 ethEnvToWord :: EthEnv -> EVM.Expr EVM.EWord
@@ -454,7 +454,7 @@ toProp cmap = \case
       pure $ op e1' e2'
 
     pop2 :: forall a. (EVM.Prop -> EVM.Prop -> ActM a) -> Exp ABoolean -> Exp ABoolean -> ActM a
-    pop2 op e1 e2 =
+    pop2 op e1 e2 = do
       e1' <- toProp cmap e1
       e2' <- toProp cmap e2
       pure $ op e1' e2'
@@ -517,18 +517,18 @@ toExpr cmap = \case
 
   (TEntry _ _ (Item SInteger _ ref)) -> do
     slot <- refOffset cmap ref
-    caddr' <- baseAddr caddr ref
+    caddr' <- baseAddr cmap ref
     let contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
     let storage = case contract of
                     EVM.C _ s _ _  -> s
                     EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
-    in pure $ EVM.SLoad slot storage
+    pure $ EVM.SLoad slot storage
 
   e ->  error $ "TODO: " <> show e
 
   where
     op2 :: forall b c. (EVM.Expr (ExprType c) -> EVM.Expr (ExprType c) -> ActM b) -> Exp c -> Exp c -> ActM b
-    op2 op e1 e2 =
+    op2 op e1 e2 = do
       e1' <- toExpr cmap e1
       e2' <- toExpr cmap e2
       pure $ op e1' e2'
