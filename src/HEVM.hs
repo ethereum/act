@@ -128,7 +128,7 @@ translateActConstr codemap store (Contract ctor _) bytecode =
   fst $ flip runState env $ translateConstructor bytecode ctor
   where
     env = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint")
-    fresh = 0
+    fresh = 1
 
 translateActBehvs :: CodeMap -> Store -> [Behaviour] -> ContractMap -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateActBehvs codemap store behvs cmap =
@@ -373,7 +373,7 @@ refOffset _ (SField _ _ cid name) = do
 baseAddr :: ContractMap -> StorageRef -> ActM (EVM.Expr EVM.EAddr)
 baseAddr _ (SVar _ _ _) = getCaddr
 baseAddr cmap (SField _ ref _ _) = refAddr cmap ref
-baseAddr cmap (SMapping _ ref _) = refAddr cmap ref
+baseAddr cmap (SMapping _ ref _) = baseAddr cmap ref
 
 -- | find the contract that is stored in the given reference of contract type
 refAddr :: ContractMap -> StorageRef -> ActM (EVM.Expr EVM.EAddr)
@@ -385,7 +385,7 @@ refAddr cmap (SVar _ c x) = do
       let slot = EVM.Lit $ fromIntegral $ getSlot layout c x
       case simplify (EVM.SLoad slot storage) of
         EVM.WAddr symaddr -> pure symaddr
-        _ -> error "Internal error: did not find a symbolic address"
+        _ -> error $ "Internal error: did not find a symbolic address"
     Just _ -> error "Internal error: unepected GVar "
     Nothing -> error "Internal error: contract not found"
 refAddr cmap (SField _ ref c x) = do
@@ -587,10 +587,10 @@ checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Stor
 checkConstructors solvers opts initcode runtimecode store contract codemap = do
   let (actbehvs, calldata) = translateActConstr codemap store contract runtimecode
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
-  traceM "Sol behvs"
-  mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
-  traceM "ACT behvs"
-  mapM_ (traceM . T.unpack . Format.formatExpr) actbehvs
+  -- traceM "Sol behvs"
+  -- mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
+  -- traceM "ACT behvs"
+  -- mapM_ (traceM . T.unpack . Format.formatExpr) actbehvs
   putStrLn "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult =<< checkEquiv solvers opts solbehvs actbehvs
   putStrLn "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
