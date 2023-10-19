@@ -96,12 +96,18 @@ getCodemap = do
   env <- get
   pure env.codemap
 
-getFresh :: ActM Int
-getFresh = do
+getFreshIncr :: ActM Int
+getFreshIncr = do
   env <- get
   let fresh = env.fresh
   put (env { fresh = fresh + 1 })
-  pure fresh
+  traceShowM $ "Increase fresh: " <> show (fresh + 1)
+  pure (fresh + 1)
+
+getFresh :: ActM Int
+getFresh = do
+  env <- get
+  pure env.fresh
 
 getLayout :: ActM Layout
 getLayout = do
@@ -116,9 +122,11 @@ getCaddr = do
 localCaddr :: EVM.Expr EVM.EAddr -> ActM a -> ActM a
 localCaddr caddr m = do
   env <- get
+  let caddr' = env.caddr
   put (env { caddr = caddr })
   res <- m
-  put env
+  env' <- get
+  put (env' { caddr = caddr' })
   pure res
 
 -- * Act translation
@@ -128,7 +136,7 @@ translateActConstr codemap store (Contract ctor _) bytecode =
   fst $ flip runState env $ translateConstructor bytecode ctor
   where
     env = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint")
-    fresh = 1
+    fresh = 0
 
 translateActBehvs :: CodeMap -> Store -> [Behaviour] -> ContractMap -> [(Id, [EVM.Expr EVM.End], Calldata)]
 translateActBehvs codemap store behvs cmap =
@@ -141,7 +149,8 @@ translateConstructor ::  BS.ByteString -> Constructor -> ActM ([EVM.Expr EVM.End
 translateConstructor bytecode (Constructor _ iface preconds _ _ upds _)  = do
   preconds' <- mapM (toProp initmap) preconds
   cmap <- updatesToExpr upds initmap
-  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr (nonce cmap)) mempty (EVM.ConcreteBuf bytecode) cmap], calldata)
+  fresh <- getFresh
+  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr fresh) mempty (EVM.ConcreteBuf bytecode) cmap], calldata)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -152,7 +161,7 @@ translateConstructor bytecode (Constructor _ iface preconds _ _ upds _)  = do
     initmap = M.fromList [(initAddr, initcontract)]
 
     -- TODO remove when hevm PR is merged
-    symAddrCnstr n = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..n-1]
+    symAddrCnstr n = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..n]
     nonce :: ContractMap -> Integer
     nonce cmap = case M.lookup initAddr cmap of
                    Just (EVM.C _ _ _ n') -> case n' of
@@ -212,7 +221,7 @@ updateToExpr (Update typ (Item _ _ ref) e) cmap = do
       pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) cmap
     SByteStr -> error "Bytestrings not supported"
     SContract -> do
-     fresh <- getFresh
+     fresh <- getFreshIncr
      let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
      cmap' <- localCaddr freshAddr $ createContract cmap freshAddr e
      pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) cmap'
