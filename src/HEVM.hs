@@ -41,14 +41,14 @@ import Syntax.Untyped (makeIface)
 import Syntax
 import HEVM_utils
 
-import qualified EVM.Types as EVM
-import qualified EVM as EVM
+import EVM.ABI (Sig(..))
+import EVM as EVM hiding (bytecode)
+import qualified EVM.Types as EVM hiding (FrameState(..))
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial)
 import qualified EVM.SymExec as SymExec (EquivResult)
 import EVM.SMT (SMTCex(..), assertProps, formatSMT2)
 import EVM.Solvers
-import qualified EVM.Format as Format
 
 import Debug.Trace
 
@@ -131,26 +131,26 @@ localCaddr caddr m = do
 
 -- * Act translation
 
-translateActConstr :: CodeMap -> Store -> Contract -> BS.ByteString -> ([EVM.Expr EVM.End], Calldata)
+translateActConstr :: CodeMap -> Store -> Contract -> BS.ByteString -> ([EVM.Expr EVM.End], Calldata, Sig)
 translateActConstr codemap store (Contract ctor _) bytecode =
   fst $ flip runState env $ translateConstructor bytecode ctor
   where
     env = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint")
     fresh = 0
 
-translateActBehvs :: CodeMap -> Store -> [Behaviour] -> ContractMap -> [(Id, [EVM.Expr EVM.End], Calldata)]
+translateActBehvs :: CodeMap -> Store -> [Behaviour] -> ContractMap -> [(Id, [EVM.Expr EVM.End], Calldata, Sig)]
 translateActBehvs codemap store behvs cmap =
   fst $ flip runState env $ translateBehvs cmap behvs
   where
     env = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint")
     fresh = 0 -- this is OK only because behaviours do not call constructors
 
-translateConstructor ::  BS.ByteString -> Constructor -> ActM ([EVM.Expr EVM.End], Calldata)
+translateConstructor ::  BS.ByteString -> Constructor -> ActM ([EVM.Expr EVM.End], Calldata, Sig)
 translateConstructor bytecode (Constructor _ iface preconds _ _ upds _)  = do
   preconds' <- mapM (toProp initmap) preconds
   cmap <- updatesToExpr upds initmap
   fresh <- getFresh
-  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr fresh) mempty (EVM.ConcreteBuf bytecode) cmap], calldata)
+  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr fresh) mempty (EVM.ConcreteBuf bytecode) cmap], calldata, ifaceToSig iface)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -170,15 +170,18 @@ translateConstructor bytecode (Constructor _ iface preconds _ _ upds _)  = do
                    Just (EVM.GVar _) -> error "Internal error: unexpected GVar"
                    Nothing -> error "Internal error: init contract not found"
 
-translateBehvs :: ContractMap -> [Behaviour] ->  ActM [(Id, [EVM.Expr EVM.End], Calldata)]
+translateBehvs :: ContractMap -> [Behaviour] ->  ActM [(Id, [EVM.Expr EVM.End], Calldata, Sig)]
 translateBehvs cmap behvs = do
   let groups = (groupBy sameIface behvs) :: [[Behaviour]]
   mapM (\behvs' -> do
            exprs <- mapM (translateBehv cmap) behvs'
-           pure (behvName behvs', exprs, behvCalldata behvs')) groups
+           pure (behvName behvs', exprs, behvCalldata behvs', behvSig behvs)) groups
   where
     behvCalldata (Behaviour _ _ iface _ _ _ _ _:_) = makeCalldata iface
     behvCalldata [] = error "Internal error: behaviour groups cannot be empty"
+
+    behvSig (Behaviour _ _ iface _ _ _ _ _:_) = ifaceToSig iface
+    behvSig [] = error "Internal error: behaviour groups cannot be empty"
 
     -- TODO remove reduntant name in behaviours
     sameIface (Behaviour _ _ iface  _ _ _ _ _) (Behaviour _ _ iface' _ _ _ _ _) =
@@ -186,6 +189,11 @@ translateBehvs cmap behvs = do
 
     behvName (Behaviour _ _ (Interface name _) _ _ _ _ _:_) = name
     behvName [] = error "Internal error: behaviour groups cannot be empty"
+
+ifaceToSig :: Interface -> Sig
+ifaceToSig (Interface name args) = Sig (T.pack name) (fmap fromdecl args)
+  where
+    fromdecl (Decl t _) = t
 
 translateBehv :: ContractMap -> Behaviour -> ActM (EVM.Expr EVM.End)
 translateBehv cmap (Behaviour _ _ _ preconds caseconds _ upds ret) = do
@@ -594,16 +602,16 @@ checkEquiv solvers opts l1 l2 =
 
 checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> IO ContractMap
 checkConstructors solvers opts initcode runtimecode store contract codemap = do
-  let (actbehvs, calldata) = translateActConstr codemap store contract runtimecode
+  let (actbehvs, calldata, sig) = translateActConstr codemap store contract runtimecode
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
   -- traceM "Sol behvs"
   -- mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
   -- traceM "ACT behvs"
   -- mapM_ (traceM . T.unpack . Format.formatExpr) actbehvs
   putStrLn "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
-  checkResult =<< checkEquiv solvers opts solbehvs actbehvs
+  checkResult calldata (Just sig) =<< checkEquiv solvers opts solbehvs actbehvs
   putStrLn "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
-  checkResult =<< checkInputSpaces solvers opts solbehvs actbehvs
+  checkResult calldata (Just sig) =<< checkInputSpaces solvers opts solbehvs actbehvs
   pure $ getContractMap actbehvs
   where
     removeFails branches = filter isSuccess $ branches
@@ -616,7 +624,7 @@ checkBehaviours :: SolverGroup -> VeriOpts -> Store -> Contract -> CodeMap -> Co
 checkBehaviours solvers opts store (Contract _ behvs) codemap cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = translateActBehvs codemap store behvs actstorage
-  flip mapM_ actbehvs $ \(name,behvs',calldata) -> do
+  flip mapM_ actbehvs $ \(name,behvs',calldata, sig) -> do
     -- traceM "Act storage:"
     -- traceShowM actstorage
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
@@ -627,10 +635,10 @@ checkBehaviours solvers opts store (Contract _ behvs) codemap cmap = do
     -- mapM_ (traceM . T.unpack . Format.formatExpr) behvs'
     -- equivalence check
     putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
-    checkResult =<< checkEquiv solvers opts solbehvs behvs'
+    checkResult calldata (Just sig) =<< checkEquiv solvers opts solbehvs behvs'
     -- input space exhaustiveness check
     putStrLn "\x1b[1mChecking if the input spaces are the same\x1b[m"
-    checkResult =<< checkInputSpaces solvers opts solbehvs behvs'
+    checkResult calldata (Just sig) =<< checkInputSpaces solvers opts solbehvs behvs'
     where
       removeFails branches = filter isSuccess $ branches
 
@@ -716,7 +724,7 @@ checkAbi solver opts contract cmap = do
       ("abi-query-" <> show idx <> ".smt2")
       (formatSMT2 q <> "\n\n(check-sat)")
 
-  checkResult =<< fmap (toVRes msg) <$> mapConcurrently (checkSat solver) queries
+  checkResult (txdata, []) Nothing =<< fmap (toVRes msg) <$> mapConcurrently (checkSat solver) queries
 
   where
     actSig (Behaviour _ _ iface _ _ _ _ _) = T.pack $ makeIface iface
@@ -777,8 +785,8 @@ toVRes msg res = case res of
   Error e -> error $ "Internal Error: solver responded with error: " <> show e
 
 
-checkResult :: [EquivResult] -> IO ()
-checkResult res =
+checkResult :: Calldata -> Maybe Sig -> [EquivResult] -> IO ()
+checkResult calldata sig res =
   case any isCex res of
     False -> do
       putStrLn "\x1b[42mNo discrepancies found\x1b[m"
@@ -790,6 +798,5 @@ checkResult res =
       TIO.putStrLn . T.unlines $
         [ "\x1b[41mNot equivalent.\x1b[m"
         , "" , "-----", ""
-        ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" -- <> formatCex (EVM.AbstractBuf "txdata") cex
-                                                             ) cexs)
+        ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (fst calldata) sig cex) cexs)
       exitFailure

@@ -520,6 +520,7 @@ parseSMTModel s = if length s0Caps == 1
     s0Caps = getCaptures s stage0
     s1Caps = getCaptures (head s0Caps) stage1
 
+    getCaptures :: String -> String -> [String]
     getCaptures str regex = captures
       where (_, _, _, captures) = str =~ regex :: (String, String, String, [String])
 

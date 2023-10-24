@@ -241,10 +241,10 @@ hevm actspec sol' code' initcode' solver' timeout debug' = do
 
 bytecodes :: Text -> Text -> IO (BS.ByteString, BS.ByteString)
 bytecodes cid src = do
-  (json, path) <- solidity' src
+  json <- solc Solidity src
   let (Contracts sol', _, _) = fromJust $ readStdJSON json
-  pure $ ((fromJust . Map.lookup (path <> ":" <> cid) $ sol').creationCode,
-          (fromJust . Map.lookup (path <> ":" <> cid) $ sol').runtimeCode)
+  pure $ ((fromJust . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').creationCode,
+          (fromJust . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').runtimeCode)
 
 
 
