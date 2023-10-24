@@ -98,9 +98,9 @@ tokens :-
   ")"                                   { mk RPAREN }
   "["                                   { mk LBRACK }
   "]"                                   { mk RBRACK }
-  "="                                   { mk EQ }
-  ">"                                   { mk GT }
-  "<"                                   { mk LT }
+  "="                                   { mk Lex.EQ }
+  ">"                                   { mk Lex.GT }
+  "<"                                   { mk Lex.LT }
   ":"                                   { mk COLON }
   "+"                                   { mk PLUS }
   "-"                                   { mk MINUS }
