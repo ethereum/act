@@ -103,7 +103,6 @@ getInitcodeBranches solvers initcode calldata = do
   initVM <- stToIO $ abstractInitVM initcode calldata
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
-  -- traceM (T.unpack $ Format.formatExpr simpl)
   let nodes = flattenExpr simpl
 
   when (any isPartial nodes) $ do
@@ -132,7 +131,7 @@ abstractVM contracts cd = do
     findInitContract =
       case partition (\(a, _) -> a == EVM.SymAddr "entrypoint") contracts of
         ([c], cs) -> (c, cs)
-        _ -> error $ "Internal error: address entrypoint expected exactly once " <> show contracts 
+        _ -> error $ "Internal error: address entrypoint expected exactly once " <> show contracts
 
 
 loadSymVM

@@ -49,8 +49,8 @@ import EVM.SymExec hiding (EquivResult, isPartial)
 import qualified EVM.SymExec as SymExec (EquivResult)
 import EVM.SMT (SMTCex(..), assertProps, formatSMT2)
 import EVM.Solvers
+import EVM.Format as Format
 
-import Debug.Trace
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -101,7 +101,6 @@ getFreshIncr = do
   env <- get
   let fresh = env.fresh
   put (env { fresh = fresh + 1 })
-  traceShowM $ "Increase fresh: " <> show (fresh + 1)
   pure (fresh + 1)
 
 getFresh :: ActM Int
@@ -250,10 +249,6 @@ createContract cmap freshAddr (Create _ cid args) = do
       let subst = makeSubstMap iface args
 
       let upds' = substUpds subst upds
-      -- trace "Before" $
-      -- traceShow preconds $
-      -- trace "After" $
-      -- traceShow (fmap (substExp subst) preconds) $
       updatesToExpr upds' (M.insert freshAddr contract cmap)
     Nothing -> error "Internal error: constructor not found"
 createContract _ _ _ = error "Internal error: constructor call expected"
@@ -597,10 +592,6 @@ checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Stor
 checkConstructors solvers opts initcode runtimecode store contract codemap = do
   let (actbehvs, calldata, sig) = translateActConstr codemap store contract runtimecode
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
-  -- traceM "Sol behvs"
-  -- mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
-  -- traceM "ACT behvs"
-  -- mapM_ (traceM . T.unpack . Format.formatExpr) actbehvs
   putStrLn "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult calldata (Just sig) =<< checkEquiv solvers opts solbehvs actbehvs
   putStrLn "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
@@ -618,14 +609,8 @@ checkBehaviours solvers opts store (Contract _ behvs) codemap cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = translateActBehvs codemap store behvs actstorage
   flip mapM_ actbehvs $ \(name,behvs',calldata, sig) -> do
-    -- traceM "Act storage:"
-    -- traceShowM actstorage
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
     putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
-    -- traceShowM "Solidity behaviors"
-    -- mapM_ (traceM . T.unpack . Format.formatExpr) solbehvs
-    -- traceShowM "Act behaviors"
-    -- mapM_ (traceM . T.unpack . Format.formatExpr) behvs'
     -- equivalence check
     putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     checkResult calldata (Just sig) =<< checkEquiv solvers opts solbehvs behvs'
@@ -793,3 +778,8 @@ checkResult calldata sig res =
         , "" , "-----", ""
         ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (fst calldata) sig cex) cexs)
       exitFailure
+
+
+-- | Pretty prints a list of hevm behaviours for debugging purposes
+showBehvs :: [EVM.Expr a] -> String
+showBehvs behvs = T.unpack $ T.unlines $ fmap Format.formatExpr behvs
