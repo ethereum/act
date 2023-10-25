@@ -162,13 +162,6 @@ translateConstructor bytecode (Constructor _ iface preconds _ _ upds _)  = do
 
     -- TODO remove when hevm PR is merged
     symAddrCnstr n = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..n]
-    nonce :: ContractMap -> Integer
-    nonce cmap = case M.lookup initAddr cmap of
-                   Just (EVM.C _ _ _ n') -> case n' of
-                                              Just n -> fromIntegral n
-                                              Nothing -> error "Internal error: expecing nonce"
-                   Just (EVM.GVar _) -> error "Internal error: unexpected GVar"
-                   Nothing -> error "Internal error: init contract not found"
 
 translateBehvs :: ContractMap -> [Behaviour] ->  ActM [(Id, [EVM.Expr EVM.End], Calldata, Sig)]
 translateBehvs cmap behvs = do
@@ -234,13 +227,13 @@ updateToExpr (Update typ (Item _ _ ref) e) cmap = do
      cmap' <- localCaddr freshAddr $ createContract cmap freshAddr e
      pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) cmap'
   where
- 
+
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
-    updateStorage updfun c'@(EVM.C _ _ _ _) = c' { EVM.storage = updfun c'.storage }
+    updateStorage updfun (EVM.C code storage bal nonce) = EVM.C code (updfun storage) bal nonce
     updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
     updateNonce :: EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
-    updateNonce c'@(EVM.C _ _ _ (Just n)) = c' { EVM.nonce = Just (n + 1) }
+    updateNonce (EVM.C code storage bal (Just n)) = EVM.C code storage bal (Just (n + 1))
     updateNonce (EVM.C _ _ _ Nothing) = error "Internal error: nonce must be a number"
     updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
