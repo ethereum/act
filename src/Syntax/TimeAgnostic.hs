@@ -383,7 +383,7 @@ instance ToJSON (Constructor Timed) where
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
                                   , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) _invariants
-                                  , "initial storage" .= toJSON _initialStorage  ]
+                                  , "initialStorage" .= toJSON _initialStorage  ]
 
 instance ToJSON (Constructor Untimed) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
@@ -414,7 +414,7 @@ instance ToJSON Interface where
 instance ToJSON Decl where
   toJSON (Decl abitype x) = object [ "kind" .= String "Declaration"
                                    , "id" .= pack (show x)
-                                   , "abitype" .= pack (show abitype)
+                                   , "abitype" .= toJSON abitype
                                    ]
 
 
@@ -473,14 +473,19 @@ instance ToJSON (Exp a t) where
   toJSON (Div _ a b) = symbol "/" a b
   toJSON (LitInt _ a) = object [ "literal" .= pack (show a)
                                , "type" .= pack "int" ]
-  toJSON (IntMin _ a) = toJSON $ show $ intmin a
-  toJSON (IntMax _ a) = toJSON $ show $ intmax a
-  toJSON (UIntMin _ a) = toJSON $ show $ uintmin a
-  toJSON (UIntMax _ a) = toJSON $ show $ uintmax a
+  toJSON (IntMin _ a) = object [ "literal" .= pack (show $ intmin a)
+                               , "type" .= pack "int" ]
+  toJSON (IntMax _ a) = object [ "literal" .= pack (show $ intmax a)
+                               , "type" .= pack "int" ]
+  toJSON (UIntMin _ a) = object [ "literal" .= pack (show $ uintmin a)
+                                , "type" .= pack "int" ]
+  toJSON (UIntMax _ a) = object [ "literal" .= pack (show $ uintmax a)
+                                , "type" .= pack "int" ]
   toJSON (InRange _ a b) = object [ "symbol"   .= pack "inrange"
                                   , "arity"    .= Data.Aeson.Types.Number 2
-                                  , "args"     .= Array (fromList [String (pack $ show a), toJSON b]) ]
-  toJSON (IntEnv _ a) = String $ pack $ show a
+                                  , "args"     .= Array (fromList [toJSON a, toJSON b]) ]
+  toJSON (IntEnv _ a) = object [ "ethEnv" .= pack (show a)
+                               , "type" .= pack "int" ]
   toJSON (ITE _ a b c) = object [ "symbol"   .= pack "ite"
                                 , "arity"    .= Data.Aeson.Types.Number 3
                                 , "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c]) ]
@@ -509,10 +514,11 @@ instance ToJSON (Exp a t) where
                               , "type" .= pack "bytestring" ]
   toJSON (ByEnv _ a) = object [ "ethEnv" .= pack (show a)
                               , "type" .= pack "bytestring" ]
-  toJSON (TEntry _ t a) = object [ "entry" .= toJSON a
+  toJSON (TEntry _ t a) = object [ "entry"  .= toJSON a
                                  , "timing" .= show t ]
-  toJSON (Var _ t _ a) = object [ "var" .= toJSON a
-                                , "type" .= show t ]
+  toJSON (Var _ t abitype a) = object [ "var"      .= toJSON a
+                                      , "abitype"  .= toJSON abitype
+                                      , "type"     .= show t ]
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                   , "arity"  .= Data.Aeson.Types.Number 2
                                   , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
