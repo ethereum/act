@@ -18,7 +18,7 @@ import Data.Map (Map,empty,insertWith,unionsWith,unionWith,singleton)
 import Syntax.TimeAgnostic as Agnostic
 import qualified Syntax.Annotated as Annotated
 import qualified Syntax.Typed as Typed
-import           Syntax.Untyped hiding (Rewrite,Contract)
+import           Syntax.Untyped hiding (Contract)
 import qualified Syntax.Untyped as Untyped
 
 -----------------------------------------
@@ -34,16 +34,15 @@ locsFromBehaviour (Behaviour _ _ _ preconds cases postconds rewrites returns) = 
   concatMap locsFromExp preconds
   <> concatMap locsFromExp cases
   <> concatMap locsFromExp postconds
-  <> concatMap locsFromRewrite rewrites
+  <> concatMap locsFromUpdate rewrites
   <> maybe [] locsFromTypedExp returns
 
 locsFromConstructor :: Annotated.Constructor -> [Annotated.StorageLocation]
-locsFromConstructor (Constructor _ _ pre post inv initialStorage rewrites) = nub $
+locsFromConstructor (Constructor _ _ pre post inv initialStorage) = nub $
   concatMap locsFromExp pre
   <> concatMap locsFromExp post
   <> concatMap locsFromInvariant inv
-  <> concatMap locsFromRewrite rewrites
-  <> concatMap locsFromRewrite (Rewrite <$> initialStorage)
+  <> concatMap locsFromUpdate initialStorage
 
 locsFromInvariant :: Annotated.Invariant -> [Annotated.StorageLocation]
 locsFromInvariant (Invariant _ pre bounds (predpre, predpost)) =
@@ -63,19 +62,15 @@ behvsFromContracts contracts = concatMap (\(Contract _ b) -> b) contracts
 constrFromContracts :: [Contract t] -> [Constructor t]
 constrFromContracts contracts = fmap (\(Contract c _) -> c) contracts
 
-locsFromRewrite :: Rewrite t -> [StorageLocation t]
-locsFromRewrite update = nub $ case update of
-  Constant loc -> [loc]
-  Rewrite (Update _ item e) -> locsFromItem item <> locsFromExp e
-
-locFromRewrite :: Rewrite t -> StorageLocation t
-locFromRewrite = onRewrite id locFromUpdate
+locsFromUpdate :: StorageUpdate t -> [StorageLocation t]
+locsFromUpdate update = nub $ case update of
+  (Update _ item e) -> locsFromItem item <> locsFromExp e
 
 locFromUpdate :: StorageUpdate t -> StorageLocation t
 locFromUpdate (Update _ item _) = _Loc item
 
 locsFromItem :: TStorageItem a t -> [StorageLocation t]
-locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)  
+locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
 
 locsFromTypedExp :: TypedExp t -> [StorageLocation t]
 locsFromTypedExp (TExp _ e) = locsFromExp e
@@ -159,7 +154,7 @@ createsFromExp = nub . go
       Var {} -> []
 
 createsFromItem :: TStorageItem a t -> [Id]
-createsFromItem item = concatMap createsFromTypedExp (ixsFromItem item)  
+createsFromItem item = concatMap createsFromTypedExp (ixsFromItem item)
 
 createsFromTypedExp :: TypedExp t -> [Id]
 createsFromTypedExp (TExp _ e) = createsFromExp e
@@ -168,28 +163,26 @@ createsFromContract :: Typed.Contract -> [Id]
 createsFromContract (Contract constr behvs) =
   createsFromConstructor constr <> concatMap createsFromBehaviour behvs
 
-createsFromConstructor :: Typed.Constructor -> [Id] 
-createsFromConstructor (Constructor _ _ pre post inv initialStorage rewrites) = nub $
+createsFromConstructor :: Typed.Constructor -> [Id]
+createsFromConstructor (Constructor _ _ pre post inv initialStorage) = nub $
   concatMap createsFromExp pre
   <> concatMap createsFromExp post
   <> concatMap createsFromInvariant inv
-  <> concatMap createsFromRewrite rewrites
-  <> concatMap createsFromRewrite (Rewrite <$> initialStorage)
+  <> concatMap createsFromUpdate initialStorage
 
 createsFromInvariant :: Typed.Invariant -> [Id]
 createsFromInvariant (Invariant _ pre bounds ipred) =
   concatMap createsFromExp pre <>  concatMap createsFromExp bounds <> createsFromExp ipred
 
-createsFromRewrite :: Rewrite t ->[Id]
-createsFromRewrite update = nub $ case update of
-  Constant _ -> []
-  Rewrite (Update _ item e) -> createsFromItem item <> createsFromExp e
+createsFromUpdate :: StorageUpdate t ->[Id]
+createsFromUpdate update = nub $ case update of
+  Update _ item e -> createsFromItem item <> createsFromExp e
 
 createsFromBehaviour :: Behaviour t -> [Id]
 createsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
   concatMap createsFromExp preconds
   <> concatMap createsFromExp postconds
-  <> concatMap createsFromRewrite rewrites
+  <> concatMap createsFromUpdate rewrites
   <> maybe [] createsFromTypedExp returns
 
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
@@ -197,26 +190,24 @@ ethEnvFromBehaviour (Behaviour _ _ _ preconds cases postconds rewrites returns) 
   concatMap ethEnvFromExp preconds
   <> concatMap ethEnvFromExp cases
   <> concatMap ethEnvFromExp postconds
-  <> concatMap ethEnvFromRewrite rewrites
+  <> concatMap ethEnvFromUpdate rewrites
   <> maybe [] ethEnvFromTypedExp returns
 
 ethEnvFromConstructor :: Annotated.Constructor -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ pre post inv initialStorage rewrites) = nub $
+ethEnvFromConstructor (Constructor _ _ pre post inv initialStorage) = nub $
   concatMap ethEnvFromExp pre
   <> concatMap ethEnvFromExp post
   <> concatMap ethEnvFromInvariant inv
-  <> concatMap ethEnvFromRewrite rewrites
-  <> concatMap ethEnvFromRewrite (Rewrite <$> initialStorage)
+  <> concatMap ethEnvFromUpdate initialStorage
 
 ethEnvFromInvariant :: Annotated.Invariant -> [EthEnv]
 ethEnvFromInvariant (Invariant _ pre bounds (predpre, predpost)) =
   concatMap ethEnvFromExp pre <>  concatMap ethEnvFromExp bounds <>
   ethEnvFromExp predpre <> ethEnvFromExp predpost
 
-ethEnvFromRewrite :: Rewrite t -> [EthEnv]
-ethEnvFromRewrite rewrite = case rewrite of
-  Constant (Loc _ item) -> ethEnvFromItem item
-  Rewrite (Update _ item e) -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+ethEnvFromUpdate :: StorageUpdate t -> [EthEnv]
+ethEnvFromUpdate rewrite = case rewrite of
+  Update _ item e -> nub $ ethEnvFromItem item <> ethEnvFromExp e
 
 ethEnvFromItem :: TStorageItem a t -> [EthEnv]
 ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
@@ -263,9 +254,6 @@ ethEnvFromExp = nub . go
       TEntry _ _ a -> ethEnvFromItem a
       Var {} -> []
 
-idFromRewrite :: Rewrite t -> Id
-idFromRewrite = onRewrite idFromLocation idFromUpdate
-
 idFromItem :: TStorageItem a t -> Id
 idFromItem (Item _ _ ref) = idFromStorageRef ref
 
@@ -280,9 +268,6 @@ idFromUpdate (Update _ item _) = idFromItem item
 idFromLocation :: StorageLocation t -> Id
 idFromLocation (Loc _ item) = idFromItem item
 
-contractFromRewrite :: Rewrite t -> Id
-contractFromRewrite = onRewrite contractFromLoc contractFromUpdate
-
 contractFromItem :: TStorageItem a t -> Id
 contractFromItem (Item _ _ ref) = contractFromStorageRef ref
 
@@ -296,7 +281,7 @@ ixsFromItem (Item _ _ (SMapping _ _ ixs)) = ixs
 ixsFromItem _ = []
 
 contractsInvolved :: Behaviour t -> [Id]
-contractsInvolved = fmap contractFromRewrite . _stateUpdates
+contractsInvolved = fmap contractFromUpdate . _stateUpdates
 
 contractFromLoc :: StorageLocation t -> Id
 contractFromLoc (Loc _ item) = contractFromItem item
@@ -310,24 +295,11 @@ ixsFromLocation (Loc _ item) = ixsFromItem item
 ixsFromUpdate :: StorageUpdate t -> [TypedExp t]
 ixsFromUpdate (Update _ item _) = ixsFromItem item
 
-ixsFromRewrite :: Rewrite t -> [TypedExp t]
-ixsFromRewrite = onRewrite ixsFromLocation ixsFromUpdate
-
 itemType :: TStorageItem a t -> ActType
 itemType (Item t _ _) = actType t
 
 isMapping :: StorageLocation t -> Bool
 isMapping = not . null . ixsFromLocation
-
-onRewrite :: (StorageLocation t -> a) -> (StorageUpdate t -> a) -> Rewrite t -> a
-onRewrite f _ (Constant  a) = f a
-onRewrite _ g (Rewrite a) = g a
-
-updatesFromRewrites :: [Rewrite t] -> [StorageUpdate t]
-updatesFromRewrites rs = [u | Rewrite u <- rs]
-
-locsFromRewrites :: [Rewrite t] -> [StorageLocation t]
-locsFromRewrites rs = [l | Constant l <- rs]
 
 --------------------------------------
 -- * Extraction from untyped ASTs * --
@@ -434,7 +406,7 @@ idFromRewrites e = case e of
     idFromEntry (EVar p x) = singleton x [p]
     idFromEntry (EMapping _ en xs) = unionWith (<>) (idFromEntry en) (idFromRewrites' xs)
     idFromEntry (EField _ en _) = idFromEntry en
-    
+
 -- | True iff the case is a wildcard.
 isWild :: Case -> Bool
 isWild (Case _ (WildExp _) _) = True

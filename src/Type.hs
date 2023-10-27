@@ -128,7 +128,7 @@ topologicalSort (Act store contracts) =
 
     -- map a contract name to the list of contracts that it calls and its code
     findCreates :: Contract -> (Id, ([Id], Contract))
-    findCreates c@(Contract (Constructor cname _ _ _ _ _ _) _) = (cname, (createsFromContract c, c))
+    findCreates c@(Contract (Constructor cname _ _ _ _ _) _) = (cname, (createsFromContract c, c))
 
 --- Finds storage declarations from constructors
 lookupVars :: [U.Contract] -> Store
@@ -244,7 +244,7 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs
     -- TODO ensure non-overlapping and exhaustiveness (maybe with elaboration and mandatory wildcard?)
 
     -- | split case into pass and fail case
-    makeBehv :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed)) -> Behaviour
+    makeBehv :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [StorageUpdate], Maybe (TypedExp Timed)) -> Behaviour
     makeBehv iffs' postcs (if',storage,ret) = Behaviour name contract iface iffs' if' postcs storage ret
 
 checkDefinition :: Env -> U.Definition -> Err Constructor
@@ -255,7 +255,7 @@ checkDefinition env (U.Definition _ contract (Interface _ decls) iffs (U.Creates
     _ <- traverse (validStorage env') assigns
     ensures <- traverse (checkExpr env' SBoolean) postcs
     invs' <- fmap (Invariant contract [] []) <$> traverse (checkExpr env' SBoolean) invs
-    pure $ Constructor contract (Interface contract decls) iffs' ensures invs' stateUpdates []
+    pure $ Constructor contract (Interface contract decls) iffs' ensures invs' stateUpdates
   where
     env' = addCalldata env decls
 
@@ -282,7 +282,7 @@ validSlotType env p (StorageValue t) = validType env p t
 
 
 -- | Typechecks a case, returning typed versions of its preconditions, rewrites and return value.
-checkCase :: Env -> U.Case -> Err ([Exp ABoolean Untimed], [Rewrite], Maybe (TypedExp Timed))
+checkCase :: Env -> U.Case -> Err ([Exp ABoolean Untimed], [StorageUpdate], Maybe (TypedExp Timed))
 checkCase env c@(U.Case _ pre post) = do
   -- TODO isWild checks for WildExp, but WildExp is never generated
   if' <- traverse (checkExpr env SBoolean) $ if isWild c then [U.BoolLit nowhere True] else [pre]
@@ -319,15 +319,15 @@ checkDefn pn env@Env{contract} keyType vt@(FromVType valType) name (U.Defn k val
   <*> checkExpr env valType val
 
 -- | Typechecks a postcondition, returning typed versions of its storage updates and return expression.
-checkPost :: Env -> U.Post -> Err ([Rewrite], Maybe (TypedExp Timed))
+checkPost :: Env -> U.Post -> Err ([StorageUpdate], Maybe (TypedExp Timed))
 checkPost env@Env{contract,theirs} (U.Post storage maybeReturn) = do
   returnexp <- traverse (typedExp $ focus contract) maybeReturn
   storage' <- checkEntries contract storage
   pure (storage', returnexp)
   where
-    checkEntries :: Id -> [U.Storage] -> Err [Rewrite]
+    checkEntries :: Id -> [U.Storage] -> Err [StorageUpdate]
     checkEntries name entries = for entries $ \case
-      U.Rewrite  loc val -> Rewrite  <$> checkStorageExpr (focus name) loc val
+      U.Rewrite  loc val -> checkStorageExpr (focus name) loc val
 
     focus :: Id -> Env
     focus name = env

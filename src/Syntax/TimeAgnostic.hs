@@ -101,7 +101,6 @@ data Constructor t = Constructor
   , _cpostconditions :: [Exp ABoolean Timed]
   , _invariants :: [Invariant t]
   , _initialStorage :: [StorageUpdate t]
-  , _cstateUpdates :: [Rewrite t]
   }
 deriving instance Show (InvariantPred t) => Show (Constructor t)
 deriving instance Eq   (InvariantPred t) => Eq   (Constructor t)
@@ -114,14 +113,9 @@ data Behaviour t = Behaviour
   , _preconditions :: [Exp ABoolean t] -- if preconditions are not satisfied execution is reverted
   , _caseconditions :: [Exp ABoolean t] -- if preconditions are satisfied and a case condition is not, some other instance of the bahaviour should apply
   , _postconditions :: [Exp ABoolean Timed]
-  , _stateUpdates :: [Rewrite t]
+  , _stateUpdates :: [StorageUpdate t]
   , _returns :: Maybe (TypedExp Timed)
   } deriving (Show, Eq)
-
-data Rewrite t
-  = Constant (StorageLocation t)
-  | Rewrite (StorageUpdate t)
-  deriving (Show, Eq)
 
 data StorageUpdate (t :: Timing) where
   Update :: SType a -> TStorageItem a t -> Exp a t -> StorageUpdate t
@@ -424,10 +418,6 @@ invariantJSON Invariant{..} predicate = object [ "kind" .= String "Invariant"
                                                , "preconditions" .= toJSON _ipreconditions
                                                , "storagebounds" .= toJSON _istoragebounds
                                                , "contract" .= _icontract ]
-
-instance ToJSON (Rewrite t) where
-  toJSON (Constant a) = object [ "constant" .= toJSON a ]
-  toJSON (Rewrite a) = object [ "rewrite" .= toJSON a ]
 
 instance ToJSON (StorageLocation t) where
   toJSON (Loc _ a) = object [ "location" .= toJSON a ]

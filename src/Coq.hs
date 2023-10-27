@@ -77,7 +77,7 @@ reachable constructor behvs = inductive
 
 -- | non-recursive constructor for the reachable relation
 baseCase :: Constructor -> T.Text
-baseCase (Constructor name i@(Interface _ decls) conds _ _ _ _) =
+baseCase (Constructor name i@(Interface _ decls) conds _ _ _ ) =
   T.pack name <> baseSuffix <> " : " <> universal <> "\n" <> constructorBody
   where
     baseval = parens $ T.pack name <> " " <> envVar <> " " <> arguments i
@@ -113,7 +113,7 @@ reachableStep (Behaviour name _ i conds cases _ _ _) =
 
 -- | definition of a base state
 base :: Store -> Constructor -> T.Text
-base store (Constructor name i _ _ _ updates _) =
+base store (Constructor name i _ _ _ updates) =
   definition (T.pack name) (envDecl <> " " <> interface i) $
     stateval store name (\_ t -> defaultSlotValue t) updates
 
@@ -121,7 +121,7 @@ transition :: Store -> Behaviour -> Fresh T.Text
 transition store (Behaviour name cname i _ _ _ rewrites _) = do
   name' <- fresh name
   return $ definition name' (envDecl <> " " <> stateDecl <> " " <> interface i) $
-    stateval store cname (\ref _ -> storageRef ref) (updatesFromRewrites rewrites)
+    stateval store cname (\ref _ -> storageRef ref) rewrites
 
 -- | inductive definition of a return claim
 -- ignores claims that do not specify a return value

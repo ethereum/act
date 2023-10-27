@@ -188,7 +188,7 @@ mkPostconditionQueriesBehv :: Behaviour -> [Query]
 mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preconds caseconds postconds stateUpdates _) = mkQuery <$> postconds
   where
     -- declare vars
-    storage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
+    storage = concatMap (declareStorageLocation . locFromUpdate) stateUpdates
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
 
@@ -205,24 +205,22 @@ mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preco
     mkQuery e = Postcondition (Behv behv) e (mksmt e)
 
 mkPostconditionQueriesConstr :: Constructor -> [Query]
-mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName decls) preconds postconds _ initialStorage stateUpdates) = mkQuery <$> postconds
+mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName decls) preconds postconds _ initialStorage) = mkQuery <$> postconds
   where
     -- declare vars
     localStorage = concatMap declareInitialStorage initialStorage
-    externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
 
     -- constraints
     pres = mkAssert ifaceName <$> preconds
-    updates = encodeUpdate ifaceName <$> stateUpdates
     initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
 
     mksmt e = SMTExp
-      { _storage = localStorage <> externalStorage
+      { _storage = localStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> updates <> initialStorage'
+      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> initialStorage'
       }
     mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
 
@@ -253,25 +251,23 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     getInvariants (Contract (c@Constructor{..}) behvs) = fmap (\i -> (i, c, behvs)) _invariants
 
     mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
-    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) preconds _ _ initialStorage stateUpdates) = (ctor, smt)
+    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) preconds _ _ initialStorage) = (ctor, smt)
       where
         -- declare vars
         localStorage = concatMap declareInitialStorage initialStorage
-        externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
         args = declareArg ifaceName <$> decls
         envs = declareEthEnv <$> ethEnvFromConstructor ctor
 
         -- constraints
         pres = mkAssert ifaceName <$> preconds <> invConds
-        updates = encodeUpdate ifaceName <$> stateUpdates
         initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
         postInv = mkAssert ifaceName $ Neg nowhere invPost
 
         smt = SMTExp
-          { _storage = localStorage <> externalStorage
+          { _storage = localStorage
           , _calldata = args
           , _environment = envs
-          , _assertions = postInv : pres <> updates <> initialStorage'
+          , _assertions = postInv : pres <> initialStorage'
           }
 
     mkBehv :: Invariant -> Constructor -> Behaviour -> (Behaviour, SMTExp)
@@ -281,21 +277,21 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
         (Interface ctorIface ctorDecls) = _cinterface ctor
         (Interface behvIface behvDecls) = _interface behv
         -- storage locs mentioned in the invariant but not in the behaviour
-        implicitLocs = Constant <$> (locsFromExp invPre \\ (locFromRewrite <$> _stateUpdates behv))
+        implicitLocs = (locsFromExp invPre \\ (locFromUpdate <$> _stateUpdates behv))
 
         -- declare vars
         invEnv = declareEthEnv <$> ethEnvFromExp invPre
         behvEnv = declareEthEnv <$> ethEnvFromBehaviour behv
         initArgs = declareArg ctorIface <$> ctorDecls
         behvArgs = declareArg behvIface <$> behvDecls
-        storage = concatMap (declareStorageLocation . locFromRewrite) (_stateUpdates behv <> implicitLocs)
+        storage = concatMap declareStorageLocation ((locFromUpdate <$> _stateUpdates behv) <> implicitLocs)
 
         -- constraints
         preInv = mkAssert ctorIface $ invPre
         postInv = mkAssert ctorIface . Neg nowhere $ invPost
         behvConds = mkAssert behvIface <$> _preconditions behv <> _caseconditions behv
         invConds' = mkAssert ctorIface <$> invConds <> invStorageBounds
-        implicitLocs' = encodeUpdate ctorIface <$> implicitLocs
+        implicitLocs' = encodeStorageLocation <$> implicitLocs
         updates = encodeUpdate behvIface <$> _stateUpdates behv
 
         smt = SMTExp
@@ -529,6 +525,7 @@ parseSMTModel s = if length s0Caps == 1
 
 
 -- | encodes a storage update from a constructor creates block as an smt assertion
+-- TODO unify with encodeUpdate
 encodeInitialStorage :: Id -> StorageUpdate -> SMT2
 encodeInitialStorage behvName (Update _ item expr) =
   let
@@ -536,6 +533,8 @@ encodeInitialStorage behvName (Update _ item expr) =
     expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
+encodeStorageLocation :: StorageLocation -> SMT2
+encodeStorageLocation loc = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
 
 -- | declares a storage location with the given timing
 declareStorage :: [When] -> StorageLocation -> [SMT2]
@@ -552,9 +551,8 @@ declareInitialStorage :: StorageUpdate -> [SMT2]
 declareInitialStorage upd = declareStorage [Post] (locFromUpdate upd)
 
 -- | encodes a storage update rewrite as an smt assertion
-encodeUpdate :: Id -> Rewrite -> SMT2
-encodeUpdate _        (Constant loc)   = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
-encodeUpdate behvName (Rewrite update) = encodeInitialStorage behvName update
+encodeUpdate :: Id -> StorageUpdate -> SMT2
+encodeUpdate behvName update = encodeInitialStorage behvName update
 
 -- | declares a storage location that exists both in the pre state and the post
 --   state (i.e. anything except a loc created by a constructor claim)

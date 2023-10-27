@@ -31,10 +31,7 @@ prettyBehaviour (Behaviour name contract interface preconditions cases postcondi
     prettyCases p = header "case" >-< block (prettyExp <$> p) <> ":"
 
     prettyStorage [] = ""
-    prettyStorage s = header "storage" >-< block (prettyState <$> s)
-
-    prettyState (Constant loc) = prettyLocation loc
-    prettyState (Rewrite  rew) = prettyUpdate rew
+    prettyStorage s = header "storage" >-< block (prettyUpdate <$> s)
 
     prettyRet (Just ret) = header "returns" >-< "  " <> prettyTypedExp ret
     prettyRet Nothing = ""
