@@ -18,7 +18,7 @@ import Data.Map (Map,empty,insertWith,unionsWith,unionWith,singleton)
 import Syntax.TimeAgnostic as Agnostic
 import qualified Syntax.Annotated as Annotated
 import qualified Syntax.Typed as Typed
-import           Syntax.Untyped hiding (Constant,Rewrite,Contract)
+import           Syntax.Untyped hiding (Rewrite,Contract)
 import qualified Syntax.Untyped as Untyped
 
 -----------------------------------------
@@ -335,7 +335,6 @@ locsFromRewrites rs = [l | Constant l <- rs]
 
 nameFromStorage :: Untyped.Storage -> Id
 nameFromStorage (Untyped.Rewrite e _) = nameFromEntry e
-nameFromStorage (Untyped.Constant e) = nameFromEntry e
 
 nameFromEntry :: Entry -> Id
 nameFromEntry (EVar _ x) = x

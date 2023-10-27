@@ -327,7 +327,6 @@ checkPost env@Env{contract,theirs} (U.Post storage maybeReturn) = do
   where
     checkEntries :: Id -> [U.Storage] -> Err [Rewrite]
     checkEntries name entries = for entries $ \case
-      U.Constant loc     -> Constant <$> checkPattern     (focus name) loc
       U.Rewrite  loc val -> Rewrite  <$> checkStorageExpr (focus name) loc val
 
     focus :: Id -> Env
@@ -375,11 +374,6 @@ checkStorageExpr env entry expr =
       let c' = contractId e in
       assert (p, "Expression is expected to be a contract " <> show c <> " but it is a contract " <> show c) (c == c')
     validContractType _ _ _ _ = pure ()
-
-checkPattern :: Env -> U.Entry -> Err StorageLocation
-checkPattern env entry =
-  validateEntry env entry `bindValidation` \(vt@(FromVType loctyp), ref) ->
-    pure $ _Loc (Item loctyp vt ref)
 
 checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
 checkIffs env = foldr check (pure [])
