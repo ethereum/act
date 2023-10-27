@@ -6,8 +6,14 @@
           "case": [
             {
               "args": [
-                "Caller",
                 {
+                  "ethEnv": "Caller",
+                  "type": "int"
+                },
+                {
+                  "abitype": {
+                    "type": "Address"
+                  },
                   "type": "int",
                   "var": "to"
                 }
@@ -20,12 +26,17 @@
           "interface": {
             "args": [
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"value\"",
                 "kind": "Declaration"
               },
               {
-                "abitype": "address",
+                "abitype": {
+                  "type": "Address"
+                },
                 "id": "\"to\"",
                 "kind": "Declaration"
               }
@@ -39,7 +50,10 @@
           "preConditions": [
             {
               "args": [
-                "Callvalue",
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
                 {
                   "literal": "0",
                   "type": "int"
@@ -51,6 +65,10 @@
             {
               "args": [
                 {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "value"
                 },
@@ -59,7 +77,10 @@
                     "item": {
                       "indexes": [
                         {
-                          "expression": "Caller",
+                          "expression": {
+                            "ethEnv": "Caller",
+                            "type": "int"
+                          },
                           "kind": "TypedExpr",
                           "type": "int"
                         }
@@ -83,8 +104,14 @@
               "args": [
                 {
                   "args": [
-                    "Caller",
                     {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "to"
                     }
@@ -102,6 +129,9 @@
                               "indexes": [
                                 {
                                   "expression": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
                                     "type": "int",
                                     "var": "to"
                                   },
@@ -121,6 +151,10 @@
                           "timing": "Pre"
                         },
                         {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
                           "type": "int",
                           "var": "value"
                         }
@@ -159,6 +193,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "value"
                     }
@@ -169,10 +207,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "value"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -190,6 +235,9 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "to"
                     }
@@ -200,75 +248,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "to"
                     },
-                    "1461501637330902918203684832716283019655932542975"
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
                     {
-                      "literal": "0",
+                      "literal": "1461501637330902918203684832716283019655932542975",
                       "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
                     }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -291,6 +280,83 @@
                           "indexes": [
                             {
                               "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "to"
                               },
@@ -321,6 +387,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "to"
                               },
@@ -339,7 +408,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -356,15 +428,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Callvalue"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -381,15 +462,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Caller"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Caller",
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -414,7 +504,10 @@
                   "item": {
                     "indexes": [
                       {
-                        "expression": "Caller",
+                        "expression": {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
                         "kind": "TypedExpr",
                         "type": "int"
                       }
@@ -435,7 +528,10 @@
                         "item": {
                           "indexes": [
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -452,6 +548,10 @@
                       "timing": "Pre"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "value"
                     }
@@ -468,6 +568,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "to"
                         },
@@ -492,6 +595,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "to"
                               },
@@ -511,6 +617,10 @@
                       "timing": "Pre"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "value"
                     }
@@ -526,8 +636,14 @@
           "case": [
             {
               "args": [
-                "Caller",
                 {
+                  "ethEnv": "Caller",
+                  "type": "int"
+                },
+                {
+                  "abitype": {
+                    "type": "Address"
+                  },
                   "type": "int",
                   "var": "to"
                 }
@@ -540,12 +656,17 @@
           "interface": {
             "args": [
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"value\"",
                 "kind": "Declaration"
               },
               {
-                "abitype": "address",
+                "abitype": {
+                  "type": "Address"
+                },
                 "id": "\"to\"",
                 "kind": "Declaration"
               }
@@ -559,7 +680,10 @@
           "preConditions": [
             {
               "args": [
-                "Callvalue",
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
                 {
                   "literal": "0",
                   "type": "int"
@@ -571,6 +695,10 @@
             {
               "args": [
                 {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "value"
                 },
@@ -579,7 +707,10 @@
                     "item": {
                       "indexes": [
                         {
-                          "expression": "Caller",
+                          "expression": {
+                            "ethEnv": "Caller",
+                            "type": "int"
+                          },
                           "kind": "TypedExpr",
                           "type": "int"
                         }
@@ -603,8 +734,14 @@
               "args": [
                 {
                   "args": [
-                    "Caller",
                     {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "to"
                     }
@@ -622,6 +759,9 @@
                               "indexes": [
                                 {
                                   "expression": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
                                     "type": "int",
                                     "var": "to"
                                   },
@@ -641,6 +781,10 @@
                           "timing": "Pre"
                         },
                         {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
                           "type": "int",
                           "var": "value"
                         }
@@ -679,6 +823,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "value"
                     }
@@ -689,10 +837,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "value"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -710,6 +865,9 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "to"
                     }
@@ -720,75 +878,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "to"
                     },
-                    "1461501637330902918203684832716283019655932542975"
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
                     {
-                      "literal": "0",
+                      "literal": "1461501637330902918203684832716283019655932542975",
                       "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
                     }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -811,6 +910,83 @@
                           "indexes": [
                             {
                               "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "to"
                               },
@@ -841,6 +1017,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "to"
                               },
@@ -859,7 +1038,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -876,15 +1058,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Callvalue"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -901,15 +1092,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Caller"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Caller",
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -934,7 +1134,10 @@
                   "item": {
                     "indexes": [
                       {
-                        "expression": "Caller",
+                        "expression": {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
                         "kind": "TypedExpr",
                         "type": "int"
                       }
@@ -957,6 +1160,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "to"
                         },
@@ -984,10 +1190,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     }
@@ -997,8 +1209,14 @@
                 },
                 {
                   "args": [
-                    "Caller",
                     {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     }
@@ -1015,17 +1233,24 @@
           "interface": {
             "args": [
               {
-                "abitype": "address",
+                "abitype": {
+                  "type": "Address"
+                },
                 "id": "\"src\"",
                 "kind": "Declaration"
               },
               {
-                "abitype": "address",
+                "abitype": {
+                  "type": "Address"
+                },
                 "id": "\"dst\"",
                 "kind": "Declaration"
               },
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"amount\"",
                 "kind": "Declaration"
               }
@@ -1040,6 +1265,10 @@
             {
               "args": [
                 {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "amount"
                 },
@@ -1048,7 +1277,10 @@
                     "item": {
                       "indexes": [
                         {
-                          "expression": "Caller",
+                          "expression": {
+                            "ethEnv": "Caller",
+                            "type": "int"
+                          },
                           "kind": "TypedExpr",
                           "type": "int"
                         }
@@ -1073,10 +1305,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     }
@@ -1094,6 +1332,9 @@
                               "indexes": [
                                 {
                                   "expression": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
                                     "type": "int",
                                     "var": "dst"
                                   },
@@ -1113,6 +1354,10 @@
                           "timing": "Pre"
                         },
                         {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
                           "type": "int",
                           "var": "amount"
                         }
@@ -1146,8 +1391,14 @@
               "args": [
                 {
                   "args": [
-                    "Caller",
                     {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     }
@@ -1169,6 +1420,9 @@
                               "indexes": [
                                 {
                                   "expression": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
                                     "type": "int",
                                     "var": "src"
                                   },
@@ -1176,7 +1430,10 @@
                                   "type": "int"
                                 },
                                 {
-                                  "expression": "Caller",
+                                  "expression": {
+                                    "ethEnv": "Caller",
+                                    "type": "int"
+                                  },
                                   "kind": "TypedExpr",
                                   "type": "int"
                                 }
@@ -1193,6 +1450,10 @@
                           "timing": "Pre"
                         },
                         {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
                           "type": "int",
                           "var": "amount"
                         }
@@ -1210,7 +1471,10 @@
             },
             {
               "args": [
-                "Callvalue",
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
                 {
                   "literal": "0",
                   "type": "int"
@@ -1228,6 +1492,9 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     }
@@ -1238,10 +1505,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     },
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -1259,6 +1532,9 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     }
@@ -1269,10 +1545,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     },
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -1290,6 +1572,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     }
@@ -1300,75 +1586,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
                     {
-                      "literal": "0",
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
                       "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
                     }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -1391,6 +1619,83 @@
                           "indexes": [
                             {
                               "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -1398,7 +1703,10 @@
                               "type": "int"
                             },
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -1426,6 +1734,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -1433,7 +1744,10 @@
                               "type": "int"
                             },
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -1449,7 +1763,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -1472,6 +1789,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -1502,6 +1822,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -1520,7 +1843,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -1543,6 +1869,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "dst"
                               },
@@ -1573,6 +1902,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "dst"
                               },
@@ -1591,7 +1923,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -1608,15 +1943,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Caller"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Caller",
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -1633,15 +1977,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Callvalue"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -1666,7 +2019,10 @@
                   "item": {
                     "indexes": [
                       {
-                        "expression": "Caller",
+                        "expression": {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
                         "kind": "TypedExpr",
                         "type": "int"
                       }
@@ -1689,6 +2045,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         },
@@ -1696,7 +2055,10 @@
                         "type": "int"
                       },
                       {
-                        "expression": "Caller",
+                        "expression": {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
                         "kind": "TypedExpr",
                         "type": "int"
                       }
@@ -1719,6 +2081,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         },
@@ -1743,6 +2108,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -1762,6 +2130,10 @@
                       "timing": "Pre"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     }
@@ -1778,6 +2150,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "dst"
                         },
@@ -1802,6 +2177,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "dst"
                               },
@@ -1821,6 +2199,10 @@
                       "timing": "Pre"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     }
@@ -1841,10 +2223,16 @@
                     {
                       "args": [
                         {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         },
                         {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "dst"
                         }
@@ -1854,8 +2242,14 @@
                     },
                     {
                       "args": [
-                        "Caller",
                         {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
+                        {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         }
@@ -1875,6 +2269,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -1882,7 +2279,10 @@
                               "type": "int"
                             },
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -1935,17 +2335,24 @@
           "interface": {
             "args": [
               {
-                "abitype": "address",
+                "abitype": {
+                  "type": "Address"
+                },
                 "id": "\"src\"",
                 "kind": "Declaration"
               },
               {
-                "abitype": "address",
+                "abitype": {
+                  "type": "Address"
+                },
                 "id": "\"dst\"",
                 "kind": "Declaration"
               },
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"amount\"",
                 "kind": "Declaration"
               }
@@ -1960,6 +2367,10 @@
             {
               "args": [
                 {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "amount"
                 },
@@ -1968,7 +2379,10 @@
                     "item": {
                       "indexes": [
                         {
-                          "expression": "Caller",
+                          "expression": {
+                            "ethEnv": "Caller",
+                            "type": "int"
+                          },
                           "kind": "TypedExpr",
                           "type": "int"
                         }
@@ -1993,10 +2407,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     }
@@ -2014,6 +2434,9 @@
                               "indexes": [
                                 {
                                   "expression": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
                                     "type": "int",
                                     "var": "dst"
                                   },
@@ -2033,6 +2456,10 @@
                           "timing": "Pre"
                         },
                         {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
                           "type": "int",
                           "var": "amount"
                         }
@@ -2066,8 +2493,14 @@
               "args": [
                 {
                   "args": [
-                    "Caller",
                     {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     }
@@ -2089,6 +2522,9 @@
                               "indexes": [
                                 {
                                   "expression": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
                                     "type": "int",
                                     "var": "src"
                                   },
@@ -2096,7 +2532,10 @@
                                   "type": "int"
                                 },
                                 {
-                                  "expression": "Caller",
+                                  "expression": {
+                                    "ethEnv": "Caller",
+                                    "type": "int"
+                                  },
                                   "kind": "TypedExpr",
                                   "type": "int"
                                 }
@@ -2113,6 +2552,10 @@
                           "timing": "Pre"
                         },
                         {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
                           "type": "int",
                           "var": "amount"
                         }
@@ -2130,7 +2573,10 @@
             },
             {
               "args": [
-                "Callvalue",
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
                 {
                   "literal": "0",
                   "type": "int"
@@ -2148,6 +2594,9 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     }
@@ -2158,10 +2607,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     },
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -2179,6 +2634,9 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     }
@@ -2189,10 +2647,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     },
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -2210,6 +2674,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     }
@@ -2220,75 +2688,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
                     {
-                      "literal": "0",
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
                       "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
                     }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -2311,6 +2721,83 @@
                           "indexes": [
                             {
                               "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -2318,7 +2805,10 @@
                               "type": "int"
                             },
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -2346,6 +2836,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -2353,7 +2846,10 @@
                               "type": "int"
                             },
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -2369,7 +2865,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -2392,6 +2891,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -2422,6 +2924,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -2440,7 +2945,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -2463,6 +2971,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "dst"
                               },
@@ -2493,6 +3004,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "dst"
                               },
@@ -2511,7 +3025,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -2528,15 +3045,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Caller"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Caller",
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -2553,15 +3079,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Callvalue"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -2586,7 +3121,10 @@
                   "item": {
                     "indexes": [
                       {
-                        "expression": "Caller",
+                        "expression": {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
                         "kind": "TypedExpr",
                         "type": "int"
                       }
@@ -2609,6 +3147,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         },
@@ -2616,7 +3157,10 @@
                         "type": "int"
                       },
                       {
-                        "expression": "Caller",
+                        "expression": {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
                         "kind": "TypedExpr",
                         "type": "int"
                       }
@@ -2639,6 +3183,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         },
@@ -2663,6 +3210,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -2682,6 +3232,10 @@
                       "timing": "Pre"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     }
@@ -2698,6 +3252,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "dst"
                         },
@@ -2722,6 +3279,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "dst"
                               },
@@ -2741,6 +3301,10 @@
                       "timing": "Pre"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     }
@@ -2761,10 +3325,16 @@
                     {
                       "args": [
                         {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         },
                         {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "dst"
                         }
@@ -2774,8 +3344,14 @@
                     },
                     {
                       "args": [
-                        "Caller",
                         {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
+                        {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         }
@@ -2795,6 +3371,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -2802,7 +3381,10 @@
                               "type": "int"
                             },
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -2855,17 +3437,24 @@
           "interface": {
             "args": [
               {
-                "abitype": "address",
+                "abitype": {
+                  "type": "Address"
+                },
                 "id": "\"src\"",
                 "kind": "Declaration"
               },
               {
-                "abitype": "address",
+                "abitype": {
+                  "type": "Address"
+                },
                 "id": "\"dst\"",
                 "kind": "Declaration"
               },
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"amount\"",
                 "kind": "Declaration"
               }
@@ -2880,6 +3469,10 @@
             {
               "args": [
                 {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "amount"
                 },
@@ -2888,7 +3481,10 @@
                     "item": {
                       "indexes": [
                         {
-                          "expression": "Caller",
+                          "expression": {
+                            "ethEnv": "Caller",
+                            "type": "int"
+                          },
                           "kind": "TypedExpr",
                           "type": "int"
                         }
@@ -2913,10 +3509,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     }
@@ -2934,6 +3536,9 @@
                               "indexes": [
                                 {
                                   "expression": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
                                     "type": "int",
                                     "var": "dst"
                                   },
@@ -2953,6 +3558,10 @@
                           "timing": "Pre"
                         },
                         {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
                           "type": "int",
                           "var": "amount"
                         }
@@ -2986,8 +3595,14 @@
               "args": [
                 {
                   "args": [
-                    "Caller",
                     {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     }
@@ -3009,6 +3624,9 @@
                               "indexes": [
                                 {
                                   "expression": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
                                     "type": "int",
                                     "var": "src"
                                   },
@@ -3016,7 +3634,10 @@
                                   "type": "int"
                                 },
                                 {
-                                  "expression": "Caller",
+                                  "expression": {
+                                    "ethEnv": "Caller",
+                                    "type": "int"
+                                  },
                                   "kind": "TypedExpr",
                                   "type": "int"
                                 }
@@ -3033,6 +3654,10 @@
                           "timing": "Pre"
                         },
                         {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
                           "type": "int",
                           "var": "amount"
                         }
@@ -3050,7 +3675,10 @@
             },
             {
               "args": [
-                "Callvalue",
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
                 {
                   "literal": "0",
                   "type": "int"
@@ -3068,6 +3696,9 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     }
@@ -3078,10 +3709,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     },
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -3099,6 +3736,9 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     }
@@ -3109,10 +3749,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     },
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -3130,6 +3776,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     }
@@ -3140,75 +3790,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
                     {
-                      "literal": "0",
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
                       "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
                     }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -3231,6 +3823,83 @@
                           "indexes": [
                             {
                               "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -3238,7 +3907,10 @@
                               "type": "int"
                             },
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -3266,6 +3938,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -3273,7 +3948,10 @@
                               "type": "int"
                             },
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -3289,7 +3967,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -3312,6 +3993,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -3342,6 +4026,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -3360,7 +4047,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -3383,6 +4073,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "dst"
                               },
@@ -3413,6 +4106,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "dst"
                               },
@@ -3431,7 +4127,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -3448,15 +4147,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Caller"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Caller",
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -3473,15 +4181,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Callvalue"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -3506,7 +4223,10 @@
                   "item": {
                     "indexes": [
                       {
-                        "expression": "Caller",
+                        "expression": {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
                         "kind": "TypedExpr",
                         "type": "int"
                       }
@@ -3529,6 +4249,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         },
@@ -3536,7 +4259,10 @@
                         "type": "int"
                       },
                       {
-                        "expression": "Caller",
+                        "expression": {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
                         "kind": "TypedExpr",
                         "type": "int"
                       }
@@ -3558,6 +4284,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -3565,7 +4294,10 @@
                               "type": "int"
                             },
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -3582,6 +4314,10 @@
                       "timing": "Pre"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     }
@@ -3598,6 +4334,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         },
@@ -3622,6 +4361,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -3641,6 +4383,10 @@
                       "timing": "Pre"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     }
@@ -3657,6 +4403,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "dst"
                         },
@@ -3681,6 +4430,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "dst"
                               },
@@ -3700,6 +4452,10 @@
                       "timing": "Pre"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     }
@@ -3716,10 +4472,16 @@
             {
               "args": [
                 {
+                  "abitype": {
+                    "type": "Address"
+                  },
                   "type": "int",
                   "var": "src"
                 },
                 {
+                  "abitype": {
+                    "type": "Address"
+                  },
                   "type": "int",
                   "var": "dst"
                 }
@@ -3732,17 +4494,24 @@
           "interface": {
             "args": [
               {
-                "abitype": "address",
+                "abitype": {
+                  "type": "Address"
+                },
                 "id": "\"src\"",
                 "kind": "Declaration"
               },
               {
-                "abitype": "address",
+                "abitype": {
+                  "type": "Address"
+                },
                 "id": "\"dst\"",
                 "kind": "Declaration"
               },
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"amount\"",
                 "kind": "Declaration"
               }
@@ -3757,6 +4526,10 @@
             {
               "args": [
                 {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "amount"
                 },
@@ -3765,7 +4538,10 @@
                     "item": {
                       "indexes": [
                         {
-                          "expression": "Caller",
+                          "expression": {
+                            "ethEnv": "Caller",
+                            "type": "int"
+                          },
                           "kind": "TypedExpr",
                           "type": "int"
                         }
@@ -3790,10 +4566,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     }
@@ -3811,6 +4593,9 @@
                               "indexes": [
                                 {
                                   "expression": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
                                     "type": "int",
                                     "var": "dst"
                                   },
@@ -3830,6 +4615,10 @@
                           "timing": "Pre"
                         },
                         {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
                           "type": "int",
                           "var": "amount"
                         }
@@ -3863,8 +4652,14 @@
               "args": [
                 {
                   "args": [
-                    "Caller",
                     {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     }
@@ -3886,6 +4681,9 @@
                               "indexes": [
                                 {
                                   "expression": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
                                     "type": "int",
                                     "var": "src"
                                   },
@@ -3893,7 +4691,10 @@
                                   "type": "int"
                                 },
                                 {
-                                  "expression": "Caller",
+                                  "expression": {
+                                    "ethEnv": "Caller",
+                                    "type": "int"
+                                  },
                                   "kind": "TypedExpr",
                                   "type": "int"
                                 }
@@ -3910,6 +4711,10 @@
                           "timing": "Pre"
                         },
                         {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
                           "type": "int",
                           "var": "amount"
                         }
@@ -3927,7 +4732,10 @@
             },
             {
               "args": [
-                "Callvalue",
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
                 {
                   "literal": "0",
                   "type": "int"
@@ -3945,6 +4753,9 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     }
@@ -3955,10 +4766,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "src"
                     },
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -3976,6 +4793,9 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     }
@@ -3986,10 +4806,16 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "type": "Address"
+                      },
                       "type": "int",
                       "var": "dst"
                     },
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -4007,6 +4833,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     }
@@ -4017,75 +4847,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "amount"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
                     {
-                      "literal": "0",
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
                       "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
                     }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": "Caller",
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -4108,6 +4880,83 @@
                           "indexes": [
                             {
                               "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -4115,7 +4964,10 @@
                               "type": "int"
                             },
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -4143,6 +4995,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -4150,7 +5005,10 @@
                               "type": "int"
                             },
                             {
-                              "expression": "Caller",
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
                               "kind": "TypedExpr",
                               "type": "int"
                             }
@@ -4166,7 +5024,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -4189,6 +5050,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -4219,6 +5083,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "src"
                               },
@@ -4237,7 +5104,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -4260,6 +5130,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "dst"
                               },
@@ -4290,6 +5163,9 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
                                 "type": "int",
                                 "var": "dst"
                               },
@@ -4308,7 +5184,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -4325,15 +5204,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Caller"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Caller",
-                    "1461501637330902918203684832716283019655932542975"
+                    {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -4350,15 +5238,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Callvalue"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -4383,7 +5280,10 @@
                   "item": {
                     "indexes": [
                       {
-                        "expression": "Caller",
+                        "expression": {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
                         "kind": "TypedExpr",
                         "type": "int"
                       }
@@ -4406,6 +5306,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         },
@@ -4413,7 +5316,10 @@
                         "type": "int"
                       },
                       {
-                        "expression": "Caller",
+                        "expression": {
+                          "ethEnv": "Caller",
+                          "type": "int"
+                        },
                         "kind": "TypedExpr",
                         "type": "int"
                       }
@@ -4436,6 +5342,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "src"
                         },
@@ -4461,6 +5370,9 @@
                     "indexes": [
                       {
                         "expression": {
+                          "abitype": {
+                            "type": "Address"
+                          },
                           "type": "int",
                           "var": "dst"
                         },
@@ -4484,7 +5396,7 @@
       ],
       "constructor": {
         "contract": "Token",
-        "initial storage": [
+        "initialStorage": [
           {
             "location": {
               "item": {
@@ -4495,6 +5407,9 @@
               "type": "bytestring"
             },
             "value": {
+              "abitype": {
+                "type": "String"
+              },
               "type": "bytestring",
               "var": "_name"
             }
@@ -4509,6 +5424,9 @@
               "type": "bytestring"
             },
             "value": {
+              "abitype": {
+                "type": "String"
+              },
               "type": "bytestring",
               "var": "_symbol"
             }
@@ -4523,6 +5441,10 @@
               "type": "int"
             },
             "value": {
+              "abitype": {
+                "size": "256",
+                "type": "UInt"
+              },
               "type": "int",
               "var": "_totalSupply"
             }
@@ -4532,7 +5454,10 @@
               "item": {
                 "indexes": [
                   {
-                    "expression": "Caller",
+                    "expression": {
+                      "ethEnv": "Caller",
+                      "type": "int"
+                    },
                     "kind": "TypedExpr",
                     "type": "int"
                   }
@@ -4547,6 +5472,10 @@
               "type": "int"
             },
             "value": {
+              "abitype": {
+                "size": "256",
+                "type": "UInt"
+              },
               "type": "int",
               "var": "_totalSupply"
             }
@@ -4555,22 +5484,31 @@
         "interface": {
           "args": [
             {
-              "abitype": "string",
+              "abitype": {
+                "type": "String"
+              },
               "id": "\"_symbol\"",
               "kind": "Declaration"
             },
             {
-              "abitype": "string",
+              "abitype": {
+                "type": "String"
+              },
               "id": "\"_name\"",
               "kind": "Declaration"
             },
             {
-              "abitype": "string",
+              "abitype": {
+                "type": "String"
+              },
               "id": "\"_version\"",
               "kind": "Declaration"
             },
             {
-              "abitype": "uint256",
+              "abitype": {
+                "size": "256",
+                "type": "UInt"
+              },
               "id": "\"_totalSupply\"",
               "kind": "Declaration"
             }
@@ -4592,6 +5530,10 @@
                         "type": "int"
                       },
                       {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
                         "type": "int",
                         "var": "_totalSupply"
                       }
@@ -4602,10 +5544,17 @@
                   {
                     "args": [
                       {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
                         "type": "int",
                         "var": "_totalSupply"
                       },
-                      "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                      {
+                        "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                        "type": "int"
+                      }
                     ],
                     "arity": 2,
                     "symbol": "<="
@@ -4630,6 +5579,10 @@
                     "timing": "Pre"
                   },
                   {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
                     "type": "int",
                     "var": "_totalSupply"
                   }
@@ -4651,6 +5604,10 @@
                     "timing": "Post"
                   },
                   {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
                     "type": "int",
                     "var": "_totalSupply"
                   }
@@ -4696,7 +5653,10 @@
                         },
                         "timing": "Pre"
                       },
-                      "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                      {
+                        "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                        "type": "int"
+                      }
                     ],
                     "arity": 2,
                     "symbol": "<="
@@ -4720,6 +5680,10 @@
                         "type": "int"
                       },
                       {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
                         "type": "int",
                         "var": "_totalSupply"
                       }
@@ -4730,10 +5694,17 @@
                   {
                     "args": [
                       {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
                         "type": "int",
                         "var": "_totalSupply"
                       },
-                      "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                      {
+                        "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                        "type": "int"
+                      }
                     ],
                     "arity": 2,
                     "symbol": "<="
@@ -4758,6 +5729,9 @@
                     "timing": "Pre"
                   },
                   {
+                    "abitype": {
+                      "type": "String"
+                    },
                     "type": "bytestring",
                     "var": "_name"
                   }
@@ -4779,6 +5753,9 @@
                     "timing": "Post"
                   },
                   {
+                    "abitype": {
+                      "type": "String"
+                    },
                     "type": "bytestring",
                     "var": "_name"
                   }
@@ -4802,6 +5779,10 @@
                         "type": "int"
                       },
                       {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
                         "type": "int",
                         "var": "_totalSupply"
                       }
@@ -4812,10 +5793,17 @@
                   {
                     "args": [
                       {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
                         "type": "int",
                         "var": "_totalSupply"
                       },
-                      "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                      {
+                        "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                        "type": "int"
+                      }
                     ],
                     "arity": 2,
                     "symbol": "<="
@@ -4840,6 +5828,9 @@
                     "timing": "Pre"
                   },
                   {
+                    "abitype": {
+                      "type": "String"
+                    },
                     "type": "bytestring",
                     "var": "_symbol"
                   }
@@ -4861,6 +5852,9 @@
                     "timing": "Post"
                   },
                   {
+                    "abitype": {
+                      "type": "String"
+                    },
                     "type": "bytestring",
                     "var": "_symbol"
                   }
@@ -4884,6 +5878,10 @@
                     "type": "int"
                   },
                   {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
                     "type": "int",
                     "var": "_totalSupply"
                   }
@@ -4894,10 +5892,17 @@
               {
                 "args": [
                   {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
                     "type": "int",
                     "var": "_totalSupply"
                   },
-                  "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                  {
+                    "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "type": "int"
+                  }
                 ],
                 "arity": 2,
                 "symbol": "<="
@@ -4914,15 +5919,24 @@
                     "literal": "0",
                     "type": "int"
                   },
-                  "Caller"
+                  {
+                    "ethEnv": "Caller",
+                    "type": "int"
+                  }
                 ],
                 "arity": 2,
                 "symbol": "<="
               },
               {
                 "args": [
-                  "Caller",
-                  "1461501637330902918203684832716283019655932542975"
+                  {
+                    "ethEnv": "Caller",
+                    "type": "int"
+                  },
+                  {
+                    "literal": "1461501637330902918203684832716283019655932542975",
+                    "type": "int"
+                  }
                 ],
                 "arity": 2,
                 "symbol": "<="

@@ -13,12 +13,18 @@
           "interface": {
             "args": [
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"x\"",
                 "kind": "Declaration"
               },
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"y\"",
                 "kind": "Declaration"
               }
@@ -32,14 +38,25 @@
           "preConditions": [
             {
               "args": [
-                "uint256",
+                {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "x"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "y"
                     }
@@ -53,8 +70,15 @@
             },
             {
               "args": [
-                "uint256",
                 {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "x"
                 }
@@ -64,8 +88,15 @@
             },
             {
               "args": [
-                "uint256",
                 {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "y"
                 }
@@ -75,7 +106,10 @@
             },
             {
               "args": [
-                "Callvalue",
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
                 {
                   "literal": "0",
                   "type": "int"
@@ -93,6 +127,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "x"
                     }
@@ -103,10 +141,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "x"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -124,6 +169,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "y"
                     }
@@ -134,10 +183,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "y"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -154,15 +210,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Callvalue"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -176,10 +241,18 @@
             "expression": {
               "args": [
                 {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "x"
                 },
                 {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "y"
                 }
@@ -195,7 +268,7 @@
       ],
       "constructor": {
         "contract": "SafeAdd",
-        "initial storage": [],
+        "initialStorage": [],
         "interface": {
           "args": [],
           "id": "\"SafeAdd\"",

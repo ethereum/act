@@ -13,7 +13,10 @@
           "interface": {
             "args": [
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"x\"",
                 "kind": "Declaration"
               }
@@ -34,6 +37,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "x"
                     }
@@ -44,10 +51,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "x"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -70,7 +84,7 @@
       ],
       "constructor": {
         "contract": "A",
-        "initial storage": [],
+        "initialStorage": [],
         "interface": {
           "args": [],
           "id": "\"A\"",
