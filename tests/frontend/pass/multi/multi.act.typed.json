@@ -28,7 +28,56 @@
         "invariants": [],
         "kind": "Constructor",
         "postConditions": [],
-        "preConditions": []
+        "preConditions": [
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "literal": "0",
+                    "type": "int"
+                  },
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "A",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              },
+              {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "A",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              }
+            ],
+            "arity": 2,
+            "symbol": "and"
+          }
+        ]
       },
       "kind": "Contract"
     },
@@ -212,28 +261,26 @@
           "returns": null,
           "stateUpdates": [
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "contract": "A",
-                    "field": "x",
-                    "kind": "Field",
-                    "reference": {
-                      "contract": "B",
-                      "kind": "SVar",
-                      "svar": "a"
-                    }
-                  },
-                  "type": "int"
+              "location": {
+                "item": {
+                  "contract": "A",
+                  "field": "x",
+                  "kind": "Field",
+                  "reference": {
+                    "contract": "B",
+                    "kind": "SVar",
+                    "svar": "a"
+                  }
                 },
-                "value": {
-                  "abitype": {
-                    "size": "256",
-                    "type": "UInt"
-                  },
-                  "type": "int",
-                  "var": "z"
-                }
+                "type": "int"
+              },
+              "value": {
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                "type": "int",
+                "var": "z"
               }
             }
           ]
@@ -464,44 +511,40 @@
           "returns": null,
           "stateUpdates": [
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "contract": "B",
-                    "kind": "SVar",
-                    "svar": "y"
-                  },
-                  "type": "int"
+              "location": {
+                "item": {
+                  "contract": "B",
+                  "kind": "SVar",
+                  "svar": "y"
                 },
-                "value": {
-                  "literal": "1",
-                  "type": "int"
-                }
+                "type": "int"
+              },
+              "value": {
+                "literal": "1",
+                "type": "int"
               }
             },
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "contract": "A",
-                    "field": "x",
-                    "kind": "Field",
-                    "reference": {
-                      "contract": "B",
-                      "kind": "SVar",
-                      "svar": "a"
-                    }
-                  },
-                  "type": "int"
+              "location": {
+                "item": {
+                  "contract": "A",
+                  "field": "x",
+                  "kind": "Field",
+                  "reference": {
+                    "contract": "B",
+                    "kind": "SVar",
+                    "svar": "a"
+                  }
                 },
-                "value": {
-                  "abitype": {
-                    "size": "256",
-                    "type": "UInt"
-                  },
-                  "type": "int",
-                  "var": "z"
-                }
+                "type": "int"
+              },
+              "value": {
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                "type": "int",
+                "var": "z"
               }
             }
           ]
@@ -553,7 +596,56 @@
         "invariants": [],
         "kind": "Constructor",
         "postConditions": [],
-        "preConditions": []
+        "preConditions": [
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "literal": "0",
+                    "type": "int"
+                  },
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "B",
+                        "kind": "SVar",
+                        "svar": "y"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              },
+              {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "B",
+                        "kind": "SVar",
+                        "svar": "y"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              }
+            ],
+            "arity": 2,
+            "symbol": "and"
+          }
+        ]
       },
       "kind": "Contract"
     }
