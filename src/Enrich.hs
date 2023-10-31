@@ -30,12 +30,13 @@ enrichConstructor ctor@(Constructor _ (Interface _ decls) pre _ invs rewrites) =
 
 -- | Adds type bounds for calldata, environment vars, and storage vars as preconditions
 enrichBehaviour :: Behaviour -> Behaviour
-enrichBehaviour behv@(Behaviour _ _ (Interface _ decls) pre _ _ stateUpdates _) =
+enrichBehaviour behv@(Behaviour _ _ (Interface _ decls) pre cases _ stateUpdates _) =
   behv { _preconditions = pre' }
     where
       pre' = pre
              <> mkCallDataBounds decls
              <> mkStorageBounds stateUpdates
+             <> mkStorageBoundsLoc (concatMap locsFromExp (pre <> cases))
              <> mkEthEnvBounds (ethEnvFromBehaviour behv)
 
 -- | Adds type bounds for calldata, environment vars, and storage vars
