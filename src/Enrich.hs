@@ -8,7 +8,10 @@ import Data.List (nub)
 
 import Syntax
 import Syntax.Annotated
+import Syntax.Timing
 import Type (defaultStore)
+
+import Debug.Trace
 
 -- | Adds extra preconditions to non constructor behaviours based on the types of their variables
 enrich :: Act -> Act
@@ -19,12 +22,18 @@ enrich (Act store contracts) = Act store (enrichContract <$> contracts)
 -- |Adds type bounds for calldata , environment vars, and external storage vars as preconditions
 enrichConstructor :: Constructor -> Constructor
 enrichConstructor ctor@(Constructor _ (Interface _ decls) pre _ invs rewrites) =
+  trace "Pre" $
+  traceShow pre $ 
+  trace "Pre'" $
+  traceShow pre' $
+  trace "Rewrites"
+  traceShow rewrites
   ctor { _cpreconditions = pre'
        , _invariants = invs' }
     where
       pre' = pre
              <> mkCallDataBounds decls
-             <> mkStorageBounds rewrites
+             <> mkStorageBounds rewrites [Post]
              <> mkEthEnvBounds (ethEnvFromConstructor ctor)
       invs' = enrichInvariant ctor <$> invs
 
@@ -35,8 +44,8 @@ enrichBehaviour behv@(Behaviour _ _ (Interface _ decls) pre cases _ stateUpdates
     where
       pre' = pre
              <> mkCallDataBounds decls
-             <> mkStorageBounds stateUpdates
-             <> mkStorageBoundsLoc (concatMap locsFromExp (pre <> cases))
+             <> mkStorageBounds stateUpdates [Pre, Post]
+             <> mkStorageBoundsLoc (concatMap locsFromExp (pre <> cases)) [Pre, Post]
              <> mkEthEnvBounds (ethEnvFromBehaviour behv)
 
 -- | Adds type bounds for calldata, environment vars, and storage vars
@@ -48,7 +57,7 @@ enrichInvariant (Constructor _ (Interface _ decls) _ _ _ _) inv@(Invariant _ pre
                   <> mkCallDataBounds decls
                   <> mkEthEnvBounds (ethEnvFromExp predicate)
       storagebounds' = storagebounds
-                       <> mkStorageBoundsLoc (locsFromExp predicate)
+                       <> mkStorageBoundsLoc (locsFromExp predicate) [Pre, Post]
 
 mkEthEnvBounds :: [EthEnv] -> [Exp ABoolean]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
@@ -75,23 +84,24 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
       Nonce -> AbiUIntType 256
 
 -- | extracts bounds from the AbiTypes of Integer values in storage
-mkStorageBounds :: [StorageUpdate] -> [Exp ABoolean]
-mkStorageBounds refs = catMaybes $ mkBound <$> refs
+mkStorageBounds :: [StorageUpdate] -> [Time Timed] -> [Exp ABoolean]
+mkStorageBounds refs times = concatMap mkBound refs
   where
-    mkBound :: StorageUpdate -> Maybe (Exp ABoolean)
-    mkBound (Update SInteger item _) = Just $ fromItem item
-    mkBound _ = Nothing
+    mkBound :: StorageUpdate -> [Exp ABoolean]
+    mkBound (Update SInteger item _) = fromItem item times
+    mkBound _ = []
 
-fromItem :: TStorageItem AInteger -> Exp ABoolean
-fromItem item@(Item _ (PrimitiveType vt) _) = bound vt (TEntry nowhere Pre item)
-fromItem (Item _ (ContractType _) _) = LitBool nowhere True
+-- TODO why only Pre items here?
+fromItem :: TStorageItem AInteger -> [Time Timed] -> [Exp ABoolean]
+fromItem item@(Item _ (PrimitiveType vt) _) times = map (\t -> bound vt (TEntry nowhere t item)) times
+fromItem (Item _ (ContractType _) _) _ = [LitBool nowhere True]
 
-mkStorageBoundsLoc :: [StorageLocation] -> [Exp ABoolean]
-mkStorageBoundsLoc refs = catMaybes $ mkBound <$> refs
+mkStorageBoundsLoc :: [StorageLocation] -> [Time Timed] -> [Exp ABoolean]
+mkStorageBoundsLoc refs times = concatMap mkBound refs
   where
-    mkBound :: StorageLocation -> Maybe (Exp ABoolean)
-    mkBound (Loc SInteger item) = Just $ fromItem item
-    mkBound _ = Nothing
+    mkBound :: StorageLocation -> [Exp ABoolean]
+    mkBound (Loc SInteger item) = fromItem item times
+    mkBound _ = []
 
 mkCallDataBounds :: [Decl] -> [Exp ABoolean]
 mkCallDataBounds = concatMap $ \(Decl typ name) -> case fromAbiType typ of
