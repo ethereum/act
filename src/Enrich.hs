@@ -18,13 +18,12 @@ enrich (Act store contracts) = Act store (enrichContract <$> contracts)
 
 -- |Adds type bounds for calldata , environment vars, and external storage vars as preconditions
 enrichConstructor :: Constructor -> Constructor
-enrichConstructor ctor@(Constructor _ (Interface _ decls) pre _ invs rewrites) =
+enrichConstructor ctor@(Constructor _ (Interface _ decls) pre _ invs _) =
   ctor { _cpreconditions = pre'
        , _invariants = invs' }
     where
       pre' = pre
              <> mkCallDataBounds decls
-             <> mkStorageBounds rewrites
              <> mkEthEnvBounds (ethEnvFromConstructor ctor)
       invs' = enrichInvariant ctor <$> invs
 
