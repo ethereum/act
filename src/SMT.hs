@@ -67,8 +67,6 @@ import Type (defaultStore)
 
 import EVM.Solvers (Solver(..))
 
-import Debug.Trace
-
 --- ** Data ** ---
 
 
@@ -190,7 +188,7 @@ mkPostconditionQueriesBehv :: Behaviour -> [Query]
 mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preconds caseconds postconds stateUpdates _) = mkQuery <$> postconds
   where
     -- declare vars
-    activeLocs = nub $ concatMap locsFromUpdate stateUpdates <> concatMap locsFromExp preconds <> concatMap locsFromExp postconds
+    activeLocs = locsFromBehaviour behv -- TODO this might contain redundant locations if invariants use locations that are not mentioned elsewhere in the behaviour
     storage = concatMap declareStorageLocation activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
@@ -211,7 +209,7 @@ mkPostconditionQueriesConstr :: Constructor -> [Query]
 mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName decls) preconds postconds _ initialStorage) = mkQuery <$> postconds
   where
     -- declare vars
-    activeLocs = nub $ concatMap locsFromUpdate initialStorage <> concatMap locsFromExp preconds <> concatMap locsFromExp postconds
+    activeLocs = locsFromConstructor constructor
     localStorage = concatMap declareInitialStorage activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
@@ -255,14 +253,10 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     getInvariants (Contract (c@Constructor{..}) behvs) = fmap (\i -> (i, c, behvs)) _invariants
 
     mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
-    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) preconds _ _ initialStorage) =
-      trace "localStorage"
-      traceShow localStorage
-      (ctor, smt)
+    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) preconds _ _ initialStorage) = (ctor, smt)
       where
         -- declare vars
-        activeLocs = nub $ concatMap locsFromUpdate initialStorage <> concatMap locsFromExp preconds <> concatMap locsFromExp preconds <>
-                           concatMap locsFromExp invConds <> locsFromExp invPost 
+        activeLocs = locsFromConstructor ctor
         localStorage = concatMap declareInitialStorage activeLocs
         args = declareArg ifaceName <$> decls
         envs = declareEthEnv <$> ethEnvFromConstructor ctor
@@ -280,24 +274,23 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
           }
 
     mkBehv :: Invariant -> Constructor -> Behaviour -> (Behaviour, SMTExp)
-    mkBehv (Invariant _ invConds invStorageBounds (invPre,invPost)) ctor behv = (behv, smt)
+    mkBehv inv@(Invariant _ invConds invStorageBounds (invPre,invPost)) ctor behv = (behv, smt)
       where
 
         (Interface ctorIface ctorDecls) = _cinterface ctor
         (Interface behvIface behvDecls) = _interface behv
-        -- storage locs mentioned in the invariant but not in the behaviour
 
-        implicitLocs = (locsFromExp invPre \\ activeLocs) -- TODO is considering ony Pre buggy?
+        -- storage locs that are mentioned but not explictly updated (i.e., constant)
+        implicitLocs = (activeLocs \\ fmap locFromUpdate (_stateUpdates behv))
 
         -- declare vars
         invEnv = declareEthEnv <$> ethEnvFromExp invPre
         behvEnv = declareEthEnv <$> ethEnvFromBehaviour behv
         initArgs = declareArg ctorIface <$> ctorDecls
         behvArgs = declareArg behvIface <$> behvDecls
-        activeLocs = nub $ concatMap locsFromUpdate (_stateUpdates behv) <> concatMap locsFromExp (_preconditions behv) <>
-                           concatMap locsFromExp invConds <> concatMap locsFromExp invStorageBounds
+        activeLocs = nub $ locsFromBehaviour behv <> locsFromInvariant inv
 
-        storage = concatMap declareStorageLocation (activeLocs <> implicitLocs)
+        storage = concatMap declareStorageLocation activeLocs
 
         -- constraints
         preInv = mkAssert ctorIface $ invPre
@@ -335,7 +328,7 @@ runQuery solver query@(Inv (Invariant _ _ _ predicate) (ctor, ctorSMT) behvs) = 
 -- provided `modelFn` to extract a model if the solver returns `sat`
 checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO SMTResult
 checkSat solver modelFn smt = do
-  render (pretty smt)
+  -- render (pretty smt)
   err <- sendLines solver ("(reset)" : (lines . show . pretty $ smt))
   case err of
     Nothing -> do
