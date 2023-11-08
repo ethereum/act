@@ -125,7 +125,7 @@ translateActConstr (Act store [Contract ctor _]) bytecode = translateConstructor
 translateActConstr (Act _ _) _ = error "TODO multiple contracts"
 
 translateConstructor :: Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata, Sig)
-translateConstructor layout (Constructor cid iface preconds _ _ upds _) bytecode =
+translateConstructor layout (Constructor cid iface preconds _ _ upds) bytecode =
   (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds initmap)],
   calldata, ifaceToSig iface)
   where
@@ -163,10 +163,7 @@ ifaceToSig (Interface name args) = Sig (T.pack name) (fmap fromdecl args)
 
 translateBehv :: Layout -> BS.ByteString -> Behaviour -> EVM.Expr EVM.End
 translateBehv layout bytecode (Behaviour _ cid _ preconds caseconds _ upds ret) =
-  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) mempty (returnsToExpr layout ret) (rewritesToExpr layout cid upds bytecode)
-
-rewritesToExpr :: Layout -> Id -> [Rewrite] -> BS.ByteString -> ContractMap
-rewritesToExpr layout cid rewrites bytecode = foldl (flip $ rewriteToExpr layout cid) initmap rewrites
+  EVM.Success (fmap (toProp layout) $ preconds <> caseconds) mempty (returnsToExpr layout ret) (updatesToExpr layout cid upds initmap)
   where
     initcontract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                          , EVM.storage = EVM.AbstractStore initAddr
@@ -174,10 +171,6 @@ rewritesToExpr layout cid rewrites bytecode = foldl (flip $ rewriteToExpr layout
                          , EVM.nonce = Just 0
                          }
     initmap = M.fromList [(initAddr, initcontract)]
-
-rewriteToExpr :: Layout -> Id -> Rewrite -> ContractMap -> ContractMap
-rewriteToExpr _ _ (Constant _) cmap = cmap
-rewriteToExpr layout cid (Rewrite upd) cmap = updateToExpr layout cid upd cmap
 
 updatesToExpr :: Layout -> Id -> [StorageUpdate] -> ContractMap -> ContractMap
 updatesToExpr layout cid upds initmap = foldl (flip $ updateToExpr layout cid) initmap upds

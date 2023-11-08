@@ -429,6 +429,160 @@
                       "type": "int"
                     },
                     {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "to"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "to"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
                       "ethEnv": "Callvalue",
                       "type": "int"
                     }
@@ -499,135 +653,131 @@
           },
           "stateUpdates": [
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "ethEnv": "Caller",
-                          "type": "int"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                },
-                "value": {
-                  "args": [
+              "location": {
+                "item": {
+                  "indexes": [
                     {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
+                      "expression": {
+                        "ethEnv": "Caller",
                         "type": "int"
                       },
-                      "timing": "Pre"
-                    },
-                    {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "type": "int",
-                      "var": "value"
+                      "kind": "TypedExpr",
+                      "type": "int"
                     }
                   ],
-                  "arity": 2,
-                  "symbol": "-"
-                }
+                  "kind": "Mapping",
+                  "reference": {
+                    "contract": "Token",
+                    "kind": "SVar",
+                    "svar": "balanceOf"
+                  }
+                },
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "indexes": [
+                          {
+                            "expression": {
+                              "ethEnv": "Caller",
+                              "type": "int"
+                            },
+                            "kind": "TypedExpr",
+                            "type": "int"
+                          }
+                        ],
+                        "kind": "Mapping",
+                        "reference": {
+                          "contract": "Token",
+                          "kind": "SVar",
+                          "svar": "balanceOf"
+                        }
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "type": "int",
+                    "var": "value"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "-"
               }
             },
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "to"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                },
-                "value": {
-                  "args": [
+              "location": {
+                "item": {
+                  "indexes": [
                     {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "to"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
+                      "expression": {
+                        "abitype": {
+                          "type": "Address"
                         },
-                        "type": "int"
+                        "type": "int",
+                        "var": "to"
                       },
-                      "timing": "Pre"
-                    },
-                    {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "type": "int",
-                      "var": "value"
+                      "kind": "TypedExpr",
+                      "type": "int"
                     }
                   ],
-                  "arity": 2,
-                  "symbol": "+"
-                }
+                  "kind": "Mapping",
+                  "reference": {
+                    "contract": "Token",
+                    "kind": "SVar",
+                    "svar": "balanceOf"
+                  }
+                },
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "indexes": [
+                          {
+                            "expression": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "type": "int",
+                              "var": "to"
+                            },
+                            "kind": "TypedExpr",
+                            "type": "int"
+                          }
+                        ],
+                        "kind": "Mapping",
+                        "reference": {
+                          "contract": "Token",
+                          "kind": "SVar",
+                          "svar": "balanceOf"
+                        }
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "type": "int",
+                    "var": "value"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "+"
               }
             }
           ]
@@ -1127,61 +1277,7 @@
             "kind": "TypedExpr",
             "type": "int"
           },
-          "stateUpdates": [
-            {
-              "constant": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "ethEnv": "Caller",
-                          "type": "int"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                }
-              }
-            },
-            {
-              "constant": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "to"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                }
-              }
-            }
-          ]
+          "stateUpdates": []
         },
         {
           "case": [
@@ -1619,176 +1715,6 @@
                           "indexes": [
                             {
                               "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "src"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            },
-                            {
-                              "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "allowance"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "src"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            },
-                            {
-                              "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "allowance"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
                                 "abitype": {
                                   "type": "Address"
                                 },
@@ -1917,6 +1843,256 @@
                             "contract": "Token",
                             "kind": "SVar",
                             "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "dst"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "dst"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "src"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            },
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "allowance"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "src"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            },
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "allowance"
                           }
                         },
                         "type": "int"
@@ -2014,202 +2190,137 @@
           },
           "stateUpdates": [
             {
-              "constant": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "ethEnv": "Caller",
-                          "type": "int"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                }
-              }
-            },
-            {
-              "constant": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "src"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      },
-                      {
-                        "expression": {
-                          "ethEnv": "Caller",
-                          "type": "int"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "allowance"
-                    }
-                  },
-                  "type": "int"
-                }
-              }
-            },
-            {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "src"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                },
-                "value": {
-                  "args": [
+              "location": {
+                "item": {
+                  "indexes": [
                     {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "src"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
+                      "expression": {
+                        "abitype": {
+                          "type": "Address"
                         },
-                        "type": "int"
+                        "type": "int",
+                        "var": "src"
                       },
-                      "timing": "Pre"
-                    },
-                    {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "type": "int",
-                      "var": "amount"
+                      "kind": "TypedExpr",
+                      "type": "int"
                     }
                   ],
-                  "arity": 2,
-                  "symbol": "-"
-                }
+                  "kind": "Mapping",
+                  "reference": {
+                    "contract": "Token",
+                    "kind": "SVar",
+                    "svar": "balanceOf"
+                  }
+                },
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "indexes": [
+                          {
+                            "expression": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "type": "int",
+                              "var": "src"
+                            },
+                            "kind": "TypedExpr",
+                            "type": "int"
+                          }
+                        ],
+                        "kind": "Mapping",
+                        "reference": {
+                          "contract": "Token",
+                          "kind": "SVar",
+                          "svar": "balanceOf"
+                        }
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "type": "int",
+                    "var": "amount"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "-"
               }
             },
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "dst"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                },
-                "value": {
-                  "args": [
+              "location": {
+                "item": {
+                  "indexes": [
                     {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "dst"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
+                      "expression": {
+                        "abitype": {
+                          "type": "Address"
                         },
-                        "type": "int"
+                        "type": "int",
+                        "var": "dst"
                       },
-                      "timing": "Pre"
-                    },
-                    {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "type": "int",
-                      "var": "amount"
+                      "kind": "TypedExpr",
+                      "type": "int"
                     }
                   ],
-                  "arity": 2,
-                  "symbol": "+"
-                }
+                  "kind": "Mapping",
+                  "reference": {
+                    "contract": "Token",
+                    "kind": "SVar",
+                    "svar": "balanceOf"
+                  }
+                },
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "indexes": [
+                          {
+                            "expression": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "type": "int",
+                              "var": "dst"
+                            },
+                            "kind": "TypedExpr",
+                            "type": "int"
+                          }
+                        ],
+                        "kind": "Mapping",
+                        "reference": {
+                          "contract": "Token",
+                          "kind": "SVar",
+                          "svar": "balanceOf"
+                        }
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "type": "int",
+                    "var": "amount"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "+"
               }
             }
           ]
@@ -2721,6 +2832,166 @@
                           "indexes": [
                             {
                               "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "src"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "src"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "dst"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "dst"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
                                 "ethEnv": "Caller",
                                 "type": "int"
                               },
@@ -2753,6 +3024,86 @@
                               "expression": {
                                 "ethEnv": "Caller",
                                 "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "dst"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "dst"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -2899,13 +3250,21 @@
                               },
                               "kind": "TypedExpr",
                               "type": "int"
+                            },
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
                             }
                           ],
                           "kind": "Mapping",
                           "reference": {
                             "contract": "Token",
                             "kind": "SVar",
-                            "svar": "balanceOf"
+                            "svar": "allowance"
                           }
                         },
                         "type": "int"
@@ -2932,50 +3291,11 @@
                               },
                               "kind": "TypedExpr",
                               "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
+                            },
                             {
                               "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "dst"
+                                "ethEnv": "Caller",
+                                "type": "int"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -2985,40 +3305,7 @@
                           "reference": {
                             "contract": "Token",
                             "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "dst"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
+                            "svar": "allowance"
                           }
                         },
                         "type": "int"
@@ -3116,202 +3403,137 @@
           },
           "stateUpdates": [
             {
-              "constant": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "ethEnv": "Caller",
-                          "type": "int"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                }
-              }
-            },
-            {
-              "constant": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "src"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      },
-                      {
-                        "expression": {
-                          "ethEnv": "Caller",
-                          "type": "int"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "allowance"
-                    }
-                  },
-                  "type": "int"
-                }
-              }
-            },
-            {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "src"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                },
-                "value": {
-                  "args": [
+              "location": {
+                "item": {
+                  "indexes": [
                     {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "src"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
+                      "expression": {
+                        "abitype": {
+                          "type": "Address"
                         },
-                        "type": "int"
+                        "type": "int",
+                        "var": "src"
                       },
-                      "timing": "Pre"
-                    },
-                    {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "type": "int",
-                      "var": "amount"
+                      "kind": "TypedExpr",
+                      "type": "int"
                     }
                   ],
-                  "arity": 2,
-                  "symbol": "-"
-                }
+                  "kind": "Mapping",
+                  "reference": {
+                    "contract": "Token",
+                    "kind": "SVar",
+                    "svar": "balanceOf"
+                  }
+                },
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "indexes": [
+                          {
+                            "expression": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "type": "int",
+                              "var": "src"
+                            },
+                            "kind": "TypedExpr",
+                            "type": "int"
+                          }
+                        ],
+                        "kind": "Mapping",
+                        "reference": {
+                          "contract": "Token",
+                          "kind": "SVar",
+                          "svar": "balanceOf"
+                        }
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "type": "int",
+                    "var": "amount"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "-"
               }
             },
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "dst"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                },
-                "value": {
-                  "args": [
+              "location": {
+                "item": {
+                  "indexes": [
                     {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "dst"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
+                      "expression": {
+                        "abitype": {
+                          "type": "Address"
                         },
-                        "type": "int"
+                        "type": "int",
+                        "var": "dst"
                       },
-                      "timing": "Pre"
-                    },
-                    {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "type": "int",
-                      "var": "amount"
+                      "kind": "TypedExpr",
+                      "type": "int"
                     }
                   ],
-                  "arity": 2,
-                  "symbol": "+"
-                }
+                  "kind": "Mapping",
+                  "reference": {
+                    "contract": "Token",
+                    "kind": "SVar",
+                    "svar": "balanceOf"
+                  }
+                },
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "indexes": [
+                          {
+                            "expression": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "type": "int",
+                              "var": "dst"
+                            },
+                            "kind": "TypedExpr",
+                            "type": "int"
+                          }
+                        ],
+                        "kind": "Mapping",
+                        "reference": {
+                          "contract": "Token",
+                          "kind": "SVar",
+                          "svar": "balanceOf"
+                        }
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "type": "int",
+                    "var": "amount"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "+"
               }
             }
           ]
@@ -3823,80 +4045,6 @@
                           "indexes": [
                             {
                               "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
                                 "abitype": {
                                   "type": "Address"
                                 },
@@ -4121,6 +4269,352 @@
                             "contract": "Token",
                             "kind": "SVar",
                             "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "dst"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "dst"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "src"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            },
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "allowance"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "src"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            },
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "allowance"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "src"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            },
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "allowance"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "src"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            },
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "allowance"
                           }
                         },
                         "type": "int"
@@ -4218,251 +4712,220 @@
           },
           "stateUpdates": [
             {
-              "constant": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "ethEnv": "Caller",
-                          "type": "int"
+              "location": {
+                "item": {
+                  "indexes": [
+                    {
+                      "expression": {
+                        "abitype": {
+                          "type": "Address"
                         },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                }
-              }
-            },
-            {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "src"
-                        },
-                        "kind": "TypedExpr",
+                        "type": "int",
+                        "var": "src"
+                      },
+                      "kind": "TypedExpr",
+                      "type": "int"
+                    },
+                    {
+                      "expression": {
+                        "ethEnv": "Caller",
                         "type": "int"
                       },
-                      {
-                        "expression": {
-                          "ethEnv": "Caller",
-                          "type": "int"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "allowance"
+                      "kind": "TypedExpr",
+                      "type": "int"
                     }
-                  },
-                  "type": "int"
+                  ],
+                  "kind": "Mapping",
+                  "reference": {
+                    "contract": "Token",
+                    "kind": "SVar",
+                    "svar": "allowance"
+                  }
                 },
-                "value": {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "src"
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "indexes": [
+                          {
+                            "expression": {
+                              "abitype": {
+                                "type": "Address"
                               },
-                              "kind": "TypedExpr",
+                              "type": "int",
+                              "var": "src"
+                            },
+                            "kind": "TypedExpr",
+                            "type": "int"
+                          },
+                          {
+                            "expression": {
+                              "ethEnv": "Caller",
                               "type": "int"
                             },
-                            {
-                              "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "allowance"
+                            "kind": "TypedExpr",
+                            "type": "int"
                           }
-                        },
-                        "type": "int"
+                        ],
+                        "kind": "Mapping",
+                        "reference": {
+                          "contract": "Token",
+                          "kind": "SVar",
+                          "svar": "allowance"
+                        }
                       },
-                      "timing": "Pre"
+                      "type": "int"
                     },
-                    {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "type": "int",
-                      "var": "amount"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "-"
-                }
+                    "timing": "Pre"
+                  },
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "type": "int",
+                    "var": "amount"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "-"
               }
             },
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "src"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                },
-                "value": {
-                  "args": [
+              "location": {
+                "item": {
+                  "indexes": [
                     {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "src"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
+                      "expression": {
+                        "abitype": {
+                          "type": "Address"
                         },
-                        "type": "int"
+                        "type": "int",
+                        "var": "src"
                       },
-                      "timing": "Pre"
-                    },
-                    {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "type": "int",
-                      "var": "amount"
+                      "kind": "TypedExpr",
+                      "type": "int"
                     }
                   ],
-                  "arity": 2,
-                  "symbol": "-"
-                }
+                  "kind": "Mapping",
+                  "reference": {
+                    "contract": "Token",
+                    "kind": "SVar",
+                    "svar": "balanceOf"
+                  }
+                },
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "indexes": [
+                          {
+                            "expression": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "type": "int",
+                              "var": "src"
+                            },
+                            "kind": "TypedExpr",
+                            "type": "int"
+                          }
+                        ],
+                        "kind": "Mapping",
+                        "reference": {
+                          "contract": "Token",
+                          "kind": "SVar",
+                          "svar": "balanceOf"
+                        }
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "type": "int",
+                    "var": "amount"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "-"
               }
             },
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "dst"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                },
-                "value": {
-                  "args": [
+              "location": {
+                "item": {
+                  "indexes": [
                     {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "dst"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
+                      "expression": {
+                        "abitype": {
+                          "type": "Address"
                         },
-                        "type": "int"
+                        "type": "int",
+                        "var": "dst"
                       },
-                      "timing": "Pre"
-                    },
-                    {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "type": "int",
-                      "var": "amount"
+                      "kind": "TypedExpr",
+                      "type": "int"
                     }
                   ],
-                  "arity": 2,
-                  "symbol": "+"
-                }
+                  "kind": "Mapping",
+                  "reference": {
+                    "contract": "Token",
+                    "kind": "SVar",
+                    "svar": "balanceOf"
+                  }
+                },
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "indexes": [
+                          {
+                            "expression": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "type": "int",
+                              "var": "dst"
+                            },
+                            "kind": "TypedExpr",
+                            "type": "int"
+                          }
+                        ],
+                        "kind": "Mapping",
+                        "reference": {
+                          "contract": "Token",
+                          "kind": "SVar",
+                          "svar": "balanceOf"
+                        }
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "type": "int",
+                    "var": "amount"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "+"
               }
             }
           ]
@@ -4958,6 +5421,86 @@
                                   "type": "Address"
                                 },
                                 "type": "int",
+                                "var": "dst"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
+                                "var": "dst"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "abitype": {
+                                  "type": "Address"
+                                },
+                                "type": "int",
                                 "var": "src"
                               },
                               "kind": "TypedExpr",
@@ -5018,166 +5561,6 @@
                             "contract": "Token",
                             "kind": "SVar",
                             "svar": "allowance"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "src"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "src"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "dst"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "abitype": {
-                                  "type": "Address"
-                                },
-                                "type": "int",
-                                "var": "dst"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
                           }
                         },
                         "type": "int"
@@ -5273,125 +5656,7 @@
             "kind": "TypedExpr",
             "type": "int"
           },
-          "stateUpdates": [
-            {
-              "constant": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "ethEnv": "Caller",
-                          "type": "int"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                }
-              }
-            },
-            {
-              "constant": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "src"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      },
-                      {
-                        "expression": {
-                          "ethEnv": "Caller",
-                          "type": "int"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "allowance"
-                    }
-                  },
-                  "type": "int"
-                }
-              }
-            },
-            {
-              "constant": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "src"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                }
-              }
-            },
-            {
-              "constant": {
-                "location": {
-                  "item": {
-                    "indexes": [
-                      {
-                        "expression": {
-                          "abitype": {
-                            "type": "Address"
-                          },
-                          "type": "int",
-                          "var": "dst"
-                        },
-                        "kind": "TypedExpr",
-                        "type": "int"
-                      }
-                    ],
-                    "kind": "Mapping",
-                    "reference": {
-                      "contract": "Token",
-                      "kind": "SVar",
-                      "svar": "balanceOf"
-                    }
-                  },
-                  "type": "int"
-                }
-              }
-            }
-          ]
+          "stateUpdates": []
         }
       ],
       "constructor": {

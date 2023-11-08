@@ -184,23 +184,21 @@
           "returns": null,
           "stateUpdates": [
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "contract": "C",
-                    "kind": "SVar",
-                    "svar": "x"
-                  },
-                  "type": "int"
+              "location": {
+                "item": {
+                  "contract": "C",
+                  "kind": "SVar",
+                  "svar": "x"
                 },
-                "value": {
-                  "abitype": {
-                    "size": "256",
-                    "type": "UInt"
-                  },
-                  "type": "int",
-                  "var": "z"
-                }
+                "type": "int"
+              },
+              "value": {
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                "type": "int",
+                "var": "z"
               }
             }
           ]
@@ -387,33 +385,31 @@
           "returns": null,
           "stateUpdates": [
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "contract": "C",
-                    "kind": "SVar",
-                    "svar": "x"
-                  },
-                  "type": "int"
+              "location": {
+                "item": {
+                  "contract": "C",
+                  "kind": "SVar",
+                  "svar": "x"
                 },
-                "value": {
-                  "args": [
-                    {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "type": "int",
-                      "var": "z"
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
                     },
-                    {
-                      "literal": "1",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "+"
-                }
+                    "type": "int",
+                    "var": "z"
+                  },
+                  {
+                    "literal": "1",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "+"
               }
             }
           ]
@@ -600,33 +596,31 @@
           "returns": null,
           "stateUpdates": [
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "contract": "C",
-                    "kind": "SVar",
-                    "svar": "x"
-                  },
-                  "type": "int"
+              "location": {
+                "item": {
+                  "contract": "C",
+                  "kind": "SVar",
+                  "svar": "x"
                 },
-                "value": {
-                  "args": [
-                    {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "type": "int",
-                      "var": "z"
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
                     },
-                    {
-                      "literal": "2",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "+"
-                }
+                    "type": "int",
+                    "var": "z"
+                  },
+                  {
+                    "literal": "2",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "+"
               }
             }
           ]

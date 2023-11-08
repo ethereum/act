@@ -56,7 +56,6 @@ newtype Creates = Creates [Assign]
 
 data Storage
   = Rewrite Entry Expr
-  | Constant Entry
   deriving (Eq, Show)
 
 data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignStruct StorageVar [Defn]
