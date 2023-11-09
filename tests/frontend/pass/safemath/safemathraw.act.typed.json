@@ -1,13 +1,37 @@
 {
   "contracts": [
     {
-      "behaviors": [
+      "behaviours": [
         {
           "case": [
-            "True"
+            {
+              "literal": "True",
+              "type": "bool"
+            }
           ],
           "contract": "SafeAdd",
-          "interface": "add(uint256 x, uint256 y)",
+          "interface": {
+            "args": [
+              {
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                "id": "\"x\"",
+                "kind": "Declaration"
+              },
+              {
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                "id": "\"y\"",
+                "kind": "Declaration"
+              }
+            ],
+            "id": "\"add\"",
+            "kind": "Interface"
+          },
           "kind": "Behaviour",
           "name": "add",
           "postConditions": [],
@@ -15,35 +39,81 @@
             {
               "args": [
                 {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                {
                   "args": [
-                    "x",
-                    "y"
+                    {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "type": "int",
+                      "var": "x"
+                    },
+                    {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "type": "int",
+                      "var": "y"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "+"
                 }
               ],
-              "arity": 1,
-              "symbol": "inrangeuint256"
+              "arity": 2,
+              "symbol": "inrange"
             },
             {
               "args": [
-                "x"
+                {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
+                  "type": "int",
+                  "var": "x"
+                }
               ],
-              "arity": 1,
-              "symbol": "inrangeuint256"
+              "arity": 2,
+              "symbol": "inrange"
             },
             {
               "args": [
-                "y"
+                {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
+                  "type": "int",
+                  "var": "y"
+                }
               ],
-              "arity": 1,
-              "symbol": "inrangeuint256"
+              "arity": 2,
+              "symbol": "inrange"
             },
             {
               "args": [
-                "Callvalue",
-                "0"
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
+                {
+                  "literal": "0",
+                  "type": "int"
+                }
               ],
               "arity": 2,
               "symbol": "=="
@@ -52,16 +122,36 @@
               "args": [
                 {
                   "args": [
-                    "0",
-                    "x"
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "type": "int",
+                      "var": "x"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "x",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "type": "int",
+                      "var": "x"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -74,16 +164,36 @@
               "args": [
                 {
                   "args": [
-                    "0",
-                    "y"
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "type": "int",
+                      "var": "y"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "y",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "type": "int",
+                      "var": "y"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -96,16 +206,28 @@
               "args": [
                 {
                   "args": [
-                    "0",
-                    "Callvalue"
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -118,21 +240,40 @@
           "returns": {
             "expression": {
               "args": [
-                "x",
-                "y"
+                {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
+                  "type": "int",
+                  "var": "x"
+                },
+                {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
+                  "type": "int",
+                  "var": "y"
+                }
               ],
               "arity": 2,
               "symbol": "+"
             },
-            "sort": "int"
+            "kind": "TypedExpr",
+            "type": "int"
           },
           "stateUpdates": []
         }
       ],
       "constructor": {
         "contract": "SafeAdd",
-        "initial storage": [],
-        "interface": "SafeAdd()",
+        "initialStorage": [],
+        "interface": {
+          "args": [],
+          "id": "\"SafeAdd\"",
+          "kind": "Interface"
+        },
         "invariants": [],
         "kind": "Constructor",
         "postConditions": [],
@@ -141,7 +282,7 @@
       "kind": "Contract"
     }
   ],
-  "kind": "Program",
+  "kind": "Act",
   "store": {
     "kind": "Storages",
     "storages": {

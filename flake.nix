@@ -15,11 +15,11 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         gitignore = pkgs.nix-gitignore.gitignoreSourcePure [ ./.gitignore ];
-	myHaskellPackages = pkgs.haskellPackages.override {
+    myHaskellPackages = pkgs.haskellPackages.override {
           overrides = self: super: rec {
-	    hevm = hevmUpstream.packages.${system}.noTests;
+        hevm = hevmUpstream.packages.${system}.noTests;
           };
-	};
+    };
         act = (myHaskellPackages.callCabal2nixWithOptions "act" (gitignore ./src) "-fci" {})
           .overrideAttrs (attrs : {
             buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc5 ];
@@ -52,7 +52,7 @@
           withHoogle = true;
           shellHook = ''
             export PATH=$(pwd)/bin:$PATH
-	    export DYLD_LIBRARY_PATH="${libraryPath}"
+            export DYLD_LIBRARY_PATH="${libraryPath}"
           '';
         };
       }

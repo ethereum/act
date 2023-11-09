@@ -73,7 +73,7 @@ defaultStore :: Id -> Store
 defaultStore c = fromList [(c,fromList [])]
 
 defaultCtor :: Id -> Constructor
-defaultCtor c = Constructor {_cname = c, _cinterface = Interface c [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = [], _cstateUpdates = []}
+defaultCtor c = Constructor {_cname = c, _cinterface = Interface c [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = []}
 
 
 typeCheckSMT :: Solver -> GenT (Reader Bool) Property

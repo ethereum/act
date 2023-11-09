@@ -27,20 +27,16 @@ prettyContract (Contract ctor behvs) = unlines $ intersperse "\n" $ (prettyCtor 
 
 
 prettyCtor :: Constructor t -> String
-prettyCtor (Constructor name interface pres posts invs initStore stateUpdates)
+prettyCtor (Constructor name interface pres posts invs initStore)
   =   "constructor of " <> name
   >-< "interface " <> show interface
   <> prettyPre pres
   <> prettyCreates initStore
-  <> prettyOther stateUpdates
   <> prettyPost posts
   <> prettyInvs invs
   where
     prettyCreates [] = ""
     prettyCreates s = header "creates" >-< block (prettyUpdate' <$> s)
-
-    prettyOther [] = ""
-    prettyOther _ = error "TODO: pretty print otherStorage"
 
     prettyInvs [] = ""
     prettyInvs _ = error "TODO: pretty print invariants"
@@ -59,7 +55,7 @@ prettyBehaviour (Behaviour name contract interface preconditions cases postcondi
   <> prettyPost postconditions
   where
     prettyStorage [] = ""
-    prettyStorage s = header "storage" >-< block (prettyState <$> s)
+    prettyStorage s = header "storage" >-< block (prettyUpdate <$> s)
 
     prettyRet (Just ret) = header "returns" >-< "  " <> prettyTypedExp ret
     prettyRet Nothing = ""
@@ -73,10 +69,6 @@ prettyPre p = header "iff" >-< block (prettyExp <$> p)
 prettyCases :: [Exp ABoolean t] -> String
 prettyCases [] = ""
 prettyCases p = header "case" >-< block (prettyExp <$> p) <> ":"
-
-prettyState :: Rewrite t -> String
-prettyState (Constant loc) = prettyLocation loc
-prettyState (Rewrite  rew) = prettyUpdate rew
 
 prettyPost :: [Exp ABoolean t] -> String
 prettyPost [] = ""

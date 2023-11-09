@@ -28,4 +28,3 @@ storage
 
     r => r * b
     e => e - 1
-    b

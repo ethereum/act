@@ -101,7 +101,6 @@ data Constructor t = Constructor
   , _cpostconditions :: [Exp ABoolean Timed]
   , _invariants :: [Invariant t]
   , _initialStorage :: [StorageUpdate t]
-  , _cstateUpdates :: [Rewrite t]
   }
 deriving instance Show (InvariantPred t) => Show (Constructor t)
 deriving instance Eq   (InvariantPred t) => Eq   (Constructor t)
@@ -114,14 +113,9 @@ data Behaviour t = Behaviour
   , _preconditions :: [Exp ABoolean t] -- if preconditions are not satisfied execution is reverted
   , _caseconditions :: [Exp ABoolean t] -- if preconditions are satisfied and a case condition is not, some other instance of the bahaviour should apply
   , _postconditions :: [Exp ABoolean Timed]
-  , _stateUpdates :: [Rewrite t]
+  , _stateUpdates :: [StorageUpdate t]
   , _returns :: Maybe (TypedExp Timed)
   } deriving (Show, Eq)
-
-data Rewrite t
-  = Constant (StorageLocation t)
-  | Rewrite (StorageUpdate t)
-  deriving (Show, Eq)
 
 data StorageUpdate (t :: Timing) where
   Update :: SType a -> TStorageItem a t -> Exp a t -> StorageUpdate t
@@ -352,24 +346,24 @@ instance Timable StorageRef where
 -- It was difficult to construct a function with type:
 -- `InvPredicate t -> Either (Exp Bool Timed,Exp Bool Timed) (Exp Bool Untimed)`
 instance ToJSON (Act Timed) where
-  toJSON (Act storages contracts) = object [ "kind" .= String "Program"
+  toJSON (Act storages contracts) = object [ "kind" .= String "Act"
                                            , "store" .= storeJSON storages
                                            , "contracts" .= toJSON contracts ]
 
 instance ToJSON (Act Untimed) where
-  toJSON (Act storages contracts) = object [ "kind" .= String "Program"
+  toJSON (Act storages contracts) = object [ "kind" .= String "Act"
                                            , "store" .= storeJSON storages
                                            , "contracts" .= toJSON contracts ]
 
 instance ToJSON (Contract Timed) where
   toJSON (Contract ctor behv) = object [ "kind" .= String "Contract"
-                                           , "constructor" .= toJSON ctor
-                                           , "behaviors" .= toJSON behv ]
+                                       , "constructor" .= toJSON ctor
+                                       , "behaviours" .= toJSON behv ]
 
 instance ToJSON (Contract Untimed) where
   toJSON (Contract ctor behv) = object [ "kind" .= String "Contract"
-                                           , "constructor" .= toJSON ctor
-                                           , "behaviors" .= toJSON behv ]
+                                       , "constructor" .= toJSON ctor
+                                       , "behaviours" .= toJSON behv ]
 
 
 storeJSON :: Store -> Value
@@ -379,16 +373,16 @@ storeJSON storages = object [ "kind" .= String "Storages"
 instance ToJSON (Constructor Timed) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
                                   , "contract" .= _cname
-                                  , "interface" .= (String . pack $ show _cinterface)
+                                  , "interface" .= toJSON _cinterface
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
                                   , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) _invariants
-                                  , "initial storage" .= toJSON _initialStorage  ]
+                                  , "initialStorage" .= toJSON _initialStorage  ]
 
 instance ToJSON (Constructor Untimed) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
                                   , "contract" .= _cname
-                                  , "interface" .= (String . pack $ show _cinterface)
+                                  , "interface" .= toJSON _cinterface
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
                                   , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) _invariants
@@ -398,12 +392,25 @@ instance ToJSON (Behaviour t) where
   toJSON Behaviour{..} = object [ "kind" .= String "Behaviour"
                                 , "name" .= _name
                                 , "contract" .= _contract
-                                , "interface" .= (String . pack $ show _interface)
+                                , "interface" .= toJSON _interface
                                 , "preConditions" .= toJSON _preconditions
                                 , "case" .= toJSON _caseconditions
                                 , "postConditions" .= toJSON _postconditions
                                 , "stateUpdates" .= toJSON _stateUpdates
                                 , "returns" .= toJSON _returns ]
+
+instance ToJSON Interface where
+  toJSON (Interface x decls) = object [ "kind" .= String "Interface"
+                                      , "id" .=  pack (show x)
+                                      , "args" .= toJSON decls
+                                      ]
+
+instance ToJSON Decl where
+  toJSON (Decl abitype x) = object [ "kind" .= String "Declaration"
+                                   , "id" .= pack (show x)
+                                   , "abitype" .= toJSON abitype
+                                   ]
+
 
 invariantJSON :: ToJSON pred => Invariant t -> pred -> Value
 invariantJSON Invariant{..} predicate = object [ "kind" .= String "Invariant"
@@ -412,10 +419,6 @@ invariantJSON Invariant{..} predicate = object [ "kind" .= String "Invariant"
                                                , "storagebounds" .= toJSON _istoragebounds
                                                , "contract" .= _icontract ]
 
-instance ToJSON (Rewrite t) where
-  toJSON (Constant a) = object [ "Constant" .= toJSON a ]
-  toJSON (Rewrite a) = object [ "Rewrite" .= toJSON a ]
-
 instance ToJSON (StorageLocation t) where
   toJSON (Loc _ a) = object [ "location" .= toJSON a ]
 
@@ -423,26 +426,33 @@ instance ToJSON (StorageUpdate t) where
   toJSON (Update _ a b) = object [ "location" .= toJSON a ,"value" .= toJSON b ]
 
 instance ToJSON (TStorageItem a t) where
-  toJSON (Item t _ a) = object [ "sort" .= pack (show t)
-                               , "item" .= toJSON a ]
+  toJSON (Item t _ a) = object [ "item" .= toJSON a
+                               , "type" .=  show t
+                               ]
 
 instance ToJSON (StorageRef t) where
-  toJSON (SVar _ c x) = object [ "var" .=  String (pack c <> "." <> pack x) ]
+  toJSON (SVar _ c x) = object [ "kind" .= pack "SVar"
+                               , "svar" .=  pack x
+                               , "contract" .= pack c ]
   toJSON (SMapping _ e xs) = mapping e xs
-  toJSON (SField _ e _ x) = field e x
+  toJSON (SField _ e c x) = field e c x
 
 mapping :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
-mapping a b = object [ "symbol"   .= pack "lookup"
-                     , "arity"    .= Data.Aeson.Types.Number 2
-                     , "args"     .= Array (fromList [toJSON a, toJSON b]) ]
+mapping a b = object [ "kind"      .= pack "Mapping"
+                     , "indexes"   .= toJSON b
+                     , "reference" .= toJSON a]
 
-field :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
-field a b = object [ "symbol"   .= pack "select"
-                   , "arity"    .= Data.Aeson.Types.Number 2
-                   , "args"     .= Array (fromList [toJSON a, toJSON b]) ]
+field :: (ToJSON a1) => a1 -> Id -> Id -> Value
+field a c x = object [ "kind"      .= pack "Field"
+                     , "field"     .= pack x
+                     , "contract"  .= pack c
+                     , "reference" .= toJSON a
+                     ]
+
 
 instance ToJSON (TypedExp t) where
-  toJSON (TExp typ a) = object [ "sort"       .= pack (show typ)
+  toJSON (TExp typ a) = object [ "kind"       .= pack "TypedExpr"
+                               , "type"       .= pack (show typ)
                                , "expression" .= toJSON a ]
 
 instance ToJSON (Exp a t) where
@@ -451,15 +461,21 @@ instance ToJSON (Exp a t) where
   toJSON (Exp _ a b) = symbol "^" a b
   toJSON (Mul _ a b) = symbol "*" a b
   toJSON (Div _ a b) = symbol "/" a b
-  toJSON (LitInt _ a) = toJSON $ show a
-  toJSON (IntMin _ a) = toJSON $ show $ intmin a
-  toJSON (IntMax _ a) = toJSON $ show $ intmax a
-  toJSON (UIntMin _ a) = toJSON $ show $ uintmin a
-  toJSON (UIntMax _ a) = toJSON $ show $ uintmax a
-  toJSON (InRange _ a b) = object [ "symbol"   .= pack ("inrange" <> show a)
-                                  , "arity"    .= Data.Aeson.Types.Number 1
-                                  , "args"     .= Array (fromList [toJSON b]) ]
-  toJSON (IntEnv _ a) = String $ pack $ show a
+  toJSON (LitInt _ a) = object [ "literal" .= pack (show a)
+                               , "type" .= pack "int" ]
+  toJSON (IntMin _ a) = object [ "literal" .= pack (show $ intmin a)
+                               , "type" .= pack "int" ]
+  toJSON (IntMax _ a) = object [ "literal" .= pack (show $ intmax a)
+                               , "type" .= pack "int" ]
+  toJSON (UIntMin _ a) = object [ "literal" .= pack (show $ uintmin a)
+                                , "type" .= pack "int" ]
+  toJSON (UIntMax _ a) = object [ "literal" .= pack (show $ uintmax a)
+                                , "type" .= pack "int" ]
+  toJSON (InRange _ a b) = object [ "symbol"   .= pack "inrange"
+                                  , "arity"    .= Data.Aeson.Types.Number 2
+                                  , "args"     .= Array (fromList [toJSON a, toJSON b]) ]
+  toJSON (IntEnv _ a) = object [ "ethEnv" .= pack (show a)
+                               , "type" .= pack "int" ]
   toJSON (ITE _ a b c) = object [ "symbol"   .= pack "ite"
                                 , "arity"    .= Data.Aeson.Types.Number 3
                                 , "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c]) ]
@@ -472,7 +488,8 @@ instance ToJSON (Exp a t) where
   toJSON (Eq _ _ a b)   = symbol "==" a b
   toJSON (LEQ _ a b)  = symbol "<=" a b
   toJSON (GEQ _ a b)  = symbol ">=" a b
-  toJSON (LitBool _ a) = String $ pack $ show a
+  toJSON (LitBool _ a) = object [ "literal" .= pack (show a)
+                                , "type" .= pack "bool" ]
   toJSON (Neg _ a) = object [ "symbol"   .= pack "not"
                             , "arity"    .= Data.Aeson.Types.Number 1
                             , "args"     .= Array (fromList [toJSON a]) ]
@@ -481,17 +498,24 @@ instance ToJSON (Exp a t) where
   toJSON (Slice _ s a b) = object [ "symbol" .= pack "slice"
                                   , "arity"  .= Data.Aeson.Types.Number 3
                                   , "args"   .= Array (fromList [toJSON s, toJSON a, toJSON b]) ]
-  toJSON (ByStr _ a) = toJSON a
-  toJSON (ByLit _ a) = String . pack $ show a
-  toJSON (ByEnv _ a) = String . pack $ show a
-
-  toJSON (TEntry _ t a) = object [ fromString (show t) .= toJSON a ]
-  toJSON (Var _ _ _ a) = toJSON a
+  toJSON (ByStr _ a) = object [ "bytestring" .= toJSON a
+                              , "type" .= pack "bool" ]
+  toJSON (ByLit _ a) = object [ "literal" .= pack (show a)
+                              , "type" .= pack "bytestring" ]
+  toJSON (ByEnv _ a) = object [ "ethEnv" .= pack (show a)
+                              , "type" .= pack "bytestring" ]
+  toJSON (TEntry _ t a) = object [ "entry"  .= toJSON a
+                                 , "timing" .= show t ]
+  toJSON (Var _ t abitype a) = object [ "var"      .= toJSON a
+                                      , "abitype"  .= toJSON abitype
+                                      , "type"     .= show t ]
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
-                                    , "arity"  .= Data.Aeson.Types.Number 2
-                                    , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
+                                  , "arity"  .= Data.Aeson.Types.Number 2
+                                  , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
 
   toJSON v = error $ "todo: json ast for: " <> show v
+
+
 
 symbol :: (ToJSON a1, ToJSON a2) => String -> a1 -> a2 -> Value
 symbol s a b = object [ "symbol"   .= pack s

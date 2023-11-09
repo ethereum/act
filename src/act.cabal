@@ -51,7 +51,7 @@ library
     GADTs
 
   exposed-modules:    CLI Error Print SMT Syntax.Annotated Syntax.TimeAgnostic Decompile
-  other-modules:      Lex Parse K Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Types Syntax.Timing Type Enrich Dev HEVM Consistency
+  other-modules:      Lex Parse Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Types Syntax.Timing Type Enrich Dev HEVM Consistency
 
 executable act
   import:             deps

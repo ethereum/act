@@ -157,7 +157,6 @@ mkConstructor cs
             , _cpostconditions = mempty
             , _invariants = mempty
             , _initialStorage = updates
-            , _cstateUpdates = mempty -- TODO
             }
         _ -> error "Internal Error: mkConstructor called on a non Success branch"
   | otherwise = Left "TODO: decompile constructors with multiple branches"
@@ -195,7 +194,7 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
         , _preconditions = nub pres
         , _caseconditions = mempty -- TODO: what to do here?
         , _postconditions = mempty
-        , _stateUpdates = fmap Rewrite rewrites
+        , _stateUpdates = rewrites
         , _returns = ret
         }
     mkbehv _ _ = error "Internal Error: mkbehv called on a non Success branch"
