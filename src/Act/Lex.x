@@ -1,5 +1,5 @@
 {
-module Lex
+module Act.Lex
   ( LEX (..)
   , Lexeme (..)
   , AlexPosn (..)
@@ -98,9 +98,9 @@ tokens :-
   ")"                                   { mk RPAREN }
   "["                                   { mk LBRACK }
   "]"                                   { mk RBRACK }
-  "="                                   { mk Lex.EQ }
-  ">"                                   { mk Lex.GT }
-  "<"                                   { mk Lex.LT }
+  "="                                   { mk Act.Lex.EQ }
+  ">"                                   { mk Act.Lex.GT }
+  "<"                                   { mk Act.Lex.LT }
   ":"                                   { mk COLON }
   "+"                                   { mk PLUS }
   "-"                                   { mk MINUS }

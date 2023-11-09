@@ -1,14 +1,14 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 
-module Enrich (enrich, mkStorageBounds) where
+module Act.Enrich (enrich, mkStorageBounds) where
 
 import Data.Maybe
 import Data.List (nub)
 
-import Syntax
-import Syntax.Annotated
-import Type (defaultStore)
+import Act.Syntax
+import Act.Syntax.Annotated
+import Act.Type (defaultStore)
 
 -- | Adds extra preconditions to non constructor behaviours based on the types of their variables
 enrich :: Act -> Act

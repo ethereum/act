@@ -13,7 +13,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
 
-module HEVM where
+module Act.HEVM where
 
 import qualified Data.Map as M
 import Data.List
@@ -23,6 +23,7 @@ import qualified Data.Text.IO as TIO
 import qualified Data.Text.Lazy.IO as TL
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8 (pack)
+import Data.ByteString (ByteString)
 import Data.Text.Encoding (encodeUtf8)
 import Control.Concurrent.Async
 import Control.Monad
@@ -31,9 +32,9 @@ import Data.Maybe
 import System.Exit ( exitFailure )
 import Control.Monad.ST (stToIO)
 
-import Syntax.Annotated
-import Syntax.Untyped (makeIface)
-import Syntax
+import Act.Syntax.Annotated as Act
+import Act.Syntax.Untyped (makeIface)
+import Act.Syntax
 
 import EVM.ABI (Sig(..))
 import qualified EVM.Types as EVM hiding (Contract(..), FrameState(..))
@@ -265,10 +266,10 @@ toProp layout = \case
   (Or _ e1 e2) -> pop2 EVM.POr e1 e2
   (Impl _ e1 e2) -> pop2 EVM.PImpl e1 e2
   (Neg _ e1) -> EVM.PNeg (toProp layout e1)
-  (Syntax.Annotated.LT _ e1 e2) -> op2 EVM.PLT e1 e2
+  (Act.LT _ e1 e2) -> op2 EVM.PLT e1 e2
   (LEQ _ e1 e2) -> op2 EVM.PLEq e1 e2
   (GEQ _ e1 e2) -> op2 EVM.PGEq e1 e2
-  (Syntax.Annotated.GT _ e1 e2) -> op2 EVM.PGT e1 e2
+  (Act.GT _ e1 e2) -> op2 EVM.PGT e1 e2
   (LitBool _ b) -> EVM.PBool b
   (Eq _ SInteger e1 e2) -> op2 EVM.PEq e1 e2
   (Eq _ SBoolean e1 e2) -> op2 EVM.PEq e1 e2
@@ -296,10 +297,10 @@ toExpr layout = \case
   (Or _ e1 e2) -> op2 EVM.Or e1 e2
   (Impl _ e1 e2) -> op2 (\x y -> EVM.Or (EVM.Not x) y) e1 e2
   (Neg _ e1) -> EVM.Not (toExpr layout e1)
-  (Syntax.Annotated.LT _ e1 e2) -> op2 EVM.LT e1 e2
+  (Act.LT _ e1 e2) -> op2 EVM.LT e1 e2
   (LEQ _ e1 e2) -> op2 EVM.LEq e1 e2
   (GEQ _ e1 e2) -> op2 EVM.GEq e1 e2
-  (Syntax.Annotated.GT _ e1 e2) -> op2 EVM.GT e1 e2
+  (Act.GT _ e1 e2) -> op2 EVM.GT e1 e2
   (LitBool _ b) -> EVM.Lit (fromIntegral $ fromEnum $ b)
   -- integers
   (Add _ e1 e2) -> op2 EVM.Add e1 e2

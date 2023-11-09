@@ -1,6 +1,6 @@
 module Main where
 
-import qualified CLI
+import Act.CLI qualified as CLI
 
 main :: IO ()
 main = CLI.main

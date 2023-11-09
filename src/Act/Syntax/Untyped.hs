@@ -3,15 +3,15 @@
 -- It is also equipped with position information for extra debugging xp
 {-# LANGUAGE OverloadedStrings #-}
 
-module Syntax.Untyped (module Syntax.Untyped) where
+module Act.Syntax.Untyped (module Act.Syntax.Untyped) where
 
 import Data.Aeson
 import Data.List (intercalate)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Text as T (pack)
 
-import EVM.ABI (AbiType(..))
-import Lex
+import EVM.ABI
+import Act.Lex
 
 type Pn = AlexPosn
 
