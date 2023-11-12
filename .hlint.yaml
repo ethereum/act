@@ -1,5 +1,23 @@
-- ignore: {name: Redundant bracket}
-- ignore: {name: Use head}
-- ignore: {name: Move brackets to avoid $}
-- ignore: {name: Use ++}
-- ignore: {name: Eta reduce}
+- ignore: {name: "Use fewer imports"}
+- ignore: {name: "Use <$>"}
+- ignore: {name: "Use if"}
+- ignore: {name: "Redundant bracket"}
+- ignore: {name: "Reduce duplication"}
+- ignore: {name: "Redundant return"}
+- ignore: {name: "Use head"}
+- ignore: {name: "Use unwords"}
+- ignore: {name: "Use <$>"}
+- ignore: {name: "Use elem"}
+- ignore: {name: "Use infix"}
+- ignore: {name: "Use section"}
+- ignore: {name: "Move brackets to avoid $"}
+- ignore: {name: "Use zipWith"}
+- ignore: {name: "Redundant flip"}
+- ignore: {name: "Redundant $!"}
+- ignore: {name: "Redundant <$>"}
+- ignore: {name: "Eta reduce"}
+- ignore: {name: "Use underscore"}
+- ignore: {name: "Functor law"}
+- ignore: {name: "Use record patterns"}
+- error: {lhs: return, rhs: pure}
+
