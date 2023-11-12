@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -39,6 +40,7 @@ import EVM.SymExec hiding (EquivResult, isPartial)
 import qualified EVM.SymExec as SymExec (EquivResult)
 import EVM.SMT (SMTCex(..), assertProps, formatSMT2)
 import EVM.Solvers
+import EVM.Traversals (mapExpr)
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
 
@@ -284,66 +286,76 @@ toProp layout = \case
     pop2 :: forall a. (EVM.Prop -> EVM.Prop -> a) -> Exp ABoolean -> Exp ABoolean -> a
     pop2 op e1 e2 = op (toProp layout e1) (toProp layout e2)
 
+pattern MAX_UINT :: EVM.W256
+pattern MAX_UINT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
+-- TODO: this belongs in HEVM
+stripMods :: EVM.Expr a -> EVM.Expr a
+stripMods = mapExpr go
+  where
+    go :: EVM.Expr a -> EVM.Expr a
+    go (EVM.Mod a (EVM.Lit MAX_UINT)) = a
+    go a = a
 
 toExpr :: forall a. Layout -> Exp a -> EVM.Expr (ExprType a)
-toExpr layout = \case
-  -- booleans
-  (And _ e1 e2) -> op2 EVM.And e1 e2
-  (Or _ e1 e2) -> op2 EVM.Or e1 e2
-  (Impl _ e1 e2) -> op2 (\x y -> EVM.Or (EVM.Not x) y) e1 e2
-  (Neg _ e1) -> EVM.Not (toExpr layout e1)
-  (Syntax.Annotated.LT _ e1 e2) -> op2 EVM.LT e1 e2
-  (LEQ _ e1 e2) -> op2 EVM.LEq e1 e2
-  (GEQ _ e1 e2) -> op2 EVM.GEq e1 e2
-  (Syntax.Annotated.GT _ e1 e2) -> op2 EVM.GT e1 e2
-  (LitBool _ b) -> EVM.Lit (fromIntegral $ fromEnum $ b)
-  -- integers
-  (Add _ e1 e2) -> op2 EVM.Add e1 e2
-  (Sub _ e1 e2) -> op2 EVM.Sub e1 e2
-  (Mul _ e1 e2) -> op2 EVM.Mul e1 e2
-  (Div _ e1 e2) -> op2 EVM.Div e1 e2
-  (Mod _ e1 e2) -> op2 EVM.Mod e1 e2 -- which mod?
-  (Exp _ e1 e2) -> op2 EVM.Exp e1 e2
-  (LitInt _ n) -> EVM.Lit (fromIntegral n)
-  (IntEnv _ env) -> ethEnvToWord env
-  -- bounds
-  (IntMin _ n) -> EVM.Lit (fromIntegral $ intmin n)
-  (IntMax _ n) -> EVM.Lit (fromIntegral $ intmax n)
-  (UIntMin _ n) -> EVM.Lit (fromIntegral $ uintmin n)
-  (UIntMax _ n) -> EVM.Lit (fromIntegral $ uintmax n)
-  (InRange _ t e) -> toExpr layout (inRange t e)
-  -- bytestrings
-  (Cat _ _ _) -> error "TODO"
-  (Slice _ _ _ _) -> error "TODO"
-  -- EVM.CopySlice (toExpr start) (EVM.Lit 0) -- src and dst offset
-  -- (EVM.Add (EVM.Sub (toExp end) (toExpr start)) (EVM.Lit 0)) -- size
-  -- (toExpr bs) (EVM.ConcreteBuf "") -- src and dst
-  (ByStr _ str) -> EVM.ConcreteBuf (B8.pack str)
-  (ByLit _ bs) -> EVM.ConcreteBuf bs
-  (ByEnv _ env) -> ethEnvToBuf env
-  -- contracts
-  (Create _ _ _) -> error "TODO"
-  -- polymorphic
-  (Eq _ SInteger e1 e2) -> op2 EVM.Eq e1 e2
-  (Eq _ SBoolean e1 e2) -> op2 EVM.Eq e1 e2
-  (Eq _ _ _ _) -> error "unsupported"
-
-  (NEq _ SInteger e1 e2) -> EVM.Not $ op2 EVM.Eq e1 e2
-  (NEq _ SBoolean e1 e2) -> EVM.Not $ op2 EVM.Eq e1 e2
-  (NEq _ _ _ _) -> error "unsupported"
-
-  e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
-
-  (Var _ SInteger typ x) ->  -- TODO other types
-    fromCalldataFramgment $ symAbiArg (T.pack x) typ
-
-  (TEntry _ _ (Item SInteger _ ref)) ->
-    let (addr, slot) = refOffset layout ref in
-    EVM.SLoad slot (EVM.AbstractStore addr)
-  e ->  error $ "TODO: " <> show e
-
+toExpr layout = stripMods . go
   where
+    go = \case
+      -- booleans
+      (And _ e1 e2) -> op2 EVM.And e1 e2
+      (Or _ e1 e2) -> op2 EVM.Or e1 e2
+      (Impl _ e1 e2) -> op2 (\x y -> EVM.Or (EVM.Not x) y) e1 e2
+      (Neg _ e1) -> EVM.Not (toExpr layout e1)
+      (Syntax.Annotated.LT _ e1 e2) -> op2 EVM.LT e1 e2
+      (LEQ _ e1 e2) -> op2 EVM.LEq e1 e2
+      (GEQ _ e1 e2) -> op2 EVM.GEq e1 e2
+      (Syntax.Annotated.GT _ e1 e2) -> op2 EVM.GT e1 e2
+      (LitBool _ b) -> EVM.Lit (fromIntegral $ fromEnum $ b)
+      -- integers
+      (Add _ e1 e2) -> op2 EVM.Add e1 e2
+      (Sub _ e1 e2) -> op2 EVM.Sub e1 e2
+      (Mul _ e1 e2) -> op2 EVM.Mul e1 e2
+      (Div _ e1 e2) -> op2 EVM.Div e1 e2
+      (Mod _ e1 e2) -> op2 EVM.Mod e1 e2 -- which mod?
+      (Exp _ e1 e2) -> op2 EVM.Exp e1 e2
+      (LitInt _ n) -> EVM.Lit (fromIntegral n)
+      (IntEnv _ env) -> ethEnvToWord env
+      -- bounds
+      (IntMin _ n) -> EVM.Lit (fromIntegral $ intmin n)
+      (IntMax _ n) -> EVM.Lit (fromIntegral $ intmax n)
+      (UIntMin _ n) -> EVM.Lit (fromIntegral $ uintmin n)
+      (UIntMax _ n) -> EVM.Lit (fromIntegral $ uintmax n)
+      (InRange _ t e) -> toExpr layout (inRange t e)
+      -- bytestrings
+      (Cat _ _ _) -> error "TODO"
+      (Slice _ _ _ _) -> error "TODO"
+      -- EVM.CopySlice (toExpr start) (EVM.Lit 0) -- src and dst offset
+      -- (EVM.Add (EVM.Sub (toExp end) (toExpr start)) (EVM.Lit 0)) -- size
+      -- (toExpr bs) (EVM.ConcreteBuf "") -- src and dst
+      (ByStr _ str) -> EVM.ConcreteBuf (B8.pack str)
+      (ByLit _ bs) -> EVM.ConcreteBuf bs
+      (ByEnv _ env) -> ethEnvToBuf env
+      -- contracts
+      (Create _ _ _) -> error "TODO"
+      -- polymorphic
+      (Eq _ SInteger e1 e2) -> op2 EVM.Eq e1 e2
+      (Eq _ SBoolean e1 e2) -> op2 EVM.Eq e1 e2
+      (Eq _ _ _ _) -> error "unsupported"
+
+      (NEq _ SInteger e1 e2) -> EVM.Not $ op2 EVM.Eq e1 e2
+      (NEq _ SBoolean e1 e2) -> EVM.Not $ op2 EVM.Eq e1 e2
+      (NEq _ _ _ _) -> error "unsupported"
+
+      e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
+
+      (Var _ SInteger typ x) ->  -- TODO other types
+        fromCalldataFramgment $ symAbiArg (T.pack x) typ
+
+      (TEntry _ _ (Item SInteger _ ref)) ->
+        let (addr, slot) = refOffset layout ref in
+        EVM.SLoad slot (EVM.AbstractStore addr)
+      e ->  error $ "TODO: " <> show e
+
     op2 :: forall b c. (EVM.Expr (ExprType c) -> EVM.Expr (ExprType c) -> b) -> Exp c -> Exp c -> b
     op2 op e1 e2 = op (toExpr layout e1) (toExpr layout e2)
 

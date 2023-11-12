@@ -31,6 +31,7 @@ import Prelude hiding (LT, GT)
 import Control.Concurrent.Async
 import Control.Monad.Except
 import Control.Monad.Extra
+import Control.Monad.State.Strict
 import Data.Containers.ListUtils
 import Data.List
 import Data.List.NonEmpty qualified as NE
@@ -38,10 +39,9 @@ import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Map (Map)
 import Data.Map qualified as Map
-import Data.Maybe (fromJust, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Text.IO qualified as T
 import Data.Foldable
 import Data.Traversable
 import Data.Tuple.Extra
@@ -52,17 +52,17 @@ import EVM.Format (formatExpr)
 import EVM.Solidity hiding (SlotType(..))
 import EVM.Solidity qualified as EVM (SlotType(..))
 import EVM.Types qualified as EVM
-import EVM.Solvers (SolverGroup, withSolvers, Solver(..), checkSat)
+import EVM.Types ((.<=), (.>=), (.==))
+import EVM.Solvers (SolverGroup, withSolvers, Solver(..), checkSat, CheckSatResult(..))
 import EVM.SymExec hiding (EquivResult)
 import EVM.Expr qualified as Expr
+import EVM.Traversals (mapExprM)
 import GHC.IO hiding (liftIO)
 import EVM.SMT
 
-import CLI (prettyErrs)
 import Syntax.Annotated
 import Syntax.Untyped (makeIface)
 import HEVM
-import Print
 import Enrich (enrich)
 import Error
 import Traversals
@@ -123,8 +123,9 @@ summarize solvers contract = do
       if any isPartial branches
       then pure . Left $ "partially explored branches in creation code:\n" <> T.unlines (fmap formatExpr (filter isPartial branches))
       else do
-        let sucs = Set.fromList . filter Expr.isSuccess . flattenExpr $ expr
-        pure . Right $ (ctorIface contract.constructorInputs, sucs)
+        let sucs = filter Expr.isSuccess . flattenExpr $ expr
+        intsafe <- Set.fromList <$> mapM (makeIntSafe solvers) sucs
+        pure . Right $ (ctorIface contract.constructorInputs, intsafe)
 
     runtime = do
       behvs <- fmap Map.elems $ forM contract.abiMap $ \method -> do
@@ -137,9 +138,42 @@ summarize solvers contract = do
         if any isPartial branches
         then pure . Left $ "partially explored branches in runtime code:\n" <> T.unlines (fmap formatExpr (filter isPartial branches))
         else do
-          let sucs = Set.fromList . filter Expr.isSuccess . flattenExpr $ expr
-          pure . Right $ (method, sucs)
+          let sucs = filter Expr.isSuccess . flattenExpr $ expr
+          intsafe <- Set.fromList <$> mapM (makeIntSafe solvers) sucs
+          pure . Right $ (method, intsafe)
       pure . fmap Map.fromList . sequence $ behvs
+
+
+-- Arithmetic Safety --------------------------------------------------------------------------------
+
+
+makeIntSafe :: SolverGroup -> EVM.Expr a -> IO (EVM.Expr a)
+makeIntSafe solvers expr = evalStateT (mapExprM go expr) mempty
+  where
+    go :: EVM.Expr a -> StateT (Map (EVM.Expr EVM.EWord) EVM.Prop) IO (EVM.Expr a)
+    go = \case
+      e@(EVM.Add a b) -> binop (EVM.Add a b .>= a) a b e
+      e@(EVM.Sub a b) -> binop (EVM.Sub a b .<= a) a b e
+      e@(EVM.Mul a b) -> binop (EVM.Div (EVM.Mul a b) b .== a) a b e
+      -- we can't encode symbolic exponents in smt, so we just always wrap
+      e@(EVM.Exp {}) -> pure (EVM.Mod e (EVM.Lit MAX_UINT))
+      -- TODO: I don't understand what this thing does, so just wrap it in a mod to be safe for now
+      e@(EVM.SEx {}) -> pure (EVM.Mod e (EVM.Lit MAX_UINT))
+      e -> pure e
+
+    binop :: EVM.Prop -> EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> StateT (Map (EVM.Expr EVM.EWord) EVM.Prop) IO (EVM.Expr EVM.EWord)
+    binop safe l r full = do
+      s <- get
+      let ps = [ fromMaybe (EVM.PBool True) (Map.lookup l s)
+               , fromMaybe (EVM.PBool True) (Map.lookup r s)
+               , EVM.PNeg safe
+               ]
+      liftIO (checkSat solvers (assertProps abstRefineDefault ps)) >>= \case
+        Unsat -> do
+          put $ Map.insert full safe s
+          pure full
+        _ -> pure $ EVM.Mod full (EVM.Lit MAX_UINT)
+
 
 
 -- Translation -------------------------------------------------------------------------------------
@@ -165,13 +199,13 @@ mkConstructor :: EVMContract -> Either Text Constructor
 mkConstructor cs
   | Set.size (snd cs.creation) == 1 =
       case head (Set.elems (snd cs.creation)) of
-        EVM.Success props _ _ state -> do
+        EVM.Success props _ _ store -> do
           ps <- flattenProps <$> mapM (fromProp (invertLayout cs.storageLayout)) props
-          updates <- case Map.toList state of
+          updates <- case Map.toList store of
             [(EVM.SymAddr "entrypoint", contract)] -> do
               partitioned <- partitionStorage contract.storage
               mkRewrites cs.name (invertLayout cs.storageLayout) partitioned
-            [(_, _)] -> error $ "Internal Error: state contains a single entry for an unexpected contract:\n" <> show state
+            [(_, _)] -> error $ "Internal Error: state contains a single entry for an unexpected contract:\n" <> show store
             [] -> error "Internal Error: unexpected empty state"
             _ -> Left "cannot decompile methods that update storage on other contracts"
           pure $ Constructor
@@ -190,7 +224,7 @@ mkBehvs :: EVMContract -> Either Text [Behaviour]
 mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList c.runtime)
   where
     mkbehv :: Method -> EVM.Expr EVM.End -> Either Text Behaviour
-    mkbehv method (EVM.Success props _ retBuf state) = do
+    mkbehv method (EVM.Success props _ retBuf store) = do
       pres <- flattenProps <$> mapM (fromProp (invertLayout c.storageLayout)) props
       ret <- case method.output of
         [] -> Right Nothing
@@ -203,11 +237,11 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
               pure . Just . TExp SInteger $ v
           Dynamic -> Left "cannot decompile methods that return dynamically sized types"
         _ -> Left "cannot decompile methods with multiple return types"
-      rewrites <- case Map.toList state of
+      rewrites <- case Map.toList store of
         [(EVM.SymAddr "entrypoint", contract)] -> do
           partitioned <- partitionStorage contract.storage
           mkRewrites c.name (invertLayout c.storageLayout) partitioned
-        [(_, _)] -> error $ "Internal Error: state contains a single entry for an unexpected contract:\n" <> show state
+        [(_, _)] -> error $ "Internal Error: state contains a single entry for an unexpected contract:\n" <> show store
         [] -> error "Internal Error: unexpected empty state"
         _ -> Left "cannot decompile methods that update storage on other contracts"
       pure $ Behaviour
@@ -313,14 +347,11 @@ fromProp l p = simplify <$> go p
     go (EVM.PImpl a b) = liftM2 (Impl nowhere) (go a) (go b)
     go (EVM.PBool a) = pure $ LitBool nowhere a
 
-pattern MAX_UINT :: EVM.W256
-pattern MAX_UINT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-
 -- | Convert an HEVM word into an integer Exp
 fromWord :: Map (Integer, Integer) (Text, SlotType) -> EVM.Expr EVM.EWord -> Either Text (Exp AInteger)
 fromWord layout w = go w
   where
-    err e = Left $ "unable to convert to word: " <> T.pack (show e) <> "\nouter expression: " <> T.pack (show w)
+    err e = Left $ "unable to convert to integer: " <> T.pack (show e) <> "\nouter expression: " <> T.pack (show w)
     evmbool c = ITE nowhere c (LitInt nowhere 1) (LitInt nowhere 0)
 
     -- identifiers
@@ -346,7 +377,7 @@ fromWord layout w = go w
         c' <- go c
         pure $ evmbool $ And nowhere (Neg nowhere (Eq nowhere SInteger a' (LitInt nowhere 0))) (Neg nowhere $ InRange nowhere (AbiUIntType 256) (Mul nowhere a' c'))
     -- a == 0 || (a * b) / a == b
-    go (EVM.Or (EVM.IsZero a) (EVM.Eq b (EVM.Div (EVM.Mul c d) e)))
+    go (EVM.Or (EVM.IsZero a) (EVM.Eq b (EVM.Div (EVM.Mod (EVM.Mul c d) (EVM.Lit MAX_UINT)) e)))
       | a == c
       , a == e
       , b == d = do
@@ -478,28 +509,3 @@ invertLayout = Map.fromList . fmap go . Map.toList
   where
     go :: (Text, StorageItem) -> ((Integer, Integer), (Text, SlotType))
     go (n, i) = ((toInteger i.slot, toInteger i.offset), (n, convslot i.slotType))
-
-
--- Repl Stuff --------------------------------------------------------------------------------------
-
-
-test :: IO ()
-test = do
-  cs <- readBuildOutput "/home/me/src/mine/scratch/solidity" Foundry
-  case cs of
-    Left e -> print e
-    Right (BuildOutput (Contracts o) _) -> do
-      withSolvers CVC5 4 Nothing $ \solvers -> do
-        let c = fromJust $ Map.lookup "src/closing_solidity.sol:MiniClosing" o
-        spec <- runExceptT $ do
-          exprs <- ExceptT $ summarize solvers c
-          liftIO $ print exprs
-          ExceptT $ pure (translate exprs)
-        case spec of
-          Left e -> do
-            T.putStrLn "summarization failed:"
-            T.putStrLn e
-          Right s -> do
-            putStrLn $ prettyAct s
-            r <- (verifyDecompilation solvers c.creationCode c.runtimeCode (enrich s))
-            validation (prettyErrs "") print r
