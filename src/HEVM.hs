@@ -333,7 +333,7 @@ toExpr layout = \case
   (NEq _ SBoolean e1 e2) -> EVM.Not $ op2 EVM.Eq e1 e2
   (NEq _ _ _ _) -> error "unsupported"
 
-  (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
+  e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
 
   (Var _ SInteger typ x) ->  -- TODO other types
     fromCalldataFramgment $ symAbiArg (T.pack x) typ
@@ -380,6 +380,7 @@ checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
 
 
 -- * Equivalence checking
+
 
 -- | Wrapper for the equivalenceCheck function of hevm
 checkEquiv :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> IO [EquivResult]

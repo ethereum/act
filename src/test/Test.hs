@@ -29,6 +29,8 @@ import Syntax.Annotated
 import Text.Pretty.Simple
 import Data.Text.Lazy as T (unpack)
 
+import DecompileTest
+
 import Debug.Trace
 
 -- Transformer stack to keep track of whether we are to generate expressions
@@ -39,12 +41,13 @@ noExponents, withExponents :: ExpoGen a -> Gen a
 noExponents   = fmap (`runReader` False) . runGenT
 withExponents = fmap (`runReader` True)  . runGenT
 
---
+
 -- *** Test Cases *** --
 
 main :: IO ()
 main = defaultMain $ testGroup "act"
-  [ testGroup "frontend"
+  [ decompilerTests
+  , testGroup "frontend"
       {-
          Generates a random behaviour, prints it, runs it through the frontend
          (lex -> parse -> type), and then checks that the typechecked output matches the
@@ -70,7 +73,7 @@ main = defaultMain $ testGroup "act"
 
 
 defaultStore :: Id -> Store
-defaultStore c = fromList [(c,fromList [])]
+defaultStore c = fromList [(c,mempty)]
 
 defaultCtor :: Id -> Constructor
 defaultCtor c = Constructor {_cname = c, _cinterface = Interface c [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = []}

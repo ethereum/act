@@ -10,7 +10,14 @@ flag ci
     default:     False
     manual:      True
 
-common deps
+common common
+  default-extensions:
+    ApplicativeDo
+    ImportQualifiedPost
+    LambdaCase
+    OverloadedLabels
+    DataKinds
+    GADTs
   build-depends: base               >= 4.9 && < 5,
                  aeson              >= 1.0,
                  containers         >= 0.5,
@@ -39,22 +46,16 @@ common deps
       ghc-options: -Wall -Wno-orphans -Wno-unticked-promoted-constructors
 
 library
-  import:             deps
+  import:             common
   build-tool-depends: happy:happy, alex:alex
   hs-source-dirs:     .
   default-language:   Haskell2010
-  default-extensions:
-    ImportQualifiedPost
-    LambdaCase
-    OverloadedLabels
-    DataKinds
-    GADTs
 
-  exposed-modules:    CLI Error Print SMT Syntax.Annotated Syntax.TimeAgnostic Decompile
+  exposed-modules:    CLI Error Print SMT Syntax.Annotated Syntax.TimeAgnostic Decompile Traversals
   other-modules:      Lex Parse Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Types Syntax.Timing Type Enrich Dev HEVM Consistency
 
 executable act
-  import:             deps
+  import:             common
   main-is:            Main.hs
   hs-source-dirs:     main
   default-language:   Haskell2010
@@ -63,18 +64,21 @@ executable act
       extra-libraries: c++
 
 Test-Suite test
-  import:           deps
+  import:           common
   type:             exitcode-stdio-1.0
   default-language: Haskell2010
   main-is:          Test.hs
   hs-source-dirs:   test
+  other-modules:    DecompileTest
   build-depends:    act,
                     pretty-simple          >= 2.2,
                     quickcheck-instances   >= 0.3,
                     quickcheck-transformer >= 0.3,
                     tasty-hunit            >= 0.10,
+                    tasty-expected-failure,
                     tasty-quickcheck       >= 0.10,
                     QuickCheck             >= 2.13.2,
-                    tasty                  >= 1.2
+                    tasty                  >= 1.2,
+                    here                   >= 1.2
   if os(darwin)
       extra-libraries: c++

@@ -10,7 +10,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
-module CLI (main, compile, proceed) where
+module CLI (main, compile, proceed, prettyErrs) where
 
 import Data.Aeson hiding (Bool, Number, json)
 import GHC.Generics
@@ -203,7 +203,7 @@ coq' :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 coq' f solver' smttimeout' debug' = do
   contents <- readFile f
   proceed contents (enrich <$> compile contents) $ \claims -> do
-    checkCases claims solver' smttimeout' debug' 
+    checkCases claims solver' smttimeout' debug'
     TIO.putStr $ coq claims
 
 

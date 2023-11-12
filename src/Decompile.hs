@@ -1,9 +1,11 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
@@ -26,36 +28,61 @@ module Decompile where
 
 import Prelude hiding (LT, GT)
 
-import Debug.Trace
-
+import Control.Concurrent.Async
 import Control.Monad.Except
 import Control.Monad.Extra
+import Data.Containers.ListUtils
 import Data.List
+import Data.List.NonEmpty qualified as NE
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Map (Map)
 import Data.Map qualified as Map
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as T
+import Data.Foldable
+import Data.Traversable
 import Data.Tuple.Extra
 import Data.Typeable
-import EVM.ABI (AbiKind(..), abiKind)
+import EVM.ABI (AbiKind(..), abiKind, Sig(..))
 import EVM.Fetch qualified as Fetch
 import EVM.Format (formatExpr)
 import EVM.Solidity hiding (SlotType(..))
 import EVM.Solidity qualified as EVM (SlotType(..))
 import EVM.Types qualified as EVM
-import EVM.Solvers (SolverGroup, withSolvers, Solver(..))
-import EVM.SymExec
+import EVM.Solvers (SolverGroup, withSolvers, Solver(..), checkSat)
+import EVM.SymExec hiding (EquivResult)
 import EVM.Expr qualified as Expr
 import GHC.IO hiding (liftIO)
+import EVM.SMT
 
+import CLI (prettyErrs)
 import Syntax.Annotated
+import Syntax.Untyped (makeIface)
 import HEVM
 import Print
 import Enrich (enrich)
+import Error
+import Traversals
+
+
+-- Top Level ---------------------------------------------------------------------------------------
+
+
+decompile :: SolcContract -> IO (Either Text Act)
+decompile contract = withSolvers CVC5 4 Nothing $ \solvers -> do
+  spec <- runExceptT $ do
+    summary <- ExceptT $ summarize solvers contract
+    ExceptT . pure . translate $ summary
+  case spec of
+    Left e -> pure . Left $ e
+    Right s -> do
+      valid <- verifyDecompilation solvers contract.creationCode contract.runtimeCode (enrich s)
+      case valid of
+        Success () -> pure . Right $ s
+        Failure es -> pure . Left . T.unlines . NE.toList . fmap (T.pack . snd) $ es
 
 
 -- Sumarization ------------------------------------------------------------------------------------
@@ -121,11 +148,8 @@ summarize solvers contract = do
 -- | Translate the summarized bytecode into an act expression
 translate :: EVMContract -> Either Text Act
 translate c = do
-  traceM "translating constructor"
   ctor <- mkConstructor c
-  traceM "translating behaviours"
   behvs <- mkBehvs c
-  traceM "done"
   let contract = Contract ctor behvs
   let store = mkStore c
   pure $ Act store [contract]
@@ -167,7 +191,6 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
   where
     mkbehv :: Method -> EVM.Expr EVM.End -> Either Text Behaviour
     mkbehv method (EVM.Success props _ retBuf state) = do
-      traceShowM props
       pres <- flattenProps <$> mapM (fromProp (invertLayout c.storageLayout)) props
       ret <- case method.output of
         [] -> Right Nothing
@@ -221,7 +244,7 @@ newtype DistinctStore = DistinctStore (Map (EVM.W256) (EVM.Expr EVM.EWord))
 
 -- | Attempts to decompose an input storage expression into a map from provably distinct keys to abstract words
 -- currently only supports stores where all writes are to concrete locations
--- supporting writes to symbolic locations would requires calling an smt solver
+-- supporting writes to symbolic locations will probably require calling an smt solver
 partitionStorage :: EVM.Expr EVM.Storage -> Either Text DistinctStore
 partitionStorage = go mempty
   where
@@ -246,10 +269,11 @@ partitionStorage = go mempty
       Nothing -> Map.insert key val curr
 
 -- | strips away all the extraneous ite noise that the evm bool's introduce
-evalBool :: Exp ABoolean -> Exp ABoolean
-evalBool = go
+simplify :: forall a . Exp a -> Exp a
+simplify e = if (mapTerm go e == e)
+             then e
+             else simplify (mapTerm go e)
   where
-    go :: Exp ABoolean -> Exp ABoolean
     go (Neg _ (Neg _ p)) = p
     go (Eq _ SInteger (ITE _ a (LitInt _ 1) (LitInt _ 0)) (LitInt _ 1)) = go a
     go (Eq _ SInteger (ITE _ a (LitInt _ 1) (LitInt _ 0)) (LitInt _ 0)) = go (Neg nowhere (go a))
@@ -262,7 +286,7 @@ evalBool = go
     go (Neg _ (And _ (Neg _ (Eq _ SInteger a (LitInt _ 0))) (Neg _ (InRange _ (AbiUIntType sz) (Mul _ b c)))))
       | a == b = InRange nowhere (AbiUIntType sz) (Mul nowhere a c)
 
-    go (e) = e
+    go x = x
 
 -- splits conjunctions into separate props
 flattenProps :: [Exp ABoolean] -> [Exp ABoolean]
@@ -274,7 +298,7 @@ flattenProps = concatMap go
 
 -- | Convert an HEVM Prop into a boolean Exp
 fromProp :: Map (Integer, Integer) (Text, SlotType) -> EVM.Prop -> Either Text (Exp ABoolean)
-fromProp l p = evalBool <$> go p
+fromProp l p = simplify <$> go p
   where
     go (EVM.PEq (a :: EVM.Expr t) b) = case eqT @t @EVM.EWord of
          Nothing -> Left $ "cannot decompile props comparing equality of non word terms: " <> T.pack (show p)
@@ -321,6 +345,15 @@ fromWord layout w = go w
         a' <- go a
         c' <- go c
         pure $ evmbool $ And nowhere (Neg nowhere (Eq nowhere SInteger a' (LitInt nowhere 0))) (Neg nowhere $ InRange nowhere (AbiUIntType 256) (Mul nowhere a' c'))
+    -- a == 0 || (a * b) / a == b
+    go (EVM.Or (EVM.IsZero a) (EVM.Eq b (EVM.Div (EVM.Mul c d) e)))
+      | a == c
+      , a == e
+      , b == d = do
+        a' <- go a
+        b' <- go b
+        pure . evmbool $ InRange nowhere (AbiUIntType 256) (Mul nowhere a' b')
+
 
     -- booleans
 
@@ -359,16 +392,68 @@ fromWord layout w = go w
 
 -- | Verify that the decompiled spec is equivalent to the input bytecodes
 -- This compiles the generated act spec back down to an Expr and then checks that the two are equivalent
-verifyDecompilation :: ByteString -> ByteString -> Act -> IO ()
-verifyDecompilation creation runtime spec =
-  withSolvers CVC5 4 Nothing $ \solvers -> do
-    let opts = defaultVeriOpts
-    -- Constructor check
-    checkConstructors solvers opts creation runtime spec
-    -- Behavours check
-    checkBehaviours solvers opts runtime spec
-    -- ABI exhaustiveness sheck
-    checkAbi solvers opts spec runtime
+verifyDecompilation :: SolverGroup -> ByteString -> ByteString -> Act -> IO (Error String ())
+verifyDecompilation solvers creation runtime spec =
+  checkCtors *>
+  checkBehvs *>
+  checkAbis
+  where
+    checkCtors :: IO (Error String ())
+    checkCtors = do
+      let (_, actbehvs, calldata, sig) = translateActConstr spec runtime
+      initVM <- stToIO $ abstractVM calldata creation Nothing True
+      expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
+      let solbehvs = removeFails $ flattenExpr (Expr.simplify expr)
+      _ <- checkResult calldata (Just sig) <$> checkEquiv solvers opts solbehvs actbehvs
+      checkRes calldata (Just sig) <$> checkInputSpaces solvers opts solbehvs actbehvs
+
+    checkBehvs :: IO (Error String ())
+    checkBehvs = do
+      let actbehvs = translateActBehvs spec runtime
+      rs <- for actbehvs $ \(_,behvs,calldata,sig) -> do
+        solbehvs <- removeFails <$> getBranches solvers runtime calldata
+        equivRes <- checkEquiv solvers opts solbehvs behvs
+        inputRes <- checkInputSpaces solvers opts solbehvs behvs
+        pure
+          $  checkRes calldata (Just sig) equivRes
+          *> checkRes calldata (Just sig) inputRes
+      pure $ sequenceA_ rs
+
+    checkAbis :: IO (Error String ())
+    checkAbis = do
+      let txdata = EVM.AbstractBuf "txdata"
+      let selectorProps = assertSelector txdata <$> nubOrd (actSigs spec)
+      evmBehvs <- getBranches solvers runtime (txdata, [])
+      let queries =  fmap (assertProps abstRefineDefault) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
+      let msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
+      checkRes (txdata, []) Nothing <$> fmap (toVRes msg) <$> mapConcurrently (checkSat solvers) queries
+
+    actSig (Behaviour _ _ iface _ _ _ _ _) = T.pack $ makeIface iface
+    actSigs (Act _ [(Contract _ behvs)]) = actSig <$> behvs
+    -- TODO multiple contracts
+    actSigs (Act _ _) = error "TODO multiple contracts"
+
+    checkBehv :: [EVM.Prop] -> EVM.Expr EVM.End -> [EVM.Prop]
+    checkBehv assertions (EVM.Success cnstr _ _ _) = assertions <> cnstr
+    checkBehv _ (EVM.Failure _ _ _) = []
+    checkBehv _ (EVM.Partial _ _ _) = []
+    checkBehv _ (EVM.ITE _ _ _) = error "Internal error: HEVM behaviours must be flattened"
+    checkBehv _ (EVM.GVar _) = error "Internal error: unepected GVar"
+
+    checkRes :: Calldata -> Maybe Sig -> [EquivResult] -> Error String ()
+    checkRes calldata sig res =
+      let
+        cexs = mapMaybe getCex res
+        timeouts = mapMaybe getTimeout res
+        cexErr = unless (null cexs) $
+          Failure $ fmap (\(msg,cex) ->
+            (nowhere, T.unpack $ msg <> "\n" <> formatCex (fst calldata) sig cex)) (NE.fromList cexs)
+        timeoutErr = unless (null timeouts) $
+          Failure [(nowhere, "Timeouts occured")] -- TODO: display which query
+      in cexErr *> timeoutErr
+
+    removeFails branches = filter Expr.isSuccess branches
+    opts = defaultVeriOpts
 
 
 -- Helpers -----------------------------------------------------------------------------------------
@@ -416,4 +501,5 @@ test = do
             T.putStrLn e
           Right s -> do
             putStrLn $ prettyAct s
-            verifyDecompilation c.creationCode c.runtimeCode (enrich s)
+            r <- (verifyDecompilation solvers c.creationCode c.runtimeCode (enrich s))
+            validation (prettyErrs "") print r
