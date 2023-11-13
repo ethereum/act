@@ -1,7 +1,7 @@
 {-# Language GADTs #-}
 {-# Language DataKinds #-}
 
-module Print where
+module Act.Print where
 
 import Prelude hiding (GT, LT)
 import Data.ByteString.UTF8 (toString)
@@ -10,8 +10,8 @@ import System.IO (stdout)
 
 import Data.List
 
-import Syntax
-import Syntax.TimeAgnostic
+import Act.Syntax
+import Act.Syntax.TimeAgnostic
 
 
 prettyBehaviour :: Behaviour t -> String
@@ -173,7 +173,7 @@ prettyInvPred = prettyExp . untime . fst
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
       TEntry p _ (Item t vt a) -> TEntry p Neither (Item t vt (untimeStorageRef a))
       Var p t at a -> Var p t at a
-             
+
 -- | prints a Doc, with wider output than the built in `putDoc`
 render :: Doc -> IO ()
 render doc = displayIO stdout (renderPretty 0.9 120 doc)

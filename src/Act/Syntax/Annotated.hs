@@ -7,14 +7,14 @@
 Module      : Syntax.Annotated
 Description : AST data types where all implicit timings have been made explicit.
 -}
-module Syntax.Annotated (module Syntax.Annotated) where
+module Act.Syntax.Annotated (module Act.Syntax.Annotated) where
 
-import qualified Syntax.TimeAgnostic as Agnostic
-import Syntax.TimeAgnostic (Timing(..),setPre,setPost)
+import qualified Act.Syntax.TimeAgnostic as Agnostic
+import Act.Syntax.TimeAgnostic (Timing(..),setPre,setPost)
 
 -- Reexports
-import Syntax.TimeAgnostic as Syntax.Annotated hiding (Timing(..),Timable(..),Time,Neither,Act,Contract,Invariant,InvariantPred,Constructor,Behaviour,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp,StorageRef)
-import Syntax.TimeAgnostic as Syntax.Annotated (pattern Act, pattern Contract, pattern Invariant, pattern Constructor, pattern Behaviour, pattern Exp)
+import Act.Syntax.TimeAgnostic as Act.Syntax.Annotated hiding (Timing(..),Timable(..),Time,Neither,Act,Contract,Invariant,InvariantPred,Constructor,Behaviour,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp,StorageRef)
+import Act.Syntax.TimeAgnostic as Act.Syntax.Annotated (pattern Act, pattern Contract, pattern Invariant, pattern Constructor, pattern Behaviour, pattern Exp)
 
 
 -- We shadow all timing-agnostic AST types with explicitly timed versions.

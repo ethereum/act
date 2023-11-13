@@ -6,7 +6,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# Language RecordWildCards #-}
 
-module Consistency (
+module Act.Consistency (
   checkCases
 ) where
 
@@ -18,11 +18,11 @@ import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import System.Exit (exitFailure)
 import Data.Maybe
 
-import Syntax
-import Syntax.Annotated
-import SMT
-import Syntax.Untyped (makeIface)
-import Print
+import Act.Syntax
+import Act.Syntax.Annotated
+import Act.SMT as SMT
+import Act.Syntax.Untyped (makeIface)
+import Act.Print
 
 import qualified EVM.Solvers as Solvers
 

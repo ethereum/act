@@ -9,7 +9,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# Language TupleSections #-}
 
-module Type (typecheck, lookupVars, defaultStore, Err) where
+module Act.Type (typecheck, lookupVars, defaultStore, Err) where
 
 import Prelude hiding (GT, LT)
 
@@ -33,12 +33,12 @@ import qualified Data.Set as Set
 import Data.Map.Ordered (OMap)
 import qualified Data.Map.Ordered as OM
 
-import Syntax
-import Syntax.Timing
-import qualified Syntax.Untyped as U
-import Syntax.Typed
-import Syntax.Untyped (makeIface)
-import Error
+import Act.Syntax
+import Act.Syntax.Timing
+import Act.Syntax.Untyped qualified as U
+import Act.Syntax.Typed
+import Act.Syntax.Untyped (makeIface)
+import Act.Error
 
 import Data.Type.Equality (TestEquality(..))
 

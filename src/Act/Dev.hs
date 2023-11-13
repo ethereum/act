@@ -1,10 +1,10 @@
-module Dev where
+module Act.Dev where
 
 
-import CLI
-import Coq (coq)
-import Enrich
-import Consistency
+import Act.CLI
+import Act.Coq (coq)
+import Act.Enrich
+import Act.Consistency
 import qualified EVM.Solvers as Solvers
 
 import qualified Data.Text as T

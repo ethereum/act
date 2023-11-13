@@ -2,7 +2,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE PolyKinds #-}
@@ -10,7 +9,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 
@@ -28,13 +26,14 @@ Some terms in here are always 'Timed'. This indicates that their timing must
 (i.e. 'Untimed'), but will be made explicit (i.e. 'Timed') during refinement.
 -}
 
-module Syntax.TimeAgnostic (module Syntax.TimeAgnostic) where
+module Act.Syntax.TimeAgnostic (module Act.Syntax.TimeAgnostic) where
 
 import Control.Applicative (empty)
 import Prelude hiding (GT, LT)
 
 import Data.Aeson
 import Data.Aeson.Types
+import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.List (genericTake,genericDrop)
 import Data.Map.Strict (Map)
@@ -46,10 +45,10 @@ import Data.Kind
 
 -- Reexports
 
-import Parse          as Syntax.TimeAgnostic (nowhere)
-import Syntax.Types   as Syntax.TimeAgnostic
-import Syntax.Timing  as Syntax.TimeAgnostic
-import Syntax.Untyped as Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..))
+import Act.Parse          as Act.Syntax.TimeAgnostic (nowhere)
+import Act.Syntax.Types   as Act.Syntax.TimeAgnostic
+import Act.Syntax.Timing  as Act.Syntax.TimeAgnostic
+import Act.Syntax.Untyped as Act.Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..))
 
 -- AST post typechecking
 data Act t = Act Store [Contract t]

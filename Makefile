@@ -1,20 +1,20 @@
 .DEFAULT_GOAL := compiler
 .PHONY: parser compiler docs
 
-parser: src/Lex.hs src/Parse.hs
+parser: src/Act/Lex.hs src/Act/Parse.hs
 
-src/Parse.hs: src/Parse.y src/Syntax/Untyped.hs
-	happy src/Parse.y
+src/Act/Parse.hs: src/Act/Parse.y src/Act/Syntax/Untyped.hs
+	happy src/Act/Parse.y
 
-src/Lex.hs: src/Lex.x
-	alex src/Lex.x
+src/Act/Lex.hs: src/Act/Lex.x
+	alex src/Act/Lex.x
 
 # builds the rest of the haskell files (compiler)
-bin/act: src/*.hs src/*/*.hs
-	cd src && cabal v2-install --installdir=../bin --overwrite-policy=always && cd ..
+bin/act: src/CLI/*.hs src/Act/*.hs
+	cabal v2-install --installdir=bin --overwrite-policy=always
 
-repl: src/Lex.hs src/Parse.hs
-	cd src && cabal v2-repl
+repl: src/Act/Lex.hs src/Act/Parse.hs
+	cabal v2-repl
 
 compiler: bin/act
 

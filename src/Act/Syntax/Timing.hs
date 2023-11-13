@@ -6,7 +6,7 @@
 Module      : Syntax.Timing
 Description : Stuff relating to explicit and implicit references to pre-/post-states.
 -}
-module Syntax.Timing where
+module Act.Syntax.Timing where
 
 import Data.Char (toLower)
 
