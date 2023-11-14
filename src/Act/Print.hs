@@ -13,9 +13,7 @@ import EVM.ABI (abiTypeSolidity)
 
 import Data.List
 
-import Act.Syntax
 import Act.Syntax.TimeAgnostic
-
 
 prettyAct :: Act t -> String
 prettyAct (Act _ contracts)
@@ -74,6 +72,7 @@ prettyPre p = header "iff" >-< block (prettyExp <$> p)
 
 prettyCases :: [Exp ABoolean t] -> String
 prettyCases [] = ""
+prettyCases [LitBool _ True] = ""
 prettyCases p = header "case" >-< block (prettyExp <$> p) <> ":"
 
 prettyPost :: [Exp ABoolean t] -> String
