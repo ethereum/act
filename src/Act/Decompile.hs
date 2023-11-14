@@ -19,10 +19,6 @@ This module decompiles EVM bytecode into an Act spec. It operates as follows
 2. Transform that Expr into one that can be safely represented using Integers
 3. Convert that Expr into an Act spec (trusts solc compiler output)
 4. Compile the generated Act spec back to Expr and check equivalence (solc compiler output no longer trusted)
-
-Still required is a stage that transforms the Expr into one that can be safely represented by Integers. This could work as follows:
-  1. wrap all arithmetic expressions in a mod uint256
-  2. walk up the tree from the bottom, asking the solver at each node whether or not the mod can be eliminated
 -}
 module Act.Decompile where
 
