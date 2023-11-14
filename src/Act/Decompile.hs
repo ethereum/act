@@ -144,6 +144,11 @@ summarize solvers contract = do
 -- Arithmetic Safety --------------------------------------------------------------------------------
 
 
+-- | Transforms an EVM Expr into a form that it can be safely represented using
+-- an integer encoding. This basically makes all potential points of wrapping
+-- due to under/overflow explicit in the tree. This can certainly be made
+-- significantly more efficient and precise (abstract interpretation?), but
+-- this rather brute force attempt should be sound for now.
 makeIntSafe :: SolverGroup -> EVM.Expr a -> IO (EVM.Expr a)
 makeIntSafe solvers expr = evalStateT (mapExprM go expr) mempty
   where
