@@ -1,10 +1,10 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Traversals (TraversableTerm(..)) where
+module Act.Traversals (TraversableTerm(..)) where
 
 import Data.Functor.Identity
-import Syntax.TimeAgnostic
+import Act.Syntax.TimeAgnostic
 import Prelude hiding (LT, GT)
 
 -- | Generic operations over AST terms

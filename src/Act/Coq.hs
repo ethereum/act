@@ -15,7 +15,7 @@
 {-# Language DataKinds #-}
 
 
-module Coq where
+module Act.Coq where
 
 import Prelude hiding (GT, LT)
 
@@ -27,8 +27,8 @@ import Data.List (groupBy)
 import Control.Monad.State
 
 import EVM.ABI
-import Syntax
-import Syntax.Annotated
+import Act.Syntax
+import Act.Syntax.Annotated
 
 type Fresh = State Int
 

@@ -2,7 +2,7 @@
 {-# Language LambdaCase #-}
 {-# Language DataKinds #-}
 
-module Print where
+module Act.Print where
 
 import Prelude hiding (GT, LT)
 import Data.ByteString.UTF8 (toString)
@@ -13,7 +13,8 @@ import EVM.ABI (abiTypeSolidity)
 
 import Data.List
 
-import Syntax.TimeAgnostic
+import Act.Syntax
+import Act.Syntax.TimeAgnostic
 
 
 prettyAct :: Act t -> String
@@ -25,7 +26,6 @@ prettyStore = show
 
 prettyContract :: Contract t -> String
 prettyContract (Contract ctor behvs) = unlines $ intersperse "\n" $ (prettyCtor ctor):(fmap prettyBehaviour behvs)
-
 
 prettyCtor :: Constructor t -> String
 prettyCtor (Constructor name interface pres posts invs initStore)

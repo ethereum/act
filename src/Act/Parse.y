@@ -1,12 +1,12 @@
 {
-module Parse (module Parse, showposn) where
+module Act.Parse (module Act.Parse, showposn) where
 import Prelude hiding (EQ, GT, LT)
-import Lex
+import Data.Validation
 import EVM.ABI
 import qualified Data.List.NonEmpty as NonEmpty
-import Syntax.Untyped
-import Error
-import Data.Validation
+import Act.Lex
+import Act.Syntax.Untyped
+import Act.Error
 }
 
 %name parse

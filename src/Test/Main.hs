@@ -20,16 +20,16 @@ import Data.Maybe (isNothing)
 import qualified Data.Set as Set
 import Data.Map (fromList)
 
-import CLI (compile)
-import Error
-import Print (prettyBehaviour)
-import SMT
-import Syntax.Annotated
+import Act.CLI (compile)
+import Act.Error
+import Act.Print (prettyBehaviour)
+import Act.SMT
+import Act.Syntax.Annotated
 
 import Text.Pretty.Simple
 import Data.Text.Lazy as T (unpack)
 
-import DecompileTest
+import Decompile
 
 import Debug.Trace
 

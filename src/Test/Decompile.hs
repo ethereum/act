@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module DecompileTest where
+module Decompile where
 
 import Test.Tasty
 import Test.Tasty.ExpectedFailure
@@ -14,9 +14,10 @@ import Data.String.Here
 import Data.Text (Text)
 import Data.Text.IO qualified as T
 import Data.Validation
-import Decompile
-import Print
-import CLI
+
+import Act.Decompile
+import Act.Print
+import Act.CLI
 
 decompilerTests :: TestTree
 decompilerTests = testGroup "decompiler"

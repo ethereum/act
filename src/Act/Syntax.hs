@@ -6,18 +6,18 @@
 Module      : Syntax
 Description : Functions for manipulating and collapsing all our different ASTs.
 -}
-module Syntax where
+module Act.Syntax where
 
 import Prelude hiding (LT, GT)
 
 import Data.List hiding (singleton)
 import Data.Map (Map,empty,insertWith,unionsWith,unionWith,singleton)
 
-import Syntax.TimeAgnostic as Agnostic
-import qualified Syntax.Annotated as Annotated
-import qualified Syntax.Typed as Typed
-import           Syntax.Untyped hiding (Contract)
-import qualified Syntax.Untyped as Untyped
+import Act.Syntax.TimeAgnostic as Agnostic
+import qualified Act.Syntax.Annotated as Annotated
+import qualified Act.Syntax.Typed as Typed
+import           Act.Syntax.Untyped hiding (Contract)
+import qualified Act.Syntax.Untyped as Untyped
 
 -----------------------------------------
 -- * Extract from fully refined ASTs * --

@@ -24,7 +24,7 @@ Still required is a stage that transforms the Expr into one that can be safely r
   1. wrap all arithmetic expressions in a mod uint256
   2. walk up the tree from the bottom, asking the solver at each node whether or not the mod can be eliminated
 -}
-module Decompile where
+module Act.Decompile where
 
 import Prelude hiding (LT, GT)
 
@@ -32,6 +32,7 @@ import Control.Concurrent.Async
 import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.State.Strict
+import Data.ByteString (ByteString)
 import Data.Containers.ListUtils
 import Data.List
 import Data.List.NonEmpty qualified as NE
@@ -60,12 +61,12 @@ import EVM.Traversals (mapExprM)
 import GHC.IO hiding (liftIO)
 import EVM.SMT
 
-import Syntax.Annotated
-import Syntax.Untyped (makeIface)
-import HEVM
-import Enrich (enrich)
-import Error
-import Traversals
+import Act.Syntax.Annotated
+import Act.Syntax.Untyped (makeIface)
+import Act.HEVM
+import Act.Enrich (enrich)
+import Act.Error
+import Act.Traversals
 
 
 -- Top Level ---------------------------------------------------------------------------------------

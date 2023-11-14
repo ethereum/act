@@ -1,6 +1,0 @@
-packages: .
-repository local-pkgs
-  url: file+noindex:///home/me/src/local-pkgs
-active-repositories:
-  , local-pkgs
-  , hackage.haskell.org

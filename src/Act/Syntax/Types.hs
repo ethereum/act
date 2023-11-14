@@ -17,14 +17,14 @@ Module      : Syntax.Types
 Description : Types that represent Act types, and functions and patterns to go between them and Haskell's own types.
 -}
 
-module Syntax.Types (module Syntax.Types) where
+module Act.Syntax.Types (module Act.Syntax.Types) where
 
 import Data.Singletons
-import Data.ByteString    as Syntax.Types (ByteString)
+import Data.ByteString
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
-import EVM.ABI            as Syntax.Types (AbiType(..))
+import EVM.ABI            as Act.Syntax.Types (AbiType(..))
 
-import Syntax.Untyped (ValueType(..))
+import Act.Syntax.Untyped (ValueType(..))
 
 -- | Types of Act expressions
 data ActType
@@ -78,7 +78,7 @@ type family TypeOf a where
   TypeOf 'AInteger = Integer
   TypeOf 'ABoolean = Bool
   TypeOf 'AByteStr = ByteString
-  
+
 
 fromAbiType :: AbiType -> ActType
 fromAbiType (AbiUIntType _)     = AInteger

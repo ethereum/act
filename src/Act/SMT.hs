@@ -6,7 +6,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# Language RecordWildCards #-}
 
-module SMT (
+module Act.SMT (
   Solver(..),
   SMTConfig(..),
   Query(..),
@@ -59,11 +59,11 @@ import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
 
-import Syntax
-import Syntax.Annotated
+import Act.Syntax
+import Act.Syntax.Annotated
 
-import Print
-import Type (defaultStore)
+import Act.Print
+import Act.Type (defaultStore)
 
 import EVM.Solvers (Solver(..))
 

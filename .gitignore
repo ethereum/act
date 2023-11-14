@@ -1,7 +1,7 @@
 # generated code
-src/Lex.hs
-src/Parse.hs
-src/dist-newstyle
+src/Act/Lex.hs
+src/Act/Parse.hs
+dist-newstyle/
 tests/**/*.out
 
 # build results
@@ -9,8 +9,8 @@ bin/
 result*
 
 # cabal
-**/*.cabal.local
-**/cabal.project.local*
+*.cabal.local
+cabal.project.local*
 src/dist/
 
 # coq

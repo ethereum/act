@@ -48,16 +48,35 @@ common common
 library
   import:             common
   build-tool-depends: happy:happy, alex:alex
-  hs-source-dirs:     .
+  hs-source-dirs:     src
   default-language:   Haskell2010
-
-  exposed-modules:    CLI Error Print SMT Syntax.Annotated Syntax.TimeAgnostic Decompile Traversals
-  other-modules:      Lex Parse Coq Syntax Syntax.Untyped Syntax.Typed Syntax.Types Syntax.Timing Type Enrich Dev HEVM Consistency
+  exposed-modules:
+    Act.CLI
+    Act.Decompile
+    Act.Error
+    Act.Print
+    Act.SMT
+    Act.Syntax.Annotated
+    Act.Syntax.TimeAgnostic
+    Act.Lex
+    Act.Parse
+    Act.Coq
+    Act.Syntax
+    Act.Syntax.Untyped
+    Act.Syntax.Typed
+    Act.Syntax.Types
+    Act.Syntax.Timing
+    Act.Traversals
+    Act.Type
+    Act.Enrich
+    Act.Dev
+    Act.HEVM
+    Act.Consistency
 
 executable act
   import:             common
   main-is:            Main.hs
-  hs-source-dirs:     main
+  hs-source-dirs:     src/CLI
   default-language:   Haskell2010
   build-depends:      act
   if os(darwin)
@@ -67,9 +86,9 @@ Test-Suite test
   import:           common
   type:             exitcode-stdio-1.0
   default-language: Haskell2010
-  main-is:          Test.hs
-  hs-source-dirs:   test
-  other-modules:    DecompileTest
+  main-is:          Main.hs
+  hs-source-dirs:   src/Test
+  other-modules:    Decompile
   build-depends:    act,
                     pretty-simple          >= 2.2,
                     quickcheck-instances   >= 0.3,

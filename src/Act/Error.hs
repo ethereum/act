@@ -1,7 +1,4 @@
 {-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
@@ -16,16 +13,16 @@ and keep track of a 'Pn' for every error it logs. There is also some infrastruct
 around modified chaining/branching behaviours.
 -}
 
-module Error (module Error) where
+module Act.Error (module Act.Error) where
 
 import Data.List (find)
 import Data.List.NonEmpty as NE
-import Data.Validation as Error
+import Data.Validation as Act.Error
 
-import Syntax.Untyped (Pn)
+import Act.Syntax.Untyped (Pn)
 
 -- Reexport NonEmpty so that we can use `-XOverloadedLists` without thinking.
-import Data.List.NonEmpty as Error (NonEmpty)
+import Data.List.NonEmpty as Act.Error (NonEmpty)
 
 type Error e = Validation (NonEmpty (Pn,e))
 
