@@ -7,6 +7,8 @@ import Test.Tasty
 import Test.Tasty.ExpectedFailure
 import Test.Tasty.HUnit
 import EVM.Solidity
+import EVM.SymExec
+import EVM.Solvers
 import Data.List.NonEmpty qualified as NE
 import Data.Map qualified as Map
 import Data.Maybe
@@ -103,7 +105,7 @@ checkDecompilation contract src = do
   json <- solc Solidity src
   let (Contracts sol, _, _) = fromJust $ readStdJSON json
   let c = fromJust $ Map.lookup ("hevm.sol:" <> contract) sol
-  decompile c >>= \case
+  decompile c CVC5 1 Nothing defaultVeriOpts >>= \case
     Left es -> do
       T.putStrLn es
       assertBool "decompilation should succeed" False
