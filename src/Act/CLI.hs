@@ -23,6 +23,7 @@ import Data.Maybe
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
+import GHC.Conc
 import GHC.Natural
 import Options.Generic
 
@@ -45,6 +46,7 @@ import Act.Coq hiding (indent)
 import Act.HEVM
 import Act.Consistency
 import Act.Print
+import Act.Decompile
 
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
@@ -83,6 +85,12 @@ data Command w
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
                     , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
                     }
+  | Decompile       { solFile    :: w ::: String               <?> "Path to .sol"
+                    , contract   :: w ::: String               <?> "Contract name"
+                    , solver     :: w ::: Maybe Text           <?> "SMT solver: cvc5 (default) or z3"
+                    , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
+                    , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
+                    }
  deriving (Generic)
 
 deriving instance ParseField [(Id, String)]
@@ -113,6 +121,9 @@ main = do
       HEVM spec' sol' code' initcode' contract' solver' smttimeout' debug' -> do
         solver'' <- parseSolver solver'
         hevm spec' (Text.pack contract') sol' code' initcode' solver'' smttimeout' debug'
+      Decompile sol' contract' solver' smttimeout' debug' -> do
+        solver'' <- parseSolver solver'
+        decompile' sol' (Text.pack contract') solver'' smttimeout' debug'
 
 
 ---------------------------------
@@ -207,6 +218,23 @@ coq' f solver' smttimeout' debug' = do
     checkCases claims solver' smttimeout' debug'
     TIO.putStr $ coq claims
 
+decompile' :: FilePath -> Text -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+decompile' solFile' cid solver' timeout debug' = do
+  let opts = if debug' then debugVeriOpts else defaultVeriOpts
+  json <- solc Solidity =<< TIO.readFile solFile'
+  cores <- getNumProcessors
+  let (Contracts contracts, _, _) = fromJust $ readStdJSON json
+  case Map.lookup ("hevm.sol:" <> cid) contracts of
+    Nothing -> do
+      putStrLn "compilation failed"
+      exitFailure
+    Just c -> decompile c solver' (fromIntegral cores) (fmap fromIntegral timeout) opts >>= \case
+      Left e -> do
+        TIO.putStrLn e
+        exitFailure
+      Right s -> do
+        putStrLn (prettyAct s)
+
 
 hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec cid sol' code' initcode' solver' timeout debug' = do
@@ -241,8 +269,8 @@ bytecodes :: Text -> Text -> IO (BS.ByteString, BS.ByteString)
 bytecodes cid src = do
   json <- solc Solidity src
   let (Contracts sol', _, _) = fromJust $ readStdJSON json
-  pure $ ((fromJust . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').creationCode,
-          (fromJust . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').runtimeCode)
+  pure ((fromJust . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').creationCode,
+        (fromJust . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').runtimeCode)
 
 
 

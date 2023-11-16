@@ -55,6 +55,7 @@ import EVM.SymExec hiding (EquivResult)
 import EVM.Expr qualified as Expr
 import EVM.Traversals (mapExprM)
 import GHC.IO hiding (liftIO)
+import GHC.Natural
 import EVM.SMT
 
 import Act.Syntax.Annotated
@@ -68,15 +69,15 @@ import Act.Traversals
 -- Top Level ---------------------------------------------------------------------------------------
 
 
-decompile :: SolcContract -> IO (Either Text Act)
-decompile contract = withSolvers CVC5 4 Nothing $ \solvers -> do
+decompile :: SolcContract -> Solver -> Natural -> Maybe Natural -> VeriOpts -> IO (Either Text Act)
+decompile contract solver solverCount timeout opts = withSolvers solver solverCount timeout $ \solvers -> do
   spec <- runExceptT $ do
     summary <- ExceptT $ summarize solvers contract
     ExceptT . pure . translate $ summary
   case spec of
     Left e -> pure . Left $ e
     Right s -> do
-      valid <- verifyDecompilation solvers contract.creationCode contract.runtimeCode (enrich s)
+      valid <- verifyDecompilation solvers opts contract.creationCode contract.runtimeCode (enrich s)
       case valid of
         Success () -> pure . Right $ s
         Failure es -> pure . Left . T.unlines . NE.toList . fmap (T.pack . snd) $ es
@@ -425,8 +426,8 @@ fromWord layout w = go w
 
 -- | Verify that the decompiled spec is equivalent to the input bytecodes
 -- This compiles the generated act spec back down to an Expr and then checks that the two are equivalent
-verifyDecompilation :: SolverGroup -> ByteString -> ByteString -> Act -> IO (Error String ())
-verifyDecompilation solvers creation runtime spec =
+verifyDecompilation :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Act -> IO (Error String ())
+verifyDecompilation solvers opts creation runtime spec =
   checkCtors *>
   checkBehvs *>
   checkAbis
@@ -486,7 +487,6 @@ verifyDecompilation solvers creation runtime spec =
       in cexErr *> timeoutErr
 
     removeFails branches = filter Expr.isSuccess branches
-    opts = defaultVeriOpts
 
 
 -- Helpers -----------------------------------------------------------------------------------------
