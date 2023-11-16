@@ -22,7 +22,7 @@
         };
         act = (myHaskellPackages.callCabal2nixWithOptions "act" (gitignore ./.) "-fci" {})
           .overrideAttrs (attrs : {
-            buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc5 ];
+            buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc5 pkgs.solc ];
           });
       in rec {
         packages.act = act;
