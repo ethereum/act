@@ -44,6 +44,7 @@ import Act.SMT as SMT
 import Act.Type
 import Act.Coq hiding (indent)
 import Act.HEVM
+import Act.HEVM_utils
 import Act.Consistency
 import Act.Print
 
@@ -213,9 +214,9 @@ hevm actspec sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
-    let opts = if debug' then debugVeriOpts else defaultVeriOpts
+    let opts = defaultVeriOpts -- if debug' then debugVeriOpts else defaultVeriOpts
 
-    Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
+    toIO True $ Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
       checkContracts solvers opts store cmap
   where
 

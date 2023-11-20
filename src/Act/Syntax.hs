@@ -54,7 +54,7 @@ locsFromInvariant (Invariant _ pre bounds (predpre, predpost)) =
 ------------------------------------
 
 nameOfContract :: Contract t -> Id
-nameOfContract (Contract (Constructor cname _ _ _ _ _ _) _) = cname
+nameOfContract (Contract (Constructor cname _ _ _ _ _) _) = cname
 
 behvsFromAct :: Agnostic.Act t -> [Behaviour t]
 behvsFromAct (Act _ contracts) = behvsFromContracts contracts
