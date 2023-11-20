@@ -200,9 +200,7 @@ rewritesToExpr cmap rewrites = foldM rewriteToExpr cmap rewrites
 
 rewriteToExpr :: ContractMap -> Rewrite -> ActM ContractMap
 rewriteToExpr cmap (Constant _) = pure cmap
-rewriteToExpr cmap (Rewrite upd) = do
-  cmap' <- updateToExpr upd cmap
-  pure cmap'
+rewriteToExpr cmap (Rewrite upd) = updateToExpr upd cmap
 
 updatesToExpr :: [StorageUpdate] -> ContractMap -> ActM ContractMap
 updatesToExpr upds initmap = foldM (flip updateToExpr) initmap upds
