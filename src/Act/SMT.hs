@@ -6,7 +6,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# Language RecordWildCards #-}
 
-module SMT (
+module Act.SMT (
   Solver(..),
   SMTConfig(..),
   Query(..),
@@ -59,11 +59,11 @@ import Data.List
 import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
 
-import Syntax
-import Syntax.Annotated
+import Act.Syntax
+import Act.Syntax.Annotated
 
-import Print
-import Type (defaultStore)
+import Act.Print
+import Act.Type (defaultStore)
 
 import EVM.Solvers (Solver(..))
 
@@ -188,7 +188,8 @@ mkPostconditionQueriesBehv :: Behaviour -> [Query]
 mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preconds caseconds postconds stateUpdates _) = mkQuery <$> postconds
   where
     -- declare vars
-    storage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
+    activeLocs = locsFromBehaviour behv -- TODO this might contain redundant locations if invariants use locations that are not mentioned elsewhere in the behaviour
+    storage = concatMap declareStorageLocation activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
 
@@ -205,24 +206,23 @@ mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preco
     mkQuery e = Postcondition (Behv behv) e (mksmt e)
 
 mkPostconditionQueriesConstr :: Constructor -> [Query]
-mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName decls) preconds postconds _ initialStorage stateUpdates) = mkQuery <$> postconds
+mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName decls) preconds postconds _ initialStorage) = mkQuery <$> postconds
   where
     -- declare vars
-    localStorage = concatMap declareInitialStorage initialStorage
-    externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
+    activeLocs = locsFromConstructor constructor
+    localStorage = concatMap declareInitialStorage activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
 
     -- constraints
     pres = mkAssert ifaceName <$> preconds
-    updates = encodeUpdate ifaceName <$> stateUpdates
     initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
 
     mksmt e = SMTExp
-      { _storage = localStorage <> externalStorage
+      { _storage = localStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> updates <> initialStorage'
+      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> initialStorage'
       }
     mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
 
@@ -253,49 +253,51 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     getInvariants (Contract (c@Constructor{..}) behvs) = fmap (\i -> (i, c, behvs)) _invariants
 
     mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
-    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) preconds _ _ initialStorage stateUpdates) = (ctor, smt)
+    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) preconds _ _ initialStorage) = (ctor, smt)
       where
         -- declare vars
-        localStorage = concatMap declareInitialStorage initialStorage
-        externalStorage = concatMap (declareStorageLocation . locFromRewrite) stateUpdates
+        activeLocs = locsFromConstructor ctor
+        localStorage = concatMap declareInitialStorage activeLocs
         args = declareArg ifaceName <$> decls
         envs = declareEthEnv <$> ethEnvFromConstructor ctor
 
         -- constraints
         pres = mkAssert ifaceName <$> preconds <> invConds
-        updates = encodeUpdate ifaceName <$> stateUpdates
         initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
         postInv = mkAssert ifaceName $ Neg nowhere invPost
 
         smt = SMTExp
-          { _storage = localStorage <> externalStorage
+          { _storage = localStorage
           , _calldata = args
           , _environment = envs
-          , _assertions = postInv : pres <> updates <> initialStorage'
+          , _assertions = postInv : pres <> initialStorage'
           }
 
     mkBehv :: Invariant -> Constructor -> Behaviour -> (Behaviour, SMTExp)
-    mkBehv (Invariant _ invConds invStorageBounds (invPre,invPost)) ctor behv = (behv, smt)
+    mkBehv inv@(Invariant _ invConds invStorageBounds (invPre,invPost)) ctor behv = (behv, smt)
       where
 
         (Interface ctorIface ctorDecls) = _cinterface ctor
         (Interface behvIface behvDecls) = _interface behv
-        -- storage locs mentioned in the invariant but not in the behaviour
-        implicitLocs = Constant <$> (locsFromExp invPre \\ (locFromRewrite <$> _stateUpdates behv))
+
+        -- storage locs that are mentioned but not explictly updated (i.e., constant)
+        implicitLocs = (activeLocs \\ fmap locFromUpdate (_stateUpdates behv))
 
         -- declare vars
         invEnv = declareEthEnv <$> ethEnvFromExp invPre
         behvEnv = declareEthEnv <$> ethEnvFromBehaviour behv
         initArgs = declareArg ctorIface <$> ctorDecls
         behvArgs = declareArg behvIface <$> behvDecls
-        storage = concatMap (declareStorageLocation . locFromRewrite) (_stateUpdates behv <> implicitLocs)
+        activeLocs = nub $ locsFromBehaviour behv <> locsFromInvariant inv
+
+        storage = concatMap declareStorageLocation activeLocs
 
         -- constraints
         preInv = mkAssert ctorIface $ invPre
         postInv = mkAssert ctorIface . Neg nowhere $ invPost
         behvConds = mkAssert behvIface <$> _preconditions behv <> _caseconditions behv
         invConds' = mkAssert ctorIface <$> invConds <> invStorageBounds
-        implicitLocs' = encodeUpdate ctorIface <$> implicitLocs
+        implicitLocs' = encodeStorageLocation <$> implicitLocs  -- TODO why do we need to assert this
         updates = encodeUpdate behvIface <$> _stateUpdates behv
 
         smt = SMTExp
@@ -326,6 +328,7 @@ runQuery solver query@(Inv (Invariant _ _ _ predicate) (ctor, ctorSMT) behvs) = 
 -- provided `modelFn` to extract a model if the solver returns `sat`
 checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO SMTResult
 checkSat solver modelFn smt = do
+  -- render (pretty smt)
   err <- sendLines solver ("(reset)" : (lines . show . pretty $ smt))
   case err of
     Nothing -> do
@@ -529,6 +532,7 @@ parseSMTModel s = if length s0Caps == 1
 
 
 -- | encodes a storage update from a constructor creates block as an smt assertion
+-- TODO unify with encodeUpdate
 encodeInitialStorage :: Id -> StorageUpdate -> SMT2
 encodeInitialStorage behvName (Update _ item expr) =
   let
@@ -536,6 +540,8 @@ encodeInitialStorage behvName (Update _ item expr) =
     expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
+encodeStorageLocation :: StorageLocation -> SMT2
+encodeStorageLocation loc = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
 
 -- | declares a storage location with the given timing
 declareStorage :: [When] -> StorageLocation -> [SMT2]
@@ -548,13 +554,12 @@ declareStorage times (Loc _ item@(Item _ _ ref)) = declareRef ref
 
 -- | declares a storage location that is created by the constructor, these
 --   locations have no prestate, so we declare a post var only
-declareInitialStorage :: StorageUpdate -> [SMT2]
-declareInitialStorage upd = declareStorage [Post] (locFromUpdate upd)
+declareInitialStorage :: StorageLocation -> [SMT2]
+declareInitialStorage loc = declareStorage [Post] loc
 
 -- | encodes a storage update rewrite as an smt assertion
-encodeUpdate :: Id -> Rewrite -> SMT2
-encodeUpdate _        (Constant loc)   = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
-encodeUpdate behvName (Rewrite update) = encodeInitialStorage behvName update
+encodeUpdate :: Id -> StorageUpdate -> SMT2
+encodeUpdate behvName update = encodeInitialStorage behvName update
 
 -- | declares a storage location that exists both in the pre state and the post
 --   state (i.e. anything except a loc created by a constructor claim)

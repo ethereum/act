@@ -7,6 +7,10 @@
             {
               "args": [
                 {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "z"
                 },
@@ -23,7 +27,10 @@
           "interface": {
             "args": [
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"z\"",
                 "kind": "Declaration"
               }
@@ -37,7 +44,10 @@
           "preConditions": [
             {
               "args": [
-                "Callvalue",
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
                 {
                   "literal": "0",
                   "type": "int"
@@ -55,6 +65,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "z"
                     }
@@ -65,10 +79,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "z"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -113,7 +134,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -130,15 +154,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Callvalue"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -151,19 +184,21 @@
           "returns": null,
           "stateUpdates": [
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "contract": "C",
-                    "kind": "SVar",
-                    "svar": "x"
-                  },
-                  "type": "int"
+              "location": {
+                "item": {
+                  "contract": "C",
+                  "kind": "SVar",
+                  "svar": "x"
                 },
-                "value": {
-                  "type": "int",
-                  "var": "z"
-                }
+                "type": "int"
+              },
+              "value": {
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                "type": "int",
+                "var": "z"
               }
             }
           ]
@@ -173,6 +208,10 @@
             {
               "args": [
                 {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "z"
                 },
@@ -189,7 +228,10 @@
           "interface": {
             "args": [
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"z\"",
                 "kind": "Declaration"
               }
@@ -203,7 +245,10 @@
           "preConditions": [
             {
               "args": [
-                "Callvalue",
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
                 {
                   "literal": "0",
                   "type": "int"
@@ -221,6 +266,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "z"
                     }
@@ -231,10 +280,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "z"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -279,7 +335,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -296,15 +355,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Callvalue"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -317,29 +385,31 @@
           "returns": null,
           "stateUpdates": [
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "contract": "C",
-                    "kind": "SVar",
-                    "svar": "x"
-                  },
-                  "type": "int"
+              "location": {
+                "item": {
+                  "contract": "C",
+                  "kind": "SVar",
+                  "svar": "x"
                 },
-                "value": {
-                  "args": [
-                    {
-                      "type": "int",
-                      "var": "z"
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
                     },
-                    {
-                      "literal": "1",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "+"
-                }
+                    "type": "int",
+                    "var": "z"
+                  },
+                  {
+                    "literal": "1",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "+"
               }
             }
           ]
@@ -349,6 +419,10 @@
             {
               "args": [
                 {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
                   "type": "int",
                   "var": "z"
                 },
@@ -365,7 +439,10 @@
           "interface": {
             "args": [
               {
-                "abitype": "uint256",
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
                 "id": "\"z\"",
                 "kind": "Declaration"
               }
@@ -379,7 +456,10 @@
           "preConditions": [
             {
               "args": [
-                "Callvalue",
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
                 {
                   "literal": "0",
                   "type": "int"
@@ -397,6 +477,10 @@
                       "type": "int"
                     },
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "z"
                     }
@@ -407,10 +491,17 @@
                 {
                   "args": [
                     {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
                       "type": "int",
                       "var": "z"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -455,7 +546,10 @@
                       },
                       "timing": "Pre"
                     },
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -472,15 +566,24 @@
                       "literal": "0",
                       "type": "int"
                     },
-                    "Callvalue"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
                 },
                 {
                   "args": [
-                    "Callvalue",
-                    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
                   ],
                   "arity": 2,
                   "symbol": "<="
@@ -493,29 +596,31 @@
           "returns": null,
           "stateUpdates": [
             {
-              "rewrite": {
-                "location": {
-                  "item": {
-                    "contract": "C",
-                    "kind": "SVar",
-                    "svar": "x"
-                  },
-                  "type": "int"
+              "location": {
+                "item": {
+                  "contract": "C",
+                  "kind": "SVar",
+                  "svar": "x"
                 },
-                "value": {
-                  "args": [
-                    {
-                      "type": "int",
-                      "var": "z"
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
                     },
-                    {
-                      "literal": "2",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "+"
-                }
+                    "type": "int",
+                    "var": "z"
+                  },
+                  {
+                    "literal": "2",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "+"
               }
             }
           ]
@@ -523,7 +628,7 @@
       ],
       "constructor": {
         "contract": "C",
-        "initial storage": [
+        "initialStorage": [
           {
             "location": {
               "item": {

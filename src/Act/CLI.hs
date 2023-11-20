@@ -10,7 +10,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
-module CLI (main, compile, proceed) where
+module Act.CLI (main, compile, proceed) where
 
 import Data.Aeson hiding (Bool, Number, json)
 import GHC.Generics
@@ -25,26 +25,27 @@ import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import GHC.Natural
+import Options.Generic
 
 
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString as BS
+import Data.ByteString (ByteString)
 
 import Control.Monad
 import Control.Lens.Getter
 
-import Error
-import Lex (lexer, AlexPosn(..))
-import Options.Generic
-import Parse
-import Syntax.Annotated
-import Enrich
-import SMT
-import Type
-import Coq hiding (indent)
-import HEVM
-import Consistency
-import Print
+import Act.Error
+import Act.Lex (lexer, AlexPosn(..))
+import Act.Parse
+import Act.Syntax.Annotated
+import Act.Enrich
+import Act.SMT as SMT
+import Act.Type
+import Act.Coq hiding (indent)
+import Act.HEVM
+import Act.Consistency
+import Act.Print
 
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
@@ -203,7 +204,7 @@ coq' :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 coq' f solver' smttimeout' debug' = do
   contents <- readFile f
   proceed contents (enrich <$> compile contents) $ \claims -> do
-    checkCases claims solver' smttimeout' debug' 
+    checkCases claims solver' smttimeout' debug'
     TIO.putStr $ coq claims
 
 

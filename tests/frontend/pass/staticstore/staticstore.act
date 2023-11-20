@@ -5,9 +5,4 @@ iff in range uint256
 
     x + y
 
-storage
-
-    x 
-    y
-
 returns x + y

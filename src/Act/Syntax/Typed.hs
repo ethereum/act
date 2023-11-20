@@ -5,13 +5,13 @@
 Module      : Syntax.Typed
 Description : AST data types which have passed type checking but still contain implicit timings.
 -}
-module Syntax.Typed (module Syntax.Typed) where
+module Act.Syntax.Typed (module Act.Syntax.Typed) where
 
-import qualified Syntax.TimeAgnostic as Agnostic
+import qualified Act.Syntax.TimeAgnostic as Agnostic
 
 -- Reexports
-import Syntax.TimeAgnostic as Syntax.Typed hiding (Act,Contract,Invariant,InvariantPred,Constructor,Behaviour,Rewrite,StorageUpdate,StorageLocation) 
-import Syntax.TimeAgnostic as Syntax.Typed (pattern Act, pattern Contract, pattern Invariant, pattern Constructor, pattern Behaviour, pattern Rewrite)
+import Act.Syntax.TimeAgnostic as Act.Syntax.Typed hiding (Act,Contract,Invariant,InvariantPred,Constructor,Behaviour,StorageUpdate,StorageLocation)
+import Act.Syntax.TimeAgnostic as Act.Syntax.Typed (pattern Act, pattern Contract, pattern Invariant, pattern Constructor, pattern Behaviour)
 
 -- We shadow all timing-agnostic AST types with versions
 -- that need to have implicit timings where possible.
@@ -20,6 +20,5 @@ type Contract        = Agnostic.Contract        Untimed
 type Invariant       = Agnostic.Invariant       Untimed
 type Constructor     = Agnostic.Constructor     Untimed
 type Behaviour       = Agnostic.Behaviour       Untimed
-type Rewrite         = Agnostic.Rewrite         Untimed
 type StorageUpdate   = Agnostic.StorageUpdate   Untimed
 type StorageLocation = Agnostic.StorageLocation Untimed

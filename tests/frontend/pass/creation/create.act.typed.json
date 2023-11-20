@@ -4,7 +4,7 @@
       "behaviours": [],
       "constructor": {
         "contract": "Modest",
-        "initial storage": [
+        "initialStorage": [
           {
             "location": {
               "item": {
@@ -28,7 +28,10 @@
               },
               "type": "int"
             },
-            "value": "Caller"
+            "value": {
+              "ethEnv": "Caller",
+              "type": "int"
+            }
           }
         ],
         "interface": {
@@ -48,15 +51,24 @@
                     "literal": "0",
                     "type": "int"
                   },
-                  "Caller"
+                  {
+                    "ethEnv": "Caller",
+                    "type": "int"
+                  }
                 ],
                 "arity": 2,
                 "symbol": "<="
               },
               {
                 "args": [
-                  "Caller",
-                  "1461501637330902918203684832716283019655932542975"
+                  {
+                    "ethEnv": "Caller",
+                    "type": "int"
+                  },
+                  {
+                    "literal": "1461501637330902918203684832716283019655932542975",
+                    "type": "int"
+                  }
                 ],
                 "arity": 2,
                 "symbol": "<="

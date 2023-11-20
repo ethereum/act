@@ -20,11 +20,11 @@ import Data.Maybe (isNothing)
 import qualified Data.Set as Set
 import Data.Map (fromList)
 
-import CLI (compile)
-import Error
-import Print (prettyBehaviour)
-import SMT
-import Syntax.Annotated
+import Act.CLI (compile)
+import Act.Error
+import Act.Print (prettyBehaviour)
+import Act.SMT
+import Act.Syntax.Annotated
 
 import Text.Pretty.Simple
 import Data.Text.Lazy as T (unpack)
@@ -73,7 +73,7 @@ defaultStore :: Id -> Store
 defaultStore c = fromList [(c,fromList [])]
 
 defaultCtor :: Id -> Constructor
-defaultCtor c = Constructor {_cname = c, _cinterface = Interface c [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = [], _cstateUpdates = []}
+defaultCtor c = Constructor {_cname = c, _cinterface = Interface c [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = []}
 
 
 typeCheckSMT :: Solver -> GenT (Reader Bool) Property

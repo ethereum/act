@@ -15,7 +15,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
-module HEVM where
+module Act.HEVM where
 
 import Prelude hiding (GT, LT)
 
@@ -27,6 +27,7 @@ import qualified Data.Text.IO as TIO
 import qualified Data.Text.Lazy.IO as TL
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8 (pack)
+import Data.ByteString (ByteString)
 import Data.Text.Encoding (encodeUtf8)
 import Control.Concurrent.Async
 import Control.Monad
@@ -40,6 +41,9 @@ import Syntax.Annotated
 import Syntax.Untyped (makeIface)
 import Syntax
 import HEVM_utils
+import Act.Syntax.Annotated as Act
+import Act.Syntax.Untyped (makeIface)
+import Act.Syntax
 
 import EVM.ABI (Sig(..))
 import EVM as EVM hiding (bytecode)
@@ -137,6 +141,7 @@ translateActConstr codemap store (Contract ctor _) bytecode =
     env = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint")
     fresh = 0
 
+<<<<<<< HEAD:src/HEVM.hs
 translateActBehvs :: CodeMap -> Store -> [Behaviour] -> ContractMap -> [(Id, [EVM.Expr EVM.End], Calldata, Sig)]
 translateActBehvs codemap store behvs cmap =
   fst $ flip runState env $ translateBehvs cmap behvs
@@ -150,6 +155,12 @@ translateConstructor bytecode (Constructor _ iface preconds _ _ upds _)  = do
   cmap <- updatesToExpr upds initmap
   fresh <- getFresh
   pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr fresh) mempty (EVM.ConcreteBuf bytecode) cmap], calldata, ifaceToSig iface)
+=======
+translateConstructor :: Layout -> Constructor -> BS.ByteString -> (Id, [EVM.Expr EVM.End], Calldata, Sig)
+translateConstructor layout (Constructor cid iface preconds _ _ upds) bytecode =
+  (cid, [EVM.Success (snd calldata <> (fmap (toProp layout) $ preconds)) mempty (EVM.ConcreteBuf bytecode) (updatesToExpr layout cid upds initmap)],
+  calldata, ifaceToSig iface)
+>>>>>>> main:src/Act/HEVM.hs
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -197,7 +208,7 @@ translateBehv cmap (Behaviour _ _ _ preconds caseconds _ upds ret) = do
 
 
 applyRewrites :: ContractMap -> [Rewrite] -> ActM ContractMap
-rewritesToExpr cmap rewrites = foldM applyRewrite cmap rewrites
+applyRewrite cmap rewrites = foldM applyRewrite cmap rewrites
 
 applyRewrite :: ContractMap -> Rewrite -> ActM ContractMap
 applyRewrite cmap (Constant _) = pure cmap

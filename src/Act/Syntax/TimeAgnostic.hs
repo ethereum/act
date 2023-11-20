@@ -2,7 +2,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MonadComprehensions #-}
 {-# LANGUAGE PolyKinds #-}
@@ -10,7 +9,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 
@@ -28,13 +26,14 @@ Some terms in here are always 'Timed'. This indicates that their timing must
 (i.e. 'Untimed'), but will be made explicit (i.e. 'Timed') during refinement.
 -}
 
-module Syntax.TimeAgnostic (module Syntax.TimeAgnostic) where
+module Act.Syntax.TimeAgnostic (module Act.Syntax.TimeAgnostic) where
 
 import Control.Applicative (empty)
 import Prelude hiding (GT, LT)
 
 import Data.Aeson
 import Data.Aeson.Types
+import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.List (genericTake,genericDrop)
 import Data.Map.Strict (Map)
@@ -46,10 +45,10 @@ import Data.Kind
 
 -- Reexports
 
-import Parse          as Syntax.TimeAgnostic (nowhere)
-import Syntax.Types   as Syntax.TimeAgnostic
-import Syntax.Timing  as Syntax.TimeAgnostic
-import Syntax.Untyped as Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..))
+import Act.Parse          as Act.Syntax.TimeAgnostic (nowhere)
+import Act.Syntax.Types   as Act.Syntax.TimeAgnostic
+import Act.Syntax.Timing  as Act.Syntax.TimeAgnostic
+import Act.Syntax.Untyped as Act.Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..))
 
 -- AST post typechecking
 data Act t = Act Store [Contract t]
@@ -101,7 +100,6 @@ data Constructor t = Constructor
   , _cpostconditions :: [Exp ABoolean Timed]
   , _invariants :: [Invariant t]
   , _initialStorage :: [StorageUpdate t]
-  , _cstateUpdates :: [Rewrite t]
   }
 deriving instance Show (InvariantPred t) => Show (Constructor t)
 deriving instance Eq   (InvariantPred t) => Eq   (Constructor t)
@@ -114,14 +112,9 @@ data Behaviour t = Behaviour
   , _preconditions :: [Exp ABoolean t] -- if preconditions are not satisfied execution is reverted
   , _caseconditions :: [Exp ABoolean t] -- if preconditions are satisfied and a case condition is not, some other instance of the bahaviour should apply
   , _postconditions :: [Exp ABoolean Timed]
-  , _stateUpdates :: [Rewrite t]
+  , _stateUpdates :: [StorageUpdate t]
   , _returns :: Maybe (TypedExp Timed)
   } deriving (Show, Eq)
-
-data Rewrite t
-  = Constant (StorageLocation t)
-  | Rewrite (StorageUpdate t)
-  deriving (Show, Eq)
 
 data StorageUpdate (t :: Timing) where
   Update :: SType a -> TStorageItem a t -> Exp a t -> StorageUpdate t
@@ -383,7 +376,7 @@ instance ToJSON (Constructor Timed) where
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
                                   , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) _invariants
-                                  , "initial storage" .= toJSON _initialStorage  ]
+                                  , "initialStorage" .= toJSON _initialStorage  ]
 
 instance ToJSON (Constructor Untimed) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
@@ -414,7 +407,7 @@ instance ToJSON Interface where
 instance ToJSON Decl where
   toJSON (Decl abitype x) = object [ "kind" .= String "Declaration"
                                    , "id" .= pack (show x)
-                                   , "abitype" .= pack (show abitype)
+                                   , "abitype" .= toJSON abitype
                                    ]
 
 
@@ -424,10 +417,6 @@ invariantJSON Invariant{..} predicate = object [ "kind" .= String "Invariant"
                                                , "preconditions" .= toJSON _ipreconditions
                                                , "storagebounds" .= toJSON _istoragebounds
                                                , "contract" .= _icontract ]
-
-instance ToJSON (Rewrite t) where
-  toJSON (Constant a) = object [ "constant" .= toJSON a ]
-  toJSON (Rewrite a) = object [ "rewrite" .= toJSON a ]
 
 instance ToJSON (StorageLocation t) where
   toJSON (Loc _ a) = object [ "location" .= toJSON a ]
@@ -473,14 +462,19 @@ instance ToJSON (Exp a t) where
   toJSON (Div _ a b) = symbol "/" a b
   toJSON (LitInt _ a) = object [ "literal" .= pack (show a)
                                , "type" .= pack "int" ]
-  toJSON (IntMin _ a) = toJSON $ show $ intmin a
-  toJSON (IntMax _ a) = toJSON $ show $ intmax a
-  toJSON (UIntMin _ a) = toJSON $ show $ uintmin a
-  toJSON (UIntMax _ a) = toJSON $ show $ uintmax a
+  toJSON (IntMin _ a) = object [ "literal" .= pack (show $ intmin a)
+                               , "type" .= pack "int" ]
+  toJSON (IntMax _ a) = object [ "literal" .= pack (show $ intmax a)
+                               , "type" .= pack "int" ]
+  toJSON (UIntMin _ a) = object [ "literal" .= pack (show $ uintmin a)
+                                , "type" .= pack "int" ]
+  toJSON (UIntMax _ a) = object [ "literal" .= pack (show $ uintmax a)
+                                , "type" .= pack "int" ]
   toJSON (InRange _ a b) = object [ "symbol"   .= pack "inrange"
                                   , "arity"    .= Data.Aeson.Types.Number 2
-                                  , "args"     .= Array (fromList [String (pack $ show a), toJSON b]) ]
-  toJSON (IntEnv _ a) = String $ pack $ show a
+                                  , "args"     .= Array (fromList [toJSON a, toJSON b]) ]
+  toJSON (IntEnv _ a) = object [ "ethEnv" .= pack (show a)
+                               , "type" .= pack "int" ]
   toJSON (ITE _ a b c) = object [ "symbol"   .= pack "ite"
                                 , "arity"    .= Data.Aeson.Types.Number 3
                                 , "args"     .= Array (fromList [toJSON a, toJSON b, toJSON c]) ]
@@ -509,10 +503,11 @@ instance ToJSON (Exp a t) where
                               , "type" .= pack "bytestring" ]
   toJSON (ByEnv _ a) = object [ "ethEnv" .= pack (show a)
                               , "type" .= pack "bytestring" ]
-  toJSON (TEntry _ t a) = object [ "entry" .= toJSON a
+  toJSON (TEntry _ t a) = object [ "entry"  .= toJSON a
                                  , "timing" .= show t ]
-  toJSON (Var _ t _ a) = object [ "var" .= toJSON a
-                                , "type" .= show t ]
+  toJSON (Var _ t abitype a) = object [ "var"      .= toJSON a
+                                      , "abitype"  .= toJSON abitype
+                                      , "type"     .= show t ]
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                   , "arity"  .= Data.Aeson.Types.Number 2
                                   , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
