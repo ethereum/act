@@ -192,15 +192,16 @@ translateBehv cmap (Behaviour _ _ _ preconds caseconds _ upds ret) = do
   preconds' <- mapM (toProp cmap) preconds
   caseconds' <- mapM (toProp cmap) caseconds
   ret' <- returnsToExpr cmap ret
-  store <- rewritesToExpr cmap upds
+  store <- applyRewrites cmap upds
   pure $ EVM.Success (preconds' <> caseconds') mempty ret' store
 
-rewritesToExpr :: ContractMap -> [Rewrite] -> ActM ContractMap
-rewritesToExpr cmap rewrites = foldM rewriteToExpr cmap rewrites
 
-rewriteToExpr :: ContractMap -> Rewrite -> ActM ContractMap
-rewriteToExpr cmap (Constant _) = pure cmap
-rewriteToExpr cmap (Rewrite upd) = updateToExpr upd cmap
+applyRewrites :: ContractMap -> [Rewrite] -> ActM ContractMap
+rewritesToExpr cmap rewrites = foldM applyRewrite cmap rewrites
+
+applyRewrite :: ContractMap -> Rewrite -> ActM ContractMap
+applyRewrite cmap (Constant _) = pure cmap
+applyRewrite cmap (Rewrite upd) = updateToExpr upd cmap
 
 updatesToExpr :: [StorageUpdate] -> ContractMap -> ActM ContractMap
 updatesToExpr upds initmap = foldM (flip updateToExpr) initmap upds
@@ -231,7 +232,7 @@ updateToExpr (Update typ (Item _ _ ref) e) cmap = do
 
     updateNonce :: EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateNonce (EVM.C code storage bal (Just n)) = EVM.C code storage bal (Just (n + 1))
-    updateNonce (EVM.C _ _ _ Nothing) = error "Internal error: nonce must be a number"
+    updateNonce c@(EVM.C _ _ _ Nothing) = c
     updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
 createContract :: ContractMap -> EVM.Expr EVM.EAddr -> Exp AContract -> ActM ContractMap
