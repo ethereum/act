@@ -23,8 +23,6 @@ import qualified Data.Map as M
 import Data.List
 import Data.Containers.ListUtils (nubOrd)
 import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
-import qualified Data.Text.Lazy.IO as TL
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8 (pack)
 import Data.ByteString (ByteString)
@@ -48,8 +46,9 @@ import qualified EVM.Types as EVM hiding (FrameState(..))
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial)
 import qualified EVM.SymExec as SymExec (EquivResult)
-import EVM.SMT (SMTCex(..), assertProps, formatSMT2)
+import EVM.SMT (SMTCex(..), assertProps)
 import EVM.Solvers
+import EVM.Effects
 import EVM.Format as Format
 
 
@@ -568,9 +567,9 @@ checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
 -- * Equivalence checking
 
 -- | Wrapper for the equivalenceCheck function of hevm
-checkEquiv :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> IO [EquivResult]
-checkEquiv solvers opts l1 l2 = do
-  res <- toIO True $ equivalenceCheck' solvers l1 l2
+checkEquiv :: App m => SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> m [EquivResult]
+checkEquiv solvers _ l1 l2 = do
+  res <- equivalenceCheck' solvers l1 l2
   pure $ fmap toEquivRes res
   where
     toEquivRes :: SymExec.EquivResult -> EquivResult
@@ -579,13 +578,13 @@ checkEquiv solvers opts l1 l2 = do
     toEquivRes (Timeout b) = Timeout b
 
 
-checkConstructors :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> IO ContractMap
+checkConstructors :: App m => SolverGroup -> VeriOpts -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m ContractMap
 checkConstructors solvers opts initcode runtimecode store contract codemap = do
   let (actbehvs, calldata, sig) = translateActConstr codemap store contract runtimecode
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
-  putStrLn "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
+  showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult calldata (Just sig) =<< checkEquiv solvers opts solbehvs actbehvs
-  putStrLn "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
+  showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
   checkResult calldata (Just sig) =<< checkInputSpaces solvers opts solbehvs actbehvs
   pure $ getContractMap actbehvs
   where
@@ -595,18 +594,18 @@ getContractMap :: [EVM.Expr EVM.End] -> ContractMap
 getContractMap [EVM.Success _ _ _ m] = m
 getContractMap _ = error "Internal error: unexpected shape of Act translation"
 
-checkBehaviours :: SolverGroup -> VeriOpts -> Store -> Contract -> CodeMap -> ContractMap -> IO ()
+checkBehaviours :: App m => SolverGroup -> VeriOpts -> Store -> Contract -> CodeMap -> ContractMap -> m ()
 checkBehaviours solvers opts store (Contract _ behvs) codemap cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = translateActBehvs codemap store behvs actstorage
   flip mapM_ actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
-    putStrLn $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
+    showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
-    putStrLn "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
+    showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     checkResult calldata (Just sig) =<< checkEquiv solvers opts solbehvs behvs'
     -- input space exhaustiveness check
-    putStrLn "\x1b[1mChecking if the input spaces are the same\x1b[m"
+    showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
     checkResult calldata (Just sig) =<< checkInputSpaces solvers opts solbehvs behvs'
     where
       removeFails branches = filter isSuccess $ branches
@@ -654,19 +653,19 @@ inputSpace exprs = map aux exprs
     aux _ = error "List should only contain success behaviours"
 
 -- | Check whether two lists of behaviours cover exactly the same input space
-checkInputSpaces :: SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> IO [EquivResult]
-checkInputSpaces solvers opts l1 l2 = do
+checkInputSpaces :: App m => SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> m [EquivResult]
+checkInputSpaces solvers _ l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
   let queries = fmap (assertProps defaultActConfig) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
                                                      , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
-  when True $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
-    TL.writeFile
-      ("input-query-" <> show idx <> ".smt2")
-      (formatSMT2 q <> "\n\n(check-sat)")
+  -- when True $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
+  --   TL.writeFile
+  --     ("input-query-" <> show idx <> ".smt2")
+  --     (formatSMT2 q <> "\n\n(check-sat)")
 
-  results <- mapConcurrently (checkSat solvers) queries
+  results <- liftIO $ mapConcurrently (checkSat solvers) queries
   let results' = case results of
                    [r1, r2] -> [ toVRes "\x1b[1mThe following inputs are accepted by Act but not EVM\x1b[m" r1
                                , toVRes "\x1b[1mThe following inputs are accepted by EVM but not Act\x1b[m" r2 ]
@@ -679,21 +678,21 @@ checkInputSpaces solvers opts l1 l2 = do
 
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
-checkAbi :: SolverGroup -> VeriOpts -> Contract -> ContractMap -> IO ()
-checkAbi solver opts contract cmap = do
-  putStrLn "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
+checkAbi :: App m => SolverGroup -> VeriOpts -> Contract -> ContractMap -> m ()
+checkAbi solver _ contract cmap = do
+  showMsg "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
   let (_, hevmstorage) = createStorage cmap
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs contract)
   evmBehvs <- getRuntimeBranches solver hevmstorage (txdata, [])
   let queries =  fmap (assertProps defaultActConfig) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
 
-  when True $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do -- TODO this happens inside mapConcurrently
-    TL.writeFile
-      ("abi-query-" <> show idx <> ".smt2")
-      (formatSMT2 q <> "\n\n(check-sat)")
-
-  checkResult (txdata, []) Nothing =<< fmap (toVRes msg) <$> mapConcurrently (checkSat solver) queries
+  -- when True $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do -- TODO this happens inside mapConcurrently
+  --   TL.writeFile
+  --     ("abi-query-" <> show idx <> ".smt2")
+  --     (formatSMT2 q <> "\n\n(check-sat)")
+  res <- liftIO $ mapConcurrently (checkSat solver) queries
+  checkResult (txdata, []) Nothing (fmap (toVRes msg) res)
 
   where
     actSig (Behaviour _ _ iface _ _ _ _ _) = T.pack $ makeIface iface
@@ -708,10 +707,10 @@ checkAbi solver opts contract cmap = do
 
     msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
 
-checkContracts :: SolverGroup -> VeriOpts -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> IO ()
+checkContracts :: App m => SolverGroup -> VeriOpts -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m ()
 checkContracts solvers opts store codemap =
   mapM_ (\(_, (contract, initcode, bytecode)) -> do
-            putStrLn $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
+            showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
             -- Constructor check
             cmap <- checkConstructors solvers opts initcode bytecode store contract codemap
             -- Behavours check
@@ -754,21 +753,21 @@ toVRes msg res = case res of
   Error e -> error $ "Internal Error: solver responded with error: " <> show e
 
 
-checkResult :: Calldata -> Maybe Sig -> [EquivResult] -> IO ()
+checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m ()
 checkResult calldata sig res =
   case any isCex res of
     False -> do
-      putStrLn "\x1b[42mNo discrepancies found\x1b[m"
+      showMsg "\x1b[42mNo discrepancies found\x1b[m"
       when (any isTimeout res) $ do
-        putStrLn "But timeout(s) occurred"
-        exitFailure
+        showMsg "But timeout(s) occurred"
+        liftIO exitFailure
     True -> do
       let cexs = mapMaybe getCex res
-      TIO.putStrLn . T.unlines $
+      showMsg . T.unpack . T.unlines $
         [ "\x1b[41mNot equivalent.\x1b[m"
         , "" , "-----", ""
         ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (fst calldata) sig cex) cexs)
-      exitFailure
+      liftIO exitFailure
 
 
 -- | Pretty prints a list of hevm behaviours for debugging purposes

@@ -51,6 +51,7 @@ import Act.Print
 import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
+import EVM.Effects
 
 --command line options
 data Command w
@@ -214,9 +215,10 @@ hevm actspec sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
-    let opts = defaultVeriOpts -- if debug' then debugVeriOpts else defaultVeriOpts
+    let opts = defaultVeriOpts -- TODO maybe remove
 
-    toIO True $ Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
+    let config = if debug' then defaultActConfig else debugActConfig
+    runEnv (Env config) $ Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
       checkContracts solvers opts store cmap
   where
 
