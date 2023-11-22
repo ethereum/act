@@ -1,11 +1,11 @@
 constructor of A
 interface constructor()
 
-creates
-
 iff
 
   CALLVALUE == 0
+
+creates
 
   uint x := 0
 

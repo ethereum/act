@@ -1,11 +1,27 @@
 constructor of A
 interface constructor()
 
+iff
+   CALLVALUE == 0
+
 creates
    uint x := 0
 
+behaviour set_x of A
+interface set_x(uint z)
+
+iff
+   CALLVALUE == 0
+
+storage
+   x => z
+
+
 constructor of B
 interface constructor()
+
+iff
+   CALLVALUE == 0
 
 creates
    uint y := 0
@@ -20,12 +36,14 @@ iff
 storage
    a.x => z
 
+returns 0
+
+
 behaviour multi of B
 interface multi(uint z)
 
 iff
    CALLVALUE == 0
-
 storage
-   y => 1
-   a.x => z
+   y => z
+   a.x => 42
