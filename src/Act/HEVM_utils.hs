@@ -21,9 +21,7 @@ import Prelude hiding (GT, LT)
 import Data.Containers.ListUtils (nubOrd)
 import Data.List
 import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
 import qualified Data.ByteString as BS
-import Control.Monad
 import Control.Monad.ST (stToIO, ST)
 import Control.Monad.Reader
 
