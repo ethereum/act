@@ -1,8 +1,8 @@
 # Introduction
 
-Act is a high level specification language for evm programs. The core aim is to allow for easy
+Act is a high level specification language for EVM programs. The core aim is to allow for easy
 refinement. We want to make it as easy as possible for development teams to define a high level
-specification, which can then either be used "upwards" to prove higher level properties or
+specification, which can then be used "upwards" to prove higher level properties or
 "downwards" to demonstrate that an implementation in EVM bytecode conforms to the spec.
 
 Act currently integrates with the following tools:

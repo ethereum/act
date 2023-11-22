@@ -39,9 +39,9 @@ As an example consider the specification of overflow safe addition:
 
 ```act
 behaviour add of SafeMath
-interface add(uint x, uint y)
+interface add(uint256 x, uint256 y)
 
-iff in range uint
+iff in range uint256
 
    x + y
 
@@ -67,7 +67,7 @@ constructor of A
 
 A constructor section consists of the following fields:
 
-### interface
+### Interface
 
 Specifying the arguments the constructor takes.
 Example:
@@ -75,7 +75,7 @@ Example:
 interface constructor(address _owner)
 ```
 
-### iff (optional)
+### Iff (optional)
 
 The conditions that must be satisfied in order for the contract to be created.
 These must be necessary and sufficient conditions, in the sense that if any
@@ -89,7 +89,7 @@ CALLER == _owner
 ```
 
 
-### creates
+### Creates
 Defines the storage layout of the contract.
 
 Example:
@@ -139,7 +139,7 @@ behaviour of A
 and consists of the following fields:
 
 
-### interface
+### Interface
 
 Specifying which method the behaviour refers to.
 Example:
@@ -147,7 +147,7 @@ Example:
 interface transfer(address to, uint value)
 ```
 
-### iff (optional)
+### Iff (optional)
 
 The conditions that must be satisfied in order for the transition to apply.
 These must be necessary and sufficient conditions, in the sense that if any
@@ -161,7 +161,7 @@ iff
   CALLVALUE == 0
 ```
 
-### state updates and returns
+### State updates and returns
 
 Each behaviour must specify the state changes that happens a result of
 a valid call to the method, and its return argument, if any.
@@ -180,7 +180,7 @@ storage
 returns post(balanceOf[CALLER])
 ```
 
-### cases
+### Cases
 
 State updates and returns can be split between a number of cases, as in:
 
@@ -198,7 +198,12 @@ case to =/= CALLER:
    returns post(balanceOf[CALLER])
 ```
 
-Note that currently, either a `storage` or `returns` section, or both is required in every spec.
+Note that either a `storage` or `returns` section, or both is required in every spec.
+
+
+Cases must be both nonoverlappig and exhaustive. This is ensured
+during typechecking using an SMT solver. 
+
 
 ### Ensures (optional)
 
@@ -246,8 +251,8 @@ storage
 
 ## Range predicates
 Often, to accurately specify a contract, we need to assume that
-arithmetic operations do not overflow. This is done with built-in
-*in-range* predicates. For example, in the iff conditions of a
+arithmetic operations do not overflow. This is done with a built-in
+*inRange* predicates. For example, in the iff conditions of a
 constructor of behaviour we can write
 
 
@@ -267,8 +272,8 @@ CALLER =/= x => inRange(uint256, (a + b) - c)
 ```
 
 
-To conveniently pack many in range predicates together Act provides an
-alternative form of iff conditions
+To conveniently pack many *inRange* predicates together Act provides
+an alternative form of iff conditions:
 
 ```
 iff
@@ -278,3 +283,12 @@ iff in range uint256
    (a + b) - c
    d - e
 ```
+
+### Semantics
+The semantics of the *inRange* predicate is that the final expression,
+as well ass **all of the subexpressions** must be in the required range. 
+
+For example, the above example `inRange(uint256, (a + b) - c)`, means
+that `a`, `b`, `a + b`, and `(a + b) - c` stay withing the range of a
+`uint256`.
+
