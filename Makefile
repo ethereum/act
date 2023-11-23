@@ -104,11 +104,11 @@ tests/%.postcondition.fail:
 
 tests/hevm/pass/%.act.hevm.pass:
 	$(eval CONTRACT := $(shell awk '/contract/{ print $$2 }' tests/hevm/pass/$*.sol))
-	./bin/act hevm --spec tests/hevm/pass/$*.act --sol tests/hevm/pass/$*.sol --contract $(CONTRACT)
+	./bin/act hevm --spec tests/hevm/pass/$*.act --sol tests/hevm/pass/$*.sol
 
 tests/hevm/fail/%.act.hevm.fail:
 	$(eval CONTRACT := $(shell awk '/contract/{ print $$2 }' tests/hevm/fail/$*.sol))
-	./bin/act hevm --spec tests/hevm/fail/$*.act --sol tests/hevm/fail/$*.sol --contract $(CONTRACT) && exit 1 || echo 0
+	./bin/act hevm --spec tests/hevm/fail/$*.act --sol tests/hevm/fail/$*.sol && exit 1 || echo 0
 
 test-ci: test-parse test-type test-invariant test-postcondition test-coq test-hevm
 test: test-ci test-cabal

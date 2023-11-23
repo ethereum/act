@@ -53,6 +53,9 @@ locsFromInvariant (Invariant _ pre bounds (predpre, predpost)) =
 -- * Extract from any typed AST * --
 ------------------------------------
 
+nameOfContract :: Contract t -> Id
+nameOfContract (Contract (Constructor cname _ _ _ _ _) _) = cname
+
 behvsFromAct :: Agnostic.Act t -> [Behaviour t]
 behvsFromAct (Act _ contracts) = behvsFromContracts contracts
 

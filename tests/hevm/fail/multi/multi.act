@@ -1,0 +1,31 @@
+constructor of A
+interface constructor(uint z)
+
+iff
+   CALLVALUE == 0
+   inRange(uint256, z + 42)
+
+creates
+   uint x := z + 42
+
+behaviour set_x of A
+interface set_x(uint z)
+
+iff
+   CALLVALUE == 0
+
+storage
+   x => z
+
+
+constructor of B
+interface constructor(uint v)
+
+iff
+   CALLVALUE == 0
+   // This condition must be present for equivalence check to pass
+   // inRange(uint256, v + 42)
+
+creates
+   uint y := 0
+   A a := create A(v)

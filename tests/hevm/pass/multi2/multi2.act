@@ -1,0 +1,39 @@
+constructor of A
+interface constructor(uint z)
+
+iff
+   CALLVALUE == 0
+   inRange(uint256, z + 1)
+
+creates
+   uint x := z + 1
+
+
+behaviour x of A
+interface x()
+
+iff
+   CALLVALUE == 0
+
+returns
+   pre(x)
+
+behaviour set_x of A
+interface set_x(uint z)
+
+iff
+   CALLVALUE == 0
+
+storage
+  x => z
+
+constructor of B
+interface constructor(uint u)
+
+iff
+   CALLVALUE == 0
+   inRange(uint256, u + 1)
+
+creates
+   uint y := 0
+   A a := create A(u)
