@@ -48,7 +48,6 @@ import Act.HEVM_utils
 import Act.Consistency
 import Act.Print
 
-import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
 import EVM.Effects
@@ -215,11 +214,9 @@ hevm actspec sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
-    let opts = defaultVeriOpts -- TODO maybe remove
-
     let config = if debug' then defaultActConfig else debugActConfig
     runEnv (Env config) $ Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
-      checkContracts solvers opts store cmap
+      checkContracts solvers store cmap
   where
 
     createContractMap :: [Contract] -> IO (Map Id (Contract, BS.ByteString, BS.ByteString))

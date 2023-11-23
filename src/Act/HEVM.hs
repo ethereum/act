@@ -567,8 +567,8 @@ checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
 -- * Equivalence checking
 
 -- | Wrapper for the equivalenceCheck function of hevm
-checkEquiv :: App m => SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> m [EquivResult]
-checkEquiv solvers _ l1 l2 = do
+checkEquiv :: App m => SolverGroup -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> m [EquivResult]
+checkEquiv solvers l1 l2 = do
   res <- equivalenceCheck' solvers l1 l2
   pure $ fmap toEquivRes res
   where
@@ -578,14 +578,14 @@ checkEquiv solvers _ l1 l2 = do
     toEquivRes (Timeout b) = Timeout b
 
 
-checkConstructors :: App m => SolverGroup -> VeriOpts -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m ContractMap
-checkConstructors solvers opts initcode runtimecode store contract codemap = do
+checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m ContractMap
+checkConstructors solvers initcode runtimecode store contract codemap = do
   let (actbehvs, calldata, sig) = translateActConstr codemap store contract runtimecode
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
-  checkResult calldata (Just sig) =<< checkEquiv solvers opts solbehvs actbehvs
+  checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
-  checkResult calldata (Just sig) =<< checkInputSpaces solvers opts solbehvs actbehvs
+  checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
   pure $ getContractMap actbehvs
   where
     removeFails branches = filter isSuccess $ branches
@@ -594,8 +594,8 @@ getContractMap :: [EVM.Expr EVM.End] -> ContractMap
 getContractMap [EVM.Success _ _ _ m] = m
 getContractMap _ = error "Internal error: unexpected shape of Act translation"
 
-checkBehaviours :: App m => SolverGroup -> VeriOpts -> Store -> Contract -> CodeMap -> ContractMap -> m ()
-checkBehaviours solvers opts store (Contract _ behvs) codemap cmap = do
+checkBehaviours :: App m => SolverGroup -> Store -> Contract -> CodeMap -> ContractMap -> m ()
+checkBehaviours solvers store (Contract _ behvs) codemap cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = translateActBehvs codemap store behvs actstorage
   flip mapM_ actbehvs $ \(name,behvs',calldata, sig) -> do
@@ -603,10 +603,10 @@ checkBehaviours solvers opts store (Contract _ behvs) codemap cmap = do
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
-    checkResult calldata (Just sig) =<< checkEquiv solvers opts solbehvs behvs'
+    checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
     -- input space exhaustiveness check
     showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
-    checkResult calldata (Just sig) =<< checkInputSpaces solvers opts solbehvs behvs'
+    checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
     where
       removeFails branches = filter isSuccess $ branches
 
@@ -653,8 +653,8 @@ inputSpace exprs = map aux exprs
     aux _ = error "List should only contain success behaviours"
 
 -- | Check whether two lists of behaviours cover exactly the same input space
-checkInputSpaces :: App m => SolverGroup -> VeriOpts -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> m [EquivResult]
-checkInputSpaces solvers _ l1 l2 = do
+checkInputSpaces :: App m => SolverGroup -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> m [EquivResult]
+checkInputSpaces solvers l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
   let queries = fmap (assertProps defaultActConfig) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
@@ -678,8 +678,8 @@ checkInputSpaces solvers _ l1 l2 = do
 
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
-checkAbi :: App m => SolverGroup -> VeriOpts -> Contract -> ContractMap -> m ()
-checkAbi solver _ contract cmap = do
+checkAbi :: App m => SolverGroup -> Contract -> ContractMap -> m ()
+checkAbi solver contract cmap = do
   showMsg "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
   let (_, hevmstorage) = createStorage cmap
   let txdata = EVM.AbstractBuf "txdata"
@@ -707,16 +707,16 @@ checkAbi solver _ contract cmap = do
 
     msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
 
-checkContracts :: App m => SolverGroup -> VeriOpts -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m ()
-checkContracts solvers opts store codemap =
+checkContracts :: App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m ()
+checkContracts solvers store codemap =
   mapM_ (\(_, (contract, initcode, bytecode)) -> do
             showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
             -- Constructor check
-            cmap <- checkConstructors solvers opts initcode bytecode store contract codemap
+            cmap <- checkConstructors solvers initcode bytecode store contract codemap
             -- Behavours check
-            checkBehaviours solvers opts store contract codemap cmap
+            checkBehaviours solvers store contract codemap cmap
             -- ABI exhaustiveness sheck
-            checkAbi solvers opts contract cmap
+            checkAbi solvers contract cmap
         ) (M.toList codemap)
 
 
