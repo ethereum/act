@@ -139,7 +139,10 @@ translateActBehvs codemap store behvs cmap =
   fst $ flip runState env $ translateBehvs cmap behvs
   where
     env = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint")
-    fresh = 0 -- this is OK only because behaviours do not call constructors
+    fresh = maxAddr
+
+
+      0 -- this is OK only because behaviours do not call constructors
 
 translateConstructor ::  BS.ByteString -> Constructor -> ActM ([EVM.Expr EVM.End], Calldata, Sig)
 translateConstructor bytecode (Constructor _ iface preconds _ _ upds)  = do

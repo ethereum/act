@@ -1,4 +1,4 @@
-# Checking equivalence with EVM bytecode
+# Checking Equivalence with EVM Bytecode
 
 EVM bytecode can be formally verified to implement an Act spec. This
 means that each successful end state of the bytecode should be covered
@@ -25,7 +25,7 @@ storage `storage`.
 
 
 
-## Equivalence checks
+## Equivalence Checks
 For each constructor and behavior in the Act spec
 we perform the following
 
@@ -37,14 +37,14 @@ corresponds to this constructor/behaviour.
 
 Then for each behaviour we check the following.
 
-### Result equivalence
+### Result Equivalence
 The two list of `Success` nodes are checked for equivalence using the
 HEVM equivalence checker. For each pair of nodes in the two lists, we
 check that for all inputs that satisfy the path conditions of both
 lists the result and final state (return and storage) must be the
 same.
 
-### Input space equivalence
+### Input Space Equivalence
 We also need to check that the path conditions that may lead to this
 behavior are the same in both list.
 That is, there must not be inputs that satisfy
@@ -59,7 +59,7 @@ then we need to check that `c1 \/ .. \/ cn <-> c1' \/ .. \/ cn'`.
 We require therefore require that `c1 \/ .. \/ cn /\ ~ (c1' \/ .. \/ cn')` and `c1'
 \/ .. \/ cn' /\ ~ (c1 \/ .. \/ cn)` are both unsatisfiable.
 
-### Result equivalence
+### Result Equivalence
 The two list of `Success` nodes are checked for equivalence using the
 HEVM equivalence checker. For each pair of nodes in thedekfunction selector
 different from those present in Act is unsatisfiable.  If these
@@ -68,9 +68,32 @@ in the bytecode that produces successful end states in it is not
 covered by the spec.
 
 
-## Multiple contracts
+## Multiple Contracts
 If the contract creates and interacts with other contracts, then
-equivalence checking becaumes more compilated.
+equivalence checking becomes more compilated.
 
+### Storage Representation
+
+The storage representation is a Haskell map from contract addresses
+(concrete or symbolic) to a record that represents a contract. The
+record type contains the bytecode, storage (of `Expr Storage` type),
+the balancen and (potentially) a nonce:
+
+
+```
+C ::
+  { code    :: ContractCode
+  , storage :: Expr Storage
+  , balance :: Expr EWord
+  , nonce   :: Maybe W64
+  } -> Expr EContract
+
+type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract)
+
+```
+
+In Act, we use only unique symbolic addresses for contracts. 
 
 ### Contructors
+
+### Alpha Equivalence
