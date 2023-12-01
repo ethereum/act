@@ -23,7 +23,6 @@ import qualified Data.Map as M
 import Data.List
 import Data.Containers.ListUtils (nubOrd)
 import qualified Data.Text as T
-import qualified Data.Text.Lazy.IO as TL
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8 (pack)
 import Data.ByteString (ByteString)
@@ -47,7 +46,7 @@ import qualified EVM.Types as EVM hiding (FrameState(..))
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial)
 import qualified EVM.SymExec as SymExec (EquivResult)
-import EVM.SMT (SMTCex(..), assertProps, formatSMT2)
+import EVM.SMT (SMTCex(..), assertProps)
 import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
@@ -670,11 +669,6 @@ checkAbi solver contract cmap = do
   evmBehvs <- getRuntimeBranches solver hevmstorage (txdata, [])
   conf <- readConfig
   let queries =  fmap (assertProps conf) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
-
-  -- when True $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do -- TODO this happens inside mapConcurrently
-  --   TL.writeFile
-  --     ("abi-query-" <> show idx <> ".smt2")
-  --     (formatSMT2 q <> "\n\n(check-sat)")
   res <- liftIO $ mapConcurrently (checkSat solver) queries
   checkResult (txdata, []) Nothing (fmap (toVRes msg) res)
 
