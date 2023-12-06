@@ -51,6 +51,7 @@ import Act.Print
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
 import EVM.Effects
+import qualified EVM.Types as EVM (Expr, Contract, EType(..)) 
 
 --command line options
 data Command w
@@ -207,6 +208,11 @@ coq' f solver' smttimeout' debug' = do
   proceed contents (enrich <$> compile contents) $ \claims -> do
     checkCases claims solver' smttimeout' debug'
     TIO.putStr $ coq claims
+
+hevm_test :: Calldata -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> IO ()
+hevm_test cdata contracts = do
+  endstates <- runEnv (Env debugActConfig) $ Solvers.withSolvers CVC5 1 (Just 1000) $ \solvers -> getRuntimeBranches solvers contracts cdata
+  putStrLn $ showBehvs endstates
 
 hevm :: FilePath -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec sol' code' initcode' solver' timeout debug' = do
