@@ -26,13 +26,12 @@ import qualified Data.Text.IO as TIO
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import GHC.Natural
 import Options.Generic
-
+import Control.Monad.State
 
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString as BS
 import Data.ByteString (ByteString)
 
-import Control.Monad
 import Control.Lens.Getter
 
 import Act.Error
@@ -213,6 +212,39 @@ hevm_test :: Calldata -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> IO ()
 hevm_test cdata contracts = do
   endstates <- runEnv (Env debugActConfig) $ Solvers.withSolvers CVC5 1 (Just 1000) $ \solvers -> getRuntimeBranches solvers contracts cdata
   putStrLn $ showBehvs endstates
+
+hevm_test' :: FilePath -> FilePath -> Id -> Id -> IO ()
+hevm_test' actspec sol' cname behv = do
+  specContents <- readFile actspec
+  proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
+    codemap <- createContractMap contracts
+    runEnv (Env debugActConfig) $ Solvers.withSolvers CVC5 1 (Just 1000) $ \solvers -> do
+      endstates <- (case Map.lookup cname codemap of
+                      Just (contract@(Contract _ behvs), initcode', bytecode) -> do
+                        (cmap, actenv) <- checkConstructors solvers initcode' bytecode store contract codemap
+                        let (actstorage, hevmstorage) = createStorage cmap
+                        let actbehvs = fst $ flip runState actenv $ translateBehvs actstorage behvs
+                        case find (\(name, _, _, _) -> name == behv) actbehvs of
+                          Just (_,_,calldata, _) -> getRuntimeBranches solvers hevmstorage calldata
+                          Nothing -> error "behaviour not found"
+                      Nothing -> error "contract not found")
+      liftIO $ putStrLn $ showBehvs endstates
+
+
+  where
+
+    createContractMap :: [Contract] -> IO (Map Id (Contract, BS.ByteString, BS.ByteString))
+    createContractMap contracts = do
+      foldM (\cmap spec'@(Contract cnstr _) -> do
+                let cid =  _cname cnstr
+                (initcode'', runtimecode') <- getBytecode cid -- TODO do not reread the file each time
+                pure $ Map.insert cid (spec', initcode'', runtimecode') cmap
+            ) mempty contracts
+
+    getBytecode :: Id -> IO (BS.ByteString, BS.ByteString)
+    getBytecode cid = do
+      solContents <- TIO.readFile sol'
+      bytecodes (Text.pack cid) solContents
 
 hevm :: FilePath -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec sol' code' initcode' solver' timeout debug' = do
