@@ -99,7 +99,7 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
         s -> error $ "unsupported cd fragment: " <> show s
 
 checkPartial :: App m => [EVM.Expr EVM.End] -> m ()
-checkPartial nodes = 
+checkPartial nodes =
   if (any isPartial nodes) then do
     showMsg ""
     showMsg "WARNING: hevm was only able to partially explore the given contract due to the following issues:"
@@ -110,12 +110,12 @@ checkPartial nodes =
 -- | decompiles the given EVM bytecode into a list of Expr branches
 getRuntimeBranches :: App m => SolverGroup -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> Calldata -> m [EVM.Expr EVM.End]
 getRuntimeBranches solvers contracts calldata = do
-      prestate <- liftIO $ stToIO $ abstractVM contracts calldata
-      expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
-      let simpl = if True then (simplify expr) else expr
-      let nodes = flattenExpr simpl
-      checkPartial nodes
-      pure nodes
+  prestate <- liftIO $ stToIO $ abstractVM contracts calldata
+  expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
+  let simpl = simplify expr
+  let nodes = flattenExpr simpl
+  checkPartial nodes
+  pure nodes
 
 
 -- | decompiles the given EVM initcode into a list of Expr branches

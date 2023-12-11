@@ -208,13 +208,12 @@ coq' f solver' smttimeout' debug' = do
     checkCases claims solver' smttimeout' debug'
     TIO.putStr $ coq claims
 
-
 hevm :: FilePath -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
-    let config = if debug' then defaultActConfig else debugActConfig
+    let config = if debug' then debugActConfig else defaultActConfig
     runEnv (Env config) $ Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
       checkContracts solvers store cmap
   where

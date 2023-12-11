@@ -51,7 +51,6 @@ import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
 
-
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -126,20 +125,6 @@ localCaddr caddr m = do
   pure res
 
 -- * Act translation
-
-translateActConstr :: CodeMap -> Store -> Contract -> BS.ByteString -> ([EVM.Expr EVM.End], Calldata, Sig)
-translateActConstr codemap store (Contract ctor _) bytecode =
-  fst $ flip runState env $ translateConstructor bytecode ctor
-  where
-    env = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint")
-    fresh = 0
-
-translateActBehvs :: CodeMap -> Store -> [Behaviour] -> ContractMap -> [(Id, [EVM.Expr EVM.End], Calldata, Sig)]
-translateActBehvs codemap store behvs cmap =
-  fst $ flip runState env $ translateBehvs cmap behvs
-  where
-    env = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint")
-    fresh = 0 -- this is OK only because behaviours do not call constructors
 
 translateConstructor ::  BS.ByteString -> Constructor -> ActM ([EVM.Expr EVM.End], Calldata, Sig)
 translateConstructor bytecode (Constructor _ iface preconds _ _ upds)  = do
@@ -578,15 +563,16 @@ checkEquiv solvers l1 l2 = do
     toEquivRes (Timeout b) = Timeout b
 
 
-checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m ContractMap
-checkConstructors solvers initcode runtimecode store contract codemap = do
-  let (actbehvs, calldata, sig) = translateActConstr codemap store contract runtimecode
+checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (ContractMap, ActEnv)
+checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
+  let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint")
+  let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
   checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
-  pure $ getContractMap actbehvs
+  pure $ (getContractMap actbehvs, actenv')
   where
     removeFails branches = filter isSuccess $ branches
 
@@ -594,10 +580,10 @@ getContractMap :: [EVM.Expr EVM.End] -> ContractMap
 getContractMap [EVM.Success _ _ _ m] = m
 getContractMap _ = error "Internal error: unexpected shape of Act translation"
 
-checkBehaviours :: App m => SolverGroup -> Store -> Contract -> CodeMap -> ContractMap -> m ()
-checkBehaviours solvers store (Contract _ behvs) codemap cmap = do
+checkBehaviours :: App m => SolverGroup -> Contract -> ActEnv -> ContractMap -> m ()
+checkBehaviours solvers (Contract _ behvs) actenv cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
-  let actbehvs = translateActBehvs codemap store behvs actstorage
+  let actbehvs = fst $ flip runState actenv $ translateBehvs actstorage behvs
   flip mapM_ actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
@@ -657,13 +643,9 @@ checkInputSpaces :: App m => SolverGroup -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.
 checkInputSpaces solvers l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
-  let queries = fmap (assertProps defaultActConfig) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
-                                                     , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
-
-  -- when True $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do
-  --   TL.writeFile
-  --     ("input-query-" <> show idx <> ".smt2")
-  --     (formatSMT2 q <> "\n\n(check-sat)")
+  conf <- readConfig
+  let queries = fmap (assertProps conf) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
+                                        , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
   results <- liftIO $ mapConcurrently (checkSat solvers) queries
   let results' = case results of
@@ -685,12 +667,8 @@ checkAbi solver contract cmap = do
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs contract)
   evmBehvs <- getRuntimeBranches solver hevmstorage (txdata, [])
-  let queries =  fmap (assertProps defaultActConfig) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
-
-  -- when True $ forM_ (zip [(1 :: Int)..] queries) $ \(idx, q) -> do -- TODO this happens inside mapConcurrently
-  --   TL.writeFile
-  --     ("abi-query-" <> show idx <> ".smt2")
-  --     (formatSMT2 q <> "\n\n(check-sat)")
+  conf <- readConfig
+  let queries =  fmap (assertProps conf) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
   res <- liftIO $ mapConcurrently (checkSat solver) queries
   checkResult (txdata, []) Nothing (fmap (toVRes msg) res)
 
@@ -712,9 +690,9 @@ checkContracts solvers store codemap =
   mapM_ (\(_, (contract, initcode, bytecode)) -> do
             showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
             -- Constructor check
-            cmap <- checkConstructors solvers initcode bytecode store contract codemap
+            (cmap, actenv) <- checkConstructors solvers initcode bytecode store contract codemap
             -- Behavours check
-            checkBehaviours solvers store contract codemap cmap
+            checkBehaviours solvers contract actenv cmap
             -- ABI exhaustiveness sheck
             checkAbi solvers contract cmap
         ) (M.toList codemap)
