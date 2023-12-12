@@ -1,0 +1,26 @@
+// contract A
+
+behaviour bar of A
+interface bar(uint y)
+
+iff
+   CALLVALUE == 0
+
+returns y
+
+// contract B
+constructor of B
+interface constructor()
+iff
+   CALLVALUE == 0
+
+creates
+   A a := create A()
+
+behaviour foo of B
+interface foo()
+
+iff
+   CALLVALUE == 0
+
+returns 42
