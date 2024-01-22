@@ -67,7 +67,7 @@ test-invariant: parser compiler $(invariant_pass:=.invariant.pass) $(invariant_f
 test-postcondition: parser compiler $(postcondition_pass:=.postcondition.pass) $(postcondition_fail:=.postcondition.fail)
 test-hevm: parser compiler $(hevm_pass:=.hevm.pass) $(hevm_fail:=.hevm.fail)
 test-cabal: src/*.hs
-	cd src && cabal v2-run test
+	cabal v2-run test
 
 # Just checks parsing
 tests/%.parse.pass:
