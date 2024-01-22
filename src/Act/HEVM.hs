@@ -51,6 +51,8 @@ import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
 
+import Debug.Trace
+
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -567,7 +569,11 @@ checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint")
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
+  traceM "Act"
+  traceM (showBehvs actbehvs)  
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
+  traceM "Solidity"
+  traceM (showBehvs solbehvs)
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
