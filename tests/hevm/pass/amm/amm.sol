@@ -20,19 +20,24 @@ contract Token {
 contract Amm {
 
     Token token0;
-    /* Token token1; */
+    Token token1;
 
-    constructor(uint256 amt1) {
+    constructor(uint256 amt1, uint256 amt2) {
         token0 = new Token(amt1);
-	/* token1 = new Token(amt2); */
+	token1 = new Token(amt2);
     }
 
-    /* function swap0(uint256 amt) public returns (uint) { */
-    /* 	require (token0.balanceOf(msg.sender) >= amt); */
-    /* 	token0.transferFrom(amt, msg.sender, address(this)); */
-    /* 	token1.transferFrom((token1.balanceOf(address(this))*amt) / (token0.balanceOf(address(this)) + amt), address(this), msg.sender); */
-    /*     return 1; */
-    /* } */
+    function swap0(uint256 amt) public returns (uint) {
+	uint256 reserve0 = token0.balanceOf(address(this));
+	uint256 reserve1 = token1.balanceOf(address(this));
+	
+	/* require (token0.balanceOf(msg.sender) >= amt); */
+	
+	/* token0.transferFrom(amt, msg.sender, address(this)); */
+	token1.transferFrom((reserve1*amt) / (reserve0+amt), address(this), msg.sender);
+
+	return 1;
+    }
 
     /* function swap1(uint256 amt) public returns (uint) { */
     /* 	require (token1.balanceOf(msg.sender) >= amt); */
