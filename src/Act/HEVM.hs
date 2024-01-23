@@ -85,6 +85,7 @@ data ActEnv = ActEnv
   , fresh   :: Int
   , layout  :: Layout
   , caddr   :: EVM.Expr EVM.EAddr
+  , caller  :: Maybe (EVM.Expr EVM.EAddr)
   }
 
 type ActM a = State ActEnv a
@@ -120,11 +121,20 @@ localCaddr :: EVM.Expr EVM.EAddr -> ActM a -> ActM a
 localCaddr caddr m = do
   env <- get
   let caddr' = env.caddr
-  put (env { caddr = caddr })
+  let caller' = env.caller
+  put (env { caddr = caddr, caller = Just caddr' })
   res <- m
   env' <- get
-  put (env' { caddr = caddr' })
+  put (env' { caddr = caddr', caller =  caller' })
   pure res
+
+getCaller :: ActM (EVM.Expr EVM.EAddr)
+getCaller = do
+  env <- get
+  case env.caller of
+    Just c -> pure c
+    Nothing -> pure $ EVM.SymAddr "caller" -- Zoe: not sure what to put here
+
 
 -- * Act translation
 
@@ -382,17 +392,21 @@ refAddr cmap (SField _ ref c x) = do
     Nothing -> error "Internal error: contract not found"
 refAddr _ (SMapping _ _ _) = error "Internal error: mapping address not suppported"
 
-ethEnvToWord :: EthEnv -> EVM.Expr EVM.EWord
-ethEnvToWord Callvalue = EVM.TxValue
-ethEnvToWord Caller = EVM.WAddr $ EVM.SymAddr "caller"
-ethEnvToWord Origin = EVM.Origin
-ethEnvToWord Blocknumber = EVM.BlockNumber
-ethEnvToWord Blockhash = EVM.BlockHash $ EVM.Lit 0
-ethEnvToWord Chainid = EVM.ChainId
-ethEnvToWord Gaslimit = EVM.GasLimit
-ethEnvToWord Coinbase = EVM.Coinbase
-ethEnvToWord Timestamp = EVM.Timestamp
-ethEnvToWord This = error "TODO"
+ethEnvToWord :: EthEnv -> ActM (EVM.Expr EVM.EWord)
+ethEnvToWord Callvalue = pure $ EVM.TxValue
+ethEnvToWord Caller = do
+  c <- getCaller
+  pure $ EVM.WAddr c
+ethEnvToWord Origin = pure $ EVM.Origin
+ethEnvToWord Blocknumber = pure $ EVM.BlockNumber
+ethEnvToWord Blockhash = pure $ EVM.BlockHash $ EVM.Lit 0
+ethEnvToWord Chainid = pure $ EVM.ChainId
+ethEnvToWord Gaslimit = pure $ EVM.GasLimit
+ethEnvToWord Coinbase = pure $ EVM.Coinbase
+ethEnvToWord Timestamp = pure $ EVM.Timestamp
+ethEnvToWord This = do
+  c <- getCaddr
+  pure $ EVM.WAddr c
 ethEnvToWord Nonce = error "TODO"
 ethEnvToWord Calldepth = error "TODO"
 ethEnvToWord Difficulty = error "TODO"
@@ -465,7 +479,7 @@ toExpr cmap = \case
   (Mod _ e1 e2) -> op2 EVM.Mod e1 e2 -- which mod?
   (Exp _ e1 e2) -> op2 EVM.Exp e1 e2
   (LitInt _ n) -> pure $ EVM.Lit (fromIntegral n)
-  (IntEnv _ env) -> pure $ ethEnvToWord env
+  (IntEnv _ env) -> ethEnvToWord env
   -- bounds
   (IntMin _ n) -> pure $ EVM.Lit (fromIntegral $ intmin n)
   (IntMax _ n) -> pure $ EVM.Lit (fromIntegral $ intmax n)
@@ -567,7 +581,7 @@ checkEquiv solvers l1 l2 = do
 
 checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (ContractMap, ActEnv)
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
-  let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint")
+  let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
   traceM "Act"
   traceM (showBehvs actbehvs)  
