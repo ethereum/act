@@ -141,7 +141,7 @@ getCaller = do
 translateConstructor ::  BS.ByteString -> Constructor -> ActM ([EVM.Expr EVM.End], Calldata, Sig)
 translateConstructor bytecode (Constructor _ iface preconds _ _ upds)  = do
   preconds' <- mapM (toProp initmap) preconds
-  cmap <- applyUpdates upds initmap
+  cmap <- applyUpdates initmap initmap upds
   fresh <- getFresh
   pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr fresh) mempty (EVM.ConcreteBuf bytecode) cmap], calldata, ifaceToSig iface)
   where
@@ -186,31 +186,31 @@ translateBehv cmap (Behaviour _ _ _ preconds caseconds _ upds ret) = do
   preconds' <- mapM (toProp cmap) preconds
   caseconds' <- mapM (toProp cmap) caseconds
   ret' <- returnsToExpr cmap ret
-  store <- applyUpdates upds cmap
+  store <- applyUpdates cmap cmap upds
   pure $ EVM.Success (preconds' <> caseconds') mempty ret' store
 
 
-applyUpdates :: [StorageUpdate] -> ContractMap -> ActM ContractMap
-applyUpdates upds initmap = foldM (flip applyUpdate) initmap upds
+applyUpdates :: ContractMap -> ContractMap -> [StorageUpdate] -> ActM ContractMap
+applyUpdates readMap writeMap upds = foldM (applyUpdate readMap) writeMap upds
 
-applyUpdate :: StorageUpdate -> ContractMap -> ActM ContractMap
-applyUpdate (Update typ (Item _ _ ref) e) cmap = do
-  caddr' <- baseAddr cmap ref
-  offset <- refOffset cmap ref
-  let contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
+applyUpdate :: ContractMap -> ContractMap -> StorageUpdate -> ActM ContractMap
+applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
+  caddr' <- baseAddr readMap ref
+  offset <- refOffset readMap ref
+  let contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' writeMap
   case typ of
     SInteger -> do
-      e' <- toExpr cmap e
-      pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) cmap
+      e' <- toExpr readMap e
+      pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
     SBoolean -> do
-      e' <- toExpr cmap e
-      pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) cmap
+      e' <- toExpr readMap e
+      pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
     SByteStr -> error "Bytestrings not supported"
     SContract -> do
      fresh <- getFreshIncr
      let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
-     cmap' <- localCaddr freshAddr $ createContract cmap freshAddr e
-     pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) cmap'
+     writeMap' <- localCaddr freshAddr $ createContract readMap writeMap freshAddr e
+     pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) writeMap'
   where
 
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
@@ -222,8 +222,8 @@ applyUpdate (Update typ (Item _ _ ref) e) cmap = do
     updateNonce c@(EVM.C _ _ _ Nothing) = c
     updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
-createContract :: ContractMap -> EVM.Expr EVM.EAddr -> Exp AContract -> ActM ContractMap
-createContract cmap freshAddr (Create _ cid args) = do
+createContract :: ContractMap -> ContractMap -> EVM.Expr EVM.EAddr -> Exp AContract -> ActM ContractMap
+createContract readMap writeMap freshAddr (Create _ cid args) = do
   codemap <- getCodemap
   case M.lookup cid codemap of
     Just (Contract (Constructor _ iface _ _ _ upds) _, _, bytecode) -> do
@@ -235,9 +235,9 @@ createContract cmap freshAddr (Create _ cid args) = do
       let subst = makeSubstMap iface args
 
       let upds' = substUpds subst upds
-      applyUpdates upds' (M.insert freshAddr contract cmap)
+      applyUpdates (M.insert freshAddr contract readMap) (M.insert freshAddr contract writeMap) upds'
     Nothing -> error "Internal error: constructor not found"
-createContract _ _ _ = error "Internal error: constructor call expected"
+createContract _ _ _ _ = error "Internal error: constructor call expected"
 
 -- | Substitutions
 
@@ -583,11 +583,11 @@ checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
-  traceM "Act"
-  traceM (showBehvs actbehvs)  
+  -- traceM "Act"
+  -- traceM (showBehvs actbehvs)
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
-  traceM "Solidity"
-  traceM (showBehvs solbehvs)
+  -- traceM "Solidity"
+  -- traceM (showBehvs solbehvs)
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
@@ -607,6 +607,10 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
   flip mapM_ actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
+    traceM "Act"
+    -- traceM (showBehvs behvs')
+    -- traceM "Solidity"
+    -- traceM (showBehvs solbehvs)
     -- equivalence check
     showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
