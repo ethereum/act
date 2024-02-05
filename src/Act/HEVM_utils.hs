@@ -54,7 +54,7 @@ defaultActConfig = Config
   , dumpEndStates = False
   , debug = False
   , abstRefineArith = True
-  , abstRefineMem   = False
+  , abstRefineMem   = True
   , dumpTrace = False
   }
 
