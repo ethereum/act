@@ -58,7 +58,7 @@ interface swap0(uint256 amt)
 
 iff
     CALLVALUE == 0
-
+    amt > 54
 // iff in range uint256
 
     // token0.balanceOf[CALLER] - amt
@@ -70,8 +70,8 @@ iff
 
 storage
 
-    // token0.balanceOf[CALLER] => token0.balanceOf[CALLER] - amt
-    // token0.balanceOf[THIS]   => token0.balanceOf[THIS] + amt
+    token0.balanceOf[CALLER] => token0.balanceOf[CALLER] - amt
+    token0.balanceOf[THIS]   => token0.balanceOf[THIS] + amt
 
     token1.balanceOf[THIS]   => token1.balanceOf[THIS] - ((token1.balanceOf[THIS] * amt) / (token0.balanceOf[THIS] + amt))
     token1.balanceOf[CALLER] => token1.balanceOf[CALLER] + ((token1.balanceOf[THIS] * amt) / (token0.balanceOf[THIS] + amt))

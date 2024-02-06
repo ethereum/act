@@ -31,18 +31,11 @@ contract Amm {
 	uint256 reserve0 = token0.balanceOf(address(this));
 	uint256 reserve1 = token1.balanceOf(address(this));
 	
-	/* require (token0.balanceOf(msg.sender) >= amt); */
-	
-	/* token0.transferFrom(amt, msg.sender, address(this)); */
-	token1.transferFrom((reserve1*amt) / (reserve0+amt), address(this), msg.sender);
+	require (token0.balanceOf(msg.sender) >= amt);	
+	token0.transferFrom(amt, msg.sender, address(this));
+	token1.transferFrom((reserve1*amt)/(reserve0+amt), address(this), msg.sender);
 
 	return 1;
     }
 
-    /* function swap1(uint256 amt) public returns (uint) { */
-    /* 	require (token1.balanceOf(msg.sender) >= amt); */
-    /* 	token1.transferFrom(amt, msg.sender, address(this)); */
-    /* 	token0.transferFrom((token0.balanceOf(address(this))*amt) / (token1.balanceOf(address(this)) + amt), address(this), msg.sender); */
-    /*     return 1; */
-    /* } */
 }

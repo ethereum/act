@@ -100,6 +100,22 @@
         "type": "github"
       }
     },
+    "forge-std": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1705955983,
+        "narHash": "sha256-yCgEH702phNkIHVhHQSIJVYjAAO2fwqSJstWJX+CWHE=",
+        "owner": "foundry-rs",
+        "repo": "forge-std",
+        "rev": "4513bc2063f23c57bee6558799584b518d387a39",
+        "type": "github"
+      },
+      "original": {
+        "owner": "foundry-rs",
+        "repo": "forge-std",
+        "type": "github"
+      }
+    },
     "foundry": {
       "inputs": {
         "flake-utils": "flake-utils_3",
@@ -126,6 +142,7 @@
         "ethereum-tests": "ethereum-tests",
         "flake-compat": "flake-compat",
         "flake-utils": "flake-utils_2",
+        "forge-std": "forge-std",
         "foundry": "foundry",
         "nixpkgs": [
           "nixpkgs"
@@ -133,16 +150,17 @@
         "solidity": "solidity"
       },
       "locked": {
-        "lastModified": 1699550604,
-        "narHash": "sha256-ttIEOaf+LQ71Awq/IU6teFVAwb/Dw7bsmc6yHOFJi/k=",
+        "lastModified": 1707229933,
+        "narHash": "sha256-3/b9QvSAVybk6vmzWKJdgdo1l9rpcLP8SyI2nr9e7Q0=",
         "owner": "ethereum",
         "repo": "hevm",
-        "rev": "5e389fcb1d3783f23d824cf353ac47f34f042b9c",
+        "rev": "b025ea2162373916953d6bfe3430859222f298f7",
         "type": "github"
       },
       "original": {
         "owner": "ethereum",
         "repo": "hevm",
+        "rev": "b025ea2162373916953d6bfe3430859222f298f7",
         "type": "github"
       }
     },
