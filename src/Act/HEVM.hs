@@ -315,8 +315,14 @@ returnsToExpr :: ContractMap -> Maybe TypedExp -> ActM (EVM.Expr EVM.Buf)
 returnsToExpr _ Nothing = pure $ EVM.ConcreteBuf ""
 returnsToExpr cmap (Just r) = typedExpToBuf cmap r
 
+writeWord' :: EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> EVM.Expr EVM.Buf -> EVM.Expr EVM.Buf
+-- writeWord' i v b = EVM.WriteWord i v b
+writeWord' i v b =
+  trace ("Calling writeWord with i: " <> (show i) <> " v : " <> (show v) <> " b:" <> (show b)) $
+  EVM.CopySlice (EVM.Lit 0) (EVM.Lit 0) (EVM.Lit 64) (EVM.WriteWord i v b) (EVM.ConcreteBuf "")
+
 wordToBuf :: EVM.Expr EVM.EWord -> EVM.Expr EVM.Buf
-wordToBuf w = EVM.WriteWord (EVM.Lit 0) w (EVM.ConcreteBuf "")
+wordToBuf w = trace ("Show call word to buf with w : " <> (show w)) $ EVM.WriteWord (EVM.Lit 0) w (EVM.ConcreteBuf "")
 
 wordToProp :: EVM.Expr EVM.EWord -> EVM.Prop
 wordToProp w = EVM.PNeg (EVM.PEq w (EVM.Lit 0))
@@ -331,10 +337,10 @@ expToBuf cmap styp e = do
   case styp of
     SInteger -> do
       e' <- toExpr cmap e
-      pure $ EVM.WriteWord (EVM.Lit 0) e' (EVM.ConcreteBuf "")
+      pure $ writeWord' (EVM.Lit 0) e' (EVM.ConcreteBuf "")
     SBoolean -> do
       e' <- toExpr cmap e
-      pure $ EVM.WriteWord (EVM.Lit 0) e' (EVM.ConcreteBuf "")
+      pure $ writeWord' (EVM.Lit 0) e' (EVM.ConcreteBuf "")
     SByteStr -> toExpr cmap e
     SContract -> error "Internal error: expecting primitive type"
 
@@ -608,7 +614,7 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     traceM "Act"
-    -- traceM (showBehvs behvs')
+    traceM (showBehvs behvs')
     -- traceM "Solidity"
     -- traceM (showBehvs solbehvs)
     -- equivalence check
