@@ -56,6 +56,8 @@ defaultActConfig = Config
   , abstRefineArith = True
   , abstRefineMem   = False
   , dumpTrace = False
+  , numCexFuzz = 10
+  , onlyCexFuzz = False
   }
 
 debugActConfig :: Config
@@ -160,25 +162,26 @@ loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create =
     { contract = entrycontract
     , otherContracts = othercontracts
     , calldata = cd
-    , value = callvalue
     , baseState = EVM.AbstractBase
+    , value = callvalue
+    , priorityFee = 0
     , address = entryaddr
     , caller = EVM.SymAddr "caller"
     , origin = EVM.SymAddr "origin"
-    , coinbase = EVM.SymAddr "coinbase"
-    , number = 0
-    , timestamp = EVM.Lit 0
-    , blockGaslimit = 0
-    , gasprice = 0
-    , prevRandao = 42069
     , gas = 0xffffffffffffffff
     , gaslimit = 0xffffffffffffffff
-    , baseFee = 0
-    , priorityFee = 0
+    , number = 0
+    , timestamp = EVM.Lit 0
+    , coinbase = EVM.SymAddr "coinbase"
+    , prevRandao = 42069
     , maxCodeSize = 0xffffffff
+    , blockGaslimit = 0
+    , gasprice = 0
+    , baseFee = 0
     , schedule = feeSchedule
     , chainId = 1
     , create = create
     , txAccessList = mempty
     , allowFFI = False
+    , symbolic = True
     })
