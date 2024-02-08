@@ -316,10 +316,7 @@ returnsToExpr _ Nothing = pure $ EVM.ConcreteBuf ""
 returnsToExpr cmap (Just r) = typedExpToBuf cmap r
 
 writeWord' :: EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> EVM.Expr EVM.Buf -> EVM.Expr EVM.Buf
--- writeWord' i v b = EVM.WriteWord i v b
-writeWord' i v b =
-  trace ("Calling writeWord with i: " <> (show i) <> " v : " <> (show v) <> " b:" <> (show b)) $
-  EVM.CopySlice (EVM.Lit 0) (EVM.Lit 0) (EVM.Lit 64) (EVM.WriteWord i v b) (EVM.ConcreteBuf "")
+writeWord' i v b = EVM.WriteWord i v b
 
 wordToBuf :: EVM.Expr EVM.EWord -> EVM.Expr EVM.Buf
 wordToBuf w = trace ("Show call word to buf with w : " <> (show w)) $ EVM.WriteWord (EVM.Lit 0) w (EVM.ConcreteBuf "")
@@ -613,10 +610,10 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
   flip mapM_ actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
-    traceM "Act"
-    traceM (showBehvs behvs')
-    -- traceM "Solidity"
-    -- traceM (showBehvs solbehvs)
+    -- traceM "Act"
+    -- traceM (showBehvs behvs')
+    traceM "Solidity"
+    traceM (showBehvs solbehvs)
     -- equivalence check
     showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
