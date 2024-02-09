@@ -130,13 +130,13 @@ getInitcodeBranches solvers initcode calldata = do
   checkPartial nodes
   pure nodes
 
-abstractInitVM :: BS.ByteString -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM s)
+abstractInitVM :: BS.ByteString -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
 abstractInitVM contractCode cd = do
   let value = EVM.TxValue
   let code = EVM.InitCode contractCode (fst cd)
   loadSymVM (EVM.SymAddr "entrypoint", EVM.initialContract code) [] value cd True
 
-abstractVM :: [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM s)
+abstractVM :: [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
 abstractVM contracts cd = do
   let value = EVM.TxValue
   let (c, cs) = findInitContract
@@ -150,13 +150,12 @@ abstractVM contracts cd = do
         _ -> error $ "Internal error: address entrypoint expected exactly once " <> show contracts
 
 
-loadSymVM
-  :: (EVM.Expr EVM.EAddr, EVM.Contract)
+loadSymVM :: (EVM.Expr EVM.EAddr, EVM.Contract)
   -> [(EVM.Expr EVM.EAddr, EVM.Contract)]
   -> EVM.Expr EVM.EWord
   -> (EVM.Expr EVM.Buf, [EVM.Prop])
   -> Bool
-  -> ST s (EVM.VM s)
+  -> ST s (EVM.VM EVM.Symbolic s)
 loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create =
   (EVM.makeVm $ EVM.VMOpts
     { contract = entrycontract
@@ -168,7 +167,7 @@ loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create =
     , address = entryaddr
     , caller = EVM.SymAddr "caller"
     , origin = EVM.SymAddr "origin"
-    , gas = 0xffffffffffffffff
+    , gas = ()
     , gaslimit = 0xffffffffffffffff
     , number = 0
     , timestamp = EVM.Lit 0
@@ -184,3 +183,4 @@ loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create =
     , txAccessList = mempty
     , allowFFI = False
     })
+
