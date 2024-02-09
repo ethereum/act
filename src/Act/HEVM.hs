@@ -635,7 +635,7 @@ createStorage cmap =
     traverseStorage addr (EVM.SStore offset (EVM.WAddr symaddr) storage) =
       EVM.SStore offset (EVM.WAddr symaddr) (traverseStorage addr storage)
     traverseStorage addr (EVM.SStore _ _ storage) = traverseStorage addr storage
-    traverseStorage addr (EVM.ConcreteStore _) = (EVM.AbstractStore addr)
+    traverseStorage addr (EVM.ConcreteStore _) = (EVM.AbstractStore addr Nothing)
     traverseStorage _ _ = error "Internal error: unexpected storage shape"
 
     makeContract :: EVM.Expr EVM.EAddr -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
