@@ -183,5 +183,4 @@ loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create =
     , create = create
     , txAccessList = mempty
     , allowFFI = False
-    , symbolic = True
     })
