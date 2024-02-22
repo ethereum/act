@@ -5,7 +5,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "github:nixos/nixpkgs";
     hevmUpstream = {
-      url = "github:ethereum/hevm";
+      url = "github:ethereum/hevm/32a3bcdf74347cc8b0d992b52f35c382aaf1bfc1";	
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -20,6 +20,7 @@
 	    hevm = hevmUpstream.packages.${system}.noTests;
           };
 	};
+	
         act = (myHaskellPackages.callCabal2nixWithOptions "act" (gitignore ./.) "-fci" {})
           .overrideAttrs (attrs : {
             buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc5 ];
