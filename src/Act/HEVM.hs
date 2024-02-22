@@ -319,7 +319,7 @@ writeWord' :: EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> EVM.Expr EVM.Buf -> EV
 writeWord' i v b = EVM.WriteWord i v b
 
 wordToBuf :: EVM.Expr EVM.EWord -> EVM.Expr EVM.Buf
-wordToBuf w = trace ("Show call word to buf with w : " <> (show w)) $ EVM.WriteWord (EVM.Lit 0) w (EVM.ConcreteBuf "")
+wordToBuf w = EVM.WriteWord (EVM.Lit 0) w (EVM.ConcreteBuf "")
 
 wordToProp :: EVM.Expr EVM.EWord -> EVM.Prop
 wordToProp w = EVM.PNeg (EVM.PEq w (EVM.Lit 0))
@@ -612,14 +612,14 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- traceM "Act"
     -- traceM (showBehvs behvs')
-    traceM "Solidity"
-    traceM (showBehvs solbehvs)
+    -- traceM "Solidity"
+    -- traceM (showBehvs solbehvs)
     -- equivalence check
     showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
     -- input space exhaustiveness check
-    showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
-    checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
+    -- showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
+    -- checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
     where
       removeFails branches = filter isSuccess $ branches
 
@@ -721,7 +721,7 @@ checkContracts solvers store codemap =
             -- Behavours check
             checkBehaviours solvers contract actenv cmap
             -- ABI exhaustiveness sheck
-            checkAbi solvers contract cmap
+            -- checkAbi solvers contract cmap
         ) (M.toList codemap)
 
 

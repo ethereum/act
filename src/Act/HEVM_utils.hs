@@ -49,7 +49,7 @@ showMsg s = liftIO $ putStrLn s
 
 defaultActConfig :: Config
 defaultActConfig = Config
-  { dumpQueries = False
+  { dumpQueries = True
   , dumpExprs = False
   , dumpEndStates = False
   , debug = False
@@ -58,6 +58,7 @@ defaultActConfig = Config
   , dumpTrace = False
   , numCexFuzz = 10
   , onlyCexFuzz = False
+  , decomposeStorage = False
   }
 
 debugActConfig :: Config
