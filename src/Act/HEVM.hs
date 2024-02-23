@@ -615,8 +615,8 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
     -- traceM "Solidity"
     -- traceM (showBehvs solbehvs)
     -- equivalence check
-    -- showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
-    -- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
+    showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
+    checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
     -- input space exhaustiveness check
     showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
     checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'

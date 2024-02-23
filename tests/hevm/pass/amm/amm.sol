@@ -8,7 +8,7 @@ contract Token {
     }
 
 
-    function transferFrom(uint256 value, address from, address to) public returns (uint) {	
+    function transferFrom(uint256 value, address from, address to) public returns (uint) {
 	balanceOf[from] = balanceOf[from] - value;
         balanceOf[to] = balanceOf[to] + value;
         return 1;
@@ -33,7 +33,17 @@ contract Amm {
 
 	token0.transferFrom(amt, msg.sender, address(this));
 	token1.transferFrom((reserve1*amt)/(reserve0+amt), address(this), msg.sender);
-	
+
+	return 1;
+    }
+
+    function swap1(uint256 amt) public returns (uint) {
+	uint256 reserve0 = token0.balanceOf(address(this));
+	uint256 reserve1 = token1.balanceOf(address(this));
+
+	token1.transferFrom(amt, msg.sender, address(this));
+	token0.transferFrom((reserve0*amt)/(reserve1+amt), address(this), msg.sender);
+
 	return 1;
     }
 
