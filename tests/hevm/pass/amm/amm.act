@@ -27,7 +27,7 @@ iff
   inRange(uint256,balanceOf[from] - value)
 
 case from =/= to:
-  
+
   storage
 
     balanceOf[from]  => balanceOf[from] - value
@@ -57,18 +57,15 @@ behaviour swap0 of Amm
 interface swap0(uint256 amt)
 
 iff
-    CALLVALUE == 0     
-    inRange(uint256,token0.balanceOf[CALLER] - amt)    
+    CALLVALUE == 0
+    inRange(uint256,token0.balanceOf[CALLER] - amt)
     CALLER =/= THIS => inRange(uint256,token0.balanceOf[THIS] + amt)
 
     inRange(uint256,token1.balanceOf[THIS] - ((token1.balanceOf[THIS] * amt) / (token0.balanceOf[THIS] + amt)))
     CALLER =/= THIS => inRange(uint256,token1.balanceOf[CALLER] + ((token1.balanceOf[THIS] * amt) / (token0.balanceOf[THIS] + amt)))
 
-    inRange(uint256, token1.balanceOf[THIS] * amt)
-    inRange(uint256, token0.balanceOf[THIS] + amt)
-    
     token0.balanceOf[THIS] + amt =/= 0
-    
+
 case CALLER =/= THIS:
 
 storage
@@ -90,24 +87,35 @@ ensures
     pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) <= post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS])
 
 
-// behaviour swap1 of Amm
-// interface swap1(uint256 amt)
+behaviour swap1 of Amm
+interface swap1(uint256 amt)
 
-// iff in range uint256
+iff
+    CALLVALUE == 0
+    inRange(uint256,token1.balanceOf[CALLER] - amt)
+    CALLER =/= THIS => inRange(uint256,token1.balanceOf[THIS] + amt)
 
-//     token1.balanceOf[CALLER] - amt
-//     token1.balanceOf[THIS] + amt
-//     token0.balanceOf[THIS] - ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt))
-//     token0.balanceOf[CALLER] +  ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt))
+    inRange(uint256,token0.balanceOf[THIS] - ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt)))
+    CALLER =/= THIS => inRange(uint256,token0.balanceOf[CALLER] + ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt)))
 
-// storage
+    token1.balanceOf[THIS] + amt =/= 0
 
-//     token1.balanceOf[CALLER] => token1.balanceOf[CALLER] - amt
-//     token1.balanceOf[THIS]   => token1.balanceOf[THIS] + amt
+case CALLER =/= THIS:
 
-//     token0.balanceOf[THIS]   => token0.balanceOf[THIS] - ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt))
-//     token0.balanceOf[CALLER] => token0.balanceOf[CALLER] + ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt))
+storage
 
-// ensures
+    token1.balanceOf[CALLER] => token1.balanceOf[CALLER] - amt
+    token1.balanceOf[THIS]   => token1.balanceOf[THIS] + amt
 
-//     pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) <= post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS])
+    token0.balanceOf[THIS]   => token0.balanceOf[THIS] - ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt))
+    token0.balanceOf[CALLER] => token0.balanceOf[CALLER] + ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt))
+
+returns 1
+
+case CALLER == THIS:
+
+returns 1
+
+ensures
+
+    pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) <= post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS])
