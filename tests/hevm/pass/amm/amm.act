@@ -63,6 +63,9 @@ iff
 
     inRange(uint256,token1.balanceOf[THIS] - ((token1.balanceOf[THIS] * amt) / (token0.balanceOf[THIS] + amt)))
     CALLER =/= THIS => inRange(uint256,token1.balanceOf[CALLER] + ((token1.balanceOf[THIS] * amt) / (token0.balanceOf[THIS] + amt)))
+
+    inRange(uint256, token1.balanceOf[THIS] * amt)
+    inRange(uint256, token0.balanceOf[THIS] + amt)
     
     token0.balanceOf[THIS] + amt =/= 0
     

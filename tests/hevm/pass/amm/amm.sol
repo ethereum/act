@@ -31,7 +31,6 @@ contract Amm {
 	uint256 reserve0 = token0.balanceOf(address(this));
 	uint256 reserve1 = token1.balanceOf(address(this));
 
-	require(msg.sender != address(this));
 	token0.transferFrom(amt, msg.sender, address(this));
 	token1.transferFrom((reserve1*amt)/(reserve0+amt), address(this), msg.sender);
 	
