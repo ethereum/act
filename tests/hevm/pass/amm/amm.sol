@@ -8,14 +8,14 @@ contract Token {
     }
 
 
-    function transferFrom(uint256 value, address from, address to) public returns (uint) {
-	require(balanceOf[from] >= value);
+    function transferFrom(uint256 value, address from, address to) public returns (uint) {	
 	balanceOf[from] = balanceOf[from] - value;
         balanceOf[to] = balanceOf[to] + value;
         return 1;
     }
 
 }
+
 
 contract Amm {
 
@@ -30,11 +30,11 @@ contract Amm {
     function swap0(uint256 amt) public returns (uint) {
 	uint256 reserve0 = token0.balanceOf(address(this));
 	uint256 reserve1 = token1.balanceOf(address(this));
-	
-	require (token0.balanceOf(msg.sender) >= amt);	
+
+	require(msg.sender != address(this));
 	token0.transferFrom(amt, msg.sender, address(this));
 	token1.transferFrom((reserve1*amt)/(reserve0+amt), address(this), msg.sender);
-
+	
 	return 1;
     }
 

@@ -610,16 +610,16 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
   flip mapM_ actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
-    -- traceM "Act"
+    -- traceM "Act code"
     -- traceM (showBehvs behvs')
     -- traceM "Solidity"
     -- traceM (showBehvs solbehvs)
     -- equivalence check
-    showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
-    checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
+    -- showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
+    -- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
     -- input space exhaustiveness check
-    -- showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
-    -- checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
+    showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
+    checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
     where
       removeFails branches = filter isSuccess $ branches
 
@@ -721,7 +721,7 @@ checkContracts solvers store codemap =
             -- Behavours check
             checkBehaviours solvers contract actenv cmap
             -- ABI exhaustiveness sheck
-            -- checkAbi solvers contract cmap
+            checkAbi solvers contract cmap
         ) (M.toList codemap)
 
 
