@@ -192,16 +192,18 @@ mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preco
     storage = concatMap declareStorageLocation activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
+    constLocs = activeLocs \\ concatMap locsFromUpdate stateUpdates
 
     -- constraints
     pres = mkAssert ifaceName <$> preconds <> caseconds
     updates = encodeUpdate ifaceName <$> stateUpdates
+    constants = encodeConstant <$> constLocs
 
     mksmt e = SMTExp
       { _storage = storage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> updates
+      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> updates <> constants
       }
     mkQuery e = Postcondition (Behv behv) e (mksmt e)
 
@@ -213,16 +215,18 @@ mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName dec
     localStorage = concatMap declareInitialStorage activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
+    constLocs = activeLocs \\ concatMap locsFromUpdate initialStorage
 
     -- constraints
     pres = mkAssert ifaceName <$> preconds
-    initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
+    initialStorage' = encodeUpdate ifaceName <$> initialStorage
+    constants = encodeConstant <$> constLocs
 
     mksmt e = SMTExp
       { _storage = localStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> initialStorage'
+      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> initialStorage' <> constants
       }
     mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
 
@@ -263,7 +267,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
 
         -- constraints
         pres = mkAssert ifaceName <$> preconds <> invConds
-        initialStorage' = encodeInitialStorage ifaceName <$> initialStorage
+        initialStorage' = encodeUpdate ifaceName <$> initialStorage
         postInv = mkAssert ifaceName $ Neg nowhere invPost
 
         smt = SMTExp
@@ -280,8 +284,6 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
         (Interface ctorIface ctorDecls) = _cinterface ctor
         (Interface behvIface behvDecls) = _interface behv
 
-        -- storage locs that are mentioned but not explictly updated (i.e., constant)
-        implicitLocs = (activeLocs \\ fmap locFromUpdate (_stateUpdates behv))
 
         -- declare vars
         invEnv = declareEthEnv <$> ethEnvFromExp invPre
@@ -289,6 +291,8 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
         initArgs = declareArg ctorIface <$> ctorDecls
         behvArgs = declareArg behvIface <$> behvDecls
         activeLocs = nub $ locsFromBehaviour behv <> locsFromInvariant inv
+        -- storage locs that are mentioned but not explictly updated (i.e., constant)
+        constLocs = (activeLocs \\ fmap locFromUpdate (_stateUpdates behv))
 
         storage = concatMap declareStorageLocation activeLocs
 
@@ -297,14 +301,14 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
         postInv = mkAssert ctorIface . Neg nowhere $ invPost
         behvConds = mkAssert behvIface <$> _preconditions behv <> _caseconditions behv
         invConds' = mkAssert ctorIface <$> invConds <> invStorageBounds
-        implicitLocs' = encodeStorageLocation <$> implicitLocs  -- TODO why do we need to assert this
+        constants = encodeConstant <$> constLocs
         updates = encodeUpdate behvIface <$> _stateUpdates behv
 
         smt = SMTExp
           { _storage = storage
           , _calldata = initArgs <> behvArgs
           , _environment = invEnv <> behvEnv
-          , _assertions = [preInv, postInv] <> behvConds <> invConds' <> implicitLocs' <> updates
+          , _assertions = [preInv, postInv] <> behvConds <> invConds' <> constants <> updates
           }
 
 
@@ -531,17 +535,16 @@ parseSMTModel s = if length s0Caps == 1
 --- ** SMT2 Generation ** ---
 
 
--- | encodes a storage update from a constructor creates block as an smt assertion
--- TODO unify with encodeUpdate
-encodeInitialStorage :: Id -> StorageUpdate -> SMT2
-encodeInitialStorage behvName (Update _ item expr) =
+-- | encodes a storage update rewrite as an smt assertion
+encodeUpdate :: Id -> StorageUpdate -> SMT2
+encodeUpdate behvName (Update _ item expr) =
   let
     postentry  = withInterface behvName $ expToSMT2 (TEntry nowhere Post item)
     expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
-encodeStorageLocation :: StorageLocation -> SMT2
-encodeStorageLocation loc = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
+encodeConstant :: StorageLocation -> SMT2
+encodeConstant loc = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
 
 -- | declares a storage location with the given timing
 declareStorage :: [When] -> StorageLocation -> [SMT2]
@@ -556,10 +559,6 @@ declareStorage times (Loc _ item@(Item _ _ ref)) = declareRef ref
 --   locations have no prestate, so we declare a post var only
 declareInitialStorage :: StorageLocation -> [SMT2]
 declareInitialStorage loc = declareStorage [Post] loc
-
--- | encodes a storage update rewrite as an smt assertion
-encodeUpdate :: Id -> StorageUpdate -> SMT2
-encodeUpdate behvName update = encodeInitialStorage behvName update
 
 -- | declares a storage location that exists both in the pre state and the post
 --   state (i.e. anything except a loc created by a constructor claim)
