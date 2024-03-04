@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "bitwuzla-pkgs": {
+      "locked": {
+        "lastModified": 1705259768,
+        "narHash": "sha256-eHetoB0ckEQ06QDa7EZqeC+qFJEC606K90q/PliNTA4=",
+        "owner": "d-xo",
+        "repo": "nixpkgs",
+        "rev": "6e7c9e4267f3c2df116bf76d8e31c2602e2d543d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "d-xo",
+        "repo": "nixpkgs",
+        "rev": "6e7c9e4267f3c2df116bf76d8e31c2602e2d543d",
+        "type": "github"
+      }
+    },
     "cabal-head": {
       "flake": false,
       "locked": {
@@ -100,6 +116,22 @@
         "type": "github"
       }
     },
+    "forge-std": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1709159040,
+        "narHash": "sha256-GZlyyJQbMP9VVGz45nQl8eLd+nknspe94M/hjTf8bhM=",
+        "owner": "foundry-rs",
+        "repo": "forge-std",
+        "rev": "2f6762e4f73f3d835457c220b5f62dfeeb6f6341",
+        "type": "github"
+      },
+      "original": {
+        "owner": "foundry-rs",
+        "repo": "forge-std",
+        "type": "github"
+      }
+    },
     "foundry": {
       "inputs": {
         "flake-utils": "flake-utils_3",
@@ -122,10 +154,12 @@
     },
     "hevmUpstream": {
       "inputs": {
+        "bitwuzla-pkgs": "bitwuzla-pkgs",
         "cabal-head": "cabal-head",
         "ethereum-tests": "ethereum-tests",
         "flake-compat": "flake-compat",
         "flake-utils": "flake-utils_2",
+        "forge-std": "forge-std",
         "foundry": "foundry",
         "nixpkgs": [
           "nixpkgs"
@@ -133,16 +167,17 @@
         "solidity": "solidity"
       },
       "locked": {
-        "lastModified": 1699550604,
-        "narHash": "sha256-ttIEOaf+LQ71Awq/IU6teFVAwb/Dw7bsmc6yHOFJi/k=",
+        "lastModified": 1709558619,
+        "narHash": "sha256-/UeHgRvo9niSlg/2x2hHRNeliNG/2NF1dtPzSKkK/Yg=",
         "owner": "ethereum",
         "repo": "hevm",
-        "rev": "5e389fcb1d3783f23d824cf353ac47f34f042b9c",
+        "rev": "d050cee6c4c779bbb10f4463dfa7ad16eb99f955",
         "type": "github"
       },
       "original": {
         "owner": "ethereum",
         "repo": "hevm",
+        "rev": "d050cee6c4c779bbb10f4463dfa7ad16eb99f955",
         "type": "github"
       }
     },

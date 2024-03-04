@@ -128,13 +128,13 @@ getInitcodeBranches solvers initcode calldata = do
   checkPartial nodes
   pure nodes
 
-abstractInitVM :: BS.ByteString -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM s)
+abstractInitVM :: BS.ByteString -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
 abstractInitVM contractCode cd = do
   let value = EVM.TxValue
   let code = EVM.InitCode contractCode (fst cd)
   loadSymVM (EVM.SymAddr "entrypoint", EVM.initialContract code) [] value cd True
 
-abstractVM :: [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM s)
+abstractVM :: [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
 abstractVM contracts cd = do
   let value = EVM.TxValue
   let (c, cs) = findInitContract
@@ -154,7 +154,7 @@ loadSymVM
   -> EVM.Expr EVM.EWord
   -> (EVM.Expr EVM.Buf, [EVM.Prop])
   -> Bool
-  -> ST s (EVM.VM s)
+  -> ST s (EVM.VM EVM.Symbolic s)
 loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create =
   (EVM.makeVm $ EVM.VMOpts
     { contract = entrycontract
@@ -171,7 +171,7 @@ loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create =
     , blockGaslimit = 0
     , gasprice = 0
     , prevRandao = 42069
-    , gas = 0xffffffffffffffff
+    , gas = () -- 0xffffffffffffffff
     , gaslimit = 0xffffffffffffffff
     , baseFee = 0
     , priorityFee = 0
