@@ -713,7 +713,8 @@ checkAbi solver contract cmap = do
     msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
 
 checkContracts :: App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m ()
-checkContracts solvers store codemap =
+checkContracts solvers store codemap = do
+  traceM "Check constract test 2"
   mapM_ (\(_, (contract, initcode, bytecode)) -> do
             showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
             -- Constructor check
