@@ -58,7 +58,7 @@ defaultActConfig = Config
   , dumpTrace = False
   , numCexFuzz = 10
   , onlyCexFuzz = False
-  , decomposeStorage = False
+  -- , decomposeStorage = False
   }
 
 debugActConfig :: Config
