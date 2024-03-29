@@ -3,9 +3,9 @@
 
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
-    nixpkgs.url = "github:nixos/nixpkgs";
+    nixpkgs.url = "github:nixos/nixpkgs/f85a3c6af20f02135814867870deb419329e8297";
     hevmUpstream = {
-      url = "github:ethereum/hevm/9eb9950cb5faf2dcfcd1a6d2ef4ed4a86958b720";	
+      url = "github:ethereum/hevm";	
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
