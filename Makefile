@@ -36,7 +36,6 @@ parser_fail=$(filter-out $(typing_fail), $(frontend_fail))
 invariant_specs=$(wildcard tests/invariants/*/*.act)
 invariant_pass=$(filter-out $(invariant_buggy), $(wildcard tests/invariants/pass/*.act) $(typing_pass))
 invariant_fail=$(wildcard tests/invariants/fail/*.act)
-invariant_buggy=tests/invariants/pass/amm-full.act
 
 postcondition_specs=$(wildcard tests/postconditions/*/*.act)
 postcondition_pass=$(wildcard tests/postconditions/pass/*.act) $(typing_pass)
