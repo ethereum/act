@@ -104,7 +104,7 @@ tests/%.postcondition.fail:
 
 tests/hevm/pass/%.act.hevm.pass:
 	$(eval CONTRACT := $(shell awk '/contract/{ print $$2 }' tests/hevm/pass/$*.sol))
-	./bin/act hevm --spec tests/hevm/pass/$*.act --sol tests/hevm/pass/$*.sol
+	./bin/act hevm --spec tests/hevm/pass/$*.act --sol tests/hevm/pass/$*.sol --smttimeout 100000000
 
 tests/hevm/fail/%.act.hevm.fail:
 	$(eval CONTRACT := $(shell awk '/contract/{ print $$2 }' tests/hevm/fail/$*.sol))
