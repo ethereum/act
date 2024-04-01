@@ -32,7 +32,7 @@ most of the data type definitions).
 
 In some parts of an act spec (`returns` and `ensures` blocks), storage references must be qualified
 with either the `pre` or `post` operator to disambiguate references to storage in the pre or post
-state. In other blocks storage references are either implicitly refering to both pre and post states
+state. In other blocks storage references are either implicitly referring to both pre and post states
 (`invariants`), or to the pre state only (e.g. `storage`). In order to simplify implementation in
 the various backends, there is a frontend stage (`annotate`) that makes all implicit timings
 explicit. The type parameter allows us to enforce the invariant that all backend stages always
