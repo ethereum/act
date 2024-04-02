@@ -51,6 +51,7 @@ import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
 
+
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -83,6 +84,7 @@ data ActEnv = ActEnv
   , fresh   :: Int
   , layout  :: Layout
   , caddr   :: EVM.Expr EVM.EAddr
+  , caller  :: Maybe (EVM.Expr EVM.EAddr)
   }
 
 type ActM a = State ActEnv a
@@ -118,18 +120,27 @@ localCaddr :: EVM.Expr EVM.EAddr -> ActM a -> ActM a
 localCaddr caddr m = do
   env <- get
   let caddr' = env.caddr
-  put (env { caddr = caddr })
+  let caller' = env.caller
+  put (env { caddr = caddr, caller = Just caddr' })
   res <- m
   env' <- get
-  put (env' { caddr = caddr' })
+  put (env' { caddr = caddr', caller =  caller' })
   pure res
+
+getCaller :: ActM (EVM.Expr EVM.EAddr)
+getCaller = do
+  env <- get
+  case env.caller of
+    Just c -> pure c
+    Nothing -> pure $ EVM.SymAddr "caller" -- Zoe: not sure what to put here
+
 
 -- * Act translation
 
 translateConstructor ::  BS.ByteString -> Constructor -> ActM ([EVM.Expr EVM.End], Calldata, Sig)
 translateConstructor bytecode (Constructor _ iface preconds _ _ upds)  = do
   preconds' <- mapM (toProp initmap) preconds
-  cmap <- applyUpdates upds initmap
+  cmap <- applyUpdates initmap initmap upds
   fresh <- getFresh
   pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr fresh) mempty (EVM.ConcreteBuf bytecode) cmap], calldata, ifaceToSig iface)
   where
@@ -174,31 +185,31 @@ translateBehv cmap (Behaviour _ _ _ preconds caseconds _ upds ret) = do
   preconds' <- mapM (toProp cmap) preconds
   caseconds' <- mapM (toProp cmap) caseconds
   ret' <- returnsToExpr cmap ret
-  store <- applyUpdates upds cmap
+  store <- applyUpdates cmap cmap upds
   pure $ EVM.Success (preconds' <> caseconds') mempty ret' store
 
 
-applyUpdates :: [StorageUpdate] -> ContractMap -> ActM ContractMap
-applyUpdates upds initmap = foldM (flip applyUpdate) initmap upds
+applyUpdates :: ContractMap -> ContractMap -> [StorageUpdate] -> ActM ContractMap
+applyUpdates readMap writeMap upds = foldM (applyUpdate readMap) writeMap upds
 
-applyUpdate :: StorageUpdate -> ContractMap -> ActM ContractMap
-applyUpdate (Update typ (Item _ _ ref) e) cmap = do
-  caddr' <- baseAddr cmap ref
-  offset <- refOffset cmap ref
-  let contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
+applyUpdate :: ContractMap -> ContractMap -> StorageUpdate -> ActM ContractMap
+applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
+  caddr' <- baseAddr readMap ref
+  offset <- refOffset readMap ref
+  let contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' writeMap
   case typ of
     SInteger -> do
-      e' <- toExpr cmap e
-      pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) cmap
+      e' <- toExpr readMap e
+      pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
     SBoolean -> do
-      e' <- toExpr cmap e
-      pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) cmap
+      e' <- toExpr readMap e
+      pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
     SByteStr -> error "Bytestrings not supported"
     SContract -> do
      fresh <- getFreshIncr
      let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
-     cmap' <- localCaddr freshAddr $ createContract cmap freshAddr e
-     pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) cmap'
+     writeMap' <- localCaddr freshAddr $ createContract readMap writeMap freshAddr e
+     pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) writeMap'
   where
 
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
@@ -210,8 +221,8 @@ applyUpdate (Update typ (Item _ _ ref) e) cmap = do
     updateNonce c@(EVM.C _ _ _ Nothing) = c
     updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
-createContract :: ContractMap -> EVM.Expr EVM.EAddr -> Exp AContract -> ActM ContractMap
-createContract cmap freshAddr (Create _ cid args) = do
+createContract :: ContractMap -> ContractMap -> EVM.Expr EVM.EAddr -> Exp AContract -> ActM ContractMap
+createContract readMap writeMap freshAddr (Create _ cid args) = do
   codemap <- getCodemap
   case M.lookup cid codemap of
     Just (Contract (Constructor _ iface _ _ _ upds) _, _, bytecode) -> do
@@ -223,9 +234,9 @@ createContract cmap freshAddr (Create _ cid args) = do
       let subst = makeSubstMap iface args
 
       let upds' = substUpds subst upds
-      applyUpdates upds' (M.insert freshAddr contract cmap)
+      applyUpdates (M.insert freshAddr contract readMap) (M.insert freshAddr contract writeMap) upds'
     Nothing -> error "Internal error: constructor not found"
-createContract _ _ _ = error "Internal error: constructor call expected"
+createContract _ _ _ _ = error "Internal error: constructor call expected"
 
 -- | Substitutions
 
@@ -380,17 +391,21 @@ refAddr cmap (SField _ ref c x) = do
     Nothing -> error "Internal error: contract not found"
 refAddr _ (SMapping _ _ _) = error "Internal error: mapping address not suppported"
 
-ethEnvToWord :: EthEnv -> EVM.Expr EVM.EWord
-ethEnvToWord Callvalue = EVM.TxValue
-ethEnvToWord Caller = EVM.WAddr $ EVM.SymAddr "caller"
-ethEnvToWord Origin = EVM.Origin
-ethEnvToWord Blocknumber = EVM.BlockNumber
-ethEnvToWord Blockhash = EVM.BlockHash $ EVM.Lit 0
-ethEnvToWord Chainid = EVM.ChainId
-ethEnvToWord Gaslimit = EVM.GasLimit
-ethEnvToWord Coinbase = EVM.Coinbase
-ethEnvToWord Timestamp = EVM.Timestamp
-ethEnvToWord This = error "TODO"
+ethEnvToWord :: EthEnv -> ActM (EVM.Expr EVM.EWord)
+ethEnvToWord Callvalue = pure $ EVM.TxValue
+ethEnvToWord Caller = do
+  c <- getCaller
+  pure $ EVM.WAddr c
+ethEnvToWord Origin = pure $ EVM.Origin
+ethEnvToWord Blocknumber = pure $ EVM.BlockNumber
+ethEnvToWord Blockhash = pure $ EVM.BlockHash $ EVM.Lit 0
+ethEnvToWord Chainid = pure $ EVM.ChainId
+ethEnvToWord Gaslimit = pure $ EVM.GasLimit
+ethEnvToWord Coinbase = pure $ EVM.Coinbase
+ethEnvToWord Timestamp = pure $ EVM.Timestamp
+ethEnvToWord This = do
+  c <- getCaddr
+  pure $ EVM.WAddr c
 ethEnvToWord Nonce = error "TODO"
 ethEnvToWord Calldepth = error "TODO"
 ethEnvToWord Difficulty = error "TODO"
@@ -463,7 +478,7 @@ toExpr cmap = \case
   (Mod _ e1 e2) -> op2 EVM.Mod e1 e2 -- which mod?
   (Exp _ e1 e2) -> op2 EVM.Exp e1 e2
   (LitInt _ n) -> pure $ EVM.Lit (fromIntegral n)
-  (IntEnv _ env) -> pure $ ethEnvToWord env
+  (IntEnv _ env) -> ethEnvToWord env
   -- bounds
   (IntMin _ n) -> pure $ EVM.Lit (fromIntegral $ intmin n)
   (IntMax _ n) -> pure $ EVM.Lit (fromIntegral $ intmax n)
@@ -565,7 +580,7 @@ checkEquiv solvers l1 l2 = do
 
 checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (ContractMap, ActEnv)
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
-  let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint")
+  let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
@@ -608,7 +623,7 @@ createStorage cmap =
     traverseStorage addr (EVM.SStore offset (EVM.WAddr symaddr) storage) =
       EVM.SStore offset (EVM.WAddr symaddr) (traverseStorage addr storage)
     traverseStorage addr (EVM.SStore _ _ storage) = traverseStorage addr storage
-    traverseStorage addr (EVM.ConcreteStore _) = (EVM.AbstractStore addr)
+    traverseStorage addr (EVM.ConcreteStore _) = (EVM.AbstractStore addr Nothing)
     traverseStorage _ _ = error "Internal error: unexpected storage shape"
 
     makeContract :: EVM.Expr EVM.EAddr -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract

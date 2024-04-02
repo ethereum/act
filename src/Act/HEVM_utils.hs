@@ -53,9 +53,12 @@ defaultActConfig = Config
   , dumpExprs = False
   , dumpEndStates = False
   , debug = False
-  , abstRefineArith = True
+  , abstRefineArith = False
   , abstRefineMem   = False
   , dumpTrace = False
+  , numCexFuzz = 10
+  , onlyCexFuzz = False
+  , decomposeStorage = False
   }
 
 debugActConfig :: Config
@@ -128,13 +131,13 @@ getInitcodeBranches solvers initcode calldata = do
   checkPartial nodes
   pure nodes
 
-abstractInitVM :: BS.ByteString -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM s)
+abstractInitVM :: BS.ByteString -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
 abstractInitVM contractCode cd = do
   let value = EVM.TxValue
   let code = EVM.InitCode contractCode (fst cd)
   loadSymVM (EVM.SymAddr "entrypoint", EVM.initialContract code) [] value cd True
 
-abstractVM :: [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM s)
+abstractVM :: [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
 abstractVM contracts cd = do
   let value = EVM.TxValue
   let (c, cs) = findInitContract
@@ -154,31 +157,31 @@ loadSymVM
   -> EVM.Expr EVM.EWord
   -> (EVM.Expr EVM.Buf, [EVM.Prop])
   -> Bool
-  -> ST s (EVM.VM s)
+  -> ST s (EVM.VM EVM.Symbolic s)
 loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create =
   (EVM.makeVm $ EVM.VMOpts
-    { contract = entrycontract
-    , otherContracts = othercontracts
-    , calldata = cd
-    , value = callvalue
-    , baseState = EVM.AbstractBase
-    , address = entryaddr
-    , caller = EVM.SymAddr "caller"
-    , origin = EVM.SymAddr "origin"
-    , coinbase = EVM.SymAddr "coinbase"
-    , number = 0
-    , timestamp = EVM.Lit 0
-    , blockGaslimit = 0
-    , gasprice = 0
-    , prevRandao = 42069
-    , gas = 0xffffffffffffffff
-    , gaslimit = 0xffffffffffffffff
-    , baseFee = 0
-    , priorityFee = 0
-    , maxCodeSize = 0xffffffff
-    , schedule = feeSchedule
-    , chainId = 1
-    , create = create
-    , txAccessList = mempty
-    , allowFFI = False
-    })
+     { contract = entrycontract
+     , otherContracts = othercontracts
+     , calldata = cd
+     , baseState = EVM.AbstractBase
+     , value = callvalue
+     , priorityFee = 0
+     , address = entryaddr
+     , caller = EVM.SymAddr "caller"
+     , origin = EVM.SymAddr "origin"
+     , gas = ()
+     , gaslimit = 0xffffffffffffffff
+     , number = 0
+     , timestamp = EVM.Lit 0
+     , coinbase = EVM.SymAddr "coinbase"
+     , prevRandao = 42069
+     , maxCodeSize = 0xffffffff
+     , blockGaslimit = 0
+     , gasprice = 0
+     , baseFee = 0
+     , schedule = feeSchedule
+     , chainId = 1
+     , create = create
+     , txAccessList = mempty
+     , allowFFI = False
+     })
