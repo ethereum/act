@@ -36,7 +36,6 @@ parser_fail=$(filter-out $(typing_fail), $(frontend_fail))
 invariant_specs=$(wildcard tests/invariants/*/*.act)
 invariant_pass=$(filter-out $(invariant_buggy), $(wildcard tests/invariants/pass/*.act) $(typing_pass))
 invariant_fail=$(wildcard tests/invariants/fail/*.act)
-invariant_buggy=tests/invariants/pass/amm-full.act
 
 postcondition_specs=$(wildcard tests/postconditions/*/*.act)
 postcondition_pass=$(wildcard tests/postconditions/pass/*.act) $(typing_pass)
@@ -67,7 +66,7 @@ test-invariant: parser compiler $(invariant_pass:=.invariant.pass) $(invariant_f
 test-postcondition: parser compiler $(postcondition_pass:=.postcondition.pass) $(postcondition_fail:=.postcondition.fail)
 test-hevm: parser compiler $(hevm_pass:=.hevm.pass) $(hevm_fail:=.hevm.fail)
 test-cabal: src/*.hs
-	cd src && cabal v2-run test
+	cabal v2-run test
 
 # Just checks parsing
 tests/%.parse.pass:
@@ -104,11 +103,11 @@ tests/%.postcondition.fail:
 
 tests/hevm/pass/%.act.hevm.pass:
 	$(eval CONTRACT := $(shell awk '/contract/{ print $$2 }' tests/hevm/pass/$*.sol))
-	./bin/act hevm --spec tests/hevm/pass/$*.act --sol tests/hevm/pass/$*.sol --contract $(CONTRACT)
+	./bin/act hevm --spec tests/hevm/pass/$*.act --sol tests/hevm/pass/$*.sol --smttimeout 100000000
 
 tests/hevm/fail/%.act.hevm.fail:
 	$(eval CONTRACT := $(shell awk '/contract/{ print $$2 }' tests/hevm/fail/$*.sol))
-	./bin/act hevm --spec tests/hevm/fail/$*.act --sol tests/hevm/fail/$*.sol --contract $(CONTRACT) && exit 1 || echo 0
+	./bin/act hevm --spec tests/hevm/fail/$*.act --sol tests/hevm/fail/$*.sol && exit 1 || echo 0
 
 test-ci: test-parse test-type test-invariant test-postcondition test-coq test-hevm
 test: test-ci test-cabal

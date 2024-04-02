@@ -19,6 +19,7 @@ import System.IO (hPutStrLn, stderr)
 import Data.Text (unpack)
 import Data.List
 import qualified Data.Map as Map
+import Data.Map (Map)
 import Data.Maybe
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
@@ -44,13 +45,14 @@ import Act.SMT as SMT
 import Act.Type
 import Act.Coq hiding (indent)
 import Act.HEVM
+import Act.HEVM_utils
 import Act.Consistency
 import Act.Print
 import Act.Decompile
 
-import EVM.SymExec
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
+import EVM.Effects
 
 --command line options
 data Command w
@@ -80,7 +82,6 @@ data Command w
                     , sol        :: w ::: Maybe String         <?> "Path to .sol"
                     , code       :: w ::: Maybe ByteString     <?> "Runtime code"
                     , initcode   :: w ::: Maybe ByteString     <?> "Initial code"
-                    , contract   :: w ::: String               <?> "Contract name"
                     , solver     :: w ::: Maybe Text           <?> "SMT solver: cvc5 (default) or z3"
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
                     , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
@@ -118,9 +119,9 @@ main = do
       Coq f solver' smttimeout' debug' -> do
         solver'' <- parseSolver solver'
         coq' f solver'' smttimeout' debug'
-      HEVM spec' sol' code' initcode' contract' solver' smttimeout' debug' -> do
+      HEVM spec' sol' code' initcode' solver' smttimeout' debug' -> do
         solver'' <- parseSolver solver'
-        hevm spec' (Text.pack contract') sol' code' initcode' solver'' smttimeout' debug'
+        hevm spec' sol' code' initcode' solver'' smttimeout' debug'
       Decompile sol' contract' solver' smttimeout' debug' -> do
         solver'' <- parseSolver solver'
         decompile' sol' (Text.pack contract') solver'' smttimeout' debug'
@@ -218,6 +219,7 @@ coq' f solver' smttimeout' debug' = do
     checkCases claims solver' smttimeout' debug'
     TIO.putStr $ coq claims
 
+<<<<<<< HEAD
 decompile' :: FilePath -> Text -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 decompile' solFile' cid solver' timeout debug' = do
   let opts = if debug' then debugVeriOpts else defaultVeriOpts
@@ -240,25 +242,33 @@ hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteStri
 hevm actspec cid sol' code' initcode' solver' timeout debug' = do
   let opts = if debug' then debugVeriOpts else defaultVeriOpts
   (initcode'', bytecode) <- getBytecode
+=======
+hevm :: FilePath -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+hevm actspec sol' code' initcode' solver' timeout debug' = do
+>>>>>>> main
   specContents <- readFile actspec
-  proceed specContents (enrich <$> compile specContents) $ \act -> do
-    checkCases act solver' timeout debug'
-    Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers -> do
-      -- Constructor check
-      checkConstructors solvers opts initcode'' bytecode act
-      -- Behavours check
-      checkBehaviours solvers opts bytecode act
-      -- ABI exhaustiveness sheck
-      checkAbi solvers opts act bytecode
-
+  proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
+    cmap <- createContractMap contracts
+    let config = if debug' then debugActConfig else defaultActConfig
+    runEnv (Env config) $ Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
+      checkContracts solvers store cmap
   where
-    getBytecode :: IO (BS.ByteString, BS.ByteString)
-    getBytecode =
+
+    createContractMap :: [Contract] -> IO (Map Id (Contract, BS.ByteString, BS.ByteString))
+    createContractMap contracts = do
+      foldM (\cmap spec'@(Contract cnstr _) -> do
+                let cid =  _cname cnstr
+                (initcode'', runtimecode') <- getBytecode cid -- TODO do not reread the file each time
+                pure $ Map.insert cid (spec', initcode'', runtimecode') cmap
+            ) mempty contracts
+
+    getBytecode :: Id -> IO (BS.ByteString, BS.ByteString)
+    getBytecode cid =
       case (sol', code', initcode') of
         (Just f, Nothing, Nothing) -> do
           solContents  <- TIO.readFile f
-          bytecodes cid solContents
-        (Nothing, Just c, Just i) -> pure (i, c)
+          bytecodes (Text.pack cid) solContents
+        (Nothing, Just _, Just _) -> render (text "Only Solidity file supported") >> exitFailure -- pure (i, c)
         (Nothing, Nothing, _) -> render (text "No runtime code is given" <> line) >> exitFailure
         (Nothing, _, Nothing) -> render (text "No initial code is given" <> line) >> exitFailure
         (Just _, Just _, _) -> render (text "Both Solidity file and runtime code are given. Please specify only one." <> line) >> exitFailure

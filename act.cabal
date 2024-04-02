@@ -71,6 +71,7 @@ library
     Act.Enrich
     Act.Dev
     Act.HEVM
+    Act.HEVM_utils
     Act.Consistency
 
 executable act
