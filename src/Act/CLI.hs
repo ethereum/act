@@ -219,7 +219,6 @@ coq' f solver' smttimeout' debug' = do
     checkCases claims solver' smttimeout' debug'
     TIO.putStr $ coq claims
 
-<<<<<<< HEAD
 decompile' :: FilePath -> Text -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 decompile' solFile' cid solver' timeout debug' = do
   let opts = if debug' then debugVeriOpts else defaultVeriOpts
@@ -238,20 +237,19 @@ decompile' solFile' cid solver' timeout debug' = do
         putStrLn (prettyAct s)
 
 
-hevm :: FilePath -> Text -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
-hevm actspec cid sol' code' initcode' solver' timeout debug' = do
-  let opts = if debug' then debugVeriOpts else defaultVeriOpts
-  (initcode'', bytecode) <- getBytecode
-=======
 hevm :: FilePath -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec sol' code' initcode' solver' timeout debug' = do
->>>>>>> main
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
     let config = if debug' then debugActConfig else defaultActConfig
     runEnv (Env config) $ Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
-      checkContracts solvers store cmap
+      res <- checkContracts solvers store cmap
+      case res of
+        Success _ -> ()
+        Failure err -> do
+          showMsg err
+          exitFailure          
   where
 
     createContractMap :: [Contract] -> IO (Map Id (Contract, BS.ByteString, BS.ByteString))

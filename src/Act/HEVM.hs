@@ -37,6 +37,7 @@ import Act.HEVM_utils
 import Act.Syntax.Annotated as Act
 import Act.Syntax.Untyped (makeIface)
 import Act.Syntax
+import Act.Error
 
 import EVM.ABI (Sig(..))
 import EVM as EVM hiding (bytecode)
@@ -708,7 +709,7 @@ checkAbi solver contract cmap = do
 
     msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
 
-checkContracts :: App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m ()
+checkContracts :: App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m (Error () String)
 checkContracts solvers store codemap =
   mapM_ (\(_, (contract, initcode, bytecode)) -> do
             showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
@@ -754,22 +755,21 @@ toVRes msg res = case res of
   Error e -> error $ "Internal Error: solver responded with error: " <> show e
 
 
-checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m ()
+checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m (Error () String)
 checkResult calldata sig res =
   case any isCex res of
-    False -> do
-      showMsg "\x1b[42mNo discrepancies found\x1b[m"
-      when (any isTimeout res) $ do
-        showMsg "But timeout(s) occurred"
-        liftIO exitFailure
+    False ->
+      case any isTimeout res of
+        True -> do
+          let msg = showMsg "\x1b[41mNo discrepancies found but timeout(s) occurred. \x1b[m"
+          pure $ Failure "Failure: Cannot prove equivalence."
+        False -> do 
+          showMsg "\x1b[42mNo discrepancies found.\x1b[m "
+          pure $ Success ()
     True -> do
       let cexs = mapMaybe getCex res
-      showMsg . T.unpack . T.unlines $
-        [ "\x1b[41mNot equivalent.\x1b[m"
-        , "" , "-----", ""
-        ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (fst calldata) sig cex) cexs)
-      liftIO exitFailure
-
+      showMsg $ T.unpack . T.unlines $ [ "\x1b[41mNot equivalent.\x1b[m", "" , "-----", ""] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (fst calldata) sig cex) cexs)
+      pure $ Failure "Failure: Cannot prove equivalence."
 
 -- | Pretty prints a list of hevm behaviours for debugging purposes
 showBehvs :: [EVM.Expr a] -> String

@@ -61,6 +61,7 @@ import EVM.SMT
 import Act.Syntax.Annotated
 import Act.Syntax.Untyped (makeIface)
 import Act.HEVM
+import Act.HEVM_utils hiding (abstractVM)
 import Act.Enrich (enrich)
 import Act.Error
 import Act.Traversals
@@ -171,7 +172,7 @@ makeIntSafe solvers expr = evalStateT (mapExprM go expr) mempty
                , fromMaybe (EVM.PBool True) (Map.lookup r s)
                , EVM.PNeg safe
                ]
-      liftIO (checkSat solvers (assertProps abstRefineDefault ps)) >>= \case
+      liftIO (checkSat solvers (assertProps defaultActConfig ps)) >>= \case
         Unsat -> do
           put $ Map.insert full safe s
           pure full
@@ -287,7 +288,7 @@ partitionStorage = go mempty
   where
     go :: Map EVM.W256 (EVM.Expr EVM.EWord) -> EVM.Expr EVM.Storage -> Either Text DistinctStore
     go curr = \case
-      EVM.AbstractStore _ -> pure $ DistinctStore curr
+      EVM.AbstractStore _ _ -> pure $ DistinctStore curr
       EVM.ConcreteStore s -> do
         let s' = Map.toList (fmap EVM.Lit s)
             new = foldl' checkedInsert curr s'
@@ -358,7 +359,7 @@ fromWord layout w = go w
     evmbool c = ITE nowhere c (LitInt nowhere 1) (LitInt nowhere 0)
 
     -- identifiers
-
+    go :: EVM.Expr EVM.EWord -> Either Text (Exp AInteger)
     go (EVM.Lit a) = Right $ LitInt nowhere (toInteger a)
     -- TODO: get the actual abi type from the compiler output
     go (EVM.Var a) = Right $ Var nowhere SInteger (AbiBytesType 32) (T.unpack a)
@@ -410,7 +411,7 @@ fromWord layout w = go w
     -- storage
 
     -- read from the prestore with a concrete index
-    go (EVM.SLoad (EVM.Lit idx) (EVM.AbstractStore _)) =
+    go (EVM.SLoad (EVM.Lit idx) (EVM.AbstractStore _ _)) =
          case Map.lookup (toInteger idx, 0) layout of
            Nothing -> Left "read from a storage location that is not present in the solc layout"
            Just (nm, tp) -> case tp of
@@ -434,7 +435,8 @@ verifyDecompilation solvers opts creation runtime spec =
   where
     checkCtors :: IO (Error String ())
     checkCtors = do
-      let (_, actbehvs, calldata, sig) = translateActConstr spec runtime
+      let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing
+      let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
       initVM <- stToIO $ abstractVM calldata creation Nothing True
       expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
       let solbehvs = removeFails $ flattenExpr (Expr.simplify expr)
