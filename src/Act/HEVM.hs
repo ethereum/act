@@ -11,7 +11,7 @@
 {-# LANGUAGE NoFieldSelectors #-}
 
 -- {-# LANGUAGE TypeApplications #-}
--- {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module Act.HEVM where
 
@@ -48,7 +48,7 @@ import EVM.SMT (SMTCex(..), assertProps)
 import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
-
+import EVM.Traversals
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -394,7 +394,7 @@ ethEnvToWord Callvalue = pure $ EVM.TxValue
 ethEnvToWord Caller = do
   c <- getCaller
   pure $ EVM.WAddr c
-ethEnvToWord Origin = EVM.WAddr (EVM.SymAddr "origin") -- Why not: pure $ EVM.Origin
+ethEnvToWord Origin = pure $ EVM.WAddr (EVM.SymAddr "origin") -- Why not: pure $ EVM.Origin
 ethEnvToWord Blocknumber = pure $ EVM.BlockNumber
 ethEnvToWord Blockhash = pure $ EVM.BlockHash $ EVM.Lit 0
 ethEnvToWord Chainid = pure $ EVM.ChainId
@@ -463,11 +463,8 @@ stripMods = mapExpr go
     go (EVM.Mod a (EVM.Lit MAX_UINT)) = a
     go a = a
 
-<<<<<<< HEAD
-toExpr :: forall a. Layout -> Exp a -> EVM.Expr (ExprType a)
-toExpr layout = 
-  toExpr :: forall a. ContractMap -> Exp a -> ActM (EVM.Expr (ExprType a))
-toExpr cmap = stripMods . go
+toExpr :: forall a. ContractMap -> Exp a -> ActM (EVM.Expr (ExprType a))
+toExpr cmap = liftM stripMods . go 
   where
     go = \case
       -- booleans
@@ -521,7 +518,7 @@ toExpr cmap = stripMods . go
         pure $ EVM.Not $ e
       (NEq _ _ _ _) -> error "unsupported"
 
-      (ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
+      e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
       (Var _ SInteger typ x) ->  -- TODO other types
         pure $ fromCalldataFramgment $ symAbiArg (T.pack x) typ
 
