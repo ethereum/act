@@ -32,6 +32,7 @@ import Data.Maybe
 import System.Exit ( exitFailure )
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import Control.Monad.State
+import Data.List.NonEmpty qualified as NE
 
 import Act.HEVM_utils
 import Act.Syntax.Annotated as Act
@@ -465,7 +466,7 @@ stripMods = mapExpr go
     go a = a
 
 toExpr :: forall a. ContractMap -> Exp a -> ActM (EVM.Expr (ExprType a))
-toExpr cmap = liftM stripMods . go 
+toExpr cmap = liftM stripMods . go
   where
     go = \case
       -- booleans
@@ -587,16 +588,18 @@ checkEquiv solvers l1 l2 = do
     toEquivRes (Timeout b) = Timeout b
 
 
-checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (ContractMap, ActEnv)
+checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (Error String (ContractMap, ActEnv))
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
-  checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
+  res1 <- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
-  checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
-  pure $ (getContractMap actbehvs, actenv')
+  res2 <- checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
+  case (res1, res2) of
+    (Success _, Success _) -> pure $ Success (getContractMap actbehvs, actenv')
+    (_, _) -> pure $ Failure "Constructors not equivalent.\n"
   where
     removeFails branches = filter isSuccess $ branches
 
@@ -604,11 +607,11 @@ getContractMap :: [EVM.Expr EVM.End] -> ContractMap
 getContractMap [EVM.Success _ _ _ m] = m
 getContractMap _ = error "Internal error: unexpected shape of Act translation"
 
-checkBehaviours :: App m => SolverGroup -> Contract -> ActEnv -> ContractMap -> m ()
+checkBehaviours :: App m => SolverGroup -> Contract -> ActEnv -> ContractMap -> m (Error String ())
 checkBehaviours solvers (Contract _ behvs) actenv cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = fst $ flip runState actenv $ translateBehvs actstorage behvs
-  flip mapM_ actbehvs $ \(name,behvs',calldata, sig) -> do
+  liftM mconcat $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
@@ -684,7 +687,7 @@ checkInputSpaces solvers l1 l2 = do
 
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
-checkAbi :: App m => SolverGroup -> Contract -> ContractMap -> m ()
+checkAbi :: App m => SolverGroup -> Contract -> ContractMap -> m (Error String ())
 checkAbi solver contract cmap = do
   showMsg "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
   let (_, hevmstorage) = createStorage cmap
@@ -709,18 +712,14 @@ checkAbi solver contract cmap = do
 
     msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
 
-checkContracts :: App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m (Error () String)
+checkContracts :: App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m (Error String ())
 checkContracts solvers store codemap =
-  mapM_ (\(_, (contract, initcode, bytecode)) -> do
+  liftM mconcat $ flip mapM (M.toList codemap) $ \(_, (contract, initcode, bytecode)) -> do
             showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
             -- Constructor check
-            (cmap, actenv) <- checkConstructors solvers initcode bytecode store contract codemap
-            -- Behavours check
-            checkBehaviours solvers contract actenv cmap
-            -- ABI exhaustiveness sheck
-            checkAbi solvers contract cmap
-        ) (M.toList codemap)
-
+            flip liftM (checkConstructors solvers initcode bytecode store contract codemap) (flip bindValidation $ \(cmap, actenv) ->  checkBehaviours solvers contract actenv cmap *> checkAbi solvers contract cmap)
+               -- ABI exhaustiveness sheck
+                -- Behaviours check
 
 readSelector :: EVM.Expr EVM.Buf -> EVM.Expr EVM.EWord
 readSelector txdata =
@@ -755,21 +754,21 @@ toVRes msg res = case res of
   Error e -> error $ "Internal Error: solver responded with error: " <> show e
 
 
-checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m (Error () String)
+checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m (Error String ())
 checkResult calldata sig res =
   case any isCex res of
     False ->
       case any isTimeout res of
         True -> do
-          let msg = showMsg "\x1b[41mNo discrepancies found but timeout(s) occurred. \x1b[m"
-          pure $ Failure "Failure: Cannot prove equivalence."
-        False -> do 
+          showMsg "\x1b[41mNo discrepancies found but timeout(s) occurred. \x1b[m"
+          pure $ Failure $ NE.singleton (nowhere, "Failure: Cannot prove equivalence.")
+        False -> do
           showMsg "\x1b[42mNo discrepancies found.\x1b[m "
           pure $ Success ()
     True -> do
       let cexs = mapMaybe getCex res
       showMsg $ T.unpack . T.unlines $ [ "\x1b[41mNot equivalent.\x1b[m", "" , "-----", ""] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (fst calldata) sig cex) cexs)
-      pure $ Failure "Failure: Cannot prove equivalence."
+      pure $ Failure $ NE.singleton (nowhere, "Failure: Cannot prove equivalence.")
 
 -- | Pretty prints a list of hevm behaviours for debugging purposes
 showBehvs :: [EVM.Expr a] -> String
