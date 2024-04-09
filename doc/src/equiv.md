@@ -40,7 +40,7 @@ some path condition in the first list but not the second and vice verse.
 
 Say that the Act program has the Expr representation 
 `[Success c1 r1 s1, ..., Success cn rn sn`
-and the the EVM bytecode has the Expr representation 
+and the EVM bytecode has the Expr representation 
 `[Success c1' r1' s1', ..., Success cn' rn' sn'`
 
 then we need to check that `c1 \/ .. \/ cn <-> c1' \/ .. \/ cn'` that
