@@ -33,6 +33,8 @@ import System.Exit ( exitFailure )
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import Control.Monad.State
 import Data.List.NonEmpty qualified as NE
+import Data.Validation
+import Control.Monad.State
 
 import Act.HEVM_utils
 import Act.Syntax.Annotated as Act
@@ -599,7 +601,7 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   res2 <- checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
   case (res1, res2) of
     (Success _, Success _) -> pure $ Success (getContractMap actbehvs, actenv')
-    (_, _) -> pure $ Failure "Constructors not equivalent.\n"
+    (_, _) -> pure $ Failure $ NE.singleton (nowhere, "Constructors not equivalent.\n")
   where
     removeFails branches = filter isSuccess $ branches
 
@@ -607,11 +609,11 @@ getContractMap :: [EVM.Expr EVM.End] -> ContractMap
 getContractMap [EVM.Success _ _ _ m] = m
 getContractMap _ = error "Internal error: unexpected shape of Act translation"
 
-checkBehaviours :: App m => SolverGroup -> Contract -> ActEnv -> ContractMap -> m (Error String ())
+checkBehaviours :: forall m. App m => SolverGroup -> Contract -> ActEnv -> ContractMap -> m (Error String ())
 checkBehaviours solvers (Contract _ behvs) actenv cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = fst $ flip runState actenv $ translateBehvs actstorage behvs
-  liftM mconcat $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
+  ((liftM $ concatError err) :: m [Error String ()] -> m (Error String ())) $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
@@ -620,9 +622,10 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
     -- input space exhaustiveness check
     showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
     checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
-    where
-      removeFails branches = filter isSuccess $ branches
-
+  
+  where
+    removeFails branches = filter isSuccess $ branches
+    err = Failure $ NE.singleton (nowhere, "Internal error: No constructors found")
 
 createStorage :: ContractMap -> (ContractMap, [(EVM.Expr EVM.EAddr, EVM.Contract)])
 createStorage cmap =
@@ -713,11 +716,27 @@ checkAbi solver contract cmap = do
     msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
 
 checkContracts :: App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m (Error String ())
-checkContracts solvers store codemap =
-  liftM mconcat $ flip mapM (M.toList codemap) $ \(_, (contract, initcode, bytecode)) -> do
-            showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
+checkContracts solvers store codemap = undefined
+    -- let res = (mapM_ (\(_, (contract, initcode, bytecode)) -> do
+    --                     showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
+    --                     _ <- checkConstructors solvers initcode bytecode store contract codemap 
+    --                     pure ()) (M.toList codemap)) :: m ()
+                  -- let mctor = (checkConstructors solvers initcode bytecode store contract codemap :: m (Error String (ContractMap, ActEnv)))
+                  -- in undefined))
+           -- do
+           --  (ctor :: Error String (ContractMap, ActEnv)) <- checkConstructors solvers initcode bytecode store contract codemap
+           --  pure $ Success ())) :: m [Error String ()]
+    -- in undefined
+  -- liftM mconcat res
+            
+  --           liftM (bindValidation ctor) (\(cmap, actenv) -> 
+        
+  -- let (res :: m [Error String ()]) = flip mapM (M.toList codemap) (\(_, (contract, initcode, bytecode)) -> flip liftM (() :: m (Error String (ContractMap, ActEnv))) ((flip bindValidation (\(cmap, actenv) -> Failure $ NE.singleton (nowhere,  ""))) :: (Error String (ContractMap, ActEnv) -> Error String ())
+  -- liftM mconcat $  :: m [Error String ()])
+            -- showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
             -- Constructor check
-            flip liftM (checkConstructors solvers initcode bytecode store contract codemap) (flip bindValidation $ \(cmap, actenv) ->  checkBehaviours solvers contract actenv cmap *> checkAbi solvers contract cmap)
+            
+            -- checkBehaviours solvers contract actenv cmap *> checkAbi solvers contract cmap)
                -- ABI exhaustiveness sheck
                 -- Behaviours check
 

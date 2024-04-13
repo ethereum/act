@@ -18,6 +18,8 @@ module Act.Error (module Act.Error) where
 import Data.List (find)
 import Data.List.NonEmpty as NE
 import Data.Validation as Act.Error
+import Data.Semigroup
+import Data.Maybe
 
 import Act.Syntax.Untyped (Pn)
 
@@ -64,3 +66,9 @@ findSuccess d comp = case find valid comp of
   where
     valid (Success _) = True
     valid _ = False
+
+
+concatError ::  Error e a -> [Error e a] -> Error e a
+concatError def l =
+  let l' = fromMaybe [def] $ nonEmpty l in
+  sconcat l'
