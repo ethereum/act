@@ -24,42 +24,38 @@ module Act.Decompile where
 
 import Prelude hiding (LT, GT)
 
-import Control.Concurrent.Async
 import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.State.Strict
 import Data.ByteString (ByteString)
-import Data.Containers.ListUtils
 import Data.List
 import Data.List.NonEmpty qualified as NE
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Map (Map)
 import Data.Map qualified as Map
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Foldable
-import Data.Traversable
 import Data.Tuple.Extra
 import Data.Typeable
-import EVM.ABI (AbiKind(..), abiKind, Sig(..))
+
+import EVM.ABI (AbiKind(..), abiKind)
 import EVM.Fetch qualified as Fetch
 import EVM.Format (formatExpr)
 import EVM.Solidity hiding (SlotType(..))
 import EVM.Solidity qualified as EVM (SlotType(..))
 import EVM.Types qualified as EVM
 import EVM.Types ((.<=), (.>=), (.==))
-import EVM.Solvers (SolverGroup, withSolvers, Solver(..), checkSat, CheckSatResult(..))
+import EVM.Solvers (SolverGroup, checkSat, CheckSatResult(..))
 import EVM.SymExec hiding (EquivResult)
 import EVM.Expr qualified as Expr
 import EVM.Traversals (mapExprM)
 import GHC.IO hiding (liftIO)
-import GHC.Natural
 import EVM.SMT
+import EVM.Effects
 
 import Act.Syntax.Annotated
-import Act.Syntax.Untyped (makeIface)
 import Act.HEVM
 import Act.HEVM_utils hiding (abstractVM)
 import Act.Enrich (enrich)
@@ -67,18 +63,19 @@ import Act.Error
 import Act.Traversals
 
 
+
 -- Top Level ---------------------------------------------------------------------------------------
 
 
-decompile :: SolcContract -> Solver -> Natural -> Maybe Natural -> VeriOpts -> IO (Either Text Act)
-decompile contract solver solverCount timeout opts = withSolvers solver solverCount timeout $ \solvers -> do
+decompile :: App m => SolcContract -> SolverGroup -> m (Either Text Act)
+decompile contract solvers = do
   spec <- runExceptT $ do
     summary <- ExceptT $ summarize solvers contract
     ExceptT . pure . translate $ summary
   case spec of
     Left e -> pure . Left $ e
     Right s -> do
-      valid <- verifyDecompilation solvers opts contract.creationCode contract.runtimeCode (enrich s)
+      valid <- verifyDecompilation solvers contract.creationCode contract.runtimeCode (enrich s)
       case valid of
         Success () -> pure . Right $ s
         Failure es -> pure . Left . T.unlines . NE.toList . fmap (T.pack . snd) $ es
@@ -98,7 +95,7 @@ data EVMContract = EVMContract
   deriving (Show, Eq)
 
 -- | Decompile the runtime and creation bytecodes into hevm expressions
-summarize :: SolverGroup -> SolcContract -> IO (Either Text EVMContract)
+summarize :: App m => SolverGroup -> SolcContract -> m (Either Text EVMContract)
 summarize solvers contract = do
   runExceptT $ do
     ctor <- ExceptT creation
@@ -116,7 +113,7 @@ summarize solvers contract = do
       -- TODO: doesn't this have a 4 byte gap at the front?
       let fragments = fmap (uncurry symAbiArg) contract.constructorInputs
           args = combineFragments' fragments 0 (EVM.ConcreteBuf "")
-      initVM <- stToIO $ abstractVM (fst args, []) contract.creationCode Nothing True
+      initVM <- liftIO $ stToIO $ abstractVM (fst args, []) contract.creationCode Nothing True
       expr <- Expr.simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
       let branches = flattenExpr expr
       if any isPartial branches
@@ -131,7 +128,7 @@ summarize solvers contract = do
         let calldata = first (`writeSelector` method.methodSignature)
                      . (flip combineFragments) (EVM.AbstractBuf "txdata")
                      $ fmap (uncurry symAbiArg) method.inputs
-        prestate <- stToIO $ abstractVM (fst calldata, []) contract.runtimeCode Nothing False
+        prestate <- liftIO $ stToIO $ abstractVM (fst calldata, []) contract.runtimeCode Nothing False
         expr <- Expr.simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
         let branches = flattenExpr expr
         if any isPartial branches
@@ -151,10 +148,10 @@ summarize solvers contract = do
 -- due to under/overflow explicit in the tree. This can certainly be made
 -- significantly more efficient and precise (abstract interpretation?), but
 -- this rather brute force attempt should be sound for now.
-makeIntSafe :: SolverGroup -> EVM.Expr a -> IO (EVM.Expr a)
+makeIntSafe :: forall m a. App m => SolverGroup -> EVM.Expr a -> m (EVM.Expr a)
 makeIntSafe solvers expr = evalStateT (mapExprM go expr) mempty
   where
-    go :: EVM.Expr a -> StateT (Map (EVM.Expr EVM.EWord) EVM.Prop) IO (EVM.Expr a)
+    go :: forall b. EVM.Expr b -> StateT (Map (EVM.Expr EVM.EWord) EVM.Prop) m (EVM.Expr b)
     go = \case
       e@(EVM.Add a b) -> binop (EVM.Add a b .>= a) a b e
       e@(EVM.Sub a b) -> binop (EVM.Sub a b .<= a) a b e
@@ -165,7 +162,7 @@ makeIntSafe solvers expr = evalStateT (mapExprM go expr) mempty
       e@(EVM.SEx {}) -> pure (EVM.Mod e (EVM.Lit MAX_UINT))
       e -> pure e
 
-    binop :: EVM.Prop -> EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> StateT (Map (EVM.Expr EVM.EWord) EVM.Prop) IO (EVM.Expr EVM.EWord)
+    binop :: EVM.Prop -> EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> StateT (Map (EVM.Expr EVM.EWord) EVM.Prop) m (EVM.Expr EVM.EWord)
     binop safe l r full = do
       s <- get
       let ps = [ fromMaybe (EVM.PBool True) (Map.lookup l s)
@@ -427,69 +424,13 @@ fromWord layout w = go w
 
 -- | Verify that the decompiled spec is equivalent to the input bytecodes
 -- This compiles the generated act spec back down to an Expr and then checks that the two are equivalent
-verifyDecompilation :: SolverGroup -> VeriOpts -> ByteString -> ByteString -> Act -> IO (Error String ())
-verifyDecompilation solvers opts creation runtime spec =
-  checkCtors *>
-  checkBehvs *>
-  checkAbis
-  where
-    checkCtors :: IO (Error String ())
-    checkCtors = do
-      let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing
-      let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
-      initVM <- stToIO $ abstractVM calldata creation Nothing True
-      expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
-      let solbehvs = removeFails $ flattenExpr (Expr.simplify expr)
-      _ <- checkResult calldata (Just sig) <$> checkEquiv solvers opts solbehvs actbehvs
-      checkRes calldata (Just sig) <$> checkInputSpaces solvers opts solbehvs actbehvs
-
-    checkBehvs :: IO (Error String ())
-    checkBehvs = do
-      let actbehvs = translateActBehvs spec runtime
-      rs <- for actbehvs $ \(_,behvs,calldata,sig) -> do
-        solbehvs <- removeFails <$> getBranches solvers runtime calldata
-        equivRes <- checkEquiv solvers opts solbehvs behvs
-        inputRes <- checkInputSpaces solvers opts solbehvs behvs
-        pure
-          $  checkRes calldata (Just sig) equivRes
-          *> checkRes calldata (Just sig) inputRes
-      pure $ sequenceA_ rs
-
-    checkAbis :: IO (Error String ())
-    checkAbis = do
-      let txdata = EVM.AbstractBuf "txdata"
-      let selectorProps = assertSelector txdata <$> nubOrd (actSigs spec)
-      evmBehvs <- getBranches solvers runtime (txdata, [])
-      let queries =  fmap (assertProps abstRefineDefault) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
-      let msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
-      checkRes (txdata, []) Nothing <$> fmap (toVRes msg) <$> mapConcurrently (checkSat solvers) queries
-
-    actSig (Behaviour _ _ iface _ _ _ _ _) = T.pack $ makeIface iface
-    actSigs (Act _ [(Contract _ behvs)]) = actSig <$> behvs
-    -- TODO multiple contracts
-    actSigs (Act _ _) = error "TODO multiple contracts"
-
-    checkBehv :: [EVM.Prop] -> EVM.Expr EVM.End -> [EVM.Prop]
-    checkBehv assertions (EVM.Success cnstr _ _ _) = assertions <> cnstr
-    checkBehv _ (EVM.Failure _ _ _) = []
-    checkBehv _ (EVM.Partial _ _ _) = []
-    checkBehv _ (EVM.ITE _ _ _) = error "Internal error: HEVM behaviours must be flattened"
-    checkBehv _ (EVM.GVar _) = error "Internal error: unepected GVar"
-
-    checkRes :: Calldata -> Maybe Sig -> [EquivResult] -> Error String ()
-    checkRes calldata sig res =
-      let
-        cexs = mapMaybe getCex res
-        timeouts = mapMaybe getTimeout res
-        cexErr = unless (null cexs) $
-          Failure $ fmap (\(msg,cex) ->
-            (nowhere, T.unpack $ msg <> "\n" <> formatCex (fst calldata) sig cex)) (NE.fromList cexs)
-        timeoutErr = unless (null timeouts) $
-          Failure [(nowhere, "Timeouts occured")] -- TODO: display which query
-      in cexErr *> timeoutErr
-
-    removeFails branches = filter Expr.isSuccess branches
-
+verifyDecompilation :: App m => SolverGroup -> ByteString -> ByteString -> Act -> m (Error String ())
+verifyDecompilation solvers creation runtime (Act store spec) = do
+  let cmap = case spec of
+               [con@(Contract cnstr _)] ->
+                 Map.insert (_cname cnstr) (con, creation, runtime) cmap
+               _ -> error "TODO multiple contracts"
+  checkContracts solvers store cmap
 
 -- Helpers -----------------------------------------------------------------------------------------
 

@@ -12,7 +12,7 @@
 
 module Act.CLI (main, compile, proceed, prettyErrs) where
 
-import Data.Aeson hiding (Bool, Number, json)
+import Data.Aeson hiding (Bool, Number, json, Success)
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
@@ -221,37 +221,39 @@ coq' f solver' smttimeout' debug' = do
 
 decompile' :: FilePath -> Text -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 decompile' solFile' cid solver' timeout debug' = do
-  let opts = if debug' then debugVeriOpts else defaultVeriOpts
+  let config = if debug' then debugActConfig else defaultActConfig
+  cores <- liftM fromIntegral getNumProcessors
   json <- solc Solidity =<< TIO.readFile solFile'
-  cores <- getNumProcessors
   let (Contracts contracts, _, _) = fromJust $ readStdJSON json
   case Map.lookup ("hevm.sol:" <> cid) contracts of
     Nothing -> do
       putStrLn "compilation failed"
       exitFailure
-    Just c -> decompile c solver' (fromIntegral cores) (fmap fromIntegral timeout) opts >>= \case
-      Left e -> do
-        TIO.putStrLn e
-        exitFailure
-      Right s -> do
-        putStrLn (prettyAct s)
+    Just c -> do
+      res <- runEnv (Env config) $ Solvers.withSolvers solver' cores (naturalFromInteger <$> timeout) $ \solvers -> decompile c solvers
+      case res of
+        Left e -> do
+          TIO.putStrLn e
+          exitFailure
+        Right s -> do
+          putStrLn (prettyAct s)
 
 
 hevm :: FilePath -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec sol' code' initcode' solver' timeout debug' = do
+  let config = if debug' then debugActConfig else defaultActConfig
+  cores <- liftM fromIntegral getNumProcessors
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
-    let config = if debug' then debugActConfig else defaultActConfig
-    runEnv (Env config) $ Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
-      res <- checkContracts solvers store cmap
-      case res of
-        Success _ -> ()
-        Failure err -> do
-          showMsg err
-          exitFailure          
+    res <- runEnv (Env config) $ Solvers.withSolvers solver' cores (naturalFromInteger <$> timeout) $ \solvers ->
+      checkContracts solvers store cmap    
+    case res of
+      Success _ -> pure ()
+      Failure err -> do
+        prettyErrs "" err
+        exitFailure          
   where
-
     createContractMap :: [Contract] -> IO (Map Id (Contract, BS.ByteString, BS.ByteString))
     createContractMap contracts = do
       foldM (\cmap spec'@(Contract cnstr _) -> do

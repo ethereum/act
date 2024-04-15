@@ -29,12 +29,10 @@ import Control.Concurrent.Async
 import Control.Monad
 import Data.DoubleWord
 import Data.Maybe
-import System.Exit ( exitFailure )
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import Control.Monad.State
 import Data.List.NonEmpty qualified as NE
 import Data.Validation
-import Control.Monad.State
 
 import Act.HEVM_utils
 import Act.Syntax.Annotated as Act
@@ -715,30 +713,19 @@ checkAbi solver contract cmap = do
 
     msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
 
-checkContracts :: App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m (Error String ())
-checkContracts solvers store codemap = undefined
-    -- let res = (mapM_ (\(_, (contract, initcode, bytecode)) -> do
-    --                     showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
-    --                     _ <- checkConstructors solvers initcode bytecode store contract codemap 
-    --                     pure ()) (M.toList codemap)) :: m ()
-                  -- let mctor = (checkConstructors solvers initcode bytecode store contract codemap :: m (Error String (ContractMap, ActEnv)))
-                  -- in undefined))
-           -- do
-           --  (ctor :: Error String (ContractMap, ActEnv)) <- checkConstructors solvers initcode bytecode store contract codemap
-           --  pure $ Success ())) :: m [Error String ()]
-    -- in undefined
-  -- liftM mconcat res
-            
-  --           liftM (bindValidation ctor) (\(cmap, actenv) -> 
-        
-  -- let (res :: m [Error String ()]) = flip mapM (M.toList codemap) (\(_, (contract, initcode, bytecode)) -> flip liftM (() :: m (Error String (ContractMap, ActEnv))) ((flip bindValidation (\(cmap, actenv) -> Failure $ NE.singleton (nowhere,  ""))) :: (Error String (ContractMap, ActEnv) -> Error String ())
-  -- liftM mconcat $  :: m [Error String ()])
-            -- showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
-            -- Constructor check
-            
-            -- checkBehaviours solvers contract actenv cmap *> checkAbi solvers contract cmap)
-               -- ABI exhaustiveness sheck
-                -- Behaviours check
+checkContracts :: forall m. App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m (Error String ())
+checkContracts solvers store codemap =
+  let err = Failure $ NE.singleton (nowhere, "Internal error: No constructs found") in
+  liftM (concatError err) $ flip mapM (M.toList codemap) (\(_, (contract, initcode, bytecode)) -> do
+    showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
+    res <- checkConstructors solvers initcode bytecode store contract codemap
+    case res of
+      Success (cmap, actenv) -> do
+        behs <- checkBehaviours solvers contract actenv cmap
+        abi <- checkAbi solvers contract cmap
+        pure $ behs *> abi
+      Failure e -> pure $ Failure e)
+
 
 readSelector :: EVM.Expr EVM.Buf -> EVM.Expr EVM.EWord
 readSelector txdata =
