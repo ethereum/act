@@ -250,9 +250,7 @@ hevm actspec sol' code' initcode' solver' timeout debug' = do
       checkContracts solvers store cmap    
     case res of
       Success _ -> pure ()
-      Failure err -> do
-        prettyErrs "" err
-        exitFailure          
+      Failure err -> prettyErrs "" err
   where
     createContractMap :: [Contract] -> IO (Map Id (Contract, BS.ByteString, BS.ByteString))
     createContractMap contracts = do

@@ -597,9 +597,10 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   res1 <- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
   res2 <- checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
-  case (res1, res2) of
-    (Success _, Success _) -> pure $ Success (getContractMap actbehvs, actenv')
-    (_, _) -> pure $ Failure $ NE.singleton (nowhere, "Constructors not equivalent.\n")
+  pure $ res1 *> res2 *> (Success (getContractMap actbehvs, actenv'))
+  -- case (res1, res2) of
+  --   (Success _, Success _) -> pure $ Success (getContractMap actbehvs, actenv')
+  --   (_, _) -> pure $ Failure $ NE.singleton (nowhere, "Constructors not equivalent.\n")
   where
     removeFails branches = filter isSuccess $ branches
 
