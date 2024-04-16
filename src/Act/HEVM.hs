@@ -597,10 +597,7 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   res1 <- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
   res2 <- checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
-  pure $ res1 *> res2 *> (Success (getContractMap actbehvs, actenv'))
-  -- case (res1, res2) of
-  --   (Success _, Success _) -> pure $ Success (getContractMap actbehvs, actenv')
-  --   (_, _) -> pure $ Failure $ NE.singleton (nowhere, "Constructors not equivalent.\n")
+  pure $ res1 *> res2 *> Success (getContractMap actbehvs, actenv')
   where
     removeFails branches = filter isSuccess $ branches
 
@@ -621,7 +618,7 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
     -- input space exhaustiveness check
     showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
     checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
-  
+
   where
     removeFails branches = filter isSuccess $ branches
     err = Failure $ NE.singleton (nowhere, "Internal error: No constructors found")

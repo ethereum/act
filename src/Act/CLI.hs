@@ -28,7 +28,6 @@ import GHC.Conc
 import GHC.Natural
 import Options.Generic
 
-
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString as BS
 import Data.ByteString (ByteString)
@@ -247,7 +246,7 @@ hevm actspec sol' code' initcode' solver' timeout debug' = do
   proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
     res <- runEnv (Env config) $ Solvers.withSolvers solver' cores (naturalFromInteger <$> timeout) $ \solvers ->
-      checkContracts solvers store cmap    
+      checkContracts solvers store cmap
     case res of
       Success _ -> pure ()
       Failure err -> prettyErrs "" err

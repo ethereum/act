@@ -69,6 +69,4 @@ findSuccess d comp = case find valid comp of
 
 
 concatError ::  Error e a -> [Error e a] -> Error e a
-concatError def l =
-  let l' = fromMaybe [def] $ nonEmpty l in
-  sconcat l'
+concatError def l = foldl (*>) def l
