@@ -609,7 +609,7 @@ checkBehaviours :: forall m. App m => SolverGroup -> Contract -> ActEnv -> Contr
 checkBehaviours solvers (Contract _ behvs) actenv cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = fst $ flip runState actenv $ translateBehvs actstorage behvs
-  ((liftM $ concatError err) :: m [Error String ()] -> m (Error String ())) $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
+  (liftM $ concatError def) $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
@@ -621,7 +621,7 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
 
   where
     removeFails branches = filter isSuccess $ branches
-    err = Failure $ NE.singleton (nowhere, "Internal error: No constructors found")
+    def = Success ()
 
 createStorage :: ContractMap -> (ContractMap, [(EVM.Expr EVM.EAddr, EVM.Contract)])
 createStorage cmap =
@@ -713,8 +713,7 @@ checkAbi solver contract cmap = do
 
 checkContracts :: forall m. App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m (Error String ())
 checkContracts solvers store codemap =
-  let err = Failure $ NE.singleton (nowhere, "Internal error: No constructs found") in
-  liftM (concatError err) $ flip mapM (M.toList codemap) (\(_, (contract, initcode, bytecode)) -> do
+  liftM (concatError def) $ flip mapM (M.toList codemap) (\(_, (contract, initcode, bytecode)) -> do
     showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
     res <- checkConstructors solvers initcode bytecode store contract codemap
     case res of
@@ -723,6 +722,8 @@ checkContracts solvers store codemap =
         abi <- checkAbi solvers contract cmap
         pure $ behs *> abi
       Failure e -> pure $ Failure e)
+  where
+    def = Success ()
 
 
 readSelector :: EVM.Expr EVM.Buf -> EVM.Expr EVM.EWord
