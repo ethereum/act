@@ -614,10 +614,11 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
-    checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
+    res1 <- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
     -- input space exhaustiveness check
     showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
-    checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
+    res2 <- checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
+    pure $ res1 *> res2
 
   where
     removeFails branches = filter isSuccess $ branches
