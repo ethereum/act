@@ -7,7 +7,6 @@ import Test.Tasty
 import Test.Tasty.ExpectedFailure
 import Test.Tasty.HUnit
 import EVM.Solidity
-import EVM.SymExec
 import EVM.Solvers
 import Data.List.NonEmpty qualified as NE
 import Data.Map qualified as Map
@@ -20,6 +19,10 @@ import Data.Validation
 import Act.Decompile
 import Act.Print
 import Act.CLI
+import Act.HEVM_utils
+
+import qualified EVM.Solvers as Solvers
+import EVM.Effects
 
 decompilerTests :: TestTree
 decompilerTests = testGroup "decompiler"
@@ -105,7 +108,7 @@ checkDecompilation contract src = do
   json <- solc Solidity src
   let (Contracts sol, _, _) = fromJust $ readStdJSON json
   let c = fromJust $ Map.lookup ("hevm.sol:" <> contract) sol
-  decompile c CVC5 1 Nothing defaultVeriOpts >>= \case
+  runEnv (Env defaultActConfig) (Solvers.withSolvers CVC5 1 (Just 100000000) (decompile c)) >>= \case
     Left es -> do
       T.putStrLn es
       assertBool "decompilation should succeed" False
@@ -117,4 +120,3 @@ checkDecompilation contract src = do
       Success _ -> do
         --putStrLn (prettyAct s)
         assertBool "" True
-
