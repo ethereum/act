@@ -63,7 +63,6 @@ import Act.Error
 import Act.Traversals
 
 
-
 -- Top Level ---------------------------------------------------------------------------------------
 
 
@@ -386,6 +385,12 @@ fromWord layout w = go w
         b' <- go b
         pure . evmbool $ InRange nowhere (AbiUIntType 256) (Mul nowhere a' b')
 
+
+    -- SLT (max(a, length txdata) - 4) b == 0  if a - 4 = b
+    -- sideconditions: a - 4 < (2 ^ 256)/2 and b < (2 ^ 256)/2 so that both numbers are positive in two's complement. Otherwise SLT might not have the intended semantics.
+    -- For example SLT 42 2^255 == 0, because in two's complement 2^255  represents - 2 ^ 255
+    -- Note that we already have (length txdata) <= 2 ^ 64. These restrictions could be relaxed further, but it is not needed for our intended use
+    go (EVM.SLT (EVM.Mod (EVM.Add (EVM.Lit 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc) (EVM.Max (EVM.Lit a) (EVM.BufLength (EVM.AbstractBuf "txdata")))) (EVM.Lit 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)) (EVM.Lit b)) | (a - 4 == b) && (a - 4) < 2^(255 :: Integer) && b < 2^(255 :: Integer)= pure (LitInt nowhere 0)
 
     -- booleans
 
