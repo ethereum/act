@@ -62,8 +62,6 @@ import Act.Enrich (enrich)
 import Act.Error
 import Act.Traversals
 
-import Debug.Trace
-
 -- Top Level ---------------------------------------------------------------------------------------
 
 
@@ -204,11 +202,10 @@ mkConstructor cs
           ps <- flattenProps <$> mapM (fromProp (invertLayout cs.storageLayout)) props
           updates <- case Map.toList store of
             [(EVM.SymAddr "entrypoint", contract)] -> do
-              -- traceM "Store after initcode"
-              -- cs.layout
-              partitioned <- decomposeStorage (invertLayout cs.storageLayout) contract.storage
-              -- initStorage <- addDefaults partitioned layout
-              mkRewrites cs.name partitioned
+              let invLayout = invertLayout cs.storageLayout
+              partitioned <- decomposeStorage invLayout contract.storage
+              let initStorage = addDefaults invLayout partitioned
+              mkRewrites cs.name initStorage
             [(_, _)] -> error $ "Internal Error: state contains a single entry for an unexpected contract:\n" <> show store
             [] -> error "Internal Error: unexpected empty state"
             _ -> Left "cannot decompile methods that update storage on other contracts"
@@ -223,6 +220,13 @@ mkConstructor cs
         _ -> error "Internal Error: mkConstructor called on a non Success branch"
   | otherwise = Left "TODO: decompile constructors with multiple branches"
 
+  where
+    addDefaults :: Map (Integer, Integer) (Text, SlotType) -> DistinctStore -> DistinctStore
+    addDefaults layout (DistinctStore storage) = 
+      DistinctStore $ Map.foldr (\(name, typ) s -> case Map.lookup name storage of
+                                    Just _ -> s
+                                    Nothing -> Map.insert name (LitInt nowhere 0, typ) s) storage layout
+    
 -- | Build behaviour specs from the summarized bytecode
 mkBehvs :: EVMContract -> Either Text [Behaviour]
 mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList c.runtime)
