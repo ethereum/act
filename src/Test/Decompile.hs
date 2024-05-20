@@ -24,6 +24,8 @@ import Act.HEVM_utils
 import qualified EVM.Solvers as Solvers
 import EVM.Effects
 
+import Debug.Trace
+
 decompilerTests :: TestTree
 decompilerTests = testGroup "decompiler"
   [ expectFail $ testCase "noop" $ checkDecompilation "C" [i|
@@ -112,11 +114,13 @@ checkDecompilation contract src = do
     Left es -> do
       T.putStrLn es
       assertBool "decompilation should succeed" False
-    Right s -> case compile (prettyAct s) of
-      Failure es -> do
-        prettyErrs (prettyAct s) (NE.toList es)
-        putStrLn (prettyAct s)
-        assertBool "decompiled output does not typecheck" False
-      Success _ -> do
-        --putStrLn (prettyAct s)
-        assertBool "" True
+    Right s -> do
+      putStrLn (prettyAct s)
+      case compile (prettyAct s) of
+        Failure es -> do
+          prettyErrs (prettyAct s) (NE.toList es)
+          putStrLn (prettyAct s)
+          assertBool "decompiled output does not typecheck" False
+        Success _ -> do
+          --putStrLn (prettyAct s)
+          assertBool "" True

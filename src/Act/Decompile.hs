@@ -62,6 +62,7 @@ import Act.Enrich (enrich)
 import Act.Error
 import Act.Traversals
 
+import Debug.Trace
 
 -- Top Level ---------------------------------------------------------------------------------------
 
@@ -203,8 +204,11 @@ mkConstructor cs
           ps <- flattenProps <$> mapM (fromProp (invertLayout cs.storageLayout)) props
           updates <- case Map.toList store of
             [(EVM.SymAddr "entrypoint", contract)] -> do
-              partitioned <- partitionStorage contract.storage
-              mkRewrites cs.name (invertLayout cs.storageLayout) partitioned
+              -- traceM "Store after initcode"
+              -- cs.layout
+              partitioned <- decomposeStorage (invertLayout cs.storageLayout) contract.storage
+              -- initStorage <- addDefaults partitioned layout
+              mkRewrites cs.name partitioned
             [(_, _)] -> error $ "Internal Error: state contains a single entry for an unexpected contract:\n" <> show store
             [] -> error "Internal Error: unexpected empty state"
             _ -> Left "cannot decompile methods that update storage on other contracts"
@@ -239,8 +243,8 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
         _ -> Left "cannot decompile methods with multiple return types"
       rewrites <- case Map.toList store of
         [(EVM.SymAddr "entrypoint", contract)] -> do
-          partitioned <- partitionStorage contract.storage
-          mkRewrites c.name (invertLayout c.storageLayout) partitioned
+          partitioned <- decomposeStorage (invertLayout c.storageLayout) contract.storage
+          mkRewrites c.name partitioned
         [(_, _)] -> error $ "Internal Error: state contains a single entry for an unexpected contract:\n" <> show store
         [] -> error "Internal Error: unexpected empty state"
         _ -> Left "cannot decompile methods that update storage on other contracts"
@@ -257,50 +261,56 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
     mkbehv _ _ = error "Internal Error: mkbehv called on a non Success branch"
 
 -- TODO: we probably need to diff against the prestore or smth to be sound here
-mkRewrites :: Text -> Map (Integer, Integer) (Text, SlotType) -> DistinctStore -> Either Text [StorageUpdate]
-mkRewrites cname layout (DistinctStore writes) = forM (Map.toList writes) $ \(slot,item) ->
-    case Map.lookup (toInteger slot, 0) layout of
-      Just (name, typ) -> case typ of
-        StorageValue v -> case v of
-          PrimitiveType t -> case abiKind t of
-            Static -> case t of
-              AbiTupleType _ -> Left "cannot decompile methods that write to tuple in storage"
-              AbiFunctionType -> Left "cannot decompile methods that store function pointers"
-              _ -> do
-                  val <- fromWord layout item
-                  pure (Update SInteger (Item SInteger v (SVar nowhere (T.unpack cname) (T.unpack name))) val)
-            Dynamic -> Left "cannot decompile methods that store dynamically sized types"
-          ContractType {} -> Left "cannot decompile contracts that have contract types in storage"
-        StorageMapping {} -> Left "cannot decompile contracts that write to mappings"
-      Nothing -> Left $ "write to a storage location that is not mentioned in the solc layout: " <> (T.pack $ show slot)
+mkRewrites :: Text -> DistinctStore -> Either Text [StorageUpdate]
+mkRewrites cname (DistinctStore writes) = forM (Map.toList writes) $ \(name,(val,typ)) ->
+  case typ of
+    StorageValue v -> case v of
+      PrimitiveType t -> case abiKind t of
+        Static -> case t of
+          AbiTupleType _ -> Left "cannot decompile methods that write to tuple in storage"
+          AbiFunctionType -> Left "cannot decompile methods that store function pointers"
+          _ -> do
+            pure (Update SInteger (Item SInteger v (SVar nowhere (T.unpack cname) (T.unpack name))) val)
+        Dynamic -> Left "cannot decompile methods that store dynamically sized types"
+      ContractType {} -> Left "cannot decompile contracts that have contract types in storage"
+    StorageMapping {} -> Left "cannot decompile contracts that write to mappings"
 
-newtype DistinctStore = DistinctStore (Map (EVM.W256) (EVM.Expr EVM.EWord))
+newtype DistinctStore = DistinctStore (Map Text (Exp AInteger, SlotType))
 
 -- | Attempts to decompose an input storage expression into a map from provably distinct keys to abstract words
 -- currently only supports stores where all writes are to concrete locations
 -- supporting writes to symbolic locations will probably require calling an smt solver
-partitionStorage :: EVM.Expr EVM.Storage -> Either Text DistinctStore
-partitionStorage = go mempty
+decomposeStorage :: Map (Integer, Integer) (Text, SlotType) -> EVM.Expr EVM.Storage -> Either Text DistinctStore
+decomposeStorage layout = go mempty
   where
-    go :: Map EVM.W256 (EVM.Expr EVM.EWord) -> EVM.Expr EVM.Storage -> Either Text DistinctStore
+    go :: (Map Text (Exp AInteger, SlotType)) -> EVM.Expr EVM.Storage -> Either Text DistinctStore
     go curr = \case
       EVM.AbstractStore _ _ -> pure $ DistinctStore curr
       EVM.ConcreteStore s -> do
-        let s' = Map.toList (fmap EVM.Lit s)
-            new = foldl' checkedInsert curr s'
+        let s'  = Map.toList (fmap EVM.Lit s)
+        new <- foldM checkedInsert curr s'
         pure $ DistinctStore new
-      EVM.SStore (EVM.Lit k) v base -> go (checkedInsert curr (k,v)) base
+      EVM.SStore (EVM.Lit k) v base -> do
+        curr' <- checkedInsert curr (k,v)
+        go curr' base
       EVM.SStore {} -> Left "cannot decompile contracts with writes to symbolic storage slots"
       EVM.GVar _ -> error "Internal Error: unexpected GVar"
 
     -- this is safe because:
     --   1. we traverse top down
     --   2. we only consider Lit keys
-    checkedInsert curr (key, val) = case Map.lookup key curr of
-      -- if a key was already written to higher in the write chain, ignore this write
-      Just _ -> curr
-      -- if this is the first time we have seen a key then insert it
-      Nothing -> Map.insert key val curr
+    checkedInsert :: (Map Text (Exp AInteger, SlotType)) -> (EVM.W256, EVM.Expr EVM.EWord) -> Either Text (Map Text (Exp AInteger, SlotType))
+    checkedInsert curr (key, val) =
+        case Map.lookup (toInteger key, 0) layout of
+          Just (name, typ) -> 
+            case Map.lookup name curr of
+              -- if a key was already written to higher in the write chain, ignore this write
+              Just _ -> pure curr
+              -- if this is the first time we have seen a key then insert it
+              Nothing -> do
+                val' <- fromWord layout val
+                pure $ Map.insert name (val',typ) curr
+          Nothing -> Left $ "write to a storage location that is not mentioned in the solc layout: " <> (T.pack $ show key)
 
 -- | strips away all the extraneous ite noise that the evm bool's introduce
 simplify :: forall a . Exp a -> Exp a
