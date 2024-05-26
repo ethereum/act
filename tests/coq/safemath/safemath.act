@@ -1,8 +1,6 @@
 constructor of SafeMath
 interface constructor()
 
-creates
-
 behaviour add of SafeMath
 interface add(uint256 x, uint256 y)
 

@@ -10,9 +10,9 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
-module Act.CLI (main, compile, proceed) where
+module Act.CLI (main, compile, proceed, prettyErrs) where
 
-import Data.Aeson hiding (Bool, Number, json)
+import Data.Aeson hiding (Bool, Number, json, Success)
 import GHC.Generics
 import System.Exit ( exitFailure )
 import System.IO (hPutStrLn, stderr)
@@ -24,9 +24,9 @@ import Data.Maybe
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
+import GHC.Conc
 import GHC.Natural
 import Options.Generic
-
 
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.ByteString as BS
@@ -47,6 +47,7 @@ import Act.HEVM
 import Act.HEVM_utils
 import Act.Consistency
 import Act.Print
+import Act.Decompile
 
 import qualified EVM.Solvers as Solvers
 import EVM.Solidity
@@ -84,6 +85,12 @@ data Command w
                     , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
                     , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
                     }
+  | Decompile       { solFile    :: w ::: String               <?> "Path to .sol"
+                    , contract   :: w ::: String               <?> "Contract name"
+                    , solver     :: w ::: Maybe Text           <?> "SMT solver: cvc5 (default) or z3"
+                    , smttimeout :: w ::: Maybe Integer        <?> "Timeout given to SMT solver in milliseconds (default: 20000)"
+                    , debug      :: w ::: Bool                 <?> "Print verbose SMT output (default: False)"
+                    }
  deriving (Generic)
 
 deriving instance ParseField [(Id, String)]
@@ -114,6 +121,9 @@ main = do
       HEVM spec' sol' code' initcode' solver' smttimeout' debug' -> do
         solver'' <- parseSolver solver'
         hevm spec' sol' code' initcode' solver'' smttimeout' debug'
+      Decompile sol' contract' solver' smttimeout' debug' -> do
+        solver'' <- parseSolver solver'
+        decompile' sol' (Text.pack contract') solver'' smttimeout' debug'
 
 
 ---------------------------------
@@ -208,16 +218,39 @@ coq' f solver' smttimeout' debug' = do
     checkCases claims solver' smttimeout' debug'
     TIO.putStr $ coq claims
 
+decompile' :: FilePath -> Text -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
+decompile' solFile' cid solver' timeout debug' = do
+  let config = if debug' then debugActConfig else defaultActConfig
+  cores <- liftM fromIntegral getNumProcessors
+  json <- solc Solidity =<< TIO.readFile solFile'
+  let (Contracts contracts, _, _) = fromJust $ readStdJSON json
+  case Map.lookup ("hevm.sol:" <> cid) contracts of
+    Nothing -> do
+      putStrLn "compilation failed"
+      exitFailure
+    Just c -> do
+      res <- runEnv (Env config) $ Solvers.withSolvers solver' cores (naturalFromInteger <$> timeout) $ \solvers -> decompile c solvers
+      case res of
+        Left e -> do
+          TIO.putStrLn e
+          exitFailure
+        Right s -> do
+          putStrLn (prettyAct s)
+
+
 hevm :: FilePath -> Maybe FilePath -> Maybe ByteString -> Maybe ByteString -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 hevm actspec sol' code' initcode' solver' timeout debug' = do
+  let config = if debug' then debugActConfig else defaultActConfig
+  cores <- liftM fromIntegral getNumProcessors
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
-    let config = if debug' then debugActConfig else defaultActConfig
-    runEnv (Env config) $ Solvers.withSolvers solver' 1 (naturalFromInteger <$> timeout) $ \solvers ->
+    res <- runEnv (Env config) $ Solvers.withSolvers solver' cores (naturalFromInteger <$> timeout) $ \solvers ->
       checkContracts solvers store cmap
+    case res of
+      Success _ -> pure ()
+      Failure err -> prettyErrs "" err
   where
-
     createContractMap :: [Contract] -> IO (Map Id (Contract, BS.ByteString, BS.ByteString))
     createContractMap contracts = do
       foldM (\cmap spec'@(Contract cnstr _) -> do
@@ -243,8 +276,8 @@ bytecodes :: Text -> Text -> IO (BS.ByteString, BS.ByteString)
 bytecodes cid src = do
   json <- solc Solidity src
   let (Contracts sol', _, _) = fromJust $ readStdJSON json
-  pure $ ((fromJust . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').creationCode,
-          (fromJust . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').runtimeCode)
+  pure ((fromJust . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').creationCode,
+        (fromJust . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').runtimeCode)
 
 
 

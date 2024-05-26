@@ -209,7 +209,7 @@ Entry : id                                            { EVar (posn $1) (name $1)
 Index : '[' Expr ']'                                  { $2 }
 
 
-Creation : 'creates' list(Assign)                     { Creates $2 }
+Creation : optblock('creates',Assign)                 { Creates $1 }
 
 Assign : StorageVar ':=' Expr                         { AssignVal $1 $3 }
        | StorageVar ':=' '[' seplist(Defn, ',') ']'   { AssignMany $1 $4 }

@@ -521,8 +521,8 @@ parseSMTModel s = if length s0Caps == 1
     -- or "((identifier (value)))" for negative integers.
     -- The stage0 regex first extracts either value or (value), and then the
     -- stage1 regex is used to strip the additional brackets if required.
-    stage0 = "\\`\\(\\([a-zA-Z0-9_]+ ([ \"\\(\\)a-zA-Z0-9_\\-]+)\\)\\)\\'"
-    stage1 = "\\(([ a-zA-Z0-9_\\-]+)\\)"
+    stage0 = "\\`\\(\\([a-zA-Z0-9_]+ ([ \"\\(\\)a-zA-Z0-9_\\-]+)\\)\\)\\'" :: String
+    stage1 = "\\(([ a-zA-Z0-9_\\-]+)\\)" :: String
 
     s0Caps = getCaptures s stage0
     s1Caps = getCaptures (head s0Caps) stage1
