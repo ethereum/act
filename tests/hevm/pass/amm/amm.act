@@ -85,6 +85,8 @@ returns 1
 ensures
 
     pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) <= post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS])
+    post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS]) <= pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) + pre(token0.balanceOf[THIS]) + amt
+
 
 
 behaviour swap1 of Amm
@@ -119,3 +121,4 @@ returns 1
 ensures
 
     pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) <= post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS])
+    post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS]) <= pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) + pre(token1.balanceOf[THIS]) + amt
