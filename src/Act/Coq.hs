@@ -191,7 +191,6 @@ updateVar store updates handler focus t@(StorageValue (ContractType cid)) =
 updateVar _ updates handler focus t@(StorageValue (PrimitiveType _)) =
   foldl updatedVal (handler focus t) (filter (eqRef focus) updates)
     where
-      updatedVal _ (Update SByteStr _ _) = error "bytestrings not supported"
       updatedVal _ (Update _ _ e) = coqexp e
 
 updateVar _ updates handler focus t@(StorageMapping xs _) = parens $
@@ -200,7 +199,6 @@ updateVar _ updates handler focus t@(StorageMapping xs _) = parens $
       prestate = parens $ handler focus t <> " " <> lambdaArgs n
       n = length xs
 
-      updatedMap _ (Update SByteStr _ _) = error "bytestrings not supported"
       updatedMap prestate' (Update _ item e) =
         let ixs = ixsFromItem item in -- This will not work if the domain is a contract type
         "if " <> boolScope (T.intercalate " && " (map cond (zip ixs ([0..] :: [Int]))))
@@ -217,7 +215,7 @@ updateVar _ updates handler focus t@(StorageMapping xs _) = parens $
       eqsym argType = case argType of
         SInteger -> " =? "
         SBoolean -> " =?? "
-        SByteStr -> error "bytestrings not supported"
+        SByteStr -> error "TODO bytestring args"
         SContract -> error "contracts cannot be mapping arguments"
 
 
@@ -253,7 +251,7 @@ abiType a = error $ show a
 returnType :: TypedExp -> T.Text
 returnType (TExp SInteger _) = "Z"
 returnType (TExp SBoolean _) = "bool"
-returnType (TExp SByteStr _) = error "bytestrings not supported"
+returnType (TExp SByteStr _) = "bytestring"
 returnType (TExp SContract _) = error "Internal error: return type cannot be contract"
 
 -- | default value for a given type
@@ -369,7 +367,7 @@ typedexp :: TypedExp -> T.Text
 typedexp (TExp _ e) = coqexp e
 
 entry :: TStorageItem a -> When -> T.Text
-entry (Item SByteStr _ _) _ = error "bytestrings not supported"
+-- entry (Item SByteStr _ _) _ = error "bytestrings not supported" TODO 
 entry _ Post = error "TODO: missing support for poststate references in coq backend"
 entry (Item _ _ ref) _ = storageRef ref
 
