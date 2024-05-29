@@ -25,10 +25,12 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Text          as T
 import Data.List (groupBy)
 import Control.Monad.State
-
+import qualified Data.ByteString    as BS
+import GHC.Word
 import EVM.ABI
 import Act.Syntax
 import Act.Syntax.Annotated
+import Text.Printf
 
 type Fresh = State Int
 
@@ -325,13 +327,13 @@ coqexp (IntEnv _ envVal) = parens $ T.pack (show envVal) <> " " <> envVar
 -- Contracts
 coqexp (Var _ SContract _ name) = T.pack name
 coqexp (Create _ cid args) = parens $ T.pack cid <> "." <> T.pack cid <> " " <> envVar <> " " <> coqargs args
--- unsupported
-coqexp Cat {} = error "bytestrings not supported"
-coqexp Slice {} = error "bytestrings not supported"
-coqexp (Var _ SByteStr _ _) = error "bytestrings not supported"
-coqexp ByStr {} = error "bytestrings not supported"
-coqexp ByLit {} = error "bytestrings not supported"
-coqexp ByEnv {} = error "bytestrings not supported"
+-- bytestrings
+coqexp (Cat _ bs1 bs2) = parens $ (coqexp bs1) <> " ++ " <> (coqexp bs2)
+coqexp (Slice _ bs n m) =  parens $ "slice " <> (coqexp bs) <> " " <> (coqexp n) <> " " <> (coqexp m)
+coqexp (Var _ SByteStr _ name) =  T.pack name
+coqexp (ByStr _ s) =  parens $ "to_bytestring \"" <> T.pack s <> "\""
+coqexp (ByLit _ bs) = parens $ coqbytestring (BS.unpack bs)
+coqexp (ByEnv _ envVal) = parens $ T.pack (show envVal) <> " " <> envVar
 
 -- | coq syntax for a proposition
 coqprop :: Exp a -> T.Text
@@ -349,6 +351,18 @@ coqprop (GT _ e1 e2)   = parens $ coqexp e1 <> " > "  <> coqexp e2
 coqprop (GEQ _ e1 e2)  = parens $ coqexp e1 <> " >= " <> coqexp e2
 coqprop (InRange _ t e) = coqprop (bound t e)
 coqprop e = error "ill formed proposition: " <> T.pack (show e)
+
+
+coqbytestring :: [Word8] -> T.Text
+coqbytestring bytes = "[ " <> go bytes <> " ]"
+  where
+    go :: [Word8] -> T.Text
+    go [] = ""
+    go [b] = showHex b
+    go (b:bs) = showHex b <> ";" <> go bs
+
+    showHex :: Word8 -> T.Text
+    showHex b = T.pack $ printf "x%02x" b
 
 -- | coq syntax for a typed expression
 typedexp :: TypedExp -> T.Text

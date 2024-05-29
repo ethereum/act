@@ -1,7 +1,9 @@
 (** library to be included with user coq developments *)
 
-Require Import Coq.ZArith.ZArith.
+Require Import Coq.ZArith.ZArith Coq.Strings.Byte Coq.Lists.List Coq.Strings.String.
 Open Scope Z_scope.
+
+Import ListNotations.
 
 (** * type definitions *)
 Definition address := Z.
@@ -69,3 +71,23 @@ Proof.
   - left. reflexivity.
   - right. reflexivity.
 Qed.
+
+
+Section Bytestrings.
+
+  Definition bytestring := list byte.
+
+  Definition slice a (bs : list a) (n m : Z) :=
+    (* if n or m are outside of the string bounds,
+       turn them to 0 or (length bs) respectively
+     *)
+    let n' := Z.to_nat n in
+    let m' := min (Z.to_nat m) (List.length bs) in
+    if (m' <? n')%nat then []
+    else List.skipn n' (List.firstn m' bs).
+
+
+  Definition to_bytestring := list_byte_of_string.
+
+
+End Bytestrings.
