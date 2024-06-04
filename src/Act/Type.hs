@@ -440,7 +440,9 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SInteger, U.EDiv    p v1 v2) -> Div p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
   (SInteger, U.EMod    p v1 v2) -> Mod p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
   (SInteger, U.EExp    p v1 v2) -> Exp p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
-  (SInteger, U.IntLit  p v1)    -> pure $ LitInt  p v1
+  (SInteger, U.IntLit  p v1)    -> pure $ LitInt p v1
+  -- Bytestrings
+  (SByteStr, U.StringLit p str) -> pure $ ByStr p str
   -- Constructor calls
   (SContract, U.ECreate p c args) -> case Map.lookup c constructors of
     Just typs -> Create p c <$> checkIxs env p args (fmap PrimitiveType typs)
@@ -455,7 +457,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SInteger, U.EnvExp p v1) -> case lookup v1 defaultStore of
     Just AInteger -> pure $ IntEnv p v1
     Just AByteStr -> throw (p, "Environment variable " <> show v1 <> " has type bytestring but an expression of type integer is expected.")
-    _            -> throw (p, "Unknown environment variable " <> show v1)
+    _             -> throw (p, "Unknown environment variable " <> show v1)
   (SByteStr, U.EnvExp p v1) -> case lookup v1 defaultStore of
     Just AInteger -> throw (p, "Environment variable " <> show v1 <> " has type integer but an expression of type bytestring is expected.")
     Just AByteStr -> pure $ ByEnv p v1
