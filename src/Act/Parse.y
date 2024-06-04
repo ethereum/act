@@ -103,6 +103,8 @@ import Act.Error
 
   ilit                        { L (ILIT _) _ }
 
+  slit                        { L (SLIT _) _ }
+
 {- --- associativity and precedence ---
 boolean operations have universally lower precedence than numeric
 operations
@@ -250,6 +252,7 @@ Expr : '(' Expr ')'                                   { $2 }
 
   -- terminals
   | ilit                                              { IntLit (posn $1) (value $1) }
+  | slit                                              { StringLit (posn $1) (strlit $1) }
   -- missing string literal
   -- missing wildcard
 

@@ -8,6 +8,7 @@ module Act.Lex
   , showposn
   , name
   , value
+  , strlit
   ) where
 
 import Prelude hiding (EQ, GT, LT)
@@ -21,6 +22,12 @@ $alpha = [a-z A-Z]              -- alphabetic characters
 $ident = [$alpha _]
 $space = [\ \t\f\v\r]
 $negative = \-
+
+$stringchar_nodoublequote = [^ \" \\ \n] -- any character except double quote and backslash
+@stringitem =  $stringchar_nodoublequote -- TODO | @stringescapeseq
+@stringliteral = \" @stringitem* \"
+
+
 
 tokens :-
 
@@ -118,6 +125,10 @@ tokens :-
   -- literals
   $negative? $digit+                    { \ p s -> L (ILIT (read s)) p }
 
+  -- string literals
+  @stringliteral                        { \ p s -> L (SLIT s) p }
+
+
 {
 
 data LEX =
@@ -209,6 +220,7 @@ data LEX =
 
   -- literals
   | ILIT Integer
+  | SLIT String
 
   deriving (Eq, Show)
 
@@ -229,6 +241,10 @@ name _ = error "unsupported arg to name"
 value :: Lexeme -> Integer
 value (L (ILIT i) _) = i
 value _ = error "unsupported arg to value"
+
+strlit :: Lexeme -> String
+strlit (L (SLIT s) _) = s
+strlit _ = error "unsupported arg to value"
 
 -- helper function to reduce boilerplate
 mk :: LEX -> (AlexPosn -> String -> Lexeme)

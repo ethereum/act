@@ -1,0 +1,6 @@
+constructor of C
+interface constructor()
+
+creates
+
+    string str := "Hello world!"
