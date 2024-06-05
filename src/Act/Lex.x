@@ -243,7 +243,7 @@ value (L (ILIT i) _) = i
 value _ = error "unsupported arg to value"
 
 strlit :: Lexeme -> String
-strlit (L (SLIT s) _) = s
+strlit (L (SLIT s) _) = init (tail s) -- remove the first and last elements that are the quotes
 strlit _ = error "unsupported arg to value"
 
 -- helper function to reduce boilerplate
