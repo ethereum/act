@@ -51,6 +51,7 @@ import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
 
+import Debug.Trace
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -204,7 +205,12 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
     SBoolean -> do
       e' <- toExpr readMap e
       pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
-    SByteStr -> error "Bytestrings not supported"
+    -- SByteStr -> error "ByteStr unsupported"
+    SByteStr -> pure writeMap
+    SByteStr -> do
+      size <- getByteStrSize e
+      e' <- expToBuf readMap SByteStr e
+      pure $ M.insert caddr' (updateStorage (EVM.CopySlice (EVM.Lit 0) offset size e') contract) writeMap
     SContract -> do
      fresh <- getFreshIncr
      let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
@@ -220,6 +226,15 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
     updateNonce (EVM.C code storage bal (Just n)) = EVM.C code storage bal (Just (n + 1))
     updateNonce c@(EVM.C _ _ _ Nothing) = c
     updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
+
+    getByteStrSize :: Exp AByteStr -> EVM.Expr EVM.EWord
+    getByteStrSize (ByStr _ s) = length bs
+    getByteStrSize (ByLit _ bs) = BS.length bs
+    getByteStrSize = error "TODO moare bytestring pls"
+    -- Cat :: Pn -> Exp AByteStr t -> Exp AByteStr t -> Exp AByteStr t
+    -- Slice :: Pn -> Exp AByteStr t -> Exp AInteger t -> Exp AInteger t -> Exp AByteStr t
+    -- ByEnv :: Pn -> EthEnv -> Exp AByteStr t
+
 
 createContract :: ContractMap -> ContractMap -> EVM.Expr EVM.EAddr -> Exp AContract -> ActM ContractMap
 createContract readMap writeMap freshAddr (Create _ cid args) = do
@@ -583,6 +598,7 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
+  traceM (showBehvs solbehvs)
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
