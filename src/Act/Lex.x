@@ -46,6 +46,7 @@ tokens :-
   true                                  { mk TRUE }
   false                                 { mk FALSE }
   create                                { mk CREATE }
+  as                                    { mk AS }
   mapping                               { mk MAPPING }
   ensures                               { mk ENSURES }
   invariants                            { mk INVARIANTS }
@@ -141,6 +142,7 @@ data LEX =
   | TRUE
   | FALSE
   | CREATE
+  | AS
   | MAPPING
   | ENSURES
   | INVARIANTS

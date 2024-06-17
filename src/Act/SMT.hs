@@ -620,6 +620,7 @@ expToSMT2 expr = case expr of
 
   -- contracts
   Create _ _ _ -> error "contracts not supported"
+  AsContract _ _ _ -> error "contracts not supported"
   -- polymorphic
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)

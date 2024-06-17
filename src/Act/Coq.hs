@@ -326,6 +326,7 @@ coqexp (IntEnv _ envVal) = parens $ T.pack (show envVal) <> " " <> envVar
 coqexp (Var _ SContract _ name) = T.pack name
 coqexp (Create _ cid args) = parens $ T.pack cid <> "." <> T.pack cid <> " " <> envVar <> " " <> coqargs args
 -- unsupported
+coqexp (AsContract _ _ _) = error "contract casting not supported"
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
 coqexp (Var _ SByteStr _ _) = error "bytestrings not supported"

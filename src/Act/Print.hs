@@ -83,6 +83,7 @@ prettyExp e = case e of
 
   -- contracts
   Create _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
+  AsContract _ a c -> prettyExp a <> " as " <> c
 
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
@@ -167,6 +168,7 @@ prettyInvPred = prettyExp . untime . fst
       InRange p a b -> InRange p a (untime b)
       LitBool p a -> LitBool p a
       Create p f xs -> Create p f (fmap untimeTyped xs)
+      AsContract p a c -> AsContract p (untime a) c
       IntEnv p a  -> IntEnv p a
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)

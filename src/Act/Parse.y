@@ -35,6 +35,7 @@ import Act.Error
   'true'                      { L TRUE _ }
   'false'                     { L FALSE _ }
   'create'                    { L CREATE _ }
+  'as'                        { L AS _ }
   'mapping'                   { L MAPPING _ }
   'ensures'                   { L ENSURES _ }
   'invariants'                { L INVARIANTS _ }
@@ -281,6 +282,7 @@ Expr : '(' Expr ')'                                   { $2 }
   | 'pre'  '(' Entry ')'                              { EPreEntry $3 }
   | 'post' '(' Entry ')'                              { EPostEntry $3 }
   | 'create' id '(' seplist(Expr, ',') ')'            { ECreate (posn $2) (name $2) $4 }
+  | Expr 'as' id                                      { EAsContract (posn $2) $1 (name $3) }
   | Expr '++' Expr                                    { ECat   (posn $2) $1 $3 }
 --  | id '[' Expr '..' Expr ']'                       { ESlice (posn $2) $1 $3 $5 }
   | 'CALLER'                                          { EnvExp (posn $1) Caller }
