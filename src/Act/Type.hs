@@ -445,6 +445,8 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SContract, U.ECreate p c args) -> case Map.lookup c constructors of
     Just typs -> Create p c <$> checkIxs env p args (fmap PrimitiveType typs)
     Nothing -> throw (p, "Unknown constructor " <> show c)
+  -- Contract casting
+  (SContract, U.EAsContract p v c) -> AsContract p <$> checkExpr env SInteger v <*> pure c
   -- Control
   (_, U.EITE p v1 v2 v3) ->
     ((,) <$> checkExpr env typ v2 <*> checkExpr env typ v3) `bindValidation` (\(e1, e2) -> do
@@ -455,7 +457,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SInteger, U.EnvExp p v1) -> case lookup v1 defaultStore of
     Just AInteger -> pure $ IntEnv p v1
     Just AByteStr -> throw (p, "Environment variable " <> show v1 <> " has type bytestring but an expression of type integer is expected.")
-    _            -> throw (p, "Unknown environment variable " <> show v1)
+    _             -> throw (p, "Unknown environment variable " <> show v1)
   (SByteStr, U.EnvExp p v1) -> case lookup v1 defaultStore of
     Just AInteger -> throw (p, "Environment variable " <> show v1 <> " has type integer but an expression of type bytestring is expected.")
     Just AByteStr -> pure $ ByEnv p v1
@@ -505,6 +507,7 @@ contractId :: Exp AContract t -> Id
 contractId (ITE _ _ a _) = contractId a
 contractId (Var _ _ _ _) = error "Internal error: calldata variables cannot have contract types"
 contractId (Create _ c _) = c
+contractId (AsContract _ _ c) = c
 contractId (TEntry _ _ (Item _ (ContractType c) _)) = c
 contractId (TEntry _ _ (Item _ _ _)) = error "Internal error: entry does not have contract type"
 

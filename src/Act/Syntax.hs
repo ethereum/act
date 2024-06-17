@@ -111,6 +111,7 @@ locsFromExp = nub . go
       IntEnv {} -> []
       ByEnv {} -> []
       Create _ _ es -> concatMap locsFromTypedExp es
+      AsContract _ x _ -> go x
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
       Var {} -> []
@@ -150,6 +151,7 @@ createsFromExp = nub . go
       IntEnv {} -> []
       ByEnv {} -> []
       Create _ f es -> [f] <> concatMap createsFromTypedExp es
+      AsContract _ x _ -> go x
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> createsFromItem a
       Var {} -> []
@@ -185,6 +187,27 @@ createsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = n
   <> concatMap createsFromExp postconds
   <> concatMap createsFromUpdate rewrites
   <> maybe [] createsFromTypedExp returns
+
+
+castsFromExp :: Exp a t -> [(Exp AInteger t, Id)]
+castsFromExp = nub . go
+  where
+    go :: Exp a t -> [(Exp AInteger t, Id)]
+    go e = case e of
+      AsContract _ e' c -> [(e', c)]
+      _ -> []
+
+castsFromUpdate :: StorageUpdate t -> [(Exp AInteger t, Id)]
+castsFromUpdate update = nub $ case update of
+  Update _ _ e -> castsFromExp e
+
+castsFromContract :: Typed.Contract -> [(Exp AInteger Untimed, Id)]
+castsFromContract (Contract constr _) =
+  castsFromConstructor constr
+
+castsFromConstructor :: Typed.Constructor -> [(Exp AInteger Untimed, Id)]
+castsFromConstructor (Constructor _ _ _ _ _ initialStorage) = nub $ concatMap castsFromUpdate initialStorage
+
 
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ preconds cases postconds rewrites returns) = nub $
@@ -252,6 +275,7 @@ ethEnvFromExp = nub . go
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
       Create _ _ ixs -> concatMap ethEnvFromTypedExp ixs
+      AsContract _ a _ -> go a
       TEntry _ _ a -> ethEnvFromItem a
       Var {} -> []
 
@@ -342,6 +366,7 @@ getPosn expr = case expr of
     EMod pn _ _ -> pn
     EExp pn _ _ -> pn
     ECreate pn _ _ -> pn
+    EAsContract pn _ _ -> pn
     EUTEntry e -> getPosEntry e
     EPreEntry e -> getPosEntry e
     EPostEntry e -> getPosEntry e
@@ -386,7 +411,8 @@ idFromRewrites e = case e of
   EUTEntry en       -> idFromEntry en
   EPreEntry en      -> idFromEntry en
   EPostEntry en     -> idFromEntry en
-  ECreate p x es      -> insertWith (<>) x [p] $ idFromRewrites' es
+  ECreate p x es    -> insertWith (<>) x [p] $ idFromRewrites' es
+  EAsContract p a c -> insertWith (<>) c [p] $ idFromRewrites a
   ListConst a       -> idFromRewrites a
   ECat _ a b        -> idFromRewrites' [a,b]
   ESlice _ a b c    -> idFromRewrites' [a,b,c]

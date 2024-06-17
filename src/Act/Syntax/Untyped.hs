@@ -96,6 +96,7 @@ data Expr
   | EPreEntry Entry
   | EPostEntry Entry
   | ECreate Pn Id [Expr]
+  | EAsContract Pn Expr Id
   | ListConst Expr
   | ECat Pn Expr Expr
   | ESlice Pn Expr Expr Expr
