@@ -122,20 +122,20 @@ getRuntimeBranches solvers contracts calldata = do
 
 
 -- | decompiles the given EVM initcode into a list of Expr branches
-getInitcodeBranches :: App m => SolverGroup -> BS.ByteString -> Calldata -> m [EVM.Expr EVM.End]
-getInitcodeBranches solvers initcode calldata = do
-  initVM <- liftIO $ stToIO $ abstractInitVM initcode calldata
+getInitcodeBranches :: App m => SolverGroup -> BS.ByteString -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> Calldata -> m [EVM.Expr EVM.End]
+getInitcodeBranches solvers initcode contracts calldata = do
+  initVM <- liftIO $ stToIO $ abstractInitVM initcode contracts calldata
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
-  let simpl = if True then (simplify expr) else expr
+  let simpl = simplify expr
   let nodes = flattenExpr simpl
   checkPartial nodes
   pure nodes
 
-abstractInitVM :: BS.ByteString -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
-abstractInitVM contractCode cd = do
+abstractInitVM :: BS.ByteString -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
+abstractInitVM contractCode contracts cd = do
   let value = EVM.TxValue
   let code = EVM.InitCode contractCode (fst cd)
-  loadSymVM (EVM.SymAddr "entrypoint", EVM.initialContract code) [] value cd True
+  loadSymVM (EVM.SymAddr "entrypoint", EVM.initialContract code) contracts value cd True
 
 abstractVM :: [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
 abstractVM contracts cd = do
