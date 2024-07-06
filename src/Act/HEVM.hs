@@ -196,7 +196,7 @@ applyUpdate :: ContractMap -> ContractMap -> StorageUpdate -> ActM ContractMap
 applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
   caddr' <- baseAddr readMap ref
   offset <- refOffset readMap ref
-  let contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' writeMap
+  let contract = fromMaybe (error $ "Internal error: contract not found\n" <> show e) $ M.lookup caddr' writeMap
   case typ of
     SInteger -> do
       e' <- toExpr readMap e
@@ -205,11 +205,17 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
       e' <- toExpr readMap e
       pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
     SByteStr -> error "Bytestrings not supported"
-    SContract -> do
-     fresh <- getFreshIncr
-     let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
-     writeMap' <- localCaddr freshAddr $ createContract readMap writeMap freshAddr e
-     pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) writeMap'
+    SContract -> case e of
+     Create _ _ _ -> do
+       fresh <- getFreshIncr
+       let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
+       writeMap' <- localCaddr freshAddr $ createContract readMap writeMap freshAddr e
+       pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) writeMap'
+     AsContract _ (Var _ _ _ x) _ -> do
+       let e' = EVM.WAddr (EVM.SymAddr $ T.pack x)
+       pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
+     AsContract _ _ _ -> error "Casting only allowed in variables"
+     _ -> error "Contractor call or casting expected"
   where
 
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
@@ -591,7 +597,7 @@ getInitContractMap casts store codemap =
     handleCast :: (ContractMap, Int) -> [(Exp AInteger, Id)] -> (ContractMap, Int)
     handleCast (cmap, fresh) [(Var _ _ _ x, cid)] =
       let addr = EVM.SymAddr $ T.pack x in
-      let actenv = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint") Nothing in
+      let actenv = ActEnv codemap fresh (slotMap store) addr Nothing in
       case M.lookup cid codemap of
         Just (Contract (Constructor _ _ _ _ _ upds) _, _, bytecode) ->
           let (actstorage, _) = createStorage cmap in
@@ -602,7 +608,7 @@ getInitContractMap casts store codemap =
                                } in
           let (cmap', actenv') = flip runState actenv $ applyUpdates (M.insert addr contract actstorage) (M.insert addr contract actstorage) upds in
           (cmap', actenv'.fresh)
-        Nothing -> error "Internal error: Contract not found"          
+        Nothing -> error $ "Internal error: Contract " <> cid <> " not found\n" <> show codemap
     handleCast _ [(_, _)] = error "Only casts to symbolic arguments are allowed"
     handleCast _ [] = error "Internal error: Cast cannot be empty"
     handleCast _ _ = error "Cannot have different casts to the same address"
@@ -660,8 +666,9 @@ createStorage cmap =
     traverseStorage addr (EVM.SStore offset (EVM.WAddr symaddr) storage) =
       EVM.SStore offset (EVM.WAddr symaddr) (traverseStorage addr storage)
     traverseStorage addr (EVM.SStore _ _ storage) = traverseStorage addr storage
-    traverseStorage addr (EVM.ConcreteStore _) = (EVM.AbstractStore addr Nothing)
-    traverseStorage _ _ = error "Internal error: unexpected storage shape"
+    traverseStorage addr (EVM.ConcreteStore _) = EVM.AbstractStore addr Nothing
+    traverseStorage _ s@(EVM.AbstractStore {}) = s
+    traverseStorage _ _ = error $ "Internal error: unexpected storage shape"
 
     makeContract :: EVM.Expr EVM.EAddr -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     makeContract addr (EVM.C code storage _ _) = EVM.C code (traverseStorage addr storage) (EVM.Balance addr) (Just 0)
