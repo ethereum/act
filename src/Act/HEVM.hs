@@ -138,11 +138,12 @@ getCaller = do
 -- * Act translation
 
 translateConstructor ::  BS.ByteString -> Constructor -> ContractMap -> ActM ([EVM.Expr EVM.End], Calldata, Sig)
-translateConstructor bytecode (Constructor _ iface preconds _ _ upds) initmap = do
+translateConstructor bytecode (Constructor _ iface preconds _ _ upds) cmap = do
+  let initmap =  M.insert initAddr initcontract cmap
   preconds' <- mapM (toProp initmap) preconds
-  cmap <- applyUpdates initmap initmap upds
+  cmap' <- applyUpdates initmap initmap upds
   fresh <- getFresh
-  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr fresh) mempty (EVM.ConcreteBuf bytecode) cmap], calldata, ifaceToSig iface)
+  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr fresh) mempty (EVM.ConcreteBuf bytecode) cmap'], calldata, ifaceToSig iface)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -150,7 +151,6 @@ translateConstructor bytecode (Constructor _ iface preconds _ _ upds) initmap = 
                          , EVM.balance = EVM.Lit 0
                          , EVM.nonce   = Just 1
                          }
-    initmap = M.add initAddr initcontract initmap
 
     -- TODO remove when hevm PR is merged
     symAddrCnstr n = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..n]
@@ -307,7 +307,7 @@ substExp subst expr = case expr of
     Nothing -> expr
 
   Create pn a b -> Create pn a (substArgs subst b)
-
+  AsContract {} -> error "Calling contracts with casting not supported yet"
 
 
 returnsToExpr :: ContractMap -> Maybe TypedExp -> ActM (EVM.Expr EVM.Buf)
@@ -579,44 +579,46 @@ checkEquiv solvers l1 l2 = do
 
 
 
-getInitContractMap :: [(Exp AInteger t, Id)] -> Store -> CodeMap -> (ContractMap, [(EVM.Expr EVM.EAddr, EVM.Contract)], Integer)
+getInitContractMap :: [(Exp AInteger, Id)] -> Store -> CodeMap -> (ContractMap, [(EVM.Expr EVM.EAddr, EVM.Contract)], Int)
 getInitContractMap casts store codemap =
+  -- TODO check that there is no aliasing in the casted addresses and that contracts have no casting
   let casts' = groupBy (\x y -> fst x == fst y) casts in
-  let (cmap, fresh) = flip runState actenv $ foldM (\p l -> handleCast p (nub l)) (M.empty, 0) casts' in
+  let (cmap, fresh) =  foldl (\p l -> handleCast p (nub l)) (M.empty, 0) casts' in
   let (actstorage, hevmstorage) = createStorage cmap in
   (actstorage, hevmstorage, fresh)
   
   where
-    handleCast (cmap, fresh) [(Var x, cid)] =
-      let addr = SymAddr $ T.pack x in
+    handleCast :: (ContractMap, Int) -> [(Exp AInteger, Id)] -> (ContractMap, Int)
+    handleCast (cmap, fresh) [(Var _ _ _ x, cid)] =
+      let addr = EVM.SymAddr $ T.pack x in
       let actenv = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint") Nothing in
       case M.lookup cid codemap of
-        Just (Contract (Constructor _ iface _ _ _ upds) _, _, bytecode) -> do
+        Just (Contract (Constructor _ _ _ _ _ upds) _, _, bytecode) ->
           let (actstorage, _) = createStorage cmap in
           let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                                , EVM.storage = EVM.ConcreteStore mempty
                                , EVM.balance = EVM.Lit 0
                                , EVM.nonce = Just 1
                                } in
-          let (cmap', actenv') = flip runState actenv $ applyUpdates (M.insert addr contract cmap) (M.insert freshAddraddr contract cmap) upds in
-          (cmap, fresh actenv')
+          let (cmap', actenv') = flip runState actenv $ applyUpdates (M.insert addr contract actstorage) (M.insert addr contract actstorage) upds in
+          (cmap', actenv'.fresh)
         Nothing -> error "Internal error: Contract not found"          
-    handleCast [(_, _)] = error "Only casts to symbolic arguments are allowed"
-    handleCast [] = error "Internal error: Cast cannot be empty"
-    handleCast _ = error "Cannot have different casts to the same address"
+    handleCast _ [(_, _)] = error "Only casts to symbolic arguments are allowed"
+    handleCast _ [] = error "Internal error: Cast cannot be empty"
+    handleCast _ _ = error "Cannot have different casts to the same address"
   
 
 checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (ContractMap, ActEnv)
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   -- First find all casts from addresses and create a store where all asumed constracts are present
   -- currently ignoring any asts in behaviours, maybe prohibit them explicitly
-  let (actinitmap, hevminitmap fresh) = getInitContractMap (castsFromConstructor ctor) store coodemap in
+  let (actinitmap, hevminitmap, fresh) = getInitContractMap (castsFromConstructor ctor) store codemap
   -- Create the Act state
-  let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing
+  let actenv = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint") Nothing
   -- Translate Act constructor to Expr
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor actinitmap
   -- Symbolically execute bytecode
-  solbehvs <- removeFails <$> getInitCodeBranches solvers hevmstorage calldata
+  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata
   -- Check equivalence
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
