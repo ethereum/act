@@ -201,11 +201,11 @@ castsFromUpdate :: StorageUpdate t -> [(Exp AInteger t, Id)]
 castsFromUpdate update = nub $ case update of
   Update _ _ e -> castsFromExp e
 
-castsFromContract :: Typed.Contract -> [(Exp AInteger Untimed, Id)]
+castsFromContract :: Contract t -> [(Exp AInteger t, Id)]
 castsFromContract (Contract constr _) =
   castsFromConstructor constr
 
-castsFromConstructor :: Typed.Constructor -> [(Exp AInteger Untimed, Id)]
+castsFromConstructor :: Constructor t -> [(Exp AInteger t, Id)]
 castsFromConstructor (Constructor _ _ _ _ _ initialStorage) = nub $ concatMap castsFromUpdate initialStorage
 
 
