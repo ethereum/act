@@ -51,6 +51,7 @@ import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
 
+import Debug.Trace
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -625,6 +626,7 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor actinitmap
   -- Symbolically execute bytecode
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata
+
   -- Check equivalence
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs

@@ -1,0 +1,56 @@
+constructor of A
+interface constructor(uint x0)
+
+iff
+    CALLVALUE == 0
+
+creates
+    uint x := x0
+
+
+behaviour getx of A
+interface getx()
+
+iff
+
+  CALLVALUE == 0
+
+returns pre(x)
+
+
+behaviour setx of A
+interface setx(uint x1)
+
+iff
+
+  CALLVALUE == 0
+
+storage
+  x => x1
+
+constructor of B
+interface constructor(address x, address y)
+
+iff
+    CALLVALUE == 0
+
+creates
+    A a1 := x as A
+    A a2 := y as A
+
+
+behaviour upd of B
+interface upd()
+
+iff
+
+  CALLVALUE == 0
+
+storage
+  a1.x => 42
+  a2.x => 11
+
+
+
+
+
