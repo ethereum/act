@@ -49,7 +49,8 @@ import EVM.SMT (SMTCex(..), assertProps)
 import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
-import EVM.Traversals
+
+import Debug.Trace
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
