@@ -298,7 +298,8 @@ noStorageRead store expr = for_ (keys store) $ \name ->
 -- ensures that key types match value types in an U.Assign
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
 checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar pn (StorageValue vt@(FromVType typ)) name) expr)
-  = sequenceA [_Update (_Item vt (SVar pn contract name)) <$> checkExpr env typ expr]
+  = sequenceA [checkExpr env typ expr `bindValidation` \te ->
+               _Update (_Item vt (SVar pn contract name)) te <$ validContractType (getPosn expr) vt typ te]
     <* noStorageRead store expr
 checkAssign env@Env{store} (U.AssignMany (U.StorageVar pn (StorageMapping (keyType :| _) valType) name) defns)
   = for defns $ \def@(U.Defn e1 e2) -> checkDefn pn env keyType valType name def
@@ -309,6 +310,7 @@ checkAssign _ (U.AssignVal (U.StorageVar _ (StorageMapping _ _) _) expr)
 checkAssign _ (U.AssignMany (U.StorageVar pn (StorageValue _) _) _)
   = throw (pn, "Cannot assign multiple values to an atomic type")
 checkAssign _ _ = error "todo: support struct assignment in constructors"
+
 
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
@@ -353,7 +355,7 @@ checkEntry env@Env{theirs} (U.EField p e x) =
         Just (t, _) -> pure (t, SField p ref c x)
         Nothing -> throw (p, "Contract " <> c <> " does not have field " <> x)
       Nothing -> error $ "Internal error: Invalid contract type " <> show c
-    _ -> throw (p, "Expression should have a mapping type" <> show e)
+    _ -> throw (p, "Expression should have a contract type" <> show e)
 
 validateEntry :: forall t. Typeable t => Env -> U.Entry -> Err (ValueType, StorageRef t)
 validateEntry env entry =
@@ -368,12 +370,12 @@ checkStorageExpr env entry expr =
   checkExpr env typ expr `bindValidation` \te ->
   _Update (_Item vt ref) te <$ validContractType (getPosn expr) vt typ te
 
-  where
-    validContractType :: Pn -> ValueType -> SType a -> Exp a t -> Err ()
-    validContractType p (ContractType c) SContract e =
-      let c' = contractId e in
-      assert (p, "Expression is expected to be a contract " <> show c <> " but it is a contract " <> show c) (c == c')
-    validContractType _ _ _ _ = pure ()
+
+validContractType :: Pn -> ValueType -> SType a -> Exp a t -> Err ()
+validContractType p (ContractType c) SContract e =
+  let c' = contractId e in
+  assert (p, "Expression is expected to be a contract " <> show c <> " but it is a contract " <> show c') (c == c')
+validContractType _ _ _ _ = pure ()
 
 checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
 checkIffs env = foldr check (pure [])
@@ -409,7 +411,7 @@ typedExp env e = findSuccess (throw (getPosn e, "Cannot find a valid type for ex
                    [ TExp SInteger <$> checkExpr env SInteger e
                    , TExp SBoolean <$> checkExpr env SBoolean e
                    , TExp SByteStr <$> checkExpr env SByteStr e
-                   , TExp SContract  <$> checkExpr env SContract e
+                   , TExp SContract <$> checkExpr env SContract e
                    ]
 
 andExps :: [Exp ABoolean t] -> Exp ABoolean t

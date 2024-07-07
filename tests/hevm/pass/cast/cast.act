@@ -28,6 +28,17 @@ iff
 storage
   x => x1
 
+constructor of C
+interface constructor()
+
+iff
+
+  CALLVALUE == 0
+
+creates
+  uint z := 42
+
+
 constructor of B
 interface constructor(address x, address y)
 
@@ -49,8 +60,3 @@ iff
 storage
   a1.x => 42
   a2.x => 11
-
-
-
-
-
