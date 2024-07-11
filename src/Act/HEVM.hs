@@ -13,7 +13,6 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE NoFieldSelectors #-}
 
 module Act.HEVM where
 
@@ -134,7 +133,6 @@ getCaller = do
   case env.caller of
     Just c -> pure c
     Nothing -> pure $ EVM.SymAddr "caller" -- Zoe: not sure what to put here
-
 
 -- * Act translation
 
@@ -625,7 +623,13 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   -- Translate Act constructor to Expr
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor actinitmap
   -- Symbolically execute bytecode
-  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata
+ 
+  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr fresh)
+  
+  traceM "Solc behvs: "
+  traceM $ showBehvs solbehvs
+  traceM "Act behvs: "
+  traceM $ showBehvs actbehvs
 
   -- Check equivalence
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
@@ -635,6 +639,9 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   pure $ (getContractMap actbehvs, actenv')
   where
     removeFails branches = filter isSuccess $ branches
+
+    -- TODO remove when hevm PR is merged
+    symAddrCnstr n = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..n]
 
 getContractMap :: [EVM.Expr EVM.End] -> ContractMap
 getContractMap [EVM.Success _ _ _ m] = m

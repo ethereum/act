@@ -29,6 +29,7 @@ import Act.Syntax.Annotated
 import Act.Syntax.Untyped (makeIface)
 
 import qualified EVM.Types as EVM
+import EVM.Types (VM(..))
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial, abstractVM, loadSymVM)
 import EVM.Solvers
@@ -122,20 +123,21 @@ getRuntimeBranches solvers contracts calldata = do
 
 
 -- | decompiles the given EVM initcode into a list of Expr branches
-getInitcodeBranches :: App m => SolverGroup -> BS.ByteString -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> Calldata -> m [EVM.Expr EVM.End]
-getInitcodeBranches solvers initcode contracts calldata = do
-  initVM <- liftIO $ stToIO $ abstractInitVM initcode contracts calldata
+getInitcodeBranches :: App m => SolverGroup -> BS.ByteString -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> Calldata -> [EVM.Prop] -> m [EVM.Expr EVM.End]
+getInitcodeBranches solvers initcode contracts calldata precond = do
+  initVM <- liftIO $ stToIO $ abstractInitVM initcode contracts calldata precond
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = simplify expr
   let nodes = flattenExpr simpl
   checkPartial nodes
   pure nodes
 
-abstractInitVM :: BS.ByteString -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
-abstractInitVM contractCode contracts cd = do
+abstractInitVM :: BS.ByteString -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> [EVM.Prop] -> ST s (EVM.VM EVM.Symbolic s)
+abstractInitVM contractCode contracts cd precond = do
   let value = EVM.TxValue
   let code = EVM.InitCode contractCode (fst cd)
-  loadSymVM (EVM.SymAddr "entrypoint", EVM.initialContract code) contracts value cd True
+  vm <- loadSymVM (EVM.SymAddr "entrypoint", EVM.initialContract code) contracts value cd True
+  pure $ vm { constraints = vm.constraints <> precond }
 
 abstractVM :: [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
 abstractVM contracts cd = do
