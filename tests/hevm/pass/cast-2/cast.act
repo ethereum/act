@@ -65,6 +65,7 @@ interface constructor(address x, address y)
 
 iff
     CALLVALUE == 0
+    x =/= y
 
 creates
     A a1 := x as A

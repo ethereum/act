@@ -57,7 +57,7 @@ defaultActConfig = Config
   , abstRefineArith = False
   , abstRefineMem   = False
   , dumpTrace = False
-  , numCexFuzz = 10
+  , numCexFuzz = 0
   , onlyCexFuzz = False
   , decomposeStorage = False
   }

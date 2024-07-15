@@ -620,17 +620,21 @@ checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   -- First find all casts from addresses and create a store where all asumed constracts are present
   -- currently ignoring any asts in behaviours, maybe prohibit them explicitly
-  let (actinitmap, hevminitmap, fresh) = getInitContractMap (castsFromConstructor ctor) store codemap
+  let casts = castsFromConstructor ctor
+  let (actinitmap, hevminitmap, fresh) = getInitContractMap casts store codemap
   -- Create the Act state
   let actenv = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint") Nothing
   -- Translate Act constructor to Expr
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor actinitmap
-  -- Symbolically execute bytecode
- 
+
+  -- check is any addresses casted to contracts can be aliased
+  checkAliasing solvers ctor (map fst casts) calldata
+
+  -- Symbolically execute bytecode  
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr fresh)
   
-  traceM "Solc behvs: "
-  traceM $ showBehvs solbehvs
+  -- traceM "Solc behvs: "
+  -- traceM $ showBehvs solbehvs
   -- traceM "Act behvs: "
   -- traceM $ showBehvs actbehvs
 
@@ -731,8 +735,9 @@ checkInputSpaces solvers l1 l2 = do
 
 -- Checks that all the casted addresses of a contract are mutually distinct
 checkAliasing :: App m => SolverGroup -> Constructor -> [Exp AInteger] -> Calldata -> m ()
-checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) preconds _ _ _) addresses calldata = do
-  let addressquery = [SMT2 (fmap fromString $ lines . show . pretty $ mksmt) mempty mempty mempty]
+checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) preconds _ _ _) addresses@(_:_) calldata = do
+  let addressquery = [prelude <> SMT2 (fmap fromString $ lines . show . pretty $ mksmt) mempty mempty mempty]
+  traceShowM addressquery
   res <- liftIO $ mapConcurrently (checkSat solver) addressquery
   checkResult calldata Nothing (fmap (toVRes msg) res)
   where
@@ -740,7 +745,7 @@ checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) prec
     args = SMT.declareArg ifaceName <$> decls
     envs = SMT.declareEthEnv <$> ethEnvFromConstructor constructor
     -- constraints
-    asserts = SMT.mkAssert ifaceName <$> ((existEqual (combine addresses [])):preconds)
+    asserts = SMT.mkAssert ifaceName <$> ((existEqual (combine addresses [])):preconds)    
     mksmt = SMT.SMTExp
       { SMT._storage = []
       , SMT._calldata = args
@@ -757,6 +762,16 @@ checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) prec
 
     msg = "\x1b[1m Input addresses are not guaranteed to be unique!\x1b[m"
 
+    prelude :: SMT2
+    prelude =  SMT2 src mempty mempty mempty
+      where
+        src = [ "; logic",
+                "; this is a test",
+                "(set-info :smt-lib-version 2.6)",
+                "(set-logic ALL)" ]
+
+
+checkAliasing _ _ _ _ = pure ()
 
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
