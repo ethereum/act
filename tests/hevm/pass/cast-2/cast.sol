@@ -44,6 +44,7 @@ contract B {
     A a2;
 
     constructor(address x, address y) {
+	require (x != y);
 	a1 = A(x);
 	a2 = A(y);
     }
