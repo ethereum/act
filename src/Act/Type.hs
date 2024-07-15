@@ -251,7 +251,7 @@ checkDefinition :: Env -> U.Definition -> Err Constructor
 checkDefinition env (U.Definition _ contract (Interface _ decls) iffs (U.Creates assigns) postcs invs) =
   do
     stateUpdates <- concat <$> traverse (checkAssign env') assigns
-    iffs' <- checkIffs env' iffs
+    iffs' <- checkIffs (env'{ store = mempty })  iffs
     _ <- traverse (validStorage env') assigns
     ensures <- traverse (checkExpr env' SBoolean) postcs
     invs' <- fmap (Invariant contract [] []) <$> traverse (checkExpr env' SBoolean) invs
