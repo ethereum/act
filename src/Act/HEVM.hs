@@ -33,11 +33,14 @@ import Data.Maybe
 import System.Exit ( exitFailure )
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import Control.Monad.State
+import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
+import Data.Text.Lazy.Builder
 
 import Act.HEVM_utils
 import Act.Syntax.Annotated as Act
 import Act.Syntax.Untyped (makeIface)
 import Act.Syntax
+import qualified Act.SMT as SMT
 
 import EVM.ABI (Sig(..))
 import EVM as EVM hiding (bytecode)
@@ -45,7 +48,7 @@ import qualified EVM.Types as EVM hiding (FrameState(..))
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial)
 import qualified EVM.SymExec as SymExec (EquivResult)
-import EVM.SMT (SMTCex(..), assertProps)
+import EVM.SMT (SMTCex(..), assertProps, SMT2(..))
 import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
@@ -628,8 +631,8 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   
   traceM "Solc behvs: "
   traceM $ showBehvs solbehvs
-  traceM "Act behvs: "
-  traceM $ showBehvs actbehvs
+  -- traceM "Act behvs: "
+  -- traceM $ showBehvs actbehvs
 
   -- Check equivalence
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
@@ -726,6 +729,35 @@ checkInputSpaces solvers l1 l2 = do
     False -> pure $ filter (/= Qed ()) results'
 
 
+-- Checks that all the casted addresses of a contract are mutually distinct
+checkAliasing :: App m => SolverGroup -> Constructor -> [Exp AInteger] -> Calldata -> m ()
+checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) preconds _ _ _) addresses calldata = do
+  let addressquery = [SMT2 (fmap fromString $ lines . show . pretty $ mksmt) mempty mempty mempty]
+  res <- liftIO $ mapConcurrently (checkSat solver) addressquery
+  checkResult calldata Nothing (fmap (toVRes msg) res)
+  where
+    -- declare vars
+    args = SMT.declareArg ifaceName <$> decls
+    envs = SMT.declareEthEnv <$> ethEnvFromConstructor constructor
+    -- constraints
+    asserts = SMT.mkAssert ifaceName <$> ((existEqual (combine addresses [])):preconds)
+    mksmt = SMT.SMTExp
+      { SMT._storage = []
+      , SMT._calldata = args
+      , SMT._environment = envs
+      , SMT._assertions = asserts
+      }
+
+    combine :: [Exp AInteger] -> [[(Exp AInteger,Exp AInteger)]] -> [(Exp AInteger,Exp AInteger)]
+    combine [] acc = concat acc
+    combine (x:xs) acc = combine xs ([(x,y) | y <- xs]:acc) 
+
+    existEqual :: [(Exp AInteger,Exp AInteger)] -> Exp ABoolean
+    existEqual ls = foldl (\p (x,y) -> Or nowhere (Eq nowhere SInteger x y) p) (LitBool nowhere False) ls
+
+    msg = "\x1b[1m Input addresses are not guaranteed to be unique!\x1b[m"
+
+
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
 checkAbi :: App m => SolverGroup -> Contract -> ContractMap -> m ()
@@ -786,7 +818,6 @@ assertSelector txdata sig =
   EVM.PNeg (EVM.PEq sel (readSelector txdata))
   where
     sel = EVM.Lit $ fromIntegral $ (EVM.abiKeccak (encodeUtf8 sig)).unFunctionSelector
-
 
 
 -- * Utils
