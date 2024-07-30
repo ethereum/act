@@ -149,6 +149,8 @@ summarize solvers contract = do
 makeIntSafe :: forall m a. App m => SolverGroup -> EVM.Expr a -> m (EVM.Expr a)
 makeIntSafe solvers expr = evalStateT (mapExprM go expr) mempty
   where
+    -- Walks the expression bottom up and checks (using an smt solver) if overflow is possible for any 
+    -- arithmetic operations it encounters. Results from child nodes are stored and reused as we move up the tree
     go :: forall b. EVM.Expr b -> StateT (Map (EVM.Expr EVM.EWord) EVM.Prop) m (EVM.Expr b)
     go = \case
       e@(EVM.Add a b) -> binop (EVM.Add a b .>= a) a b e
