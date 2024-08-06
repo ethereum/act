@@ -158,7 +158,7 @@ makeIntSafe solvers expr = evalStateT (mapExprM go expr) mempty
       e@(EVM.Mul a b) -> binop (EVM.Div (EVM.Mul a b) b .== a) a b e
       -- we can't encode symbolic exponents in smt, so we just always wrap
       e@(EVM.Exp {}) -> pure (EVM.Mod e (EVM.Lit MAX_UINT))
-      -- TODO: I don't understand what this thing does, so just wrap it in a mod to be safe for now
+      -- TODO: It's probably sound to remove the Mod here, but signextend is pretty mysterious so keeping it here for now to be on the safe side.
       e@(EVM.SEx {}) -> pure (EVM.Mod e (EVM.Lit MAX_UINT))
       e -> pure e
 
