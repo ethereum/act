@@ -266,7 +266,6 @@ mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList
         }
     mkbehv _ _ = error "Internal Error: mkbehv called on a non Success branch"
 
--- TODO: we probably need to diff against the prestore or smth to be sound here
 mkRewrites :: Text -> DistinctStore -> Either Text [StorageUpdate]
 mkRewrites cname (DistinctStore writes) = forM (Map.toList writes) $ \(name,(val,typ)) ->
   case typ of
