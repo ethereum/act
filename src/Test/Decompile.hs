@@ -26,6 +26,7 @@ import EVM.Effects
 
 decompilerTests :: TestTree
 decompilerTests = testGroup "decompiler"
+   -- TODO allow empty behaviours in source Act
   [ expectFail $ testCase "noop" $ checkDecompilation "C" [i|
       contract C {
         function f() public {}
