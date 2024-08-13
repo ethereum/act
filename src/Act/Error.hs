@@ -64,3 +64,9 @@ findSuccess d comp = case find valid comp of
   where
     valid (Success _) = True
     valid _ = False
+
+
+concatError ::  Error e a -> [Error e a] -> Error e a
+concatError def = \case
+  [] -> def
+  x:xs -> foldl (*>) x xs

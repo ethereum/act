@@ -10,13 +10,18 @@ flag ci
     default:     False
     manual:      True
 
-common deps
+common common
   default-extensions:
+    ApplicativeDo
     ImportQualifiedPost
+    LambdaCase
+    OverloadedLabels
+    DataKinds
+    GADTs
   build-depends: base               >= 4.9 && < 5,
                  aeson              >= 1.0,
                  containers         >= 0.5,
-                 hevm               ,
+                 hevm               >= 0.51.3,
                  lens               >= 4.17.1,
                  text               >= 1.2,
                  array              >= 0.5.3.0,
@@ -41,12 +46,13 @@ common deps
       ghc-options: -Wall -Wno-orphans -Wno-unticked-promoted-constructors
 
 library
-  import:             deps
+  import:             common
   build-tool-depends: happy:happy, alex:alex
   hs-source-dirs:     src
   default-language:   Haskell2010
   exposed-modules:
     Act.CLI
+    Act.Decompile
     Act.Error
     Act.Print
     Act.SMT
@@ -60,6 +66,7 @@ library
     Act.Syntax.Typed
     Act.Syntax.Types
     Act.Syntax.Timing
+    Act.Traversals
     Act.Type
     Act.Enrich
     Act.Dev
@@ -68,7 +75,7 @@ library
     Act.Consistency
 
 executable act
-  import:             deps
+  import:             common
   main-is:            Main.hs
   hs-source-dirs:     src/CLI
   default-language:   Haskell2010
@@ -77,18 +84,21 @@ executable act
       extra-libraries: c++
 
 Test-Suite test
-  import:           deps
+  import:           common
   type:             exitcode-stdio-1.0
   default-language: Haskell2010
   main-is:          Main.hs
   hs-source-dirs:   src/Test
+  other-modules:    Decompile
   build-depends:    act,
                     pretty-simple          >= 2.2,
                     quickcheck-instances   >= 0.3,
                     quickcheck-transformer >= 0.3,
                     tasty-hunit            >= 0.10,
+                    tasty-expected-failure,
                     tasty-quickcheck       >= 0.10,
                     QuickCheck             >= 2.13.2,
-                    tasty                  >= 1.2
+                    tasty                  >= 1.2,
+                    here                   >= 1.2
   if os(darwin)
       extra-libraries: c++

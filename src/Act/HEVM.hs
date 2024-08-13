@@ -1,19 +1,16 @@
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NoFieldSelectors #-}
+
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module Act.HEVM where
 
@@ -31,14 +28,16 @@ import Control.Concurrent.Async
 import Control.Monad
 import Data.DoubleWord
 import Data.Maybe
-import System.Exit ( exitFailure )
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import Control.Monad.State
+import Data.List.NonEmpty qualified as NE
+import Data.Validation
 
 import Act.HEVM_utils
 import Act.Syntax.Annotated as Act
 import Act.Syntax.Untyped (makeIface)
 import Act.Syntax
+import Act.Error
 
 import EVM.ABI (Sig(..))
 import EVM as EVM hiding (bytecode)
@@ -50,7 +49,7 @@ import EVM.SMT (SMTCex(..), assertProps)
 import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
-
+import EVM.Traversals
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -396,7 +395,7 @@ ethEnvToWord Callvalue = pure $ EVM.TxValue
 ethEnvToWord Caller = do
   c <- getCaller
   pure $ EVM.WAddr c
-ethEnvToWord Origin = pure $ EVM.Origin
+ethEnvToWord Origin = pure $ EVM.WAddr (EVM.SymAddr "origin") -- Why not: pure $ EVM.Origin
 ethEnvToWord Blocknumber = pure $ EVM.BlockNumber
 ethEnvToWord Blockhash = pure $ EVM.BlockHash $ EVM.Lit 0
 ethEnvToWord Chainid = pure $ EVM.ChainId
@@ -454,78 +453,87 @@ toProp cmap = \case
       e2' <- toProp cmap e2
       pure $ op e1' e2'
 
+pattern MAX_UINT :: EVM.W256
+pattern MAX_UINT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
+-- TODO: this belongs in HEVM
+stripMods :: EVM.Expr a -> EVM.Expr a
+stripMods = mapExpr go
+  where
+    go :: EVM.Expr a -> EVM.Expr a
+    go (EVM.Mod a (EVM.Lit MAX_UINT)) = a
+    go a = a
 
 toExpr :: forall a. ContractMap -> Exp a -> ActM (EVM.Expr (ExprType a))
-toExpr cmap = \case
-  -- booleans
-  (And _ e1 e2) -> op2 EVM.And e1 e2
-  (Or _ e1 e2) -> op2 EVM.Or e1 e2
-  (Impl _ e1 e2) -> op2 (\x y -> EVM.Or (EVM.Not x) y) e1 e2
-  (Neg _ e1) -> do
-    e1' <- toExpr cmap e1
-    pure $ EVM.Not e1'
-  (Act.LT _ e1 e2) -> op2 EVM.LT e1 e2
-  (LEQ _ e1 e2) -> op2 EVM.LEq e1 e2
-  (GEQ _ e1 e2) -> op2 EVM.GEq e1 e2
-  (Act.GT _ e1 e2) -> op2 EVM.GT e1 e2
-  (LitBool _ b) -> pure $ EVM.Lit (fromIntegral $ fromEnum $ b)
-  -- integers
-  (Add _ e1 e2) -> op2 EVM.Add e1 e2
-  (Sub _ e1 e2) -> op2 EVM.Sub e1 e2
-  (Mul _ e1 e2) -> op2 EVM.Mul e1 e2
-  (Div _ e1 e2) -> op2 EVM.Div e1 e2
-  (Mod _ e1 e2) -> op2 EVM.Mod e1 e2 -- which mod?
-  (Exp _ e1 e2) -> op2 EVM.Exp e1 e2
-  (LitInt _ n) -> pure $ EVM.Lit (fromIntegral n)
-  (IntEnv _ env) -> ethEnvToWord env
-  -- bounds
-  (IntMin _ n) -> pure $ EVM.Lit (fromIntegral $ intmin n)
-  (IntMax _ n) -> pure $ EVM.Lit (fromIntegral $ intmax n)
-  (UIntMin _ n) -> pure $ EVM.Lit (fromIntegral $ uintmin n)
-  (UIntMax _ n) -> pure $ EVM.Lit (fromIntegral $ uintmax n)
-  (InRange _ t e) -> toExpr cmap (inRange t e)
-  -- bytestrings
-  (Cat _ _ _) -> error "TODO"
-  (Slice _ _ _ _) -> error "TODO"
-  -- EVM.CopySlice (toExpr start) (EVM.Lit 0) -- src and dst offset
-  -- (EVM.Add (EVM.Sub (toExp end) (toExpr start)) (EVM.Lit 0)) -- size
-  -- (toExpr bs) (EVM.ConcreteBuf "") -- src and dst
-  (ByStr _ str) -> pure $  EVM.ConcreteBuf (B8.pack str)
-  (ByLit _ bs) -> pure $ EVM.ConcreteBuf bs
-  (ByEnv _ env) -> pure $ ethEnvToBuf env
-  -- contracts
-  (Create _ _ _) -> error "internal error: Create calls not supported in this context"
-  -- polymorphic
-  (Eq _ SInteger e1 e2) -> op2 EVM.Eq e1 e2
-  (Eq _ SBoolean e1 e2) -> op2 EVM.Eq e1 e2
-  (Eq _ _ _ _) -> error "unsupported"
-
-  (NEq _ SInteger e1 e2) -> do
-    e <- op2 EVM.Eq e1 e2
-    pure $ EVM.Not $ e
-  (NEq _ SBoolean e1 e2) -> do
-    e <- op2 EVM.Eq e1 e2
-    pure $ EVM.Not $ e
-  (NEq _ _ _ _) -> error "unsupported"
-
-  (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
-
-  (Var _ SInteger typ x) ->  -- TODO other types
-    pure $ fromCalldataFramgment $ symAbiArg (T.pack x) typ
-
-  (TEntry _ _ (Item SInteger _ ref)) -> do
-    slot <- refOffset cmap ref
-    caddr' <- baseAddr cmap ref
-    let contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
-    let storage = case contract of
-                    EVM.C _ s _ _  -> s
-                    EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
-    pure $ EVM.SLoad slot storage
-
-  e ->  error $ "TODO: " <> show e
-
+toExpr cmap = liftM stripMods . go
   where
+    go = \case
+      -- booleans
+      (And _ e1 e2) -> op2 EVM.And e1 e2
+      (Or _ e1 e2) -> op2 EVM.Or e1 e2
+      (Impl _ e1 e2) -> op2 (\x y -> EVM.Or (EVM.Not x) y) e1 e2
+      (Neg _ e1) -> do
+        e1' <- toExpr cmap e1
+        pure $ EVM.Not e1'
+      (Act.LT _ e1 e2) -> op2 EVM.LT e1 e2
+      (LEQ _ e1 e2) -> op2 EVM.LEq e1 e2
+      (GEQ _ e1 e2) -> op2 EVM.GEq e1 e2
+      (Act.GT _ e1 e2) -> op2 EVM.GT e1 e2
+      (LitBool _ b) -> pure $ EVM.Lit (fromIntegral $ fromEnum $ b)
+      -- integers
+      (Add _ e1 e2) -> op2 EVM.Add e1 e2
+      (Sub _ e1 e2) -> op2 EVM.Sub e1 e2
+      (Mul _ e1 e2) -> op2 EVM.Mul e1 e2
+      (Div _ e1 e2) -> op2 EVM.Div e1 e2
+      (Mod _ e1 e2) -> op2 EVM.Mod e1 e2 -- which mod?
+      (Exp _ e1 e2) -> op2 EVM.Exp e1 e2
+      (LitInt _ n) -> pure $ EVM.Lit (fromIntegral n)
+      (IntEnv _ env) -> ethEnvToWord env
+      -- bounds
+      (IntMin _ n) -> pure $ EVM.Lit (fromIntegral $ intmin n)
+      (IntMax _ n) -> pure $ EVM.Lit (fromIntegral $ intmax n)
+      (UIntMin _ n) -> pure $ EVM.Lit (fromIntegral $ uintmin n)
+      (UIntMax _ n) -> pure $ EVM.Lit (fromIntegral $ uintmax n)
+      (InRange _ t e) -> toExpr cmap (inRange t e)
+      -- bytestrings
+      (Cat _ _ _) -> error "TODO"
+      (Slice _ _ _ _) -> error "TODO"
+      -- EVM.CopySlice (toExpr start) (EVM.Lit 0) -- src and dst offset
+      -- (EVM.Add (EVM.Sub (toExp end) (toExpr start)) (EVM.Lit 0)) -- size
+      -- (toExpr bs) (EVM.ConcreteBuf "") -- src and dst
+      (ByStr _ str) -> pure $  EVM.ConcreteBuf (B8.pack str)
+      (ByLit _ bs) -> pure $ EVM.ConcreteBuf bs
+      (ByEnv _ env) -> pure $ ethEnvToBuf env
+      -- contracts
+      (Create _ _ _) -> error "internal error: Create calls not supported in this context"
+      -- polymorphic
+      (Eq _ SInteger e1 e2) -> op2 EVM.Eq e1 e2
+      (Eq _ SBoolean e1 e2) -> op2 EVM.Eq e1 e2
+      (Eq _ _ _ _) -> error "unsupported"
+
+      (NEq _ SInteger e1 e2) -> do
+        e <- op2 EVM.Eq e1 e2
+        pure $ EVM.Not $ e
+      (NEq _ SBoolean e1 e2) -> do
+        e <- op2 EVM.Eq e1 e2
+        pure $ EVM.Not $ e
+      (NEq _ _ _ _) -> error "unsupported"
+
+      e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
+      (Var _ SInteger typ x) ->  -- TODO other types
+        pure $ fromCalldataFramgment $ symAbiArg (T.pack x) typ
+
+      (TEntry _ _ (Item SInteger _ ref)) -> do
+        slot <- refOffset cmap ref
+        caddr' <- baseAddr cmap ref
+        let contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
+        let storage = case contract of
+                        EVM.C _ s _ _  -> s
+                        EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
+        pure $ EVM.SLoad slot storage
+
+      e ->  error $ "TODO: " <> show e
+
     op2 :: forall b c. (EVM.Expr (ExprType c) -> EVM.Expr (ExprType c) -> b) -> Exp c -> Exp c -> ActM b
     op2 op e1 e2 = do
       e1' <- toExpr cmap e1
@@ -566,6 +574,7 @@ checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
 
 -- * Equivalence checking
 
+
 -- | Wrapper for the equivalenceCheck function of hevm
 checkEquiv :: App m => SolverGroup -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> m [EquivResult]
 checkEquiv solvers l1 l2 = do
@@ -578,16 +587,16 @@ checkEquiv solvers l1 l2 = do
     toEquivRes (Timeout b) = Timeout b
 
 
-checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (ContractMap, ActEnv)
+checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (Error String (ContractMap, ActEnv))
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
-  checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
+  res1 <- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
-  checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
-  pure $ (getContractMap actbehvs, actenv')
+  res2 <- checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
+  pure $ res1 *> res2 *> Success (getContractMap actbehvs, actenv')
   where
     removeFails branches = filter isSuccess $ branches
 
@@ -595,22 +604,24 @@ getContractMap :: [EVM.Expr EVM.End] -> ContractMap
 getContractMap [EVM.Success _ _ _ m] = m
 getContractMap _ = error "Internal error: unexpected shape of Act translation"
 
-checkBehaviours :: App m => SolverGroup -> Contract -> ActEnv -> ContractMap -> m ()
+checkBehaviours :: forall m. App m => SolverGroup -> Contract -> ActEnv -> ContractMap -> m (Error String ())
 checkBehaviours solvers (Contract _ behvs) actenv cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = fst $ flip runState actenv $ translateBehvs actstorage behvs
-  flip mapM_ actbehvs $ \(name,behvs',calldata, sig) -> do
+  (liftM $ concatError def) $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
-    checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
+    res1 <- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
     -- input space exhaustiveness check
     showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
-    checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
-    where
-      removeFails branches = filter isSuccess $ branches
+    res2 <- checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
+    pure $ res1 *> res2
 
+  where
+    removeFails branches = filter isSuccess $ branches
+    def = Success ()
 
 createStorage :: ContractMap -> (ContractMap, [(EVM.Expr EVM.EAddr, EVM.Contract)])
 createStorage cmap =
@@ -675,7 +686,7 @@ checkInputSpaces solvers l1 l2 = do
 
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
-checkAbi :: App m => SolverGroup -> Contract -> ContractMap -> m ()
+checkAbi :: App m => SolverGroup -> Contract -> ContractMap -> m (Error String ())
 checkAbi solver contract cmap = do
   showMsg "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
   let (_, hevmstorage) = createStorage cmap
@@ -700,17 +711,19 @@ checkAbi solver contract cmap = do
 
     msg = "\x1b[1mThe following function selector results in behaviors not covered by the Act spec:\x1b[m"
 
-checkContracts :: App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m ()
+checkContracts :: forall m. App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m (Error String ())
 checkContracts solvers store codemap =
-  mapM_ (\(_, (contract, initcode, bytecode)) -> do
-            showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
-            -- Constructor check
-            (cmap, actenv) <- checkConstructors solvers initcode bytecode store contract codemap
-            -- Behavours check
-            checkBehaviours solvers contract actenv cmap
-            -- ABI exhaustiveness sheck
-            checkAbi solvers contract cmap
-        ) (M.toList codemap)
+  liftM (concatError def) $ flip mapM (M.toList codemap) (\(_, (contract, initcode, bytecode)) -> do
+    showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
+    res <- checkConstructors solvers initcode bytecode store contract codemap
+    case res of
+      Success (cmap, actenv) -> do
+        behs <- checkBehaviours solvers contract actenv cmap
+        abi <- checkAbi solvers contract cmap
+        pure $ behs *> abi
+      Failure e -> pure $ Failure e)
+  where
+    def = Success ()
 
 
 readSelector :: EVM.Expr EVM.Buf -> EVM.Expr EVM.EWord
@@ -746,22 +759,21 @@ toVRes msg res = case res of
   Error e -> error $ "Internal Error: solver responded with error: " <> show e
 
 
-checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m ()
+checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m (Error String ())
 checkResult calldata sig res =
   case any isCex res of
-    False -> do
-      showMsg "\x1b[42mNo discrepancies found\x1b[m"
-      when (any isTimeout res) $ do
-        showMsg "But timeout(s) occurred"
-        liftIO exitFailure
+    False ->
+      case any isTimeout res of
+        True -> do
+          showMsg "\x1b[41mNo discrepancies found but timeout(s) occurred. \x1b[m"
+          pure $ Failure $ NE.singleton (nowhere, "Failure: Cannot prove equivalence.")
+        False -> do
+          showMsg "\x1b[42mNo discrepancies found.\x1b[m "
+          pure $ Success ()
     True -> do
       let cexs = mapMaybe getCex res
-      showMsg . T.unpack . T.unlines $
-        [ "\x1b[41mNot equivalent.\x1b[m"
-        , "" , "-----", ""
-        ] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (fst calldata) sig cex) cexs)
-      liftIO exitFailure
-
+      showMsg $ T.unpack . T.unlines $ [ "\x1b[41mNot equivalent.\x1b[m", "" , "-----", ""] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (fst calldata) sig cex) cexs)
+      pure $ Failure $ NE.singleton (nowhere, "Failure: Cannot prove equivalence.")
 
 -- | Pretty prints a list of hevm behaviours for debugging purposes
 showBehvs :: [EVM.Expr a] -> String

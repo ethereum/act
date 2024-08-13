@@ -1,4 +1,5 @@
 {-# Language GADTs #-}
+{-# Language LambdaCase #-}
 {-# Language DataKinds #-}
 
 module Act.Print where
@@ -7,11 +8,44 @@ import Prelude hiding (GT, LT)
 import Data.ByteString.UTF8 (toString)
 import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), brackets)
 import System.IO (stdout)
+import Data.Text qualified as T
+import EVM.ABI (abiTypeSolidity)
 
 import Data.List
 
-import Act.Syntax
 import Act.Syntax.TimeAgnostic
+
+prettyAct :: Act t -> String
+prettyAct (Act _ contracts)
+  = unlines (fmap prettyContract contracts)
+
+prettyStore :: Store -> String
+prettyStore = show
+
+prettyContract :: Contract t -> String
+prettyContract (Contract ctor behvs) = unlines $ intersperse "\n" $ (prettyCtor ctor):(fmap prettyBehaviour behvs)
+
+prettyCtor :: Constructor t -> String
+prettyCtor (Constructor name interface pres posts invs initStore)
+  =   "constructor of " <> name
+  >-< "interface " <> show interface
+  <> prettyPre pres
+  <> prettyCreates initStore
+  <> prettyPost posts
+  <> prettyInvs invs
+  where
+    prettyCreates [] = ""
+    prettyCreates s = header "creates" >-< block (prettyUpdate' <$> s)
+
+    prettyInvs [] = ""
+    prettyInvs _ = error "TODO: pretty print invariants"
+
+    prettyUpdate' (Update _ (Item _ v r) e) = prettyValueType v <> " " <> prettyRef r <> " := " <> prettyExp e
+
+prettyValueType :: ValueType -> String
+prettyValueType = \case
+  ContractType n -> n
+  PrimitiveType t -> T.unpack (abiTypeSolidity t)
 
 
 prettyBehaviour :: Behaviour t -> String
@@ -24,24 +58,35 @@ prettyBehaviour (Behaviour name contract interface preconditions cases postcondi
   <> prettyRet returns
   <> prettyPost postconditions
   where
-    prettyPre [] = ""
-    prettyPre p = header "iff" >-< block (prettyExp <$> p)
-
-    prettyCases [] = ""
-    prettyCases p = header "case" >-< block (prettyExp <$> p) <> ":"
-
     prettyStorage [] = ""
     prettyStorage s = header "storage" >-< block (prettyUpdate <$> s)
 
     prettyRet (Just ret) = header "returns" >-< "  " <> prettyTypedExp ret
     prettyRet Nothing = ""
 
-    prettyPost [] = ""
-    prettyPost p = header "ensures" >-< block (prettyExp <$> p)
 
-    header s = "\n\n" <> s <> "\n"
-    block l = "  " <> intercalate "\n  " l
-    x >-< y = x <> "\n" <> y
+
+prettyPre :: [Exp ABoolean t] -> String
+prettyPre [] = ""
+prettyPre p = header "iff" >-< block (prettyExp <$> p)
+
+prettyCases :: [Exp ABoolean t] -> String
+prettyCases [] = ""
+prettyCases [LitBool _ True] = ""
+prettyCases p = header "case" >-< block (prettyExp <$> p) <> ":"
+
+prettyPost :: [Exp ABoolean t] -> String
+prettyPost [] = ""
+prettyPost p = header "ensures" >-< block (prettyExp <$> p)
+
+header :: String -> String
+header s = "\n\n" <> s <> "\n"
+
+block :: [String] -> String
+block l = "  " <> intercalate "\n  " l
+
+(>-<) :: String -> String -> String
+x >-< y = x <> "\n" <> y
 
 prettyExp :: Exp a t -> String
 prettyExp e = case e of
@@ -70,7 +115,7 @@ prettyExp e = case e of
   UIntMin _ a -> show $ uintmin a
   IntMax _ a -> show $ intmax a
   IntMin _ a -> show $ intmin a
-  InRange _ a b -> "inrange(" <> show a <> ", " <> show b <> ")"
+  InRange _ a b -> "inRange(" <> show a <> ", " <> prettyExp b <> ")"
   LitInt _ a -> show a
   IntEnv _ a -> prettyEnv a
 
@@ -95,9 +140,16 @@ prettyTypedExp :: TypedExp t -> String
 prettyTypedExp (TExp _ e) = prettyExp e
 
 prettyItem :: TStorageItem a t -> String
-prettyItem item = contractFromItem item <> "." <> idFromItem item <> concatMap (brackets . prettyTypedExp) (ixsFromItem item)
+prettyItem (Item _ _ r) = prettyRef r
+
+prettyRef :: StorageRef t -> String
+prettyRef = \case
+  SVar _ _ n -> n
+  SMapping _ r args -> prettyRef r <> concatMap (brackets . prettyTypedExp) args
+  SField _ r _ n -> prettyRef r <> "." <> n
   where
     brackets str = "[" <> str <> "]"
+
 prettyLocation :: StorageLocation t -> String
 prettyLocation (Loc _ item) = prettyItem item
 
