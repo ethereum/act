@@ -53,6 +53,7 @@ import EVM.SMT (SMTCex(..), assertProps, SMT2(..))
 import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
+import EVM.Traversals
 
 import Debug.Trace
 
@@ -631,7 +632,7 @@ getInitContractMap casts store codemap =
     handleCast _ _ = error "Cannot have different casts to the same address"
   
 
-checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (ContractMap, ActEnv)
+checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (Error String (ContractMap, ActEnv))
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   -- First find all casts from addresses and create a store where all asumed constracts are present
   -- currently ignoring any asts in behaviours, maybe prohibit them explicitly
@@ -659,6 +660,9 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   pure $ res1 *> res2 *> Success (getContractMap actbehvs, actenv')
   where
     removeFails branches = filter isSuccess $ branches
+
+    -- TODO remove when hevm PR is merged
+    symAddrCnstr n = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..n]
 
 getContractMap :: [EVM.Expr EVM.End] -> ContractMap
 getContractMap [EVM.Success _ _ _ m] = m
@@ -747,7 +751,7 @@ checkInputSpaces solvers l1 l2 = do
 
 
 -- Checks that all the casted addresses of a contract are mutually distinct
-checkAliasing :: App m => SolverGroup -> Constructor -> [Exp AInteger] -> Calldata -> m ()
+checkAliasing :: App m => SolverGroup -> Constructor -> [Exp AInteger] -> Calldata -> m (Error String ())
 checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) preconds _ _ _) addresses@(_:_) calldata = do
   let addressquery = [prelude <> SMT2 (fmap fromString $ lines . show . pretty $ mksmt) mempty mempty mempty]
   traceShowM addressquery
@@ -784,7 +788,7 @@ checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) prec
                 "(set-logic ALL)" ]
 
 
-checkAliasing _ _ _ _ = pure ()
+checkAliasing _ _ _ _ = pure $ Success ()
 
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
