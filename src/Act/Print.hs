@@ -6,14 +6,17 @@ module Act.Print where
 
 import Prelude hiding (GT, LT)
 import Data.ByteString.UTF8 (toString)
-import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), brackets)
+import qualified Prettyprinter as PP
+import Prettyprinter.Render.Text (renderIO)
+import qualified Prettyprinter.Render.Terminal as RenderT
+
 import System.IO (stdout)
 import Data.Text qualified as T
 import EVM.ABI (abiTypeSolidity)
 
 import Data.List
 
-import Act.Syntax.TimeAgnostic
+import Act.Syntax.TimeAgnostic hiding (annotate)
 
 prettyAct :: Act t -> String
 prettyAct (Act _ contracts)
@@ -226,6 +229,27 @@ prettyInvPred = prettyExp . untime . fst
       TEntry p _ (Item t vt a) -> TEntry p Neither (Item t vt (untimeStorageRef a))
       Var p t at a -> Var p t at a
 
+
+
+
 -- | prints a Doc, with wider output than the built in `putDoc`
-render :: Doc -> IO ()
-render doc = displayIO stdout (renderPretty 0.9 120 doc)
+render :: PP.Doc ann -> IO ()
+render doc =
+  let opts = PP.LayoutOptions { PP.layoutPageWidth = PP.AvailablePerLine 120 0.9 } in
+  renderIO stdout (PP.layoutSmart opts doc)
+
+
+-- backwards compatibility with Text.PrettyPrint.ANSI.Leijen
+
+type Doc = PP.Doc RenderT.AnsiStyle
+
+underline :: Doc -> Doc
+underline = PP.annotate RenderT.underlined
+
+bold :: Doc -> Doc
+bold = PP.annotate RenderT.bold
+
+(<$$>) = \x y -> PP.vsep [x,y]
+
+
+  

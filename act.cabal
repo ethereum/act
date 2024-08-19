@@ -40,6 +40,8 @@ common common
                  deriving-compat,
                  async              >= 2.2.4,
                  data-dword         >= 0.3.2.1,
+                 prettyprinter,
+                 prettyprinter-ansi-terminal,
   if flag(ci)
       ghc-options: -O2 -Wall -Werror -Wno-orphans -Wno-unticked-promoted-constructors
   else

@@ -47,10 +47,11 @@ import Prelude hiding (GT, LT)
 import Data.Containers.ListUtils (nubOrd)
 import System.Process (createProcess, cleanupProcess, proc, ProcessHandle, std_in, std_out, std_err, StdStream(..))
 import Text.Regex.TDFA hiding (empty)
-import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
+import Prettyprinter hiding (Doc)
 
 import Control.Applicative ((<|>))
 import Control.Monad.Reader
+import Control.Monad
 
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
@@ -60,7 +61,7 @@ import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
 
 import Act.Syntax
-import Act.Syntax.Annotated
+import Act.Syntax.Annotated hiding (annotate)
 
 import Act.Print
 import Act.Type (defaultStore)
@@ -100,10 +101,10 @@ data SMTExp = SMTExp
 instance Pretty SMTExp where
   pretty e = vsep [storage, calldata, environment, assertions]
     where
-      storage = text ";STORAGE:" <$$> (vsep . (fmap text) . nubOrd . _storage $ e) <> line
-      calldata = text ";CALLDATA:" <$$> (vsep . (fmap text) . nubOrd . _calldata $ e) <> line
-      environment = text ";ENVIRONMENT" <$$> (vsep . (fmap text) . nubOrd . _environment $ e) <> line
-      assertions = text ";ASSERTIONS:" <$$> (vsep . (fmap text) . nubOrd . _assertions $ e) <> line
+      storage = pretty ";STORAGE:" <$$> (vsep . (fmap pretty) . nubOrd . _storage $ e) <> line
+      calldata = pretty ";CALLDATA:" <$$> (vsep . (fmap pretty) . nubOrd . _calldata $ e) <> line
+      environment = pretty ";ENVIRONMENT" <$$> (vsep . (fmap pretty) . nubOrd . _environment $ e) <> line
+      assertions = pretty ";ASSERTIONS:" <$$> (vsep . (fmap pretty) . nubOrd . _assertions $ e) <> line
 
 data Transition
   = Behv Behaviour
@@ -140,7 +141,7 @@ data Model = Model
 
 instance Pretty Model where
   pretty (Model prestate poststate (ifaceName, args) environment initargs) =
-    (underline . text $ "counterexample:") <$$> line
+    (underline . pretty $ "counterexample:") <$$> line
       <> (indent 2
         (    calldata'
         <$$> ifExists environment (line <> environment' <> line)
@@ -148,18 +149,19 @@ instance Pretty Model where
         <$$> ifExists initargs (line <> initargs')
         ))
     where
-      calldata' = text "calldata:" <$$> line <> (indent 2 $ formatSig ifaceName args)
-      environment' = text "environment:" <$$> line <> (indent 2 . vsep $ fmap formatEnvironment environment)
-      storage = text "storage:" <$$> (indent 2 . vsep $ [ifExists prestate (line <> prestate'), poststate'])
-      initargs' = text "constructor arguments:" <$$> line <> (indent 2 $ formatSig "constructor" initargs)
+      calldata' = pretty "calldata:" <$$> line <> (indent 2 $ formatSig ifaceName args)
+      environment' = pretty "environment:" <$$> line <> (indent 2 . vsep $ fmap formatEnvironment environment)
+      storage = pretty "storage:" <$$> (indent 2 . vsep $ [ifExists prestate (line <> prestate'), poststate'])
+      initargs' = pretty "constructor arguments:" <$$> line <> (indent 2 $ formatSig "constructor" initargs)
 
-      prestate' = text "prestate:" <$$> line <> (indent 2 . vsep $ fmap formatStorage prestate) <> line
-      poststate' = text "poststate:" <$$> line <> (indent 2 . vsep $ fmap formatStorage poststate)
+      prestate' = pretty "prestate:" <$$> line <> (indent 2 . vsep $ fmap formatStorage prestate) <> line
+      poststate' = pretty "poststate:" <$$> line <> (indent 2 . vsep $ fmap formatStorage poststate)
 
-      formatSig iface cd = text iface <> (encloseSep lparen rparen (text ", ") $ fmap formatCalldata cd)
-      formatCalldata (Decl _ name, val) = text $ name <> " = " <> prettyTypedExp val
-      formatEnvironment (env, val) = text $ prettyEnv env <> " = " <> prettyTypedExp val
-      formatStorage (loc, val) = text $ prettyLocation loc <> " = " <> prettyTypedExp val
+      formatSig iface cd = pretty iface <> (encloseSep lparen rparen (pretty ", ") $ fmap formatCalldata cd)
+      formatCalldata (Decl _ name, val) = pretty $ name <> " = " <> prettyTypedExp val
+      formatEnvironment (env, val) = pretty $ prettyEnv env <> " = " <> prettyTypedExp val
+      formatStorage (loc, val) = pretty $ prettyLocation loc <> " = " <> prettyTypedExp val
+
 
 data SolverInstance = SolverInstance
   { _type :: Solver
@@ -730,20 +732,20 @@ isPass :: SMTResult -> Bool
 isPass = not . isFail
 
 getBehvName :: Query -> Doc
-getBehvName (Postcondition (Ctor _) _ _) = (text "the") <+> (bold . text $ "constructor")
-getBehvName (Postcondition (Behv behv) _ _) = (text "behaviour") <+> (bold . text $ _name behv)
+getBehvName (Postcondition (Ctor _) _ _) = (pretty "the") <+> (bold . pretty $ "constructor")
+getBehvName (Postcondition (Behv behv) _ _) = (pretty "behaviour") <+> (bold . pretty $ _name behv)
 getBehvName (Inv {}) = error "Internal Error: invariant queries do not have an associated behaviour"
 
 identifier :: Query -> Doc
-identifier q@(Inv (Invariant _ _ _ e) _ _)    = (bold . text . prettyInvPred $ e) <+> text "of" <+> (bold . text . getQueryContract $ q)
-identifier q@Postcondition {} = (bold . text . prettyExp . target $ q) <+> text "in" <+> getBehvName q <+> text "of" <+> (bold . text . getQueryContract $ q)
+identifier q@(Inv (Invariant _ _ _ e) _ _)    = (bold . pretty . prettyInvPred $ e) <+> pretty "of" <+> (bold . pretty . getQueryContract $ q)
+identifier q@Postcondition {} = (bold . pretty . prettyExp . target $ q) <+> pretty "in" <+> getBehvName q <+> pretty "of" <+> (bold . pretty . getQueryContract $ q)
 
 getSMT :: Query -> Doc
 getSMT (Postcondition _ _ smt) = pretty smt
-getSMT (Inv _ (_, csmt) behvs) = text "; constructor" <$$> sep' <$$> line <> pretty csmt <$$> vsep (fmap formatBehv behvs)
+getSMT (Inv _ (_, csmt) behvs) = pretty "; constructor" <$$> sep' <$$> line <> pretty csmt <$$> vsep (fmap formatBehv behvs)
   where
-    formatBehv (b, smt) = line <> text "; behaviour: " <> (text . _name $ b) <$$> sep' <$$> line <> pretty smt
-    sep' = text "; -------------------------------"
+    formatBehv (b, smt) = line <> pretty "; behaviour: " <> (pretty . _name $ b) <$$> sep' <$$> line <> pretty smt
+    sep' = pretty "; -------------------------------"
 
 ifExists :: Foldable t => t a -> Doc -> Doc
-ifExists a b = if null a then empty else b
+ifExists a b = if null a then emptyDoc else b
