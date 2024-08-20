@@ -83,7 +83,7 @@ mkCaseQuery props behvs@((Behaviour _ _ (Interface ifaceName decls) preconds _ _
         , _minitargs = []
         }
 mkCaseQuery _ [] = error "Internal error: behaviours cannot be empty"
-  
+
 -- | Checks nonoverlapping and exhaustiveness of cases
 checkCases :: Act -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 checkCases (Act _ contracts) solver' smttimeout debug = do

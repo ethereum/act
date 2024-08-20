@@ -230,8 +230,7 @@ prettyInvPred = prettyExp . untime . fst
       Var p t at a -> Var p t at a
 
 
-
--- backwards compatibility with Text.PrettyPrint.ANSI.Leijen
+-- | Doc type for terminal output
 type DocAnsi = Doc Term.AnsiStyle
 
 -- | prints a Doc, with wider output than the built in `putDoc`
