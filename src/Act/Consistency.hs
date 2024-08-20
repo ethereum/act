@@ -14,7 +14,7 @@ module Act.Consistency (
 import Prelude hiding (GT, LT)
 
 import Data.List
-import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
+import Prettyprinter
 import System.Exit (exitFailure)
 import Data.Maybe
 
@@ -83,7 +83,7 @@ mkCaseQuery props behvs@((Behaviour _ _ (Interface ifaceName decls) preconds _ _
         , _minitargs = []
         }
 mkCaseQuery _ [] = error "Internal error: behaviours cannot be empty"
-
+  
 -- | Checks nonoverlapping and exhaustiveness of cases
 checkCases :: Act -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 checkCases (Act _ contracts) solver' smttimeout debug = do
@@ -109,10 +109,10 @@ checkCases (Act _ contracts) solver' smttimeout debug = do
       checkRes :: String -> (Id, SMT.SMTResult) -> IO ()
       checkRes check (name, res) =
         case res of
-          Sat model -> failMsg ("Cases are not " <> check <> " for behavior " <> name <> ".") (pretty model)
+          Sat model -> failMsg ("Cases are not " <> check <> " for behavior " <> name <> ".") (prettyAnsi model)
           Unsat -> pure ()
           Unknown -> errorMsg $ "Solver timeour. Cannot prove that cases are " <> check <> " for behavior " <> name <> "."
           SMT.Error _ err -> errorMsg $ "Solver error: " <> err <> "\nCannot prove that cases are " <>  check <> " for behavior " <> name <> "."
 
-      failMsg str model = render (red (text str) <> line <> model <> line) >> exitFailure
-      errorMsg str = render (text str <> line) >> exitFailure
+      failMsg str model = render (red (pretty str) <> line <> model <> line) >> exitFailure
+      errorMsg str = render (pretty str <> line) >> exitFailure

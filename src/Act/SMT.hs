@@ -98,8 +98,8 @@ data SMTExp = SMTExp
   }
   deriving (Show)
 
-instance Pretty SMTExp where
-  pretty e = vsep [storage, calldata, environment, assertions]
+instance PrettyAnsi SMTExp where
+  prettyAnsi e = vsep [storage, calldata, environment, assertions]
     where
       storage = pretty ";STORAGE:" <$$> (vsep . (fmap pretty) . nubOrd . _storage $ e) <> line
       calldata = pretty ";CALLDATA:" <$$> (vsep . (fmap pretty) . nubOrd . _calldata $ e) <> line
@@ -139,8 +139,8 @@ data Model = Model
   }
   deriving (Show)
 
-instance Pretty Model where
-  pretty (Model prestate poststate (ifaceName, args) environment initargs) =
+instance PrettyAnsi Model where
+  prettyAnsi (Model prestate poststate (ifaceName, args) environment initargs) =
     (underline . pretty $ "counterexample:") <$$> line
       <> (indent 2
         (    calldata'
@@ -335,7 +335,7 @@ runQuery solver query@(Inv (Invariant _ _ _ predicate) (ctor, ctorSMT) behvs) = 
 checkSat :: SolverInstance -> (SolverInstance -> IO Model) -> SMTExp -> IO SMTResult
 checkSat solver modelFn smt = do
   -- render (pretty smt)
-  err <- sendLines solver ("(reset)" : (lines . show . pretty $ smt))
+  err <- sendLines solver ("(reset)" : (lines . show . prettyAnsi $ smt))
   case err of
     Nothing -> do
       sat <- sendCommand solver "(check-sat)"
@@ -731,21 +731,21 @@ isFail _ = True
 isPass :: SMTResult -> Bool
 isPass = not . isFail
 
-getBehvName :: Query -> Doc
+getBehvName :: Query -> DocAnsi
 getBehvName (Postcondition (Ctor _) _ _) = (pretty "the") <+> (bold . pretty $ "constructor")
 getBehvName (Postcondition (Behv behv) _ _) = (pretty "behaviour") <+> (bold . pretty $ _name behv)
 getBehvName (Inv {}) = error "Internal Error: invariant queries do not have an associated behaviour"
 
-identifier :: Query -> Doc
+identifier :: Query -> DocAnsi
 identifier q@(Inv (Invariant _ _ _ e) _ _)    = (bold . pretty . prettyInvPred $ e) <+> pretty "of" <+> (bold . pretty . getQueryContract $ q)
 identifier q@Postcondition {} = (bold . pretty . prettyExp . target $ q) <+> pretty "in" <+> getBehvName q <+> pretty "of" <+> (bold . pretty . getQueryContract $ q)
 
-getSMT :: Query -> Doc
-getSMT (Postcondition _ _ smt) = pretty smt
-getSMT (Inv _ (_, csmt) behvs) = pretty "; constructor" <$$> sep' <$$> line <> pretty csmt <$$> vsep (fmap formatBehv behvs)
+getSMT :: Query -> DocAnsi
+getSMT (Postcondition _ _ smt) = prettyAnsi smt
+getSMT (Inv _ (_, csmt) behvs) = pretty "; constructor" <$$> sep' <$$> line <> prettyAnsi csmt <$$> vsep (fmap formatBehv behvs)
   where
-    formatBehv (b, smt) = line <> pretty "; behaviour: " <> (pretty . _name $ b) <$$> sep' <$$> line <> pretty smt
+    formatBehv (b, smt) = line <> pretty "; behaviour: " <> (pretty . _name $ b) <$$> sep' <$$> line <> prettyAnsi smt
     sep' = pretty "; -------------------------------"
 
-ifExists :: Foldable t => t a -> Doc -> Doc
+ifExists :: Foldable t => t a -> DocAnsi -> DocAnsi
 ifExists a b = if null a then emptyDoc else b
