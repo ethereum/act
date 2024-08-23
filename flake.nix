@@ -5,7 +5,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     hevmUpstream = {
-      url = "github:ethereum/hevm";
+      url = "github:ethereum/hevm/6f87c03094b6c67a678d15e9b6e6bcf49bdb2186";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

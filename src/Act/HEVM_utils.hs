@@ -111,9 +111,9 @@ checkPartial nodes =
   else pure ()
 
 -- | decompiles the given EVM bytecode into a list of Expr branches
-getRuntimeBranches :: App m => SolverGroup -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> Calldata -> m [EVM.Expr EVM.End]
-getRuntimeBranches solvers contracts calldata = do
-  prestate <- liftIO $ stToIO $ abstractVM contracts calldata
+getRuntimeBranches :: App m => SolverGroup -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> Calldata -> Int -> m [EVM.Expr EVM.End]
+getRuntimeBranches solvers contracts calldata fresh = do
+  prestate <- liftIO $ stToIO $ abstractVM contracts calldata fresh
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
   let simpl = simplify expr
   let nodes = flattenExpr simpl
@@ -122,26 +122,26 @@ getRuntimeBranches solvers contracts calldata = do
 
 
 -- | decompiles the given EVM initcode into a list of Expr branches
-getInitcodeBranches :: App m => SolverGroup -> BS.ByteString -> Calldata -> m [EVM.Expr EVM.End]
-getInitcodeBranches solvers initcode calldata = do
-  initVM <- liftIO $ stToIO $ abstractInitVM initcode calldata
+getInitcodeBranches :: App m => SolverGroup -> BS.ByteString -> Calldata -> Int -> m [EVM.Expr EVM.End]
+getInitcodeBranches solvers initcode calldata fresh = do
+  initVM <- liftIO $ stToIO $ abstractInitVM initcode calldata fresh
   expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
   let simpl = if True then (simplify expr) else expr
   let nodes = flattenExpr simpl
   checkPartial nodes
   pure nodes
 
-abstractInitVM :: BS.ByteString -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
-abstractInitVM contractCode cd = do
+abstractInitVM :: BS.ByteString -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> Int -> ST s (EVM.VM EVM.Symbolic s)
+abstractInitVM contractCode cd fresh = do
   let value = EVM.TxValue
   let code = EVM.InitCode contractCode (fst cd)
-  loadSymVM (EVM.SymAddr "entrypoint", EVM.initialContract code) [] value cd True
+  loadSymVM (EVM.SymAddr "entrypoint", EVM.initialContract code) [] value cd True fresh
 
-abstractVM :: [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> ST s (EVM.VM EVM.Symbolic s)
-abstractVM contracts cd = do
+abstractVM :: [(EVM.Expr EVM.EAddr, EVM.Contract)] -> (EVM.Expr EVM.Buf, [EVM.Prop]) -> Int -> ST s (EVM.VM EVM.Symbolic s)
+abstractVM contracts cd fresh = do
   let value = EVM.TxValue
   let (c, cs) = findInitContract
-  loadSymVM c cs value cd False
+  loadSymVM c cs value cd False fresh
 
   where
     findInitContract :: ((EVM.Expr 'EVM.EAddr, EVM.Contract), [(EVM.Expr 'EVM.EAddr, EVM.Contract)])
@@ -157,8 +157,9 @@ loadSymVM
   -> EVM.Expr EVM.EWord
   -> (EVM.Expr EVM.Buf, [EVM.Prop])
   -> Bool
+  -> Int
   -> ST s (EVM.VM EVM.Symbolic s)
-loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create =
+loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create fresh =
   (EVM.makeVm $ EVM.VMOpts
      { contract = entrycontract
      , otherContracts = othercontracts
@@ -184,4 +185,5 @@ loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create =
      , create = create
      , txAccessList = mempty
      , allowFFI = False
+     , freshAddresses = fresh
      })

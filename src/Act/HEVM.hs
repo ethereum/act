@@ -591,7 +591,7 @@ checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
-  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
+  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata 0
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   res1 <- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
@@ -609,7 +609,7 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = fst $ flip runState actenv $ translateBehvs actstorage behvs
   (liftM $ concatError def) $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
-    solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
+    solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata actenv.fresh
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
@@ -692,7 +692,7 @@ checkAbi solver contract cmap = do
   let (_, hevmstorage) = createStorage cmap
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs contract)
-  evmBehvs <- getRuntimeBranches solver hevmstorage (txdata, [])
+  evmBehvs <- getRuntimeBranches solver hevmstorage (txdata, []) 0 -- TODO what freshAddr goes here?
   conf <- readConfig
   let queries =  fmap (assertProps conf) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
   res <- liftIO $ mapConcurrently (checkSat solver) queries
