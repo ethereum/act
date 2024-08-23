@@ -51,6 +51,8 @@ import EVM.Effects
 import EVM.Format as Format
 import EVM.Traversals
 
+import Debug.Trace
+
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -669,7 +671,12 @@ checkInputSpaces :: App m => SolverGroup -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.
 checkInputSpaces solvers l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
+  -- traceM "Sol props"
+  -- traceM $ showProps p1
+  traceM "Act props"
+  traceM $ showProps p2
   conf <- readConfig
+  
   let queries = fmap (assertProps conf) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
                                         , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
@@ -778,3 +785,6 @@ checkResult calldata sig res =
 -- | Pretty prints a list of hevm behaviours for debugging purposes
 showBehvs :: [EVM.Expr a] -> String
 showBehvs behvs = T.unpack $ T.unlines $ fmap Format.formatExpr behvs
+
+showProps :: [EVM.Prop] -> String
+showProps props = T.unpack $ T.unlines $ fmap Format.formatProp props
