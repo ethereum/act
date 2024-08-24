@@ -51,8 +51,6 @@ import EVM.Effects
 import EVM.Format as Format
 import EVM.Traversals
 
-import Debug.Trace
-
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -143,7 +141,7 @@ translateConstructor bytecode (Constructor _ iface preconds _ _ upds)  = do
   preconds' <- mapM (toProp initmap) preconds
   cmap <- applyUpdates initmap initmap upds
   fresh <- getFresh
-  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr fresh) mempty (EVM.ConcreteBuf bytecode) cmap], calldata, ifaceToSig iface)
+  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr 1 fresh) mempty (EVM.ConcreteBuf bytecode) cmap], calldata, ifaceToSig iface)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -153,8 +151,9 @@ translateConstructor bytecode (Constructor _ iface preconds _ _ upds)  = do
                          }
     initmap = M.fromList [(initAddr, initcontract)]
 
-    -- TODO remove when hevm PR is merged
-    symAddrCnstr n = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..n]
+
+symAddrCnstr :: Int -> Int -> [EVM.Prop]
+symAddrCnstr start end = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [start..end]
 
 translateBehvs :: ContractMap -> [Behaviour] ->  ActM [(Id, [EVM.Expr EVM.End], Calldata, Sig)]
 translateBehvs cmap behvs = do
@@ -183,11 +182,13 @@ ifaceToSig (Interface name args) = Sig (T.pack name) (fmap fromdecl args)
 
 translateBehv :: ContractMap -> Behaviour -> ActM (EVM.Expr EVM.End)
 translateBehv cmap (Behaviour _ _ _ preconds caseconds _ upds ret) = do
+  fresh <- getFresh
   preconds' <- mapM (toProp cmap) preconds
   caseconds' <- mapM (toProp cmap) caseconds
   ret' <- returnsToExpr cmap ret
   store <- applyUpdates cmap cmap upds
-  pure $ EVM.Success (preconds' <> caseconds') mempty ret' store
+  fresh' <- getFresh
+  pure $ EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' store
 
 
 applyUpdates :: ContractMap -> ContractMap -> [StorageUpdate] -> ActM ContractMap
@@ -671,12 +672,8 @@ checkInputSpaces :: App m => SolverGroup -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.
 checkInputSpaces solvers l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
-  -- traceM "Sol props"
-  -- traceM $ showProps p1
-  traceM "Act props"
-  traceM $ showProps p2
   conf <- readConfig
-  
+
   let queries = fmap (assertProps conf) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
                                         , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
