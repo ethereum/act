@@ -32,7 +32,6 @@ import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import Control.Monad.State
 import Data.List.NonEmpty qualified as NE
 import Data.Validation
-import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
 import Data.Text.Lazy.Builder
 
 import Act.HEVM_utils
@@ -40,6 +39,7 @@ import Act.Syntax.Annotated as Act
 import Act.Syntax.Untyped (makeIface)
 import Act.Syntax
 import Act.Error
+import Act.Print
 
 import qualified Act.SMT as SMT
 
@@ -144,11 +144,12 @@ getCaller = do
 
 translateConstructor ::  BS.ByteString -> Constructor -> ContractMap -> ActM ([EVM.Expr EVM.End], Calldata, Sig)
 translateConstructor bytecode (Constructor _ iface preconds _ _ upds) cmap = do
+  fresh <- getFresh
   let initmap =  M.insert initAddr initcontract cmap
   preconds' <- mapM (toProp initmap) preconds
   cmap' <- applyUpdates initmap initmap upds
-  fresh <- getFresh
-  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr 1 fresh) mempty (EVM.ConcreteBuf bytecode) cmap'], calldata, ifaceToSig iface)
+  fresh' <- getFresh
+  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr (fresh+1) fresh') mempty (EVM.ConcreteBuf bytecode) cmap'], calldata, ifaceToSig iface)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -645,7 +646,7 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   -- check is any addresses casted to contracts can be aliased
   checkAliasing solvers ctor (map fst casts) calldata
   -- Symbolically execute bytecode  
-  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr fresh) fresh
+  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 0 fresh) fresh
   
   -- traceM "Solc behvs: "
   -- traceM $ showBehvs solbehvs
@@ -660,9 +661,6 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   pure $ res1 *> res2 *> Success (getContractMap actbehvs, actenv')
   where
     removeFails branches = filter isSuccess $ branches
-
-    -- TODO remove when hevm PR is merged
-    symAddrCnstr n = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..n]
 
 getContractMap :: [EVM.Expr EVM.End] -> ContractMap
 getContractMap [EVM.Success _ _ _ m] = m
@@ -753,7 +751,7 @@ checkInputSpaces solvers l1 l2 = do
 -- Checks that all the casted addresses of a contract are mutually distinct
 checkAliasing :: App m => SolverGroup -> Constructor -> [Exp AInteger] -> Calldata -> m (Error String ())
 checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) preconds _ _ _) addresses@(_:_) calldata = do
-  let addressquery = [prelude <> SMT2 (fmap fromString $ lines . show . pretty $ mksmt) mempty mempty mempty]
+  let addressquery = [prelude <> SMT2 (fmap fromString $ lines . show . prettyAnsi $ mksmt) mempty mempty mempty]
   traceShowM addressquery
   res <- liftIO $ mapConcurrently (checkSat solver) addressquery
   checkResult calldata Nothing (fmap (toVRes msg) res)
