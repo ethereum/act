@@ -646,7 +646,7 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   -- check is any addresses casted to contracts can be aliased
   checkAliasing solvers ctor (map fst casts) calldata
   -- Symbolically execute bytecode  
-  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 0 fresh) fresh
+  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 1 fresh) fresh
   
   -- traceM "Solc behvs: "
   -- traceM $ showBehvs solbehvs
