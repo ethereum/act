@@ -144,12 +144,11 @@ getCaller = do
 
 translateConstructor ::  BS.ByteString -> Constructor -> ContractMap -> ActM ([EVM.Expr EVM.End], Calldata, Sig)
 translateConstructor bytecode (Constructor _ iface preconds _ _ upds) cmap = do
-  fresh <- getFresh
   let initmap =  M.insert initAddr initcontract cmap
   preconds' <- mapM (toProp initmap) preconds
   cmap' <- applyUpdates initmap initmap upds
-  fresh' <- getFresh
-  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr (fresh+1) fresh') mempty (EVM.ConcreteBuf bytecode) cmap'], calldata, ifaceToSig iface)
+  fresh <- getFresh
+  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr 1 fresh) mempty (EVM.ConcreteBuf bytecode) cmap'], calldata, ifaceToSig iface)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -645,7 +644,8 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor actinitmap
   -- check is any addresses casted to contracts can be aliased
   checkAliasing solvers ctor (map fst casts) calldata
-  -- Symbolically execute bytecode  
+  -- Symbolically execute bytecode
+  -- TODO check if contrainsts about preexistsing fresh symbolic addresses are necessary
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 1 fresh) fresh
   
   -- traceM "Solc behvs: "
@@ -732,6 +732,11 @@ checkInputSpaces :: App m => SolverGroup -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.
 checkInputSpaces solvers l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
+  -- traceM "Solc props: "
+  -- traceM $ showProps p1
+  -- traceM "Act props: "
+  -- traceM $ showProps p2
+
   conf <- readConfig
 
   let queries = fmap (assertProps conf) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
@@ -752,7 +757,6 @@ checkInputSpaces solvers l1 l2 = do
 checkAliasing :: App m => SolverGroup -> Constructor -> [Exp AInteger] -> Calldata -> m (Error String ())
 checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) preconds _ _ _) addresses@(_:_) calldata = do
   let addressquery = [prelude <> SMT2 (fmap fromString $ lines . show . prettyAnsi $ mksmt) mempty mempty mempty]
-  traceShowM addressquery
   res <- liftIO $ mapConcurrently (checkSat solver) addressquery
   checkResult calldata Nothing (fmap (toVRes msg) res)
   where
