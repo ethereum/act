@@ -349,7 +349,9 @@ expToBuf cmap styp e = do
       e' <- toExpr cmap e
       pure $ EVM.WriteWord (EVM.Lit 0) e' (EVM.ConcreteBuf "")
     SByteStr -> toExpr cmap e
-    SContract -> error "Internal error: expecting primitive type"
+    SContract -> do
+      e' <- toExpr cmap e
+      pure $ EVM.WriteWord (EVM.Lit 0) e' (EVM.ConcreteBuf "")
 
 getSlot :: Layout -> Id -> Id -> Integer
 getSlot layout cid name =
@@ -545,6 +547,17 @@ toExpr cmap = liftM stripMods . go
         let storage = case contract of
                         EVM.C _ s _ _  -> s
                         EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
+
+        pure $ EVM.SLoad slot storage
+
+      (TEntry _ _ (Item SContract _ ref)) -> do
+        slot <- refOffset cmap ref
+        caddr' <- baseAddr cmap ref
+        let contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
+        let storage = case contract of
+                        EVM.C _ s _ _  -> s
+                        EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
+
         pure $ EVM.SLoad slot storage
 
       e ->  error $ "TODO: " <> show e
@@ -610,7 +623,7 @@ getInitContractMap casts store codemap =
   let (cmap, fresh) =  foldl (\p l -> handleCast p (nub l)) (M.empty, 0) casts' in
   let (actstorage, hevmstorage) = createStorage cmap in
   (actstorage, hevmstorage, fresh)
-  
+
   where
     handleCast :: (ContractMap, Int) -> [(Exp AInteger, Id)] -> (ContractMap, Int)
     handleCast (cmap, fresh) [(Var _ _ _ x, cid)] =
@@ -630,7 +643,7 @@ getInitContractMap casts store codemap =
     handleCast _ [(_, _)] = error "Only casts to symbolic arguments are allowed"
     handleCast _ [] = error "Internal error: Cast cannot be empty"
     handleCast _ _ = error "Cannot have different casts to the same address"
-  
+
 
 checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (Error String (ContractMap, ActEnv))
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
@@ -647,7 +660,7 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   -- Symbolically execute bytecode
   -- TODO check if contrainsts about preexistsing fresh symbolic addresses are necessary
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 1 fresh) fresh
-  
+
   -- traceM "Solc behvs: "
   -- traceM $ showBehvs solbehvs
   -- traceM "Act behvs: "
@@ -764,7 +777,7 @@ checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) prec
     args = SMT.declareArg ifaceName <$> decls
     envs = SMT.declareEthEnv <$> ethEnvFromConstructor constructor
     -- constraints
-    asserts = SMT.mkAssert ifaceName <$> ((existEqual (combine addresses [])):preconds)    
+    asserts = SMT.mkAssert ifaceName <$> ((existEqual (combine addresses [])):preconds)
     mksmt = SMT.SMTExp
       { SMT._storage = []
       , SMT._calldata = args
@@ -774,7 +787,7 @@ checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) prec
 
     combine :: [Exp AInteger] -> [[(Exp AInteger,Exp AInteger)]] -> [(Exp AInteger,Exp AInteger)]
     combine [] acc = concat acc
-    combine (x:xs) acc = combine xs ([(x,y) | y <- xs]:acc) 
+    combine (x:xs) acc = combine xs ([(x,y) | y <- xs]:acc)
 
     existEqual :: [(Exp AInteger,Exp AInteger)] -> Exp ABoolean
     existEqual ls = foldl (\p (x,y) -> Or nowhere (Eq nowhere SInteger x y) p) (LitBool nowhere False) ls

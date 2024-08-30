@@ -37,8 +37,8 @@ iff
     x =/= y
 
 creates
-    A a1 := x as A
-    A a2 := y as A
+    A a := x as A
+    B b := y as A
 
 
 behaviour upd of B
