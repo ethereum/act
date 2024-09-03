@@ -1,0 +1,53 @@
+// contract A
+
+constructor of A
+interface constructor(uint z)
+
+iff
+   CALLVALUE == 0
+   inRange(uint256, z + 1)
+
+creates
+   uint x := z + 1
+
+
+behaviour x of A
+interface x()
+
+iff
+   CALLVALUE == 0
+
+returns
+   pre(x)
+
+behaviour add_x of A
+interface add_x(uint y)
+
+iff
+   CALLVALUE == 0
+   inRange(uint256, x + y)
+
+storage
+
+  x => x + y
+
+
+// contract B
+constructor of B
+interface constructor(uint i)
+iff
+   CALLVALUE == 0
+   inRange(uint256, i + 42)
+
+creates
+   uint z := i + 42
+   A a := create A(i)
+
+behaviour foo of B
+interface foo()
+
+iff
+   CALLVALUE == 0
+
+storage
+  a => create A(42)
