@@ -445,11 +445,15 @@ toProp cmap = \case
   (LitBool _ b) -> pure $ EVM.PBool b
   (Eq _ SInteger e1 e2) -> op2 EVM.PEq e1 e2
   (Eq _ SBoolean e1 e2) -> op2 EVM.PEq e1 e2
+  (Eq _ SContract e1 e2) -> op2 EVM.PEq e1 e2
   (Eq _ _ _ _) -> error "unsupported"
   (NEq _ SInteger e1 e2) -> do
     e <- op2 EVM.PEq e1 e2
     pure $ EVM.PNeg e
   (NEq _ SBoolean e1 e2) -> do
+    e <- op2 EVM.PEq e1 e2
+    pure $ EVM.PNeg e
+  (NEq _ SContract e1 e2) -> do
     e <- op2 EVM.PEq e1 e2
     pure $ EVM.PNeg e
   (NEq _ _ _ _) -> error "unsupported"
@@ -798,7 +802,6 @@ checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) prec
     prelude =  SMT2 src mempty mempty mempty
       where
         src = [ "; logic",
-                "; this is a test",
                 "(set-info :smt-lib-version 2.6)",
                 "(set-logic ALL)" ]
 
