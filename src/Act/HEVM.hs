@@ -660,7 +660,7 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   -- Translate Act constructor to Expr
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor actinitmap
   -- check is any addresses casted to contracts can be aliased
-  checkAliasing solvers ctor (map fst casts) calldata
+  checkAliasingCtor solvers ctor (map fst casts) calldata
   -- Symbolically execute bytecode
   -- TODO check if contrainsts about preexistsing fresh symbolic addresses are necessary
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 1 fresh) fresh
@@ -690,7 +690,9 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
   (liftM $ concatError def) $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata actenv.fresh
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
-    -- equivalence check
+    -- check for potential alliasing in the initial state
+    checkAliasingBehv solvers ctor (map fst casts) calldata
+    -- equivalence check    
     showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     res1 <- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
     -- input space exhaustiveness check
@@ -771,8 +773,8 @@ checkInputSpaces solvers l1 l2 = do
 
 
 -- Checks that all the casted addresses of a contract are mutually distinct
-checkAliasing :: App m => SolverGroup -> Constructor -> [Exp AInteger] -> Calldata -> m (Error String ())
-checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) preconds _ _ _) addresses@(_:_) calldata = do
+checkAliasingCtor :: App m => SolverGroup -> Constructor -> [Exp AInteger] -> Calldata -> m (Error String ())
+checkAliasingCtor solver constructor@(Constructor _ (Interface ifaceName decls) preconds _ _ _) addresses@(_:_) calldata = do
   let addressquery = [prelude <> SMT2 (fmap fromString $ lines . show . prettyAnsi $ mksmt) mempty mempty mempty]
   res <- liftIO $ mapConcurrently (checkSat solver) addressquery
   checkResult calldata Nothing (fmap (toVRes msg) res)
@@ -804,9 +806,49 @@ checkAliasing solver constructor@(Constructor _ (Interface ifaceName decls) prec
         src = [ "; logic",
                 "(set-info :smt-lib-version 2.6)",
                 "(set-logic ALL)" ]
+checkAliasingCtor _ _ _ _ = pure $ Success ()
 
+-- Checks that all the casted addresses of a contract are mutually distinct
+checkAliasing :: App m => SolverGroup -> Constructor -> ContractMap -> Calldata -> m (Error String ())
+checkAliasingBehv solver behv@(Behaviour _ _ (Interface ifaceName decls) preconds caseconds _ _ _) cmap calldata = do
+  let addresses = toVars $ Map.keys cmap
+  let freshaddresses = filter isFreshaddr addr
+  
+  let addressquery = [prelude <> SMT2 (fmap fromString $ lines . show . prettyAnsi $ mksmt) mempty mempty mempty]
+  res <- liftIO $ mapConcurrently (checkSat solver) addressquery
+  checkResult calldata Nothing (fmap (toVRes msg) res)
+  where
+    -- declare vars
+    addrvars = declAddr <$> addresses
+    args = SMT.declareArg ifaceName <$> decls
+    envs = SMT.declareEthEnv <$> ethEnvFromConstructor constructor
+    -- constraints
+    asserts = SMT.mkAssert ifaceName <$> ((existEqual (combine addresses [])):preconds <> caseconds <> freshUnique freshAddr)
+    mksmt = SMT.SMTExp
+      { SMT._storage = []
+      , SMT._calldata = args <> addrvars
+      , SMT._environment = envs
+      , SMT._assertions = asserts
+      }
 
-checkAliasing _ _ _ _ = pure $ Success ()
+    combine :: [Exp AInteger] -> [[(Exp AInteger,Exp AInteger)]] -> [(Exp AInteger,Exp AInteger)]
+    combine [] acc = concat acc
+    combine (x:xs) acc = combine xs ([(x,y) | y <- xs]:acc)
+
+    existEqual :: [(Exp AInteger,Exp AInteger)] -> Exp ABoolean
+    existEqual ls = foldl (\p (x,y) -> Or nowhere (Eq nowhere SInteger x y) p) (LitBool nowhere False) ls
+
+    freshUnique :: [Exp AInteger] -> [Exp ABoolean]
+    freshUnique freshAddrs = map (\(x,y) -> (NEq nowhere SInteger x y) (combine freshAddrs []))
+
+    msg = "\x1b[1m Contract addresses in the state are not guaranteed to be unique!\x1b[m"
+
+    prelude :: SMT2
+    prelude =  SMT2 src mempty mempty mempty
+      where
+        src = [ "; logic",
+                "(set-info :smt-lib-version 2.6)",
+                "(set-logic ALL)" ]
 
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
