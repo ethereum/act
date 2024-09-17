@@ -187,6 +187,18 @@ createsFromBehaviour (Behaviour _ _ _ _ _ preconds postconds rewrites returns) =
   <> maybe [] createsFromTypedExp returns
 
 
+pointersFromContract :: Typed.Contract -> [Id]
+pointersFromContract (Contract constr behvs) =
+  nub $ pointersFromConstructor constr <> concatMap pointersFromBehaviour behvs
+
+pointersFromConstructor :: Typed.Constructor -> [Id]
+pointersFromConstructor (Constructor _ _ ptrs _ _ _ _) =
+  map (\(PointsTo _ _ c) -> c) ptrs
+
+pointersFromBehaviour :: Behaviour t -> [Id]
+pointersFromBehaviour (Behaviour _ _ _ ptrs _ _ _ _ _) =
+  map (\(PointsTo _ _ c) -> c) ptrs
+
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
 ethEnvFromBehaviour (Behaviour _ _ _ _ preconds cases postconds rewrites returns) = nub $
   concatMap ethEnvFromExp preconds

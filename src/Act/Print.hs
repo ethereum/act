@@ -71,11 +71,11 @@ prettyBehaviour (Behaviour name contract interface ptrs preconditions cases post
 
 
 
-prettyPtrs :: [(Pn, Id, Id)] -> String
+prettyPtrs :: [Pointer] -> String
 prettyPtrs [] = ""
-prettyPtrs ptrs = header "pointers" >-< block (prettyPtr <$> p)
+prettyPtrs ptrs = header "pointers" >-< block (prettyPtr <$> ptrs)
   where
-    prettyPtr (_, x, c) = x <> " |-> " <> c
+    prettyPtr (PointsTo _ x c) = x <> " |-> " <> c
 
 prettyPre :: [Exp ABoolean t] -> String
 prettyPre [] = ""

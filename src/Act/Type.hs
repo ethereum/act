@@ -54,7 +54,7 @@ typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store cons
                              <* noDuplicateContracts
                              <* noDuplicateBehaviourNames
                              <* noDuplicateInterfaces
-                             <* traverse noDuplicateVars [creates | U.Contract (U.Definition _ _ _ _ creates _ _) _ <- contracts]
+                             <* traverse noDuplicateVars [creates | U.Contract (U.Definition _ _ _ _ _ creates _ _) _ <- contracts]
   where
     store = lookupVars contracts
     constructors = lookupConstructors contracts
@@ -62,7 +62,7 @@ typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store cons
     transitions = concatMap (\(U.Contract _ ts) -> ts) contracts
 
     noDuplicateContracts :: Err ()
-    noDuplicateContracts = noDuplicates [(pn,contract) | U.Contract (U.Definition pn contract _ _ _ _ _) _ <- contracts]
+    noDuplicateContracts = noDuplicates [(pn,contract) | U.Contract (U.Definition pn contract _ _ _ _ _ _) _ <- contracts]
                            $ \c -> "Multiple definitions of Contract " <> c
 
     noDuplicateVars :: U.Creates -> Err ()
@@ -72,13 +72,13 @@ typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store cons
     noDuplicateInterfaces :: Err ()
     noDuplicateInterfaces =
       noDuplicates
-        [(pn, contract ++ "." ++ (makeIface iface)) | U.Transition pn _ contract iface _ _ _ <- transitions]
+        [(pn, contract ++ "." ++ (makeIface iface)) | U.Transition pn _ contract iface _ _ _ _ <- transitions]
         $ \c -> "Multiple definitions of Interface " <> c
 
     noDuplicateBehaviourNames :: Err ()
     noDuplicateBehaviourNames =
       noDuplicates
-        [(pn, contract ++ "." ++ behav) | U.Transition pn behav contract _ _ _ _ <- transitions]
+        [(pn, contract ++ "." ++ behav) | U.Transition pn behav contract _ _ _ _ _ <- transitions]
         $ \c -> "Multiple definitions of Behaviour " <> c
 
     -- Generic helper
@@ -115,7 +115,7 @@ topologicalSort (Act store contracts) =
       else if OM.member v visited then pure visited
       else
         let (ws, code) = adjacent v in
-        let stack' = Set.insert v stack \in
+        let stack' = Set.insert v stack in
         (OM.|<) (v, code) <$> foldValidation (dfs stack') visited ws
 
     adjacent :: Id -> ([Id], Contract)
@@ -128,22 +128,21 @@ topologicalSort (Act store contracts) =
 
     -- map a contract name to the list of contracts that it calls and its code
     findCreates :: Contract -> (Id, ([Id], Contract))
-    findCreates c@(Contract (Constructor cname _ _ _ _ _) _) = (cname, (createsFromContract c, c))
+    findCreates c@(Contract (Constructor cname _ _ _ _ _ _) _) = (cname, (createsFromContract c <> pointersFromContract c, c))
 
 --- Finds storage declarations from constructors
 lookupVars :: [U.Contract] -> Store
 lookupVars = foldMap $ \case
-  U.Contract (U.Definition  _ contract _ _ (U.Creates assigns) _ _) _ ->
+  U.Contract (U.Definition  _ contract _ _ _ (U.Creates assigns) _ _) _ ->
     Map.singleton contract . Map.fromList $ addSlot $ snd . fromAssign <$> assigns
   where
     addSlot :: [(Id, SlotType)] -> [(Id, (SlotType, Integer))]
     addSlot l = zipWith (\(name, typ) slot -> (name, (typ, slot))) l [0..]
 
 
-
 lookupConstructors :: [U.Contract] -> Map Id [AbiType]
 lookupConstructors = foldMap $ \case
-  U.Contract (U.Definition _ contract (Interface _ decls) _ _ _ _) _ ->
+  U.Contract (U.Definition _ contract (Interface _ decls) _ _ _ _ _) _ ->
     Map.singleton contract (map (\(Decl t _) -> t) decls)
 
 -- | Extracts what we need to build a 'Store' and to verify that its names are unique.
@@ -160,6 +159,7 @@ data Env = Env
   , store        :: Map Id SlotType  -- ^ This contract's storage entry names and their types.
   , theirs       :: Store            -- ^ Mapping from contract names to a map of their entry names and their types.
   , calldata     :: Map Id AbiType   -- ^ The calldata var names and their types.
+  , pointers     :: Map Id Id        -- ^ Maps address calldata variables to their contract type.
   , constructors :: Map Id [AbiType] -- ^ Interfaces of contract contructors (we only allow constructor calls ATM)
   }
 
@@ -188,19 +188,24 @@ mkEnv contract store constructors = Env
   , store    = Map.map fst $ fromMaybe mempty (Map.lookup contract store)
   , theirs   = store
   , calldata = mempty
+  , pointers = mempty
   , constructors = constructors
   }
 
 -- add calldata to environment
-addCalldata :: Env -> [Decl] -> Env
-addCalldata env decls = env{ calldata = abiVars }
+addCalldata :: [Decl] -> Env -> Env
+addCalldata decls env = env{ calldata = abiVars }
   where
    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, typ)) decls
 
-
+-- add pointers to environment
+addPointers :: [Pointer] -> Env -> Env
+addPointers decls env = env{ pointers = ptrs }
+  where
+   ptrs = Map.fromList $ map (\(PointsTo _ x c) -> (x, c)) decls
 
 checkContract :: Store -> Map Id [AbiType] -> U.Contract -> Err Contract
-checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ _) trans) =
+checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ _ _) trans) =
   Contract <$> checkDefinition env constr <*> (concat <$> traverse (checkTransition env) trans) <* namesConsistent
   where
     env :: Env
@@ -208,20 +213,21 @@ checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ 
 
     namesConsistent :: Err ()
     namesConsistent =
-      traverse_ (\(U.Transition pn _ cid' _ _ _ _) -> assert (errmsg pn cid') (cid == cid')) trans
+      traverse_ (\(U.Transition pn _ cid' _ _ _ _ _) -> assert (errmsg pn cid') (cid == cid')) trans
 
     errmsg pn cid' = (pn, "Behavior must belong to contract " <> show cid <> " but belongs to contract " <> cid')
 
 
 -- checks a transition given a typing of its storage variables
 checkTransition :: Env -> U.Transition -> Err [Behaviour]
-checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs cases posts) =
+checkTransition env (U.Transition _ name contract iface@(Interface _ decls) ptrs iffs cases posts) =
+  traverse (checkPointer env) ptrs *>
   noIllegalWilds *>
   -- constrain integer calldata variables (TODO: other types)
   fmap fmap (makeBehv <$> checkIffs env' iffs <*> traverse (checkExpr env' SBoolean) posts)
   <*> traverse (checkCase env') normalizedCases
   where
-    env' = addCalldata env decls
+    env' = addPointers ptrs $ addCalldata decls env
 
     noIllegalWilds :: Err ()
     noIllegalWilds = case cases of
@@ -241,24 +247,33 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs
           negation = U.ENot nowhere $
                         foldl (\acc (U.Case _ e _) -> U.EOr nowhere e acc) (U.BoolLit nowhere False) rest
         in rest `snoc` (if isWild lastCase then U.Case pn negation post else lastCase)
-    -- TODO ensure non-overlapping and exhaustiveness (maybe with elaboration and mandatory wildcard?)
 
     -- | split case into pass and fail case
     makeBehv :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [StorageUpdate], Maybe (TypedExp Timed)) -> Behaviour
-    makeBehv iffs' postcs (if',storage,ret) = Behaviour name contract iface iffs' if' postcs storage ret
+    makeBehv iffs' postcs (if',storage,ret) = Behaviour name contract iface ptrs iffs' if' postcs storage ret
 
 checkDefinition :: Env -> U.Definition -> Err Constructor
-checkDefinition env (U.Definition _ contract (Interface _ decls) iffs (U.Creates assigns) postcs invs) =
+checkDefinition env (U.Definition _ contract (Interface _ decls) ptrs iffs (U.Creates assigns) postcs invs) =
   do
+    _ <- traverse (checkPointer env) ptrs
     stateUpdates <- concat <$> traverse (checkAssign env') assigns
     iffs' <- checkIffs (env'{ store = mempty })  iffs
     _ <- traverse (validStorage env') assigns
     ensures <- traverse (checkExpr env' SBoolean) postcs
     invs' <- fmap (Invariant contract [] []) <$> traverse (checkExpr env' SBoolean) invs
-    pure $ Constructor contract (Interface contract decls) iffs' ensures invs' stateUpdates
+    pure $ Constructor contract (Interface contract decls) ptrs iffs' ensures invs' stateUpdates
   where
-    env' = addCalldata env decls
+    env' = addPointers ptrs $ addCalldata decls env
 
+
+checkPointer :: Env -> U.Pointer -> Err ()
+checkPointer Env{theirs,calldata} (U.PointsTo p x c) =
+  maybe (throw (p, "Contract " <> c <> " is not a valid contract type")) (\_ -> pure ()) (Map.lookup c theirs) *>
+  case Map.lookup x calldata of
+    Just AbiAddressType -> pure ()
+    Just  _ -> throw (p, "Variable " <> x <> " does not have an address type")
+    Nothing -> throw (p, "Unknown variable " <> x)
+  
 
 -- | Check if the types of storage variables are valid
 validStorage :: Env -> U.Assign -> Err ()
@@ -372,7 +387,7 @@ checkStorageExpr env entry expr =
 
 
 validContractType :: Pn -> ValueType -> SType a -> Exp a t -> Err ()
-validContractType p (ContractType c) SContract e =
+validContractType p (ContractType c) SInteger e =
   let c' = contractId e in
   assert (p, "Expression is expected to be a contract " <> show c <> " but it is a contract " <> show c') (c == c')
 validContractType _ _ _ _ = pure ()
@@ -394,6 +409,7 @@ genInRange t e@(Div _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genIn
 genInRange t e@(Mod _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
 genInRange t e@(Exp _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
 genInRange t e@(IntEnv _ _) = [InRange nowhere t e]
+genInRange _ (Create _ _ _) = []
 genInRange _ (IntMin _ _)  = error "Internal error: invalid range expression"
 genInRange _ (IntMax _ _)  = error "Internal error: invalid range expression"
 genInRange _ (UIntMin _ _) = error "Internal error: invalid range expression"
@@ -411,7 +427,6 @@ typedExp env e = findSuccess (throw (getPosn e, "Cannot find a valid type for ex
                    [ TExp SInteger <$> checkExpr env SInteger e
                    , TExp SBoolean <$> checkExpr env SBoolean e
                    , TExp SByteStr <$> checkExpr env SByteStr e
-                   , TExp SContract <$> checkExpr env SContract e
                    ]
 
 andExps :: [Exp ABoolean t] -> Exp ABoolean t
@@ -444,11 +459,9 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SInteger, U.EExp    p v1 v2) -> Exp p <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
   (SInteger, U.IntLit  p v1)    -> pure $ LitInt  p v1
   -- Constructor calls
-  (SContract, U.ECreate p c args) -> case Map.lookup c constructors of
+  (SInteger, U.ECreate p c args) -> case Map.lookup c constructors of
     Just typs -> Create p c <$> checkIxs env p args (fmap PrimitiveType typs)
     Nothing -> throw (p, "Unknown constructor " <> show c)
-  -- Contract casting
-  (SContract, U.EAsContract p v c) -> AsContract p <$> checkExpr env SInteger v <*> pure c
   -- Control
   (_, U.EITE p v1 v2 v3) ->
     ((,) <$> checkExpr env typ v2 <*> checkExpr env typ v3) `bindValidation` (\(e1, e2) -> do
@@ -482,8 +495,8 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
       [ cons pn SInteger <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
       , cons pn SBoolean <$> checkExpr env SBoolean v1 <*> checkExpr env SBoolean v2
       , cons pn SByteStr <$> checkExpr env SByteStr v1 <*> checkExpr env SByteStr v2
-      , ((,) <$> checkExpr env SContract v1 <*> checkExpr env SContract v2) `bindValidation` (\(e1,e2) ->
-          cons pn SContract e1 e2 <$ assert (pn, "Contract type of operands do not match") (contractId e1 == contractId e2))
+      -- , ((,) <$> checkExpr env SContract v1 <*> checkExpr env SContract v2) `bindValidation` (\(e1,e2) ->
+      --     cons pn SContract e1 e2 <$ assert (pn, "Contract type of operands do not match") (contractId e1 == contractId e2))
       ]
 
     checkTime :: forall t0. Typeable t0 => Pn -> Err (Exp a t0 -> Exp a t)
@@ -505,17 +518,17 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
 
 
 -- | Find the contract id of an expression with contract type
-contractId :: Exp AContract t -> Id
+-- TODO fix
+contractId :: Exp AInteger t -> Id
 contractId (ITE _ _ a _) = contractId a
-contractId (Var _ _ _ _) = error "Internal error: calldata variables cannot have contract types"
+contractId (Var _ _ _ _) = error "Internal error: calldata variables cannot have contract types" 
 contractId (Create _ c _) = c
-contractId (AsContract _ _ c) = c
 contractId (TEntry _ _ (Item _ (ContractType c) _)) = c
 contractId (TEntry _ _ (Item _ _ _)) = error "Internal error: entry does not have contract type"
 
 -- | Check that if both branches of an ITE have a contract type then it is the same contract type
 checkITE :: Pn -> SType a -> Exp a t -> Exp a t -> Err ()
-checkITE p SContract e1 e2 =
+checkITE p SInteger e1 e2 =
   assert (p, "Contract type of if then else branches do not match") (contractId e1 == contractId e2)
 checkITE _ _ _ _ = pure ()
 
