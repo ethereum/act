@@ -120,9 +120,6 @@ mapExpM f = \case
   Create p n as -> do
     as' <- mapM (mapTypedExpM f) as
     f (Create p n as')
-  AsContract p e c -> do
-    e' <- mapExpM f e
-    f (AsContract p e' c)
     
   --polymorphic
 

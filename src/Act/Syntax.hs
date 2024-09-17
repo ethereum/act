@@ -28,7 +28,7 @@ invExp :: Annotated.InvariantPred -> Annotated.Exp ABoolean
 invExp = uncurry (<>)
 
 locsFromBehaviour :: Annotated.Behaviour -> [Annotated.StorageLocation]
-locsFromBehaviour (Behaviour _ _ _ preconds cases postconds rewrites returns) = nub $
+locsFromBehaviour (Behaviour _ _ _ _ preconds cases postconds rewrites returns) = nub $
   concatMap locsFromExp preconds
   <> concatMap locsFromExp cases
   <> concatMap locsFromExp postconds
@@ -36,7 +36,7 @@ locsFromBehaviour (Behaviour _ _ _ preconds cases postconds rewrites returns) = 
   <> maybe [] locsFromTypedExp returns
 
 locsFromConstructor :: Annotated.Constructor -> [Annotated.StorageLocation]
-locsFromConstructor (Constructor _ _ pre post inv initialStorage) = nub $
+locsFromConstructor (Constructor _ _ _ pre post inv initialStorage) = nub $
   concatMap locsFromExp pre
   <> concatMap locsFromExp post
   <> concatMap locsFromInvariant inv
@@ -52,7 +52,7 @@ locsFromInvariant (Invariant _ pre bounds (predpre, predpost)) =
 ------------------------------------
 
 nameOfContract :: Contract t -> Id
-nameOfContract (Contract (Constructor cname _ _ _ _ _) _) = cname
+nameOfContract (Contract (Constructor cname _ _ _ _ _ _) _) = cname
 
 behvsFromAct :: Agnostic.Act t -> [Behaviour t]
 behvsFromAct (Act _ contracts) = behvsFromContracts contracts
@@ -111,7 +111,6 @@ locsFromExp = nub . go
       IntEnv {} -> []
       ByEnv {} -> []
       Create _ _ es -> concatMap locsFromTypedExp es
-      AsContract _ x _ -> go x
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
       Var {} -> []
@@ -151,7 +150,6 @@ createsFromExp = nub . go
       IntEnv {} -> []
       ByEnv {} -> []
       Create _ f es -> [f] <> concatMap createsFromTypedExp es
-      AsContract _ x _ -> go x
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> createsFromItem a
       Var {} -> []
@@ -167,7 +165,7 @@ createsFromContract (Contract constr behvs) =
   createsFromConstructor constr <> concatMap createsFromBehaviour behvs
 
 createsFromConstructor :: Typed.Constructor -> [Id]
-createsFromConstructor (Constructor _ _ pre post inv initialStorage) = nub $
+createsFromConstructor (Constructor _ _ _ pre post inv initialStorage) = nub $
   concatMap createsFromExp pre
   <> concatMap createsFromExp post
   <> concatMap createsFromInvariant inv
@@ -182,35 +180,15 @@ createsFromUpdate update = nub $ case update of
   Update _ item e -> createsFromItem item <> createsFromExp e
 
 createsFromBehaviour :: Behaviour t -> [Id]
-createsFromBehaviour (Behaviour _ _ _ _ preconds postconds rewrites returns) = nub $
+createsFromBehaviour (Behaviour _ _ _ _ _ preconds postconds rewrites returns) = nub $
   concatMap createsFromExp preconds
   <> concatMap createsFromExp postconds
   <> concatMap createsFromUpdate rewrites
   <> maybe [] createsFromTypedExp returns
 
 
-castsFromExp :: Exp a t -> [(Exp AInteger t, Id)]
-castsFromExp = nub . go
-  where
-    go :: Exp a t -> [(Exp AInteger t, Id)]
-    go e = case e of
-      AsContract _ e' c -> [(e', c)]
-      _ -> []
-
-castsFromUpdate :: StorageUpdate t -> [(Exp AInteger t, Id)]
-castsFromUpdate update = nub $ case update of
-  Update _ _ e -> castsFromExp e
-
-castsFromContract :: Contract t -> [(Exp AInteger t, Id)]
-castsFromContract (Contract constr _) =
-  castsFromConstructor constr
-
-castsFromConstructor :: Constructor t -> [(Exp AInteger t, Id)]
-castsFromConstructor (Constructor _ _ _ _ _ initialStorage) = nub $ concatMap castsFromUpdate initialStorage
-
-
 ethEnvFromBehaviour :: Behaviour t -> [EthEnv]
-ethEnvFromBehaviour (Behaviour _ _ _ preconds cases postconds rewrites returns) = nub $
+ethEnvFromBehaviour (Behaviour _ _ _ _ preconds cases postconds rewrites returns) = nub $
   concatMap ethEnvFromExp preconds
   <> concatMap ethEnvFromExp cases
   <> concatMap ethEnvFromExp postconds
@@ -218,7 +196,7 @@ ethEnvFromBehaviour (Behaviour _ _ _ preconds cases postconds rewrites returns) 
   <> maybe [] ethEnvFromTypedExp returns
 
 ethEnvFromConstructor :: Annotated.Constructor -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ pre post inv initialStorage) = nub $
+ethEnvFromConstructor (Constructor _ _ _ pre post inv initialStorage) = nub $
   concatMap ethEnvFromExp pre
   <> concatMap ethEnvFromExp post
   <> concatMap ethEnvFromInvariant inv
@@ -275,7 +253,6 @@ ethEnvFromExp = nub . go
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
       Create _ _ ixs -> concatMap ethEnvFromTypedExp ixs
-      AsContract _ a _ -> go a
       TEntry _ _ a -> ethEnvFromItem a
       Var {} -> []
 
@@ -339,7 +316,7 @@ nameFromEntry (EMapping _ e _) = nameFromEntry e
 nameFromEntry (EField _ e _) = nameFromEntry e
 
 nameFromBehv :: Annotated.Behaviour -> Id
-nameFromBehv (Behaviour _ _ (Interface ifaceName _) _ _ _ _ _) = ifaceName
+nameFromBehv (Behaviour _ _ (Interface ifaceName _) _ _ _ _ _ _) = ifaceName
 
 getPosEntry :: Entry -> Pn
 getPosEntry (EVar pn _) = pn
@@ -366,7 +343,6 @@ getPosn expr = case expr of
     EMod pn _ _ -> pn
     EExp pn _ _ -> pn
     ECreate pn _ _ -> pn
-    EAsContract pn _ _ -> pn
     EUTEntry e -> getPosEntry e
     EPreEntry e -> getPosEntry e
     EPostEntry e -> getPosEntry e
@@ -412,7 +388,6 @@ idFromRewrites e = case e of
   EPreEntry en      -> idFromEntry en
   EPostEntry en     -> idFromEntry en
   ECreate p x es    -> insertWith (<>) x [p] $ idFromRewrites' es
-  EAsContract p a c -> insertWith (<>) c [p] $ idFromRewrites a
   ListConst a       -> idFromRewrites a
   ECat _ a b        -> idFromRewrites' [a,b]
   ESlice _ a b c    -> idFromRewrites' [a,b,c]

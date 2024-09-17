@@ -48,7 +48,7 @@ import Data.Kind
 import Act.Parse          as Act.Syntax.TimeAgnostic (nowhere)
 import Act.Syntax.Types   as Act.Syntax.TimeAgnostic
 import Act.Syntax.Timing  as Act.Syntax.TimeAgnostic
-import Act.Syntax.Untyped as Act.Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..))
+import Act.Syntax.Untyped as Act.Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..), Pointer(..))
 
 -- AST post typechecking
 data Act t = Act Store [Contract t]
@@ -96,6 +96,7 @@ type family InvariantPred (t :: Timing) = (pred :: Type) | pred -> t where
 data Constructor t = Constructor
   { _cname :: Id
   , _cinterface :: Interface
+  , _cpointers :: [Pointer]
   , _cpreconditions :: [Exp ABoolean t]
   , _cpostconditions :: [Exp ABoolean Timed]
   , _invariants :: [Invariant t]
@@ -109,6 +110,7 @@ data Behaviour t = Behaviour
   { _name :: Id
   , _contract :: Id
   , _interface :: Interface
+  , _pointers :: [Pointer]
   , _preconditions :: [Exp ABoolean t] -- if preconditions are not satisfied execution is reverted
   , _caseconditions :: [Exp ABoolean t] -- if preconditions are satisfied and a case condition is not, some other instance of the bahaviour should apply
   , _postconditions :: [Exp ABoolean Timed]
@@ -177,7 +179,6 @@ _TExp expr = TExp sing expr
 instance Eq (TypedExp t) where
   TExp SType e1 == TExp SType e2 = eqS e1 e2
 
-
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
 -- All storage entries within an `Exp a t` contain a value of type `Time t`.
 -- If `t ~ Timed`, the only possible such values are `Pre, Post :: Time Timed`, so each storage entry
@@ -218,7 +219,6 @@ data Exp (a :: ActType) (t :: Timing) where
   ByEnv :: Pn -> EthEnv -> Exp AByteStr t
   -- contracts
   Create   :: Pn -> Id -> [TypedExp t] -> Exp AContract t
-  AsContract :: Pn -> Exp AInteger t -> Id -> Exp AContract t
   -- polymorphic
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
@@ -268,7 +268,6 @@ instance Eq (Exp a t) where
   Var _ _ _ a == Var _ _ _ b = a == b
 
   Create _ a b == Create _ c d = a == c && b == d
-  AsContract _ a b == AsContract _ c d = a == c && b == d
 
   _ == _ = False
 
@@ -321,7 +320,6 @@ instance Timable (Exp a) where
     ByEnv p x -> ByEnv p x
     -- contracts
     Create p x y -> Create p x (go <$> y)
-    AsContract p x y -> AsContract p (go x) y
 
     -- polymorphic
     Eq  p s x y -> Eq p s (go x) (go y)
@@ -377,6 +375,7 @@ instance ToJSON (Constructor Timed) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
                                   , "contract" .= _cname
                                   , "interface" .= toJSON _cinterface
+                                  , "pointers" .= toJSON _cpointers
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
                                   , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) _invariants
@@ -386,6 +385,7 @@ instance ToJSON (Constructor Untimed) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
                                   , "contract" .= _cname
                                   , "interface" .= toJSON _cinterface
+                                  , "pointers" .= toJSON _cpointers
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
                                   , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) _invariants
@@ -396,6 +396,7 @@ instance ToJSON (Behaviour t) where
                                 , "name" .= _name
                                 , "contract" .= _contract
                                 , "interface" .= toJSON _interface
+                                , "pointers" .= toJSON _pointers
                                 , "preConditions" .= toJSON _preconditions
                                 , "case" .= toJSON _caseconditions
                                 , "postConditions" .= toJSON _postconditions
@@ -414,6 +415,10 @@ instance ToJSON Decl where
                                    , "abitype" .= toJSON abitype
                                    ]
 
+instance ToJSON Pointer where
+  toJSON (PointsTo _ x c) = object [ "kind" .= String "PointsTo"
+                                   , "var" .= x
+                                   , "contract" .= c ]
 
 invariantJSON :: ToJSON pred => Invariant t -> pred -> Value
 invariantJSON Invariant{..} predicate = object [ "kind" .= String "Invariant"
@@ -515,9 +520,6 @@ instance ToJSON (Exp a t) where
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                   , "arity"  .= Data.Aeson.Types.Number 2
                                   , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
-  toJSON (AsContract _ addr c) = object [ "symbol" .= pack "as_contract"
-                                        , "arity"  .= Data.Aeson.Types.Number 2
-                                        , "args"   .= Array (fromList [toJSON addr, object [ "fun" .=  String (pack c) ]]) ]
 
   toJSON v = error $ "todo: json ast for: " <> show v
 
@@ -575,7 +577,6 @@ eval e = case e of
   ITE _ a b c   -> eval a >>= \cond -> if cond then eval b else eval c
 
   Create _ _ _ -> error "eval of contracts not supported"
-  AsContract _ _ _ -> error "eval of contracts not supported"
   _              -> empty
 
 intmin :: Int -> Integer

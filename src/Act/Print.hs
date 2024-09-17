@@ -29,9 +29,10 @@ prettyContract :: Contract t -> String
 prettyContract (Contract ctor behvs) = unlines $ intersperse "\n" $ (prettyCtor ctor):(fmap prettyBehaviour behvs)
 
 prettyCtor :: Constructor t -> String
-prettyCtor (Constructor name interface pres posts invs initStore)
+prettyCtor (Constructor name interface ptrs pres posts invs initStore)
   =   "constructor of " <> name
   >-< "interface " <> show interface
+  <> prettyPtrs ptrs
   <> prettyPre pres
   <> prettyCreates initStore
   <> prettyPost posts
@@ -52,9 +53,10 @@ prettyValueType = \case
 
 
 prettyBehaviour :: Behaviour t -> String
-prettyBehaviour (Behaviour name contract interface preconditions cases postconditions stateUpdates returns)
+prettyBehaviour (Behaviour name contract interface ptrs preconditions cases postconditions stateUpdates returns)
   =   "behaviour " <> name <> " of " <> contract
   >-< "interface " <> (show interface)
+  <> prettyPtrs ptrs
   <> prettyPre preconditions
   <> prettyCases cases
   <> prettyStorage stateUpdates
@@ -68,6 +70,12 @@ prettyBehaviour (Behaviour name contract interface preconditions cases postcondi
     prettyRet Nothing = ""
 
 
+
+prettyPtrs :: [(Pn, Id, Id)] -> String
+prettyPtrs [] = ""
+prettyPtrs ptrs = header "pointers" >-< block (prettyPtr <$> p)
+  where
+    prettyPtr (_, x, c) = x <> " |-> " <> c
 
 prettyPre :: [Exp ABoolean t] -> String
 prettyPre [] = ""
@@ -131,7 +139,6 @@ prettyExp e = case e of
 
   -- contracts
   Create _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
-  AsContract _ a c -> prettyExp a <> " as " <> c
 
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
@@ -223,7 +230,6 @@ prettyInvPred = prettyExp . untime . fst
       InRange p a b -> InRange p a (untime b)
       LitBool p a -> LitBool p a
       Create p f xs -> Create p f (fmap untimeTyped xs)
-      AsContract p a c -> AsContract p (untime a) c
       IntEnv p a  -> IntEnv p a
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)
