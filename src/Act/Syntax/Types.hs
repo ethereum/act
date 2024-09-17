@@ -31,7 +31,6 @@ data ActType
   = AInteger
   | ABoolean
   | AByteStr
-  | AContract
 
 -- | Singleton runtime witness for Act types
 -- Sometimes we need to examine type tags at runime. Tagging structures
@@ -40,7 +39,6 @@ data SType (a :: ActType) where
   SInteger  :: SType AInteger
   SBoolean  :: SType ABoolean
   SByteStr  :: SType AByteStr
-  SContract :: SType AContract
 deriving instance Eq (SType a)
 
 instance Show (SType a) where
@@ -48,7 +46,6 @@ instance Show (SType a) where
     SInteger -> "int"
     SBoolean -> "bool"
     SByteStr -> "bytestring"
-    SContract -> "contract"
 
 type instance Sing = SType
 
@@ -56,7 +53,6 @@ instance TestEquality SType where
   testEquality SInteger SInteger = Just Refl
   testEquality SBoolean SBoolean = Just Refl
   testEquality SByteStr SByteStr = Just Refl
-  testEquality SContract SContract = Just Refl
   testEquality _ _ = Nothing
 
 
@@ -70,7 +66,6 @@ eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
 instance SingI 'AInteger where sing = SInteger
 instance SingI 'ABoolean where sing = SBoolean
 instance SingI 'AByteStr where sing = SByteStr
-instance SingI 'AContract where sing = SContract
 
 -- | Reflection of an Act type into a haskell type. Usefull to define
 -- the result type of the evaluation function.
@@ -95,17 +90,15 @@ someType :: ActType -> SomeType
 someType AInteger = SomeType SInteger
 someType ABoolean = SomeType SBoolean
 someType AByteStr = SomeType SByteStr
-someType AContract = SomeType SContract
 
 actType :: SType s -> ActType
 actType SInteger = AInteger
 actType SBoolean = ABoolean
 actType SByteStr = AByteStr
-actType SContract = AContract
 
 fromValueType :: ValueType -> ActType
 fromValueType (PrimitiveType t) = fromAbiType t
-fromValueType (ContractType _) = AContract
+fromValueType (ContractType _) = AInteger
 
 data SomeType where
   SomeType :: SingI a => SType a -> SomeType

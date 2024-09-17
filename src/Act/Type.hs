@@ -115,7 +115,7 @@ topologicalSort (Act store contracts) =
       else if OM.member v visited then pure visited
       else
         let (ws, code) = adjacent v in
-        let stack' = Set.insert v stack in
+        let stack' = Set.insert v stack \in
         (OM.|<) (v, code) <$> foldValidation (dfs stack') visited ws
 
     adjacent :: Id -> ([Id], Contract)
