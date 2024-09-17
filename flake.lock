@@ -1,35 +1,18 @@
 {
   "nodes": {
-    "cabal-3-12": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1719273538,
-        "narHash": "sha256-/TECd3cdqGDdlEur88H0KbV7jcE/czc0jecj9921T5c=",
-        "owner": "haskell",
-        "repo": "cabal",
-        "rev": "260ecdc3d848782d4df49e629cb0a5dc9e96ca9e",
-        "type": "github"
-      },
-      "original": {
-        "owner": "haskell",
-        "ref": "Cabal-v3.12.1.0",
-        "repo": "cabal",
-        "type": "github"
-      }
-    },
     "ethereum-tests": {
       "flake": false,
       "locked": {
-        "lastModified": 1682506704,
-        "narHash": "sha256-PyFZhdUQRUbmohoMS+w41rmSFfKeTO2RqHLetWlU4Jw=",
+        "lastModified": 1698656397,
+        "narHash": "sha256-1zhBaJ3X5kQ94qv9Yz12/3d83w3jNP6OtzjH+ykK8sg=",
         "owner": "ethereum",
         "repo": "tests",
-        "rev": "b25623d4d7df10e38498cace7adc7eb413c4b20d",
+        "rev": "428f218d7d6f4a52544e12684afbfe6e2882ffbf",
         "type": "github"
       },
       "original": {
         "owner": "ethereum",
-        "ref": "v12.2",
+        "ref": "v13",
         "repo": "tests",
         "type": "github"
       }
@@ -55,11 +38,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1710146030,
-        "narHash": "sha256-SZ5L6eA7HJ/nmkzGG7/ISclqe6oZdOZTNoesiInkXPQ=",
+        "lastModified": 1726560853,
+        "narHash": "sha256-X6rJYSESBVr3hBoH0WbKE5KvhPU5bloyZ2L4K60/fPQ=",
         "owner": "numtide",
         "repo": "flake-utils",
-        "rev": "b1d9ab70662946ef0850d488da1c9019f3a9752a",
+        "rev": "c1dfcf08411b08f6b8615f7d8971a2bfa81d5e8a",
         "type": "github"
       },
       "original": {
@@ -141,23 +124,22 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1719997877,
-        "narHash": "sha256-/Edw+w0PiGgxwnCeJycM0VgH4HtlCi91v1d8xbi+REE=",
+        "lastModified": 1724145005,
+        "narHash": "sha256-fTvalF9fSKWJj/HJWtHQ8DrMR1nBH1NV1w/x+O4M/Zw=",
         "owner": "shazow",
         "repo": "foundry.nix",
-        "rev": "02febba4f1cf0606d790acdb24adcf7a64afb4e1",
+        "rev": "47f8ae49275eeff9bf0526d45e3c1f76723bb5d3",
         "type": "github"
       },
       "original": {
         "owner": "shazow",
         "repo": "foundry.nix",
-        "rev": "6089aad0ef615ac8c7b0c948d6052fa848c99523",
+        "rev": "47f8ae49275eeff9bf0526d45e3c1f76723bb5d3",
         "type": "github"
       }
     },
     "hevmUpstream": {
       "inputs": {
-        "cabal-3-12": "cabal-3-12",
         "ethereum-tests": "ethereum-tests",
         "flake-compat": "flake-compat",
         "flake-utils": "flake-utils_2",
@@ -170,11 +152,11 @@
         "solidity": "solidity"
       },
       "locked": {
-        "lastModified": 1723540200,
-        "narHash": "sha256-EO0oj4SHcab7NM3ry1muI38rM4gKdavQ2TNBQGZ9+S4=",
+        "lastModified": 1726564969,
+        "narHash": "sha256-Wy/fEjh7Q8hnc+Cmckbqowz4qEvS6K5KDIApndxaskw=",
         "owner": "ethereum",
         "repo": "hevm",
-        "rev": "eee947de40c62ec7c57a8b7288d7844b82d2415a",
+        "rev": "b420af77c2d585ed72a15e398503c255f31590b9",
         "type": "github"
       },
       "original": {
@@ -199,11 +181,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1724015816,
-        "narHash": "sha256-hVESnM7Eiz93+4DeiE0a1TwMeaeph1ytRJ5QtqxYRWg=",
+        "lastModified": 1726481836,
+        "narHash": "sha256-MWTBH4dd5zIz2iatDb8IkqSjIeFum9jAqkFxgHLdzO4=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "9aa35efbea27d320d0cdc5f922f0890812affb60",
+        "rev": "20f9370d5f588fb8c72e844c54511cab054b5f40",
         "type": "github"
       },
       "original": {
@@ -242,11 +224,11 @@
         "solc-macos-amd64-list-json": "solc-macos-amd64-list-json"
       },
       "locked": {
-        "lastModified": 1717442267,
-        "narHash": "sha256-6TnQvA6Q/xC3r1M+wGC5gnDc/5XfOPjC8X6LlGDWDNc=",
+        "lastModified": 1724145339,
+        "narHash": "sha256-z8pLkpdsAA0At1ofQd6KNmrxpBuUT9OKTlCDqJDW1GI=",
         "owner": "hellwolf",
         "repo": "solc.nix",
-        "rev": "2ac2862f224aa0d67cbc6b3246392489f8a50596",
+        "rev": "9630767051bfefd552c6858c5df141368338b077",
         "type": "github"
       },
       "original": {
@@ -258,17 +240,17 @@
     "solidity": {
       "flake": false,
       "locked": {
-        "lastModified": 1670421565,
-        "narHash": "sha256-VCZDKQHnMsXu+ucsT5BLPYQoZ2FYjpyGbDVoDYjr1W8=",
+        "lastModified": 1716280767,
+        "narHash": "sha256-cvRFeJkiaYPA+SoboEZhvH5sHDmmcMNR62OoKuEOWRg=",
         "owner": "ethereum",
         "repo": "solidity",
-        "rev": "1c8745c54a239d20b6fb0f79a8bd2628d779b27e",
+        "rev": "8a97fa7a1db1ec509221ead6fea6802c684ee887",
         "type": "github"
       },
       "original": {
         "owner": "ethereum",
         "repo": "solidity",
-        "rev": "1c8745c54a239d20b6fb0f79a8bd2628d779b27e",
+        "rev": "8a97fa7a1db1ec509221ead6fea6802c684ee887",
         "type": "github"
       }
     },
