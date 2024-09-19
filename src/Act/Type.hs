@@ -314,16 +314,21 @@ noStorageRead store expr = for_ (keys store) $ \name ->
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
 checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar pn (StorageValue vt@(FromVType typ)) name) expr)
   = sequenceA [checkExpr env typ expr `bindValidation` \te ->
-               _Update (_Item vt (SVar pn contract name)) te <$ validContractType (getPosn expr) vt typ te]
+               checkContractType env te `bindValidation` \ctyp ->
+               _Update (_Item vt (SVar pn contract name)) te <$ validContractType pn vt ctyp]
     <* noStorageRead store expr
+
 checkAssign env@Env{store} (U.AssignMany (U.StorageVar pn (StorageMapping (keyType :| _) valType) name) defns)
   = for defns $ \def@(U.Defn e1 e2) -> checkDefn pn env keyType valType name def
                                        <* noStorageRead store e1
                                        <* noStorageRead store e2
+
 checkAssign _ (U.AssignVal (U.StorageVar _ (StorageMapping _ _) _) expr)
   = throw (getPosn expr, "Cannot assign a single expression to a composite type")
+
 checkAssign _ (U.AssignMany (U.StorageVar pn (StorageValue _) _) _)
   = throw (pn, "Cannot assign multiple values to an atomic type")
+
 checkAssign _ _ = error "todo: support struct assignment in constructors"
 
 
@@ -383,14 +388,17 @@ checkStorageExpr :: Env -> U.Entry -> U.Expr -> Err StorageUpdate
 checkStorageExpr env entry expr =
   validateEntry env entry `bindValidation` \(vt@(FromVType typ), ref) ->
   checkExpr env typ expr `bindValidation` \te ->
-  _Update (_Item vt ref) te <$ validContractType (getPosn expr) vt typ te
+  checkContractType env te `bindValidation` \ctyp ->
+  _Update (_Item vt ref) te <$ validContractType (getPosn expr) vt ctyp
 
 
-validContractType :: Pn -> ValueType -> SType a -> Exp a t -> Err ()
-validContractType p (ContractType c) SInteger e =
-  let c' = contractId e in
-  assert (p, "Expression is expected to be a contract " <> show c <> " but it is a contract " <> show c') (c == c')
-validContractType _ _ _ _ = pure ()
+validContractType :: Pn -> ValueType -> Maybe Id -> Err ()
+validContractType pn (ContractType c1) (Just c2) =
+  assert (pn, "Assignment to storage variable was expected to have contract type " <> c1 <> " but has contract type " <> c2) (c1 == c2)
+validContractType pn (ContractType c1) Nothing =
+  throw (pn, "Assignment to storage variable was expected to have contract type " <> c1)
+validContractType pn _ _ = pure ()
+
 
 checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
 checkIffs env = foldr check (pure [])
@@ -465,7 +473,6 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   -- Control
   (_, U.EITE p v1 v2 v3) ->
     ((,) <$> checkExpr env typ v2 <*> checkExpr env typ v3) `bindValidation` (\(e1, e2) -> do
-       _ <- checkITE p typ e1 e2
        b <- checkExpr env SBoolean v1
        pure $ ITE p b e1 e2)
   -- Environment variables
@@ -519,18 +526,17 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
 
 -- | Find the contract id of an expression with contract type
 -- TODO fix
-contractId :: Exp AInteger t -> Id
-contractId (ITE _ _ a _) = contractId a
-contractId (Var _ _ _ _) = error "Internal error: calldata variables cannot have contract types" 
-contractId (Create _ c _) = c
-contractId (TEntry _ _ (Item _ (ContractType c) _)) = c
-contractId (TEntry _ _ (Item _ _ _)) = error "Internal error: entry does not have contract type"
+checkContractType :: Env -> Exp a t -> Err (Maybe Id)
+checkContractType env (ITE p _ a b) =
+  checkContractType env a `bindValidation` \c1 ->
+  checkContractType env b `bindValidation` \c2 ->
+  c1 <$ assert (p, "Contract type of if-then-else branches does not match") (c1 == c2)
 
--- | Check that if both branches of an ITE have a contract type then it is the same contract type
-checkITE :: Pn -> SType a -> Exp a t -> Exp a t -> Err ()
-checkITE p SInteger e1 e2 =
-  assert (p, "Contract type of if then else branches do not match") (contractId e1 == contractId e2)
-checkITE _ _ _ _ = pure ()
+checkContractType _ (Var _ _ _ _) = throw (nowhere, "var")
+checkContractType _ (Create _ c _) = pure $ Just c
+checkContractType _ _ =  throw (nowhere, "whateve")
+-- checkContractType (TEntry _ _ (Item _ (ContractType c) _)) = c
+-- checkContractType (TEntry _ _ (Item _ _ _)) = error "Internal error: entry does not have contract type"
 
 checkEq :: forall a b. Pn -> SType a -> SType b -> Err ()
 checkEq p t1 t2 = maybe err (\Refl -> pure ()) $  testEquality t1 t2

@@ -149,7 +149,7 @@ data TStorageItem (a :: ActType) (t :: Timing) where
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
--- | Reference to an item storage. It can be either a bare variable, a
+-- | Reference to an item in storage. It can be either a bare variable, a
 -- map lookup, or a field selection. Variables and fields are
 -- annotated with two identifiers: the contract that they belong to
 -- and their name.
