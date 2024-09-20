@@ -61,7 +61,6 @@ type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
   ExprType 'AByteStr  = EVM.Buf
-  ExprType 'AContract = EVM.EWord -- address?
 
 type Layout = M.Map Id (M.Map Id Integer)
 
@@ -143,7 +142,7 @@ getCaller = do
 -- * Act translation
 
 translateConstructor ::  BS.ByteString -> Constructor -> ContractMap -> ActM ([EVM.Expr EVM.End], Calldata, Sig)
-translateConstructor bytecode (Constructor _ iface preconds _ _ upds) cmap = do
+translateConstructor bytecode (Constructor _ iface _ preconds _ _ upds) cmap = do
   let initmap =  M.insert initAddr initcontract cmap
   preconds' <- mapM (toProp initmap) preconds
   cmap' <- applyUpdates initmap initmap upds
@@ -168,17 +167,17 @@ translateBehvs cmap behvs = do
            exprs <- mapM (translateBehv cmap) behvs'
            pure (behvName behvs', exprs, behvCalldata behvs', behvSig behvs)) groups
   where
-    behvCalldata (Behaviour _ _ iface _ _ _ _ _:_) = makeCalldata iface
+    behvCalldata (Behaviour _ _ iface _ _ _ _ _ _:_) = makeCalldata iface
     behvCalldata [] = error "Internal error: behaviour groups cannot be empty"
 
-    behvSig (Behaviour _ _ iface _ _ _ _ _:_) = ifaceToSig iface
+    behvSig (Behaviour _ _ iface _ _ _ _ _ _:_) = ifaceToSig iface
     behvSig [] = error "Internal error: behaviour groups cannot be empty"
 
     -- TODO remove reduntant name in behaviours
-    sameIface (Behaviour _ _ iface  _ _ _ _ _) (Behaviour _ _ iface' _ _ _ _ _) =
+    sameIface (Behaviour _ _ iface  _ _ _ _ _ _) (Behaviour _ _ iface' _ _ _ _ _ _) =
       makeIface iface == makeIface iface'
 
-    behvName (Behaviour _ _ (Interface name _) _ _ _ _ _:_) = name
+    behvName (Behaviour _ _ (Interface name _) _ _ _ _ _ _:_) = name
     behvName [] = error "Internal error: behaviour groups cannot be empty"
 
 ifaceToSig :: Interface -> Sig
@@ -187,7 +186,7 @@ ifaceToSig (Interface name args) = Sig (T.pack name) (fmap fromdecl args)
     fromdecl (Decl t _) = t
 
 translateBehv :: ContractMap -> Behaviour -> ActM (EVM.Expr EVM.End)
-translateBehv cmap (Behaviour _ _ _ preconds caseconds _ upds ret) = do
+translateBehv cmap (Behaviour _ _ _ _ preconds caseconds _ upds ret) = do
   fresh <- getFresh
   preconds' <- mapM (toProp cmap) preconds
   caseconds' <- mapM (toProp cmap) caseconds
@@ -201,11 +200,22 @@ applyUpdates :: ContractMap -> ContractMap -> [StorageUpdate] -> ActM ContractMa
 applyUpdates readMap writeMap upds = foldM (applyUpdate readMap) writeMap upds
 
 applyUpdate :: ContractMap -> ContractMap -> StorageUpdate -> ActM ContractMap
-applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
+applyUpdate readMap writeMap (Update typ (Item _ vtyp ref) e) = do
   caddr' <- baseAddr readMap ref
   offset <- refOffset readMap ref
   let contract = fromMaybe (error $ "Internal error: contract not found\n" <> show e) $ M.lookup caddr' writeMap
   case typ of
+    SInteger | isContract vtyp -> case e of
+     Create _ _ _ -> do
+       fresh <- getFreshIncr
+       let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
+       writeMap' <- localCaddr freshAddr $ createContract readMap writeMap freshAddr e
+       pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) writeMap'
+     -- AsContract _ (Var _ _ _ x) _ -> do
+     --   let e' = EVM.WAddr (EVM.SymAddr $ T.pack x)
+     --   pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
+     -- AsContract _ _ _ -> error "Casting only allowed in variables"
+     _ -> error "Contractor call expected"
     SInteger -> do
       e' <- toExpr readMap e
       pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
@@ -213,18 +223,11 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
       e' <- toExpr readMap e
       pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
     SByteStr -> error "Bytestrings not supported"
-    SContract -> case e of
-     Create _ _ _ -> do
-       fresh <- getFreshIncr
-       let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
-       writeMap' <- localCaddr freshAddr $ createContract readMap writeMap freshAddr e
-       pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) writeMap'
-     AsContract _ (Var _ _ _ x) _ -> do
-       let e' = EVM.WAddr (EVM.SymAddr $ T.pack x)
-       pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
-     AsContract _ _ _ -> error "Casting only allowed in variables"
-     _ -> error "Contractor call or casting expected"
+    -- SContract -> c
   where
+    isContract :: ValueType -> Bool
+    isContract (ContractType _) = True
+    isContract _ = False
 
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateStorage updfun (EVM.C code storage bal nonce) = EVM.C code (updfun storage) bal nonce
@@ -235,11 +238,11 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
     updateNonce c@(EVM.C _ _ _ Nothing) = c
     updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
-createContract :: ContractMap -> ContractMap -> EVM.Expr EVM.EAddr -> Exp AContract -> ActM ContractMap
+createContract :: ContractMap -> ContractMap -> EVM.Expr EVM.EAddr -> Exp AInteger -> ActM ContractMap
 createContract readMap writeMap freshAddr (Create _ cid args) = do
   codemap <- getCodemap
   case M.lookup cid codemap of
-    Just (Contract (Constructor _ iface _ _ _ upds) _, _, bytecode) -> do
+    Just (Contract (Constructor _ iface _ _ _ _ upds) _, _, bytecode) -> do
       let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                            , EVM.storage = EVM.ConcreteStore mempty
                            , EVM.balance = EVM.Lit 0
@@ -321,7 +324,6 @@ substExp subst expr = case expr of
     Nothing -> expr
 
   Create pn a b -> Create pn a (substArgs subst b)
-  AsContract {} -> error "Calling contracts with casting not supported yet"
 
 
 returnsToExpr :: ContractMap -> Maybe TypedExp -> ActM (EVM.Expr EVM.Buf)
@@ -349,9 +351,6 @@ expToBuf cmap styp e = do
       e' <- toExpr cmap e
       pure $ EVM.WriteWord (EVM.Lit 0) e' (EVM.ConcreteBuf "")
     SByteStr -> toExpr cmap e
-    SContract -> do
-      e' <- toExpr cmap e
-      pure $ EVM.WriteWord (EVM.Lit 0) e' (EVM.ConcreteBuf "")
 
 getSlot :: Layout -> Id -> Id -> Integer
 getSlot layout cid name =
@@ -445,15 +444,11 @@ toProp cmap = \case
   (LitBool _ b) -> pure $ EVM.PBool b
   (Eq _ SInteger e1 e2) -> op2 EVM.PEq e1 e2
   (Eq _ SBoolean e1 e2) -> op2 EVM.PEq e1 e2
-  (Eq _ SContract e1 e2) -> op2 EVM.PEq e1 e2
   (Eq _ _ _ _) -> error "unsupported"
   (NEq _ SInteger e1 e2) -> do
     e <- op2 EVM.PEq e1 e2
     pure $ EVM.PNeg e
   (NEq _ SBoolean e1 e2) -> do
-    e <- op2 EVM.PEq e1 e2
-    pure $ EVM.PNeg e
-  (NEq _ SContract e1 e2) -> do
     e <- op2 EVM.PEq e1 e2
     pure $ EVM.PNeg e
   (NEq _ _ _ _) -> error "unsupported"
@@ -554,16 +549,6 @@ toExpr cmap = liftM stripMods . go
 
         pure $ EVM.SLoad slot storage
 
-      (TEntry _ _ (Item SContract _ ref)) -> do
-        slot <- refOffset cmap ref
-        caddr' <- baseAddr cmap ref
-        let contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
-        let storage = case contract of
-                        EVM.C _ s _ _  -> s
-                        EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
-
-        pure $ EVM.SLoad slot storage
-
       e ->  error $ "TODO: " <> show e
 
     op2 :: forall b c. (EVM.Expr (ExprType c) -> EVM.Expr (ExprType c) -> b) -> Exp c -> Exp c -> ActM b
@@ -634,7 +619,7 @@ getInitContractMap casts store codemap =
       let addr = EVM.SymAddr $ T.pack x in
       let actenv = ActEnv codemap fresh (slotMap store) addr Nothing in
       case M.lookup cid codemap of
-        Just (Contract (Constructor _ _ _ _ _ upds) _, _, bytecode) ->
+        Just (Contract (Constructor _ _ _ _ _ _ upds) _, _, bytecode) ->
           let (actstorage, _) = createStorage cmap in
           let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                                , EVM.storage = EVM.ConcreteStore mempty
@@ -653,7 +638,7 @@ checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   -- First find all casts from addresses and create a store where all asumed constracts are present
   -- currently ignoring any asts in behaviours, maybe prohibit them explicitly
-  let casts = castsFromConstructor ctor
+  let casts = [] -- castsFromConstructor ctor
   let (actinitmap, hevminitmap, fresh) = getInitContractMap casts store codemap
   -- Create the Act state
   let actenv = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint") Nothing
@@ -691,8 +676,8 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata actenv.fresh
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- check for potential alliasing in the initial state
-    checkAliasingBehv solvers ctor (map fst casts) calldata
-    -- equivalence check    
+    -- checkAliasingBehv solvers ctor (map fst casts) calldata
+    -- equivalence check
     showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     res1 <- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
     -- input space exhaustiveness check
@@ -774,7 +759,7 @@ checkInputSpaces solvers l1 l2 = do
 
 -- Checks that all the casted addresses of a contract are mutually distinct
 checkAliasingCtor :: App m => SolverGroup -> Constructor -> [Exp AInteger] -> Calldata -> m (Error String ())
-checkAliasingCtor solver constructor@(Constructor _ (Interface ifaceName decls) preconds _ _ _) addresses@(_:_) calldata = do
+checkAliasingCtor solver constructor@(Constructor _ (Interface ifaceName decls) _ preconds _ _ _) addresses@(_:_) calldata = do
   let addressquery = [prelude <> SMT2 (fmap fromString $ lines . show . prettyAnsi $ mksmt) mempty mempty mempty]
   res <- liftIO $ mapConcurrently (checkSat solver) addressquery
   checkResult calldata Nothing (fmap (toVRes msg) res)
@@ -808,47 +793,47 @@ checkAliasingCtor solver constructor@(Constructor _ (Interface ifaceName decls) 
                 "(set-logic ALL)" ]
 checkAliasingCtor _ _ _ _ = pure $ Success ()
 
--- Checks that all the casted addresses of a contract are mutually distinct
-checkAliasing :: App m => SolverGroup -> Constructor -> ContractMap -> Calldata -> m (Error String ())
-checkAliasingBehv solver behv@(Behaviour _ _ (Interface ifaceName decls) preconds caseconds _ _ _) cmap calldata = do
-  let addresses = toVars $ Map.keys cmap
-  let freshaddresses = filter isFreshaddr addr
-  
-  let addressquery = [prelude <> SMT2 (fmap fromString $ lines . show . prettyAnsi $ mksmt) mempty mempty mempty]
-  res <- liftIO $ mapConcurrently (checkSat solver) addressquery
-  checkResult calldata Nothing (fmap (toVRes msg) res)
-  where
-    -- declare vars
-    addrvars = declAddr <$> addresses
-    args = SMT.declareArg ifaceName <$> decls
-    envs = SMT.declareEthEnv <$> ethEnvFromConstructor constructor
-    -- constraints
-    asserts = SMT.mkAssert ifaceName <$> ((existEqual (combine addresses [])):preconds <> caseconds <> freshUnique freshAddr)
-    mksmt = SMT.SMTExp
-      { SMT._storage = []
-      , SMT._calldata = args <> addrvars
-      , SMT._environment = envs
-      , SMT._assertions = asserts
-      }
+-- -- Checks that all the casted addresses of a contract are mutually distinct
+-- checkAliasing :: App m => SolverGroup -> Constructor -> ContractMap -> Calldata -> m (Error String ())
+-- checkAliasingBehv solver behv@(Behaviour _ _ (Interface ifaceName decls) preconds caseconds _ _ _) cmap calldata = do
+--   let addresses = toVars $ Map.keys cmap
+--   let freshaddresses = filter isFreshaddr addr
 
-    combine :: [Exp AInteger] -> [[(Exp AInteger,Exp AInteger)]] -> [(Exp AInteger,Exp AInteger)]
-    combine [] acc = concat acc
-    combine (x:xs) acc = combine xs ([(x,y) | y <- xs]:acc)
+--   let addressquery = [prelude <> SMT2 (fmap fromString $ lines . show . prettyAnsi $ mksmt) mempty mempty mempty]
+--   res <- liftIO $ mapConcurrently (checkSat solver) addressquery
+--   checkResult calldata Nothing (fmap (toVRes msg) res)
+--   where
+--     -- declare vars
+--     addrvars = declAddr <$> addresses
+--     args = SMT.declareArg ifaceName <$> decls
+--     envs = SMT.declareEthEnv <$> ethEnvFromConstructor constructor
+--     -- constraints
+--     asserts = SMT.mkAssert ifaceName <$> ((existEqual (combine addresses [])):preconds <> caseconds <> freshUnique freshAddr)
+--     mksmt = SMT.SMTExp
+--       { SMT._storage = []
+--       , SMT._calldata = args <> addrvars
+--       , SMT._environment = envs
+--       , SMT._assertions = asserts
+--       }
 
-    existEqual :: [(Exp AInteger,Exp AInteger)] -> Exp ABoolean
-    existEqual ls = foldl (\p (x,y) -> Or nowhere (Eq nowhere SInteger x y) p) (LitBool nowhere False) ls
+--     combine :: [Exp AInteger] -> [[(Exp AInteger,Exp AInteger)]] -> [(Exp AInteger,Exp AInteger)]
+--     combine [] acc = concat acc
+--     combine (x:xs) acc = combine xs ([(x,y) | y <- xs]:acc)
 
-    freshUnique :: [Exp AInteger] -> [Exp ABoolean]
-    freshUnique freshAddrs = map (\(x,y) -> (NEq nowhere SInteger x y) (combine freshAddrs []))
+--     existEqual :: [(Exp AInteger,Exp AInteger)] -> Exp ABoolean
+--     existEqual ls = foldl (\p (x,y) -> Or nowhere (Eq nowhere SInteger x y) p) (LitBool nowhere False) ls
 
-    msg = "\x1b[1m Contract addresses in the state are not guaranteed to be unique!\x1b[m"
+--     freshUnique :: [Exp AInteger] -> [Exp ABoolean]
+--     freshUnique freshAddrs = map (\(x,y) -> (NEq nowhere SInteger x y) (combine freshAddrs []))
 
-    prelude :: SMT2
-    prelude =  SMT2 src mempty mempty mempty
-      where
-        src = [ "; logic",
-                "(set-info :smt-lib-version 2.6)",
-                "(set-logic ALL)" ]
+--     msg = "\x1b[1m Contract addresses in the state are not guaranteed to be unique!\x1b[m"
+
+--     prelude :: SMT2
+--     prelude =  SMT2 src mempty mempty mempty
+--       where
+--         src = [ "; logic",
+--                 "(set-info :smt-lib-version 2.6)",
+--                 "(set-logic ALL)" ]
 
 -- | Checks whether all successful EVM behaviors are withing the
 -- interfaces specified by Act
@@ -865,7 +850,7 @@ checkAbi solver contract cmap = do
   checkResult (txdata, []) Nothing (fmap (toVRes msg) res)
 
   where
-    actSig (Behaviour _ _ iface _ _ _ _ _) = T.pack $ makeIface iface
+    actSig (Behaviour _ _ iface _ _ _ _ _ _) = T.pack $ makeIface iface
     actSigs (Contract _ behvs) = actSig <$> behvs
 
     checkBehv :: [EVM.Prop] -> EVM.Expr EVM.End -> [EVM.Prop]

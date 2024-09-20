@@ -187,7 +187,7 @@ mkPostconditionQueries (Act _ contr) = concatMap mkPostconditionQueriesContract 
       mkPostconditionQueriesConstr constr <> concatMap mkPostconditionQueriesBehv behvs
 
 mkPostconditionQueriesBehv :: Behaviour -> [Query]
-mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preconds caseconds postconds stateUpdates _) = mkQuery <$> postconds
+mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) _ preconds caseconds postconds stateUpdates _) = mkQuery <$> postconds
   where
     -- declare vars
     activeLocs = locsFromBehaviour behv -- TODO this might contain redundant locations if invariants use locations that are not mentioned elsewhere in the behaviour
@@ -210,7 +210,7 @@ mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) preco
     mkQuery e = Postcondition (Behv behv) e (mksmt e)
 
 mkPostconditionQueriesConstr :: Constructor -> [Query]
-mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName decls) preconds postconds _ initialStorage) = mkQuery <$> postconds
+mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName decls) _ preconds postconds _ initialStorage) = mkQuery <$> postconds
   where
     -- declare vars
     activeLocs = locsFromConstructor constructor
@@ -259,7 +259,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     getInvariants (Contract (c@Constructor{..}) behvs) = fmap (\i -> (i, c, behvs)) _invariants
 
     mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
-    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) preconds _ _ initialStorage) = (ctor, smt)
+    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) _ preconds _ _ initialStorage) = (ctor, smt)
       where
         -- declare vars
         activeLocs = locsFromConstructor ctor
@@ -507,7 +507,6 @@ parseModel = \case
   SInteger -> _TExp . LitInt  nowhere . read       . parseSMTModel
   SBoolean -> _TExp . LitBool nowhere . readBool   . parseSMTModel
   SByteStr -> _TExp . ByLit   nowhere . fromString . parseSMTModel
-  SContract -> error "unexpected contract type"
   where
     readBool "true" = True
     readBool "false" = False
@@ -622,7 +621,6 @@ expToSMT2 expr = case expr of
 
   -- contracts
   Create _ _ _ -> error "contracts not supported"
-  AsContract _ _ _ -> error "contracts not supported"
   -- polymorphic
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
@@ -681,7 +679,6 @@ sType :: ActType -> SMT2
 sType AInteger = "Int"
 sType ABoolean = "Bool"
 sType AByteStr = "String"
-sType AContract = error "contracts not supported"
 
 -- | act -> smt2 type translation
 sType' :: TypedExp -> SMT2

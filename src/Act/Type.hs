@@ -314,7 +314,7 @@ noStorageRead store expr = for_ (keys store) $ \name ->
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
 checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar pn (StorageValue vt@(FromVType typ)) name) expr)
   = sequenceA [checkExpr env typ expr `bindValidation` \te ->
-               checkContractType env te `bindValidation` \ctyp ->
+               checkContractType env typ te `bindValidation` \ctyp ->
                _Update (_Item vt (SVar pn contract name)) te <$ validContractType pn vt ctyp]
     <* noStorageRead store expr
 
@@ -381,6 +381,7 @@ validateEntry :: forall t. Typeable t => Env -> U.Entry -> Err (ValueType, Stora
 validateEntry env entry =
   checkEntry env entry `bindValidation` \(typ, ref) -> case typ of
     StorageValue t -> pure (t, ref)
+    -- TODO can mappings be assigned?
     StorageMapping _ _  -> throw (getPosEntry entry, "Top-level expressions cannot have mapping type")
 
 -- | Typechecks a non-constant rewrite.
@@ -388,7 +389,7 @@ checkStorageExpr :: Env -> U.Entry -> U.Expr -> Err StorageUpdate
 checkStorageExpr env entry expr =
   validateEntry env entry `bindValidation` \(vt@(FromVType typ), ref) ->
   checkExpr env typ expr `bindValidation` \te ->
-  checkContractType env te `bindValidation` \ctyp ->
+  checkContractType env typ te `bindValidation` \ctyp ->
   _Update (_Item vt ref) te <$ validContractType (getPosn expr) vt ctyp
 
 
@@ -526,16 +527,20 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
 
 -- | Find the contract id of an expression with contract type
 -- TODO fix
-checkContractType :: Env -> Exp a t -> Err (Maybe Id)
-checkContractType env (ITE p _ a b) =
-  checkContractType env a `bindValidation` \c1 ->
-  checkContractType env b `bindValidation` \c2 ->
-  c1 <$ assert (p, "Contract type of if-then-else branches does not match") (c1 == c2)
+checkContractType :: Env -> SType a -> Exp a t -> Err (Maybe Id)
+checkContractType env SInteger (ITE p _ a b) =
+  checkContractType env SInteger a `bindValidation` \oc1 ->
+  checkContractType env SInteger b `bindValidation` \oc2 ->
+  case (oc1, oc2) of
+    (Just c1, Just c2) -> Just c1 <$ assert (p, "Type of if-then-else branches does not match") (c1 == c2)
+    (_, _ )-> pure Nothing
+checkContractType _ SInteger (Create _ c _) = pure $ Just c
+checkContractType env SInteger var@(Var _ _ _ _) = error "TODO" -- varContractType env var
 
-checkContractType _ (Var _ _ _ _) = throw (nowhere, "var")
-checkContractType _ (Create _ c _) = pure $ Just c
-checkContractType _ _ =  throw (nowhere, "whateve")
--- checkContractType (TEntry _ _ (Item _ (ContractType c) _)) = c
+checkContractType _ _ (TEntry _ _ (Item _ (ContractType c) _)) = pure $ Just c
+checkContractType _ SInteger _ =  pure Nothing
+checkContractType _ SBoolean _ =  pure Nothing
+checkContractType _ SByteStr _ =  pure Nothing
 -- checkContractType (TEntry _ _ (Item _ _ _)) = error "Internal error: entry does not have contract type"
 
 checkEq :: forall a b. Pn -> SType a -> SType b -> Err ()

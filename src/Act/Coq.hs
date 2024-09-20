@@ -77,7 +77,7 @@ reachable constructor behvs = inductive
 
 -- | non-recursive constructor for the reachable relation
 baseCase :: Constructor -> T.Text
-baseCase (Constructor name i@(Interface _ decls) conds _ _ _ ) =
+baseCase (Constructor name i@(Interface _ decls) _ conds _ _ _ ) =
   T.pack name <> baseSuffix <> " : " <> universal <> "\n" <> constructorBody
   where
     baseval = parens $ T.pack name <> " " <> envVar <> " " <> arguments i
@@ -93,7 +93,7 @@ baseCase (Constructor name i@(Interface _ decls) conds _ _ _ ) =
 
 -- | recursive constructor for the reachable relation
 reachableStep :: Behaviour -> Fresh T.Text
-reachableStep (Behaviour name _ i conds cases _ _ _) =
+reachableStep (Behaviour name _ i _ conds cases _ _ _) =
   fresh name >>= continuation where
   continuation name' =
     return $ name'
@@ -113,12 +113,12 @@ reachableStep (Behaviour name _ i conds cases _ _ _) =
 
 -- | definition of a base state
 base :: Store -> Constructor -> T.Text
-base store (Constructor name i _ _ _ updates) =
+base store (Constructor name i _ _ _ _ updates) =
   definition (T.pack name) (envDecl <> " " <> interface i) $
     stateval store name (\_ t -> defaultSlotValue t) updates
 
 transition :: Store -> Behaviour -> Fresh T.Text
-transition store (Behaviour name cname i _ _ _ rewrites _) = do
+transition store (Behaviour name cname i _ _ _ _ rewrites _) = do
   name' <- fresh name
   return $ definition name' (envDecl <> " " <> stateDecl <> " " <> interface i) $
     stateval store cname (\ref _ -> storageRef ref) rewrites
@@ -126,7 +126,7 @@ transition store (Behaviour name cname i _ _ _ rewrites _) = do
 -- | inductive definition of a return claim
 -- ignores claims that do not specify a return value
 retVal :: Behaviour -> Fresh T.Text
-retVal (Behaviour name _ i conds cases _ _ (Just r)) =
+retVal (Behaviour name _ i _ conds cases _ _ (Just r)) =
   fresh name >>= continuation where
   continuation name' = return $ inductive
     (name' <> returnSuffix)
@@ -216,7 +216,6 @@ updateVar _ updates handler focus t@(StorageMapping xs _) = parens $
         SInteger -> " =? "
         SBoolean -> " =?? "
         SByteStr -> error "bytestrings not supported"
-        SContract -> error "contracts cannot be mapping arguments"
 
 
 -- | produce a block of declarations from an interface
@@ -252,7 +251,6 @@ returnType :: TypedExp -> T.Text
 returnType (TExp SInteger _) = "Z"
 returnType (TExp SBoolean _) = "bool"
 returnType (TExp SByteStr _) = error "bytestrings not supported"
-returnType (TExp SContract _) = error "Internal error: return type cannot be contract"
 
 -- | default value for a given type
 -- this is used in cases where a value is not set in the constructor
@@ -323,10 +321,8 @@ coqexp (ITE _ b e1 e2) = parens $ "if "
 -- as the corresponding Haskell constructor
 coqexp (IntEnv _ envVal) = parens $ T.pack (show envVal) <> " " <> envVar
 -- Contracts
-coqexp (Var _ SContract _ name) = T.pack name
 coqexp (Create _ cid args) = parens $ T.pack cid <> "." <> T.pack cid <> " " <> envVar <> " " <> coqargs args
 -- unsupported
-coqexp (AsContract _ _ _) = error "contract casting not supported"
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
 coqexp (Var _ SByteStr _ _) = error "bytestrings not supported"
