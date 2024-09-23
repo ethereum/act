@@ -46,6 +46,7 @@
           },
           "kind": "Behaviour",
           "name": "transfer",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -826,6 +827,7 @@
           },
           "kind": "Behaviour",
           "name": "transfer",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -1356,6 +1358,7 @@
           },
           "kind": "Behaviour",
           "name": "transferFrom",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -2473,6 +2476,7 @@
           },
           "kind": "Behaviour",
           "name": "transferFrom",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -3686,6 +3690,7 @@
           },
           "kind": "Behaviour",
           "name": "transferFrom",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -4984,6 +4989,7 @@
           },
           "kind": "Behaviour",
           "name": "transferFrom",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -6132,6 +6138,7 @@
           }
         ],
         "kind": "Constructor",
+        "pointers": [],
         "postConditions": [],
         "preConditions": [
           {

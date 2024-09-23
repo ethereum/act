@@ -40,6 +40,7 @@
           },
           "kind": "Behaviour",
           "name": "bar",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -241,6 +242,7 @@
           },
           "kind": "Behaviour",
           "name": "bar",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -452,6 +454,7 @@
           },
           "kind": "Behaviour",
           "name": "bar",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -651,6 +654,7 @@
         },
         "invariants": [],
         "kind": "Constructor",
+        "pointers": [],
         "postConditions": [],
         "preConditions": []
       },

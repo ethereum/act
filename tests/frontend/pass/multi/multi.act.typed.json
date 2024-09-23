@@ -27,6 +27,7 @@
         },
         "invariants": [],
         "kind": "Constructor",
+        "pointers": [],
         "postConditions": [],
         "preConditions": []
       },
@@ -58,6 +59,7 @@
           },
           "kind": "Behaviour",
           "name": "remote",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -260,6 +262,7 @@
           },
           "kind": "Behaviour",
           "name": "multi",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -525,7 +528,7 @@
                 "kind": "SVar",
                 "svar": "a"
               },
-              "type": "contract"
+              "type": "int"
             },
             "value": {
               "args": [
@@ -546,6 +549,7 @@
         },
         "invariants": [],
         "kind": "Constructor",
+        "pointers": [],
         "postConditions": [],
         "preConditions": []
       },

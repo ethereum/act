@@ -26,6 +26,7 @@
           },
           "kind": "Behaviour",
           "name": "f",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -92,6 +93,7 @@
         },
         "invariants": [],
         "kind": "Constructor",
+        "pointers": [],
         "postConditions": [],
         "preConditions": []
       },

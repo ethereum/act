@@ -535,7 +535,10 @@ checkContractType env SInteger (ITE p _ a b) =
     (Just c1, Just c2) -> Just c1 <$ assert (p, "Type of if-then-else branches does not match") (c1 == c2)
     (_, _ )-> pure Nothing
 checkContractType _ SInteger (Create _ c _) = pure $ Just c
-checkContractType env SInteger var@(Var _ _ _ _) = error "TODO" -- varContractType env var
+checkContractType Env{pointers} SInteger (Var _ _ _ x) =
+  case Map.lookup x pointers of
+    Just c -> pure $ Just c
+    Nothing -> pure Nothing
 
 checkContractType _ _ (TEntry _ _ (Item _ (ContractType c) _)) = pure $ Just c
 checkContractType _ SInteger _ =  pure Nothing

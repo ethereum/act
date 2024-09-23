@@ -34,6 +34,7 @@
           },
           "kind": "Behaviour",
           "name": "add",
+          "pointers": [],
           "postConditions": [],
           "preConditions": [
             {
@@ -276,6 +277,7 @@
         },
         "invariants": [],
         "kind": "Constructor",
+        "pointers": [],
         "postConditions": [],
         "preConditions": []
       },
