@@ -43,6 +43,10 @@ case from == to:
 constructor of Amm
 interface constructor(address t0, address t1)
 
+pointers
+   t0 |-> Token
+   t1 |-> Token
+
 iff
 
     CALLVALUE == 0
@@ -50,8 +54,8 @@ iff
 
 creates
 
-    Token token0 := t0 as Token
-    Token token1 := t1 as Token
+    Token token0 := t0 
+    Token token1 := t1
 
 behaviour swap0 of Amm
 interface swap0(uint256 amt)
