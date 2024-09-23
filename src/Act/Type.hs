@@ -22,7 +22,7 @@ import qualified Data.Map.Strict    as Map -- abandon in favor of [(a,b)]?
 import Data.Typeable hiding (typeRep)
 import Type.Reflection (typeRep)
 
-import Control.Monad.Writer
+import Control.Monad (when)
 import Data.List.Extra (snoc,unsnoc)
 import Data.Function (on)
 import Data.Foldable
@@ -227,7 +227,7 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) iffs
     noIllegalWilds = case cases of
       U.Direct   _  -> pure ()
       U.Branches bs -> for_ (init bs) $ \c@(U.Case p _ _) ->
-                          when (isWild c) (throw (p, "Wildcard pattern must be last case"))  -- TODO test when wildcard isn't last
+                          ((when (isWild c) ((throw (p, "Wildcard pattern must be last case")):: Err ())) :: Err ())  -- TODO test when wildcard isn't last
 
     -- translate wildcards into negation of other branches and translate a single case to a wildcard
     normalizedCases :: [U.Case]

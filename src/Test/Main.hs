@@ -11,7 +11,6 @@ import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property, (===), cou
 import Test.QuickCheck.Instances.ByteString()
 import Test.QuickCheck.GenT
 import Test.QuickCheck.Monadic
-import Text.PrettyPrint.ANSI.Leijen (pretty)
 
 import Control.Monad
 import Control.Monad.Trans
@@ -90,7 +89,7 @@ typeCheckSMT solver = do
         solverInstance <- spawnSolver smtconf
         all isNothing <$> mapM (askSMT solverInstance) queries
 
-      askSMT solverInstance query = sendLines solverInstance ("(reset)" : (lines . show . pretty . getSMT $ query))
+      askSMT solverInstance query = sendLines solverInstance ("(reset)" : (lines . show . getSMT $ query))
 
 
 -- *** QuickCheck Generators *** --
