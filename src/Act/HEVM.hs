@@ -205,18 +205,13 @@ applyUpdate readMap writeMap (Update typ (Item _ vtyp ref) e) = do
   offset <- refOffset readMap ref
   let contract = fromMaybe (error $ "Internal error: contract not found\n" <> show e) $ M.lookup caddr' writeMap
   case typ of
-    SInteger | isContract vtyp -> case e of
+    SInteger -> case e of
      Create _ _ _ -> do
        fresh <- getFreshIncr
        let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
        writeMap' <- localCaddr freshAddr $ createContract readMap writeMap freshAddr e
        pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore offset (EVM.WAddr freshAddr)) contract)) writeMap'
-     -- AsContract _ (Var _ _ _ x) _ -> do
-     --   let e' = EVM.WAddr (EVM.SymAddr $ T.pack x)
-     --   pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
-     -- AsContract _ _ _ -> error "Casting only allowed in variables"
-     _ -> error "Contractor call expected"
-    SInteger -> do
+     _ -> do
       e' <- toExpr readMap e
       pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract) writeMap
     SBoolean -> do
@@ -605,17 +600,17 @@ checkEquiv solvers l1 l2 = do
 
 
 
-getInitContractMap :: [(Exp AInteger, Id)] -> Store -> CodeMap -> (ContractMap, [(EVM.Expr EVM.EAddr, EVM.Contract)], Int)
+getInitContractMap :: [(Id, Id)] -> Store -> CodeMap -> (ContractMap, [(EVM.Expr EVM.EAddr, EVM.Contract)], Int)
 getInitContractMap casts store codemap =
   -- TODO check that there is no aliasing in the casted addresses and that contracts have no casting
   let casts' = groupBy (\x y -> fst x == fst y) casts in
-  let (cmap, fresh) =  foldl (\p l -> handleCast p (nub l)) (M.empty, 0) casts' in
+  let (cmap, fresh) = foldl (\p l -> handleCast p (nub l)) (M.empty, 0) casts' in
   let (actstorage, hevmstorage) = createStorage cmap in
   (actstorage, hevmstorage, fresh)
 
   where
-    handleCast :: (ContractMap, Int) -> [(Exp AInteger, Id)] -> (ContractMap, Int)
-    handleCast (cmap, fresh) [(Var _ _ _ x, cid)] =
+    handleCast :: (ContractMap, Int) -> [(Id, Id)] -> (ContractMap, Int)
+    handleCast (cmap, fresh) [(x, cid)] =
       let addr = EVM.SymAddr $ T.pack x in
       let actenv = ActEnv codemap fresh (slotMap store) addr Nothing in
       case M.lookup cid codemap of
@@ -629,7 +624,6 @@ getInitContractMap casts store codemap =
           let (cmap', actenv') = flip runState actenv $ applyUpdates (M.insert addr contract actstorage) (M.insert addr contract actstorage) upds in
           (cmap', actenv'.fresh)
         Nothing -> error $ "Internal error: Contract " <> cid <> " not found\n" <> show codemap
-    handleCast _ [(_, _)] = error "Only casts to symbolic arguments are allowed"
     handleCast _ [] = error "Internal error: Cast cannot be empty"
     handleCast _ _ = error "Cannot have different casts to the same address"
 
@@ -637,15 +631,15 @@ getInitContractMap casts store codemap =
 checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (Error String (ContractMap, ActEnv))
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   -- First find all casts from addresses and create a store where all asumed constracts are present
-  -- currently ignoring any asts in behaviours, maybe prohibit them explicitly
-  let casts = [] -- castsFromConstructor ctor
+  -- currently ignoring any asts in behaviours, maybe prohibit them
+  let casts = (\(PointsTo _ x c) -> (x, c)) <$> ctor._cpointers
   let (actinitmap, hevminitmap, fresh) = getInitContractMap casts store codemap
   -- Create the Act state
   let actenv = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint") Nothing
   -- Translate Act constructor to Expr
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor actinitmap
   -- check is any addresses casted to contracts can be aliased
-  checkAliasingCtor solvers ctor (map fst casts) calldata
+  -- checkAliasingCtor solvers ctor (map fst casts) calldata
   -- Symbolically execute bytecode
   -- TODO check if contrainsts about preexistsing fresh symbolic addresses are necessary
   solbehvs <- removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 1 fresh) fresh
