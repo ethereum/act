@@ -221,7 +221,7 @@ checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ 
 -- checks a transition given a typing of its storage variables
 checkTransition :: Env -> U.Transition -> Err [Behaviour]
 checkTransition env (U.Transition _ name contract iface@(Interface _ decls) ptrs iffs cases posts) =
-  traverse (checkPointer env) ptrs *>
+  traverse (checkPointer env') ptrs *>
   noIllegalWilds *>
   -- constrain integer calldata variables (TODO: other types)
   fmap fmap (makeBehv <$> checkIffs env' iffs <*> traverse (checkExpr env' SBoolean) posts)
