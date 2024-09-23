@@ -398,7 +398,7 @@ validContractType pn (ContractType c1) (Just c2) =
   assert (pn, "Assignment to storage variable was expected to have contract type " <> c1 <> " but has contract type " <> c2) (c1 == c2)
 validContractType pn (ContractType c1) Nothing =
   throw (pn, "Assignment to storage variable was expected to have contract type " <> c1)
-validContractType pn _ _ = pure ()
+validContractType _ _ _ = pure ()
 
 
 checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
