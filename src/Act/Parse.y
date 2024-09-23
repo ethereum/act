@@ -165,7 +165,7 @@ Contract : Constructor list(Transition)              { Contract $1 $2 }
 
 Transition : 'behaviour' id 'of' id
              Interface
-             list(Pointer)
+             Pointers
              list(Precondition)
              Cases
              Ensures                                  { Transition (posn $1) (name $2) (name $4)
@@ -173,7 +173,7 @@ Transition : 'behaviour' id 'of' id
 
 Constructor : 'constructor' 'of' id
               CInterface
-              list(Pointer)
+              Pointers
               list(Precondition)
               Creation
               Ensures
@@ -183,6 +183,8 @@ Constructor : 'constructor' 'of' id
 Ensures : optblock('ensures', Expr)                   { $1 }
 
 Invariants : optblock('invariants', Expr)             { $1 }
+
+Pointers : optblock('pointers', Pointer)              { $1 }
 
 Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface (name $2) $4 }
 
