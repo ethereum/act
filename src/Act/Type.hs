@@ -255,7 +255,7 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) ptrs
 checkDefinition :: Env -> U.Definition -> Err Constructor
 checkDefinition env (U.Definition _ contract (Interface _ decls) ptrs iffs (U.Creates assigns) postcs invs) =
   do
-    _ <- traverse (checkPointer env) ptrs
+    _ <- traverse (checkPointer env') ptrs
     stateUpdates <- concat <$> traverse (checkAssign env') assigns
     iffs' <- checkIffs (env'{ store = mempty })  iffs
     _ <- traverse (validStorage env') assigns
