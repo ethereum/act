@@ -43,6 +43,9 @@ case CALLER == to:
 constructor of TransferOneToken
 interface constructor(address _tokenAddress)
 
+pointers
+    _tokenAddress |-> Token
+
 iff
 
     CALLVALUE == 0
@@ -50,7 +53,7 @@ iff
 
 creates
 
-    Token token := _tokenAddress as Token
+    Token token := _tokenAddress
 
 behaviour transfer of TransferOneToken
 interface transfer()

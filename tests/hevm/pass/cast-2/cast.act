@@ -63,13 +63,17 @@ storage
 constructor of B
 interface constructor(address x, address y)
 
+pointers
+  x |-> A
+  y |-> A
+
 iff
     CALLVALUE == 0
     x =/= y
 
 creates
-    A a1 := x as A
-    A a2 := y as A
+    A a1 := x
+    A a2 := y
 
 
 behaviour upd of B
