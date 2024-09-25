@@ -605,7 +605,8 @@ getInitContractMap casts store codemap =
   -- TODO check that there is no aliasing in the casted addresses and that contracts have no casting
   let casts' = groupBy (\x y -> fst x == fst y) casts in
   let (cmap, fresh) = foldl (\p l -> handleCast p (nub l)) (M.empty, 0) casts' in
-  let (actstorage, hevmstorage) = createStorage cmap in
+  let actstorage = abstractCmap cmap in
+  let hevmstorage = translateCmap actstorage in
   (actstorage, hevmstorage, fresh)
 
   where
@@ -615,7 +616,7 @@ getInitContractMap casts store codemap =
       let actenv = ActEnv codemap fresh (slotMap store) addr Nothing in
       case M.lookup cid codemap of
         Just (Contract (Constructor _ _ _ _ _ _ upds) _, _, bytecode) ->
-          let (actstorage, _) = createStorage cmap in
+          let actstorage = abstractCmap cmap in
           let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                                , EVM.storage = EVM.ConcreteStore mempty
                                , EVM.balance = EVM.Lit 0
@@ -654,7 +655,7 @@ checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap =
   res1 <- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
   res2 <- checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
-  pure $ res1 *> res2 *> Success (getContractMap actbehvs, actenv')
+  pure $ res1 *> res2 *> Success (abstractCmap $ getContractMap actbehvs, actenv')
   where
     removeFails branches = filter isSuccess $ branches
 
@@ -663,8 +664,8 @@ getContractMap [EVM.Success _ _ _ m] = m
 getContractMap _ = error "Internal error: unexpected shape of Act translation"
 
 checkBehaviours :: forall m. App m => SolverGroup -> Contract -> ActEnv -> ContractMap -> m (Error String ())
-checkBehaviours solvers (Contract _ behvs) actenv cmap = do
-  let (actstorage, hevmstorage) = createStorage cmap
+checkBehaviours solvers (Contract _ behvs) actenv actstorage = do
+  let hevmstorage = translateCmap actstorage
   let actbehvs = fst $ flip runState actenv $ translateBehvs actstorage behvs
   (liftM $ concatError def) $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata actenv.fresh
@@ -683,25 +684,10 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
     removeFails branches = filter isSuccess $ branches
     def = Success ()
 
-createStorage :: ContractMap -> (ContractMap, [(EVM.Expr EVM.EAddr, EVM.Contract)])
-createStorage cmap =
-  let cmap' = M.mapWithKey makeContract cmap in
-  let contracts = fmap (\(addr, c) -> (addr, toContract c)) $ M.toList cmap' in
-  (cmap', contracts)
 
+translateCmap :: ContractMap -> [(EVM.Expr EVM.EAddr, EVM.Contract)]
+translateCmap cmap = (\(addr, c) -> (addr, toContract c)) <$> M.toList cmap
   where
-    traverseStorage ::  EVM.Expr EVM.EAddr -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
-    traverseStorage addr (EVM.SStore offset (EVM.WAddr symaddr) storage) =
-      EVM.SStore offset (EVM.WAddr symaddr) (traverseStorage addr storage)
-    traverseStorage addr (EVM.SStore _ _ storage) = traverseStorage addr storage
-    traverseStorage addr (EVM.ConcreteStore _) = EVM.AbstractStore addr Nothing
-    traverseStorage _ s@(EVM.AbstractStore {}) = s
-    traverseStorage _ _ = error $ "Internal error: unexpected storage shape"
-
-    makeContract :: EVM.Expr EVM.EAddr -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
-    makeContract addr (EVM.C code storage _ _) = EVM.C code (traverseStorage addr storage) (EVM.Balance addr) (Just 0)
-    makeContract _ (EVM.GVar _) = error "Internal error: contract cannot be gvar"
-
     toContract :: EVM.Expr EVM.EContract -> EVM.Contract
     toContract (EVM.C code storage balance nonce) = EVM.Contract
       { EVM.code        = code
@@ -716,6 +702,47 @@ createStorage cmap =
       }
     toContract (EVM.GVar _) = error "Internal error: contract cannot be gvar"
 
+
+
+abstractCmap :: ContractMap -> ContractMap
+abstractCmap cmap = prune $ M.mapWithKey makeContract cmap
+
+  where
+    traverseStorage ::  EVM.Expr EVM.EAddr -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
+    traverseStorage addr (EVM.SStore offset (EVM.WAddr symaddr) storage) =
+      EVM.SStore offset (EVM.WAddr symaddr) (traverseStorage addr storage)
+    traverseStorage addr (EVM.SStore _ _ storage) = traverseStorage addr storage
+    traverseStorage addr (EVM.ConcreteStore _) = EVM.AbstractStore addr Nothing
+    traverseStorage _ s@(EVM.AbstractStore {}) = s
+    traverseStorage _ _ = error $ "Internal error: unexpected storage shape"
+
+    makeContract :: EVM.Expr EVM.EAddr -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
+    makeContract addr (EVM.C code storage _ _) = EVM.C code (traverseStorage addr storage) (EVM.Balance addr) (Just 0)
+    makeContract _ (EVM.GVar _) = error "Internal error: contract cannot be gvar"
+
+    -- Remove garbage addresses
+    prune cmap =
+      let reach = reachable initAddr cmap in
+      M.filterWithKey (\k _ -> elem k reach) cmap
+
+    -- Find reachable addresses from given address
+    reachable :: EVM.Expr EVM.EAddr -> ContractMap -> [EVM.Expr EVM.EAddr]
+    reachable addr cmap = nub $ go addr
+      where
+        go :: EVM.Expr EVM.EAddr -> [EVM.Expr EVM.EAddr]
+        go addr = 
+          case M.lookup addr cmap of
+            Just (EVM.C _ storage _ _) -> concatMap go (getAddrs storage)
+            Just (EVM.GVar _) -> error "Internal error: contract cannot be gvar"
+            Nothing -> error "Internal error: contract not found"
+
+    -- Find addresses mentioned in storage
+    getAddrs :: EVM.Expr EVM.Storage -> [EVM.Expr EVM.EAddr]
+    getAddrs (EVM.SStore _ (EVM.WAddr symaddr) storage) = symaddr : getAddrs storage
+    getAddrs (EVM.SStore _ _ _) = error $ "Internal error: unexpected storage shape"
+    getAddrs (EVM.ConcreteStore _) = error $ "Internal error: unexpected storage shape"
+    getAddrs (EVM.AbstractStore {}) = []
+    getAddrs _ = error $ "Internal error: unexpected storage shape"
 
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
@@ -834,7 +861,7 @@ checkAliasingCtor _ _ _ _ = pure $ Success ()
 checkAbi :: App m => SolverGroup -> Contract -> ContractMap -> m (Error String ())
 checkAbi solver contract cmap = do
   showMsg "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
-  let (_, hevmstorage) = createStorage cmap
+  let hevmstorage = translateCmap cmap
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs contract)
   evmBehvs <- getRuntimeBranches solver hevmstorage (txdata, []) 0 -- TODO what freshAddr goes here?
