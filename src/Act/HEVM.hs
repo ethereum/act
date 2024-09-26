@@ -235,7 +235,7 @@ applyUpdate readMap writeMap (Update typ (Item _ vtyp ref) e) = do
 
 createContract :: ContractMap -> ContractMap -> EVM.Expr EVM.EAddr -> Exp AInteger -> ActM ContractMap
 createContract readMap writeMap freshAddr (Create _ cid args) = do
-  codemap <- getCodemap
+  codemapche <- getCodemap
   case M.lookup cid codemap of
     Just (Contract (Constructor _ iface _ _ _ _ upds) _, _, bytecode) -> do
       let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -600,30 +600,36 @@ checkEquiv solvers l1 l2 = do
 
 
 
-getInitContractMap :: [(Id, Id)] -> Store -> CodeMap -> (ContractMap, [(EVM.Expr EVM.EAddr, EVM.Contract)], Int)
-getInitContractMap casts store codemap =
-  -- TODO check that there is no aliasing in the casted addresses and that contracts have no casting
+getInitContractMap :: Constructor -> Store -> CodeMap -> (ContractMap, [(EVM.Expr EVM.EAddr, EVM.Contract)], Int)
+getInitContractMap Constructor{_cpointers} store codemap =
+  let casts = (\(PointsTo _ x c) -> (x, c)) <$> cpointers
   let casts' = groupBy (\x y -> fst x == fst y) casts in
-  let (cmap, fresh) = foldl (\p l -> handleCast p (nub l)) (M.empty, 0) casts' in
-  let actstorage = abstractCmap cmap in
+  let (cmaps, fresh) = foldl (\(fresh, cmaps') ptr ->
+                               let (fresh', cmap) = getContractMap fresh p (nub l) in fresh', cmap : cmaps
+                            ) ([], 0) casts' in
+  let mcmap = mergeContractaps cmaps fresh ctor in
   let hevmstorage = translateCmap actstorage in
   (actstorage, hevmstorage, fresh)
 
   where
-    handleCast :: (ContractMap, Int) -> [(Id, Id)] -> (ContractMap, Int)
-    handleCast (cmap, fresh) [(x, cid)] =
+
+    getContractMap :: Int -> [(Id, Id)] -> (ContractMap, Int)
+    getContractMap fresh [(x, cid)] =
       let addr = EVM.SymAddr $ T.pack x in
-      let actenv = ActEnv codemap fresh (slotMap store) addr Nothing in
       case M.lookup cid codemap of
-        Just (Contract (Constructor _ _ _ _ _ _ upds) _, _, bytecode) ->
-          let actstorage = abstractCmap cmap in
+        Just (Contract ctor@(Constructor _ _ _ _ _ _ upds) _, _, bytecode) ->
+          let icmap = getInitContractMap ctor sore codemap in
+          let actenv = ActEnv codemap fresh (slotMap store) addr Nothing in
+
           let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                                , EVM.storage = EVM.ConcreteStore mempty
                                , EVM.balance = EVM.Lit 0
                                , EVM.nonce = Just 1
                                } in
-          let (cmap', actenv') = flip runState actenv $ applyUpdates (M.insert addr contract actstorage) (M.insert addr contract actstorage) upds in
-          (cmap', actenv'.fresh)
+
+          let (cmap, actenv') = flip runState actenv $ applyUpdates (M.insert addr contract actstorage) (M.insert addr contract icmap) upds in
+          let actstorage = abstractCmap cmap in
+          (actstorage, actenv'.fresh)
         Nothing -> error $ "Internal error: Contract " <> cid <> " not found\n" <> show codemap
     handleCast _ [] = error "Internal error: Cast cannot be empty"
     handleCast _ _ = error "Cannot have different casts to the same address"
@@ -633,7 +639,6 @@ checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   -- First find all casts from addresses and create a store where all asumed constracts are present
   -- currently ignoring any asts in behaviours, maybe prohibit them
-  let casts = (\(PointsTo _ x c) -> (x, c)) <$> ctor._cpointers
   let (actinitmap, hevminitmap, fresh) = getInitContractMap casts store codemap
   -- Create the Act state
   let actenv = ActEnv codemap fresh (slotMap store) (EVM.SymAddr "entrypoint") Nothing
@@ -730,7 +735,7 @@ abstractCmap cmap = prune $ M.mapWithKey makeContract cmap
     reachable addr cmap = nub $ go addr
       where
         go :: EVM.Expr EVM.EAddr -> [EVM.Expr EVM.EAddr]
-        go addr = 
+        go addr =
           case M.lookup addr cmap of
             Just (EVM.C _ storage _ _) -> concatMap go (getAddrs storage)
             Just (EVM.GVar _) -> error "Internal error: contract cannot be gvar"
