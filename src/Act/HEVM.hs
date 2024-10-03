@@ -611,7 +611,7 @@ getInitContractState solvers iface pointers preconds cmap = do
 
   let finalmap = M.unions (cmap:cmaps)
   check <- checkAliasing finalmap cmaps
-  pure (pruneContractState initAddr finalmap, check <* sequenceA_ checks)
+  pure (finalmap, check <* sequenceA_ checks)
   
   where
 
@@ -695,6 +695,7 @@ getContractMap _ = error "Internal error: unexpected shape of Act translation"
 
 checkBehaviours :: forall m. App m => SolverGroup -> Contract -> ContractMap -> ActT m (Error String ())
 checkBehaviours solvers (Contract _ behvs) actstorage = do
+  traceShowM actstorage
   let hevmstorage = translateCmap actstorage
   fresh <- getFresh
   actbehvs <- translateBehvs actstorage behvs
@@ -736,7 +737,12 @@ translateCmap cmap = (\(addr, c) -> (addr, toContract c)) <$> M.toList cmap
 
 
 abstractCmap :: EVM.Expr EVM.EAddr -> ContractMap -> ContractMap
-abstractCmap this cmap = pruneContractState this $ M.mapWithKey makeContract cmap
+abstractCmap this cmap =
+  let before = M.mapWithKey makeContract cmap in
+  let after = pruneContractState this before in
+
+  -- trace "before" $ traceShow before $ trace "after" $ traceShow after $
+  after
   where
     traverseStorage ::  EVM.Expr EVM.EAddr -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
     traverseStorage addr (EVM.SStore offset (EVM.WAddr symaddr) storage) =
@@ -753,18 +759,26 @@ abstractCmap this cmap = pruneContractState this $ M.mapWithKey makeContract cma
 -- | Remove unreachable addresses from a contract map
 pruneContractState :: EVM.Expr EVM.EAddr -> ContractMap -> ContractMap
 pruneContractState entryaddr cmap =
+  -- trace "In prune" $ traceShow cmap $
   let reach = reachable entryaddr cmap in
+  -- trace "reach" $ traceShow reach $
   M.filterWithKey (\k _ -> elem k reach) cmap
 
   where
     -- Find reachable addresses from given address
     reachable :: EVM.Expr EVM.EAddr -> ContractMap -> [EVM.Expr EVM.EAddr]
-    reachable addr cmap' = nub $ go addr
+    reachable addr cmap' = nub $ go addr []
       where
-        go :: EVM.Expr EVM.EAddr -> [EVM.Expr EVM.EAddr]
-        go addr' =
+        -- Note: there state is a tree, no need to mark visisted
+        go :: EVM.Expr EVM.EAddr -> [EVM.Expr EVM.EAddr] -> [EVM.Expr EVM.EAddr]
+        go addr' acc =
+          -- trace "found" $ traceShow addr'$
+          -- traceShow cmap $
           case M.lookup addr' cmap' of
-            Just (EVM.C _ storage _ _) -> concatMap go (getAddrs storage)
+            Just (EVM.C _ storage _ _) ->
+              let addrs = getAddrs storage in
+              -- trace "reach" $ traceShow addrs $ 
+              foldl (\r a -> go a r) (addr:acc) addrs
             Just (EVM.GVar _) -> error "Internal error: contract cannot be gvar"
             Nothing -> error "Internal error: contract not found"
 
