@@ -1,0 +1,34 @@
+constructor of C
+interface constructor(uint z1)
+
+iff
+    CALLVALUE == 0
+
+creates
+    uint z := z1
+
+constructor of A
+interface constructor(uint x1)
+
+iff
+    CALLVALUE == 0
+
+creates
+    uint x := x1
+    C c := create C(42)
+
+
+constructor of B
+interface constructor(address x, address y)
+
+pointers
+  x |-> A
+  y |-> A
+
+iff
+    CALLVALUE == 0
+    x =/= y
+
+creates
+    A a1 := x
+    C c := x.c
