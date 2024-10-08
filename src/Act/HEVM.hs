@@ -207,7 +207,7 @@ applyUpdate readMap writeMap (Update typ (Item _ vtyp ref) e) = do
   let (contract, cid) = fromMaybe (error $ "Internal error: contract not found\n" <> show e) $ M.lookup caddr' writeMap
   case typ of
     SInteger -> case e of
-     Create _ cname _ -> do
+     Create _ _ _ -> do
        fresh <- getFreshIncr
        let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
        writeMap' <- localCaddr freshAddr $ createContract readMap writeMap freshAddr e
@@ -697,6 +697,12 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
   actbehvs <- translateBehvs actstorage behvs
   (liftM $ concatError def) $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
+
+    -- if name == "upd" then traceM "Solc behvs: " else pure ()
+    -- if name == "upd" then traceM $ showBehvs solbehvs else pure ()
+    -- if name == "upd" then traceM "Act behvs: " else pure ()
+    -- if name == "upd" then traceM $ showBehvs behvs' else pure ()
+
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     lift $ showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
@@ -728,6 +734,12 @@ translateCmap cmap = (\(addr, (c, _)) -> (addr, toContract c)) <$> M.toList cmap
       }
     toContract (EVM.GVar _) = error "Internal error: contract cannot be gvar"
 
+-- | Checks there is no alising in a contract state
+-- because every symbolic contract address is unique and storage in Act is typed
+-- it suffices to check sybtactically that the contract map is a tree.
+-- assumes that contracts cannot be stored to symbolic addresses
+-- checkValidCmap :: ContractCmap -> Bool
+-- checkValidCmap cmap =
 
 
 abstractCmap :: EVM.Expr EVM.EAddr -> ContractMap -> ContractMap
@@ -736,7 +748,9 @@ abstractCmap this cmap =
   where
     traverseStorage ::  EVM.Expr EVM.EAddr -> EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage
     traverseStorage addr (EVM.SStore offset (EVM.WAddr symaddr) storage) =
-      EVM.SStore offset (EVM.WAddr symaddr) (traverseStorage addr storage)
+      if M.member symaddr cmap then
+        EVM.SStore offset (EVM.WAddr symaddr) (traverseStorage addr storage)
+      else traverseStorage addr storage
     traverseStorage addr (EVM.SStore _ _ storage) = traverseStorage addr storage
     traverseStorage addr (EVM.ConcreteStore _) = EVM.AbstractStore addr Nothing
     traverseStorage _ s@(EVM.AbstractStore {}) = s
@@ -814,50 +828,9 @@ checkInputSpaces solvers l1 l2 = do
     False -> pure $ filter (/= Qed ()) results'
 
 
--- -- Checks that all the casted addresses of a contract are mutually distinct
--- checkAliasing :: App m => SolverGroup -> Constructor -> ContractMap -> Calldata -> m (Error String ())
--- checkAliasingBehv solver behv@(Behaviour _ _ (Interface ifaceName decls) preconds caseconds _ _ _) cmap calldata = do
---   let addresses = toVars $ Map.keys cmap
---   let freshaddresses = filter isFreshaddr addr
 
---   let addressquery = [prelude <> SMT2 (fmap fromString $ lines . show . prettyAnsi $ mksmt) mempty mempty mempty]
---   res <- liftIO $ mapConcurrently (checkSat solver) addressquery
---   checkResult calldata Nothing (fmap (toVRes msg) res)
---   where
---     -- declare vars
---     addrvars = declAddr <$> addresses
---     args = SMT.declareArg ifaceName <$> decls
---     envs = SMT.declareEthEnv <$> ethEnvFromConstructor constructor
---     -- constraints
---     asserts = SMT.mkAssert ifaceName <$> ((existEqual (combine addresses [])):preconds <> caseconds <> freshUnique freshAddr)
---     mksmt = SMT.SMTExp
---       { SMT._storage = []
---       , SMT._calldata = args <> addrvars
---       , SMT._environment = envs
---       , SMT._assertions = asserts
---       }
-
---     combine :: [Exp AInteger] -> [[(Exp AInteger,Exp AInteger)]] -> [(Exp AInteger,Exp AInteger)]
---     combine [] acc = concat acc
---     combine (x:xs) acc = combine xs ([(x,y) | y <- xs]:acc)
-
---     existEqual :: [(Exp AInteger,Exp AInteger)] -> Exp ABoolean
---     existEqual ls = foldl (\p (x,y) -> Or nowhere (Eq nowhere SInteger x y) p) (LitBool nowhere False) ls
-
---     freshUnique :: [Exp AInteger] -> [Exp ABoolean]
---     freshUnique freshAddrs = map (\(x,y) -> (NEq nowhere SInteger x y) (combine freshAddrs []))
-
---     msg = "\x1b[1m Contract addresses in the state are not guaranteed to be unique!\x1b[m"
-
---     prelude :: SMT2
---     prelude =  SMT2 src mempty mempty mempty
---       where
---         src = [ "; logic",
---                 "(set-info :smt-lib-version 2.6)",
---                 "(set-logic ALL)" ]
-
--- | Checks whether all successful EVM behaviors are withing the
--- interfaces specified by Act
+-- | Checks whether all successful EVM behaviors are within the
+--   interfaces specified by Act
 checkAbi :: App m => SolverGroup -> Contract -> ContractMap -> m (Error String ())
 checkAbi solver contract cmap = do
   showMsg "\x1b[1mChecking if the ABI of the contract matches the specification\x1b[m"
