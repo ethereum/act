@@ -384,6 +384,36 @@ validateEntry env entry =
     -- TODO can mappings be assigned?
     StorageMapping _ _  -> throw (getPosEntry entry, "Top-level expressions cannot have mapping type")
 
+
+checkVar :: forall t. Typeable t => Env -> U.Entry -> Err (SlotType, StorageRef t)
+checkVar Env{contract,store,calldata} (U.EVar p name) = case (Map.lookup name store, Map.lookup name calldata) of
+  (Just _, Just _) -> throw (p, "Ambiguous variable " <> name)
+  (Just typ, Nothing) -> pure (typ, SVar p contract name)
+  (Nothing, Just _) -> throw (p, "Variable " <> name <> " is not a storage variable")
+  (Nothing, Nothing) -> throw (p, "Unknown storage variable " <> show name)
+  -- TODO more consitent check of name overlap between calldata and storage
+checkVar env (U.EMapping p e args) =
+  checkEntry env e `bindValidation` \(typ, ref) -> case typ of
+    StorageValue _ -> throw (p, "Expression should have a mapping type" <> show e)
+    StorageMapping argtyps restyp -> (StorageValue restyp,) . SMapping p ref <$> checkIxs env p args (NonEmpty.toList argtyps)
+checkVar env@Env{theirs} (U.EField p e x) =
+  checkEntry env e `bindValidation` \(typ, ref) -> case typ of
+    StorageValue (ContractType c) -> case Map.lookup c theirs of
+      Just cenv -> case Map.lookup x cenv of
+        Just (t, _) -> pure (t, SField p ref c x)
+        Nothing -> throw (p, "Contract " <> c <> " does not have field " <> x)
+      Nothing -> error $ "Internal error: Invalid contract type " <> show c
+    _ -> throw (p, "Expression should have a contract type" <> show e)
+
+
+
+validateVar :: forall t. Typeable t => Env -> U.Entry -> Err (AbiType, VarRef t)
+validateVar env entry =
+  checkEntry env entry `bindValidation` \(typ, ref) -> case typ of
+    StorageValue t -> pure (t, ref)
+    -- TODO can mappings be assigned?
+    StorageMapping _ _  -> throw (getPosEntry entry, "Top-level expressions cannot have mapping type")
+
 -- | Typechecks a non-constant rewrite.
 checkStorageExpr :: Env -> U.Entry -> U.Expr -> Err StorageUpdate
 checkStorageExpr env entry expr =
@@ -486,7 +516,8 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
     Just AByteStr -> pure $ ByEnv p v1
     _             -> throw (p, "Unknown environment variable " <> show v1)
   -- Variable references
-  (_, U.EUTEntry entry) | isCalldataEntry env entry -> checkCalldataEntry env entry
+  (_, U.EUTEntry entry) | isCalldataEntry env entry -> validateVar env entry `bindValidation` \(at@(FromAbi varType), ref) ->
+    checkTime (getPosEntry entry) <*> (Var (getPosEntry entry) typ at ref <$ checkEq (getPosEntry entry) typ varTyp)
   (_, U.EUTEntry entry) -> validateEntry env entry `bindValidation` \(vt@(FromVType typ'), ref) ->
     checkTime (getPosEntry entry) <*> (TEntry (getPosEntry entry) Neither (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ')
   (_, U.EPreEntry entry) -> validateEntry env entry `bindValidation` \(vt@(FromVType typ'), ref) ->
@@ -512,21 +543,14 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
       Just Refl -> pure id
       Nothing   -> throw (pn, (tail . show $ typeRep @t) <> " variable needed here")
 
+    -- TODO FIX
     isCalldataEntry Env{calldata} (U.EVar _ name) = case Map.lookup name calldata of
       Just _  -> True
       _ -> False
     isCalldataEntry _ _ = False
 
-    checkCalldataEntry Env{store,calldata} (U.EVar p name) = case (Map.lookup name store, Map.lookup name calldata) of
-      (Nothing, Nothing) -> throw (p, "Unknown variable " <> name)
-      (Just _, Just _)   -> throw (p, "Ambiguous variable " <> name)
-      (Nothing, Just at@(FromAbi varType)) -> Var p typ at name <$ checkEq p typ varType
-      (Just _, Nothing) -> error "Internal error: variable must be in calldata"
-    checkCalldataEntry _ _ =  error "Internal error: variable cannot be mapping or contract field"
-
 
 -- | Find the contract id of an expression with contract type
--- TODO fix
 checkContractType :: Env -> SType a -> Exp a t -> Err (Maybe Id)
 checkContractType env SInteger (ITE p _ a b) =
   checkContractType env SInteger a `bindValidation` \oc1 ->
@@ -535,6 +559,7 @@ checkContractType env SInteger (ITE p _ a b) =
     (Just c1, Just c2) -> Just c1 <$ assert (p, "Type of if-then-else branches does not match") (c1 == c2)
     (_, _ )-> pure Nothing
 checkContractType _ SInteger (Create _ c _) = pure $ Just c
+-- TODO Fix
 checkContractType Env{pointers} SInteger (Var _ _ _ x) =
   case Map.lookup x pointers of
     Just c -> pure $ Just c
