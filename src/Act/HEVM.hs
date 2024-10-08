@@ -761,6 +761,11 @@ abstractCmap this cmap =
     makeContract _ (EVM.GVar _, _) = error "Internal error: contract cannot be gvar"
 
 -- | Remove unreachable addresses from a contract map
+--   Assumes:
+--   1. all stores are to concrete addresses (this is OK, since this is the abstracted map
+--      containing only the slots that point to contracts)
+--   2. The storage map is simplfied. This means that all contract addresses stored as values
+--      are of the form (EVM.WAddr symaddr)
 pruneContractState :: EVM.Expr EVM.EAddr -> ContractMap -> ContractMap
 pruneContractState entryaddr cmap =
   -- trace "In prune" $ traceShow cmap $
