@@ -165,6 +165,20 @@ instance Eq (StorageRef t) where
   SField _ r c x == SField _ r' c' x' = r == r' && c == c' && x == x'
   _ == _ = False
 
+-- | References to variables passed as parameters. Can be either
+-- variable names or chains field accessors of variables annotated
+-- with two identifiers: the contract that the fields belongs to and
+-- the name of the field name.
+data VarRef (t :: Timing) where
+  VVar :: Pn -> Id -> VarRef t
+  VField :: Pn -> VarRef t -> Id -> Id -> VarRef t
+deriving instance Show (VarRef t)
+
+instance Eq (VarRef t) where
+  VVar _ x == VVar _ x' = x == x'
+  VField _ r c x == VField _ r' c' x' = r == r' && c == c' && x == x'
+  _ == _ = False
+
 _Item :: SingI a => ValueType -> StorageRef t -> TStorageItem a t
 _Item = Item sing
 
@@ -223,7 +237,7 @@ data Exp (a :: ActType) (t :: Timing) where
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   ITE :: Pn -> Exp ABoolean t -> Exp a t -> Exp a t -> Exp a t
-  Var :: Pn -> SType a -> AbiType -> Id -> Exp a t
+  Var :: Pn -> SType a -> AbiType -> VarRef t -> Exp a t
   TEntry :: Pn -> Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
 
@@ -326,7 +340,7 @@ instance Timable (Exp a) where
     NEq p s x y -> NEq p s (go x) (go y)
     ITE p x y z -> ITE p (go x) (go y) (go z)
     TEntry p _ item -> TEntry p time (go item)
-    Var p t a x -> Var p t a x
+    Var p t a x -> Var p t a (go x)
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
@@ -338,6 +352,10 @@ instance Timable StorageRef where
   setTime time (SMapping p e ixs) = SMapping p (setTime time e) (setTime time <$> ixs)
   setTime time (SField p e c x) = SField p (setTime time e) c x
   setTime _ (SVar p c x) = SVar p c x
+
+instance Timable VarRef where
+  setTime time (VField p e c x) = VField p (setTime time e) c x
+  setTime _ (VVar p x) = VVar p x
 
 ------------------------
 -- * JSON instances * --
@@ -444,6 +462,12 @@ instance ToJSON (StorageRef t) where
                                , "contract" .= pack c ]
   toJSON (SMapping _ e xs) = mapping e xs
   toJSON (SField _ e c x) = field e c x
+
+instance ToJSON (VarRef t) where
+  toJSON (VVar _ x) = object [ "kind" .= pack "Var"
+                             , "var" .=  pack x
+                             ]
+  toJSON (VField _ e c x) = field e c x
 
 mapping :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
 mapping a b = object [ "kind"      .= pack "Mapping"
@@ -590,6 +614,3 @@ uintmin _ = 0
 
 uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
-
-_Var :: SingI a => AbiType -> Id -> Exp a t
-_Var atyp = Var nowhere sing atyp
