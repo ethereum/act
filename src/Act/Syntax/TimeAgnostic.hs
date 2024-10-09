@@ -170,13 +170,13 @@ instance Eq (StorageRef t) where
 -- with two identifiers: the contract that the fields belongs to and
 -- the name of the field name.
 data VarRef (t :: Timing) where
-  VVar :: Pn -> Id -> VarRef t
-  VField :: Pn -> VarRef t -> Id -> Id -> VarRef t
+  VVar :: Pn -> AbiType -> Id -> VarRef t
+  VField :: Pn -> SlotType -> VarRef t -> Id -> Id -> VarRef t
 deriving instance Show (VarRef t)
 
 instance Eq (VarRef t) where
-  VVar _ x == VVar _ x' = x == x'
-  VField _ r c x == VField _ r' c' x' = r == r' && c == c' && x == x'
+  VVar _ t x == VVar _ t' x' = t == t' &&  x == x'
+  VField _ r vt c x == VField _ r' vt' c' x' = vt == vt' && r == r' && c == c' && x == x'
   _ == _ = False
 
 _Item :: SingI a => ValueType -> StorageRef t -> TStorageItem a t
@@ -237,7 +237,7 @@ data Exp (a :: ActType) (t :: Timing) where
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   ITE :: Pn -> Exp ABoolean t -> Exp a t -> Exp a t -> Exp a t
-  Var :: Pn -> SType a -> AbiType -> VarRef t -> Exp a t
+  Var :: Pn -> SType a -> VarRef t -> Exp a t
   TEntry :: Pn -> Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
 
@@ -279,7 +279,7 @@ instance Eq (Exp a t) where
 
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
   TEntry _ a t == TEntry _ b u = a == b && t == u
-  Var _ _ _ a == Var _ _ _ b = a == b
+  Var _ _ a == Var _ _ b = a == b
 
   Create _ a b == Create _ c d = a == c && b == d
 
@@ -340,7 +340,7 @@ instance Timable (Exp a) where
     NEq p s x y -> NEq p s (go x) (go y)
     ITE p x y z -> ITE p (go x) (go y) (go z)
     TEntry p _ item -> TEntry p time (go item)
-    Var p t a x -> Var p t a (go x)
+    Var p t x -> Var p t (go x)
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
@@ -354,8 +354,8 @@ instance Timable StorageRef where
   setTime _ (SVar p c x) = SVar p c x
 
 instance Timable VarRef where
-  setTime time (VField p e c x) = VField p (setTime time e) c x
-  setTime _ (VVar p x) = VVar p x
+  setTime time (VField p vt e c x) = VField p vt(setTime time e) c x
+  setTime _ (VVar p at x) = VVar p at x
 
 ------------------------
 -- * JSON instances * --
@@ -464,10 +464,11 @@ instance ToJSON (StorageRef t) where
   toJSON (SField _ e c x) = field e c x
 
 instance ToJSON (VarRef t) where
-  toJSON (VVar _ x) = object [ "kind" .= pack "Var"
-                             , "var" .=  pack x
-                             ]
-  toJSON (VField _ e c x) = field e c x
+  toJSON (VVar _ at x) = object [ "kind" .= pack "Var"
+                                , "var" .=  pack x
+                                , "abitype" .=  toJSON at
+                                ]
+  toJSON (VField _ _ e c x) = field e c x
 
 mapping :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
 mapping a b = object [ "kind"      .= pack "Mapping"
@@ -538,9 +539,8 @@ instance ToJSON (Exp a t) where
                               , "type" .= pack "bytestring" ]
   toJSON (TEntry _ t a) = object [ "entry"  .= toJSON a
                                  , "timing" .= show t ]
-  toJSON (Var _ t abitype a) = object [ "var"      .= toJSON a
-                                      , "abitype"  .= toJSON abitype
-                                      , "type"     .= show t ]
+  toJSON (Var _ t  a) = object [ "var"      .= toJSON a
+                               , "type"     .= show t ]
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                   , "arity"  .= Data.Aeson.Types.Number 2
                                   , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
