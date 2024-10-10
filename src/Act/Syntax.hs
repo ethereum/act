@@ -73,6 +73,9 @@ locFromUpdate (Update _ item _) = _Loc item
 locsFromItem :: TStorageItem a t -> [StorageLocation t]
 locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
 
+locsFromVarRef :: VarRef t -> [StorageLocation t]
+locsFromVarRef var = concatMap locsFromTypedExp (ixsFromVarRef var)
+
 locsFromTypedExp :: TypedExp t -> [StorageLocation t]
 locsFromTypedExp (TExp _ e) = locsFromExp e
 
@@ -113,7 +116,7 @@ locsFromExp = nub . go
       Create _ _ es -> concatMap locsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
-      Var {} -> []
+      Var _ _ v -> locsFromVarRef v
 
 createsFromExp :: Exp a t -> [Id]
 createsFromExp = nub . go
@@ -292,7 +295,13 @@ contractFromStorageRef (SField _ e _ _) = contractFromStorageRef e
 
 ixsFromItem :: TStorageItem a t -> [TypedExp t]
 ixsFromItem (Item _ _ (SMapping _ _ ixs)) = ixs
+-- TODO this must be fixed for multiple contracts
 ixsFromItem _ = []
+
+ixsFromVarRef :: VarRef t -> [TypedExp t]
+ixsFromVarRef (VMapping _ _ ixs) = ixs
+-- TODO this must be fixed for multiple contracts
+ixsFromVarRef _ = []
 
 contractsInvolved :: Behaviour t -> [Id]
 contractsInvolved = fmap contractFromUpdate . _stateUpdates

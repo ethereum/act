@@ -171,11 +171,14 @@ instance Eq (StorageRef t) where
 -- the name of the field name.
 data VarRef (t :: Timing) where
   VVar :: Pn -> AbiType -> Id -> VarRef t
+  VMapping ::  Pn -> VarRef t -> [TypedExp t] -> VarRef t
   VField :: Pn -> SlotType -> VarRef t -> Id -> Id -> VarRef t
 deriving instance Show (VarRef t)
+-- TODO better way to do Vars and Storage entires without duplication 
 
 instance Eq (VarRef t) where
-  VVar _ t x == VVar _ t' x' = t == t' &&  x == x'
+  VVar _ at x == VVar _ at' x' = at == at' &&  x == x'
+  VMapping _ r ixs == VMapping _ r' ixs' = r == r' && ixs == ixs'
   VField _ r vt c x == VField _ r' vt' c' x' = vt == vt' && r == r' && c == c' && x == x'
   _ == _ = False
 
@@ -340,7 +343,7 @@ instance Timable (Exp a) where
     NEq p s x y -> NEq p s (go x) (go y)
     ITE p x y z -> ITE p (go x) (go y) (go z)
     TEntry p _ item -> TEntry p time (go item)
-    Var p t x -> Var p t (go x)
+    Var p at x -> Var p at (go x)
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
@@ -354,8 +357,10 @@ instance Timable StorageRef where
   setTime _ (SVar p c x) = SVar p c x
 
 instance Timable VarRef where
-  setTime time (VField p vt e c x) = VField p vt(setTime time e) c x
+  setTime time (VMapping p e ixs) = VMapping p (setTime time e) (setTime time <$> ixs)
+  setTime time (VField p slt e c x) = VField p slt (setTime time e) c x
   setTime _ (VVar p at x) = VVar p at x
+
 
 ------------------------
 -- * JSON instances * --
@@ -465,9 +470,10 @@ instance ToJSON (StorageRef t) where
 
 instance ToJSON (VarRef t) where
   toJSON (VVar _ at x) = object [ "kind" .= pack "Var"
-                                , "var" .=  pack x
-                                , "abitype" .=  toJSON at
-                                ]
+                                  , "var" .=  pack x
+                                  , "abitype" .=  toJSON at
+                                  ]
+  toJSON (VMapping _ e xs) = mapping e xs
   toJSON (VField _ _ e c x) = field e c x
 
 mapping :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
@@ -614,3 +620,7 @@ uintmin _ = 0
 
 uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
+
+
+_Var :: SingI a => AbiType -> Id -> Exp a t
+_Var atyp x = Var nowhere sing (VVar nowhere atyp x)

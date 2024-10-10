@@ -137,7 +137,7 @@ mapExpM f = \case
     b' <- mapExpM f b
     c' <- mapExpM f c
     f (ITE p a' b' c')
-  Var p s a i -> f (Var p s a i)
+  Var p a r -> f (Var p a r)
   TEntry p t i -> do
     i' <- mapTStorageItemM f i
     f (TEntry p t i')

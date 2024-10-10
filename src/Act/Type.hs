@@ -386,16 +386,20 @@ validateEntry env entry =
 
 
 checkVar :: forall t. Typeable t => Env -> U.Entry -> Err (SlotType, Maybe Id, VarRef t)
-checkVar Env{contract,store,calldata, pointers} (U.EVar p name) = case (Map.lookup name store, Map.lookup name calldata) of
+checkVar Env{store,calldata, pointers} (U.EVar p name) = case (Map.lookup name store, Map.lookup name calldata) of
   (Just _, Just _) -> throw (p, "Ambiguous variable " <> name)
   (Nothing, Just typ) -> do
     pure (StorageValue (PrimitiveType typ), Map.lookup name pointers, VVar p typ name)
   (Just _, Nothing) ->  error $ "Internal error: Variable must be a calldata variable."
   (Nothing, Nothing) -> throw (p, "Unknown variable " <> show name)
   -- TODO more consitent check of name overlap between calldata and storage
-checkVar env (U.EMapping p e args) = throw (p, "Variables cannot have a mapping type")
+checkVar env (U.EMapping p v args) =
+  checkVar env v `bindValidation` \(typ, _, ref) -> case typ of
+    StorageValue _ -> throw (p, "Expression should have a mapping type" <> show v)
+    StorageMapping argtyps restyp ->
+      (StorageValue restyp, Nothing,) . VMapping p ref <$> checkIxs env p args (NonEmpty.toList argtyps)
 checkVar env@Env{theirs} (U.EField p e x) =
-  checkVar env e `bindValidation` \(typ, oc, ref) -> case oc of
+  checkVar env e `bindValidation` \(_, oc, ref) -> case oc of
     Just c -> case Map.lookup c theirs of
       Just cenv -> case Map.lookup x cenv of
         Just (st@(StorageValue (ContractType c')), _) -> pure (st, Just c', VField p st ref c x)
@@ -498,6 +502,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SInteger, U.IntLit  p v1)    -> pure $ LitInt  p v1
   -- Constructor calls
   (SInteger, U.ECreate p c args) -> case Map.lookup c constructors of
+    -- TODO check contract types
     Just typs -> Create p c <$> checkIxs env p args (fmap PrimitiveType typs)
     Nothing -> throw (p, "Unknown constructor " <> show c)
   -- Control
@@ -514,9 +519,10 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
     Just AInteger -> throw (p, "Environment variable " <> show v1 <> " has type integer but an expression of type bytestring is expected.")
     Just AByteStr -> pure $ ByEnv p v1
     _             -> throw (p, "Unknown environment variable " <> show v1)
-  -- Variable references
+  -- Variable referencesΕΙΔΙΚΟΣ ΛΟΓΑΡΙΑΣΜΟΣ ΚΟΝΔΥΛΙΩΝ ΕΡΕΥΝΑΣ Ε.Μ.Π.
+
   (_, U.EUTEntry entry) | isCalldataEntry env entry -> validateVar env entry `bindValidation` \((FromVType typ'), ref) ->
-    checkTime (getPosEntry entry) <*> (Var (getPosEntry entry) typ ref <$ checkEq (getPosEntry entry) typ typ')
+    Var (getPosEntry entry) typ ref <$ checkEq (getPosEntry entry) typ typ'
   -- Storage references
   (_, U.EUTEntry entry) -> validateEntry env entry `bindValidation` \(vt@(FromVType typ'), ref) ->
     checkTime (getPosEntry entry) <*> (TEntry (getPosEntry entry) Neither (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ')
@@ -559,12 +565,11 @@ checkContractType env SInteger (ITE p _ a b) =
     (Just c1, Just c2) -> Just c1 <$ assert (p, "Type of if-then-else branches does not match") (c1 == c2)
     (_, _ )-> pure Nothing
 checkContractType _ SInteger (Create _ c _) = pure $ Just c
--- TODO Fix
 checkContractType Env{pointers} SInteger (Var _ _ (VVar _ _ x)) =
   case Map.lookup x pointers of
     Just c -> pure $ Just c
     Nothing -> pure Nothing
-checkContractType Env{pointers} SInteger (Var _ _ (VField _ st _ _ _)) =
+checkContractType _ SInteger (Var _ _ (VField _ st _ _ _)) =
   case st of
     StorageValue (ContractType c) -> pure $ Just c
     _ -> pure $ Nothing   

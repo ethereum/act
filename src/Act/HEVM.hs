@@ -313,14 +313,34 @@ substExp subst expr = case expr of
   NEq pn st a b -> NEq pn st (substExp subst a) (substExp subst b)
 
   ITE pn a b c -> ITE pn (substExp subst a) (substExp subst b) (substExp subst c)
-  TEntry _ _ _ -> expr
-  Var _ st _ x -> case M.lookup x subst of
+  TEntry _ _ _ -> expr -- TODO must do ixs too
+  Var _ st (VVar _ _ x) -> case M.lookup x subst of
     Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
     Nothing -> expr
 
+  Var p st vref -> case substVarRef subst vref of
+    | Left ref -> TEntry p ?? (Item st ?? ref)
+    | Right ref -> Var p st ref
+
   Create pn a b -> Create pn a (substArgs subst b)
 
+substVarRef :: M.Map Id TypedExp -> VarRef -> Either StorageRef VarRef 
+substVarRef subst (VVar _ _ x) = 
+  case M.lookup x subst of
+    Just (TExp st' (TEntry _ _ (Item _ _ ref)) -> Left ref
+    Just (TExp st' (Var _ _ ref)) -> Right ref
+    Nothing -> error "Internal error: cannot access fields of non-pointer var"
+substVarRef st subst (VField pn st vref c x) =
+  case substVarRef subst vref of
+    | Letf ref -> SField pn ref c x
+    | Right ref -> VField pn st ref c x
+substVarRef st subst (VMapping pn vref ixs) =
+  case substVarRef subst vref of
+    | Letf ref -> SMapping pn ref (substArgs subst ixs)
+    | Right ref -> VMapping pn ref (substArgs subst ixs)
+ 
 
+               
 returnsToExpr :: Monad m => ContractMap -> Maybe TypedExp -> ActT m (EVM.Expr EVM.Buf)
 returnsToExpr _ Nothing = pure $ EVM.ConcreteBuf ""
 returnsToExpr cmap (Just r) = typedExpToBuf cmap r

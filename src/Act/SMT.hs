@@ -625,7 +625,7 @@ expToSMT2 expr = case expr of
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
   ITE _ a b c -> triop "ite" a b c
-  Var _ _ _ a -> nameFromVarId a
+  Var _ _ a -> varref a
   TEntry _ w item -> entry item w
   where
     unop :: String -> Exp a -> Ctx SMT2
@@ -643,6 +643,13 @@ expToSMT2 expr = case expr of
     entry item whn = case ixsFromItem item of
       []       -> pure $ nameFromItem whn item
       (ix:ixs) -> select (nameFromItem whn item) (ix :| ixs)
+
+    varref :: VarRef -> Ctx SMT2
+    varref var = case ixsFromVarRef var of
+      []       -> nameFromVarRef var
+      (ix:ixs) -> do
+        name <- nameFromVarRef var
+        select name (ix :| ixs)
 
 -- | SMT2 has no support for exponentiation, but we can do some preprocessing
 --   if the RHS is concrete to provide some limited support for exponentiation
@@ -694,6 +701,13 @@ nameFromStorageRef :: StorageRef -> Id
 nameFromStorageRef (SVar _ c name) = c @@ name
 nameFromStorageRef (SMapping _ e _) = nameFromStorageRef e
 nameFromStorageRef (SField _ ref c x) = nameFromStorageRef ref @@ c @@ x
+
+nameFromVarRef :: VarRef -> Ctx Id
+nameFromVarRef (VVar _ _ name) = nameFromVarId name
+nameFromVarRef (VMapping _ v _) = nameFromVarRef v
+nameFromVarRef (VField _ _ ref c x) = do
+  name <- nameFromVarRef ref
+  pure $ name @@ c @@ x
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id

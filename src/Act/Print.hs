@@ -143,7 +143,7 @@ prettyExp e = case e of
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
   TEntry _ t a -> timeParens t $ prettyItem a
-  Var _ _ _ x -> x
+  Var _ _ x -> prettyVar x
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
@@ -158,6 +158,14 @@ prettyRef = \case
   SVar _ _ n -> n
   SMapping _ r args -> prettyRef r <> concatMap (brackets . prettyTypedExp) args
   SField _ r _ n -> prettyRef r <> "." <> n
+  where
+    brackets str = "[" <> str <> "]"
+
+prettyVar :: VarRef t -> String
+prettyVar = \case
+  VVar _ _ n -> n
+  VMapping _ r args -> prettyVar r <> concatMap (brackets . prettyTypedExp) args
+  VField _ _ r _ n -> prettyVar r <> "." <> n
   where
     brackets str = "[" <> str <> "]"
 
@@ -201,6 +209,11 @@ prettyInvPred = prettyExp . untime . fst
     untimeStorageRef (SMapping p e xs) = SMapping p (untimeStorageRef e) (fmap untimeTyped xs)
     untimeStorageRef (SField p e c x) = SField p (untimeStorageRef e) c x
 
+    untimeVarRef :: VarRef t -> VarRef Untimed
+    untimeVarRef (VVar p c a) = VVar p c a
+    untimeVarRef (VMapping p e xs) = VMapping p (untimeVarRef e) (fmap untimeTyped xs)
+    untimeVarRef (VField p st e c x) = VField p st (untimeVarRef e) c x
+
     untime :: Exp a t -> Exp a Untimed
     untime e = case e of
       And p a b   -> And p (untime a) (untime b)
@@ -235,7 +248,7 @@ prettyInvPred = prettyExp . untime . fst
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
       TEntry p _ (Item t vt a) -> TEntry p Neither (Item t vt (untimeStorageRef a))
-      Var p t at a -> Var p t at a
+      Var p at a -> Var p at (untimeVarRef a)
 
 
 -- | Doc type for terminal output
