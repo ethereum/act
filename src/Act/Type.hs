@@ -402,8 +402,8 @@ checkVar env@Env{theirs} (U.EField p e x) =
   checkVar env e `bindValidation` \(_, oc, ref) -> case oc of
     Just c -> case Map.lookup c theirs of
       Just cenv -> case Map.lookup x cenv of
-        Just (st@(StorageValue (ContractType c')), _) -> pure (st, Just c', VField p st ref c x)
-        Just (st, _) -> pure (st, Nothing, VField p st ref c x)
+        Just (st@(StorageValue (ContractType c')), _) -> pure (st, Just c', VField p ref c x)
+        Just (st, _) -> pure (st, Nothing, VField p ref c x)
         Nothing -> throw (p, "Contract " <> c <> " does not have field " <> x)
       Nothing -> error $ "Internal error: Invalid contract type " <> show c
     _ -> throw (p, "Expression should have a contract type" <> show e)
@@ -442,7 +442,7 @@ checkIffs env = foldr check (pure [])
 
 genInRange :: AbiType -> Exp AInteger t -> [Exp ABoolean t]
 genInRange t e@(LitInt _ _) = [InRange nowhere t e]
-genInRange t e@(Var _ _ _)  = [InRange nowhere t e]
+genInRange t e@(Var _ _ _ _ _)  = [InRange nowhere t e]
 genInRange t e@(TEntry _ _ _)  = [InRange nowhere t e]
 genInRange t e@(Add _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
 genInRange t e@(Sub _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
@@ -519,10 +519,12 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
     Just AInteger -> throw (p, "Environment variable " <> show v1 <> " has type integer but an expression of type bytestring is expected.")
     Just AByteStr -> pure $ ByEnv p v1
     _             -> throw (p, "Unknown environment variable " <> show v1)
-  -- Variable referencesΕΙΔΙΚΟΣ ΛΟΓΑΡΙΑΣΜΟΣ ΚΟΝΔΥΛΙΩΝ ΕΡΕΥΝΑΣ Ε.Μ.Π.
+  -- Variable references
 
-  (_, U.EUTEntry entry) | isCalldataEntry env entry -> validateVar env entry `bindValidation` \((FromVType typ'), ref) ->
-    Var (getPosEntry entry) typ ref <$ checkEq (getPosEntry entry) typ typ'
+  (_, U.EUTEntry entry) | isCalldataEntry env entry -> validateVar env entry `bindValidation` \(vt@(FromVType typ'), ref) ->
+    checkTime (getPosEntry entry) <*> (Var (getPosEntry entry) Neither typ vt ref <$ checkEq (getPosEntry entry) typ typ')
+  (_, U.EPreEntry entry) | isCalldataEntry env entry -> error "Not supported"
+  (_, U.EPostEntry entry) | isCalldataEntry env entry -> error "Not supported"
   -- Storage references
   (_, U.EUTEntry entry) -> validateEntry env entry `bindValidation` \(vt@(FromVType typ'), ref) ->
     checkTime (getPosEntry entry) <*> (TEntry (getPosEntry entry) Neither (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ')
@@ -565,19 +567,11 @@ checkContractType env SInteger (ITE p _ a b) =
     (Just c1, Just c2) -> Just c1 <$ assert (p, "Type of if-then-else branches does not match") (c1 == c2)
     (_, _ )-> pure Nothing
 checkContractType _ SInteger (Create _ c _) = pure $ Just c
-checkContractType Env{pointers} SInteger (Var _ _ (VVar _ _ x)) =
-  case Map.lookup x pointers of
-    Just c -> pure $ Just c
-    Nothing -> pure Nothing
-checkContractType _ SInteger (Var _ _ (VField _ st _ _ _)) =
-  case st of
-    StorageValue (ContractType c) -> pure $ Just c
-    _ -> pure $ Nothing   
+checkContractType _ _ (Var _ _ _ (ContractType c) _) = pure $ Just c
 checkContractType _ _ (TEntry _ _ (Item _ (ContractType c) _)) = pure $ Just c
 checkContractType _ SInteger _ =  pure Nothing
 checkContractType _ SBoolean _ =  pure Nothing
 checkContractType _ SByteStr _ =  pure Nothing
--- checkContractType (TEntry _ _ (Item _ _ _)) = error "Internal error: entry does not have contract type"
 
 checkEq :: forall a b. Pn -> SType a -> SType b -> Err ()
 checkEq p t1 t2 = maybe err (\Refl -> pure ()) $  testEquality t1 t2

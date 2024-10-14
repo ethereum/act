@@ -116,7 +116,7 @@ locsFromExp = nub . go
       Create _ _ es -> concatMap locsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
-      Var _ _ v -> locsFromVarRef v
+      Var _ _ _ _ v -> locsFromVarRef v
 
 createsFromExp :: Exp a t -> [Id]
 createsFromExp = nub . go

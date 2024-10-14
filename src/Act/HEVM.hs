@@ -9,6 +9,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE NoFieldSelectors #-}
+{-# Language TypeApplications #-}
 
 {-# LANGUAGE DuplicateRecordFields #-}
 
@@ -34,10 +35,12 @@ import Control.Monad.State
 import Data.List.NonEmpty qualified as NE
 import Data.Validation
 import Data.Text.Lazy.Builder
+import Data.Typeable hiding (typeRep)
 
 import Act.HEVM_utils
 import Act.Syntax.Annotated as Act
 import Act.Syntax.Untyped (makeIface)
+import Act.Syntax.Timing (Timing(..))
 import Act.Syntax
 import Act.Error
 import Act.Print
@@ -314,30 +317,36 @@ substExp subst expr = case expr of
 
   ITE pn a b c -> ITE pn (substExp subst a) (substExp subst b) (substExp subst c)
   TEntry _ _ _ -> expr -- TODO must do ixs too
-  Var _ st (VVar _ _ x) -> case M.lookup x subst of
+  
+  Var _ _ st _ (VVar _ _ x) -> case M.lookup x subst of
     Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
-    Nothing -> expr
+    Nothing -> error "Internal error: Ill-defined substitution"
+    -- where
+    --   checkTime :: forall a t0. Typeable t0 => TA.Exp a t0 -> TA.Exp a Timed
+    --   checkTime = case eqT Timed @t0 of
+    --     Just Refl -> pure id
+    --     Nothing   -> error "Internal error: time missmatch"
 
-  Var p st vref -> case substVarRef subst vref of
-    | Left ref -> TEntry p ?? (Item st ?? ref)
-    | Right ref -> Var p st ref
+  Var p tm st vt vref -> case substVarRef subst vref of
+    Left ref -> TEntry p tm (Item st vt ref) -- TODO deal with timings. Right now we can only refer to Pre
+    Right ref -> Var p tm st vt ref
 
   Create pn a b -> Create pn a (substArgs subst b)
 
 substVarRef :: M.Map Id TypedExp -> VarRef -> Either StorageRef VarRef 
 substVarRef subst (VVar _ _ x) = 
   case M.lookup x subst of
-    Just (TExp st' (TEntry _ _ (Item _ _ ref)) -> Left ref
-    Just (TExp st' (Var _ _ ref)) -> Right ref
+    Just (TExp st' (TEntry _ _ (Item _ _ ref))) -> Left ref
+    Just (TExp st' (Var _ _ _ _ ref)) -> Right ref
     Nothing -> error "Internal error: cannot access fields of non-pointer var"
-substVarRef st subst (VField pn st vref c x) =
+substVarRef subst (VField pn vref c x) =
   case substVarRef subst vref of
-    | Letf ref -> SField pn ref c x
-    | Right ref -> VField pn st ref c x
-substVarRef st subst (VMapping pn vref ixs) =
+    Left ref -> Left $ SField pn ref c x
+    Right ref -> Right $ VField pn ref c x
+substVarRef subst (VMapping pn vref ixs) =
   case substVarRef subst vref of
-    | Letf ref -> SMapping pn ref (substArgs subst ixs)
-    | Right ref -> VMapping pn ref (substArgs subst ixs)
+    Left ref -> Left $ SMapping pn ref (substArgs subst ixs)
+    Right ref -> Right $ VMapping pn ref (substArgs subst ixs)
  
 
                
@@ -468,7 +477,7 @@ toProp cmap = \case
     pure $ EVM.PNeg e
   (NEq _ _ _ _) -> error "unsupported"
   (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
-  (Var _ _ _ _) -> error "TODO"
+  (Var _ _ _ _ _) -> error "TODO"
   (TEntry _ _ _) -> error "TODO" -- EVM.SLoad addr idx
   (InRange _ t e) -> toProp cmap (inRange t e)
   where
@@ -551,7 +560,7 @@ toExpr cmap = liftM stripMods . go
       (NEq _ _ _ _) -> error "unsupported"
 
       e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
-      (Var _ SInteger typ x) ->  -- TODO other types
+      (Var _ _ SInteger typ _ x) ->  -- TODO other types
         pure $ fromCalldataFramgment $ symAbiArg (T.pack x) typ
 
       (TEntry _ _ (Item SInteger _ ref)) -> do

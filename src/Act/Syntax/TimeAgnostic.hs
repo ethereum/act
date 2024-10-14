@@ -149,12 +149,16 @@ data TStorageItem (a :: ActType) (t :: Timing) where
 deriving instance Show (TStorageItem a t)
 deriving instance Eq (TStorageItem a t)
 
+_TExp :: SingI a => Exp a t -> TypedExp t
+_TExp expr = TExp sing expr
+
+
 -- | Reference to an item in storage. It can be either a bare variable, a
 -- map lookup, or a field selection. Variables and fields are
 -- annotated with two identifiers: the contract that they belong to
 -- and their name.
 data StorageRef (t :: Timing) where
-  SVar :: Pn -> Id -> Id -> StorageRef t
+  SVar :: Pn -> Id -> Id -> StorageRef t  
   SMapping :: Pn -> StorageRef t -> [TypedExp t] -> StorageRef t
   SField :: Pn -> StorageRef t -> Id -> Id -> StorageRef t
 deriving instance Show (StorageRef t)
@@ -172,14 +176,14 @@ instance Eq (StorageRef t) where
 data VarRef (t :: Timing) where
   VVar :: Pn -> AbiType -> Id -> VarRef t
   VMapping ::  Pn -> VarRef t -> [TypedExp t] -> VarRef t
-  VField :: Pn -> SlotType -> VarRef t -> Id -> Id -> VarRef t
+  VField :: Pn -> VarRef t -> Id -> Id -> VarRef t
 deriving instance Show (VarRef t)
 -- TODO better way to do Vars and Storage entires without duplication 
 
 instance Eq (VarRef t) where
   VVar _ at x == VVar _ at' x' = at == at' &&  x == x'
   VMapping _ r ixs == VMapping _ r' ixs' = r == r' && ixs == ixs'
-  VField _ r vt c x == VField _ r' vt' c' x' = vt == vt' && r == r' && c == c' && x == x'
+  VField _ r c x == VField _ r' c' x' = r == r' && c == c' && x == x'
   _ == _ = False
 
 _Item :: SingI a => ValueType -> StorageRef t -> TStorageItem a t
@@ -189,9 +193,6 @@ _Item = Item sing
 data TypedExp t
   = forall a. TExp (SType a) (Exp a t)
 deriving instance Show (TypedExp t)
-
-_TExp :: SingI a => Exp a t -> TypedExp t
-_TExp expr = TExp sing expr
 
 instance Eq (TypedExp t) where
   TExp SType e1 == TExp SType e2 = eqS e1 e2
@@ -240,7 +241,7 @@ data Exp (a :: ActType) (t :: Timing) where
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   ITE :: Pn -> Exp ABoolean t -> Exp a t -> Exp a t -> Exp a t
-  Var :: Pn -> SType a -> VarRef t -> Exp a t
+  Var :: Pn -> Time t -> SType a -> ValueType -> VarRef t -> Exp a t
   TEntry :: Pn -> Time t -> TStorageItem a t -> Exp a t
 deriving instance Show (Exp a t)
 
@@ -282,7 +283,7 @@ instance Eq (Exp a t) where
 
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
   TEntry _ a t == TEntry _ b u = a == b && t == u
-  Var _ _ a == Var _ _ b = a == b
+  Var _ _ _ vt1 a == Var _ _ _ vt2 b = vt1 == vt2 && a == b
 
   Create _ a b == Create _ c d = a == c && b == d
 
@@ -343,7 +344,7 @@ instance Timable (Exp a) where
     NEq p s x y -> NEq p s (go x) (go y)
     ITE p x y z -> ITE p (go x) (go y) (go z)
     TEntry p _ item -> TEntry p time (go item)
-    Var p at x -> Var p at (go x)
+    Var p _ at vt x -> Var p time at vt (go x)
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
@@ -358,7 +359,7 @@ instance Timable StorageRef where
 
 instance Timable VarRef where
   setTime time (VMapping p e ixs) = VMapping p (setTime time e) (setTime time <$> ixs)
-  setTime time (VField p slt e c x) = VField p slt (setTime time e) c x
+  setTime time (VField p e c x) = VField p (setTime time e) c x
   setTime _ (VVar p at x) = VVar p at x
 
 
@@ -474,7 +475,7 @@ instance ToJSON (VarRef t) where
                                   , "abitype" .=  toJSON at
                                   ]
   toJSON (VMapping _ e xs) = mapping e xs
-  toJSON (VField _ _ e c x) = field e c x
+  toJSON (VField _ e c x) = field e c x
 
 mapping :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
 mapping a b = object [ "kind"      .= pack "Mapping"
@@ -545,8 +546,8 @@ instance ToJSON (Exp a t) where
                               , "type" .= pack "bytestring" ]
   toJSON (TEntry _ t a) = object [ "entry"  .= toJSON a
                                  , "timing" .= show t ]
-  toJSON (Var _ t  a) = object [ "var"      .= toJSON a
-                               , "type"     .= show t ]
+  toJSON (Var _ _ t _ a) = object [ "var"      .= toJSON a
+                                  , "type"     .= show t ]
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                   , "arity"  .= Data.Aeson.Types.Number 2
                                   , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
@@ -621,6 +622,5 @@ uintmin _ = 0
 uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
-
-_Var :: SingI a => AbiType -> Id -> Exp a t
-_Var atyp x = Var nowhere sing (VVar nowhere atyp x)
+_Var :: SingI a => Time t -> AbiType -> Id -> Exp a t
+_Var tm at x = Var nowhere tm sing (PrimitiveType at) (VVar nowhere at x)

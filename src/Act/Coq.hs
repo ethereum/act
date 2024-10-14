@@ -279,7 +279,7 @@ coqexp :: Exp a -> T.Text
 -- booleans
 coqexp (LitBool _ True)  = "true"
 coqexp (LitBool _ False) = "false"
-coqexp (Var _ SBoolean (VVar _ _ name))  = T.pack name
+coqexp (Var _ _ SBoolean _ (VVar _ _ name))  = T.pack name
 coqexp (And _ e1 e2)  = parens $ "andb "   <> coqexp e1 <> " " <> coqexp e2
 coqexp (Or _ e1 e2)   = parens $ "orb"     <> coqexp e1 <> " " <> coqexp e2
 coqexp (Impl _ e1 e2) = parens $ "implb"   <> coqexp e1 <> " " <> coqexp e2
@@ -293,7 +293,7 @@ coqexp (GEQ _ e1 e2)  = parens $ coqexp e2 <> " <=? " <> coqexp e1
 
 -- integers
 coqexp (LitInt _ i) = T.pack $ show i
-coqexp (Var _ SInteger (VVar _ _ name))  = T.pack name
+coqexp (Var _ _ SInteger _ (VVar _ _ name))  = T.pack name
 coqexp (Add _ e1 e2) = parens $ coqexp e1 <> " + " <> coqexp e2
 coqexp (Sub _ e1 e2) = parens $ coqexp e1 <> " - " <> coqexp e2
 coqexp (Mul _ e1 e2) = parens $ coqexp e1 <> " * " <> coqexp e2
@@ -325,11 +325,11 @@ coqexp (Create _ cid args) = parens $ T.pack cid <> "." <> T.pack cid <> " " <> 
 -- unsupported
 coqexp Cat {} = error "bytestrings not supported"
 coqexp Slice {} = error "bytestrings not supported"
-coqexp (Var _ SByteStr _) = error "bytestrings not supported"
+coqexp (Var _ _ SByteStr _ _) = error "bytestrings not supported"
 coqexp ByStr {} = error "bytestrings not supported"
 coqexp ByLit {} = error "bytestrings not supported"
 coqexp ByEnv {} = error "bytestrings not supported"
-coqexp (Var _ _ _)  = error "Casting to contracts is not supported"
+coqexp (Var _ _ _ _ _)  = error "Casting to contracts is not supported"
 
 -- | coq syntax for a proposition
 coqprop :: Exp a -> T.Text
