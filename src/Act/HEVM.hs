@@ -30,22 +30,20 @@ import Control.Monad
 import Data.Foldable (sequenceA_)
 import Data.DoubleWord
 import Data.Maybe
-import Data.Type.Equality (TestEquality(..), (:~:)(..))
+import Data.Type.Equality (TestEquality(..))
 import Control.Monad.State
 import Data.List.NonEmpty qualified as NE
 import Data.Validation
-import Data.Text.Lazy.Builder
 import Data.Typeable hiding (typeRep)
 
 import Act.HEVM_utils
 import Act.Syntax.Annotated as Act
 import Act.Syntax.Untyped (makeIface)
-import Act.Syntax.Timing (Timing(..))
 import Act.Syntax
 import Act.Error
 import Act.Print
-
-import qualified Act.SMT as SMT
+import qualified Act.Syntax.TimeAgnostic as TA
+import Act.Syntax.Timing
 
 import EVM.ABI (Sig(..))
 import EVM as EVM hiding (bytecode)
@@ -53,7 +51,7 @@ import qualified EVM.Types as EVM hiding (FrameState(..))
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial, reachable)
 import qualified EVM.SymExec as SymExec (EquivResult)
-import EVM.SMT (SMTCex(..), assertProps, SMT2(..))
+import EVM.SMT (SMTCex(..), assertProps)
 import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
@@ -204,7 +202,7 @@ applyUpdates :: Monad m => ContractMap -> ContractMap -> [StorageUpdate] -> ActT
 applyUpdates readMap writeMap upds = foldM (applyUpdate readMap) writeMap upds
 
 applyUpdate :: Monad m => ContractMap -> ContractMap -> StorageUpdate -> ActT m ContractMap
-applyUpdate readMap writeMap (Update typ (Item _ vtyp ref) e) = do
+applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
   caddr' <- baseAddr readMap ref
   offset <- refOffset readMap ref
   let (contract, cid) = fromMaybe (error $ "Internal error: contract not found\n" <> show e) $ M.lookup caddr' writeMap
@@ -317,16 +315,13 @@ substExp subst expr = case expr of
 
   ITE pn a b c -> ITE pn (substExp subst a) (substExp subst b) (substExp subst c)
   TEntry _ _ _ -> expr -- TODO must do ixs too
-  
+
+  -- Substituion of a variable, simple case
   Var _ _ st _ (VVar _ _ x) -> case M.lookup x subst of
     Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
     Nothing -> error "Internal error: Ill-defined substitution"
-    -- where
-    --   checkTime :: forall a t0. Typeable t0 => TA.Exp a t0 -> TA.Exp a Timed
-    --   checkTime = case eqT Timed @t0 of
-    --     Just Refl -> pure id
-    --     Nothing   -> error "Internal error: time missmatch"
 
+  -- Substituion of a variable, when this is variable is used as a pointer to contract
   Var p tm st vt vref -> case substVarRef subst vref of
     Left ref -> TEntry p tm (Item st vt ref) -- TODO deal with timings. Right now we can only refer to Pre
     Right ref -> Var p tm st vt ref
@@ -336,9 +331,10 @@ substExp subst expr = case expr of
 substVarRef :: M.Map Id TypedExp -> VarRef -> Either StorageRef VarRef 
 substVarRef subst (VVar _ _ x) = 
   case M.lookup x subst of
-    Just (TExp st' (TEntry _ _ (Item _ _ ref))) -> Left ref
-    Just (TExp st' (Var _ _ _ _ ref)) -> Right ref
-    Nothing -> error "Internal error: cannot access fields of non-pointer var"
+    Just (TExp _ (TEntry _ _ (Item _ _ ref))) -> Left ref
+    Just (TExp _ (Var _ _ _ _ ref)) -> Right ref
+    Just _ -> error "Internal error: cannot access fields of non-pointer var"
+    Nothing -> error "Internal error: ill-formed substitution"
 substVarRef subst (VField pn vref c x) =
   case substVarRef subst vref of
     Left ref -> Left $ SField pn ref c x
@@ -504,9 +500,10 @@ stripMods = mapExpr go
     go (EVM.Mod a (EVM.Lit MAX_UINT)) = a
     go a = a
 
-toExpr :: Monad m => forall a. ContractMap -> Exp a -> ActT m (EVM.Expr (ExprType a))
+toExpr :: forall a m. Monad m => ContractMap -> TA.Exp a Timed -> ActT m (EVM.Expr (ExprType a))
 toExpr cmap = liftM stripMods . go
   where
+    go :: Exp a -> ActT m (EVM.Expr (ExprType a))
     go = \case
       -- booleans
       (And _ e1 e2) -> op2 EVM.And e1 e2
@@ -560,7 +557,8 @@ toExpr cmap = liftM stripMods . go
       (NEq _ _ _ _) -> error "unsupported"
 
       e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
-      (Var _ _ SInteger typ _ x) ->  -- TODO other types
+
+      (Var _ _ SInteger typ vref) ->  -- TODO other types
         pure $ fromCalldataFramgment $ symAbiArg (T.pack x) typ
 
       (TEntry _ _ (Item SInteger _ ref)) -> do
@@ -585,6 +583,23 @@ toExpr cmap = liftM stripMods . go
     fromCalldataFramgment (St _ word) = word
     fromCalldataFramgment _ = error "Internal error: only static types are supported"
 
+
+vrefToExp :: App m => SType a -> VarRef -> ActT m (EVM.Expr (ExprType a))
+vrefToExp st _ (VVar _ typ x) = pure $ fromCalldataFramgment $ symAbiArg (T.pack x) typ
+vrefToExp st cmap (VField _ ref cid name) = do
+  case simplify (vrefToExp SInteger ref) of
+    EVM.WAddr symaddr -> do
+      let (contract, _) = fromMaybe (error "Internal error: contract not found") $ M.lookup symaddr cmap
+      layout <- getLayout
+      let slot = getSlot layout cid name
+      
+      let storage = case contract of
+            EVM.C _ s _ _  -> s
+            EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
+
+      pure $ EVM.SLoad slot storage
+vrefToExp st cmap (VField _ ref cid name) = error "Unsuported"
+
 inRange :: AbiType -> Exp AInteger -> Exp ABoolean
 -- if the type has the type of machine word then check per operation
 inRange (AbiUIntType 256) e = checkOp e
@@ -595,7 +610,7 @@ inRange t e = bound t e
 
 checkOp :: Exp AInteger -> Exp ABoolean
 checkOp (LitInt _ i) = LitBool nowhere $ i <= (fromIntegral (maxBound :: Word256))
-checkOp (Var _ _ _ _)  = LitBool nowhere True
+checkOp (Var _ _ _ _ _)  = LitBool nowhere True
 checkOp (TEntry _ _ _)  = LitBool nowhere True
 checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
 checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
