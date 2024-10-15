@@ -273,7 +273,7 @@ checkPointer Env{theirs,calldata} (U.PointsTo p x c) =
     Just AbiAddressType -> pure ()
     Just  _ -> throw (p, "Variable " <> x <> " does not have an address type")
     Nothing -> throw (p, "Unknown variable " <> x)
-  
+
 
 -- | Check if the types of storage variables are valid
 validStorage :: Env -> U.Assign -> Err ()
@@ -411,8 +411,12 @@ checkVar env@Env{theirs} (U.EField p e x) =
 
 validateVar :: forall t. Typeable t => Env -> U.Entry -> Err (ValueType, VarRef t)
 validateVar env var =
-  checkVar env var `bindValidation` \(typ, _, ref) -> case typ of
-    StorageValue t -> pure (t, ref)
+  checkVar env var `bindValidation` \(typ, cid, ref) -> case typ of
+    StorageValue t -> case cid of
+                        Just c ->
+                          -- TODO there are two valid types we can return here
+                          pure (ContractType c, ref)
+                        _ -> pure (t, ref)
     -- TODO can mappings be assigned?
     StorageMapping _ _  -> throw (getPosEntry var, "Top-level expressions cannot have mapping type")
 
@@ -538,7 +542,9 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
 
   where
     polycheck :: Pn -> (forall y. Pn -> SType y -> Exp y t -> Exp y t -> Exp x t) -> U.Expr -> U.Expr -> Err (Exp x t)
-    polycheck pn cons v1 v2 = findSuccess (throw (pn, "Cannot match the type of expression " <> show v1 <> " with expression " <> show v2))
+    polycheck pn cons v1 v2 = findSuccess (throw (pn, "Cannot match the type of expression " <> show v1 <>" with expression " <> show v2))
+
+      -- TODO this is inefficient and produces really bad error messages. Do proper type inference instead
       [ cons pn SInteger <$> checkExpr env SInteger v1 <*> checkExpr env SInteger v2
       , cons pn SBoolean <$> checkExpr env SBoolean v1 <*> checkExpr env SBoolean v2
       , cons pn SByteStr <$> checkExpr env SByteStr v1 <*> checkExpr env SByteStr v2
@@ -555,7 +561,8 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
     isCalldataEntry Env{calldata} (U.EVar _ name) = case Map.lookup name calldata of
       Just _  -> True
       _ -> False
-    isCalldataEntry _ _ = False
+    isCalldataEntry env (U.EMapping _ entry _) = isCalldataEntry env entry
+    isCalldataEntry env (U.EField _ entry _) = isCalldataEntry env entry
 
 
 -- | Find the contract id of an expression with contract type
