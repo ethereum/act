@@ -11,7 +11,7 @@
 
 {-|
 Module      : Decompile
-Description : Decompile EVM bytecode into Act
+Description : Decompile EVM bytecode into Act378
 
 This module decompiles EVM bytecode into an Act spec. It operates as follows
 
@@ -375,7 +375,7 @@ fromWord layout w = go w
     go :: EVM.Expr EVM.EWord -> Either Text (Exp AInteger)
     go (EVM.Lit a) = Right $ LitInt nowhere (toInteger a)
     -- TODO: get the actual abi type from the compiler output
-    go (EVM.Var a) = Right $ Var nowhere SInteger (AbiBytesType 32) (T.unpack a)
+    go (EVM.Var a) = Right $ _Var Pre (AbiBytesType 32) (T.unpack a)
     go (EVM.TxValue) = Right $ IntEnv nowhere Callvalue
 
     -- overflow checks
