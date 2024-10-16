@@ -410,7 +410,7 @@ refAddr cmap (SVar _ c x) = do
       let slot = EVM.Lit $ fromIntegral $ getSlot layout c x
       case simplify (EVM.SLoad slot storage) of
         EVM.WAddr symaddr -> pure symaddr
-        _ -> error $ "Internal error: did not find a symbolic address"
+        e -> error $ "Internal error: did not find a symbolic address: " <> show e
     Just _ -> error "Internal error: unepected GVar "
     Nothing -> error "Internal error: contract not found"
 refAddr cmap (SField _ ref c x) = do
@@ -722,17 +722,11 @@ checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ ifa
   -- TODO check if contrainsts about preexistsing fresh symbolic addresses are necessary
   solbehvs <- lift $ removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 1 fresh) fresh
 
-  -- traceM "Solc behvs: "
-  -- traceM $ showBehvs solbehvs
-  -- traceM "Act behvs: "
-  -- traceM $ showBehvs actbehvs
-
   -- Check equivalence
   lift $ showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   res1 <- lift $ checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   lift $ showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
   res2 <- lift $ checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
-  -- traceM "Constructor map"
   pure $ checks *> res1 *> res2 *> Success (abstractCmap initAddr $ cmap)
   where
     removeFails branches = filter isSuccess $ branches
@@ -745,11 +739,6 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
   actbehvs <- translateBehvs actstorage behvs
   (liftM $ concatError def) $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
-
-    -- if name == "upd" then traceM "Solc behvs: " else pure ()
-    -- if name == "upd" then traceM $ showBehvs solbehvs else pure ()
-    -- if name == "upd" then traceM "Act behvs: " else pure ()
-    -- if name == "upd" then traceM $ showBehvs behvs' else pure ()
 
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
@@ -805,7 +794,7 @@ abstractCmap this cmap =
     traverseStorage _ _ = error $ "Internal error: unexpected storage shape"
 
     makeContract :: EVM.Expr EVM.EAddr -> (EVM.Expr EVM.EContract, Id) -> (EVM.Expr EVM.EContract, Id)
-    makeContract addr (EVM.C code storage _ _, cid) = (EVM.C code (traverseStorage addr storage) (EVM.Balance addr) (Just 0), cid)
+    makeContract addr (EVM.C code storage _ _, cid) = (EVM.C code (traverseStorage addr (simplify storage)) (EVM.Balance addr) (Just 0), cid)
     makeContract _ (EVM.GVar _, _) = error "Internal error: contract cannot be gvar"
 
 -- | Remove unreachable addresses from a contract map
@@ -816,9 +805,7 @@ abstractCmap this cmap =
 --      are of the form (EVM.WAddr symaddr)
 pruneContractState :: EVM.Expr EVM.EAddr -> ContractMap -> ContractMap
 pruneContractState entryaddr cmap =
-  -- trace "In prune" $ traceShow cmap $
   let reach = reachable entryaddr cmap in
-  -- trace "reach" $ traceShow reach $
   M.filterWithKey (\k _ -> elem k reach) cmap
 
   where
@@ -829,12 +816,9 @@ pruneContractState entryaddr cmap =
         -- Note: there state is a tree, no need to mark visisted
         go :: EVM.Expr EVM.EAddr -> [EVM.Expr EVM.EAddr] -> [EVM.Expr EVM.EAddr]
         go addr' acc =
-          -- trace "found" $ traceShow addr'$
-          -- traceShow cmap $
           case M.lookup addr' cmap' of
             Just (EVM.C _ storage _ _, _) ->
               let addrs = getAddrs storage in
-              -- trace "reach" $ traceShow addrs
               foldl (\r a -> go a r) (addr':acc) addrs
             Just (EVM.GVar _, _) -> error "Internal error: contract cannot be gvar"
             Nothing -> error "Internal error: contract not found"
