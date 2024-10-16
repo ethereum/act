@@ -831,6 +831,43 @@ pruneContractState entryaddr cmap =
     getAddrs (EVM.AbstractStore {}) = []
     getAddrs _ = error $ "Internal error: unexpected storage shape"
 
+
+-- | Check if two contract maps are isomorphic
+--   Note that is problem is not as difficult as graph isomorphism since edges are labeld.
+checkStoreIsomorphism :: ContractMap -> ContractMap -> Error String ()
+checkStoreIsomorphism cmap1 cmap2 = pure () <* go initAddr initAddr cmap1 cmap2 M.empty M.empty OM.empty
+  where 
+    -- tries to find a bijective renaming between the addresses of the two maps  
+    go :: EVM.Expr EVM.EAddr -> EVM.Expr EVM.EAddr
+       -> ContractMap -> ContractMap
+       -> M.Map Id Id -> M.Map Id Id
+       -> OMap Id Id
+       -> Error String (OMap Id Id)
+    go addr1 addr2 cmap1 cmap2 map1 map2 discovered = do       
+      let addrs1 = sortOn (\x y -> fst x <= fst y) $ getAddrs addr1 cmap1
+      let addrs2 = sortOn (\x y -> fst x <= fst y) $ getAddrs addr2 cmap2
+      (renaming1, renaming2, discovered') <- visit addrs1 addrs2 map1 map2 discovered
+      foldValidation
+      
+      -- assumes that slots are unique because of simplifcation
+      visit [] [] map1 map2 discovered = pure (map1, map2, discovered)
+      visit ((s1, a1):addrs1) ((s2, a2):addrs1) map1 map2 discovered | s1 == s2 =
+        case (M.lookup s1 map1, M.lookup s2 map2) of
+          (Just s1', Just s2') -> 
+            if s2 == s2' && s1 == s2' then visit addrs1 addrs2 map1 map2 discovered
+            else throw (nowhere, "The shape of the resulting map is not preserved.")
+          Nothing -> pure $ visit addrs1 addrs2 (OM.insert s1 s2 map1) (OM.insert s2 s1 map2) ((s1, s2) OM.|< discovered)
+      visit _ _ = error "Internal error: unexpected strorage form."
+      
+    -- Find addresses mentioned in storage
+    getAddrs :: EVM.Expr EVM.Storage -> [(Int, EVM.Expr EVM.EAddr)]
+    getAddrs (EVM.SStore (EVM.Lit n) (EVM.WAddr symaddr) storage) = (n, symaddr) : getAddrs storage
+    getAddrs (EVM.SStore _ _ _) = error $ "Internal error: unexpected storage shape"
+    getAddrs (EVM.ConcreteStore _) = error $ "Internal error: unexpected storage shape"
+    getAddrs (EVM.AbstractStore {}) = []
+    getAddrs _ = error $ "Internal error: unexpected storage shape"
+
+
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
 inputSpace exprs = map aux exprs
