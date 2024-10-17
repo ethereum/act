@@ -27,7 +27,7 @@ import Data.ByteString (ByteString)
 import Data.Text.Encoding (encodeUtf8)
 import Control.Concurrent.Async
 import Control.Monad
-import Data.Foldable (sequenceA_)
+import Data.Foldable (sequenceA_, traverse_)
 import Data.DoubleWord
 import Data.Maybe
 import Data.Type.Equality (TestEquality(..))
@@ -149,7 +149,8 @@ translateConstructor bytecode (Constructor cid iface _ preconds _ _ upds) cmap =
   preconds' <- mapM (toProp initmap) preconds
   cmap' <- applyUpdates initmap initmap upds
   fresh <- getFresh
-  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr 1 fresh) mempty (EVM.ConcreteBuf bytecode) (M.map fst cmap')], calldata, ifaceToSig iface, cmap')
+  let acmap = abstractCmap initAddr cmap'
+  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr 1 fresh) mempty (EVM.ConcreteBuf bytecode) (M.map fst cmap')], calldata, ifaceToSig iface, acmap)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -162,7 +163,7 @@ translateConstructor bytecode (Constructor cid iface _ preconds _ _ upds) cmap =
 symAddrCnstr :: Int -> Int -> [EVM.Prop]
 symAddrCnstr start end = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [start..end]
 
-translateBehvs :: Monad m => ContractMap -> [Behaviour] -> ActT m [(Id, [EVM.Expr EVM.End], Calldata, Sig)]
+translateBehvs :: Monad m => ContractMap -> [Behaviour] -> ActT m [(Id, [(EVM.Expr EVM.End, ContractMap)], Calldata, Sig)]
 translateBehvs cmap behvs = do
   let groups = (groupBy sameIface behvs) :: [[Behaviour]]
   mapM (\behvs' -> do
@@ -187,7 +188,7 @@ ifaceToSig (Interface name args) = Sig (T.pack name) (fmap fromdecl args)
   where
     fromdecl (Decl t _) = t
 
-translateBehv :: Monad m => ContractMap -> Behaviour -> ActT m (EVM.Expr EVM.End)
+translateBehv :: Monad m => ContractMap -> Behaviour -> ActT m (EVM.Expr EVM.End, ContractMap)
 translateBehv cmap (Behaviour _ _ _ _ preconds caseconds _ upds ret) = do
   fresh <- getFresh
   preconds' <- mapM (toProp cmap) preconds
@@ -195,7 +196,8 @@ translateBehv cmap (Behaviour _ _ _ _ preconds caseconds _ upds ret) = do
   ret' <- returnsToExpr cmap ret
   cmap' <- applyUpdates cmap cmap upds
   fresh' <- getFresh
-  pure $ EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap')
+  let acmap = abstractCmap initAddr cmap'
+  pure $ (EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap'), acmap)
 
 
 applyUpdates :: Monad m => ContractMap -> ContractMap -> [StorageUpdate] -> ActT m ContractMap
@@ -727,7 +729,7 @@ checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ ifa
   res1 <- lift $ checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   lift $ showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
   res2 <- lift $ checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
-  pure $ checks *> res1 *> res2 *> Success (abstractCmap initAddr $ cmap)
+  pure $ checks *> res1 *> res2 *> Success cmap
   where
     removeFails branches = filter isSuccess $ branches
 
@@ -737,9 +739,10 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
   let hevmstorage = translateCmap actstorage
   fresh <- getFresh
   actbehvs <- translateBehvs actstorage behvs
-  (liftM $ concatError def) $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
+  (liftM $ concatError def) $ flip mapM actbehvs $ \(name,actbehv,calldata, sig) -> do
+    let (behvs', fcmaps) = unzip actbehv
+    
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
-
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     lift $ showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
@@ -747,7 +750,7 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
     -- input space exhaustiveness check
     lift $ showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
     res2 <- lift $ checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
-    pure $ res1 *> res2
+    pure $ traverse_ (checkStoreIsomorphism actstorage) fcmaps *> res1 *> res2
 
   where
     removeFails branches = filter isSuccess $ branches
@@ -794,7 +797,7 @@ abstractCmap this cmap =
     traverseStorage _ _ = error $ "Internal error: unexpected storage shape"
 
     makeContract :: EVM.Expr EVM.EAddr -> (EVM.Expr EVM.EContract, Id) -> (EVM.Expr EVM.EContract, Id)
-    makeContract addr (EVM.C code storage _ _, cid) = (EVM.C code (traverseStorage addr (simplify storage)) (EVM.Balance addr) (Just 0), cid)
+    makeContract addr (EVM.C code storage _ _, cid) = (EVM.C code (simplify (traverseStorage addr (simplify storage))) (EVM.Balance addr) (Just 0), cid)
     makeContract _ (EVM.GVar _, _) = error "Internal error: contract cannot be gvar"
 
 -- | Remove unreachable addresses from a contract map
@@ -833,42 +836,55 @@ pruneContractState entryaddr cmap =
 
 
 -- | Check if two contract maps are isomorphic
---   Note that is problem is not as difficult as graph isomorphism since edges are labeld.
+-- Perform a breadth first traversal and try to find a bijection between the addresses of the two stores
+-- Note that is problem is not as difficult as graph isomorphism since edges are labeld.
+-- Assumes that the stores are abstracted, pruned, and simplified.
+-- All writes are to a unique concrete slot and the value is a simbolic address. 
 checkStoreIsomorphism :: ContractMap -> ContractMap -> Error String ()
-checkStoreIsomorphism cmap1 cmap2 = visit [(initAddr, initAddr)] [] cmap1 cmap2 M.empty M.empty
+checkStoreIsomorphism cmap1 cmap2 = bfs [(idOfAddr initAddr, idOfAddr initAddr)] [] M.empty M.empty
   where 
     -- tries to find a bijective renaming between the addresses of the two maps  
-    visit :: [(EVM.Expr EVM.EAddr, EVM.Expr EVM.EAddr)] -- Queue of the addresses we are exploring (dequeue)
-          -> [(EVM.Expr EVM.EAddr, EVM.Expr EVM.EAddr)] -- Queue of the addresses we are exploring (enueue) 
-          -> ContractMap -> ContractMap                 -- The two contract maps 
-          -> M.Map Id Id -> M.Map Id Id                 -- Two renamings keeping track of the address correspondence on the two maps
-          -> Error String ()
-    visit [] [] _ _ _ _ = pure ()
-    visit [] q2 _ _ _ _ = visit (rev q2) [] _ _ _ _
-    visit ((addr1, addr2):q1) q2 cmap1 cmap2 map1 map2 = do       
-      let addrs1 = sortOn (\x y -> fst x <= fst y) $ getAddrs addr1 cmap1
-      let addrs2 = sortOn (\x y -> fst x <= fst y) $ getAddrs addr2 cmap2
-      (renaming1, renaming2, q2) <- addNeighbors addrs1 addrs2 map1 map2 q2
-      visit q1 q2' cmap1 cmap2 renaming1 renaming2
+    bfs :: [(T.Text, T.Text)]                         -- Queue of the addresses we are exploring (dequeue)
+        -> [(T.Text, T.Text)]                         -- Queue of the addresses we are exploring (enueue) 
+        -> M.Map T.Text T.Text -> M.Map T.Text T.Text -- Two renamings keeping track of the address bijection
+        -> Error String ()
+    bfs [] [] _ _  = pure ()
+    bfs [] q2 m1 m2 = bfs (reverse q2) [] m1 m2
+    bfs ((addr1, addr2):q1) q2  map1 map2 =
+      case (M.lookup (EVM.SymAddr addr1) cmap1, M.lookup (EVM.SymAddr addr2) cmap2) of
+        (Just (EVM.C _ storage1 _ _, _), Just (EVM.C _ storage2 _ _, _)) ->
+          let addrs1 = sortOn fst $ getAddrs storage1 in
+          let addrs2 = sortOn fst $ getAddrs storage2 in
+          visit addrs1 addrs2 map1 map2 q2 `bindValidation` (\(renaming1, renaming2, q2') ->
+          bfs q1 q2' renaming1 renaming2)
+        (_, _) -> error "Internal error: contract not found in map"
       
     -- assumes that slots are unique because of simplifcation
-    addNeighbors [] [] map1 map2 discovered = pure (map1, map2, discovered)
-    addNeighbors ((s1, a1):addrs1) ((s2, a2):addrs2) map1 map2 discovered | s1 == s2 =
-      case (M.lookup s1 map1, M.lookup s2 map2) of
-        (Just s1', Just s2') -> 
-          if s2 == s2' && s1 == s2' then addNeighbors addrs1 addrs2 map1 map2 discovered
+    visit :: [(Int, EVM.Expr EVM.EAddr)] -> [(Int, EVM.Expr EVM.EAddr)]
+          -> M.Map T.Text T.Text -> M.Map T.Text T.Text
+          -> [(T.Text, T.Text)]
+          -> Error String (M.Map T.Text T.Text, M.Map T.Text T.Text, [(T.Text, T.Text)])
+    visit [] [] map1 map2 discovered = pure (map1, map2, discovered)
+    visit ((s1, EVM.SymAddr a1):addrs1) ((s2, EVM.SymAddr a2):addrs2) map1 map2 discovered | s1 == s2 =
+      case (M.lookup a1 map1, M.lookup a2 map2) of
+        (Just a2', Just a1') -> 
+          if a2 == a2' && a1 == a1' then visit addrs1 addrs2 map1 map2 discovered
           else throw (nowhere, "The shape of the resulting map is not preserved.")
-        Nothing -> pure $ visit addrs1 addrs2 (M.insert s1 s2 map1) (M.insert s2 s1 map2) ((s1, s2): discovered)
-    addNeighbors _ _ = throw (nowhere, "The shape of the resulting map is not preserved.")
+        (Nothing, Nothing) -> visit addrs1 addrs2 (M.insert a1 a2 map1) (M.insert a2 a1 map2) ((a1, a2): discovered)
+        (_, _) -> throw (nowhere, "The shape of the resulting map is not preserved.")
+    visit _ _ _ _  _ = throw (nowhere, "The shape of the resulting map is not preserved.")
       
     -- Find addresses mentioned in storage
     getAddrs :: EVM.Expr EVM.Storage -> [(Int, EVM.Expr EVM.EAddr)]
-    getAddrs (EVM.SStore (EVM.Lit n) (EVM.WAddr symaddr) storage) = (n, symaddr) : getAddrs storage
+    getAddrs (EVM.SStore (EVM.Lit n) (EVM.WAddr symaddr) storage) = (fromIntegral n, symaddr) : getAddrs storage
     getAddrs (EVM.SStore _ _ _) = error $ "Internal error: unexpected storage shape"
     getAddrs (EVM.ConcreteStore _) = error $ "Internal error: unexpected storage shape"
     getAddrs (EVM.AbstractStore {}) = []
     getAddrs _ = error $ "Internal error: unexpected storage shape"
 
+    idOfAddr :: EVM.Expr EVM.EAddr -> T.Text
+    idOfAddr (EVM.SymAddr addr) = addr
+    idOfAddr _ = error "Internal error: upecting symbolic address"
 
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
