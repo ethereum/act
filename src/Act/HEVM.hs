@@ -835,29 +835,31 @@ pruneContractState entryaddr cmap =
 -- | Check if two contract maps are isomorphic
 --   Note that is problem is not as difficult as graph isomorphism since edges are labeld.
 checkStoreIsomorphism :: ContractMap -> ContractMap -> Error String ()
-checkStoreIsomorphism cmap1 cmap2 = pure () <* go initAddr initAddr cmap1 cmap2 M.empty M.empty OM.empty
+checkStoreIsomorphism cmap1 cmap2 = visit [(initAddr, initAddr)] [] cmap1 cmap2 M.empty M.empty
   where 
     -- tries to find a bijective renaming between the addresses of the two maps  
-    go :: EVM.Expr EVM.EAddr -> EVM.Expr EVM.EAddr
-       -> ContractMap -> ContractMap
-       -> M.Map Id Id -> M.Map Id Id
-       -> OMap Id Id
-       -> Error String (OMap Id Id)
-    go addr1 addr2 cmap1 cmap2 map1 map2 discovered = do       
+    visit :: [(EVM.Expr EVM.EAddr, EVM.Expr EVM.EAddr)] -- Queue of the addresses we are exploring (dequeue)
+          -> [(EVM.Expr EVM.EAddr, EVM.Expr EVM.EAddr)] -- Queue of the addresses we are exploring (enueue) 
+          -> ContractMap -> ContractMap                 -- The two contract maps 
+          -> M.Map Id Id -> M.Map Id Id                 -- Two renamings keeping track of the address correspondence on the two maps
+          -> Error String ()
+    visit [] [] _ _ _ _ = pure ()
+    visit [] q2 _ _ _ _ = visit (rev q2) [] _ _ _ _
+    visit ((addr1, addr2):q1) q2 cmap1 cmap2 map1 map2 = do       
       let addrs1 = sortOn (\x y -> fst x <= fst y) $ getAddrs addr1 cmap1
       let addrs2 = sortOn (\x y -> fst x <= fst y) $ getAddrs addr2 cmap2
-      (renaming1, renaming2, discovered') <- visit addrs1 addrs2 map1 map2 discovered
-      foldValidation
+      (renaming1, renaming2, q2) <- addNeighbors addrs1 addrs2 map1 map2 q2
+      visit q1 q2' cmap1 cmap2 renaming1 renaming2
       
-      -- assumes that slots are unique because of simplifcation
-      visit [] [] map1 map2 discovered = pure (map1, map2, discovered)
-      visit ((s1, a1):addrs1) ((s2, a2):addrs1) map1 map2 discovered | s1 == s2 =
-        case (M.lookup s1 map1, M.lookup s2 map2) of
-          (Just s1', Just s2') -> 
-            if s2 == s2' && s1 == s2' then visit addrs1 addrs2 map1 map2 discovered
-            else throw (nowhere, "The shape of the resulting map is not preserved.")
-          Nothing -> pure $ visit addrs1 addrs2 (OM.insert s1 s2 map1) (OM.insert s2 s1 map2) ((s1, s2) OM.|< discovered)
-      visit _ _ = error "Internal error: unexpected strorage form."
+    -- assumes that slots are unique because of simplifcation
+    addNeighbors [] [] map1 map2 discovered = pure (map1, map2, discovered)
+    addNeighbors ((s1, a1):addrs1) ((s2, a2):addrs2) map1 map2 discovered | s1 == s2 =
+      case (M.lookup s1 map1, M.lookup s2 map2) of
+        (Just s1', Just s2') -> 
+          if s2 == s2' && s1 == s2' then addNeighbors addrs1 addrs2 map1 map2 discovered
+          else throw (nowhere, "The shape of the resulting map is not preserved.")
+        Nothing -> pure $ visit addrs1 addrs2 (M.insert s1 s2 map1) (M.insert s2 s1 map2) ((s1, s2): discovered)
+    addNeighbors _ _ = throw (nowhere, "The shape of the resulting map is not preserved.")
       
     -- Find addresses mentioned in storage
     getAddrs :: EVM.Expr EVM.Storage -> [(Int, EVM.Expr EVM.EAddr)]
