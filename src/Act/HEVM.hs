@@ -833,7 +833,7 @@ pruneContractState entryaddr cmap =
     getAddrs (EVM.ConcreteStore _) = error $ "Internal error: unexpected storage shape"
     getAddrs (EVM.AbstractStore {}) = []
     getAddrs _ = error $ "Internal error: unexpected storage shape"
-
+  
 
 -- | Check if two contract maps are isomorphic
 -- Perform a breadth first traversal and try to find a bijection between the addresses of the two stores

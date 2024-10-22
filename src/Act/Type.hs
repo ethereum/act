@@ -140,10 +140,11 @@ lookupVars = foldMap $ \case
     addSlot l = zipWith (\(name, typ) slot -> (name, (typ, slot))) l [0..]
 
 
-lookupConstructors :: [U.Contract] -> Map Id [AbiType]
+lookupConstructors :: [U.Contract] -> Map Id [(AbiType, Maybe Id)]
 lookupConstructors = foldMap $ \case
-  U.Contract (U.Definition _ contract (Interface _ decls) _ _ _ _ _) _ ->
-    Map.singleton contract (map (\(Decl t _) -> t) decls)
+  U.Contract (U.Definition _ contract (Interface _ decls) pointers _ _ _ _) _ ->
+    let ptrs = Map.fromList $ map (\(PointsTo _ x c) -> (x, c)) pointers in
+    Map.singleton contract (map (\(Decl t x) -> (t, Map.lookup x ptrs)) decls)
 
 -- | Extracts what we need to build a 'Store' and to verify that its names are unique.
 -- Kind of stupid return type but it makes it easier to use the same function
@@ -155,12 +156,12 @@ fromAssign (U.AssignStruct _ _) = error "TODO: assignstruct"
 
 -- | The type checking environment.
 data Env = Env
-  { contract     :: Id               -- ^ The name of the current contract.
-  , store        :: Map Id SlotType  -- ^ This contract's storage entry names and their types.
-  , theirs       :: Store            -- ^ Mapping from contract names to a map of their entry names and their types.
-  , calldata     :: Map Id AbiType   -- ^ The calldata var names and their types.
-  , pointers     :: Map Id Id        -- ^ Maps address calldata variables to their contract type.
-  , constructors :: Map Id [AbiType] -- ^ Interfaces of contract contructors (we only allow constructor calls ATM)
+  { contract     :: Id                           -- ^ The name of the current contract.
+  , store        :: Map Id SlotType              -- ^ This contract's storage entry names and their types.
+  , theirs       :: Store                        -- ^ Mapping from contract names to a map of their entry names and their types.
+  , calldata     :: Map Id AbiType               -- ^ The calldata var names and their types.
+  , pointers     :: Map Id Id                    -- ^ Maps address calldata variables to their contract type.
+  , constructors :: Map Id [(AbiType, Maybe Id)] -- ^ Interfaces of contract contructors together with points to contraints
   }
 
 -- typing of eth env variables
@@ -182,7 +183,7 @@ defaultStore =
   ]
 
 
-mkEnv :: Id -> Store -> Map Id [AbiType] -> Env
+mkEnv :: Id -> Store -> Map Id [(AbiType, Maybe Id)] -> Env
 mkEnv contract store constructors = Env
   { contract = contract
   , store    = Map.map fst $ fromMaybe mempty (Map.lookup contract store)
@@ -204,7 +205,7 @@ addPointers decls env = env{ pointers = ptrs }
   where
    ptrs = Map.fromList $ map (\(PointsTo _ x c) -> (x, c)) decls
 
-checkContract :: Store -> Map Id [AbiType] -> U.Contract -> Err Contract
+checkContract :: Store -> Map Id [(AbiType, Maybe Id)] -> U.Contract -> Err Contract
 checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ _ _) trans) =
   Contract <$> checkDefinition env constr <*> (concat <$> traverse (checkTransition env) trans) <* namesConsistent
   where
@@ -314,7 +315,7 @@ noStorageRead store expr = for_ (keys store) $ \name ->
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
 checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar pn (StorageValue vt@(FromVType typ)) name) expr)
   = sequenceA [checkExpr env typ expr `bindValidation` \te ->
-               checkContractType env typ te `bindValidation` \ctyp ->
+               findContractType env te `bindValidation` \ctyp ->
                _Update (_Item vt (SVar pn contract name)) te <$ validContractType pn vt ctyp]
     <* noStorageRead store expr
 
@@ -426,7 +427,7 @@ checkStorageExpr :: Env -> U.Entry -> U.Expr -> Err StorageUpdate
 checkStorageExpr env entry expr =
   validateEntry env entry `bindValidation` \(vt@(FromVType typ), ref) ->
   checkExpr env typ expr `bindValidation` \te ->
-  checkContractType env typ te `bindValidation` \ctyp ->
+  findContractType env te `bindValidation` \ctyp ->
   _Update (_Item vt ref) te <$ validContractType (getPosn expr) vt ctyp
 
 
@@ -436,6 +437,13 @@ validContractType pn (ContractType c1) (Just c2) =
 validContractType pn (ContractType c1) Nothing =
   throw (pn, "Assignment to storage variable was expected to have contract type " <> c1)
 validContractType _ _ _ = pure ()
+
+-- findContractTypes :: Pn ->  -> Maybe Id -> Err ()
+-- findContractTypes pn (Just c1) (Just c2) =
+--   assert (pn, "Assignment to storage variable was expected to have contract type " <> c1 <> " but has contract type " <> c2) (c1 == c2)
+-- validContractType pn (Just c1) Nothing =
+--   throw (pn, "Assignment to storage variable was expected to have contract type " <> c1)
+-- validContractType _ _ _ = pure ()
 
 
 checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
@@ -506,14 +514,18 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SInteger, U.IntLit  p v1)    -> pure $ LitInt  p v1
   -- Constructor calls
   (SInteger, U.ECreate p c args) -> case Map.lookup c constructors of
-    -- TODO check contract types
-    Just typs -> Create p c <$> checkIxs env p args (fmap PrimitiveType typs)
+    Just ctrs ->
+      let (typs, ptrs) = unzip ctrs in
+      checkIxs env p args (fmap PrimitiveType typs) `bindValidation` (\args ->
+      pure (Create p c args) <* traverse_ (\(e, t) -> checkContractType env e t) (zip args ptrs))
     Nothing -> throw (p, "Unknown constructor " <> show c)
-  -- Control
+
+   -- Control
   (_, U.EITE p v1 v2 v3) ->
     ((,) <$> checkExpr env typ v2 <*> checkExpr env typ v3) `bindValidation` (\(e1, e2) -> do
        b <- checkExpr env SBoolean v1
        pure $ ITE p b e1 e2)
+
   -- Environment variables
   (SInteger, U.EnvExp p v1) -> case lookup v1 defaultStore of
     Just AInteger -> pure $ IntEnv p v1
@@ -523,8 +535,8 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
     Just AInteger -> throw (p, "Environment variable " <> show v1 <> " has type integer but an expression of type bytestring is expected.")
     Just AByteStr -> pure $ ByEnv p v1
     _             -> throw (p, "Unknown environment variable " <> show v1)
-  -- Variable references
 
+  -- Variable references
   (_, U.EUTEntry entry) | isCalldataEntry env entry -> validateVar env entry `bindValidation` \(vt@(FromVType typ'), ref) ->
     checkTime (getPosEntry entry) <*> (Var (getPosEntry entry) Neither typ vt ref <$ checkEq (getPosEntry entry) typ typ')
   (_, U.EPreEntry entry) | isCalldataEntry env entry -> error "Not supported"
@@ -566,19 +578,26 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
 
 
 -- | Find the contract id of an expression with contract type
-checkContractType :: Env -> SType a -> Exp a t -> Err (Maybe Id)
-checkContractType env SInteger (ITE p _ a b) =
-  checkContractType env SInteger a `bindValidation` \oc1 ->
-  checkContractType env SInteger b `bindValidation` \oc2 ->
+findContractType :: Env -> Exp a t -> Err (Maybe Id)
+findContractType env (ITE p _ a b) =
+  findContractType env a `bindValidation` \oc1 ->
+  findContractType env b `bindValidation` \oc2 ->
   case (oc1, oc2) of
     (Just c1, Just c2) -> Just c1 <$ assert (p, "Type of if-then-else branches does not match") (c1 == c2)
     (_, _ )-> pure Nothing
-checkContractType _ SInteger (Create _ c _) = pure $ Just c
-checkContractType _ _ (Var _ _ _ (ContractType c) _) = pure $ Just c
-checkContractType _ _ (TEntry _ _ (Item _ (ContractType c) _)) = pure $ Just c
-checkContractType _ SInteger _ =  pure Nothing
-checkContractType _ SBoolean _ =  pure Nothing
-checkContractType _ SByteStr _ =  pure Nothing
+findContractType _ (Create _ c _) = pure $ Just c
+findContractType _ (Var _ _ _ (ContractType c) _) = pure $ Just c
+findContractType _ (TEntry _ _ (Item _ (ContractType c) _)) = pure $ Just c
+findContractType _ _ =  pure Nothing
+
+-- | Check if an expression has the expected contract id, if any
+checkContractType :: Env -> TypedExp t -> Maybe Id -> Err ()
+checkContractType _ _ Nothing = pure ()
+checkContractType env (TExp _ e) (Just c) =
+  findContractType env e `bindValidation` \oc ->
+  case oc of -- TODO fix position
+    Just c' -> assert (nowhere, "Expression was expected to have contract type " <> c <> " but has contract type " <> c') (c == c')
+    Nothing -> throw (nowhere, "Expression was expected to have contract type " <> c)
 
 checkEq :: forall a b. Pn -> SType a -> SType b -> Err ()
 checkEq p t1 t2 = maybe err (\Refl -> pure ()) $  testEquality t1 t2
