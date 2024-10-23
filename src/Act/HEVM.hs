@@ -44,7 +44,7 @@ import EVM as EVM hiding (bytecode)
 import qualified EVM.Types as EVM hiding (FrameState(..))
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial)
-import qualified EVM.SymExec as SymExec (EquivResult)
+import qualified EVM.SymExec as SymExec (EquivResult, ProofResult(..))
 import EVM.SMT (SMTCex(..), assertProps)
 import EVM.Solvers
 import EVM.Effects
@@ -66,7 +66,7 @@ type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract)
 -- when we encounter a constructor call.
 type CodeMap = M.Map Id (Contract, BS.ByteString, BS.ByteString)
 
-type EquivResult = ProofResult () (T.Text, SMTCex) ()
+type EquivResult = ProofResult () (T.Text, SMTCex) T.Text T.Text
 
 initAddr :: EVM.Expr EVM.EAddr
 initAddr = EVM.SymAddr "entrypoint"
@@ -586,7 +586,8 @@ checkEquiv solvers l1 l2 = do
     toEquivRes :: SymExec.EquivResult -> EquivResult
     toEquivRes (Cex cex) = Cex ("\x1b[1mThe following input results in different behaviours\x1b[m", cex)
     toEquivRes (Qed a) = Qed a
-    toEquivRes (Timeout b) = Timeout b
+    toEquivRes (SymExec.Unknown ()) = SymExec.Unknown ""
+    toEquivRes (SymExec.Error b) = SymExec.Error (T.pack b)
 
 
 checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (Error String (ContractMap, ActEnv))
@@ -757,18 +758,18 @@ assertSelector txdata sig =
 toVRes :: T.Text -> CheckSatResult -> EquivResult
 toVRes msg res = case res of
   Sat cex -> Cex (msg, cex)
-  EVM.Solvers.Unknown -> Timeout ()
+  EVM.Solvers.Unknown e -> SymExec.Unknown (T.pack e)
   Unsat -> Qed ()
-  Error e -> error $ "Internal Error: solver responded with error: " <> show e
+  EVM.Solvers.Error e -> SymExec.Error (T.pack e)
 
 
 checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m (Error String ())
 checkResult calldata sig res =
   case any isCex res of
     False ->
-      case any isTimeout res of
+      case any isUnknown res || any isError res of
         True -> do
-          showMsg "\x1b[41mNo discrepancies found but timeout(s) occurred. \x1b[m"
+          showMsg "\x1b[41mNo discrepancies found but timeouts or solver errors were encountered. \x1b[m"
           pure $ Failure $ NE.singleton (nowhere, "Failure: Cannot prove equivalence.")
         False -> do
           showMsg "\x1b[42mNo discrepancies found.\x1b[m "

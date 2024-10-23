@@ -17,22 +17,6 @@
         "type": "github"
       }
     },
-    "flake-compat": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1696426674,
-        "narHash": "sha256-kvjfFW7WAETZlt09AgDn1MrtKzP7t90Vf7vypd3OL1U=",
-        "owner": "edolstra",
-        "repo": "flake-compat",
-        "rev": "0f9255e01c2351cc7d116c072cb317785dd33b33",
-        "type": "github"
-      },
-      "original": {
-        "owner": "edolstra",
-        "repo": "flake-compat",
-        "type": "github"
-      }
-    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -138,10 +122,9 @@
         "type": "github"
       }
     },
-    "hevmUpstream": {
+    "hevm": {
       "inputs": {
         "ethereum-tests": "ethereum-tests",
-        "flake-compat": "flake-compat",
         "flake-utils": "flake-utils_2",
         "forge-std": "forge-std",
         "foundry": "foundry",
@@ -152,15 +135,16 @@
         "solidity": "solidity"
       },
       "locked": {
-        "lastModified": 1726564969,
-        "narHash": "sha256-Wy/fEjh7Q8hnc+Cmckbqowz4qEvS6K5KDIApndxaskw=",
+        "lastModified": 1729608902,
+        "narHash": "sha256-6uTYwVYGGyVUdIcejP5shHdIzF/jp4XPz3kpDKN8FJ4=",
         "owner": "ethereum",
         "repo": "hevm",
-        "rev": "b420af77c2d585ed72a15e398503c255f31590b9",
+        "rev": "56d106e529162eda66253d4203dd4a39429317de",
         "type": "github"
       },
       "original": {
         "owner": "ethereum",
+        "ref": "dynamic-flake-output",
         "repo": "hevm",
         "type": "github"
       }
@@ -198,7 +182,7 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
-        "hevmUpstream": "hevmUpstream",
+        "hevm": "hevm",
         "nixpkgs": "nixpkgs_2"
       }
     },
@@ -218,7 +202,7 @@
       "inputs": {
         "flake-utils": "flake-utils_4",
         "nixpkgs": [
-          "hevmUpstream",
+          "hevm",
           "nixpkgs"
         ],
         "solc-macos-amd64-list-json": "solc-macos-amd64-list-json"
