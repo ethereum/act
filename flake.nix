@@ -3,24 +3,24 @@
 
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
-    nixpkgs.url = "github:nixos/nixpkgs/f85a3c6af20f02135814867870deb419329e8297";
-    hevmUpstream = {
-      url = "github:ethereum/hevm";
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    hevm = {
+      url = "github:ethereum/hevm/dynamic-flake-output";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, hevmUpstream, ... }:
+  outputs = { nixpkgs, flake-utils, hevm, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         gitignore = pkgs.nix-gitignore.gitignoreSourcePure [ ./.gitignore ];
-        myHaskellPackages = pkgs.haskellPackages.override {
-          overrides = self: super: rec {
-            hevm = hevmUpstream.packages.${system}.noTests;
+        hspkgs = pkgs.haskellPackages.override {
+          overrides = self: super: {
+            hevm = hevm.packages.${system}.unwrapped;
           };
         };
-        act = (myHaskellPackages.callCabal2nixWithOptions "act" (gitignore ./.) "-fci" {})
+        act = (hspkgs.callCabal2nixWithOptions "act" (gitignore ./.) "-fci" {})
           .overrideAttrs (attrs : {
             buildInputs = attrs.buildInputs ++ [ pkgs.z3 pkgs.cvc5 pkgs.solc ];
           });
@@ -31,13 +31,13 @@
         apps.act = flake-utils.lib.mkApp { drv = packages.act; };
         apps.default = apps.act;
 
-        devShell = with pkgs;
-          let libraryPath = "${lib.makeLibraryPath [ libff secp256k1 gmp ]}";
-          in myHaskellPackages.shellFor {
+        devShell = let
+          libraryPath = "${pkgs.lib.makeLibraryPath (with pkgs; [ libff secp256k1 gmp ])}";
+        in hspkgs.shellFor {
           packages = _: [ act ];
-          buildInputs = with pkgs.haskellPackages; [
-            cabal-install
-            haskell-language-server
+          buildInputs = [
+            hspkgs.cabal-install
+            hspkgs.haskell-language-server
             pkgs.jq
             pkgs.z3
             pkgs.cvc5
@@ -54,7 +54,7 @@
             export PATH=$(pwd)/bin:$PATH
             export DYLD_LIBRARY_PATH="${libraryPath}"
           '';
-        };
-      }
+      };
+    }
   );
 }

@@ -6,14 +6,17 @@ module Act.Print where
 
 import Prelude hiding (GT, LT)
 import Data.ByteString.UTF8 (toString)
-import Text.PrettyPrint.ANSI.Leijen hiding ((<$>), brackets)
+import Prettyprinter hiding (brackets)
+import qualified Prettyprinter.Render.Terminal as Term
+import qualified Data.Text as Text
+
 import System.IO (stdout)
 import Data.Text qualified as T
 import EVM.ABI (abiTypeSolidity)
 
 import Data.List
 
-import Act.Syntax.TimeAgnostic
+import Act.Syntax.TimeAgnostic hiding (annotate)
 
 prettyAct :: Act t -> String
 prettyAct (Act _ contracts)
@@ -226,6 +229,39 @@ prettyInvPred = prettyExp . untime . fst
       TEntry p _ (Item t vt a) -> TEntry p Neither (Item t vt (untimeStorageRef a))
       Var p t at a -> Var p t at a
 
+
+-- | Doc type for terminal output
+type DocAnsi = Doc Term.AnsiStyle
+
 -- | prints a Doc, with wider output than the built in `putDoc`
-render :: Doc -> IO ()
-render doc = displayIO stdout (renderPretty 0.9 120 doc)
+render :: DocAnsi -> IO ()
+render doc =
+  let opts = LayoutOptions { layoutPageWidth = AvailablePerLine 120 0.9 } in
+  Term.renderIO stdout (layoutPretty opts doc)
+
+underline :: DocAnsi -> DocAnsi
+underline = annotate Term.underlined
+
+red :: DocAnsi -> DocAnsi
+red = annotate (Term.color Term.Red)
+
+yellow :: DocAnsi -> DocAnsi
+yellow = annotate (Term.color Term.Yellow)
+
+green :: DocAnsi -> DocAnsi
+green = annotate (Term.color Term.Green)
+
+bold :: DocAnsi -> DocAnsi
+bold = annotate Term.bold
+
+(<$$>) :: Doc ann -> Doc ann -> Doc ann
+(<$$>) = \x y -> vsep [x,y]
+
+string :: String -> DocAnsi
+string = pretty
+
+text :: Text.Text -> DocAnsi
+text = pretty
+
+class PrettyAnsi a where
+  prettyAnsi :: a -> DocAnsi

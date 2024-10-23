@@ -23,7 +23,7 @@ import Data.Map (Map)
 import Data.Maybe
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TIO
-import Text.PrettyPrint.ANSI.Leijen hiding ((<$>))
+import Prettyprinter hiding (annotate, line')
 import GHC.Conc
 import GHC.Natural
 import Options.Generic
@@ -154,7 +154,7 @@ parseSolver s = case s of
                   Just s' -> case Text.unpack s' of
                               "z3" -> pure Solvers.Z3
                               "cvc5" -> pure Solvers.CVC5
-                              input -> render (text $ "unrecognised solver: " <> input) >> exitFailure
+                              input -> render (text $ "unrecognised solver: " <> Text.pack input) >> exitFailure
 
 prove :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 prove file' solver' smttimeout' debug' = do
@@ -167,27 +167,27 @@ prove file' solver' smttimeout' debug' = do
       catErrors results = [e | e@SMT.Error {} <- results]
       catUnknowns results = [u | u@SMT.Unknown {} <- results]
 
-      (<->) :: Doc -> [Doc] -> Doc
+      (<->) :: DocAnsi -> [DocAnsi] -> DocAnsi
       x <-> y = x <$$> line <> (indent 2 . vsep $ y)
 
-      failMsg :: [SMT.SMTResult] -> Doc
+      failMsg :: [SMT.SMTResult] -> DocAnsi
       failMsg results
         | not . null . catUnknowns $ results
             = text "could not be proven due to a" <+> (yellow . text $ "solver timeout")
         | not . null . catErrors $ results
-            = (red . text $ "failed") <+> "due to solver errors:" <-> ((fmap (text . show)) . catErrors $ results)
+            = (red . text $ "failed") <+> "due to solver errors:" <-> ((fmap viaShow) . catErrors $ results)
         | otherwise
-            = (red . text $ "violated") <> colon <-> (fmap pretty . catModels $ results)
+            = (red . text $ "violated") <> colon <-> (fmap prettyAnsi . catModels $ results)
 
-      passMsg :: Doc
+      passMsg :: DocAnsi
       passMsg = (green . text $ "holds") <+> (bold . text $ "∎")
 
-      accumulateResults :: (Bool, Doc) -> (Query, [SMT.SMTResult]) -> (Bool, Doc)
+      accumulateResults :: (Bool, DocAnsi) -> (Query, [SMT.SMTResult]) -> (Bool, DocAnsi)
       accumulateResults (status, report) (query, results) = (status && holds, report <$$> msg <$$> smt)
         where
           holds = all isPass results
           msg = identifier query <+> if holds then passMsg else failMsg results
-          smt = if debug' then line <> getSMT query else empty
+          smt = if debug' then line <> getSMT query else emptyDoc
 
     solverInstance <- spawnSolver config
     pcResults <- mapM (runQuery solverInstance) (mkPostconditionQueries claims)
@@ -196,10 +196,10 @@ prove file' solver' smttimeout' debug' = do
 
     let
       invTitle = line <> (underline . bold . text $ "Invariants:") <> line
-      invOutput = foldl' accumulateResults (True, empty) invResults
+      invOutput = foldl' accumulateResults (True, emptyDoc) invResults
 
       pcTitle = line <> (underline . bold . text $ "Postconditions:") <> line
-      pcOutput = foldl' accumulateResults (True, empty) pcResults
+      pcOutput = foldl' accumulateResults (True, emptyDoc) pcResults
 
     render $ vsep
       [ ifExists invResults invTitle
@@ -221,7 +221,7 @@ coq' f solver' smttimeout' debug' = do
 decompile' :: FilePath -> Text -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 decompile' solFile' cid solver' timeout debug' = do
   let config = if debug' then debugActConfig else defaultActConfig
-  cores <- liftM fromIntegral getNumProcessors
+  cores <- fmap fromIntegral getNumProcessors
   json <- solc Solidity =<< TIO.readFile solFile'
   let (Contracts contracts, _, _) = fromJust $ readStdJSON json
   case Map.lookup ("hevm.sol:" <> cid) contracts of
@@ -229,7 +229,7 @@ decompile' solFile' cid solver' timeout debug' = do
       putStrLn "compilation failed"
       exitFailure
     Just c -> do
-      res <- runEnv (Env config) $ Solvers.withSolvers solver' cores (naturalFromInteger <$> timeout) $ \solvers -> decompile c solvers
+      res <- runEnv (Env config) $ Solvers.withSolvers solver' cores 1 (naturalFromInteger <$> timeout) $ \solvers -> decompile c solvers
       case res of
         Left e -> do
           TIO.putStrLn e
@@ -245,7 +245,7 @@ hevm actspec sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
-    res <- runEnv (Env config) $ Solvers.withSolvers solver' cores (naturalFromInteger <$> timeout) $ \solvers ->
+    res <- runEnv (Env config) $ Solvers.withSolvers solver' cores 1 (naturalFromInteger <$> timeout) $ \solvers ->
       checkContracts solvers store cmap
     case res of
       Success _ -> pure ()
