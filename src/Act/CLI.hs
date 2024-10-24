@@ -221,7 +221,7 @@ coq' f solver' smttimeout' debug' = do
 decompile' :: FilePath -> Text -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 decompile' solFile' cid solver' timeout debug' = do
   let config = if debug' then debugActConfig else defaultActConfig
-  cores <- liftM fromIntegral getNumProcessors
+  cores <- fmap fromIntegral getNumProcessors
   json <- solc Solidity =<< TIO.readFile solFile'
   let (Contracts contracts, _, _) = fromJust $ readStdJSON json
   case Map.lookup ("hevm.sol:" <> cid) contracts of
@@ -229,7 +229,7 @@ decompile' solFile' cid solver' timeout debug' = do
       putStrLn "compilation failed"
       exitFailure
     Just c -> do
-      res <- runEnv (Env config) $ Solvers.withSolvers solver' cores (naturalFromInteger <$> timeout) $ \solvers -> decompile c solvers
+      res <- runEnv (Env config) $ Solvers.withSolvers solver' cores 1 (naturalFromInteger <$> timeout) $ \solvers -> decompile c solvers
       case res of
         Left e -> do
           TIO.putStrLn e
@@ -245,7 +245,7 @@ hevm actspec sol' code' initcode' solver' timeout debug' = do
   specContents <- readFile actspec
   proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
-    res <- runEnv (Env config) $ Solvers.withSolvers solver' cores (naturalFromInteger <$> timeout) $ \solvers ->
+    res <- runEnv (Env config) $ Solvers.withSolvers solver' cores 1 (naturalFromInteger <$> timeout) $ \solvers ->
       checkContracts solvers store cmap
     case res of
       Success _ -> pure ()

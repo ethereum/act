@@ -44,7 +44,7 @@ import EVM as EVM hiding (bytecode)
 import qualified EVM.Types as EVM hiding (FrameState(..))
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial)
-import qualified EVM.SymExec as SymExec (EquivResult)
+import qualified EVM.SymExec as SymExec (EquivResult, ProofResult(..))
 import EVM.SMT (SMTCex(..), assertProps)
 import EVM.Solvers
 import EVM.Effects
@@ -66,7 +66,7 @@ type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract)
 -- when we encounter a constructor call.
 type CodeMap = M.Map Id (Contract, BS.ByteString, BS.ByteString)
 
-type EquivResult = ProofResult () (T.Text, SMTCex) ()
+type EquivResult = ProofResult () (T.Text, SMTCex) T.Text T.Text
 
 initAddr :: EVM.Expr EVM.EAddr
 initAddr = EVM.SymAddr "entrypoint"
@@ -146,6 +146,7 @@ translateConstructor bytecode (Constructor _ iface preconds _ _ upds)  = do
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                          , EVM.storage = EVM.ConcreteStore mempty
+                         , EVM.tStorage = EVM.ConcreteStore mempty
                          , EVM.balance = EVM.Lit 0
                          , EVM.nonce   = Just 1
                          }
@@ -215,12 +216,12 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
   where
 
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
-    updateStorage updfun (EVM.C code storage bal nonce) = EVM.C code (updfun storage) bal nonce
+    updateStorage updfun (EVM.C code storage tstorage bal nonce) = EVM.C code (updfun storage) tstorage bal nonce
     updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
     updateNonce :: EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
-    updateNonce (EVM.C code storage bal (Just n)) = EVM.C code storage bal (Just (n + 1))
-    updateNonce c@(EVM.C _ _ _ Nothing) = c
+    updateNonce (EVM.C code storage tstorage bal (Just n)) = EVM.C code storage tstorage bal (Just (n + 1))
+    updateNonce c@(EVM.C _ _ _ _ Nothing) = c
     updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
 createContract :: ContractMap -> ContractMap -> EVM.Expr EVM.EAddr -> Exp AContract -> ActM ContractMap
@@ -230,6 +231,7 @@ createContract readMap writeMap freshAddr (Create _ cid args) = do
     Just (Contract (Constructor _ iface _ _ _ upds) _, _, bytecode) -> do
       let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                            , EVM.storage = EVM.ConcreteStore mempty
+                           , EVM.tStorage = EVM.ConcreteStore mempty
                            , EVM.balance = EVM.Lit 0
                            , EVM.nonce = Just 1
                            }
@@ -372,7 +374,7 @@ refAddr :: ContractMap -> StorageRef -> ActM (EVM.Expr EVM.EAddr)
 refAddr cmap (SVar _ c x) = do
   caddr <- getCaddr
   case M.lookup caddr cmap of
-    Just (EVM.C _ storage _ _) -> do
+    Just (EVM.C _ storage _ _ _) -> do
       layout <- getLayout
       let slot = EVM.Lit $ fromIntegral $ getSlot layout c x
       case simplify (EVM.SLoad slot storage) of
@@ -384,7 +386,7 @@ refAddr cmap (SField _ ref c x) = do
   layout <- getLayout
   caddr' <- refAddr cmap ref
   case M.lookup caddr' cmap of
-    Just (EVM.C _ storage _ _) -> do
+    Just (EVM.C _ storage _ _ _) -> do
       let slot = EVM.Lit $ fromIntegral $ getSlot layout c x
       case simplify (EVM.SLoad slot storage) of
         EVM.WAddr symaddr -> pure symaddr
@@ -531,7 +533,7 @@ toExpr cmap = liftM stripMods . go
         caddr' <- baseAddr cmap ref
         let contract = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
         let storage = case contract of
-                        EVM.C _ s _ _  -> s
+                        EVM.C _ s _ _ _  -> s
                         EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
         pure $ EVM.SLoad slot storage
 
@@ -587,7 +589,8 @@ checkEquiv solvers l1 l2 = do
     toEquivRes :: SymExec.EquivResult -> EquivResult
     toEquivRes (Cex cex) = Cex ("\x1b[1mThe following input results in different behaviours\x1b[m", cex)
     toEquivRes (Qed a) = Qed a
-    toEquivRes (Timeout b) = Timeout b
+    toEquivRes (SymExec.Unknown ()) = SymExec.Unknown ""
+    toEquivRes (SymExec.Error b) = SymExec.Error (T.pack b)
 
 
 checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -> Contract -> CodeMap -> m (Error String (ContractMap, ActEnv))
@@ -641,13 +644,14 @@ createStorage cmap =
     traverseStorage _ _ = error "Internal error: unexpected storage shape"
 
     makeContract :: EVM.Expr EVM.EAddr -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
-    makeContract addr (EVM.C code storage _ _) = EVM.C code (traverseStorage addr storage) (EVM.Balance addr) (Just 0)
+    makeContract addr (EVM.C code storage tstorage _ _) = EVM.C code (traverseStorage addr storage) tstorage (EVM.Balance addr) (Just 0)
     makeContract _ (EVM.GVar _) = error "Internal error: contract cannot be gvar"
 
     toContract :: EVM.Expr EVM.EContract -> EVM.Contract
-    toContract (EVM.C code storage balance nonce) = EVM.Contract
+    toContract (EVM.C code storage tstorage balance nonce) = EVM.Contract
       { EVM.code        = code
       , EVM.storage     = storage
+      , EVM.tStorage    = tstorage
       , EVM.origStorage = storage
       , EVM.balance     = balance
       , EVM.nonce       = nonce
@@ -758,18 +762,18 @@ assertSelector txdata sig =
 toVRes :: T.Text -> CheckSatResult -> EquivResult
 toVRes msg res = case res of
   Sat cex -> Cex (msg, cex)
-  EVM.Solvers.Unknown -> Timeout ()
+  EVM.Solvers.Unknown e -> SymExec.Unknown (T.pack e)
   Unsat -> Qed ()
-  Error e -> error $ "Internal Error: solver responded with error: " <> show e
+  EVM.Solvers.Error e -> SymExec.Error (T.pack e)
 
 
 checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m (Error String ())
 checkResult calldata sig res =
   case any isCex res of
     False ->
-      case any isTimeout res of
+      case any isUnknown res || any isError res of
         True -> do
-          showMsg "\x1b[41mNo discrepancies found but timeout(s) occurred. \x1b[m"
+          showMsg "\x1b[41mNo discrepancies found but timeouts or solver errors were encountered. \x1b[m"
           pure $ Failure $ NE.singleton (nowhere, "Failure: Cannot prove equivalence.")
         False -> do
           showMsg "\x1b[42mNo discrepancies found.\x1b[m "
