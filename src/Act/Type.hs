@@ -537,8 +537,14 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
     _             -> throw (p, "Unknown environment variable " <> show v1)
 
   -- Variable references
-  (_, U.EUTEntry entry) | isCalldataEntry env entry -> validateVar env entry `bindValidation` \(vt@(FromVType typ'), ref) ->
-    checkTime (getPosEntry entry) <*> (Var (getPosEntry entry) Neither typ vt ref <$ checkEq (getPosEntry entry) typ typ')
+  (_, U.EUTEntry entry) | isCalldataEntry env entry -> -- TODO more principled way of treating timings
+     case (eqT @t @Timed, eqT @t @Untimed) of
+       (Just Refl, _) -> validateVar env entry `bindValidation` \(vt@(FromVType typ'), ref) ->
+         Var (getPosEntry entry) Pre typ vt ref <$ checkEq (getPosEntry entry) typ typ'
+       (_, Just Refl) -> validateVar env entry `bindValidation` \(vt@(FromVType typ'), ref) ->
+         Var (getPosEntry entry) Neither typ vt ref <$ checkEq (getPosEntry entry) typ typ'
+       (_,_) -> error "Internal error: Timing should be either Timed or Untimed"
+       -- Var (getPosEntry entry) Neither typ vt ref <$ checkEq (getPosEntry entry) typ typ'
   (_, U.EPreEntry entry) | isCalldataEntry env entry -> error "Not supported"
   (_, U.EPostEntry entry) | isCalldataEntry env entry -> error "Not supported"
   -- Storage references
@@ -567,7 +573,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
     checkTime :: forall t0. Typeable t0 => Pn -> Err (Exp a t0 -> Exp a t)
     checkTime pn = case eqT @t @t0 of
       Just Refl -> pure id
-      Nothing   -> throw (pn, (tail . show $ typeRep @t) <> " variable needed here")
+      Nothing   -> throw (pn, (tail . show $ typeRep @t) <> " variable needed here.")
 
     -- TODO FIX
     isCalldataEntry Env{calldata} (U.EVar _ name) = case Map.lookup name calldata of
