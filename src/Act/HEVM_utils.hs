@@ -186,6 +186,5 @@ loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create fresh =
      , txAccessList = mempty
      , allowFFI = False
      , freshAddresses = fresh
-     , freshAddresses = 0
      , beaconRoot = 0
      })
