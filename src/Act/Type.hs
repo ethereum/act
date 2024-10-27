@@ -489,7 +489,7 @@ andExps (c:cs) = foldl (\cs' c' -> And nowhere c' cs') c cs
 
 -- | Check the type of an expression and construct a typed expression
 checkExpr :: forall a t. Typeable t => Env -> SType a -> U.Expr -> Err (Exp a t)
-checkExpr env@Env{constructors} typ e = case (typ, e) of
+checkExpr env@Env{constructors, calldata} typ e = case (typ, e) of
   -- Boolean expressions
   (SBoolean, U.ENot    p v1)    -> Neg  p <$> checkExpr env SBoolean v1
   (SBoolean, U.EAnd    p v1 v2) -> And  p <$> checkExpr env SBoolean v1 <*> checkExpr env SBoolean v2
@@ -516,8 +516,8 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
   (SInteger, U.ECreate p c args) -> case Map.lookup c constructors of
     Just ctrs ->
       let (typs, ptrs) = unzip ctrs in
-      checkIxs env p args (fmap PrimitiveType typs) `bindValidation` (\args ->
-      pure (Create p c args) <* traverse_ (\(e, t) -> checkContractType env e t) (zip args ptrs))
+      checkIxs env p args (fmap PrimitiveType typs) `bindValidation` (\args' ->
+      pure (Create p c args') <* traverse_ (\(e', t) -> checkContractType env e' t) (zip args' ptrs))
     Nothing -> throw (p, "Unknown constructor " <> show c)
 
    -- Control
@@ -537,7 +537,7 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
     _             -> throw (p, "Unknown environment variable " <> show v1)
 
   -- Variable references
-  (_, U.EUTEntry entry) | isCalldataEntry env entry -> -- TODO more principled way of treating timings
+  (_, U.EUTEntry entry) | isCalldataEntry entry -> -- TODO more principled way of treating timings
      case (eqT @t @Timed, eqT @t @Untimed) of
        (Just Refl, _) -> validateVar env entry `bindValidation` \(vt@(FromVType typ'), ref) ->
          Var (getPosEntry entry) Pre typ vt ref <$ checkEq (getPosEntry entry) typ typ'
@@ -545,8 +545,8 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
          Var (getPosEntry entry) Neither typ vt ref <$ checkEq (getPosEntry entry) typ typ'
        (_,_) -> error "Internal error: Timing should be either Timed or Untimed"
        -- Var (getPosEntry entry) Neither typ vt ref <$ checkEq (getPosEntry entry) typ typ'
-  (_, U.EPreEntry entry) | isCalldataEntry env entry -> error "Not supported"
-  (_, U.EPostEntry entry) | isCalldataEntry env entry -> error "Not supported"
+  (_, U.EPreEntry entry) | isCalldataEntry entry -> error "Not supported"
+  (_, U.EPostEntry entry) | isCalldataEntry entry -> error "Not supported"
   -- Storage references
   (_, U.EUTEntry entry) -> validateEntry env entry `bindValidation` \(vt@(FromVType typ'), ref) ->
     checkTime (getPosEntry entry) <*> (TEntry (getPosEntry entry) Neither (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ')
@@ -576,11 +576,11 @@ checkExpr env@Env{constructors} typ e = case (typ, e) of
       Nothing   -> throw (pn, (tail . show $ typeRep @t) <> " variable needed here.")
 
     -- TODO FIX
-    isCalldataEntry Env{calldata} (U.EVar _ name) = case Map.lookup name calldata of
+    isCalldataEntry (U.EVar _ name) = case Map.lookup name calldata of
       Just _  -> True
       _ -> False
-    isCalldataEntry env (U.EMapping _ entry _) = isCalldataEntry env entry
-    isCalldataEntry env (U.EField _ entry _) = isCalldataEntry env entry
+    isCalldataEntry (U.EMapping _ entry _) = isCalldataEntry entry
+    isCalldataEntry (U.EField _ entry _) = isCalldataEntry entry
 
 
 -- | Find the contract id of an expression with contract type
@@ -601,9 +601,9 @@ checkContractType :: Env -> TypedExp t -> Maybe Id -> Err ()
 checkContractType _ _ Nothing = pure ()
 checkContractType env (TExp _ e) (Just c) =
   findContractType env e `bindValidation` \oc ->
-  case oc of -- TODO fix position
-    Just c' -> assert (nowhere, "Expression was expected to have contract type " <> c <> " but has contract type " <> c') (c == c')
-    Nothing -> throw (nowhere, "Expression was expected to have contract type " <> c)
+  case oc of
+    Just c' -> assert (posnFromExp e, "Expression was expected to have contract type " <> c <> " but has contract type " <> c') (c == c')
+    Nothing -> throw (posnFromExp e, "Expression was expected to have contract type " <> c)
 
 checkEq :: forall a b. Pn -> SType a -> SType b -> Err ()
 checkEq p t1 t2 = maybe err (\Refl -> pure ()) $  testEquality t1 t2

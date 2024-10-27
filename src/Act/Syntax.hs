@@ -324,6 +324,48 @@ itemType (Item t _ _) = actType t
 isMapping :: StorageLocation t -> Bool
 isMapping = not . null . ixsFromLocation
 
+posnFromExp :: Exp a t -> Pn
+posnFromExp e = case e of
+  And p _ _ -> p
+  Or p _ _ -> p
+  Impl p _ _ -> p
+  Neg p _ -> p
+  LT p _ _ -> p
+  LEQ p _ _ -> p
+  GEQ p _ _ -> p
+  GT p _ _ -> p
+  LitBool p _ -> p
+  -- integers
+  Add p _ _ -> p
+  Sub p _ _ -> p
+  Mul p _ _ -> p
+  Div p _ _ -> p
+  Mod p _ _ -> p
+  Exp p _ _ -> p
+  LitInt p _ -> p
+  IntEnv p _ -> p
+  -- bounds
+  IntMin p _ -> p
+  IntMax p _ -> p
+  UIntMin p _ -> p
+  UIntMax p _ -> p
+  InRange p _ _ -> p
+
+  -- bytestrings
+  Cat p _ _ -> p
+  Slice p _ _ _ -> p
+  ByStr p _ -> p
+  ByLit p _ -> p
+  ByEnv p _ -> p
+  -- contracts
+  Create p _ _ -> p
+
+  -- polymorphic
+  Eq  p _ _ _ -> p
+  NEq p _ _ _ -> p
+  ITE p _ _ _ -> p
+  TEntry p _ _ -> p
+  Var p _ _ _ _ -> p
 --------------------------------------
 -- * Extraction from untyped ASTs * --
 --------------------------------------
