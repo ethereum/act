@@ -141,7 +141,7 @@ translateConstructor bytecode (Constructor _ iface preconds _ _ upds)  = do
   preconds' <- mapM (toProp initmap) preconds
   cmap <- applyUpdates initmap initmap upds
   fresh <- getFresh
-  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr fresh) mempty (EVM.ConcreteBuf bytecode) cmap], calldata, ifaceToSig iface)
+  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr 1 fresh) mempty (EVM.ConcreteBuf bytecode) cmap], calldata, ifaceToSig iface)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -152,8 +152,9 @@ translateConstructor bytecode (Constructor _ iface preconds _ _ upds)  = do
                          }
     initmap = M.fromList [(initAddr, initcontract)]
 
-    -- TODO remove when hevm PR is merged
-    symAddrCnstr n = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [1..n]
+
+symAddrCnstr :: Int -> Int -> [EVM.Prop]
+symAddrCnstr start end = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [start..end]
 
 translateBehvs :: ContractMap -> [Behaviour] ->  ActM [(Id, [EVM.Expr EVM.End], Calldata, Sig)]
 translateBehvs cmap behvs = do
@@ -182,11 +183,13 @@ ifaceToSig (Interface name args) = Sig (T.pack name) (fmap fromdecl args)
 
 translateBehv :: ContractMap -> Behaviour -> ActM (EVM.Expr EVM.End)
 translateBehv cmap (Behaviour _ _ _ preconds caseconds _ upds ret) = do
+  fresh <- getFresh
   preconds' <- mapM (toProp cmap) preconds
   caseconds' <- mapM (toProp cmap) caseconds
   ret' <- returnsToExpr cmap ret
   store <- applyUpdates cmap cmap upds
-  pure $ EVM.Success (preconds' <> caseconds') mempty ret' store
+  fresh' <- getFresh
+  pure $ EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' store
 
 
 applyUpdates :: ContractMap -> ContractMap -> [StorageUpdate] -> ActM ContractMap
@@ -594,7 +597,7 @@ checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Store -
 checkConstructors solvers initcode runtimecode store (Contract ctor _) codemap = do
   let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing
   let ((actbehvs, calldata, sig), actenv') = flip runState actenv $ translateConstructor runtimecode ctor
-  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata
+  solbehvs <- removeFails <$> getInitcodeBranches solvers initcode calldata 0
   showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   res1 <- checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
@@ -612,7 +615,7 @@ checkBehaviours solvers (Contract _ behvs) actenv cmap = do
   let (actstorage, hevmstorage) = createStorage cmap
   let actbehvs = fst $ flip runState actenv $ translateBehvs actstorage behvs
   (liftM $ concatError def) $ flip mapM actbehvs $ \(name,behvs',calldata, sig) -> do
-    solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata
+    solbehvs <- removeFails <$> getRuntimeBranches solvers hevmstorage calldata actenv.fresh
     showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
@@ -674,6 +677,7 @@ checkInputSpaces solvers l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
   conf <- readConfig
+
   let queries = fmap (assertProps conf) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
                                         , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
@@ -696,7 +700,7 @@ checkAbi solver contract cmap = do
   let (_, hevmstorage) = createStorage cmap
   let txdata = EVM.AbstractBuf "txdata"
   let selectorProps = assertSelector txdata <$> nubOrd (actSigs contract)
-  evmBehvs <- getRuntimeBranches solver hevmstorage (txdata, [])
+  evmBehvs <- getRuntimeBranches solver hevmstorage (txdata, []) 0 -- TODO what freshAddr goes here?
   conf <- readConfig
   let queries =  fmap (assertProps conf) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
   res <- liftIO $ mapConcurrently (checkSat solver) queries
@@ -782,3 +786,6 @@ checkResult calldata sig res =
 -- | Pretty prints a list of hevm behaviours for debugging purposes
 showBehvs :: [EVM.Expr a] -> String
 showBehvs behvs = T.unpack $ T.unlines $ fmap Format.formatExpr behvs
+
+showProps :: [EVM.Prop] -> String
+showProps props = T.unpack $ T.unlines $ fmap Format.formatProp props
