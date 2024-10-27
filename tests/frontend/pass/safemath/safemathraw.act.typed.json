@@ -46,20 +46,26 @@
                 {
                   "args": [
                     {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
                       "type": "int",
-                      "var": "x"
+                      "var": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "x"
+                      }
                     },
                     {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
                       "type": "int",
-                      "var": "y"
+                      "var": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "y"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -76,12 +82,15 @@
                   "type": "UInt"
                 },
                 {
-                  "abitype": {
-                    "size": "256",
-                    "type": "UInt"
-                  },
                   "type": "int",
-                  "var": "x"
+                  "var": {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "kind": "Var",
+                    "var": "x"
+                  }
                 }
               ],
               "arity": 2,
@@ -94,12 +103,15 @@
                   "type": "UInt"
                 },
                 {
-                  "abitype": {
-                    "size": "256",
-                    "type": "UInt"
-                  },
                   "type": "int",
-                  "var": "y"
+                  "var": {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "kind": "Var",
+                    "var": "y"
+                  }
                 }
               ],
               "arity": 2,
@@ -128,12 +140,15 @@
                       "type": "int"
                     },
                     {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
                       "type": "int",
-                      "var": "x"
+                      "var": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "x"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -142,12 +157,15 @@
                 {
                   "args": [
                     {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
                       "type": "int",
-                      "var": "x"
+                      "var": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "x"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -170,12 +188,15 @@
                       "type": "int"
                     },
                     {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
                       "type": "int",
-                      "var": "y"
+                      "var": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "y"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -184,12 +205,15 @@
                 {
                   "args": [
                     {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
                       "type": "int",
-                      "var": "y"
+                      "var": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "y"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -242,20 +266,26 @@
             "expression": {
               "args": [
                 {
-                  "abitype": {
-                    "size": "256",
-                    "type": "UInt"
-                  },
                   "type": "int",
-                  "var": "x"
+                  "var": {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "kind": "Var",
+                    "var": "x"
+                  }
                 },
                 {
-                  "abitype": {
-                    "size": "256",
-                    "type": "UInt"
-                  },
                   "type": "int",
-                  "var": "y"
+                  "var": {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "kind": "Var",
+                    "var": "y"
+                  }
                 }
               ],
               "arity": 2,
