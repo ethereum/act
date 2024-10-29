@@ -109,7 +109,7 @@ checkDecompilation contract src = do
   json <- solc Solidity src
   let (Contracts sol, _, _) = fromJust $ readStdJSON json
   let c = fromJust $ Map.lookup ("hevm.sol:" <> contract) sol
-  runEnv (Env defaultActConfig) (Solvers.withSolvers CVC5 1 (Just 100000000) (decompile c)) >>= \case
+  runEnv (Env defaultActConfig) (Solvers.withSolvers CVC5 1 1 (Just 100000000) (decompile c)) >>= \case
     Left es -> do
       T.putStrLn es
       assertBool "decompilation should succeed" False

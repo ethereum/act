@@ -149,7 +149,7 @@ summarize solvers contract = do
 makeIntSafe :: forall m a. App m => SolverGroup -> EVM.Expr a -> m (EVM.Expr a)
 makeIntSafe solvers expr = evalStateT (mapExprM go expr) mempty
   where
-    -- Walks the expression bottom up and checks (using an smt solver) if overflow is possible for any 
+    -- Walks the expression bottom up and checks (using an smt solver) if overflow is possible for any
     -- arithmetic operations it encounters. Results from child nodes are stored and reused as we move up the tree
     go :: forall b. EVM.Expr b -> StateT (Map (EVM.Expr EVM.EWord) EVM.Prop) m (EVM.Expr b)
     go = \case
@@ -225,11 +225,11 @@ mkConstructor cs
 
   where
     addDefaults :: Map (Integer, Integer) (Text, SlotType) -> DistinctStore -> DistinctStore
-    addDefaults layout (DistinctStore storage) = 
+    addDefaults layout (DistinctStore storage) =
       DistinctStore $ Map.foldr (\(name, typ) s -> case Map.lookup name storage of
                                     Just _ -> s
                                     Nothing -> Map.insert name (LitInt nowhere 0, typ) s) storage layout
-    
+
 -- | Build behaviour specs from the summarized bytecode
 mkBehvs :: EVMContract -> Either Text [Behaviour]
 mkBehvs c = concatMapM (\(i, bs) -> mapM (mkbehv i) (Set.toList bs)) (Map.toList c.runtime)
@@ -309,7 +309,7 @@ decomposeStorage layout = go mempty
     checkedInsert :: (Map Text (Exp AInteger, SlotType)) -> (EVM.W256, EVM.Expr EVM.EWord) -> Either Text (Map Text (Exp AInteger, SlotType))
     checkedInsert curr (key, val) =
         case Map.lookup (toInteger key, 0) layout of
-          Just (name, typ) -> 
+          Just (name, typ) ->
             case Map.lookup name curr of
               -- if a key was already written to higher in the write chain, ignore this write
               Just _ -> pure curr
@@ -328,6 +328,9 @@ simplify e = if (mapTerm go e == e)
     go (Neg _ (Neg _ p)) = p
     go (Eq _ SInteger (ITE _ a (LitInt _ 1) (LitInt _ 0)) (LitInt _ 1)) = go a
     go (Eq _ SInteger (ITE _ a (LitInt _ 1) (LitInt _ 0)) (LitInt _ 0)) = go (Neg nowhere (go a))
+    go (Eq _ SInteger (LitInt _ 1) (ITE _ a (LitInt _ 1) (LitInt _ 0))) = go a
+    go (Eq _ SInteger (LitInt _ 0) (ITE _ a (LitInt _ 1) (LitInt _ 0))) = go (Neg nowhere (go a))
+    -- TODO perhaps normalize before simplification to make rewrites less verbose and more robust
 
     -- this is the condition we get for a non overflowing uint multiplication
     --    ~ ((x != 0) & ~ (in_range 256 x))

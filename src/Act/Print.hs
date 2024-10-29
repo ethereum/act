@@ -254,6 +254,10 @@ prettyInvPred = prettyExp . untime . fst
 -- | Doc type for terminal output
 type DocAnsi = Doc Term.AnsiStyle
 
+
+-- | Doc type for terminal output
+type DocAnsi = Doc Term.AnsiStyle
+
 -- | prints a Doc, with wider output than the built in `putDoc`
 render :: DocAnsi -> IO ()
 render doc =
