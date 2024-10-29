@@ -35,6 +35,7 @@ interface constructor(address a1, address a2)
 
 pointers
   a1 |-> A
+  a2 |-> B
 
 iff
     CALLVALUE == 0    
