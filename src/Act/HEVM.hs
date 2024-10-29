@@ -50,7 +50,7 @@ import EVM as EVM hiding (bytecode)
 import qualified EVM.Types as EVM hiding (FrameState(..))
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial, reachable)
-import qualified EVM.SymExec as SymExec (EquivResult)
+import qualified EVM.SymExec as SymExec (EquivResult, ProofResult(..))
 import EVM.SMT (SMTCex(..), assertProps)
 import EVM.Solvers
 import EVM.Effects
@@ -408,7 +408,7 @@ refAddr :: Monad m => ContractMap -> StorageRef -> ActT m (EVM.Expr EVM.EAddr)
 refAddr cmap (SVar _ c x) = do
   caddr <- getCaddr
   case M.lookup caddr cmap of
-    Just (EVM.C _ storage _ _, _) -> do
+    Just (EVM.C _ storage _ _ _, _) -> do
       layout <- getLayout
       let slot = EVM.Lit $ fromIntegral $ getSlot layout c x
       case simplify (EVM.SLoad slot storage) of
@@ -420,7 +420,7 @@ refAddr cmap (SField _ ref c x) = do
   layout <- getLayout
   caddr' <- refAddr cmap ref
   case M.lookup caddr' cmap of
-    Just (EVM.C _ storage _ _, _) -> do
+    Just (EVM.C _ storage _ _ _, _) -> do
       let slot = EVM.Lit $ fromIntegral $ getSlot layout c x
       case simplify (EVM.SLoad slot storage) of
         EVM.WAddr symaddr -> pure symaddr
@@ -600,7 +600,7 @@ vrefToExp SInteger cmap (VField _ ref cid name) = do
       let slot = EVM.Lit (fromIntegral $ getSlot layout cid name)
       
       let storage = case contract of
-            EVM.C _ s _ _  -> s
+            EVM.C _ s _ _ _  -> s
             EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
 
       pure $ EVM.SLoad slot storage
@@ -675,6 +675,7 @@ getInitContractState solvers iface pointers preconds cmap = do
           (icmap, check) <- getInitContractState solvers iface' pointers' preconds' M.empty
           let contract = EVM.C { EVM.code  = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
                                , EVM.storage = EVM.ConcreteStore mempty
+                               , EVM.tStorage = EVM.ConcreteStore mempty
                                , EVM.balance = EVM.Lit 0
                                , EVM.nonce = Just 1
                                }
@@ -800,7 +801,8 @@ abstractCmap this cmap =
     traverseStorage _ _ = error $ "Internal error: unexpected storage shape"
 
     makeContract :: EVM.Expr EVM.EAddr -> (EVM.Expr EVM.EContract, Id) -> (EVM.Expr EVM.EContract, Id)
-    makeContract addr (EVM.C code storage _ _, cid) = (EVM.C code (simplify (traverseStorage addr (simplify storage))) (EVM.Balance addr) (Just 0), cid)
+    makeContract addr (EVM.C code storage tstorage _ _, cid) =
+      (EVM.C code (simplify (traverseStorage addr (simplify storage))) tstorage (EVM.Balance addr) (Just 0), cid)
     makeContract _ (EVM.GVar _, _) = error "Internal error: contract cannot be gvar"
 
 -- | Remove unreachable addresses from a contract map
@@ -823,7 +825,7 @@ pruneContractState entryaddr cmap =
         go :: EVM.Expr EVM.EAddr -> [EVM.Expr EVM.EAddr] -> [EVM.Expr EVM.EAddr]
         go addr' acc =
           case M.lookup addr' cmap' of
-            Just (EVM.C _ storage _ _, _) ->
+            Just (EVM.C _ storage _ _ _, _) ->
               let addrs = getAddrs storage in
               foldl (\r a -> go a r) (addr':acc) addrs
             Just (EVM.GVar _, _) -> error "Internal error: contract cannot be gvar"
@@ -855,7 +857,7 @@ checkStoreIsomorphism cmap1 cmap2 = bfs [(idOfAddr initAddr, idOfAddr initAddr)]
     bfs [] q2 m1 m2 = bfs (reverse q2) [] m1 m2
     bfs ((addr1, addr2):q1) q2  map1 map2 =
       case (M.lookup (EVM.SymAddr addr1) cmap1, M.lookup (EVM.SymAddr addr2) cmap2) of
-        (Just (EVM.C _ storage1 _ _, _), Just (EVM.C _ storage2 _ _, _)) ->
+        (Just (EVM.C _ storage1 _ _ _, _), Just (EVM.C _ storage2 _ _ _, _)) ->
           let addrs1 = sortOn fst $ getAddrs storage1 in
           let addrs2 = sortOn fst $ getAddrs storage2 in
           visit addrs1 addrs2 map1 map2 q2 `bindValidation` (\(renaming1, renaming2, q2') ->
