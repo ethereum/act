@@ -41,7 +41,6 @@ import Act.Syntax.Annotated as Act
 import Act.Syntax.Untyped (makeIface)
 import Act.Syntax
 import Act.Error
-import Act.Print
 import qualified Act.Syntax.TimeAgnostic as TA
 import Act.Syntax.Timing
 
@@ -56,8 +55,6 @@ import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
 import EVM.Traversals
-
-import Debug.Trace
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
