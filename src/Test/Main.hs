@@ -7,7 +7,7 @@ module Main where
 
 import Prelude hiding (GT, LT)
 import Test.Tasty
-import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property, (===), counterexample)
+import Test.Tasty.QuickCheck (Gen, arbitrary, testProperty, Property, (===), counterexample, whenFail)
 import Test.QuickCheck.Instances.ByteString()
 import Test.QuickCheck.GenT
 import Test.QuickCheck.Monadic
@@ -21,7 +21,7 @@ import Data.Map (fromList)
 
 import Act.CLI (compile)
 import Act.Error
-import Act.Print (prettyBehaviour)
+import Act.Print (prettyBehaviour, prettyAct)
 import Act.SMT
 import Act.Syntax.Annotated
 
@@ -60,8 +60,10 @@ main = defaultMain $ testGroup "act"
           let actual = compile $ prettyBehaviour behv
               expected = Act (defaultStore contract) [Contract (defaultCtor contract) [behv]]
           return $ case actual of
-            Success a -> a === expected
-            Failure err -> counterexample ("Internal error: compilation of Act failed\n" <> show err) False
+            Success a ->
+              let err_str = "Actual:\n" <> prettyAct a <> "Expected:\n" <> prettyAct expected in
+              whenFail (putStrLn err_str) $ a === expected
+            Failure err -> counterexample ("Internal error: compilation of Act failed\n" <> show err <> "\n") False
       ]
 
   , testGroup "smt"

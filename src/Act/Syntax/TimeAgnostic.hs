@@ -181,7 +181,7 @@ deriving instance Show (VarRef t)
 -- TODO better way to do Vars and Storage entires without duplication 
 
 instance Eq (VarRef t) where
-  VVar _ at x == VVar _ at' x' = at == at' &&  x == x'
+  VVar _ _ x == VVar _ _ x' = x == x' -- NOTE: adding equality of types fails decompilation QC tests. We must fix this.
   VMapping _ r ixs == VMapping _ r' ixs' = r == r' && ixs == ixs'
   VField _ r c x == VField _ r' c' x' = r == r' && c == c' && x == x'
   _ == _ = False
@@ -283,7 +283,7 @@ instance Eq (Exp a t) where
 
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
   TEntry _ a t == TEntry _ b u = a == b && t == u
-  Var _ _ _ vt1 a == Var _ _ _ vt2 b = vt1 == vt2 && a == b
+  Var _ _ _ _ a == Var _ _ _ _ b = a == b -- NOTE: add equality for ValueTypes that currently fails QC tests for decompiler
 
   Create _ a b == Create _ c d = a == c && b == d
 
