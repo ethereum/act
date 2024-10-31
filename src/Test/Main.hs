@@ -56,7 +56,7 @@ main = defaultMain $ testGroup "act"
          fail spec is also checked.
       -}
       [ testProperty "roundtrip" . withExponents $ do
-          behv@(Behaviour _ contract _ _ _ _ _ _) <- sized genBehv
+          behv@(Behaviour _ contract _ _ _ _ _ _ _) <- sized genBehv
           let actual = compile $ prettyBehaviour behv
               expected = Act (defaultStore contract) [Contract (defaultCtor contract) [behv]]
           return $ case actual of
@@ -75,7 +75,13 @@ defaultStore :: Id -> Store
 defaultStore c = fromList [(c,mempty)]
 
 defaultCtor :: Id -> Constructor
-defaultCtor c = Constructor {_cname = c, _cinterface = Interface c [], _cpreconditions = [], _cpostconditions = [], _invariants = [], _initialStorage = []}
+defaultCtor c = Constructor { _cname = c
+                            , _cinterface = Interface c []
+                            , _cpointers = []
+                            , _cpreconditions = []
+                            , _cpostconditions = []
+                            , _invariants = []
+                            , _initialStorage = []}
 
 
 typeCheckSMT :: Solver -> GenT (Reader Bool) Property
@@ -121,6 +127,7 @@ genBehv n = do
   return Behaviour { _name = name
                    , _contract = contract
                    , _interface = iface
+                   , _pointers = []
                    , _preconditions = preconditions
                    , _caseconditions = [LitBool nowhere True]
                    , _postconditions = postconditions
@@ -147,7 +154,6 @@ genType typ = case typ of
   ABoolean -> return AbiBoolType
   AByteStr -> return AbiStringType
                    --, return AbiBytesDynamicType -- TODO: needs frontend support
-  AContract -> error "contracts not supported"
   where
     validIntSize = elements [ x | x <- [8..256], x `mod` 8 == 0 ]
     validBytesSize = elements [1..32]
@@ -163,12 +169,12 @@ genTypedExp names n = oneof
 
 -- TODO: literals, cat slice, ITE, storage, ByStr
 genExpBytes :: Names -> Int -> ExpoGen (Exp AByteStr)
-genExpBytes names _ = _Var (AbiBytesType 32) <$> selectName AByteStr names
+genExpBytes names _ = _Var Pre (AbiBytesType 32) <$> selectName AByteStr names
 
 -- TODO: ITE, storage
 genExpBool :: Names -> Int -> ExpoGen (Exp ABoolean)
 genExpBool names 0 = oneof
-  [ _Var AbiBoolType <$> selectName ABoolean names
+  [ _Var Pre AbiBoolType <$> selectName ABoolean names
   , LitBool nowhere <$> liftGen arbitrary
   ]
 genExpBool names n = oneof
@@ -194,7 +200,7 @@ genExpBool names n = oneof
 genExpInt :: Names -> Int -> ExpoGen (Exp AInteger)
 genExpInt names 0 = oneof
   [ LitInt nowhere <$> liftGen arbitrary
-  , _Var (AbiUIntType 256) <$> selectName AInteger names
+  , _Var Pre (AbiUIntType 256) <$> selectName AInteger names
   , return $ IntEnv nowhere Caller
   , return $ IntEnv nowhere Callvalue
   , return $ IntEnv nowhere Calldepth
@@ -231,7 +237,6 @@ selectName typ (Names ints bools bytes) = do
                 AInteger -> ints
                 ABoolean -> bools
                 AByteStr -> bytes
-                AContract -> error "unsupported type"
   idx <- elements [0..((length names)-1)]
   return $ names!!idx
 
