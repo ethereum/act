@@ -13,7 +13,7 @@ import qualified Act.Syntax.TimeAgnostic as Agnostic
 import Act.Syntax.TimeAgnostic (Timing(..),setPre,setPost)
 
 -- Reexports
-import Act.Syntax.TimeAgnostic as Act.Syntax.Annotated hiding (Timing(..),Timable(..),Time,Neither,Act,Contract,Invariant,InvariantPred,Constructor,Behaviour,StorageUpdate,StorageLocation,TStorageItem,Exp,TypedExp,StorageRef,VarRef)
+import Act.Syntax.TimeAgnostic as Act.Syntax.Annotated hiding (Timing(..),Timable(..),Time,Neither,Act,Contract,Invariant,InvariantPred,Constructor,Behaviour,StorageUpdate,StorageLocation,TItem,Exp,TypedExp,Ref)
 import Act.Syntax.TimeAgnostic as Act.Syntax.Annotated (pattern Act, pattern Contract, pattern Invariant, pattern Constructor, pattern Behaviour, pattern Exp)
 
 
@@ -26,9 +26,8 @@ type Constructor     = Agnostic.Constructor     Timed
 type Behaviour       = Agnostic.Behaviour       Timed
 type StorageUpdate   = Agnostic.StorageUpdate   Timed
 type StorageLocation = Agnostic.StorageLocation Timed
-type StorageRef      = Agnostic.StorageRef      Timed
-type VarRef          = Agnostic.VarRef          Timed
-type TStorageItem  a = Agnostic.TStorageItem  a Timed
+type Ref             = Agnostic.Ref             Timed
+type TItem         a = Agnostic.TItem         a Timed
 type Exp           a = Agnostic.Exp           a Timed
 type TypedExp        = Agnostic.TypedExp        Timed
 

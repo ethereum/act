@@ -118,75 +118,62 @@ data Behaviour t = Behaviour
   , _returns :: Maybe (TypedExp Timed)
   } deriving (Show, Eq)
 
+
 data StorageUpdate (t :: Timing) where
-  Update :: SType a -> TStorageItem a t -> Exp a t -> StorageUpdate t
+  Update :: SType a -> TItem Storage a t -> Exp a t -> StorageUpdate t
 deriving instance Show (StorageUpdate t)
 
 instance Eq (StorageUpdate t) where
   Update SType i1 e1 == Update SType i2 e2 = eqS i1 i2 && eqS e1 e2
 
-_Update :: SingI a => TStorageItem a t -> Exp a t -> StorageUpdate t
+_Update :: SingI a => TItem Storage a t -> Exp a t -> StorageUpdate t
 _Update item expr = Update sing item expr
 
 data StorageLocation (t :: Timing) where
-  Loc :: SType a -> TStorageItem a t -> StorageLocation t
+  Loc :: SType a -> TItem Storage a t -> StorageLocation t
 deriving instance Show (StorageLocation t)
 
-_Loc :: TStorageItem a t -> StorageLocation t
+_Loc :: TItem Storage a t -> StorageLocation t
 _Loc item@(Item s _ _) = Loc s item
 
 instance Eq (StorageLocation t) where
   Loc SType i1 == Loc SType i2 = eqS i1 i2
 
--- | References to items in storage. The type is parametrized on a
--- timing `t` and a type `a`. `t` can be either `Timed` or `Untimed` and
--- indicates whether any indices that reference items in storage explicitly
--- refer to the pre-/post-state, or not. `a` is the type of the item that is
--- referenced. Items are also annotated with the original ValueType that
--- carries more precise type information (e.g., the exact contract type).
-data TStorageItem (a :: ActType) (t :: Timing) where
-  Item :: SType a -> ValueType -> StorageRef t -> TStorageItem a t
-deriving instance Show (TStorageItem a t)
-deriving instance Eq (TStorageItem a t)
 
-_TExp :: SingI a => Exp a t -> TypedExp t
-_TExp expr = TExp sing expr
-
-
--- | Reference to an item in storage. It can be either a bare variable, a
--- map lookup, or a field selection. Variables and fields are
+-- | Distinguish the type of Refs to calladata variables and storage
+data RefKind = Storage | Calldata
+  
+-- | Reference to an item in storage or a variable. It can be either a
+-- storage or calldata variable, a map lookup, or a field selector.
 -- annotated with two identifiers: the contract that they belong to
 -- and their name.
-data StorageRef (t :: Timing) where
-  SVar :: Pn -> Id -> Id -> StorageRef t  
-  SMapping :: Pn -> StorageRef t -> [TypedExp t] -> StorageRef t
-  SField :: Pn -> StorageRef t -> Id -> Id -> StorageRef t
-deriving instance Show (StorageRef t)
+data Ref (k :: RefKind) (t :: Timing) where
+  CVar :: Pn -> AbiType -> Id -> Ref Calldata t     -- Calldata variable
+  SVar :: Pn -> Id -> Id -> Ref Storage t           -- Storage variable. First Id is the contract the var belogs to
+  SMapping :: Pn -> Ref k t -> [TypedExp t] -> Ref k t
+  SField :: Pn -> Ref k t -> Id -> Id -> Ref k t    -- first Id is the contract the field belogs to
+deriving instance Show (Ref k t)
 
-instance Eq (StorageRef t) where
+instance Eq (Ref k t) where
   SVar _ c x == SVar _ c' x' = c == c' && x == x'
   SMapping _ r ixs == SMapping _ r' ixs' = r == r' && ixs == ixs'
   SField _ r c x == SField _ r' c' x' = r == r' && c == c' && x == x'
   _ == _ = False
 
--- | References to variables passed as parameters. Can be either
--- variable names or chains field accessors of variables annotated
--- with two identifiers: the contract that the fields belongs to and
--- the name of the field name.
-data VarRef (t :: Timing) where
-  VVar :: Pn -> AbiType -> Id -> VarRef t
-  VMapping ::  Pn -> VarRef t -> [TypedExp t] -> VarRef t
-  VField :: Pn -> VarRef t -> Id -> Id -> VarRef t
-deriving instance Show (VarRef t)
--- TODO better way to do Vars and Storage entires without duplication 
+-- | Item is a reference together with its Act type. The type is
+-- parametrized on a timing `t`, a type `a`, and the reference kind
+-- `k`. `t` can be either `Timed` or `Untimed` and indicates whether
+-- any indices that reference items in storage explicitly refer to the
+-- pre-/post-state, or not. `a` is the type of the item that is
+-- referenced. Items are also annotated with the original ValueType
+-- that carries more precise type information (e.g., the exact
+-- contract type).
+data TItem (k :: RefKind) (a :: ActType) (t :: Timing) where
+  Item :: SType a -> ValueType -> Ref k t -> TItem k a t
+deriving instance Show (TItem k a t)
+deriving instance Eq (TItem k a t)
 
-instance Eq (VarRef t) where
-  VVar _ _ x == VVar _ _ x' = x == x' -- NOTE: adding equality of types fails decompilation QC tests. We must fix this.
-  VMapping _ r ixs == VMapping _ r' ixs' = r == r' && ixs == ixs'
-  VField _ r c x == VField _ r' c' x' = r == r' && c == c' && x == x'
-  _ == _ = False
-
-_Item :: SingI a => ValueType -> StorageRef t -> TStorageItem a t
+_Item :: SingI a => ValueType -> Ref k t -> TItem k a t
 _Item = Item sing
 
 -- | Expressions for which the return type is known.
@@ -196,6 +183,9 @@ deriving instance Show (TypedExp t)
 
 instance Eq (TypedExp t) where
   TExp SType e1 == TExp SType e2 = eqS e1 e2
+
+_TExp :: SingI a => Exp a t -> TypedExp t
+_TExp expr = TExp sing expr
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
 -- All storage entries within an `Exp a t` contain a value of type `Time t`.
@@ -241,8 +231,9 @@ data Exp (a :: ActType) (t :: Timing) where
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   ITE :: Pn -> Exp ABoolean t -> Exp a t -> Exp a t -> Exp a t
-  Var :: Pn -> Time t -> SType a -> ValueType -> VarRef t -> Exp a t
-  TEntry :: Pn -> Time t -> TStorageItem a t -> Exp a t
+  TEntry :: Pn -> Time t -> TItem Storage a t -> Exp a t
+  Var :: Pn -> Time t -> TItem Calldata a t -> Exp a t
+  -- Note: we could use a singleton types to avoid separating Entry and Var 
 deriving instance Show (Exp a t)
 
 -- Equality modulo source file position.
@@ -283,8 +274,7 @@ instance Eq (Exp a t) where
 
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
   TEntry _ a t == TEntry _ b u = a == b && t == u
-  Var _ _ _ _ a == Var _ _ _ _ b = a == b -- NOTE: add equality for ValueTypes that currently fails QC tests for decompiler
-
+  Var _ a t == Var _ b u = a == b && t == u
   Create _ a b == Create _ c d = a == c && b == d
 
   _ == _ = False
@@ -344,23 +334,19 @@ instance Timable (Exp a) where
     NEq p s x y -> NEq p s (go x) (go y)
     ITE p x y z -> ITE p (go x) (go y) (go z)
     TEntry p _ item -> TEntry p time (go item)
-    Var p _ at vt x -> Var p time at vt (go x)
+    Var p _ item -> Var p time (go item)
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
 
-instance Timable (TStorageItem a) where
+instance Timable (TItem k a) where
    setTime time (Item t vt ref) = Item t vt $ setTime time ref
 
-instance Timable StorageRef where
+instance Timable (Ref k) where
   setTime time (SMapping p e ixs) = SMapping p (setTime time e) (setTime time <$> ixs)
   setTime time (SField p e c x) = SField p (setTime time e) c x
   setTime _ (SVar p c x) = SVar p c x
-
-instance Timable VarRef where
-  setTime time (VMapping p e ixs) = VMapping p (setTime time e) (setTime time <$> ixs)
-  setTime time (VField p e c x) = VField p (setTime time e) c x
-  setTime _ (VVar p at x) = VVar p at x
+  setTime _ (CVar p c x) = CVar p c x
 
 
 ------------------------
@@ -457,25 +443,21 @@ instance ToJSON (StorageLocation t) where
 instance ToJSON (StorageUpdate t) where
   toJSON (Update _ a b) = object [ "location" .= toJSON a ,"value" .= toJSON b ]
 
-instance ToJSON (TStorageItem a t) where
+instance ToJSON (TItem k a t) where
   toJSON (Item t _ a) = object [ "item" .= toJSON a
                                , "type" .=  show t
                                ]
 
-instance ToJSON (StorageRef t) where
+instance ToJSON (Ref k t) where
   toJSON (SVar _ c x) = object [ "kind" .= pack "SVar"
                                , "svar" .=  pack x
                                , "contract" .= pack c ]
+  toJSON (CVar _ at x) = object [ "kind" .= pack "Var"
+                                  , "var" .=  pack x
+                                  , "abitype" .=  toJSON at ]                                  
   toJSON (SMapping _ e xs) = mapping e xs
   toJSON (SField _ e c x) = field e c x
 
-instance ToJSON (VarRef t) where
-  toJSON (VVar _ at x) = object [ "kind" .= pack "Var"
-                                  , "var" .=  pack x
-                                  , "abitype" .=  toJSON at
-                                  ]
-  toJSON (VMapping _ e xs) = mapping e xs
-  toJSON (VField _ e c x) = field e c x
 
 mapping :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
 mapping a b = object [ "kind"      .= pack "Mapping"
@@ -546,8 +528,8 @@ instance ToJSON (Exp a t) where
                               , "type" .= pack "bytestring" ]
   toJSON (TEntry _ t a) = object [ "entry"  .= toJSON a
                                  , "timing" .= show t ]
-  toJSON (Var _ _ t _ a) = object [ "var"      .= toJSON a
-                                  , "type"     .= show t ]
+  toJSON (Var _ t a) = object [ "var"  .= toJSON a
+                              , "timing" .= show t ]
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                   , "arity"  .= Data.Aeson.Types.Number 2
                                   , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
@@ -623,4 +605,4 @@ uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
 _Var :: SingI a => Time t -> AbiType -> Id -> Exp a t
-_Var tm at x = Var nowhere tm sing (PrimitiveType at) (VVar nowhere at x)
+_Var tm at x = Var nowhere tm (Item sing (PrimitiveType at) (CVar nowhere at x))

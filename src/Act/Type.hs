@@ -234,7 +234,7 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) ptrs
     noIllegalWilds = case cases of
       U.Direct   _  -> pure ()
       U.Branches bs -> for_ (init bs) $ \c@(U.Case p _ _) ->
-                          ((when (isWild c) ((throw (p, "Wildcard pattern must be last case")):: Err ())) :: Err ())  -- TODO test when wildcard isn't last
+                          ((when (isWild c) ((throw (p, "Wildcard pattern must be last case")):: Err ())) :: Err ())
 
     -- translate wildcards into negation of other branches and translate a single case to a wildcard
     normalizedCases :: [U.Case]
@@ -382,7 +382,6 @@ validateEntry :: forall t. Typeable t => Env -> U.Entry -> Err (ValueType, Stora
 validateEntry env entry =
   checkEntry env entry `bindValidation` \(typ, ref) -> case typ of
     StorageValue t -> pure (t, ref)
-    -- TODO can mappings be assigned?
     StorageMapping _ _  -> throw (getPosEntry entry, "Top-level expressions cannot have mapping type")
 
 
@@ -418,7 +417,6 @@ validateVar env var =
                           -- TODO there are two valid types we can return here
                           pure (ContractType c, ref)
                         _ -> pure (t, ref)
-    -- TODO can mappings be assigned?
     StorageMapping _ _  -> throw (getPosEntry var, "Top-level expressions cannot have mapping type")
 
 

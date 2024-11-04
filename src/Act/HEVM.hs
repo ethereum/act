@@ -322,7 +322,7 @@ substExp subst expr = case expr of
     Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
     Nothing -> error "Internal error: Ill-defined substitution"
 
-  -- Substituion of a variable, when this is variable is used as a pointer to contract
+  -- Substituion of a variable, when this variable is used as a pointer to contract
   Var p tm st vt vref -> case substVarRef subst vref of
     Left ref -> TEntry p tm (Item st vt ref) -- TODO deal with timings. Right now we can only refer to Pre
     Right ref -> Var p tm st vt ref
