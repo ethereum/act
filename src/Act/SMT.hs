@@ -81,7 +81,7 @@ type SMT2 = String
 
 -- | The context is a `Reader` monad which allows us to read
 -- the name of the current interface.
-type Ctx = Reader Id
+type Ctx = Reader Id -- TODO check if this is really needed
 
 -- | Specify the name to use as the current interface when creating SMT-code.
 withInterface :: Id -> Ctx SMT2 -> SMT2
@@ -625,7 +625,7 @@ expToSMT2 expr = case expr of
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
   ITE _ a b c -> triop "ite" a b c
-  Var _ _ _ _ a -> varref a
+  Var _ _ item -> ventry item
   TEntry _ w item -> entry item w
   where
     unop :: String -> Exp a -> Ctx SMT2
@@ -639,16 +639,16 @@ expToSMT2 expr = case expr of
     triop op a b c = ["(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")"
                         | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
 
-    entry :: TStorageItem a -> When -> Ctx SMT2
+    entry :: TItem Storage a -> When -> Ctx SMT2
     entry item whn = case ixsFromItem item of
       []       -> pure $ nameFromItem whn item
       (ix:ixs) -> select (nameFromItem whn item) (ix :| ixs)
 
-    varref :: VarRef -> Ctx SMT2
-    varref var = case ixsFromVarRef var of
-      []       -> nameFromVarRef var
+    ventry :: TItem Calldata a -> Ctx SMT2
+    ventry (Item _ _ vref) = case ixsFromRef vref of
+      []       -> nameFromVRef vref
       (ix:ixs) -> do
-        name <- nameFromVarRef var
+        name <- nameFromVRef vref
         select name (ix :| ixs)
 
 -- | SMT2 has no support for exponentiation, but we can do some preprocessing
@@ -694,20 +694,21 @@ sType' (TExp t _) = sType $ actType t
 --- ** Variable Names ** ---
 
 -- Construct the smt2 variable name for a given storage item
-nameFromItem :: When -> TStorageItem a -> Id
-nameFromItem whn (Item _ _ ref) = nameFromStorageRef ref @@ show whn
+nameFromItem :: When -> TItem Storage a -> Id
+nameFromItem whn (Item _ _ ref) = nameFromRef ref @@ show whn
 
-nameFromStorageRef :: StorageRef -> Id
-nameFromStorageRef (SVar _ c name) = c @@ name
-nameFromStorageRef (SMapping _ e _) = nameFromStorageRef e
-nameFromStorageRef (SField _ ref c x) = nameFromStorageRef ref @@ c @@ x
+nameFromRef :: Ref Storage -> Id
+nameFromRef (SVar _ c name) = c @@ name
+nameFromRef (SMapping _ e _) = nameFromRef e
+nameFromRef (SField _ ref c x) = nameFromRef ref @@ c @@ x
 
-nameFromVarRef :: VarRef -> Ctx Id
-nameFromVarRef (VVar _ _ name) = nameFromVarId name
-nameFromVarRef (VMapping _ v _) = nameFromVarRef v
-nameFromVarRef (VField _ ref c x) = do
-  name <- nameFromVarRef ref
+nameFromVRef :: Ref Calldata -> Ctx Id
+nameFromVRef (CVar _ _ name) = nameFromVarId name
+nameFromVRef (SMapping _ e _) = nameFromVRef e
+nameFromVRef (SField _ ref c x) = do 
+  name <- nameFromVRef ref
   pure $ name @@ c @@ x
+
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id
