@@ -11,7 +11,7 @@
 
 {-|
 Module      : Decompile
-Description : Decompile EVM bytecode into Act378
+Description : Decompile EVM bytecode into Act
 
 This module decompiles EVM bytecode into an Act spec. It operates as follows
 

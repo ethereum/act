@@ -18,6 +18,7 @@ module Act.HEVM where
 import Prelude hiding (GT, LT)
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 import Data.List
 import Data.Containers.ListUtils (nubOrd)
 import qualified Data.Text as T
@@ -658,8 +659,9 @@ getInitContractState solvers iface pointers preconds cmap = do
   (cmaps, checks) <- unzip <$> mapM getContractState (fmap nub casts')
 
   let finalmap = M.unions (cmap:cmaps)
+  
   check <- checkAliasing finalmap cmaps
-  pure (finalmap, check <* sequenceA_ checks)
+  pure (finalmap, check <* sequenceA_ checks <* checkUniqueAddr (cmap:cmaps))
 
   where
 
@@ -710,7 +712,15 @@ getInitContractState solvers iface pointers preconds cmap = do
 
     msg = "\x1b[1mThe following addresses cannot be proved distinct:\x1b[m"
 
+    -- currently we check that all symbolic addresses are globaly unique, and fail otherwise
+    -- (this is required for aliasing check to be sound when merging graphs
+    -- In the future, we should implement an internal renaming of variables to ensure global
+    -- uniqueness of symbolic a)ddresses.
 
+    checkUniqueAddr :: [ContractMap] -> Error String ()
+    checkUniqueAddr cmaps =
+      let pairs = comb cmaps in
+      assert (nowhere, "Names of symbolic adresses must be unique") (foldl (\b (c1, c2) -> S.disjoint (M.keysSet c1) (M.keysSet c2) && b) True pairs)
 
 checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Contract -> ActT m (Error String ContractMap)
 checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ iface pointers preconds _ _ _)  _) = do

@@ -47,7 +47,7 @@ hevm_buggy=tests/hevm/pass/transfer/transfer.act
 hevm_pass=$(filter-out $(hevm_buggy), $(wildcard tests/hevm/pass/*/*.act))
 # supposed to fail
 hevm_fail=$(wildcard tests/hevm/fail/*/*.act)
-# slow tests
+# slow passing tests
 hevm_slow=tests/hevm/pass/amm/amm.act tests/hevm/pass/amm-2/amm-2.act
 # supposed to pass, run fust
 hevm_fast=$(filter-out $(hevm_slow), $(hevm_pass))
