@@ -70,11 +70,11 @@ locsFromUpdate update = nub $ case update of
 locFromUpdate :: StorageUpdate t -> StorageLocation t
 locFromUpdate (Update _ item _) = _Loc item
 
-locsFromItem :: TStorageItem a t -> [StorageLocation t]
+locsFromItem :: TItem 'Storage a t -> [StorageLocation t]
 locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
 
-locsFromVarRef :: VarRef t -> [StorageLocation t]
-locsFromVarRef var = concatMap locsFromTypedExp (ixsFromVarRef var)
+locsFromVItem :: TItem Calldata a t -> [StorageLocation t]
+locsFromVItem item = concatMap locsFromTypedExp (ixsFromItem item)
 
 locsFromTypedExp :: TypedExp t -> [StorageLocation t]
 locsFromTypedExp (TExp _ e) = locsFromExp e
@@ -116,7 +116,7 @@ locsFromExp = nub . go
       Create _ _ es -> concatMap locsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
       TEntry _ _ a -> locsFromItem a
-      Var _ _ _ _ v -> locsFromVarRef v
+      Var _ _ a -> locsFromVItem a
 
 createsFromExp :: Exp a t -> [Id]
 createsFromExp = nub . go
@@ -157,7 +157,7 @@ createsFromExp = nub . go
       TEntry _ _ a -> createsFromItem a
       Var {} -> []
 
-createsFromItem :: TStorageItem a t -> [Id]
+createsFromItem :: TItem k a t -> [Id]
 createsFromItem item = concatMap createsFromTypedExp (ixsFromItem item)
 
 createsFromTypedExp :: TypedExp t -> [Id]
@@ -226,7 +226,7 @@ ethEnvFromUpdate :: StorageUpdate t -> [EthEnv]
 ethEnvFromUpdate rewrite = case rewrite of
   Update _ item e -> nub $ ethEnvFromItem item <> ethEnvFromExp e
 
-ethEnvFromItem :: TStorageItem a t -> [EthEnv]
+ethEnvFromItem :: TItem k a t -> [EthEnv]
 ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
 
 ethEnvFromTypedExp :: TypedExp t -> [EthEnv]
@@ -271,13 +271,14 @@ ethEnvFromExp = nub . go
       TEntry _ _ a -> ethEnvFromItem a
       Var {} -> []
 
-idFromItem :: TStorageItem a t -> Id
-idFromItem (Item _ _ ref) = idFromStorageRef ref
+idFromItem :: TItem k a t -> Id
+idFromItem (Item _ _ ref) = idFromRef ref
 
-idFromStorageRef :: StorageRef t -> Id
-idFromStorageRef (SVar _ _ x) = x
-idFromStorageRef (SMapping _ e _) = idFromStorageRef e
-idFromStorageRef (SField _ e _ _) = idFromStorageRef e
+idFromRef :: Ref k t -> Id
+idFromRef (SVar _ _ x) = x
+idFromRef (CVar _ _ x) = x
+idFromRef (SMapping _ e _) = idFromRef e
+idFromRef (SField _ e _ _) = idFromRef e
 
 idFromUpdate :: StorageUpdate t -> Id
 idFromUpdate (Update _ item _) = idFromItem item
@@ -285,32 +286,13 @@ idFromUpdate (Update _ item _) = idFromItem item
 idFromLocation :: StorageLocation t -> Id
 idFromLocation (Loc _ item) = idFromItem item
 
-contractFromItem :: TStorageItem a t -> Id
-contractFromItem (Item _ _ ref) = contractFromStorageRef ref
+ixsFromItem :: TItem k a t -> [TypedExp t]
+ixsFromItem (Item _ _ item) = ixsFromRef item
 
-contractFromStorageRef :: StorageRef t -> Id
-contractFromStorageRef (SVar _ c _) = c
-contractFromStorageRef (SMapping _ e _) = contractFromStorageRef e
-contractFromStorageRef (SField _ e _ _) = contractFromStorageRef e
-
-ixsFromItem :: TStorageItem a t -> [TypedExp t]
-ixsFromItem (Item _ _ (SMapping _ _ ixs)) = ixs
+ixsFromRef :: Ref k t -> [TypedExp t]
+ixsFromRef (SMapping _ _ ixs) = ixs
 -- TODO this must be fixed for multiple contracts
-ixsFromItem _ = []
-
-ixsFromVarRef :: VarRef t -> [TypedExp t]
-ixsFromVarRef (VMapping _ _ ixs) = ixs
--- TODO this must be fixed for multiple contracts
-ixsFromVarRef _ = []
-
-contractsInvolved :: Behaviour t -> [Id]
-contractsInvolved = fmap contractFromUpdate . _stateUpdates
-
-contractFromLoc :: StorageLocation t -> Id
-contractFromLoc (Loc _ item) = contractFromItem item
-
-contractFromUpdate :: StorageUpdate t -> Id
-contractFromUpdate (Update _ item _) = contractFromItem item
+ixsFromRef _ = []
 
 ixsFromLocation :: StorageLocation t -> [TypedExp t]
 ixsFromLocation (Loc _ item) = ixsFromItem item
@@ -318,7 +300,7 @@ ixsFromLocation (Loc _ item) = ixsFromItem item
 ixsFromUpdate :: StorageUpdate t -> [TypedExp t]
 ixsFromUpdate (Update _ item _) = ixsFromItem item
 
-itemType :: TStorageItem a t -> ActType
+itemType :: TItem k a t -> ActType
 itemType (Item t _ _) = actType t
 
 isMapping :: StorageLocation t -> Bool
@@ -365,7 +347,7 @@ posnFromExp e = case e of
   NEq p _ _ _ -> p
   ITE p _ _ _ -> p
   TEntry p _ _ -> p
-  Var p _ _ _ _ -> p
+  Var p _ _ -> p
 --------------------------------------
 -- * Extraction from untyped ASTs * --
 --------------------------------------

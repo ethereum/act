@@ -26,8 +26,8 @@ type Constructor     = Agnostic.Constructor     Timed
 type Behaviour       = Agnostic.Behaviour       Timed
 type StorageUpdate   = Agnostic.StorageUpdate   Timed
 type StorageLocation = Agnostic.StorageLocation Timed
-type Ref             = Agnostic.Ref             Timed
-type TItem         a = Agnostic.TItem         a Timed
+type Ref           k = Agnostic.Ref           k Timed
+type TItem       k a = Agnostic.TItem       k a Timed
 type Exp           a = Agnostic.Exp           a Timed
 type TypedExp        = Agnostic.TypedExp        Timed
 
