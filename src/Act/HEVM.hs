@@ -78,7 +78,7 @@ initAddr = EVM.SymAddr "entrypoint"
 
 slotMap :: Store -> Layout
 slotMap store =
-  M.map (M.map (\(_, slot) -> slot)) store
+  M.map (M.map snd) store
 
 
 -- * Act state monad
