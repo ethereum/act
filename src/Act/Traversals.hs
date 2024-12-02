@@ -137,12 +137,9 @@ mapExpM f = \case
     b' <- mapExpM f b
     c' <- mapExpM f c
     f (ITE p a' b' c')
-  Var p t i -> do
+  TEntry p t k i -> do
     i' <- mapTItemM f i
-    f (Var p t i')
-  TEntry p t i -> do
-    i' <- mapTItemM f i
-    f (TEntry p t i')
+    f (TEntry p t k i')
 
 mapTypedExpM :: Monad m => (forall a . Exp a t -> m (Exp a t)) -> TypedExp t -> m (TypedExp t)
 mapTypedExpM f (TExp s e) = do

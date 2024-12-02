@@ -52,8 +52,8 @@ contractCode store (Contract ctor@Constructor{..} behvs) = T.unlines $
   [ "Module " <> T.pack _cname <> ".\n" ]
   <> [ stateRecord ]
   <> [ base store ctor ]
-  <> (concat (evalSeq (transition store) <$> groups behvs))
-  <> (filter ((/=) "") $ concat (evalSeq retVal <$> groups behvs))
+  <> (concatMap (evalSeq (transition store)) (groups behvs))
+  <> (filter ((/=) "") $ concatMap (evalSeq retVal) (groups behvs))
   <> [ reachable ctor (groups behvs) ]
   <> [ "End " <> T.pack _cname <> "." ]
   where
@@ -146,7 +146,7 @@ retVal _ = return ""
 -- | produce a state value from a list of storage updates
 -- 'handler' defines what to do in cases where a given name isn't updated
 stateval :: Store -> Id -> (Ref Storage -> SlotType -> T.Text) -> [StorageUpdate] -> T.Text
-stateval store contract handler updates = T.unwords $ 
+stateval store contract handler updates = T.unwords $
   stateConstructor : fmap (\(n, (t, _)) -> updateVar store updates handler (SVar nowhere contract n) t) (M.toList store')
   where
     store' = contractStore contract store
@@ -306,8 +306,7 @@ coqexp (UIntMax _ n) = parens $ "UINT_MAX " <> T.pack (show n)
 coqexp (InRange _ t e) = coqexp (bound t e)
 
 -- polymorphic
-coqexp (Var _ _ (Item _ _ r)) = ref r
-coqexp (TEntry _ w e) = entry e w
+coqexp (TEntry _ w _ e) = entry e w
 coqexp (ITE _ b e1 e2) = parens $ "if "
                                <> coqexp b
                                <> " then "

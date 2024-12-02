@@ -11,6 +11,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeApplications #-}
 
 {-|
 Module      : Syntax.TimeAgnostic
@@ -40,8 +42,9 @@ import Data.Map.Strict (Map)
 import Data.String (fromString)
 import Data.Text (pack)
 import Data.Vector (fromList)
-import Data.Singletons (SingI(..))
+import Data.Singletons
 import Data.Kind
+import Data.Type.Equality (TestEquality(..), (:~:)(..))
 
 -- Reexports
 
@@ -142,7 +145,34 @@ instance Eq (StorageLocation t) where
 
 -- | Distinguish the type of Refs to calladata variables and storage
 data RefKind = Storage | Calldata
+  deriving (Show, Eq)
   
+data SRefKind (k :: RefKind) where
+  SStorage  :: SRefKind Storage
+  SCalldata :: SRefKind Calldata
+  
+type instance Sing = SRefKind
+
+instance Show (SRefKind a) where
+  show = \case
+    SStorage -> "SSTorage"
+    SCalldata -> "SCalldata"
+
+instance TestEquality SRefKind where
+  testEquality SStorage SStorage = Just Refl
+  testEquality SCalldata SCalldata = Just Refl
+  testEquality _ _ = Nothing
+
+-- | Helper pattern to retrieve the 'SingI' instances of the type represented by
+-- an 'SKind'.
+pattern SRefKind :: () => (SingI a) => SRefKind a
+pattern SRefKind <- Sing
+{-# COMPLETE SRefKind #-}
+
+-- | Compare equality of two things parametrized by types which have singletons.
+eqKind :: forall (a :: RefKind) (b :: RefKind) f t t'. (SingI a, SingI b, Eq (f a t t')) => f a t t' -> f b t t' -> Bool
+eqKind fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
+
 -- | Reference to an item in storage or a variable. It can be either a
 -- storage or calldata variable, a map lookup, or a field selector.
 -- annotated with two identifiers: the contract that they belong to
@@ -231,8 +261,7 @@ data Exp (a :: ActType) (t :: Timing) where
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   ITE :: Pn -> Exp ABoolean t -> Exp a t -> Exp a t -> Exp a t
-  TEntry :: Pn -> Time t -> TItem Storage a t -> Exp a t
-  Var :: Pn -> Time t -> TItem Calldata a t -> Exp a t
+  TEntry :: Pn -> Time t -> SRefKind k -> TItem k a t -> Exp a t
   -- Note: we could use a singleton types to avoid separating Entry and Var 
 deriving instance Show (Exp a t)
 
@@ -273,8 +302,7 @@ instance Eq (Exp a t) where
   NEq _ SType a b == NEq _ SType c d = eqS a c && eqS b d
 
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
-  TEntry _ a t == TEntry _ b u = a == b && t == u
-  Var _ a t == Var _ b u = a == b && t == u
+  TEntry _ a SRefKind t == TEntry _ b SRefKind u = a == b && eqKind t u
   Create _ a b == Create _ c d = a == c && b == d
 
   _ == _ = False
@@ -333,8 +361,7 @@ instance Timable (Exp a) where
     Eq  p s x y -> Eq p s (go x) (go y)
     NEq p s x y -> NEq p s (go x) (go y)
     ITE p x y z -> ITE p (go x) (go y) (go z)
-    TEntry p _ item -> TEntry p time (go item)
-    Var p _ item -> Var p time (go item)
+    TEntry p _ k item -> TEntry p time k (go item)
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
@@ -526,10 +553,8 @@ instance ToJSON (Exp a t) where
                               , "type" .= pack "bytestring" ]
   toJSON (ByEnv _ a) = object [ "ethEnv" .= pack (show a)
                               , "type" .= pack "bytestring" ]
-  toJSON (TEntry _ t a) = object [ "entry"  .= toJSON a
-                                 , "timing" .= show t ]
-  toJSON (Var _ t a) = object [ "var"  .= toJSON a
-                              , "timing" .= show t ]
+  toJSON (TEntry _ t _ a) = object [ "entry"  .= toJSON a
+                                   , "timing" .= show t ]
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                   , "arity"  .= Data.Aeson.Types.Number 2
                                   , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
@@ -605,4 +630,4 @@ uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
 _Var :: SingI a => Time t -> AbiType -> Id -> Exp a t
-_Var tm at x = Var nowhere tm (Item sing (PrimitiveType at) (CVar nowhere at x))
+_Var tm at x = TEntry nowhere tm SCalldata (Item sing (PrimitiveType at) (CVar nowhere at x))

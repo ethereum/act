@@ -46,7 +46,7 @@ import qualified Act.Syntax.TimeAgnostic as TA
 import Act.Syntax.Timing
 
 import EVM.ABI (Sig(..))
-import EVM as EVM hiding (bytecode)
+import qualified EVM hiding (bytecode)
 import qualified EVM.Types as EVM hiding (FrameState(..))
 import EVM.Expr hiding (op2, inRange)
 import EVM.SymExec hiding (EquivResult, isPartial, reachable)
@@ -148,7 +148,7 @@ translateConstructor bytecode (Constructor cid iface _ preconds _ _ upds) cmap =
   cmap' <- applyUpdates initmap initmap upds
   fresh <- getFresh
   let acmap = abstractCmap initAddr cmap'
-  pure $ ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr 1 fresh) mempty (EVM.ConcreteBuf bytecode) (M.map fst cmap')], calldata, ifaceToSig iface, acmap)
+  pure ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr 1 fresh) mempty (EVM.ConcreteBuf bytecode) (M.map fst cmap')], calldata, ifaceToSig iface, acmap)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -174,7 +174,7 @@ translateBehvs cmap behvs = do
     behvSig (Behaviour _ _ iface _ _ _ _ _ _:_) = ifaceToSig iface
     behvSig [] = error "Internal error: behaviour groups cannot be empty"
 
-    -- TODO remove reduntant name in behaviours
+    -- TODO remove reduntant name in behaviors
     sameIface (Behaviour _ _ iface  _ _ _ _ _ _) (Behaviour _ _ iface' _ _ _ _ _ _) =
       makeIface iface == makeIface iface'
 
@@ -195,7 +195,7 @@ translateBehv cmap (Behaviour _ _ _ _ preconds caseconds _ upds ret) = do
   cmap' <- applyUpdates cmap cmap upds
   fresh' <- getFresh
   let acmap = abstractCmap initAddr cmap'
-  pure $ (EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap'), acmap)
+  pure (EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap'), acmap)
 
 
 applyUpdates :: Monad m => ContractMap -> ContractMap -> [StorageUpdate] -> ActT m ContractMap
@@ -264,13 +264,19 @@ substUpds subst upds = fmap (substUpd subst) upds
 substUpd :: M.Map Id TypedExp -> StorageUpdate -> StorageUpdate
 substUpd subst (Update s item expr) = Update s (substItem subst item) (substExp subst expr)
 
-substItem :: M.Map Id TypedExp -> TStorageItem a -> TStorageItem a
+substItem :: M.Map Id TypedExp -> TItem a -> TItem a
 substItem subst (Item st vt sref) = Item st vt (substStorageRef subst sref)
 
-substStorageRef :: M.Map Id TypedExp -> StorageRef -> StorageRef
-substStorageRef _ var@(SVar _ _ _) = var
-substStorageRef subst (SMapping pn sref args) = SMapping pn (substStorageRef subst sref) (substArgs subst args)
-substStorageRef subst (SField pn sref x y) = SField pn (substStorageRef subst sref) x y
+substRef :: M.Map Id TypedExp -> Ref k t -> Ref k t
+substRef _ var@(SVar _ _ _) = var
+substRef _ var@(CVar _ _ _) = case M.lookup x subst of
+    Just (TExp _ (TEntry _ _ item)) -> ref
+    Just (TExp _ (Var _ _ item)) -> ref
+    Just _ -> error "Internal error: cannot access fields of non-pointer var"
+    Nothing -> error "Internal error: ill-formed substitution"
+
+substRef subst (SMapping pn sref args) = SMapping pn (substStorageRef subst sref) (substArgs subst args)
+substRef subst (SField pn sref x y) = SField pn (substStorageRef subst sref) x y
 
 substArgs :: M.Map Id TypedExp -> [TypedExp] -> [TypedExp]
 substArgs subst exps = fmap (substTExp subst) exps
@@ -317,7 +323,7 @@ substExp subst expr = case expr of
   ITE pn a b c -> ITE pn (substExp subst a) (substExp subst b) (substExp subst c)
   TEntry _ _ _ -> expr -- TODO must do ixs too
 
-  -- Substituion of a variable, simple case
+  -- Substituion of a bare calldata variable
   Var _ _ st _ (VVar _ _ x) -> case M.lookup x subst of
     Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
     Nothing -> error "Internal error: Ill-defined substitution"
@@ -329,8 +335,8 @@ substExp subst expr = case expr of
 
   Create pn a b -> Create pn a (substArgs subst b)
 
-substVarRef :: M.Map Id TypedExp -> VarRef -> Either StorageRef VarRef 
-substVarRef subst (VVar _ _ x) = 
+substVarRef :: M.Map Id TypedExp -> VarRef -> Either StorageRef VarRef
+substVarRef subst (VVar _ _ x) =
   case M.lookup x subst of
     Just (TExp _ (TEntry _ _ (Item _ _ ref))) -> Left ref
     Just (TExp _ (Var _ _ _ _ ref)) -> Right ref
@@ -344,9 +350,9 @@ substVarRef subst (VMapping pn vref ixs) =
   case substVarRef subst vref of
     Left ref -> Left $ SMapping pn ref (substArgs subst ixs)
     Right ref -> Right $ VMapping pn ref (substArgs subst ixs)
- 
 
-               
+
+
 returnsToExpr :: Monad m => ContractMap -> Maybe TypedExp -> ActT m (EVM.Expr EVM.Buf)
 returnsToExpr _ Nothing = pure $ EVM.ConcreteBuf ""
 returnsToExpr cmap (Just r) = typedExpToBuf cmap r
@@ -596,7 +602,7 @@ vrefToExp SInteger cmap (VField _ ref cid name) = do
       let (contract, _) = fromMaybe (error "Internal error: contract not found") $ M.lookup symaddr cmap
       layout <- getLayout
       let slot = EVM.Lit (fromIntegral $ getSlot layout cid name)
-      
+
       let storage = case contract of
             EVM.C _ s _ _ _  -> s
             EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
@@ -659,7 +665,7 @@ getInitContractState solvers iface pointers preconds cmap = do
   (cmaps, checks) <- unzip <$> mapM getContractState (fmap nub casts')
 
   let finalmap = M.unions (cmap:cmaps)
-  
+
   check <- checkAliasing finalmap cmaps
   pure (finalmap, check <* sequenceA_ checks <* checkUniqueAddr (cmap:cmaps))
 
@@ -751,7 +757,7 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
   actbehvs <- translateBehvs actstorage behvs
   (liftM $ concatError def) $ flip mapM actbehvs $ \(name,actbehv,calldata, sig) -> do
     let (behvs', fcmaps) = unzip actbehv
-    
+
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
@@ -845,7 +851,7 @@ pruneContractState entryaddr cmap =
     getAddrs (EVM.ConcreteStore _) = error $ "Internal error: unexpected storage shape"
     getAddrs (EVM.AbstractStore {}) = []
     getAddrs _ = error $ "Internal error: unexpected storage shape"
-  
+
 
 -- | Check if two contract maps are isomorphic
 -- Perform a breadth first traversal and try to find a bijection between the addresses of the two stores
@@ -854,7 +860,7 @@ pruneContractState entryaddr cmap =
 -- All writes are to a unique concrete slot and the value is a simbolic address. 
 checkStoreIsomorphism :: ContractMap -> ContractMap -> Error String ()
 checkStoreIsomorphism cmap1 cmap2 = bfs [(idOfAddr initAddr, idOfAddr initAddr)] [] M.empty M.empty
-  where 
+  where
     -- tries to find a bijective renaming between the addresses of the two maps  
     bfs :: [(T.Text, T.Text)]                         -- Queue of the addresses we are exploring (dequeue)
         -> [(T.Text, T.Text)]                         -- Queue of the addresses we are exploring (enueue) 
@@ -870,7 +876,7 @@ checkStoreIsomorphism cmap1 cmap2 = bfs [(idOfAddr initAddr, idOfAddr initAddr)]
           visit addrs1 addrs2 map1 map2 q2 `bindValidation` (\(renaming1, renaming2, q2') ->
           bfs q1 q2' renaming1 renaming2)
         (_, _) -> error "Internal error: contract not found in map"
-      
+
     -- assumes that slots are unique because of simplifcation
     visit :: [(Int, EVM.Expr EVM.EAddr)] -> [(Int, EVM.Expr EVM.EAddr)]
           -> M.Map T.Text T.Text -> M.Map T.Text T.Text
@@ -879,13 +885,13 @@ checkStoreIsomorphism cmap1 cmap2 = bfs [(idOfAddr initAddr, idOfAddr initAddr)]
     visit [] [] map1 map2 discovered = pure (map1, map2, discovered)
     visit ((s1, EVM.SymAddr a1):addrs1) ((s2, EVM.SymAddr a2):addrs2) map1 map2 discovered | s1 == s2 =
       case (M.lookup a1 map1, M.lookup a2 map2) of
-        (Just a2', Just a1') -> 
+        (Just a2', Just a1') ->
           if a2 == a2' && a1 == a1' then visit addrs1 addrs2 map1 map2 discovered
           else throw (nowhere, "The shape of the resulting map is not preserved.")
         (Nothing, Nothing) -> visit addrs1 addrs2 (M.insert a1 a2 map1) (M.insert a2 a1 map2) ((a1, a2): discovered)
         (_, _) -> throw (nowhere, "The shape of the resulting map is not preserved.")
     visit _ _ _ _  _ = throw (nowhere, "The shape of the resulting map is not preserved.")
-      
+
     -- Find addresses mentioned in storage
     getAddrs :: EVM.Expr EVM.Storage -> [(Int, EVM.Expr EVM.EAddr)]
     getAddrs (EVM.SStore (EVM.Lit n) (EVM.WAddr symaddr) storage) = (fromIntegral n, symaddr) : getAddrs storage

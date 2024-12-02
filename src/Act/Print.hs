@@ -142,8 +142,7 @@ prettyExp e = case e of
 
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  TEntry _ t a -> timeParens t $ prettyItem a
-  Var _ _ a -> prettyItem a
+  TEntry _ t _ a -> timeParens t $ prettyItem a
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
@@ -236,8 +235,7 @@ prettyInvPred = prettyExp . untime . fst
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
-      TEntry p _ (Item t vt a) -> TEntry p Neither (Item t vt (untimeRef a))
-      Var p _ (Item t vt a) -> Var p Neither (Item t vt (untimeRef a))
+      TEntry p _ k (Item t vt a) -> TEntry p Neither k (Item t vt (untimeRef a))
 
 
 -- | Doc type for terminal output

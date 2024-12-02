@@ -83,7 +83,7 @@ mkStorageBounds refs = concatMap mkBound refs
 
 -- TODO why only Pre items here?
 fromItem :: TItem Storage AInteger -> Exp ABoolean
-fromItem item@(Item _ (PrimitiveType vt) _) = bound vt (TEntry nowhere Pre item)
+fromItem item@(Item _ (PrimitiveType vt) _) = bound vt (TEntry nowhere Pre SStorage item)
 fromItem (Item _ (ContractType _) _) = LitBool nowhere True
 
 mkStorageBoundsLoc :: [StorageLocation] -> [Exp ABoolean]

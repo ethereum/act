@@ -1,10 +1,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MonadComprehensions #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
 {-# Language RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 
 module Act.SMT (
   Solver(..),
@@ -256,7 +256,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     mkQuery (inv, ctor, behvs) = Inv inv (mkInit inv ctor) (fmap (mkBehv inv ctor) behvs)
     gathered = concatMap getInvariants contracts
 
-    getInvariants (Contract (c@Constructor{..}) behvs) = fmap (\i -> (i, c, behvs)) _invariants
+    getInvariants (Contract (c@Constructor{..}) behvs) = fmap (, c, behvs) _invariants
 
     mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
     mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) _ preconds _ _ initialStorage) = (ctor, smt)
@@ -299,7 +299,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
         storage = concatMap declareStorageLocation activeLocs
 
         -- constraints
-        preInv = mkAssert ctorIface $ invPre
+        preInv = mkAssert ctorIface invPre
         postInv = mkAssert ctorIface . Neg nowhere $ invPost
         behvConds = mkAssert behvIface <$> _preconditions behv <> _caseconditions behv
         invConds' = mkAssert ctorIface <$> invConds <> invStorageBounds
@@ -540,7 +540,7 @@ parseSMTModel s = if length s0Caps == 1
 encodeUpdate :: Id -> StorageUpdate -> SMT2
 encodeUpdate behvName (Update _ item expr) =
   let
-    postentry  = withInterface behvName $ expToSMT2 (TEntry nowhere Post item)
+    postentry  = withInterface behvName $ expToSMT2 (TEntry nowhere Post SStorage item)
     expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
@@ -551,8 +551,8 @@ encodeConstant loc = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc 
 declareStorage :: [When] -> StorageLocation -> [SMT2]
 declareStorage times (Loc _ item@(Item _ _ ref)) = declareRef ref
   where
-    declareRef (SVar _ _ _) = (\t -> constant (nameFromItem t item) (itemType item) ) <$> times
-    declareRef (SMapping _ _ ixs) = (\t -> array (nameFromItem t item) ixs (itemType item)) <$> times
+    declareRef (SVar _ _ _) = (\t -> constant (nameFromSItem t item) (itemType item) ) <$> times
+    declareRef (SMapping _ _ ixs) = (\t -> array (nameFromSItem t item) ixs (itemType item)) <$> times
     declareRef (SField _ ref' _ _) = declareRef ref'
 
 
@@ -625,8 +625,7 @@ expToSMT2 expr = case expr of
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
   ITE _ a b c -> triop "ite" a b c
-  Var _ _ item -> ventry item
-  TEntry _ w item -> entry item w
+  TEntry _ w _ item -> entry item w
   where
     unop :: String -> Exp a -> Ctx SMT2
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
@@ -639,16 +638,11 @@ expToSMT2 expr = case expr of
     triop op a b c = ["(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")"
                         | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
 
-    entry :: TItem Storage a -> When -> Ctx SMT2
+    entry :: TItem k a ->  When -> Ctx SMT2
     entry item whn = case ixsFromItem item of
-      []       -> pure $ nameFromItem whn item
-      (ix:ixs) -> select (nameFromItem whn item) (ix :| ixs)
-
-    ventry :: TItem Calldata a -> Ctx SMT2
-    ventry (Item _ _ vref) = case ixsFromRef vref of
-      []       -> nameFromVRef vref
+      []       -> nameFromItem whn item
       (ix:ixs) -> do
-        name <- nameFromVRef vref
+        name <- nameFromItem whn item
         select name (ix :| ixs)
 
 -- | SMT2 has no support for exponentiation, but we can do some preprocessing
@@ -694,25 +688,31 @@ sType' (TExp t _) = sType $ actType t
 --- ** Variable Names ** ---
 
 -- Construct the smt2 variable name for a given storage item
-nameFromItem :: When -> TItem Storage a -> Id
-nameFromItem whn (Item _ _ ref) = nameFromRef ref @@ show whn
+nameFromSItem :: When -> TItem Storage a -> Id
+nameFromSItem whn (Item _ _ ref) = nameFromSRef ref @@ show whn
 
-nameFromRef :: Ref Storage -> Id
-nameFromRef (SVar _ c name) = c @@ name
+nameFromSRef :: Ref Storage -> Id
+nameFromSRef (SVar _ c name) = c @@ name
+nameFromSRef (SMapping _ e _) = nameFromSRef e
+nameFromSRef (SField _ ref c x) = nameFromSRef ref @@ c @@ x
+
+nameFromItem :: When -> TItem k a -> Ctx Id
+nameFromItem whn (Item _ _ ref) = do
+  name <- nameFromRef ref
+  pure $ name @@ show whn
+
+nameFromRef :: Ref k -> Ctx Id
+nameFromRef (CVar _ _ name) = nameFromVarId name
+nameFromRef (SVar _ c name) = pure $ c @@ name
 nameFromRef (SMapping _ e _) = nameFromRef e
-nameFromRef (SField _ ref c x) = nameFromRef ref @@ c @@ x
-
-nameFromVRef :: Ref Calldata -> Ctx Id
-nameFromVRef (CVar _ _ name) = nameFromVarId name
-nameFromVRef (SMapping _ e _) = nameFromVRef e
-nameFromVRef (SField _ ref c x) = do 
-  name <- nameFromVRef ref
+nameFromRef (SField _ ref c x) = do 
+  name <- nameFromRef ref
   pure $ name @@ c @@ x
 
 
 -- Construct the smt2 variable name for a given storage location
 nameFromLoc :: When -> StorageLocation -> Id
-nameFromLoc whn (Loc _ item) = nameFromItem whn item
+nameFromLoc whn (Loc _ item) = nameFromSItem whn item
 
 -- Construct the smt2 variable name for a given decl
 nameFromDecl :: Id -> Decl -> Id

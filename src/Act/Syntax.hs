@@ -65,16 +65,14 @@ constrFromContracts contracts = fmap (\(Contract c _) -> c) contracts
 
 locsFromUpdate :: StorageUpdate t -> [StorageLocation t]
 locsFromUpdate update = nub $ case update of
-  (Update _ item e) -> locsFromItem item <> locsFromExp e
+  (Update _ item e) -> locsFromItem SStorage item <> locsFromExp e
 
 locFromUpdate :: StorageUpdate t -> StorageLocation t
 locFromUpdate (Update _ item _) = _Loc item
 
-locsFromItem :: TItem 'Storage a t -> [StorageLocation t]
-locsFromItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
-
-locsFromVItem :: TItem Calldata a t -> [StorageLocation t]
-locsFromVItem item = concatMap locsFromTypedExp (ixsFromItem item)
+locsFromItem :: SRefKind k -> TItem k a t -> [StorageLocation t]
+locsFromItem SCalldata item = concatMap locsFromTypedExp (ixsFromItem item)
+locsFromItem SStorage item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
 
 locsFromTypedExp :: TypedExp t -> [StorageLocation t]
 locsFromTypedExp (TExp _ e) = locsFromExp e
@@ -115,8 +113,7 @@ locsFromExp = nub . go
       ByEnv {} -> []
       Create _ _ es -> concatMap locsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
-      TEntry _ _ a -> locsFromItem a
-      Var _ _ a -> locsFromVItem a
+      TEntry _ _ k a -> locsFromItem k a
 
 createsFromExp :: Exp a t -> [Id]
 createsFromExp = nub . go
@@ -154,8 +151,7 @@ createsFromExp = nub . go
       ByEnv {} -> []
       Create _ f es -> [f] <> concatMap createsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
-      TEntry _ _ a -> createsFromItem a
-      Var {} -> []
+      TEntry _ _ _ a -> createsFromItem a
 
 createsFromItem :: TItem k a t -> [Id]
 createsFromItem item = concatMap createsFromTypedExp (ixsFromItem item)
@@ -268,8 +264,7 @@ ethEnvFromExp = nub . go
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
       Create _ _ ixs -> concatMap ethEnvFromTypedExp ixs
-      TEntry _ _ a -> ethEnvFromItem a
-      Var {} -> []
+      TEntry _ _ _ a -> ethEnvFromItem a
 
 idFromItem :: TItem k a t -> Id
 idFromItem (Item _ _ ref) = idFromRef ref
@@ -290,9 +285,10 @@ ixsFromItem :: TItem k a t -> [TypedExp t]
 ixsFromItem (Item _ _ item) = ixsFromRef item
 
 ixsFromRef :: Ref k t -> [TypedExp t]
-ixsFromRef (SMapping _ _ ixs) = ixs
--- TODO this must be fixed for multiple contracts
-ixsFromRef _ = []
+ixsFromRef (SVar _ _ _) = []
+ixsFromRef (CVar _ _ _) = []
+ixsFromRef (SMapping _ ref ixs) = ixs ++ ixsFromRef ref
+ixsFromRef (SField _ ref _ _) = ixsFromRef ref
 
 ixsFromLocation :: StorageLocation t -> [TypedExp t]
 ixsFromLocation (Loc _ item) = ixsFromItem item
@@ -346,8 +342,7 @@ posnFromExp e = case e of
   Eq  p _ _ _ -> p
   NEq p _ _ _ -> p
   ITE p _ _ _ -> p
-  TEntry p _ _ -> p
-  Var p _ _ -> p
+  TEntry p _ _ _ -> p
 --------------------------------------
 -- * Extraction from untyped ASTs * --
 --------------------------------------

@@ -60,14 +60,13 @@ instance TestEquality SType where
 eqS :: forall (a :: ActType) (b :: ActType) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
 eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
 
-
--- Defines which singleton to retreive when we only have the type, not the
+-- Defines which singleton to retrieve when we only have the type, not the
 -- actual singleton.
 instance SingI 'AInteger where sing = SInteger
 instance SingI 'ABoolean where sing = SBoolean
 instance SingI 'AByteStr where sing = SByteStr
 
--- | Reflection of an Act type into a haskell type. Usefull to define
+-- | Reflection of an Act type into a haskell type. Useful to define
 -- the result type of the evaluation function.
 type family TypeOf a where
   TypeOf 'AInteger = Integer
