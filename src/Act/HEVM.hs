@@ -330,35 +330,14 @@ substExp subst expr = case expr of
   NEq pn st a b -> NEq pn st (substExp subst a) (substExp subst b)
 
   ITE pn a b c -> ITE pn (substExp subst a) (substExp subst b) (substExp subst c)
-  TEntry pn whn k entry -> undefined -- expr -- TODO must do ixs too
 
-  -- -- Substituion of a bare calldata variable
-  -- Var _ _ st _ (VVar _ _ x) -> case M.lookup x subst of
-  --   Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
-  --   Nothing -> error "Internal error: Ill-defined substitution"
-
-  -- -- Substituion of a variable, when this variable is used as a pointer to contract
-  -- Var p tm st vt vref -> case substVarRef subst vref of
-  --   Left ref -> TEntry p tm (Item st vt ref) -- TODO deal with timings. Right now we can only refer to Pre
-  --   Right ref -> Var p tm st vt ref
+  TEntry _ _ SCalldata (Item st _ (CVar _ _ x)) -> case M.lookup x subst of
+    Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
+    Nothing -> error "Internal error: Ill-defined substitution"
+  TEntry pn whn _ item -> case substItem subst item of
+    ETItem k' item' ->  TEntry pn whn k' item'
 
   Create pn a b -> Create pn a (substArgs subst b)
-
--- substVarRef :: M.Map Id TypedExp -> VarRef -> Either StorageRef VarRef
--- substVarRef subst (VVar _ _ x) =
---   case M.lookup x subst of
---     Just (TExp _ (TEntry _ _ (Item _ _ ref))) -> Left ref
---     Just (TExp _ (Var _ _ _ _ ref)) -> Right ref
---     Just _ -> error "Internal error: cannot access fields of non-pointer var"
---     Nothing -> error "Internal error: ill-formed substitution"
--- substVarRef subst (VField pn vref c x) =
---   case substVarRef subst vref of
---     Left ref -> Left $ SField pn ref c x
---     Right ref -> Right $ VField pn ref c x
--- substVarRef subst (VMapping pn vref ixs) =
---   case substVarRef subst vref of
---     Left ref -> Left $ SMapping pn ref (substArgs subst ixs)
---     Right ref -> Right $ VMapping pn ref (substArgs subst ixs)
 
 
 returnsToExpr :: Monad m => ContractMap -> Maybe TypedExp -> ActT m (EVM.Expr EVM.Buf)
@@ -752,7 +731,7 @@ checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ ifa
   res2 <- lift $ checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
   pure $ checks *> res1 *> res2 *> Success cmap
   where
-    removeFails branches = filter isSuccess $ branches
+    removeFails branches = filter isSuccess branches
 
 
 checkBehaviours :: forall m. App m => SolverGroup -> Contract -> ContractMap -> ActT m (Error String ())
