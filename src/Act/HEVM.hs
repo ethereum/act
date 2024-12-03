@@ -12,6 +12,8 @@
 {-# Language TypeApplications #-}
 
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use fmap" #-}
 
 module Act.HEVM where
 
@@ -264,19 +266,18 @@ substUpds subst upds = fmap (substUpd subst) upds
 substUpd :: M.Map Id TypedExp -> StorageUpdate -> StorageUpdate
 substUpd subst (Update s item expr) = Update s (substItem subst item) (substExp subst expr)
 
-substItem :: M.Map Id TypedExp -> TItem a -> TItem a
-substItem subst (Item st vt sref) = Item st vt (substStorageRef subst sref)
+substItem :: M.Map Id TypedExp -> TItem a k -> TItem a k
+substItem subst (Item st vt sref) = Item st vt (substRef subst sref)
 
-substRef :: M.Map Id TypedExp -> Ref k t -> Ref k t
+substRef :: M.Map Id TypedExp -> Ref k -> Ref k
 substRef _ var@(SVar _ _ _) = var
-substRef _ var@(CVar _ _ _) = case M.lookup x subst of
-    Just (TExp _ (TEntry _ _ item)) -> ref
-    Just (TExp _ (Var _ _ item)) -> ref
-    Just _ -> error "Internal error: cannot access fields of non-pointer var"
-    Nothing -> error "Internal error: ill-formed substitution"
-
-substRef subst (SMapping pn sref args) = SMapping pn (substStorageRef subst sref) (substArgs subst args)
-substRef subst (SField pn sref x y) = SField pn (substStorageRef subst sref) x y
+substRef _ var@(CVar _ _ x) = undefined
+  -- case M.lookup x subst of
+  --   Just (TExp _ (TEntry _ _ _ item)) -> ref
+  --   Just _ -> error "Internal error: cannot access fields of non-pointer var"
+  --   Nothing -> error "Internal error: ill-formed substitution"
+substRef subst (SMapping pn sref args) = SMapping pn (substRef subst sref) (substArgs subst args)
+substRef subst (SField pn sref x y) = SField pn (substRef subst sref) x y
 
 substArgs :: M.Map Id TypedExp -> [TypedExp] -> [TypedExp]
 substArgs subst exps = fmap (substTExp subst) exps
@@ -321,36 +322,35 @@ substExp subst expr = case expr of
   NEq pn st a b -> NEq pn st (substExp subst a) (substExp subst b)
 
   ITE pn a b c -> ITE pn (substExp subst a) (substExp subst b) (substExp subst c)
-  TEntry _ _ _ -> expr -- TODO must do ixs too
+  TEntry pn whn k entry -> undefined -- expr -- TODO must do ixs too
 
-  -- Substituion of a bare calldata variable
-  Var _ _ st _ (VVar _ _ x) -> case M.lookup x subst of
-    Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
-    Nothing -> error "Internal error: Ill-defined substitution"
+  -- -- Substituion of a bare calldata variable
+  -- Var _ _ st _ (VVar _ _ x) -> case M.lookup x subst of
+  --   Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
+  --   Nothing -> error "Internal error: Ill-defined substitution"
 
-  -- Substituion of a variable, when this variable is used as a pointer to contract
-  Var p tm st vt vref -> case substVarRef subst vref of
-    Left ref -> TEntry p tm (Item st vt ref) -- TODO deal with timings. Right now we can only refer to Pre
-    Right ref -> Var p tm st vt ref
+  -- -- Substituion of a variable, when this variable is used as a pointer to contract
+  -- Var p tm st vt vref -> case substVarRef subst vref of
+  --   Left ref -> TEntry p tm (Item st vt ref) -- TODO deal with timings. Right now we can only refer to Pre
+  --   Right ref -> Var p tm st vt ref
 
   Create pn a b -> Create pn a (substArgs subst b)
 
-substVarRef :: M.Map Id TypedExp -> VarRef -> Either StorageRef VarRef
-substVarRef subst (VVar _ _ x) =
-  case M.lookup x subst of
-    Just (TExp _ (TEntry _ _ (Item _ _ ref))) -> Left ref
-    Just (TExp _ (Var _ _ _ _ ref)) -> Right ref
-    Just _ -> error "Internal error: cannot access fields of non-pointer var"
-    Nothing -> error "Internal error: ill-formed substitution"
-substVarRef subst (VField pn vref c x) =
-  case substVarRef subst vref of
-    Left ref -> Left $ SField pn ref c x
-    Right ref -> Right $ VField pn ref c x
-substVarRef subst (VMapping pn vref ixs) =
-  case substVarRef subst vref of
-    Left ref -> Left $ SMapping pn ref (substArgs subst ixs)
-    Right ref -> Right $ VMapping pn ref (substArgs subst ixs)
-
+-- substVarRef :: M.Map Id TypedExp -> VarRef -> Either StorageRef VarRef
+-- substVarRef subst (VVar _ _ x) =
+--   case M.lookup x subst of
+--     Just (TExp _ (TEntry _ _ (Item _ _ ref))) -> Left ref
+--     Just (TExp _ (Var _ _ _ _ ref)) -> Right ref
+--     Just _ -> error "Internal error: cannot access fields of non-pointer var"
+--     Nothing -> error "Internal error: ill-formed substitution"
+-- substVarRef subst (VField pn vref c x) =
+--   case substVarRef subst vref of
+--     Left ref -> Left $ SField pn ref c x
+--     Right ref -> Right $ VField pn ref c x
+-- substVarRef subst (VMapping pn vref ixs) =
+--   case substVarRef subst vref of
+--     Left ref -> Left $ SMapping pn ref (substArgs subst ixs)
+--     Right ref -> Right $ VMapping pn ref (substArgs subst ixs)
 
 
 returnsToExpr :: Monad m => ContractMap -> Maybe TypedExp -> ActT m (EVM.Expr EVM.Buf)
@@ -387,7 +387,7 @@ getSlot layout cid name =
       Nothing -> error $ "Internal error: invalid variable name: " <> show name
     Nothing -> error "Internal error: invalid contract name"
 
-refOffset :: Monad m => ContractMap -> StorageRef -> ActT m (EVM.Expr EVM.EWord)
+refOffset :: Monad m => ContractMap -> Ref Storage -> ActT m (EVM.Expr EVM.EWord)
 refOffset _ (SVar _ cid name) = do
   layout <- getLayout
   let slot = getSlot layout cid name
@@ -402,13 +402,13 @@ refOffset _ (SField _ _ cid name) = do
   let slot = getSlot layout cid name
   pure $ EVM.Lit (fromIntegral slot)
 
-baseAddr :: Monad m => ContractMap -> StorageRef -> ActT m (EVM.Expr EVM.EAddr)
+baseAddr :: Monad m => ContractMap -> Ref Storage -> ActT m (EVM.Expr EVM.EAddr)
 baseAddr _ (SVar _ _ _) = getCaddr
 baseAddr cmap (SField _ ref _ _) = refAddr cmap ref
 baseAddr cmap (SMapping _ ref _) = baseAddr cmap ref
 
 -- | find the contract that is stored in the given reference of contract type
-refAddr :: Monad m => ContractMap -> StorageRef -> ActT m (EVM.Expr EVM.EAddr)
+refAddr :: Monad m => ContractMap -> Ref Storage -> ActT m (EVM.Expr EVM.EAddr)
 refAddr cmap (SVar _ c x) = do
   caddr <- getCaddr
   case M.lookup caddr cmap of
@@ -434,17 +434,17 @@ refAddr cmap (SField _ ref c x) = do
 refAddr _ (SMapping _ _ _) = error "Internal error: mapping address not suppported"
 
 ethEnvToWord :: Monad m => EthEnv -> ActT m (EVM.Expr EVM.EWord)
-ethEnvToWord Callvalue = pure $ EVM.TxValue
+ethEnvToWord Callvalue = pure EVM.TxValue
 ethEnvToWord Caller = do
   c <- getCaller
   pure $ EVM.WAddr c
 ethEnvToWord Origin = pure $ EVM.WAddr (EVM.SymAddr "origin") -- Why not: pure $ EVM.Origin
-ethEnvToWord Blocknumber = pure $ EVM.BlockNumber
+ethEnvToWord Blocknumber = pure EVM.BlockNumber
 ethEnvToWord Blockhash = pure $ EVM.BlockHash $ EVM.Lit 0
-ethEnvToWord Chainid = pure $ EVM.ChainId
-ethEnvToWord Gaslimit = pure $ EVM.GasLimit
-ethEnvToWord Coinbase = pure $ EVM.Coinbase
-ethEnvToWord Timestamp = pure $ EVM.Timestamp
+ethEnvToWord Chainid = pure EVM.ChainId
+ethEnvToWord Gaslimit = pure EVM.GasLimit
+ethEnvToWord Coinbase = pure EVM.Coinbase
+ethEnvToWord Timestamp = pure EVM.Timestamp
 ethEnvToWord This = do
   c <- getCaddr
   pure $ EVM.WAddr c
@@ -480,8 +480,7 @@ toProp cmap = \case
     pure $ EVM.PNeg e
   (NEq _ _ _ _) -> error "unsupported"
   (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
-  (Var _ _ _ _ _) -> error "TODO"
-  (TEntry _ _ _) -> error "TODO" -- EVM.SLoad addr idx
+  (TEntry _ _ _ _) -> error "TODO" -- EVM.SLoad addr idx
   (InRange _ t e) -> toProp cmap (inRange t e)
   where
     op2 :: Monad m => forall a b. (EVM.Expr (ExprType b) -> EVM.Expr (ExprType b) -> a) -> Exp b -> Exp b -> ActT m a
@@ -515,7 +514,7 @@ toExpr cmap = liftM stripMods . go
       -- booleans
       (And _ e1 e2) -> op2 EVM.And e1 e2
       (Or _ e1 e2) -> op2 EVM.Or e1 e2
-      (Impl _ e1 e2) -> op2 (\x y -> EVM.Or (EVM.Not x) y) e1 e2
+      (Impl _ e1 e2) -> op2 (EVM.Or . EVM.Not) e1 e2
       (Neg _ e1) -> do
         e1' <- toExpr cmap e1
         pure $ EVM.Not e1'
@@ -523,7 +522,7 @@ toExpr cmap = liftM stripMods . go
       (LEQ _ e1 e2) -> op2 EVM.LEq e1 e2
       (GEQ _ e1 e2) -> op2 EVM.GEq e1 e2
       (Act.GT _ e1 e2) -> op2 EVM.GT e1 e2
-      (LitBool _ b) -> pure $ EVM.Lit (fromIntegral $ fromEnum $ b)
+      (LitBool _ b) -> pure $ EVM.Lit (fromIntegral $ fromEnum b)
       -- integers
       (Add _ e1 e2) -> op2 EVM.Add e1 e2
       (Sub _ e1 e2) -> op2 EVM.Sub e1 e2
@@ -557,17 +556,17 @@ toExpr cmap = liftM stripMods . go
 
       (NEq _ SInteger e1 e2) -> do
         e <- op2 EVM.Eq e1 e2
-        pure $ EVM.Not $ e
+        pure $ EVM.Not e
       (NEq _ SBoolean e1 e2) -> do
         e <- op2 EVM.Eq e1 e2
-        pure $ EVM.Not $ e
+        pure $ EVM.Not e
       (NEq _ _ _ _) -> error "unsupported"
 
       e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
 
-      (Var _ _ SInteger _ vref) -> vrefToExp SInteger cmap vref
+      -- (Var _ _ SInteger _ vref) -> vrefToExp SInteger cmap vref -- TODO Unify with the one below
 
-      (TEntry _ _ (Item SInteger _ ref)) -> do
+      (TEntry _ _ SStorage (Item SInteger _ ref)) -> do
         slot <- refOffset cmap ref
         caddr' <- baseAddr cmap ref
         let (contract, _) = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
@@ -586,30 +585,30 @@ toExpr cmap = liftM stripMods . go
       pure $ op e1' e2'
 
 
-vrefToExp :: forall a m. Monad m => SType a -> ContractMap -> VarRef -> ActT m (EVM.Expr (ExprType a))
-vrefToExp SInteger _ (VVar _ typ x) = pure $ fromCalldataFramgment $ symAbiArg (T.pack x) typ
+-- vrefToExp :: forall a m. Monad m => SType a -> ContractMap -> VarRef -> ActT m (EVM.Expr (ExprType a))
+-- vrefToExp SInteger _ (VVar _ typ x) = pure $ fromCalldataFramgment $ symAbiArg (T.pack x) typ
 
-  where
-    fromCalldataFramgment :: CalldataFragment -> EVM.Expr EVM.EWord
-    fromCalldataFramgment (St _ word) = word
-    fromCalldataFramgment _ = error "Internal error: only static types are supported"
+--   where
+--     fromCalldataFramgment :: CalldataFragment -> EVM.Expr EVM.EWord
+--     fromCalldataFramgment (St _ word) = word
+--     fromCalldataFramgment _ = error "Internal error: only static types are supported"
 
 
-vrefToExp SInteger cmap (VField _ ref cid name) = do
-  expr <- vrefToExp SInteger cmap ref
-  case simplify expr of
-    EVM.WAddr symaddr -> do
-      let (contract, _) = fromMaybe (error "Internal error: contract not found") $ M.lookup symaddr cmap
-      layout <- getLayout
-      let slot = EVM.Lit (fromIntegral $ getSlot layout cid name)
+-- vrefToExp SInteger cmap (VField _ ref cid name) = do
+--   expr <- vrefToExp SInteger cmap ref
+--   case simplify expr of
+--     EVM.WAddr symaddr -> do
+--       let (contract, _) = fromMaybe (error "Internal error: contract not found") $ M.lookup symaddr cmap
+--       layout <- getLayout
+--       let slot = EVM.Lit (fromIntegral $ getSlot layout cid name)
 
-      let storage = case contract of
-            EVM.C _ s _ _ _  -> s
-            EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
+--       let storage = case contract of
+--             EVM.C _ s _ _ _  -> s
+--             EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
 
-      pure $ EVM.SLoad slot storage
-    _ -> error $ "Internal error: did not find a symbolic address"
-vrefToExp _ _ _ = error "Unsuported"
+--       pure $ EVM.SLoad slot storage
+--     _ -> error $ "Internal error: did not find a symbolic address"
+-- vrefToExp _ _ _ = error "Unsuported"
 
 inRange :: AbiType -> Exp AInteger -> Exp ABoolean
 -- if the type has the type of machine word then check per operation
@@ -621,8 +620,7 @@ inRange t e = bound t e
 
 checkOp :: Exp AInteger -> Exp ABoolean
 checkOp (LitInt _ i) = LitBool nowhere $ i <= (fromIntegral (maxBound :: Word256))
-checkOp (Var _ _ _ _ _)  = LitBool nowhere True
-checkOp (TEntry _ _ _)  = LitBool nowhere True
+checkOp (TEntry _ _ _ _)  = LitBool nowhere True
 checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
 checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
 checkOp (Mul _ e1 e2) = Or nowhere (Eq nowhere SInteger e1 (LitInt nowhere 0))
@@ -640,8 +638,7 @@ checkOp (IntEnv _ _) = error "Internal error: invalid in range expression"
 checkOp (Create _ _ _) = error "Internal error: invalid in range expression"
 
 
--- * Equivalence checking
-
+-- Equivalence checking
 
 -- | Wrapper for the equivalenceCheck function of hevm
 checkEquiv :: App m => SolverGroup -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> m [EquivResult]
@@ -686,7 +683,7 @@ getInitContractState solvers iface pointers preconds cmap = do
                                }
           let icmap' = M.insert addr (contract, cid) icmap
           cmap' <- localCaddr addr $ applyUpdates icmap' icmap' upds
-          pure $ (abstractCmap addr cmap', check)
+          pure (abstractCmap addr cmap', check)
         Nothing -> error $ "Internal error: Contract " <> cid <> " not found\n" <> show codemap
     getContractState [] = error "Internal error: Cast cannot be empty"
     getContractState _ = error "Error: Cannot have different casts to the same address"
@@ -755,21 +752,21 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
   let hevmstorage = translateCmap actstorage
   fresh <- getFresh
   actbehvs <- translateBehvs actstorage behvs
-  (liftM $ concatError def) $ flip mapM actbehvs $ \(name,actbehv,calldata, sig) -> do
+  (liftM $ concatError def) $ forM actbehvs $ \(name,actbehv,calldata, sig) -> do
     let (behvs', fcmaps) = unzip actbehv
 
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
-    lift $ showMsg $ "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
+    lift $ showMsg "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
     res1 <- lift $ checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs behvs'
     -- input space exhaustiveness check
-    lift $ showMsg $ "\x1b[1mChecking if the input spaces are the same\x1b[m"
+    lift $ showMsg "\x1b[1mChecking if the input spaces are the same\x1b[m"
     res2 <- lift $ checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs behvs'
     pure $ traverse_ (checkStoreIsomorphism actstorage) fcmaps *> res1 *> res2
 
   where
-    removeFails branches = filter isSuccess $ branches
+    removeFails branches = filter isSuccess branches
     def = Success ()
 
 
@@ -811,7 +808,7 @@ abstractCmap this cmap =
     traverseStorage addr (EVM.SStore _ _ storage) = traverseStorage addr storage
     traverseStorage addr (EVM.ConcreteStore _) = EVM.AbstractStore addr Nothing
     traverseStorage _ s@(EVM.AbstractStore {}) = s
-    traverseStorage _ _ = error $ "Internal error: unexpected storage shape"
+    traverseStorage _ _ = error "Internal error: unexpected storage shape"
 
     makeContract :: EVM.Expr EVM.EAddr -> (EVM.Expr EVM.EContract, Id) -> (EVM.Expr EVM.EContract, Id)
     makeContract addr (EVM.C code storage tstorage _ _, cid) =
@@ -840,17 +837,17 @@ pruneContractState entryaddr cmap =
           case M.lookup addr' cmap' of
             Just (EVM.C _ storage _ _ _, _) ->
               let addrs = getAddrs storage in
-              foldl (\r a -> go a r) (addr':acc) addrs
+              foldr go (addr':acc) addrs
             Just (EVM.GVar _, _) -> error "Internal error: contract cannot be gvar"
             Nothing -> error "Internal error: contract not found"
 
     -- Find addresses mentioned in storage
     getAddrs :: EVM.Expr EVM.Storage -> [EVM.Expr EVM.EAddr]
     getAddrs (EVM.SStore _ (EVM.WAddr symaddr) storage) = symaddr : getAddrs storage
-    getAddrs (EVM.SStore _ _ _) = error $ "Internal error: unexpected storage shape"
-    getAddrs (EVM.ConcreteStore _) = error $ "Internal error: unexpected storage shape"
+    getAddrs (EVM.SStore _ _ _) = error "Internal error: unexpected storage shape"
+    getAddrs (EVM.ConcreteStore _) = error "Internal error: unexpected storage shape"
     getAddrs (EVM.AbstractStore {}) = []
-    getAddrs _ = error $ "Internal error: unexpected storage shape"
+    getAddrs _ = error "Internal error: unexpected storage shape"
 
 
 -- | Check if two contract maps are isomorphic
@@ -895,10 +892,10 @@ checkStoreIsomorphism cmap1 cmap2 = bfs [(idOfAddr initAddr, idOfAddr initAddr)]
     -- Find addresses mentioned in storage
     getAddrs :: EVM.Expr EVM.Storage -> [(Int, EVM.Expr EVM.EAddr)]
     getAddrs (EVM.SStore (EVM.Lit n) (EVM.WAddr symaddr) storage) = (fromIntegral n, symaddr) : getAddrs storage
-    getAddrs (EVM.SStore _ _ _) = error $ "Internal error: unexpected storage shape"
-    getAddrs (EVM.ConcreteStore _) = error $ "Internal error: unexpected storage shape"
+    getAddrs (EVM.SStore _ _ _) = error "Internal error: unexpected storage shape"
+    getAddrs (EVM.ConcreteStore _) = error "Internal error: unexpected storage shape"
     getAddrs (EVM.AbstractStore {}) = []
-    getAddrs _ = error $ "Internal error: unexpected storage shape"
+    getAddrs _ = error "Internal error: unexpected storage shape"
 
     idOfAddr :: EVM.Expr EVM.EAddr -> T.Text
     idOfAddr (EVM.SymAddr addr) = addr
@@ -969,7 +966,7 @@ checkAbi solver contract cmap = do
 checkContracts :: forall m. App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m (Error String ())
 checkContracts solvers store codemap =
   let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing in
-  liftM (concatError def) $ flip mapM (M.toList codemap) (\(_, (contract, initcode, bytecode)) -> do
+  liftM (concatError def) $ forM (M.toList codemap) (\(_, (contract, initcode, bytecode)) -> do
     showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
     (res, actenv') <- flip runStateT actenv $ checkConstructors solvers initcode bytecode contract
     case res of
@@ -1001,7 +998,7 @@ assertSelector ::  EVM.Expr EVM.Buf -> T.Text -> EVM.Prop
 assertSelector txdata sig =
   EVM.PNeg (EVM.PEq sel (readSelector txdata))
   where
-    sel = EVM.Lit $ fromIntegral $ (EVM.abiKeccak (encodeUtf8 sig)).unFunctionSelector
+    sel = EVM.Lit $ fromIntegral (EVM.abiKeccak (encodeUtf8 sig)).unFunctionSelector
 
 
 -- * Utils
