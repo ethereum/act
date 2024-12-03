@@ -374,7 +374,8 @@ getSlot layout cid name =
       Nothing -> error $ "Internal error: invalid variable name: " <> show name
     Nothing -> error "Internal error: invalid contract name"
 
-refOffset :: Monad m => ContractMap -> Ref Storage -> ActT m (EVM.Expr EVM.EWord)
+refOffset :: Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EWord)
+refOffset _ (CVar _ _ _) = error "Internal error: ill-typed entry"
 refOffset _ (SVar _ cid name) = do
   layout <- getLayout
   let slot = getSlot layout cid name
@@ -389,11 +390,16 @@ refOffset _ (SField _ _ cid name) = do
   let slot = getSlot layout cid name
   pure $ EVM.Lit (fromIntegral slot)
 
-baseAddr :: Monad m => ContractMap -> Ref Storage -> ActT m (EVM.Expr EVM.EAddr)
+baseAddr :: Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EAddr)
 baseAddr _ (SVar _ _ _) = getCaddr
-baseAddr cmap (SField _ ref _ _) = refAddr cmap ref
+baseAddr _ (CVar _ _ _) = error "Internal error: ill-typed entry"
+baseAddr cmap (SField _ ref _ _) = do
+  expr <- refToExp cmap ref 
+  case simplify expr of
+    EVM.WAddr symaddr -> pure symaddr
+    e -> error $ "Internal error: did not find a symbolic address: " <> show e
 baseAddr cmap (SMapping _ ref _) = baseAddr cmap ref
-
+-- | TODO delete
 -- | find the contract that is stored in the given reference of contract type
 refAddr :: Monad m => ContractMap -> Ref Storage -> ActT m (EVM.Expr EVM.EAddr)
 refAddr cmap (SVar _ c x) = do
@@ -549,19 +555,9 @@ toExpr cmap = liftM stripMods . go
         pure $ EVM.Not e
       (NEq _ _ _ _) -> error "unsupported"
 
+      (TEntry _ _ SStorage (Item SInteger _ ref)) -> refToExp cmap ref
+
       e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
-
-      -- (Var _ _ SInteger _ vref) -> vrefToExp SInteger cmap vref -- TODO Unify with the one below
-
-      (TEntry _ _ SStorage (Item SInteger _ ref)) -> do
-        slot <- refOffset cmap ref
-        caddr' <- baseAddr cmap ref
-        let (contract, _) = fromMaybe (error "Internal error: contract not found") $ M.lookup caddr' cmap
-        let storage = case contract of
-                        EVM.C _ s _ _ _  -> s
-                        EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
-
-        pure $ EVM.SLoad slot storage
 
       e ->  error $ "TODO: " <> show e
 
@@ -572,30 +568,27 @@ toExpr cmap = liftM stripMods . go
       pure $ op e1' e2'
 
 
--- vrefToExp :: forall a m. Monad m => SType a -> ContractMap -> VarRef -> ActT m (EVM.Expr (ExprType a))
--- vrefToExp SInteger _ (VVar _ typ x) = pure $ fromCalldataFramgment $ symAbiArg (T.pack x) typ
 
---   where
---     fromCalldataFramgment :: CalldataFragment -> EVM.Expr EVM.EWord
---     fromCalldataFramgment (St _ word) = word
---     fromCalldataFramgment _ = error "Internal error: only static types are supported"
+refToExp :: forall m k. Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EWord)
+-- calldata variable
+refToExp _ (CVar _ typ x) = pure $ fromCalldataFramgment $ symAbiArg (T.pack x) typ
 
+  where
+    fromCalldataFramgment :: CalldataFragment -> EVM.Expr EVM.EWord
+    fromCalldataFramgment (St _ word) = word
+    fromCalldataFramgment _ = error "Internal error: only static types are supported"
 
--- vrefToExp SInteger cmap (VField _ ref cid name) = do
---   expr <- vrefToExp SInteger cmap ref
---   case simplify expr of
---     EVM.WAddr symaddr -> do
---       let (contract, _) = fromMaybe (error "Internal error: contract not found") $ M.lookup symaddr cmap
---       layout <- getLayout
---       let slot = EVM.Lit (fromIntegral $ getSlot layout cid name)
+refToExp cmap r = do
+  caddr <- baseAddr cmap r
+  slot <- refOffset cmap r
+  pure $ accessStorage cmap slot caddr
 
---       let storage = case contract of
---             EVM.C _ s _ _ _  -> s
---             EVM.GVar _ -> error "Internal error: contract cannot be a global variable"
+accessStorage :: ContractMap -> EVM.Expr EVM.EWord -> EVM.Expr EVM.EAddr -> EVM.Expr EVM.EWord
+accessStorage cmap slot addr = case M.lookup addr cmap of
+  Just (EVM.C _ storage _ _ _, _) -> EVM.SLoad slot storage
+  Just (EVM.GVar _, _) -> error "Internal error: contract cannot be a global variable"
+  Nothing -> error "Internal error: contract not found"
 
---       pure $ EVM.SLoad slot storage
---     _ -> error $ "Internal error: did not find a symbolic address"
--- vrefToExp _ _ _ = error "Unsuported"
 
 inRange :: AbiType -> Exp AInteger -> Exp ABoolean
 -- if the type has the type of machine word then check per operation
