@@ -70,7 +70,7 @@ locsFromUpdate update = nub $ case update of
 locFromUpdate :: StorageUpdate t -> StorageLocation t
 locFromUpdate (Update _ item _) = _Loc item
 
-locsFromItem :: SRefKind k -> TItem k a t -> [StorageLocation t]
+locsFromItem :: SRefKind k -> TItem a k t -> [StorageLocation t]
 locsFromItem SCalldata item = concatMap locsFromTypedExp (ixsFromItem item)
 locsFromItem SStorage item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
 

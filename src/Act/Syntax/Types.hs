@@ -60,6 +60,10 @@ instance TestEquality SType where
 eqS :: forall (a :: ActType) (b :: ActType) f t. (SingI a, SingI b, Eq (f a t)) => f a t -> f b t -> Bool
 eqS fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
 
+-- | The same but when the higher-kinded type has two type arguments
+eqS' :: forall (a :: ActType) (b :: ActType) f t t'. (SingI a, SingI b, Eq (f a t t')) => f a t t' -> f b t t' -> Bool
+eqS' fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
+
 -- Defines which singleton to retrieve when we only have the type, not the
 -- actual singleton.
 instance SingI 'AInteger where sing = SInteger

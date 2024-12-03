@@ -223,10 +223,6 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
       pure $ M.insert caddr' (updateStorage (EVM.SStore offset e') contract, cid) writeMap
     SByteStr -> error "Bytestrings not supported"
   where
-    -- isContract :: ValueType -> Bool
-    -- isContract (ContractType _) = True
-    -- isContract _ = False
-
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateStorage updfun (EVM.C code storage tstorage bal nonce) = EVM.C code (updfun storage) tstorage bal nonce
     updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
@@ -264,20 +260,32 @@ substUpds :: M.Map Id TypedExp -> [StorageUpdate] -> [StorageUpdate]
 substUpds subst upds = fmap (substUpd subst) upds
 
 substUpd :: M.Map Id TypedExp -> StorageUpdate -> StorageUpdate
-substUpd subst (Update s item expr) = Update s (substItem subst item) (substExp subst expr)
+substUpd subst (Update s item expr) = case substItem subst item of
+  ETItem SStorage  i -> Update s i (substExp subst expr)
+  ETItem SCalldata _ -> error "Internal error: expecting storage item"
 
-substItem :: M.Map Id TypedExp -> TItem a k -> TItem a k
-substItem subst (Item st vt sref) = Item st vt (substRef subst sref)
+-- | Existential packages to abstract away from reference kinds. Needed to
+-- define subtitutions. 
+-- Note: it would be nice to have these abstracted in one date type that
+-- abstracts the higher-kinded type, but Haskell does not allow partially
+-- applied type synonyms
+data ETItem t = forall k. ETItem (SRefKind k) (TItem t k)
+data ERef = forall k. ERef (SRefKind k) (Ref k)
 
-substRef :: M.Map Id TypedExp -> Ref k -> Ref k
-substRef _ var@(SVar _ _ _) = var
-substRef _ var@(CVar _ _ x) = undefined
-  -- case M.lookup x subst of
-  --   Just (TExp _ (TEntry _ _ _ item)) -> ref
-  --   Just _ -> error "Internal error: cannot access fields of non-pointer var"
-  --   Nothing -> error "Internal error: ill-formed substitution"
-substRef subst (SMapping pn sref args) = SMapping pn (substRef subst sref) (substArgs subst args)
-substRef subst (SField pn sref x y) = SField pn (substRef subst sref) x y
+substItem :: M.Map Id TypedExp -> TItem a k -> ETItem a
+substItem subst (Item st vt sref) = case substRef subst sref of
+  ERef k ref -> ETItem k (Item st vt ref)
+
+substRef :: M.Map Id TypedExp -> Ref k -> ERef
+substRef _ var@(SVar _ _ _) = ERef SStorage var
+substRef subst (CVar _ _ x) = case M.lookup x subst of
+    Just (TExp _ (TEntry _ _ k (Item _ _ ref))) -> ERef k ref
+    Just _ -> error "Internal error: cannot access fields of non-pointer var"
+    Nothing -> error "Internal error: ill-formed substitution"
+substRef subst (SMapping pn sref args) = case substRef subst sref of
+  ERef k ref -> ERef k $ SMapping pn ref (substArgs subst args)
+substRef subst (SField pn sref x y) = case substRef subst sref of
+  ERef k ref -> ERef k $ SField pn ref x y
 
 substArgs :: M.Map Id TypedExp -> [TypedExp] -> [TypedExp]
 substArgs subst exps = fmap (substTExp subst) exps

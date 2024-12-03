@@ -13,6 +13,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE InstanceSigs #-}
 
 {-|
 Module      : Syntax.TimeAgnostic
@@ -123,24 +124,24 @@ data Behaviour t = Behaviour
 
 
 data StorageUpdate (t :: Timing) where
-  Update :: SType a -> TItem Storage a t -> Exp a t -> StorageUpdate t
+  Update :: SType a -> TItem a Storage t -> Exp a t -> StorageUpdate t
 deriving instance Show (StorageUpdate t)
 
 instance Eq (StorageUpdate t) where
-  Update SType i1 e1 == Update SType i2 e2 = eqS i1 i2 && eqS e1 e2
+  Update SType i1 e1 == Update SType i2 e2 = eqS' i1 i2 && eqS e1 e2
 
-_Update :: SingI a => TItem Storage a t -> Exp a t -> StorageUpdate t
+_Update :: SingI a => TItem a Storage t -> Exp a t -> StorageUpdate t
 _Update item expr = Update sing item expr
 
 data StorageLocation (t :: Timing) where
-  Loc :: SType a -> TItem Storage a t -> StorageLocation t
+  Loc :: SType a -> TItem a Storage t -> StorageLocation t
 deriving instance Show (StorageLocation t)
 
-_Loc :: TItem Storage a t -> StorageLocation t
+_Loc :: TItem a Storage t -> StorageLocation t
 _Loc item@(Item s _ _) = Loc s item
 
 instance Eq (StorageLocation t) where
-  Loc SType i1 == Loc SType i2 = eqS i1 i2
+  Loc SType i1 == Loc SType i2 = eqS' i1 i2
 
 
 -- | Distinguish the type of Refs to calladata variables and storage
@@ -169,8 +170,8 @@ pattern SRefKind :: () => (SingI a) => SRefKind a
 pattern SRefKind <- Sing
 {-# COMPLETE SRefKind #-}
 
--- | Compare equality of two things parametrized by types which have singletons.
-eqKind :: forall (a :: RefKind) (b :: RefKind) f t t'. (SingI a, SingI b, Eq (f a t t')) => f a t t' -> f b t t' -> Bool
+-- | Compare equality of two Items parametrized by different RefKinds.
+eqKind :: forall (a :: RefKind) (b :: RefKind) f t t'. (SingI a, SingI b, Eq (f t a t')) => f t a t' -> f t b t' -> Bool
 eqKind fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
 
 -- | Reference to an item in storage or a variable. It can be either a
@@ -185,10 +186,10 @@ data Ref (k :: RefKind) (t :: Timing) where
 deriving instance Show (Ref k t)
 
 instance Eq (Ref k t) where
-  SVar _ c x == SVar _ c' x' = c == c' && x == x'
+  SVar _ c x       == SVar _ c' x'       = c == c' && x == x'
   SMapping _ r ixs == SMapping _ r' ixs' = r == r' && ixs == ixs'
-  SField _ r c x == SField _ r' c' x' = r == r' && c == c' && x == x'
-  _ == _ = False
+  SField _ r c x   == SField _ r' c' x'  = r == r' && c == c' && x == x'
+  _                == _                  = False
 
 -- | Item is a reference together with its Act type. The type is
 -- parametrized on a timing `t`, a type `a`, and the reference kind
@@ -198,12 +199,12 @@ instance Eq (Ref k t) where
 -- referenced. Items are also annotated with the original ValueType
 -- that carries more precise type information (e.g., the exact
 -- contract type).
-data TItem (k :: RefKind) (a :: ActType) (t :: Timing) where
-  Item :: SType a -> ValueType -> Ref k t -> TItem k a t
-deriving instance Show (TItem k a t)
-deriving instance Eq (TItem k a t)
+data TItem (a :: ActType) (k :: RefKind) (t :: Timing) where
+  Item :: SType a -> ValueType -> Ref k t -> TItem a k t
+deriving instance Show (TItem a k t)
+deriving instance Eq (TItem a k t)
 
-_Item :: SingI a => ValueType -> Ref k t -> TItem k a t
+_Item :: SingI a => ValueType -> Ref k t -> TItem a k t
 _Item = Item sing
 
 -- | Expressions for which the return type is known.
@@ -261,7 +262,7 @@ data Exp (a :: ActType) (t :: Timing) where
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   ITE :: Pn -> Exp ABoolean t -> Exp a t -> Exp a t -> Exp a t
-  TEntry :: Pn -> Time t -> SRefKind k -> TItem k a t -> Exp a t
+  TEntry :: Pn -> Time t -> SRefKind k -> TItem a k t -> Exp a t
   -- Note: we could use a singleton types to avoid separating Entry and Var 
 deriving instance Show (Exp a t)
 
@@ -366,7 +367,7 @@ instance Timable (Exp a) where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
 
-instance Timable (TItem k a) where
+instance Timable (TItem a k) where
    setTime time (Item t vt ref) = Item t vt $ setTime time ref
 
 instance Timable (Ref k) where
@@ -470,7 +471,7 @@ instance ToJSON (StorageLocation t) where
 instance ToJSON (StorageUpdate t) where
   toJSON (Update _ a b) = object [ "location" .= toJSON a ,"value" .= toJSON b ]
 
-instance ToJSON (TItem k a t) where
+instance ToJSON (TItem a k t) where
   toJSON (Item t _ a) = object [ "item" .= toJSON a
                                , "type" .=  show t
                                ]

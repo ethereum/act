@@ -688,7 +688,7 @@ sType' (TExp t _) = sType $ actType t
 --- ** Variable Names ** ---
 
 -- Construct the smt2 variable name for a given storage item
-nameFromSItem :: When -> TItem Storage a -> Id
+nameFromSItem :: When -> TItem a Storage -> Id
 nameFromSItem whn (Item _ _ ref) = nameFromSRef ref @@ show whn
 
 nameFromSRef :: Ref Storage -> Id
