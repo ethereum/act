@@ -699,7 +699,9 @@ nameFromSRef (SField _ ref c x) = nameFromSRef ref @@ c @@ x
 nameFromItem :: When -> TItem k a -> Ctx Id
 nameFromItem whn (Item _ _ ref) = do
   name <- nameFromRef ref
-  pure $ name @@ show whn
+  case ref of -- TODO: this feels rather adhoc, but I can't find a better way to handle timings
+    CVar _ _ _ -> pure $ name
+    _ -> pure $ name @@ show whn
 
 nameFromRef :: Ref k -> Ctx Id
 nameFromRef (CVar _ _ name) = nameFromVarId name

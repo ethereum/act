@@ -555,7 +555,7 @@ toExpr cmap = liftM stripMods . go
         pure $ EVM.Not e
       (NEq _ _ _ _) -> error "unsupported"
 
-      (TEntry _ _ SStorage (Item SInteger _ ref)) -> refToExp cmap ref
+      (TEntry _ _ _ (Item SInteger _ ref)) -> refToExp cmap ref
 
       e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
 

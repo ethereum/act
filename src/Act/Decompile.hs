@@ -79,7 +79,7 @@ decompile contract solvers = do
         Failure es -> pure . Left . T.unlines . NE.toList . fmap (T.pack . snd) $ es
 
 
--- Sumarization ------------------------------------------------------------------------------------
+-- Summarization ------------------------------------------------------------------------------------
 
 
 -- | The result of summarization.
