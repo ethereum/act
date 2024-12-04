@@ -1,0 +1,757 @@
+{
+  "contracts": [
+    {
+      "behaviours": [
+        {
+          "case": [
+            {
+              "args": [
+                {
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "kind": "Var",
+                      "var": "z"
+                    },
+                    "type": "int"
+                  },
+                  "timing": "Pre"
+                },
+                {
+                  "literal": "0",
+                  "type": "int"
+                }
+              ],
+              "arity": 2,
+              "symbol": "=="
+            }
+          ],
+          "contract": "C",
+          "interface": {
+            "args": [
+              {
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                "id": "\"z\"",
+                "kind": "Declaration"
+              }
+            ],
+            "id": "\"bar\"",
+            "kind": "Interface"
+          },
+          "kind": "Behaviour",
+          "name": "bar",
+          "pointers": [],
+          "postConditions": [],
+          "preConditions": [
+            {
+              "args": [
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
+                {
+                  "literal": "0",
+                  "type": "int"
+                }
+              ],
+              "arity": 2,
+              "symbol": "=="
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
+          "returns": null,
+          "stateUpdates": [
+            {
+              "location": {
+                "item": {
+                  "contract": "C",
+                  "kind": "SVar",
+                  "svar": "x"
+                },
+                "type": "int"
+              },
+              "value": {
+                "entry": {
+                  "item": {
+                    "abitype": {
+                      "size": "256",
+                      "type": "UInt"
+                    },
+                    "kind": "Var",
+                    "var": "z"
+                  },
+                  "type": "int"
+                },
+                "timing": "Pre"
+              }
+            }
+          ]
+        },
+        {
+          "case": [
+            {
+              "args": [
+                {
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "kind": "Var",
+                      "var": "z"
+                    },
+                    "type": "int"
+                  },
+                  "timing": "Pre"
+                },
+                {
+                  "literal": "1",
+                  "type": "int"
+                }
+              ],
+              "arity": 2,
+              "symbol": "=="
+            }
+          ],
+          "contract": "C",
+          "interface": {
+            "args": [
+              {
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                "id": "\"z\"",
+                "kind": "Declaration"
+              }
+            ],
+            "id": "\"bar\"",
+            "kind": "Interface"
+          },
+          "kind": "Behaviour",
+          "name": "bar",
+          "pointers": [],
+          "postConditions": [],
+          "preConditions": [
+            {
+              "args": [
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
+                {
+                  "literal": "0",
+                  "type": "int"
+                }
+              ],
+              "arity": 2,
+              "symbol": "=="
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
+          "returns": null,
+          "stateUpdates": [
+            {
+              "location": {
+                "item": {
+                  "contract": "C",
+                  "kind": "SVar",
+                  "svar": "x"
+                },
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "z"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "literal": "1",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "+"
+              }
+            }
+          ]
+        },
+        {
+          "case": [
+            {
+              "args": [
+                {
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "kind": "Var",
+                      "var": "z"
+                    },
+                    "type": "int"
+                  },
+                  "timing": "Pre"
+                },
+                {
+                  "literal": "1",
+                  "type": "int"
+                }
+              ],
+              "arity": 2,
+              "symbol": ">"
+            }
+          ],
+          "contract": "C",
+          "interface": {
+            "args": [
+              {
+                "abitype": {
+                  "size": "256",
+                  "type": "UInt"
+                },
+                "id": "\"z\"",
+                "kind": "Declaration"
+              }
+            ],
+            "id": "\"bar\"",
+            "kind": "Interface"
+          },
+          "kind": "Behaviour",
+          "name": "bar",
+          "pointers": [],
+          "postConditions": [],
+          "preConditions": [
+            {
+              "args": [
+                {
+                  "ethEnv": "Callvalue",
+                  "type": "int"
+                },
+                {
+                  "literal": "0",
+                  "type": "int"
+                }
+              ],
+              "arity": 2,
+              "symbol": "=="
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "ethEnv": "Callvalue",
+                      "type": "int"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
+          "returns": null,
+          "stateUpdates": [
+            {
+              "location": {
+                "item": {
+                  "contract": "C",
+                  "kind": "SVar",
+                  "svar": "x"
+                },
+                "type": "int"
+              },
+              "value": {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "z"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "Pre"
+                  },
+                  {
+                    "literal": "2",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "+"
+              }
+            }
+          ]
+        }
+      ],
+      "constructor": {
+        "contract": "C",
+        "initialStorage": [
+          {
+            "location": {
+              "item": {
+                "contract": "C",
+                "kind": "SVar",
+                "svar": "x"
+              },
+              "type": "int"
+            },
+            "value": {
+              "literal": "0",
+              "type": "int"
+            }
+          }
+        ],
+        "interface": {
+          "args": [],
+          "id": "\"C\"",
+          "kind": "Interface"
+        },
+        "invariants": [],
+        "kind": "Constructor",
+        "pointers": [],
+        "postConditions": [],
+        "preConditions": []
+      },
+      "kind": "Contract"
+    }
+  ],
+  "kind": "Act",
+  "store": {
+    "kind": "Storages",
+    "storages": {
+      "C": {
+        "x": [
+          {
+            "kind": "ValueType",
+            "valueType": {
+              "abiType": {
+                "size": "256",
+                "type": "UInt"
+              },
+              "kind": "AbiType"
+            }
+          },
+          0
+        ]
+      }
+    }
+  }
+}

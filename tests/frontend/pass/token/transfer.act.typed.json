@@ -11,14 +11,17 @@
                   "type": "int"
                 },
                 {
-                  "type": "int",
-                  "var": {
-                    "abitype": {
-                      "type": "Address"
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "type": "Address"
+                      },
+                      "kind": "Var",
+                      "var": "to"
                     },
-                    "kind": "Var",
-                    "var": "to"
-                  }
+                    "type": "int"
+                  },
+                  "timing": "Pre"
                 }
               ],
               "arity": 2,
@@ -69,15 +72,18 @@
             {
               "args": [
                 {
-                  "type": "int",
-                  "var": {
-                    "abitype": {
-                      "size": "256",
-                      "type": "UInt"
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "kind": "Var",
+                      "var": "value"
                     },
-                    "kind": "Var",
-                    "var": "value"
-                  }
+                    "type": "int"
+                  },
+                  "timing": "Pre"
                 },
                 {
                   "entry": {
@@ -116,14 +122,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "to"
                         },
-                        "kind": "Var",
-                        "var": "to"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -139,14 +148,17 @@
                               "indexes": [
                                 {
                                   "expression": {
-                                    "type": "int",
-                                    "var": {
-                                      "abitype": {
-                                        "type": "Address"
+                                    "entry": {
+                                      "item": {
+                                        "abitype": {
+                                          "type": "Address"
+                                        },
+                                        "kind": "Var",
+                                        "var": "to"
                                       },
-                                      "kind": "Var",
-                                      "var": "to"
-                                    }
+                                      "type": "int"
+                                    },
+                                    "timing": "Pre"
                                   },
                                   "kind": "TypedExpr",
                                   "type": "int"
@@ -164,15 +176,18 @@
                           "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "size": "256",
-                              "type": "UInt"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "size": "256",
+                                "type": "UInt"
+                              },
+                              "kind": "Var",
+                              "var": "value"
                             },
-                            "kind": "Var",
-                            "var": "value"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -209,15 +224,18 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "value"
                         },
-                        "kind": "Var",
-                        "var": "value"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -226,15 +244,18 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "value"
                         },
-                        "kind": "Var",
-                        "var": "value"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -257,14 +278,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "to"
                         },
-                        "kind": "Var",
-                        "var": "to"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -273,14 +297,17 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "to"
                         },
-                        "kind": "Var",
-                        "var": "to"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "1461501637330902918203684832716283019655932542975",
@@ -382,14 +409,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "to"
                                   },
-                                  "kind": "Var",
-                                  "var": "to"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Post"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -418,14 +448,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "to"
                                   },
-                                  "kind": "Var",
-                                  "var": "to"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Post"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -542,14 +575,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "to"
                                   },
-                                  "kind": "Var",
-                                  "var": "to"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -578,14 +614,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "to"
                                   },
-                                  "kind": "Var",
-                                  "var": "to"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -741,15 +780,18 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "value"
                       },
-                      "kind": "Var",
-                      "var": "value"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -762,14 +804,17 @@
                   "indexes": [
                     {
                       "expression": {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "type": "Address"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "type": "Address"
+                            },
+                            "kind": "Var",
+                            "var": "to"
                           },
-                          "kind": "Var",
-                          "var": "to"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Post"
                       },
                       "kind": "TypedExpr",
                       "type": "int"
@@ -792,14 +837,17 @@
                         "indexes": [
                           {
                             "expression": {
-                              "type": "int",
-                              "var": {
-                                "abitype": {
-                                  "type": "Address"
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "type": "Address"
+                                  },
+                                  "kind": "Var",
+                                  "var": "to"
                                 },
-                                "kind": "Var",
-                                "var": "to"
-                              }
+                                "type": "int"
+                              },
+                              "timing": "Pre"
                             },
                             "kind": "TypedExpr",
                             "type": "int"
@@ -817,15 +865,18 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "value"
                       },
-                      "kind": "Var",
-                      "var": "value"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -843,14 +894,17 @@
                   "type": "int"
                 },
                 {
-                  "type": "int",
-                  "var": {
-                    "abitype": {
-                      "type": "Address"
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "type": "Address"
+                      },
+                      "kind": "Var",
+                      "var": "to"
                     },
-                    "kind": "Var",
-                    "var": "to"
-                  }
+                    "type": "int"
+                  },
+                  "timing": "Pre"
                 }
               ],
               "arity": 2,
@@ -901,15 +955,18 @@
             {
               "args": [
                 {
-                  "type": "int",
-                  "var": {
-                    "abitype": {
-                      "size": "256",
-                      "type": "UInt"
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "kind": "Var",
+                      "var": "value"
                     },
-                    "kind": "Var",
-                    "var": "value"
-                  }
+                    "type": "int"
+                  },
+                  "timing": "Pre"
                 },
                 {
                   "entry": {
@@ -948,14 +1005,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "to"
                         },
-                        "kind": "Var",
-                        "var": "to"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -971,14 +1031,17 @@
                               "indexes": [
                                 {
                                   "expression": {
-                                    "type": "int",
-                                    "var": {
-                                      "abitype": {
-                                        "type": "Address"
+                                    "entry": {
+                                      "item": {
+                                        "abitype": {
+                                          "type": "Address"
+                                        },
+                                        "kind": "Var",
+                                        "var": "to"
                                       },
-                                      "kind": "Var",
-                                      "var": "to"
-                                    }
+                                      "type": "int"
+                                    },
+                                    "timing": "Pre"
                                   },
                                   "kind": "TypedExpr",
                                   "type": "int"
@@ -996,15 +1059,18 @@
                           "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "size": "256",
-                              "type": "UInt"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "size": "256",
+                                "type": "UInt"
+                              },
+                              "kind": "Var",
+                              "var": "value"
                             },
-                            "kind": "Var",
-                            "var": "value"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -1041,15 +1107,18 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "value"
                         },
-                        "kind": "Var",
-                        "var": "value"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -1058,15 +1127,18 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "value"
                         },
-                        "kind": "Var",
-                        "var": "value"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -1089,14 +1161,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "to"
                         },
-                        "kind": "Var",
-                        "var": "to"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -1105,14 +1180,17 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "to"
                         },
-                        "kind": "Var",
-                        "var": "to"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "1461501637330902918203684832716283019655932542975",
@@ -1214,14 +1292,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "to"
                                   },
-                                  "kind": "Var",
-                                  "var": "to"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -1250,14 +1331,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "to"
                                   },
-                                  "kind": "Var",
-                                  "var": "to"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -1372,24 +1456,30 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
                         },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -1402,14 +1492,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -1457,15 +1550,18 @@
             {
               "args": [
                 {
-                  "type": "int",
-                  "var": {
-                    "abitype": {
-                      "size": "256",
-                      "type": "UInt"
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "kind": "Var",
+                      "var": "amount"
                     },
-                    "kind": "Var",
-                    "var": "amount"
-                  }
+                    "type": "int"
+                  },
+                  "timing": "Pre"
                 },
                 {
                   "entry": {
@@ -1500,24 +1596,30 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
                         },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -1533,14 +1635,17 @@
                               "indexes": [
                                 {
                                   "expression": {
-                                    "type": "int",
-                                    "var": {
-                                      "abitype": {
-                                        "type": "Address"
+                                    "entry": {
+                                      "item": {
+                                        "abitype": {
+                                          "type": "Address"
+                                        },
+                                        "kind": "Var",
+                                        "var": "dst"
                                       },
-                                      "kind": "Var",
-                                      "var": "dst"
-                                    }
+                                      "type": "int"
+                                    },
+                                    "timing": "Pre"
                                   },
                                   "kind": "TypedExpr",
                                   "type": "int"
@@ -1558,15 +1663,18 @@
                           "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "size": "256",
-                              "type": "UInt"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "size": "256",
+                                "type": "UInt"
+                              },
+                              "kind": "Var",
+                              "var": "amount"
                             },
-                            "kind": "Var",
-                            "var": "amount"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -1603,14 +1711,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -1630,14 +1741,17 @@
                               "indexes": [
                                 {
                                   "expression": {
-                                    "type": "int",
-                                    "var": {
-                                      "abitype": {
-                                        "type": "Address"
+                                    "entry": {
+                                      "item": {
+                                        "abitype": {
+                                          "type": "Address"
+                                        },
+                                        "kind": "Var",
+                                        "var": "src"
                                       },
-                                      "kind": "Var",
-                                      "var": "src"
-                                    }
+                                      "type": "int"
+                                    },
+                                    "timing": "Pre"
                                   },
                                   "kind": "TypedExpr",
                                   "type": "int"
@@ -1663,15 +1777,18 @@
                           "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "size": "256",
-                              "type": "UInt"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "size": "256",
+                                "type": "UInt"
+                              },
+                              "kind": "Var",
+                              "var": "amount"
                             },
-                            "kind": "Var",
-                            "var": "amount"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -1708,170 +1825,13 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
-                        },
-                        "kind": "Var",
-                        "var": "src"
-                      }
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
-                        },
-                        "kind": "Var",
-                        "var": "src"
-                      }
-                    },
-                    {
-                      "literal": "1461501637330902918203684832716283019655932542975",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
-                        },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
-                        },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
-                    },
-                    {
-                      "literal": "1461501637330902918203684832716283019655932542975",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
-                        },
-                        "kind": "Var",
-                        "var": "amount"
-                      }
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
-                        },
-                        "kind": "Var",
-                        "var": "amount"
-                      }
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
                       "entry": {
                         "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
                         "type": "int"
                       },
@@ -1886,28 +1846,117 @@
                     {
                       "entry": {
                         "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "1461501637330902918203684832716283019655932542975",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "amount"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "amount"
                         },
                         "type": "int"
                       },
@@ -1939,14 +1988,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Post"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -1975,14 +2027,109 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Post"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Post"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Post"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -2099,14 +2246,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
                                   },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -2135,14 +2285,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
                                   },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -2185,14 +2338,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -2229,14 +2385,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -2357,14 +2516,17 @@
                   "indexes": [
                     {
                       "expression": {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "type": "Address"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "type": "Address"
+                            },
+                            "kind": "Var",
+                            "var": "src"
                           },
-                          "kind": "Var",
-                          "var": "src"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Post"
                       },
                       "kind": "TypedExpr",
                       "type": "int"
@@ -2387,14 +2549,17 @@
                         "indexes": [
                           {
                             "expression": {
-                              "type": "int",
-                              "var": {
-                                "abitype": {
-                                  "type": "Address"
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "type": "Address"
+                                  },
+                                  "kind": "Var",
+                                  "var": "src"
                                 },
-                                "kind": "Var",
-                                "var": "src"
-                              }
+                                "type": "int"
+                              },
+                              "timing": "Pre"
                             },
                             "kind": "TypedExpr",
                             "type": "int"
@@ -2412,15 +2577,18 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "amount"
                       },
-                      "kind": "Var",
-                      "var": "amount"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -2433,14 +2601,17 @@
                   "indexes": [
                     {
                       "expression": {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "type": "Address"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "type": "Address"
+                            },
+                            "kind": "Var",
+                            "var": "dst"
                           },
-                          "kind": "Var",
-                          "var": "dst"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Post"
                       },
                       "kind": "TypedExpr",
                       "type": "int"
@@ -2463,14 +2634,17 @@
                         "indexes": [
                           {
                             "expression": {
-                              "type": "int",
-                              "var": {
-                                "abitype": {
-                                  "type": "Address"
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "type": "Address"
+                                  },
+                                  "kind": "Var",
+                                  "var": "dst"
                                 },
-                                "kind": "Var",
-                                "var": "dst"
-                              }
+                                "type": "int"
+                              },
+                              "timing": "Pre"
                             },
                             "kind": "TypedExpr",
                             "type": "int"
@@ -2488,15 +2662,18 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "amount"
                       },
-                      "kind": "Var",
-                      "var": "amount"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -2514,24 +2691,30 @@
                     {
                       "args": [
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "type": "Address"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "kind": "Var",
+                              "var": "src"
                             },
-                            "kind": "Var",
-                            "var": "src"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "type": "Address"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "kind": "Var",
+                              "var": "dst"
                             },
-                            "kind": "Var",
-                            "var": "dst"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -2544,14 +2727,17 @@
                           "type": "int"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "type": "Address"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "kind": "Var",
+                              "var": "src"
                             },
-                            "kind": "Var",
-                            "var": "src"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -2569,14 +2755,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -2671,15 +2860,18 @@
             {
               "args": [
                 {
-                  "type": "int",
-                  "var": {
-                    "abitype": {
-                      "size": "256",
-                      "type": "UInt"
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "kind": "Var",
+                      "var": "amount"
                     },
-                    "kind": "Var",
-                    "var": "amount"
-                  }
+                    "type": "int"
+                  },
+                  "timing": "Pre"
                 },
                 {
                   "entry": {
@@ -2714,24 +2906,30 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
                         },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -2747,14 +2945,17 @@
                               "indexes": [
                                 {
                                   "expression": {
-                                    "type": "int",
-                                    "var": {
-                                      "abitype": {
-                                        "type": "Address"
+                                    "entry": {
+                                      "item": {
+                                        "abitype": {
+                                          "type": "Address"
+                                        },
+                                        "kind": "Var",
+                                        "var": "dst"
                                       },
-                                      "kind": "Var",
-                                      "var": "dst"
-                                    }
+                                      "type": "int"
+                                    },
+                                    "timing": "Pre"
                                   },
                                   "kind": "TypedExpr",
                                   "type": "int"
@@ -2772,15 +2973,18 @@
                           "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "size": "256",
-                              "type": "UInt"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "size": "256",
+                                "type": "UInt"
+                              },
+                              "kind": "Var",
+                              "var": "amount"
                             },
-                            "kind": "Var",
-                            "var": "amount"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -2817,14 +3021,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -2844,14 +3051,17 @@
                               "indexes": [
                                 {
                                   "expression": {
-                                    "type": "int",
-                                    "var": {
-                                      "abitype": {
-                                        "type": "Address"
+                                    "entry": {
+                                      "item": {
+                                        "abitype": {
+                                          "type": "Address"
+                                        },
+                                        "kind": "Var",
+                                        "var": "src"
                                       },
-                                      "kind": "Var",
-                                      "var": "src"
-                                    }
+                                      "type": "int"
+                                    },
+                                    "timing": "Pre"
                                   },
                                   "kind": "TypedExpr",
                                   "type": "int"
@@ -2877,15 +3087,18 @@
                           "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "size": "256",
-                              "type": "UInt"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "size": "256",
+                                "type": "UInt"
+                              },
+                              "kind": "Var",
+                              "var": "amount"
                             },
-                            "kind": "Var",
-                            "var": "amount"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -2922,14 +3135,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -2938,14 +3154,17 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "1461501637330902918203684832716283019655932542975",
@@ -2968,14 +3187,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
                         },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -2984,14 +3206,17 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
                         },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "1461501637330902918203684832716283019655932542975",
@@ -3014,78 +3239,14 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
-                        },
-                        "kind": "Var",
-                        "var": "amount"
-                      }
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
-                        },
-                        "kind": "Var",
-                        "var": "amount"
-                      }
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
                       "entry": {
                         "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "amount"
                         },
                         "type": "int"
                       },
@@ -3100,28 +3261,12 @@
                     {
                       "entry": {
                         "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "amount"
                         },
                         "type": "int"
                       },
@@ -3153,14 +3298,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Post"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -3189,14 +3337,109 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Post"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Post"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Post"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -3313,14 +3556,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
                                   },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -3349,14 +3595,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
                                   },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -3399,14 +3648,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -3443,14 +3695,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -3501,14 +3756,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -3545,14 +3803,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -3673,14 +3934,17 @@
                   "indexes": [
                     {
                       "expression": {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "type": "Address"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "type": "Address"
+                            },
+                            "kind": "Var",
+                            "var": "src"
                           },
-                          "kind": "Var",
-                          "var": "src"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Post"
                       },
                       "kind": "TypedExpr",
                       "type": "int"
@@ -3703,14 +3967,17 @@
                         "indexes": [
                           {
                             "expression": {
-                              "type": "int",
-                              "var": {
-                                "abitype": {
-                                  "type": "Address"
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "type": "Address"
+                                  },
+                                  "kind": "Var",
+                                  "var": "src"
                                 },
-                                "kind": "Var",
-                                "var": "src"
-                              }
+                                "type": "int"
+                              },
+                              "timing": "Pre"
                             },
                             "kind": "TypedExpr",
                             "type": "int"
@@ -3728,15 +3995,18 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "amount"
                       },
-                      "kind": "Var",
-                      "var": "amount"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -3749,14 +4019,17 @@
                   "indexes": [
                     {
                       "expression": {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "type": "Address"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "type": "Address"
+                            },
+                            "kind": "Var",
+                            "var": "dst"
                           },
-                          "kind": "Var",
-                          "var": "dst"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Post"
                       },
                       "kind": "TypedExpr",
                       "type": "int"
@@ -3779,14 +4052,17 @@
                         "indexes": [
                           {
                             "expression": {
-                              "type": "int",
-                              "var": {
-                                "abitype": {
-                                  "type": "Address"
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "type": "Address"
+                                  },
+                                  "kind": "Var",
+                                  "var": "dst"
                                 },
-                                "kind": "Var",
-                                "var": "dst"
-                              }
+                                "type": "int"
+                              },
+                              "timing": "Pre"
                             },
                             "kind": "TypedExpr",
                             "type": "int"
@@ -3804,15 +4080,18 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "amount"
                       },
-                      "kind": "Var",
-                      "var": "amount"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -3830,24 +4109,30 @@
                     {
                       "args": [
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "type": "Address"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "kind": "Var",
+                              "var": "src"
                             },
-                            "kind": "Var",
-                            "var": "src"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "type": "Address"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "kind": "Var",
+                              "var": "dst"
                             },
-                            "kind": "Var",
-                            "var": "dst"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -3860,14 +4145,17 @@
                           "type": "int"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "type": "Address"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "type": "Address"
+                              },
+                              "kind": "Var",
+                              "var": "src"
                             },
-                            "kind": "Var",
-                            "var": "src"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -3885,14 +4173,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -3987,15 +4278,18 @@
             {
               "args": [
                 {
-                  "type": "int",
-                  "var": {
-                    "abitype": {
-                      "size": "256",
-                      "type": "UInt"
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "kind": "Var",
+                      "var": "amount"
                     },
-                    "kind": "Var",
-                    "var": "amount"
-                  }
+                    "type": "int"
+                  },
+                  "timing": "Pre"
                 },
                 {
                   "entry": {
@@ -4030,24 +4324,30 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
                         },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -4063,14 +4363,17 @@
                               "indexes": [
                                 {
                                   "expression": {
-                                    "type": "int",
-                                    "var": {
-                                      "abitype": {
-                                        "type": "Address"
+                                    "entry": {
+                                      "item": {
+                                        "abitype": {
+                                          "type": "Address"
+                                        },
+                                        "kind": "Var",
+                                        "var": "dst"
                                       },
-                                      "kind": "Var",
-                                      "var": "dst"
-                                    }
+                                      "type": "int"
+                                    },
+                                    "timing": "Pre"
                                   },
                                   "kind": "TypedExpr",
                                   "type": "int"
@@ -4088,15 +4391,18 @@
                           "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "size": "256",
-                              "type": "UInt"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "size": "256",
+                                "type": "UInt"
+                              },
+                              "kind": "Var",
+                              "var": "amount"
                             },
-                            "kind": "Var",
-                            "var": "amount"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -4133,14 +4439,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -4160,14 +4469,17 @@
                               "indexes": [
                                 {
                                   "expression": {
-                                    "type": "int",
-                                    "var": {
-                                      "abitype": {
-                                        "type": "Address"
+                                    "entry": {
+                                      "item": {
+                                        "abitype": {
+                                          "type": "Address"
+                                        },
+                                        "kind": "Var",
+                                        "var": "src"
                                       },
-                                      "kind": "Var",
-                                      "var": "src"
-                                    }
+                                      "type": "int"
+                                    },
+                                    "timing": "Pre"
                                   },
                                   "kind": "TypedExpr",
                                   "type": "int"
@@ -4193,15 +4505,18 @@
                           "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "size": "256",
-                              "type": "UInt"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "size": "256",
+                                "type": "UInt"
+                              },
+                              "kind": "Var",
+                              "var": "amount"
                             },
-                            "kind": "Var",
-                            "var": "amount"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -4238,14 +4553,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -4254,14 +4572,17 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "1461501637330902918203684832716283019655932542975",
@@ -4284,14 +4605,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
                         },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -4300,14 +4624,17 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
                         },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "1461501637330902918203684832716283019655932542975",
@@ -4330,15 +4657,18 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "amount"
                         },
-                        "kind": "Var",
-                        "var": "amount"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -4347,15 +4677,18 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "amount"
                         },
-                        "kind": "Var",
-                        "var": "amount"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -4383,14 +4716,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Post"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -4427,448 +4763,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            },
-                            {
-                              "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "allowance"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "balanceOf"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    },
-                    {
-                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                      "type": "int"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                }
-              ],
-              "arity": 2,
-              "symbol": "and"
-            },
-            {
-              "args": [
-                {
-                  "args": [
-                    {
-                      "literal": "0",
-                      "type": "int"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            },
-                            {
-                              "expression": {
-                                "ethEnv": "Caller",
-                                "type": "int"
-                              },
-                              "kind": "TypedExpr",
-                              "type": "int"
-                            }
-                          ],
-                          "kind": "Mapping",
-                          "reference": {
-                            "contract": "Token",
-                            "kind": "SVar",
-                            "svar": "allowance"
-                          }
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
-                    }
-                  ],
-                  "arity": 2,
-                  "symbol": "<="
-                },
-                {
-                  "args": [
-                    {
-                      "entry": {
-                        "item": {
-                          "indexes": [
-                            {
-                              "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
-                                  },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Post"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -4919,14 +4824,367 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Post"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Post"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Post"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Post"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "balanceOf"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -4963,14 +5221,125 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            },
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "allowance"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            },
+                            {
+                              "expression": {
+                                "ethEnv": "Caller",
+                                "type": "int"
+                              },
+                              "kind": "TypedExpr",
+                              "type": "int"
+                            }
+                          ],
+                          "kind": "Mapping",
+                          "reference": {
+                            "contract": "Token",
+                            "kind": "SVar",
+                            "svar": "allowance"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "Pre"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "indexes": [
+                            {
+                              "expression": {
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
+                                  },
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -5091,14 +5460,17 @@
                   "indexes": [
                     {
                       "expression": {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "type": "Address"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "type": "Address"
+                            },
+                            "kind": "Var",
+                            "var": "src"
                           },
-                          "kind": "Var",
-                          "var": "src"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Post"
                       },
                       "kind": "TypedExpr",
                       "type": "int"
@@ -5129,14 +5501,17 @@
                         "indexes": [
                           {
                             "expression": {
-                              "type": "int",
-                              "var": {
-                                "abitype": {
-                                  "type": "Address"
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "type": "Address"
+                                  },
+                                  "kind": "Var",
+                                  "var": "src"
                                 },
-                                "kind": "Var",
-                                "var": "src"
-                              }
+                                "type": "int"
+                              },
+                              "timing": "Pre"
                             },
                             "kind": "TypedExpr",
                             "type": "int"
@@ -5162,15 +5537,18 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "amount"
                       },
-                      "kind": "Var",
-                      "var": "amount"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -5183,14 +5561,17 @@
                   "indexes": [
                     {
                       "expression": {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "type": "Address"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "type": "Address"
+                            },
+                            "kind": "Var",
+                            "var": "src"
                           },
-                          "kind": "Var",
-                          "var": "src"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Post"
                       },
                       "kind": "TypedExpr",
                       "type": "int"
@@ -5213,14 +5594,17 @@
                         "indexes": [
                           {
                             "expression": {
-                              "type": "int",
-                              "var": {
-                                "abitype": {
-                                  "type": "Address"
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "type": "Address"
+                                  },
+                                  "kind": "Var",
+                                  "var": "src"
                                 },
-                                "kind": "Var",
-                                "var": "src"
-                              }
+                                "type": "int"
+                              },
+                              "timing": "Pre"
                             },
                             "kind": "TypedExpr",
                             "type": "int"
@@ -5238,15 +5622,18 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "amount"
                       },
-                      "kind": "Var",
-                      "var": "amount"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -5259,14 +5646,17 @@
                   "indexes": [
                     {
                       "expression": {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "type": "Address"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "type": "Address"
+                            },
+                            "kind": "Var",
+                            "var": "dst"
                           },
-                          "kind": "Var",
-                          "var": "dst"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Post"
                       },
                       "kind": "TypedExpr",
                       "type": "int"
@@ -5289,14 +5679,17 @@
                         "indexes": [
                           {
                             "expression": {
-                              "type": "int",
-                              "var": {
-                                "abitype": {
-                                  "type": "Address"
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "type": "Address"
+                                  },
+                                  "kind": "Var",
+                                  "var": "dst"
                                 },
-                                "kind": "Var",
-                                "var": "dst"
-                              }
+                                "type": "int"
+                              },
+                              "timing": "Pre"
                             },
                             "kind": "TypedExpr",
                             "type": "int"
@@ -5314,15 +5707,18 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "amount"
                       },
-                      "kind": "Var",
-                      "var": "amount"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -5336,24 +5732,30 @@
             {
               "args": [
                 {
-                  "type": "int",
-                  "var": {
-                    "abitype": {
-                      "type": "Address"
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "type": "Address"
+                      },
+                      "kind": "Var",
+                      "var": "src"
                     },
-                    "kind": "Var",
-                    "var": "src"
-                  }
+                    "type": "int"
+                  },
+                  "timing": "Pre"
                 },
                 {
-                  "type": "int",
-                  "var": {
-                    "abitype": {
-                      "type": "Address"
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "type": "Address"
+                      },
+                      "kind": "Var",
+                      "var": "dst"
                     },
-                    "kind": "Var",
-                    "var": "dst"
-                  }
+                    "type": "int"
+                  },
+                  "timing": "Pre"
                 }
               ],
               "arity": 2,
@@ -5397,15 +5799,18 @@
             {
               "args": [
                 {
-                  "type": "int",
-                  "var": {
-                    "abitype": {
-                      "size": "256",
-                      "type": "UInt"
+                  "entry": {
+                    "item": {
+                      "abitype": {
+                        "size": "256",
+                        "type": "UInt"
+                      },
+                      "kind": "Var",
+                      "var": "amount"
                     },
-                    "kind": "Var",
-                    "var": "amount"
-                  }
+                    "type": "int"
+                  },
+                  "timing": "Pre"
                 },
                 {
                   "entry": {
@@ -5440,24 +5845,30 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
                         },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -5473,14 +5884,17 @@
                               "indexes": [
                                 {
                                   "expression": {
-                                    "type": "int",
-                                    "var": {
-                                      "abitype": {
-                                        "type": "Address"
+                                    "entry": {
+                                      "item": {
+                                        "abitype": {
+                                          "type": "Address"
+                                        },
+                                        "kind": "Var",
+                                        "var": "dst"
                                       },
-                                      "kind": "Var",
-                                      "var": "dst"
-                                    }
+                                      "type": "int"
+                                    },
+                                    "timing": "Pre"
                                   },
                                   "kind": "TypedExpr",
                                   "type": "int"
@@ -5498,15 +5912,18 @@
                           "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "size": "256",
-                              "type": "UInt"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "size": "256",
+                                "type": "UInt"
+                              },
+                              "kind": "Var",
+                              "var": "amount"
                             },
-                            "kind": "Var",
-                            "var": "amount"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -5543,14 +5960,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -5570,14 +5990,17 @@
                               "indexes": [
                                 {
                                   "expression": {
-                                    "type": "int",
-                                    "var": {
-                                      "abitype": {
-                                        "type": "Address"
+                                    "entry": {
+                                      "item": {
+                                        "abitype": {
+                                          "type": "Address"
+                                        },
+                                        "kind": "Var",
+                                        "var": "src"
                                       },
-                                      "kind": "Var",
-                                      "var": "src"
-                                    }
+                                      "type": "int"
+                                    },
+                                    "timing": "Pre"
                                   },
                                   "kind": "TypedExpr",
                                   "type": "int"
@@ -5603,15 +6026,18 @@
                           "timing": "Pre"
                         },
                         {
-                          "type": "int",
-                          "var": {
-                            "abitype": {
-                              "size": "256",
-                              "type": "UInt"
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "size": "256",
+                                "type": "UInt"
+                              },
+                              "kind": "Var",
+                              "var": "amount"
                             },
-                            "kind": "Var",
-                            "var": "amount"
-                          }
+                            "type": "int"
+                          },
+                          "timing": "Pre"
                         }
                       ],
                       "arity": 2,
@@ -5648,14 +6074,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -5664,14 +6093,17 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "src"
                         },
-                        "kind": "Var",
-                        "var": "src"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "1461501637330902918203684832716283019655932542975",
@@ -5694,14 +6126,17 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
                         },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -5710,14 +6145,17 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "type": "Address"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "type": "Address"
+                          },
+                          "kind": "Var",
+                          "var": "dst"
                         },
-                        "kind": "Var",
-                        "var": "dst"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "1461501637330902918203684832716283019655932542975",
@@ -5740,15 +6178,18 @@
                       "type": "int"
                     },
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "amount"
                         },
-                        "kind": "Var",
-                        "var": "amount"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -5757,15 +6198,18 @@
                 {
                   "args": [
                     {
-                      "type": "int",
-                      "var": {
-                        "abitype": {
-                          "size": "256",
-                          "type": "UInt"
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "amount"
                         },
-                        "kind": "Var",
-                        "var": "amount"
-                      }
+                        "type": "int"
+                      },
+                      "timing": "Pre"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -5867,14 +6311,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
                                   },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -5903,14 +6350,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "dst"
                                   },
-                                  "kind": "Var",
-                                  "var": "dst"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -5953,14 +6403,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -5997,14 +6450,17 @@
                           "indexes": [
                             {
                               "expression": {
-                                "type": "int",
-                                "var": {
-                                  "abitype": {
-                                    "type": "Address"
+                                "entry": {
+                                  "item": {
+                                    "abitype": {
+                                      "type": "Address"
+                                    },
+                                    "kind": "Var",
+                                    "var": "src"
                                   },
-                                  "kind": "Var",
-                                  "var": "src"
-                                }
+                                  "type": "int"
+                                },
+                                "timing": "Pre"
                               },
                               "kind": "TypedExpr",
                               "type": "int"
@@ -6134,14 +6590,17 @@
               "type": "bytestring"
             },
             "value": {
-              "type": "bytestring",
-              "var": {
-                "abitype": {
-                  "type": "String"
+              "entry": {
+                "item": {
+                  "abitype": {
+                    "type": "String"
+                  },
+                  "kind": "Var",
+                  "var": "_name"
                 },
-                "kind": "Var",
-                "var": "_name"
-              }
+                "type": "bytestring"
+              },
+              "timing": "Pre"
             }
           },
           {
@@ -6154,14 +6613,17 @@
               "type": "bytestring"
             },
             "value": {
-              "type": "bytestring",
-              "var": {
-                "abitype": {
-                  "type": "String"
+              "entry": {
+                "item": {
+                  "abitype": {
+                    "type": "String"
+                  },
+                  "kind": "Var",
+                  "var": "_symbol"
                 },
-                "kind": "Var",
-                "var": "_symbol"
-              }
+                "type": "bytestring"
+              },
+              "timing": "Pre"
             }
           },
           {
@@ -6174,15 +6636,18 @@
               "type": "int"
             },
             "value": {
-              "type": "int",
-              "var": {
-                "abitype": {
-                  "size": "256",
-                  "type": "UInt"
+              "entry": {
+                "item": {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
+                  "kind": "Var",
+                  "var": "_totalSupply"
                 },
-                "kind": "Var",
-                "var": "_totalSupply"
-              }
+                "type": "int"
+              },
+              "timing": "Pre"
             }
           },
           {
@@ -6208,15 +6673,18 @@
               "type": "int"
             },
             "value": {
-              "type": "int",
-              "var": {
-                "abitype": {
-                  "size": "256",
-                  "type": "UInt"
+              "entry": {
+                "item": {
+                  "abitype": {
+                    "size": "256",
+                    "type": "UInt"
+                  },
+                  "kind": "Var",
+                  "var": "_totalSupply"
                 },
-                "kind": "Var",
-                "var": "_totalSupply"
-              }
+                "type": "int"
+              },
+              "timing": "Pre"
             }
           }
         ],
@@ -6269,15 +6737,18 @@
                         "type": "int"
                       },
                       {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "size": "256",
-                            "type": "UInt"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "size": "256",
+                              "type": "UInt"
+                            },
+                            "kind": "Var",
+                            "var": "_totalSupply"
                           },
-                          "kind": "Var",
-                          "var": "_totalSupply"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Pre"
                       }
                     ],
                     "arity": 2,
@@ -6286,15 +6757,18 @@
                   {
                     "args": [
                       {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "size": "256",
-                            "type": "UInt"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "size": "256",
+                              "type": "UInt"
+                            },
+                            "kind": "Var",
+                            "var": "_totalSupply"
                           },
-                          "kind": "Var",
-                          "var": "_totalSupply"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Pre"
                       },
                       {
                         "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -6324,15 +6798,18 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "_totalSupply"
                       },
-                      "kind": "Var",
-                      "var": "_totalSupply"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -6352,15 +6829,18 @@
                     "timing": "Post"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "_totalSupply"
                       },
-                      "kind": "Var",
-                      "var": "_totalSupply"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Post"
                   }
                 ],
                 "arity": 2,
@@ -6431,15 +6911,18 @@
                         "type": "int"
                       },
                       {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "size": "256",
-                            "type": "UInt"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "size": "256",
+                              "type": "UInt"
+                            },
+                            "kind": "Var",
+                            "var": "_totalSupply"
                           },
-                          "kind": "Var",
-                          "var": "_totalSupply"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Pre"
                       }
                     ],
                     "arity": 2,
@@ -6448,15 +6931,18 @@
                   {
                     "args": [
                       {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "size": "256",
-                            "type": "UInt"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "size": "256",
+                              "type": "UInt"
+                            },
+                            "kind": "Var",
+                            "var": "_totalSupply"
                           },
-                          "kind": "Var",
-                          "var": "_totalSupply"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Pre"
                       },
                       {
                         "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -6486,14 +6972,17 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "bytestring",
-                    "var": {
-                      "abitype": {
-                        "type": "String"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "type": "String"
+                        },
+                        "kind": "Var",
+                        "var": "_name"
                       },
-                      "kind": "Var",
-                      "var": "_name"
-                    }
+                      "type": "bytestring"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -6513,14 +7002,17 @@
                     "timing": "Post"
                   },
                   {
-                    "type": "bytestring",
-                    "var": {
-                      "abitype": {
-                        "type": "String"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "type": "String"
+                        },
+                        "kind": "Var",
+                        "var": "_name"
                       },
-                      "kind": "Var",
-                      "var": "_name"
-                    }
+                      "type": "bytestring"
+                    },
+                    "timing": "Post"
                   }
                 ],
                 "arity": 2,
@@ -6542,15 +7034,18 @@
                         "type": "int"
                       },
                       {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "size": "256",
-                            "type": "UInt"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "size": "256",
+                              "type": "UInt"
+                            },
+                            "kind": "Var",
+                            "var": "_totalSupply"
                           },
-                          "kind": "Var",
-                          "var": "_totalSupply"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Pre"
                       }
                     ],
                     "arity": 2,
@@ -6559,15 +7054,18 @@
                   {
                     "args": [
                       {
-                        "type": "int",
-                        "var": {
-                          "abitype": {
-                            "size": "256",
-                            "type": "UInt"
+                        "entry": {
+                          "item": {
+                            "abitype": {
+                              "size": "256",
+                              "type": "UInt"
+                            },
+                            "kind": "Var",
+                            "var": "_totalSupply"
                           },
-                          "kind": "Var",
-                          "var": "_totalSupply"
-                        }
+                          "type": "int"
+                        },
+                        "timing": "Pre"
                       },
                       {
                         "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -6597,14 +7095,17 @@
                     "timing": "Pre"
                   },
                   {
-                    "type": "bytestring",
-                    "var": {
-                      "abitype": {
-                        "type": "String"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "type": "String"
+                        },
+                        "kind": "Var",
+                        "var": "_symbol"
                       },
-                      "kind": "Var",
-                      "var": "_symbol"
-                    }
+                      "type": "bytestring"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -6624,14 +7125,17 @@
                     "timing": "Post"
                   },
                   {
-                    "type": "bytestring",
-                    "var": {
-                      "abitype": {
-                        "type": "String"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "type": "String"
+                        },
+                        "kind": "Var",
+                        "var": "_symbol"
                       },
-                      "kind": "Var",
-                      "var": "_symbol"
-                    }
+                      "type": "bytestring"
+                    },
+                    "timing": "Post"
                   }
                 ],
                 "arity": 2,
@@ -6654,15 +7158,18 @@
                     "type": "int"
                   },
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "_totalSupply"
                       },
-                      "kind": "Var",
-                      "var": "_totalSupply"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   }
                 ],
                 "arity": 2,
@@ -6671,15 +7178,18 @@
               {
                 "args": [
                   {
-                    "type": "int",
-                    "var": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
+                    "entry": {
+                      "item": {
+                        "abitype": {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        "kind": "Var",
+                        "var": "_totalSupply"
                       },
-                      "kind": "Var",
-                      "var": "_totalSupply"
-                    }
+                      "type": "int"
+                    },
+                    "timing": "Pre"
                   },
                   {
                     "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
