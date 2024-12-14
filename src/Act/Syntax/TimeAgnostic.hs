@@ -186,6 +186,7 @@ data Ref (k :: RefKind) (t :: Timing) where
 deriving instance Show (Ref k t)
 
 instance Eq (Ref k t) where
+  CVar _ at x      == CVar _ at' x'      = at == at' && x == x'
   SVar _ c x       == SVar _ c' x'       = c == c' && x == x'
   SMapping _ r ixs == SMapping _ r' ixs' = r == r' && ixs == ixs'
   SField _ r c x   == SField _ r' c' x'  = r == r' && c == c' && x == x'
@@ -366,6 +367,7 @@ instance Timable (Exp a) where
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
+
 
 instance Timable (TItem a k) where
    setTime time (Item t vt ref) = Item t vt $ setTime time ref
