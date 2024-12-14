@@ -502,27 +502,34 @@ checkExpr env@Env{constructors, calldata} typ e = case (typ, e) of
     _             -> throw (p, "Unknown environment variable " <> show v1)
 
   -- Variable references
-  (_, U.EUTEntry entry) | isCalldataEntry entry -> -- TODO more principled way of treating timings
-     case (eqT @t @Timed, eqT @t @Untimed) of
-       (Just Refl, _) -> validateEntry env SCalldata entry `bindValidation` \(vt@(FromVType typ'), ref) ->
-         TEntry (getPosEntry entry) Pre SCalldata (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ'
-       (_, Just Refl) -> validateEntry env SCalldata entry `bindValidation` \(vt@(FromVType typ'), ref) ->
-         TEntry (getPosEntry entry) Neither SCalldata (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ'
-       (_,_) -> error "Internal error: Timing should be either Timed or Untimed"
-  (_, U.EPreEntry entry) | isCalldataEntry entry -> error "Not supported"
-  (_, U.EPostEntry entry) | isCalldataEntry entry -> error "Not supported"
+  -- Note: untimed entries in the untyped AST and in the typed AST have
+  -- different meanings. Calldata variables are always untimed in the untimed
+  -- AST but they become timed (with pre) in the typed AST whene they are used
+  -- in a timed context.
+  (_, U.EUTEntry entry) | isCalldataEntry entry -> checkVar entry
+  (_, U.EPreEntry entry) | isCalldataEntry entry -> checkVar entry
+  (_, U.EPostEntry entry) | isCalldataEntry entry -> error $ "Internal error: Variables cannot be post" <> show e
   -- Storage references
-  (_, U.EUTEntry entry) -> validateEntry env SStorage entry `bindValidation` \(vt@(FromVType typ'), ref) ->
-    checkTime (getPosEntry entry) <*> (TEntry (getPosEntry entry) Neither SStorage (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ')
-  (_, U.EPreEntry entry) -> validateEntry env SStorage entry `bindValidation` \(vt@(FromVType typ'), ref) ->
-    checkTime (getPosEntry entry) <*> (TEntry (getPosEntry entry) Pre SStorage (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ')
-  (_, U.EPostEntry entry) -> validateEntry env SStorage entry `bindValidation` \(vt@(FromVType typ'), ref) ->
-    checkTime (getPosEntry entry) <*> (TEntry (getPosEntry entry) Post SStorage (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ')
+  (_, U.EUTEntry entry) -> checkStorage entry
+  (_, U.EPreEntry entry) -> checkStorage entry
+  (_, U.EPostEntry entry) -> checkStorage entry
 
   -- TODO other error for unimplemented
   _ -> throw (getPosn e,"Type mismatch. Expression does not have type " <> show typ)
 
   where
+    checkVar entry = case (eqT @t @Timed, eqT @t @Untimed) of
+       (Just Refl, _) -> validateEntry env SCalldata entry `bindValidation` \(vt@(FromVType typ'), ref) ->
+         TEntry (getPosEntry entry) Pre SCalldata (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ'
+       (_, Just Refl) -> validateEntry env SCalldata entry `bindValidation` \(vt@(FromVType typ'), ref) ->
+         TEntry (getPosEntry entry) Neither SCalldata (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ'
+       (_,_) -> error "Internal error: Timing should be either Timed or Untimed"
+
+
+    checkStorage entry = validateEntry env SStorage entry `bindValidation` \(vt@(FromVType typ'), ref) ->
+      checkTime (getPosEntry entry) <*> (TEntry (getPosEntry entry) Neither SStorage (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ')
+
+
     polycheck :: Pn -> (forall y. Pn -> SType y -> Exp y t -> Exp y t -> Exp x t) -> U.Expr -> U.Expr -> Err (Exp x t)
     polycheck pn cons v1 v2 = findSuccess (throw (pn, "Cannot match the type of expression " <> show v1 <>" with expression " <> show v2))
 
