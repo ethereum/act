@@ -42,6 +42,7 @@ import Act.Error
 
 import Data.Type.Equality (TestEquality(..))
 
+
 type Err = Error String
 
 -- | Typecheck and then detect possible circularities in constructor call graph
@@ -162,6 +163,7 @@ data Env = Env
   , pointers     :: Map Id Id                    -- ^ Maps address calldata variables to their contract type.
   , constructors :: Map Id [(AbiType, Maybe Id)] -- ^ Interfaces of contract contructors together with points to contraints
   }
+  deriving (Show)
 
 -- typing of eth env variables
 defaultStore :: [(EthEnv, ActType)]
@@ -510,14 +512,15 @@ checkExpr env@Env{constructors, calldata} typ e = case (typ, e) of
   (_, U.EPreEntry entry) | isCalldataEntry entry -> checkVar entry
   (_, U.EPostEntry entry) | isCalldataEntry entry -> error $ "Internal error: Variables cannot be post" <> show e
   -- Storage references
-  (_, U.EUTEntry entry) -> checkStorage entry
-  (_, U.EPreEntry entry) -> checkStorage entry
-  (_, U.EPostEntry entry) -> checkStorage entry
+  (_, U.EUTEntry entry) -> checkStorage entry Neither
+  (_, U.EPreEntry entry) -> checkStorage entry Pre
+  (_, U.EPostEntry entry) -> checkStorage entry Post
 
   -- TODO other error for unimplemented
   _ -> throw (getPosn e,"Type mismatch. Expression does not have type " <> show typ)
 
   where
+    checkVar :: U.Entry -> Err (Exp a t)
     checkVar entry = case (eqT @t @Timed, eqT @t @Untimed) of
        (Just Refl, _) -> validateEntry env SCalldata entry `bindValidation` \(vt@(FromVType typ'), ref) ->
          TEntry (getPosEntry entry) Pre SCalldata (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ'
@@ -525,9 +528,9 @@ checkExpr env@Env{constructors, calldata} typ e = case (typ, e) of
          TEntry (getPosEntry entry) Neither SCalldata (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ'
        (_,_) -> error "Internal error: Timing should be either Timed or Untimed"
 
-
-    checkStorage entry = validateEntry env SStorage entry `bindValidation` \(vt@(FromVType typ'), ref) ->
-      checkTime (getPosEntry entry) <*> (TEntry (getPosEntry entry) Neither SStorage (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ')
+    checkStorage :: forall t0.  Typeable t0 => U.Entry -> Time t0 -> Err (Exp a t)
+    checkStorage entry time = validateEntry env SStorage entry `bindValidation` \(vt@(FromVType typ'), ref) ->
+      checkTime (getPosEntry entry) <*> (TEntry (getPosEntry entry) time SStorage (Item typ vt ref) <$ checkEq (getPosEntry entry) typ typ')
 
 
     polycheck :: Pn -> (forall y. Pn -> SType y -> Exp y t -> Exp y t -> Exp x t) -> U.Expr -> U.Expr -> Err (Exp x t)
@@ -542,14 +545,19 @@ checkExpr env@Env{constructors, calldata} typ e = case (typ, e) of
     checkTime :: forall t0. Typeable t0 => Pn -> Err (Exp a t0 -> Exp a t)
     checkTime pn = case eqT @t @t0 of
       Just Refl -> pure id
-      Nothing   -> throw (pn, (tail . show $ typeRep @t) <> " variable needed here.")
+      Nothing   -> throw (pn, (tail . show $ typeRep @t) <> " variable needed here")
 
-    -- TODO FIX
     isCalldataEntry (U.EVar _ name) = case Map.lookup name calldata of
       Just _  -> True
       _ -> False
     isCalldataEntry (U.EMapping _ entry _) = isCalldataEntry entry
     isCalldataEntry (U.EField _ entry _) = isCalldataEntry entry
+
+    checkEq :: forall b c. Pn -> SType b -> SType c -> Err ()
+    checkEq p t1 t2 = maybe err (\Refl -> pure ()) $  testEquality t1 t2
+      where
+        err = (throw (p, "Type " <> show t1 <> " should match type " <> show t2 <> "\n Env:\n" <> show env))
+
 
 
 -- | Find the contract id of an expression with contract type
@@ -571,11 +579,6 @@ checkContractType env (TExp _ e) (Just c) =
   findContractType env e `bindValidation` \case
     Just c' -> assert (posnFromExp e, "Expression was expected to have contract type " <> c <> " but has contract type " <> c') (c == c')
     Nothing -> throw (posnFromExp e, "Expression was expected to have contract type " <> c)
-
-checkEq :: forall a b. Pn -> SType a -> SType b -> Err ()
-checkEq p t1 t2 = maybe err (\Refl -> pure ()) $  testEquality t1 t2
-  where
-    err = (throw (p, "Type " <> show t1 <> " should match type " <> show t2))
 
 
 -- | Checks that there are as many expressions as expected by the types,
