@@ -12,8 +12,6 @@
 {-# Language TypeApplications #-}
 
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use fmap" #-}
 
 module Act.HEVM where
 
