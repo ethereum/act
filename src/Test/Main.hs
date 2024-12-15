@@ -30,8 +30,6 @@ import Data.Text.Lazy as T (unpack)
 
 import Decompile
 
-import Debug.Trace
-
 -- Transformer stack to keep track of whether we are to generate expressions
 -- with exponentiation or not (for compatibility with SMT).
 type ExpoGen a = GenT (Reader Bool) a
