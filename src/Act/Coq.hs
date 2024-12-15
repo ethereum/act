@@ -30,7 +30,6 @@ import EVM.ABI
 import Act.Syntax
 import Act.Syntax.Annotated
 
-import Debug.Trace
 type Fresh = State Int
 
 header :: T.Text

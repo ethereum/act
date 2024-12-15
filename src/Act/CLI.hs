@@ -277,8 +277,8 @@ bytecodes cid src = do
   json <- solc Solidity src
   let (Contracts sol', _, _) = fromJust $ readStdJSON json
   let err = error $ "Cannot find Solidity contract " <> Text.unpack cid
-  pure $ ((fromMaybe err . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').creationCode,
-          (fromMaybe err . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').runtimeCode)
+  pure ((fromMaybe err . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').creationCode,
+        (fromMaybe err . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').runtimeCode)
 
 
 
