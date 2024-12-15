@@ -30,6 +30,7 @@ import EVM.ABI
 import Act.Syntax
 import Act.Syntax.Annotated
 
+import Debug.Trace
 type Fresh = State Int
 
 header :: T.Text
@@ -351,7 +352,7 @@ typedexp (TExp _ e) = coqexp e
 
 entry :: TItem k a -> When -> T.Text
 entry (Item SByteStr _ _) _ = error "bytestrings not supported"
-entry _ Post = error "TODO: missing support for poststate references in coq backend"
+entry e Post = error $ "TODO: missing support for poststate references in coq backend. Entry: \n" <> show e
 entry (Item _ _ r) _ = ref r
 
 ref :: Ref k -> T.Text
