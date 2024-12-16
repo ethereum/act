@@ -369,7 +369,7 @@ fromProp l p = simplify <$> go p
 
 -- | Convert an HEVM word into an integer Exp
 fromWord :: Map (Integer, Integer) (Text, SlotType) -> EVM.Expr EVM.EWord -> Either Text (Exp AInteger)
-fromWord layout w = go w
+fromWord layout w = simplify <$> go w
   where
     err e = Left $ "unable to convert to integer: " <> T.pack (show e) <> "\nouter expression: " <> T.pack (show w)
     evmbool c = ITE nowhere c (LitInt nowhere 1) (LitInt nowhere 0)

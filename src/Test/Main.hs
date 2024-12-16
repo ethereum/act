@@ -61,7 +61,7 @@ main = defaultMain $ testGroup "act"
               expected = Act (defaultStore contract) [Contract (defaultCtor contract) [behv]]
           return $ case actual of
             Success a ->
-              let err_str = "Actual:\n" <> prettyAct a <> "Expected:\n" <> prettyAct expected in
+              let err_str = "Actual:\n" <> prettyAct a <> show a <> "Expected:\n" <> prettyAct expected <> show expected in
               whenFail (putStrLn err_str) $ a === expected
             Failure err -> counterexample ("Internal error: compilation of Act failed\n" <> show err <> "\n") False
       ]
@@ -103,9 +103,9 @@ typeCheckSMT solver = do
 -- *** QuickCheck Generators *** --
 
 
-data Names = Names { _ints :: [String]
-                   , _bools :: [String]
-                   , _bytes :: [String]
+data Names = Names { _ints :: [(String, AbiType)]
+                   , _bools :: [(String, AbiType)]
+                   , _bytes :: [(String, AbiType)]
                    } deriving (Show)
 
 {-
@@ -125,7 +125,7 @@ genBehv n = do
   preconditions <- listOf $ genExpBool abiNames n
   returns <- Just <$> genTypedExp abiNames n
   postconditions <- listOf $ genExpBool abiNames n
-  iface <- Interface ifname <$> mkDecls abiNames
+  let iface = Interface ifname (mkDecls abiNames)
   return Behaviour { _name = name
                    , _contract = contract
                    , _interface = iface
@@ -138,12 +138,11 @@ genBehv n = do
                    }
 
 
-mkDecls :: Names -> ExpoGen [Decl]
-mkDecls (Names ints bools bytes) = mapM mkDecl names
+mkDecls :: Names -> [Decl]
+mkDecls (Names ints bools bytes) = mkDecl <$> names
   where
-    mkDecl (n, typ) = ((flip Decl) n) <$> (genType typ)
-    names = prepare AInteger ints ++ prepare ABoolean bools ++ prepare AByteStr bytes
-    prepare typ ns = (,typ) <$> ns
+    mkDecl (n, typ) = Decl typ n
+    names = ints ++ bools ++ bytes
 
 
 genType :: ActType -> ExpoGen AbiType
@@ -171,12 +170,12 @@ genTypedExp names n = oneof
 
 -- TODO: literals, cat slice, ITE, storage, ByStr
 genExpBytes :: Names -> Int -> ExpoGen (Exp AByteStr)
-genExpBytes names _ = _Var Pre (AbiBytesType 32) <$> selectName AByteStr names
+genExpBytes names _ = selectVar SByteStr names
 
 -- TODO: ITE, storage
 genExpBool :: Names -> Int -> ExpoGen (Exp ABoolean)
 genExpBool names 0 = oneof
-  [ _Var Pre AbiBoolType <$> selectName ABoolean names
+  [ selectVar SBoolean names
   , LitBool nowhere <$> liftGen arbitrary
   ]
 genExpBool names n = oneof
@@ -202,7 +201,7 @@ genExpBool names n = oneof
 genExpInt :: Names -> Int -> ExpoGen (Exp AInteger)
 genExpInt names 0 = oneof
   [ LitInt nowhere <$> liftGen arbitrary
-  , _Var Pre (AbiUIntType 256) <$> selectName AInteger names
+  , selectVar SInteger names
   , return $ IntEnv nowhere Caller
   , return $ IntEnv nowhere Callvalue
   , return $ IntEnv nowhere Calldepth
@@ -233,23 +232,23 @@ genExpInt names n = do
         subExpBool = genExpBool names (n `div` 2)
 
 
-selectName :: ActType -> Names -> ExpoGen String
-selectName typ (Names ints bools bytes) = do
+selectVar :: SType a -> Names -> ExpoGen (Exp a)
+selectVar typ (Names ints bools bytes) = do
   let names = case typ of
-                AInteger -> ints
-                ABoolean -> bools
-                AByteStr -> bytes
+                SInteger -> ints
+                SBoolean -> bools
+                SByteStr -> bytes
   idx <- elements [0..((length names)-1)]
-  return $ names!!idx
+  let (x, at) = names!!idx
+  return $ TEntry nowhere Pre SCalldata (Item typ (PrimitiveType at) (CVar nowhere at x))
 
-
--- |Generates a record type containing identifier names.
+-- | Generates a record type containing identifier names.
 -- Ensures each generated name appears once only.
 -- Names are seperated by type to ensure that e.g. an int expression does not reference a bool
 genNames :: ExpoGen Names
-genNames = mkNames <$> (split <$> unique)
+genNames = mkNames <$> (addType =<< (split <$> unique))
   where
-    mkNames :: [[String]] -> Names
+    mkNames :: [[(String, AbiType)]] -> Names
     mkNames cs = Names { _ints = cs!!0
                        , _bools = cs!!1
                        , _bytes = cs!!2
@@ -266,6 +265,17 @@ genNames = mkNames <$> (split <$> unique)
         go n xs = ys : go n zs
           where (ys,zs) = splitAt n xs
 
+    addType :: Show a => [[a]] -> ExpoGen [[(a, AbiType)]]
+    addType (ints:bools:bytes:_) = do
+        ints' <- mapM (genVarType AInteger) ints
+        bools' <- mapM (genVarType ABoolean) bools
+        bytes' <- mapM (genVarType AByteStr) bytes
+        return [ints', bools', bytes']
+    addType l = error $ "Internal error: Expecting list with exactly three elements " <> show l
+
+    genVarType typ x = do
+      t <- genType typ
+      return (x, t)
 
 ident :: ExpoGen String
 ident = liftM2 (<>) (listOf1 (elements chars)) (listOf (elements $ chars <> digits))
