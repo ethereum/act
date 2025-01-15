@@ -36,6 +36,7 @@ import Control.Monad.State
 import Data.List.NonEmpty qualified as NE
 import Data.Validation
 import Data.Typeable hiding (typeRep)
+import qualified Data.Vector as V
 
 import Act.HEVM_utils
 import Act.Syntax.Annotated as Act
@@ -57,12 +58,16 @@ import EVM.Effects
 import EVM.Format as Format
 import EVM.Traversals
 
+import Debug.Trace
+
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
   ExprType 'AByteStr  = EVM.Buf
 
-type Layout = M.Map Id (M.Map Id Integer)
+-- | The storage layout. Maps each contract type to a map that maps
+-- storage variables to their slot and offset in memory
+type Layout = M.Map Id (M.Map Id (Int, Int))
 
 type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract, Id)
 
@@ -78,7 +83,43 @@ initAddr = EVM.SymAddr "entrypoint"
 
 slotMap :: Store -> Layout
 slotMap store =
-  M.map (M.map snd) store
+  M.map (\cstore ->
+      let vars = sortOn (snd . snd) $ M.toList cstore in
+      M.fromList $ makeLayout vars 0 0
+  ) store
+
+makeLayout :: [(String,(SlotType, Integer))] -> Int -> Int -> [(Id, (Int,Int))]
+makeLayout [] _ _ = []
+makeLayout ((name,(typ,_)):vars) offset slot =
+  if itFits then
+    (name, (slot, offset)):makeLayout vars (offset+size) (slot+size)
+  else
+    (name, (slot+1, offset)):makeLayout vars size (slot+1)
+  where
+    size = sizeOfSlotType typ
+    itFits = size <= 32 - offset
+
+-- size of a storage item in bytes in
+sizeOfSlotType :: SlotType -> Int
+sizeOfSlotType (StorageMapping _ _) = 32
+sizeOfSlotType (StorageValue v) = sizeOfValue v
+  where
+    sizeOfValue :: ValueType -> Int
+    sizeOfValue (ContractType _) = 20
+    sizeOfValue (PrimitiveType t) = sizeOfAbiType t
+
+    sizeOfAbiType :: AbiType -> Int
+    sizeOfAbiType (AbiUIntType s) = s / 8
+    sizeOfAbiType (AbiIntType s) = s / 8
+    sizeOfAbiType AbiAddressType = 20
+    sizeOfAbiType AbiBoolType = 1
+    sizeOfAbiType (AbiBytesType s) = s
+    sizeOfAbiType AbiBytesDynamicType = 32
+    sizeOfAbiType AbiStringType = 32
+    sizeOfAbiType (AbiArrayDynamicType _) = 32
+    sizeOfAbiType (AbiArrayType s t) = s * sizeOfAbiType t
+    sizeOfAbiType (AbiTupleType v) = V.foldr ((+) . sizeOfAbiType) 0 v
+    sizeOfAbiType AbiFunctionType = 0 --
 
 
 -- * Act state monad
@@ -263,7 +304,7 @@ substUpd subst (Update s item expr) = case substItem subst item of
   ETItem SCalldata _ -> error "Internal error: expecting storage item"
 
 -- | Existential packages to abstract away from reference kinds. Needed to
--- define subtitutions. 
+-- define subtitutions.
 -- Note: it would be nice to have these abstracted in one date type that
 -- abstracts the higher-kinded type, but Haskell does not allow partially
 -- applied type synonyms
@@ -392,7 +433,7 @@ baseAddr :: Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EAddr)
 baseAddr _ (SVar _ _ _) = getCaddr
 baseAddr _ (CVar _ _ _) = error "Internal error: ill-typed entry"
 baseAddr cmap (SField _ ref _ _) = do
-  expr <- refToExp cmap ref 
+  expr <- refToExp cmap ref
   case simplify expr of
     EVM.WAddr symaddr -> pure symaddr
     e -> error $ "Internal error: did not find a symbolic address: " <> show e
@@ -715,6 +756,11 @@ checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ ifa
   -- TODO check if contrainsts about preexistsing fresh symbolic addresses are necessary
   solbehvs <- lift $ removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 1 fresh) fresh
 
+  traceM "Act behvs:"
+  traceM $ showBehvs actbehvs
+  traceM "Sol behvs:"
+  traceM $ showBehvs solbehvs
+
   -- Check equivalence
   lift $ showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   res1 <- lift $ checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
@@ -734,6 +780,12 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
     let (behvs', fcmaps) = unzip actbehv
 
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
+
+    traceM "Act behvs:"
+    traceM $ showBehvs behvs'
+    traceM "Sol behvs:"
+    traceM $ showBehvs solbehvs
+
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     lift $ showMsg "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"
@@ -832,13 +884,13 @@ pruneContractState entryaddr cmap =
 -- Perform a breadth first traversal and try to find a bijection between the addresses of the two stores
 -- Note that is problem is not as difficult as graph isomorphism since edges are labeld.
 -- Assumes that the stores are abstracted, pruned, and simplified.
--- All writes are to a unique concrete slot and the value is a simbolic address. 
+-- All writes are to a unique concrete slot and the value is a simbolic address.
 checkStoreIsomorphism :: ContractMap -> ContractMap -> Error String ()
 checkStoreIsomorphism cmap1 cmap2 = bfs [(idOfAddr initAddr, idOfAddr initAddr)] [] M.empty M.empty
   where
-    -- tries to find a bijective renaming between the addresses of the two maps  
+    -- tries to find a bijective renaming between the addresses of the two maps
     bfs :: [(T.Text, T.Text)]                         -- Queue of the addresses we are exploring (dequeue)
-        -> [(T.Text, T.Text)]                         -- Queue of the addresses we are exploring (enueue) 
+        -> [(T.Text, T.Text)]                         -- Queue of the addresses we are exploring (enueue)
         -> M.Map T.Text T.Text -> M.Map T.Text T.Text -- Two renamings keeping track of the address bijection
         -> Error String ()
     bfs [] [] _ _  = pure ()
