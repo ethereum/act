@@ -9,8 +9,8 @@ contract A {
 
     function swap() external returns (uint) {
 
-        x = 11;
-        y = 42;
+        x = y;
+        // y = x;
 
         return 1;
     }

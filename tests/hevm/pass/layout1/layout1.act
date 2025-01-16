@@ -19,7 +19,6 @@ iff
 
   storage
 
-    x => 11
-    y => 42
+    x => y
 
   returns 1
