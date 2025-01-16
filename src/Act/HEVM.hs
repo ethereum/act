@@ -94,12 +94,12 @@ makeLayout ((name,(typ,_)):vars) offset slot =
   if itFits then
     (name, (slot, offset)):makeLayout vars (offset+size) (slot+size)
   else
-    (name, (slot+1, offset)):makeLayout vars size (slot+1)
+    (name, (slot+1, 0)):makeLayout vars size (slot+1)
   where
     size = sizeOfSlotType typ
     itFits = size <= 32 - offset
 
--- size of a storage item in bytes in
+-- size of a storage item in bytes
 sizeOfSlotType :: SlotType -> Int
 sizeOfSlotType (StorageMapping _ _) = 32
 sizeOfSlotType (StorageValue v) = sizeOfValue v
@@ -237,7 +237,6 @@ translateBehv cmap (Behaviour _ _ _ _ preconds caseconds _ upds ret) = do
   fresh' <- getFresh
   let acmap = abstractCmap initAddr cmap'
   pure (EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap'), acmap)
-
 
 applyUpdates :: Monad m => ContractMap -> ContractMap -> [StorageUpdate] -> ActT m ContractMap
 applyUpdates readMap writeMap upds = foldM (applyUpdate readMap) writeMap upds
@@ -405,11 +404,12 @@ expToBuf cmap styp e = do
       pure $ EVM.WriteWord (EVM.Lit 0) e' (EVM.ConcreteBuf "")
     SByteStr -> toExpr cmap e
 
-getSlot :: Layout -> Id -> Id -> Integer
-getSlot layout cid name =
+-- | Get the slot and the offset of a storage variable in storage
+getPosition :: Layout -> Id -> Id -> (Int, Int)
+getPosition layout cid name =
   case M.lookup cid layout of
     Just m -> case M.lookup name m of
-      Just v -> v
+      Just pos -> pos
       Nothing -> error $ "Internal error: invalid variable name: " <> show name
     Nothing -> error "Internal error: invalid contract name"
 
@@ -417,7 +417,7 @@ refOffset :: Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EWord)
 refOffset _ (CVar _ _ _) = error "Internal error: ill-typed entry"
 refOffset _ (SVar _ cid name) = do
   layout <- getLayout
-  let slot = getSlot layout cid name
+  let (slot, off) = getPosition layout cid name
   pure $ EVM.Lit (fromIntegral slot)
 refOffset cmap (SMapping _ ref ixs) = do
   slot <- refOffset cmap ref
@@ -426,7 +426,7 @@ refOffset cmap (SMapping _ ref ixs) = do
             pure (EVM.keccak (buf <> (wordToBuf slot')))) slot ixs
 refOffset _ (SField _ _ cid name) = do
   layout <- getLayout
-  let slot = getSlot layout cid name
+  let (slot, offset) = getPosition layout cid name
   pure $ EVM.Lit (fromIntegral slot)
 
 baseAddr :: Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EAddr)
@@ -438,15 +438,14 @@ baseAddr cmap (SField _ ref _ _) = do
     EVM.WAddr symaddr -> pure symaddr
     e -> error $ "Internal error: did not find a symbolic address: " <> show e
 baseAddr cmap (SMapping _ ref _) = baseAddr cmap ref
--- | TODO delete
--- | find the contract that is stored in the given reference of contract type
+
 refAddr :: Monad m => ContractMap -> Ref Storage -> ActT m (EVM.Expr EVM.EAddr)
 refAddr cmap (SVar _ c x) = do
   caddr <- getCaddr
   case M.lookup caddr cmap of
     Just (EVM.C _ storage _ _ _, _) -> do
       layout <- getLayout
-      let slot = EVM.Lit $ fromIntegral $ getSlot layout c x
+      let slot = EVM.Lit $ fromIntegral $ fst $ getPosition layout c x
       case simplify (EVM.SLoad slot storage) of
         EVM.WAddr symaddr -> pure symaddr
         e -> error $ "Internal error: did not find a symbolic address: " <> show e
@@ -457,7 +456,7 @@ refAddr cmap (SField _ ref c x) = do
   caddr' <- refAddr cmap ref
   case M.lookup caddr' cmap of
     Just (EVM.C _ storage _ _ _, _) -> do
-      let slot = EVM.Lit $ fromIntegral $ getSlot layout c x
+      let slot = EVM.Lit $ fromIntegral $ fst $ getPosition layout c x
       case simplify (EVM.SLoad slot storage) of
         EVM.WAddr symaddr -> pure symaddr
         _ -> error "Internal error: did not find a symbolic address"
