@@ -253,7 +253,7 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
         fresh <- getFreshIncr
         let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
         writeMap' <- localCaddr freshAddr $ createContract readMap writeMap freshAddr e
-        pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore addr (EVM.WAddr freshAddr))contract), cid) writeMap'
+        pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore addr (EVM.WAddr freshAddr)) contract), cid) writeMap'
       _ -> do
         e' <- toExpr readMap e
 
@@ -614,7 +614,7 @@ refToExp cmap r = do
   (slot, offset, size) <- refOffset cmap r
   let word = accessStorage cmap slot caddr
   let mask = (2 ^ (8 * size) - 1) `shiftL` (offset * 8)
-  pure $ EVM.Div (EVM.And word (EVM.Lit mask)) (EVM.Lit (2 ^(8 * size)))
+  pure $ EVM.Div (EVM.And word (EVM.Lit mask)) (EVM.Lit (2 ^ (8 * offset)))
 
 accessStorage :: ContractMap -> EVM.Expr EVM.EWord -> EVM.Expr EVM.EAddr -> EVM.Expr EVM.EWord
 accessStorage cmap slot addr = case M.lookup addr cmap of

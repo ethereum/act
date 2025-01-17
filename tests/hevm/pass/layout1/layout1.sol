@@ -3,14 +3,16 @@ contract A {
     uint128 y;
     
     constructor() {
-        x = 0;
-        y = 0;
+        x = 11;
+        y = 42;
     }
 
     function swap() external returns (uint) {
 
+        uint128 tmp = x;
+        
         x = y;
-        // y = x;
+        y = tmp;
 
         return 1;
     }
