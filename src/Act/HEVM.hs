@@ -248,13 +248,13 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
   (addr, offset, size) <- refOffset readMap ref
   let (contract, cid) = fromMaybe (error $ "Internal error: contract not found\n" <> show e) $ M.lookup caddr' writeMap
   case typ of
-    SInteger -> case e of
-      Create _ _ _ -> do
+    SInteger | isCreate e -> do
         fresh <- getFreshIncr
         let freshAddr = EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show fresh)
         writeMap' <- localCaddr freshAddr $ createContract readMap writeMap freshAddr e
         pure $ M.insert caddr' (updateNonce (updateStorage (EVM.SStore addr (EVM.WAddr freshAddr)) contract), cid) writeMap'
-      _ -> do
+    SByteStr -> error "Bytestrings not supported"
+    SInteger -> do
         e' <- toExpr readMap e
 
         let negmask = ((2 ^ (8 * size) - 1) `shiftL` (offset * 8)) `xor` MAX_UINT
@@ -262,12 +262,21 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
         let shift v = EVM.Mul v (EVM.Lit (2 ^ (8 * offset)))
         let prevValue = readStorage addr contract
         let e'' = simplify $ EVM.Or (shift e') (EVM.And prevValue (EVM.Lit negmask))
-
+        traceM "update "
+        traceShowM e''
         pure $ M.insert caddr' (updateStorage (EVM.SStore addr e'') contract, cid) writeMap
     SBoolean -> do
-      e' <- toExpr readMap e
-      pure $ M.insert caddr' (updateStorage (EVM.SStore addr e') contract, cid) writeMap
-    SByteStr -> error "Bytestrings not supported"
+        e' <- toExpr readMap e
+
+        let negmask = ((2 ^ (8 * size) - 1) `shiftL` (offset * 8)) `xor` MAX_UINT
+
+        let shift v = EVM.Mul v (EVM.Lit (2 ^ (8 * offset)))
+        let prevValue = readStorage addr contract
+        let e'' = simplify $ EVM.Or (shift e') (EVM.And prevValue (EVM.Lit negmask))
+        traceM "update "
+        traceShowM e''
+        pure $ M.insert caddr' (updateStorage (EVM.SStore addr e'') contract, cid) writeMap
+
   where
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateStorage updfun (EVM.C code storage tstorage bal nonce) = EVM.C code (updfun storage) tstorage bal nonce
@@ -281,6 +290,9 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
     updateNonce (EVM.C code storage tstorage bal (Just n)) = EVM.C code storage tstorage bal (Just (n + 1))
     updateNonce c@(EVM.C _ _ _ _ Nothing) = c
     updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
+
+    isCreate (Create _ _ _) = True
+    isCreate _ = False
 
 createContract :: Monad m => ContractMap -> ContractMap -> EVM.Expr EVM.EAddr -> Exp AInteger -> ActT m ContractMap
 createContract readMap writeMap freshAddr (Create _ cid args) = do
@@ -541,7 +553,7 @@ toExpr cmap = liftM stripMods . go
       (Impl _ e1 e2) -> op2 (EVM.Or . EVM.Not) e1 e2
       (Neg _ e1) -> do
         e1' <- toExpr cmap e1
-        pure $ EVM.Not e1'
+        pure $ EVM.IsZero e1' -- XXX why EVM.Not fails here?
       (Act.LT _ e1 e2) -> op2 EVM.LT e1 e2
       (LEQ _ e1 e2) -> op2 EVM.LEq e1 e2
       (GEQ _ e1 e2) -> op2 EVM.GEq e1 e2
@@ -587,6 +599,7 @@ toExpr cmap = liftM stripMods . go
       (NEq _ _ _ _) -> error "unsupported"
 
       (TEntry _ _ _ (Item SInteger _ ref)) -> refToExp cmap ref
+      (TEntry _ _ _ (Item SBoolean _ ref)) -> refToExp cmap ref
 
       e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
 

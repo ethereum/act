@@ -1,0 +1,31 @@
+constructor of A
+interface constructor()
+
+iff
+
+  CALLVALUE == 0
+
+creates
+
+  uint128 x := 11
+  bool flag := true
+  uint32 u := 17
+  uint8 z := 3
+  uint128 y := 42
+  uint256 i := 128
+
+behaviour foo of A
+interface foo()
+
+iff
+
+  CALLVALUE == 0
+
+  storage
+
+    x => y
+    y => x
+    z => 11
+    flag => not flag
+
+  returns 1
