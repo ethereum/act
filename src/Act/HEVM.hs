@@ -60,6 +60,7 @@ import EVM.Format as Format
 import EVM.Traversals
 
 import Debug.Trace
+import qualified Extra as List
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -104,23 +105,23 @@ makeLayout ((name,(typ,_)):vars) offset slot =
 sizeOfSlotType :: SlotType -> Int
 sizeOfSlotType (StorageMapping _ _) = 32
 sizeOfSlotType (StorageValue v) = sizeOfValue v
-  where
-    sizeOfValue :: ValueType -> Int
-    sizeOfValue (ContractType _) = 20
-    sizeOfValue (PrimitiveType t) = sizeOfAbiType t
 
-    sizeOfAbiType :: AbiType -> Int
-    sizeOfAbiType (AbiUIntType s) = s `div` 8
-    sizeOfAbiType (AbiIntType s) = s `div` 8
-    sizeOfAbiType AbiAddressType = 20
-    sizeOfAbiType AbiBoolType = 1
-    sizeOfAbiType (AbiBytesType s) = s
-    sizeOfAbiType AbiBytesDynamicType = 32
-    sizeOfAbiType AbiStringType = 32
-    sizeOfAbiType (AbiArrayDynamicType _) = 32
-    sizeOfAbiType (AbiArrayType s t) = s * sizeOfAbiType t
-    sizeOfAbiType (AbiTupleType v) = V.foldr ((+) . sizeOfAbiType) 0 v
-    sizeOfAbiType AbiFunctionType = 0 --
+sizeOfValue :: ValueType -> Int
+sizeOfValue (ContractType _) = 20
+sizeOfValue (PrimitiveType t) = sizeOfAbiType t
+
+sizeOfAbiType :: AbiType -> Int
+sizeOfAbiType (AbiUIntType s) = s `div` 8
+sizeOfAbiType (AbiIntType s) = s `div` 8
+sizeOfAbiType AbiAddressType = 20
+sizeOfAbiType AbiBoolType = 1
+sizeOfAbiType (AbiBytesType s) = s
+sizeOfAbiType AbiBytesDynamicType = 32
+sizeOfAbiType AbiStringType = 32
+sizeOfAbiType (AbiArrayDynamicType _) = 32
+sizeOfAbiType (AbiArrayType s t) = s * sizeOfAbiType t
+sizeOfAbiType (AbiTupleType v) = V.foldr ((+) . sizeOfAbiType) 0 v
+sizeOfAbiType AbiFunctionType = 0 --
 
 
 -- * Act state monad
@@ -256,28 +257,31 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
     SByteStr -> error "Bytestrings not supported"
     SInteger -> do
         e' <- toExpr readMap e
-
-        let negmask = ((2 ^ (8 * size) - 1) `shiftL` (offset * 8)) `xor` MAX_UINT
-
-        let shift v = EVM.Mul v (EVM.Lit (2 ^ (8 * offset)))
         let prevValue = readStorage addr contract
-        let e'' = simplify $ EVM.Or (shift e') (EVM.And prevValue (EVM.Lit negmask))
+        let e'' = simplify $ storedValue e' prevValue offset size
         traceM "update "
         traceShowM e''
         pure $ M.insert caddr' (updateStorage (EVM.SStore addr e'') contract, cid) writeMap
     SBoolean -> do
         e' <- toExpr readMap e
 
-        let negmask = ((2 ^ (8 * size) - 1) `shiftL` (offset * 8)) `xor` MAX_UINT
-
-        let shift v = EVM.Mul v (EVM.Lit (2 ^ (8 * offset)))
         let prevValue = readStorage addr contract
-        let e'' = simplify $ EVM.Or (shift e') (EVM.And prevValue (EVM.Lit negmask))
+        let e'' = simplify $ storedValue e' prevValue offset size
         traceM "update "
         traceShowM e''
         pure $ M.insert caddr' (updateStorage (EVM.SStore addr e'') contract, cid) writeMap
-
+-- TODO test with out of bounds assignments
   where
+    storedValue :: EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> Int -> EVM.Expr EVM.EWord
+    storedValue new prev offset size =
+        let offsetBits = EVM.Mul (EVM.Lit 8) offset in
+        let maxVal = EVM.Lit $ (2 ^ (8 * size)) - 1 in
+        let mask = EVM.Xor (EVM.SHL offsetBits maxVal) (EVM.Lit MAX_UINT) in
+        let newShifted = EVM.SHL offsetBits new in
+        traceShow ("Storing value offset: " <> show offset <> "size " <> show size) $
+        traceShow (EVM.Or newShifted (EVM.And prev mask)) $
+        EVM.Or newShifted (EVM.And prev mask)
+
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
     updateStorage updfun (EVM.C code storage tstorage bal nonce) = EVM.C code (updfun storage) tstorage bal nonce
     updateStorage _ (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
@@ -344,8 +348,8 @@ substRef subst (CVar _ _ x) = case M.lookup x subst of
     Just (TExp _ (TEntry _ _ k (Item _ _ ref))) -> ERef k ref
     Just _ -> error "Internal error: cannot access fields of non-pointer var"
     Nothing -> error "Internal error: ill-formed substitution"
-substRef subst (SMapping pn sref args) = case substRef subst sref of
-  ERef k ref -> ERef k $ SMapping pn ref (substArgs subst args)
+substRef subst (SMapping pn sref ts args) = case substRef subst sref of
+  ERef k ref -> ERef k $ SMapping pn ref ts (substArgs subst args)
 substRef subst (SField pn sref x y) = case substRef subst sref of
   ERef k ref -> ERef k $ SField pn ref x y
 
@@ -417,6 +421,14 @@ typedExpToBuf cmap expr =
   case expr of
     TExp styp e -> expToBuf cmap styp e
 
+typedExpToWord :: Monad m => ContractMap -> TypedExp  -> ActT m (EVM.Expr EVM.EWord)
+typedExpToWord cmap te = do
+    case te of
+        TExp styp e -> case styp of
+            SInteger -> toExpr cmap e
+            SBoolean -> toExpr cmap e
+            SByteStr -> error "Bytestring in unexpected position"
+
 expToBuf :: Monad m => forall a. ContractMap -> SType a -> Exp a  -> ActT m (EVM.Expr EVM.Buf)
 expToBuf cmap styp e = do
   case styp of
@@ -437,25 +449,26 @@ getPosition layout cid name =
       Nothing -> error $ "Internal error: invalid variable name: " <> show name
     Nothing -> error "Internal error: invalid contract name"
 
-refOffset :: Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EWord, Int, Int)
+refOffset :: Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EWord, EVM.Expr EVM.EWord, Int)
 refOffset _ (CVar _ _ _) = error "Internal error: ill-typed entry"
 refOffset _ (SVar _ cid name) = do
   layout <- getLayout
   let (slot, off, size) = getPosition layout cid name
-  pure (EVM.Lit (fromIntegral slot), off, size)
-refOffset cmap (SMapping _ ref ixs) = do
-  -- the slot of a map always takes a full word
+  pure (EVM.Lit (fromIntegral slot), EVM.Lit $ fromIntegral off, size)
+refOffset cmap (SMapping _ ref ts ixs) = do
   (slot, _, _) <- refOffset cmap ref
-  addr <- foldM (\slot' i -> do
-    buf <- typedExpToBuf cmap i
-    pure (EVM.keccak (buf <> (wordToBuf slot')))) slot ixs
-  -- XXX This only works if mapping elements aere word-sized.
-  -- TODO to fix this we need type information for the mapping.
-  pure (addr, 0, 0)
+  (addr, ix, size) <- foldM (\(prevslot, _, _) (i,t) -> do
+    ix <- typedExpToWord cmap i
+    let size = sizeOfValue t
+    let slot' = EVM.Div ix (EVM.Lit $ fromIntegral (256 `div` (8 * size)))
+    let offset' = EVM.Mul (EVM.Mod ix (EVM.Lit $ fromIntegral (256 `div` (8 * size)))) (EVM.Lit (fromIntegral (8 * size)))
+    pure (EVM.keccak (wordToBuf slot' <> wordToBuf prevslot), offset', size)) (slot, EVM.Lit 0, 0) (zip ixs ts)
+  pure (addr, ix, size)
 refOffset _ (SField _ _ cid name) = do
   layout <- getLayout
   let (slot, off, size) = getPosition layout cid name
-  pure (EVM.Lit (fromIntegral slot), off, size)
+  pure (EVM.Lit (fromIntegral slot), EVM.Lit $ fromIntegral off, size)
+
 
 -- | Get the address of the contract whoose storage contrains the given
 -- reference
@@ -467,7 +480,7 @@ baseAddr cmap (SField _ ref _ _) = do
   case simplify expr of
     EVM.WAddr symaddr -> pure symaddr
     e -> error $ "Internal error: did not find a symbolic address: " <> show e
-baseAddr cmap (SMapping _ ref _) = baseAddr cmap ref
+baseAddr cmap (SMapping _ ref _ _) = baseAddr cmap ref
 
 ethEnvToWord :: Monad m => EthEnv -> ActT m (EVM.Expr EVM.EWord)
 ethEnvToWord Callvalue = pure EVM.TxValue
@@ -612,6 +625,13 @@ toExpr cmap = liftM stripMods . go
       pure $ op e1' e2'
 
 
+-- | Extract a value from a slot using its offset and size
+extractValue ::  EVM.Expr EVM.EWord -> EVM.Expr EVM.EWord -> Int -> EVM.Expr EVM.EWord
+extractValue slot offset size =
+    let mask = EVM.Lit $ 2 ^ (8 * size) - 1 in
+    let bits = EVM.Mul offset (EVM.Lit 8) in
+    EVM.And (EVM.SHR bits slot) mask
+
 
 refToExp :: forall m k. Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EWord)
 -- calldata variable
@@ -626,8 +646,7 @@ refToExp cmap r = do
   caddr <- baseAddr cmap r
   (slot, offset, size) <- refOffset cmap r
   let word = accessStorage cmap slot caddr
-  let mask = (2 ^ (8 * size) - 1) `shiftL` (offset * 8)
-  pure $ EVM.Div (EVM.And word (EVM.Lit mask)) (EVM.Lit (2 ^ (8 * offset)))
+  pure $ extractValue word offset size
 
 accessStorage :: ContractMap -> EVM.Expr EVM.EWord -> EVM.Expr EVM.EAddr -> EVM.Expr EVM.EWord
 accessStorage cmap slot addr = case M.lookup addr cmap of

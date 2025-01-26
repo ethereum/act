@@ -552,7 +552,7 @@ declareStorage :: [When] -> StorageLocation -> [SMT2]
 declareStorage times (Loc _ item@(Item _ _ ref)) = declareRef ref
   where
     declareRef (SVar _ _ _) = (\t -> constant (nameFromSItem t item) (itemType item) ) <$> times
-    declareRef (SMapping _ _ ixs) = (\t -> array (nameFromSItem t item) ixs (itemType item)) <$> times
+    declareRef (SMapping _ _ _ ixs) = (\t -> array (nameFromSItem t item) ixs (itemType item)) <$> times
     declareRef (SField _ ref' _ _) = declareRef ref'
 
 
@@ -693,20 +693,20 @@ nameFromSItem whn (Item _ _ ref) = nameFromSRef ref @@ show whn
 
 nameFromSRef :: Ref Storage -> Id
 nameFromSRef (SVar _ c name) = c @@ name
-nameFromSRef (SMapping _ e _) = nameFromSRef e
+nameFromSRef (SMapping _ e _ _) = nameFromSRef e
 nameFromSRef (SField _ ref c x) = nameFromSRef ref @@ c @@ x
 
 nameFromItem :: When -> TItem k a -> Ctx Id
 nameFromItem whn (Item _ _ ref) = do
   name <- nameFromRef ref
   case ref of -- TODO: this feels rather adhoc, but I can't find a better way to handle timings
-    CVar _ _ _ -> pure $ name
+    CVar _ _ _ -> pure name
     _ -> pure $ name @@ show whn
 
 nameFromRef :: Ref k -> Ctx Id
 nameFromRef (CVar _ _ name) = nameFromVarId name
 nameFromRef (SVar _ c name) = pure $ c @@ name
-nameFromRef (SMapping _ e _) = nameFromRef e
+nameFromRef (SMapping _ e _ _) = nameFromRef e
 nameFromRef (SField _ ref c x) = do 
   name <- nameFromRef ref
   pure $ name @@ c @@ x
