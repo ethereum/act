@@ -339,7 +339,7 @@ checkAssign _ _ = error "todo: support struct assignment in constructors"
 checkDefn :: Pn -> Env -> ValueType -> ValueType -> Id -> U.Defn -> Err StorageUpdate
 checkDefn pn env@Env{contract} keyType vt@(FromVType valType) name (U.Defn k val) =
   _Update
-  <$> (_Item vt . SMapping nowhere (SVar pn contract name) [keyType] <$> checkIxs env (getPosn k) [k] [keyType])
+  <$> (_Item vt . SMapping nowhere (SVar pn contract name) vt <$> checkIxs env (getPosn k) [k] [keyType])
   <*> checkExpr env valType val
 
 -- | Typechecks a postcondition, returning typed versions of its storage updates and return expression.
@@ -372,7 +372,7 @@ checkEntry env kind (U.EMapping p e args) =
   checkEntry env kind e `bindValidation` \(typ, _, ref) -> case typ of
     StorageValue _ -> throw (p, "Expression should have a mapping type" <> show e)
     StorageMapping argtyps restyp -> 
-        (StorageValue restyp, Nothing,) . SMapping p ref (NonEmpty.toList argtyps) <$> checkIxs env p args (NonEmpty.toList argtyps)
+        (StorageValue restyp, Nothing,) . SMapping p ref restyp <$> checkIxs env p args (NonEmpty.toList argtyps)
 checkEntry env@Env{theirs} kind (U.EField p e x) =
   checkEntry env kind e `bindValidation` \(_, oc, ref) -> case oc of
     Just c -> case Map.lookup c theirs of

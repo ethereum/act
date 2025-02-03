@@ -181,7 +181,7 @@ eqKind fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b
 data Ref (k :: RefKind) (t :: Timing) where
   CVar :: Pn -> AbiType -> Id -> Ref Calldata t     -- Calldata variable
   SVar :: Pn -> Id -> Id -> Ref Storage t           -- Storage variable. First Id is the contract the var belogs to
-  SMapping :: Pn -> Ref k t -> [ValueType] -> [TypedExp t] -> Ref k t
+  SMapping :: Pn -> Ref k t -> ValueType -> [TypedExp t] -> Ref k t
   SField :: Pn -> Ref k t -> Id -> Id -> Ref k t    -- first Id is the contract the field belogs to
 deriving instance Show (Ref k t)
 

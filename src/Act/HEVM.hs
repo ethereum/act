@@ -37,7 +37,6 @@ import Data.List.NonEmpty qualified as NE
 import Data.Validation
 import Data.Typeable hiding (typeRep)
 import qualified Data.Vector as V
-import Data.Bits (shiftL, xor)
 
 import Act.HEVM_utils
 import Act.Syntax.Annotated as Act
@@ -58,9 +57,6 @@ import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
 import EVM.Traversals
-
-import Debug.Trace
-import qualified Extra as List
 
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
@@ -191,7 +187,7 @@ translateConstructor bytecode (Constructor cid iface _ preconds _ _ upds) cmap =
   cmap' <- applyUpdates initmap initmap upds
   fresh <- getFresh
   let acmap = abstractCmap initAddr cmap'
-  pure ([EVM.Success (snd calldata <> preconds' <> symAddrCnstr 1 fresh) mempty (EVM.ConcreteBuf bytecode) (M.map fst cmap')], calldata, ifaceToSig iface, acmap)
+  pure ([simplify $ EVM.Success (snd calldata <> preconds' <> symAddrCnstr 1 fresh) mempty (EVM.ConcreteBuf bytecode) (M.map fst cmap')], calldata, ifaceToSig iface, acmap)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -238,7 +234,7 @@ translateBehv cmap (Behaviour _ _ _ _ preconds caseconds _ upds ret) = do
   cmap' <- applyUpdates cmap cmap upds
   fresh' <- getFresh
   let acmap = abstractCmap initAddr cmap'
-  pure (EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap'), acmap)
+  pure (simplify $ EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap'), acmap)
 
 applyUpdates :: Monad m => ContractMap -> ContractMap -> [StorageUpdate] -> ActT m ContractMap
 applyUpdates readMap writeMap upds = foldM (applyUpdate readMap) writeMap upds
@@ -258,17 +254,13 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
     SInteger -> do
         e' <- toExpr readMap e
         let prevValue = readStorage addr contract
-        let e'' = simplify $ storedValue e' prevValue offset size
-        traceM "update "
-        traceShowM e''
+        let e'' = storedValue e' prevValue offset size
         pure $ M.insert caddr' (updateStorage (EVM.SStore addr e'') contract, cid) writeMap
     SBoolean -> do
         e' <- toExpr readMap e
 
         let prevValue = readStorage addr contract
-        let e'' = simplify $ storedValue e' prevValue offset size
-        traceM "update "
-        traceShowM e''
+        let e'' = storedValue e' prevValue offset size
         pure $ M.insert caddr' (updateStorage (EVM.SStore addr e'') contract, cid) writeMap
 -- TODO test with out of bounds assignments
   where
@@ -278,8 +270,6 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
         let maxVal = EVM.Lit $ (2 ^ (8 * size)) - 1 in
         let mask = EVM.Xor (EVM.SHL offsetBits maxVal) (EVM.Lit MAX_UINT) in
         let newShifted = EVM.SHL offsetBits new in
-        traceShow ("Storing value offset: " <> show offset <> "size " <> show size) $
-        traceShow (EVM.Or newShifted (EVM.And prev mask)) $
         EVM.Or newShifted (EVM.And prev mask)
 
     updateStorage :: (EVM.Expr EVM.Storage -> EVM.Expr EVM.Storage) -> EVM.Expr EVM.EContract -> EVM.Expr EVM.EContract
@@ -449,21 +439,20 @@ getPosition layout cid name =
       Nothing -> error $ "Internal error: invalid variable name: " <> show name
     Nothing -> error "Internal error: invalid contract name"
 
+-- | For the given storage reference, it returs the memory slot, the offset
+-- of the value within the slot, and the size of the value.
 refOffset :: Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EWord, EVM.Expr EVM.EWord, Int)
 refOffset _ (CVar _ _ _) = error "Internal error: ill-typed entry"
 refOffset _ (SVar _ cid name) = do
   layout <- getLayout
   let (slot, off, size) = getPosition layout cid name
   pure (EVM.Lit (fromIntegral slot), EVM.Lit $ fromIntegral off, size)
-refOffset cmap (SMapping _ ref ts ixs) = do
+refOffset cmap (SMapping _ ref typ ixs) = do
   (slot, _, _) <- refOffset cmap ref
-  (addr, ix, size) <- foldM (\(prevslot, _, _) (i,t) -> do
-    ix <- typedExpToWord cmap i
-    let size = sizeOfValue t
-    let slot' = EVM.Div ix (EVM.Lit $ fromIntegral (256 `div` (8 * size)))
-    let offset' = EVM.Mul (EVM.Mod ix (EVM.Lit $ fromIntegral (256 `div` (8 * size)))) (EVM.Lit (fromIntegral (8 * size)))
-    pure (EVM.keccak (wordToBuf slot' <> wordToBuf prevslot), offset', size)) (slot, EVM.Lit 0, 0) (zip ixs ts)
-  pure (addr, ix, size)
+  addr <- foldM (\slot' i -> do
+            buf <- typedExpToBuf cmap i
+            pure (EVM.keccak (buf <> (wordToBuf slot')))) slot ixs
+  pure (addr, EVM.Lit 0, sizeOfValue typ)
 refOffset _ (SField _ _ cid name) = do
   layout <- getLayout
   let (slot, off, size) = getPosition layout cid name
@@ -782,11 +771,6 @@ checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ ifa
   -- TODO check if contrainsts about preexistsing fresh symbolic addresses are necessary
   solbehvs <- lift $ removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 1 fresh) fresh
 
-  traceM "Act behvs:"
-  traceM $ showBehvs actbehvs
-  traceM "Sol behvs:"
-  traceM $ showBehvs solbehvs
-
   -- Check equivalence
   lift $ showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   res1 <- lift $ checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
@@ -806,11 +790,6 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
     let (behvs', fcmaps) = unzip actbehv
 
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
-
-    traceM "Act behvs:"
-    traceM $ showBehvs behvs'
-    traceM "Sol behvs:"
-    traceM $ showBehvs solbehvs
 
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
@@ -970,10 +949,6 @@ checkInputSpaces :: App m => SolverGroup -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.
 checkInputSpaces solvers l1 l2 = do
   let p1 = inputSpace l1
   let p2 = inputSpace l2
-  -- traceM "Solc props: "
-  -- traceM $ showProps p1
-  -- traceM "Act props: "
-  -- traceM $ showProps p2
 
   conf <- readConfig
 
@@ -1021,9 +996,6 @@ checkAbi solver contract cmap = do
 
 checkContracts :: forall m. App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m (Error String ())
 checkContracts solvers store codemap =
-  let layout = slotMap store in
-  trace "Layout: " $
-  traceShow layout $
   let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing in
   liftM (concatError def) $ forM (M.toList codemap) (\(_, (contract, initcode, bytecode)) -> do
     showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
