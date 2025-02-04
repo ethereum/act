@@ -58,8 +58,6 @@ import EVM.Effects
 import EVM.Format as Format
 import EVM.Traversals
 
-import Debug.Trace
-
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -520,7 +518,7 @@ toProp cmap = \case
     pure $ EVM.PNeg e
   (NEq _ _ _ _) -> error "unsupported"
   (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
-  (TEntry _ _ _ _) -> error "TODO" -- EVM.SLoad addr idx
+  (TEntry _ _ _ (Item SBoolean _ ref)) -> EVM.PEq (EVM.Lit 0) <$> EVM.IsZero <$> refToExp cmap ref
   (InRange _ t e) -> toProp cmap (inRange t e)
   where
     op2 :: Monad m => forall a b. (EVM.Expr (ExprType b) -> EVM.Expr (ExprType b) -> a) -> Exp b -> Exp b -> ActT m a
@@ -792,13 +790,6 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
     let (behvs', fcmaps) = unzip actbehv
 
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
-
-    
-    -- when (name == "setg") (do
-    --   traceM "Act behvs:"
-    --   traceM $ showBehvs behvs'
-    --   traceM "Sol behvs:"
-    --   traceM $ showBehvs solbehvs)
     
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check

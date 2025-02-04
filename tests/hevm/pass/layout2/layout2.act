@@ -21,11 +21,53 @@ iff
 
   CALLVALUE == 0
 
-  storage
+storage
 
-    x => y
-    y => x
-    z => 11
-    flag => not flag
+  x => y
+  y => x
+  z => 11
+  flag => not flag
 
-  returns 1
+returns 1
+
+behaviour set_flag of A
+interface set_flag(bool b)
+
+iff
+
+  CALLVALUE == 0
+
+storage
+
+  flag => b
+
+
+behaviour get_flag of A
+interface get_flag()
+
+iff
+
+  CALLVALUE == 0
+
+returns
+
+  pre(flag)
+
+
+behaviour set_y_if_flag of A
+interface set_y_if_flag(uint128 v)
+
+iff
+
+  CALLVALUE == 0
+
+case flag:
+
+storage
+  y => v
+
+returns 1
+
+case (not flag):
+returns 1
+

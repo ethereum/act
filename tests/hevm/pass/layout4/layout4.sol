@@ -2,7 +2,7 @@ contract Map {
     uint128 public val;
     mapping (uint => uint128) public f;
     mapping (uint128 => bool) public g;
-    
+
     constructor() {
         val = 11;
         f[11] = 42;
