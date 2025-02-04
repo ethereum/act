@@ -58,6 +58,8 @@ import EVM.Effects
 import EVM.Format as Format
 import EVM.Traversals
 
+import Debug.Trace
+
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -234,7 +236,7 @@ translateBehv cmap (Behaviour _ _ _ _ preconds caseconds _ upds ret) = do
   cmap' <- applyUpdates cmap cmap upds
   fresh' <- getFresh
   let acmap = abstractCmap initAddr cmap'
-  pure (simplify $ EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap'), acmap)
+  pure (EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap'), acmap)
 
 applyUpdates :: Monad m => ContractMap -> ContractMap -> [StorageUpdate] -> ActT m ContractMap
 applyUpdates readMap writeMap upds = foldM (applyUpdate readMap) writeMap upds
@@ -427,7 +429,7 @@ expToBuf cmap styp e = do
       pure $ EVM.WriteWord (EVM.Lit 0) e' (EVM.ConcreteBuf "")
     SBoolean -> do
       e' <- toExpr cmap e
-      pure $ EVM.WriteWord (EVM.Lit 0) e' (EVM.ConcreteBuf "")
+      pure $ EVM.WriteWord (EVM.Lit 0) (EVM.IsZero $ EVM.IsZero e') (EVM.ConcreteBuf "")
     SByteStr -> toExpr cmap e
 
 -- | Get the slot and the offset of a storage variable in storage
@@ -791,6 +793,13 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
 
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
 
+    
+    -- when (name == "setg") (do
+    --   traceM "Act behvs:"
+    --   traceM $ showBehvs behvs'
+    --   traceM "Sol behvs:"
+    --   traceM $ showBehvs solbehvs)
+    
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     lift $ showMsg "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"

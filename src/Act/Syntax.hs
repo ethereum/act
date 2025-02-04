@@ -18,6 +18,7 @@ import qualified Act.Syntax.Annotated as Annotated
 import qualified Act.Syntax.Typed as Typed
 import           Act.Syntax.Untyped hiding (Contract)
 import qualified Act.Syntax.Untyped as Untyped
+import EVM.ABI (AbiValue(AbiBool))
 
 -----------------------------------------
 -- * Extract from fully refined ASTs * --
@@ -468,4 +469,5 @@ upperBound (AbiUIntType  n) = UIntMax nowhere n
 upperBound (AbiIntType   n) = IntMax nowhere n
 upperBound AbiAddressType   = UIntMax nowhere 160
 upperBound (AbiBytesType n) = UIntMax nowhere (8 * n)
+upperBound AbiBoolType = LitInt nowhere 1
 upperBound typ = error $ "upperBound not implemented for " ++ show typ
