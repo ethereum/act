@@ -1,18 +1,12 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE TypeApplications #-}
-
+ {-# LANGUAGE GADTs #-}
+ {-# LANGUAGE DataKinds #-}
+ {-# LANGUAGE TypeFamilies #-}
+ {-# LANGUAGE FlexibleInstances #-}
+ {-# LANGUAGE ScopedTypeVariables #-}
+ {-# LANGUAGE MultiParamTypeClasses #-}
+ {-# LANGUAGE RecordWildCards #-}
+ {-# LANGUAGE OverloadedStrings #-}
+ {-# LANGUAGE OverloadedRecordDot #-}
 
 module Act.HEVM_utils where
 
@@ -24,6 +18,7 @@ import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import Control.Monad.ST (stToIO, ST)
 import Control.Monad.Reader
+import Control.Monad 
 
 import Act.Syntax.Annotated
 import Act.Syntax.Untyped (makeIface)
@@ -35,7 +30,7 @@ import EVM.SymExec hiding (EquivResult, isPartial, abstractVM, loadSymVM)
 import EVM.Solvers
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
-import qualified EVM as EVM
+import qualified EVM
 import EVM.FeeSchedule (feeSchedule)
 import EVM.Effects
 
@@ -104,12 +99,11 @@ combineFragments' fragments start base = go (EVM.Lit start) fragments (base, [])
 
 checkPartial :: App m => [EVM.Expr EVM.End] -> m ()
 checkPartial nodes =
-  if (any isPartial nodes) then do
-    showMsg ""
-    showMsg "WARNING: hevm was only able to partially explore the given contract due to the following issues:"
-    showMsg ""
-    showMsg . T.unpack . T.unlines . fmap (Format.indent 2 . ("- " <>)) . fmap Format.formatPartial . nubOrd $ (getPartials nodes)
-  else pure ()
+  when (any isPartial nodes) $
+  do showMsg ""
+     showMsg "WARNING: hevm was only able to partially explore the given contract due to the following issues:"
+     showMsg ""
+     showMsg . T.unpack . T.unlines . fmap (Format.indent 2 . ("- " <>)) . fmap Format.formatPartial . nubOrd $ (getPartials nodes)
 
 -- | decompiles the given EVM bytecode into a list of Expr branches
 getRuntimeBranches :: App m => SolverGroup -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> Calldata -> Int -> m [EVM.Expr EVM.End]

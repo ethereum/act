@@ -81,7 +81,7 @@ type SMT2 = String
 
 -- | The context is a `Reader` monad which allows us to read
 -- the name of the current interface.
-type Ctx = Reader Id -- TODO check if this is really needed
+type Ctx = Reader Id
 
 -- | Specify the name to use as the current interface when creating SMT-code.
 withInterface :: Id -> Ctx SMT2 -> SMT2
@@ -700,7 +700,7 @@ nameFromItem :: When -> TItem k a -> Ctx Id
 nameFromItem whn (Item _ _ ref) = do
   name <- nameFromRef ref
   case ref of -- TODO: this feels rather adhoc, but I can't find a better way to handle timings
-    CVar _ _ _ -> pure $ name
+    CVar _ _ _ -> pure name
     _ -> pure $ name @@ show whn
 
 nameFromRef :: Ref k -> Ctx Id
