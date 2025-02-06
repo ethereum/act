@@ -272,7 +272,7 @@ idFromItem (Item _ _ ref) = idFromRef ref
 idFromRef :: Ref k t -> Id
 idFromRef (SVar _ _ x) = x
 idFromRef (CVar _ _ x) = x
-idFromRef (SMapping _ e _) = idFromRef e
+idFromRef (SMapping _ e _ _) = idFromRef e
 idFromRef (SField _ e _ _) = idFromRef e
 
 idFromUpdate :: StorageUpdate t -> Id
@@ -287,7 +287,7 @@ ixsFromItem (Item _ _ item) = ixsFromRef item
 ixsFromRef :: Ref k t -> [TypedExp t]
 ixsFromRef (SVar _ _ _) = []
 ixsFromRef (CVar _ _ _) = []
-ixsFromRef (SMapping _ ref ixs) = ixs ++ ixsFromRef ref
+ixsFromRef (SMapping _ ref _ ixs) = ixs ++ ixsFromRef ref
 ixsFromRef (SField _ ref _ _) = ixsFromRef ref
 
 ixsFromLocation :: StorageLocation t -> [TypedExp t]

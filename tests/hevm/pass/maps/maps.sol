@@ -5,14 +5,13 @@ contract Map {
     mapping (uint => uint) public f;
 
     constructor () {
-	val = 0;
+        val = 0;
         f[0] = 42;
     }
 
 
     function set(uint value, uint key) public returns (uint) {
-	f[key] = value;
-
-	return 1;
+        f[key] = value;
+        return 1;
     }
 }
