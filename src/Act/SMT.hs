@@ -81,7 +81,7 @@ type SMT2 = String
 
 -- | The context is a `Reader` monad which allows us to read
 -- the name of the current interface.
-type Ctx = Reader Id -- TODO check if this is really needed
+type Ctx = Reader Id
 
 -- | Specify the name to use as the current interface when creating SMT-code.
 withInterface :: Id -> Ctx SMT2 -> SMT2

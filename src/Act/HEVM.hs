@@ -9,7 +9,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE NoFieldSelectors #-}
-{-# Language TypeApplications #-}
 
 {-# LANGUAGE DuplicateRecordFields #-}
 
@@ -471,6 +470,7 @@ baseAddr cmap (SField _ ref _ _) = do
     e -> error $ "Internal error: did not find a symbolic address: " <> show e
 baseAddr cmap (SMapping _ ref _ _) = baseAddr cmap ref
 
+
 ethEnvToWord :: Monad m => EthEnv -> ActT m (EVM.Expr EVM.EWord)
 ethEnvToWord Callvalue = pure EVM.TxValue
 ethEnvToWord Caller = do
@@ -545,7 +545,7 @@ stripMods = mapExpr go
     go a = a
 
 toExpr :: forall a m. Monad m => ContractMap -> TA.Exp a Timed -> ActT m (EVM.Expr (ExprType a))
-toExpr cmap = liftM stripMods . go
+toExpr cmap =  fmap stripMods . go
   where
     go :: Monad m => Exp a -> ActT m (EVM.Expr (ExprType a))
     go = \case
@@ -693,7 +693,7 @@ getInitContractState :: App m => SolverGroup -> Interface -> [Pointer] -> [Exp A
 getInitContractState solvers iface pointers preconds cmap = do
   let casts = (\(PointsTo _ x c) -> (x, c)) <$> pointers
   let casts' = groupBy (\x y -> fst x == fst y) casts
-  (cmaps, checks) <- unzip <$> mapM getContractState (fmap nub casts')
+  (cmaps, checks) <- mapAndUnzipM getContractState (fmap nub casts')
 
   let finalmap = M.unions (cmap:cmaps)
 
@@ -786,7 +786,7 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
   let hevmstorage = translateCmap actstorage
   fresh <- getFresh
   actbehvs <- translateBehvs actstorage behvs
-  (liftM $ concatError def) $ forM actbehvs $ \(name,actbehv,calldata, sig) -> do
+  (fmap $ concatError def) $ forM actbehvs $ \(name,actbehv,calldata, sig) -> do
     let (behvs', fcmaps) = unzip actbehv
 
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
@@ -997,7 +997,7 @@ checkAbi solver contract cmap = do
 checkContracts :: forall m. App m => SolverGroup -> Store -> M.Map Id (Contract, BS.ByteString, BS.ByteString) -> m (Error String ())
 checkContracts solvers store codemap =
   let actenv = ActEnv codemap 0 (slotMap store) (EVM.SymAddr "entrypoint") Nothing in
-  liftM (concatError def) $ forM (M.toList codemap) (\(_, (contract, initcode, bytecode)) -> do
+  fmap (concatError def) $ forM (M.toList codemap) (\(_, (contract, initcode, bytecode)) -> do
     showMsg $ "\x1b[1mChecking contract \x1b[4m" <> nameOfContract contract <> "\x1b[m"
     (res, actenv') <- flip runStateT actenv $ checkConstructors solvers initcode bytecode contract
     case res of
