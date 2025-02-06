@@ -18,7 +18,6 @@ import qualified Act.Syntax.Annotated as Annotated
 import qualified Act.Syntax.Typed as Typed
 import           Act.Syntax.Untyped hiding (Contract)
 import qualified Act.Syntax.Untyped as Untyped
-import EVM.ABI (AbiValue(AbiBool))
 
 -----------------------------------------
 -- * Extract from fully refined ASTs * --
