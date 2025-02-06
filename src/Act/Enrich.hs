@@ -96,5 +96,4 @@ mkStorageBoundsLoc refs = concatMap mkBound refs
 mkCallDataBounds :: [Decl] -> [Exp ABoolean]
 mkCallDataBounds = concatMap $ \(Decl typ name) -> case fromAbiType typ of
   AInteger -> [bound typ (_Var Pre typ name)]
-  ABoolean -> [bound typ (_Var Pre typ name)]
   _ -> []

@@ -203,8 +203,9 @@ translateBehvs :: Monad m => ContractMap -> [Behaviour] -> ActT m [(Id, [(EVM.Ex
 translateBehvs cmap behvs = do
   let groups = (groupBy sameIface behvs) :: [[Behaviour]]
   mapM (\behvs' -> do
-           exprs <- mapM (translateBehv cmap) behvs'
-           pure (behvName behvs', exprs, behvCalldata behvs', behvSig behvs)) groups
+           let calldata = behvCalldata behvs'
+           exprs <- mapM (translateBehv cmap (snd calldata)) behvs'
+           pure (behvName behvs', exprs, calldata, behvSig behvs)) groups
   where
     behvCalldata (Behaviour _ _ iface _ _ _ _ _ _:_) = makeCalldata iface
     behvCalldata [] = error "Internal error: behaviour groups cannot be empty"
@@ -224,8 +225,8 @@ ifaceToSig (Interface name args) = Sig (T.pack name) (fmap fromdecl args)
   where
     fromdecl (Decl t _) = t
 
-translateBehv :: Monad m => ContractMap -> Behaviour -> ActT m (EVM.Expr EVM.End, ContractMap)
-translateBehv cmap (Behaviour _ _ _ _ preconds caseconds _ upds ret) = do
+translateBehv :: Monad m => ContractMap -> [EVM.Prop] -> Behaviour -> ActT m (EVM.Expr EVM.End, ContractMap)
+translateBehv cmap cdataprops (Behaviour _ _ _ _ preconds caseconds _ upds ret)  = do
   fresh <- getFresh
   preconds' <- mapM (toProp cmap) preconds
   caseconds' <- mapM (toProp cmap) caseconds
@@ -233,7 +234,7 @@ translateBehv cmap (Behaviour _ _ _ _ preconds caseconds _ upds ret) = do
   cmap' <- applyUpdates cmap cmap upds
   fresh' <- getFresh
   let acmap = abstractCmap initAddr cmap'
-  pure (EVM.Success (preconds' <> caseconds' <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap'), acmap)
+  pure (EVM.Success (preconds' <> caseconds' <> cdataprops <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap'), acmap)
 
 applyUpdates :: Monad m => ContractMap -> ContractMap -> [StorageUpdate] -> ActT m ContractMap
 applyUpdates readMap writeMap upds = foldM (applyUpdate readMap) writeMap upds
@@ -790,7 +791,7 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
     let (behvs', fcmaps) = unzip actbehv
 
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
-    
+
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
     lift $ showMsg "\x1b[1mChecking if behaviour is matched by EVM\x1b[m"

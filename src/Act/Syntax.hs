@@ -469,5 +469,4 @@ upperBound (AbiUIntType  n) = UIntMax nowhere n
 upperBound (AbiIntType   n) = IntMax nowhere n
 upperBound AbiAddressType   = UIntMax nowhere 160
 upperBound (AbiBytesType n) = UIntMax nowhere (8 * n)
-upperBound AbiBoolType = LitInt nowhere 1
 upperBound typ = error $ "upperBound not implemented for " ++ show typ
