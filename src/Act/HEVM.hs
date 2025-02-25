@@ -731,7 +731,7 @@ getInitContractState solvers iface pointers preconds cmap = do
       let allkeys = M.foldrWithKey (\k (_, cid) l -> (k, cid):l) [] <$> cmaps
       -- gather all tuples that must be distinct
       let allpairs = concatMap (\(l1, l2) -> (,) <$> l1 <*> l2) $ comb allkeys
-      -- gatther all tuples that we know are distinct
+      -- gather all tuples that we know are distinct
       fresh <- getFresh
       let distpairs = (\(a1, a2) -> neqProp (makeSymAddr a1) (makeSymAddr a2)) <$> comb [1..fresh]
       let dquery = EVM.por $ (\((a1, c1),(a2, c2)) ->
@@ -777,7 +777,7 @@ checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ ifa
   res1 <- lift $ checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
   lift $ showMsg "\x1b[1mChecking if constructor input spaces are the same.\x1b[m"
   res2 <- lift $ checkResult calldata (Just sig) =<< checkInputSpaces solvers solbehvs actbehvs
-  pure $ checks *> res1 *> res2 *> Success cmap
+  pure $ checks *> checkStoreAliasing actinitmap *> res1 *> res2 *> Success cmap
   where
     removeFails branches = filter isSuccess branches
 
@@ -872,21 +872,24 @@ pruneContractState entryaddr cmap =
         go addr' acc =
           case M.lookup addr' cmap' of
             Just (EVM.C _ storage _ _ _, _) ->
-              let addrs = getAddrs storage in
+              let addrs = snd <$> getAddrs storage in
               foldr go (addr':acc) addrs
             Just (EVM.GVar _, _) -> error "Internal error: contract cannot be gvar"
             Nothing -> error "Internal error: contract not found"
 
-    -- Find addresses mentioned in storage
-    getAddrs :: EVM.Expr EVM.Storage -> [EVM.Expr EVM.EAddr]
-    getAddrs (EVM.SStore _ (EVM.WAddr symaddr) storage) = symaddr : getAddrs storage
-    getAddrs (EVM.SStore _ _ _) = error "Internal error: unexpected storage shape"
-    getAddrs (EVM.ConcreteStore _) = error "Internal error: unexpected storage shape"
-    getAddrs (EVM.AbstractStore {}) = []
-    getAddrs _ = error "Internal error: unexpected storage shape"
+-- Check is contract slots can refer to the same address
+checkStoreAliasing :: ContractMap -> Error String ()
+checkStoreAliasing cmap = 
+    -- all contract addresses references from distinct slots
+    let addrs = snd <$> (nub . getAddrs . getStore) `concatMap` M.elems cmap in
+    assert (nowhere, "Contract addresses can be aliased!") (addrs == nub addrs) 
+  where 
+    getStore :: (EVM.Expr EVM.EContract, Id) -> EVM.Expr EVM.Storage
+    getStore (EVM.C _ store _ _ _, _) = store
+    getStore (EVM.GVar _, _) = error "Internal error: expecting contract"
 
 
--- | Check if two contract maps are isomorphic
+-- | Check if two contract DAG maps are isomorphic. Throws an error if it encounters a circle
 -- Perform a breadth first traversal and try to find a bijection between the addresses of the two stores
 -- Note that is problem is not as difficult as graph isomorphism since edges are labeld.
 -- Assumes that the stores are abstracted, pruned, and simplified.
@@ -925,17 +928,17 @@ checkStoreIsomorphism cmap1 cmap2 = bfs [(idOfAddr initAddr, idOfAddr initAddr)]
         (_, _) -> throw (nowhere, "The shape of the resulting map is not preserved.")
     visit _ _ _ _  _ = throw (nowhere, "The shape of the resulting map is not preserved.")
 
-    -- Find addresses mentioned in storage
-    getAddrs :: EVM.Expr EVM.Storage -> [(Int, EVM.Expr EVM.EAddr)]
-    getAddrs (EVM.SStore (EVM.Lit n) (EVM.WAddr symaddr) storage) = (fromIntegral n, symaddr) : getAddrs storage
-    getAddrs (EVM.SStore _ _ _) = error "Internal error: unexpected storage shape"
-    getAddrs (EVM.ConcreteStore _) = error "Internal error: unexpected storage shape"
-    getAddrs (EVM.AbstractStore {}) = []
-    getAddrs _ = error "Internal error: unexpected storage shape"
+-- Find addresses mentioned in storage
+getAddrs :: EVM.Expr EVM.Storage -> [(Int, EVM.Expr EVM.EAddr)]
+getAddrs (EVM.SStore (EVM.Lit n) (EVM.WAddr symaddr) storage) = (fromIntegral n, symaddr) : getAddrs storage
+getAddrs (EVM.SStore _ _ _) = error "Internal error: unexpected storage shape"
+getAddrs (EVM.ConcreteStore _) = error "Internal error: unexpected storage shape"
+getAddrs (EVM.AbstractStore {}) = []
+getAddrs _ = error "Internal error: unexpected storage shape"
 
-    idOfAddr :: EVM.Expr EVM.EAddr -> T.Text
-    idOfAddr (EVM.SymAddr addr) = addr
-    idOfAddr _ = error "Internal error: upecting symbolic address"
+idOfAddr :: EVM.Expr EVM.EAddr -> T.Text
+idOfAddr (EVM.SymAddr addr) = addr
+idOfAddr _ = error "Internal error: upecting symbolic address"
 
 -- | Find the input space of an expr list
 inputSpace :: [EVM.Expr EVM.End] -> [EVM.Prop]
