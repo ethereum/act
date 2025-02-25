@@ -1,0 +1,54 @@
+// contract A
+constructor of A
+interface constructor(uint z)
+
+iff
+   CALLVALUE == 0
+
+creates
+   uint x := z
+
+
+behaviour x of A
+interface x()
+
+iff
+   CALLVALUE == 0
+
+returns
+   pre(x)
+
+behaviour set_x of A
+interface set_x(uint z)
+
+iff 
+   CALLVALUE == 0
+
+storage
+  x => z
+
+// contract B
+constructor of B
+interface constructor(address x)
+pointers
+  x |-> A
+iff
+   CALLVALUE == 0
+
+creates
+   A a1 := x
+   A a2 := x
+
+behaviour upd of B
+interface upd()
+
+iff
+
+  CALLVALUE == 0
+
+storage
+  a1.x => 42
+
+// This should not succeed!!
+ensures
+  post(a2.x) == pre(a2.x)
