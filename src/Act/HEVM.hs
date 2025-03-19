@@ -678,7 +678,7 @@ checkOp (Create _ _ _) = error "Internal error: invalid in range expression"
 -- | Wrapper for the equivalenceCheck function of hevm
 checkEquiv :: App m => SolverGroup -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> m [EquivResult]
 checkEquiv solvers l1 l2 = do
-  res <- equivalenceCheck' solvers l1 l2
+  (res, _) <- equivalenceCheck' solvers l1 l2 False
   pure $ fmap toEquivRes res
   where
     toEquivRes :: SymExec.EquivResult -> EquivResult

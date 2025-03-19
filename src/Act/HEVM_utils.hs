@@ -49,12 +49,13 @@ defaultActConfig = Config
   , dumpExprs = False
   , dumpEndStates = False
   , debug = False
-  , abstRefineArith = False
-  , abstRefineMem   = False
   , dumpTrace = False
   , numCexFuzz = 0
   , onlyCexFuzz = False
   , decomposeStorage = False
+  , maxBranch = 100
+  , promiseNoReent = False
+  , maxBufSize = 64
   }
 
 debugActConfig :: Config
