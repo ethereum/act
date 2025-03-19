@@ -42,6 +42,7 @@
             pkgs.z3
             pkgs.cvc5
             pkgs.coq
+            pkgs.coqPackages.stdlib
             pkgs.solc
             pkgs.mdbook
             pkgs.mdbook-mermaid
