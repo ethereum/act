@@ -24,15 +24,15 @@ contract B {
     A a2;
 
     constructor(address x, address y) {
-	require(x!=y);
-	a1 = A(x);
-	a2 = A(y);
+	    require(x!=y);
+	    a1 = A(x);
+	    a2 = A(y);
     }
 
 
     function upd() public {
-	a1.setx(42);
-	a2.setx(11);
+	    a1.setx(42);
+	    a2.setx(11);
     }
 
 }

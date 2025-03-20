@@ -57,6 +57,8 @@ import EVM.Effects
 import EVM.Format as Format
 import EVM.Traversals
 
+import Debug.Trace
+
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -305,6 +307,7 @@ createContract readMap writeMap freshAddr (Create _ cid args) = do
       applyUpdates (M.insert freshAddr (contract, cid) readMap) (M.insert freshAddr (contract, cid) writeMap) upds'
     Nothing -> error "Internal error: constructor not found"
 createContract _ _ _ _ = error "Internal error: constructor call expected"
+-- TODO needs to propagate up preconditions and check pointer constraints
 
 -- | Substitutions
 
@@ -771,6 +774,11 @@ checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ ifa
   -- Symbolically execute bytecode
   -- TODO check if contrainsts about preexistsing fresh symbolic addresses are necessary
   solbehvs <- lift $ removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 1 fresh) fresh
+
+  traceM "Act"
+  traceM $ showBehvs actbehvs
+  traceM "Sol"
+  traceM $ showBehvs solbehvs
 
   -- Check equivalence
   lift $ showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
