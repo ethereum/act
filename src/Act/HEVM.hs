@@ -186,9 +186,8 @@ translateConstructor bytecode (Constructor cid iface _ preconds _ _ upds) cmap =
   let initmap =  M.insert initAddr (initcontract, cid) cmap
   preconds' <- mapM (toProp initmap) preconds
   cmap' <- applyUpdates initmap initmap upds
-  fresh <- getFresh
   let acmap = abstractCmap initAddr cmap'
-  pure ([simplify $ EVM.Success (snd calldata <> preconds' <> symAddrCnstr 1 fresh) mempty (EVM.ConcreteBuf bytecode) (M.map fst cmap')], calldata, ifaceToSig iface, acmap)
+  pure ([simplify $ EVM.Success (snd calldata <> preconds' <> symAddrCnstr acmap) mempty (EVM.ConcreteBuf bytecode) (M.map fst cmap')], calldata, ifaceToSig iface, acmap)
   where
     calldata = makeCtrCalldata iface
     initcontract = EVM.C { EVM.code    = EVM.RuntimeCode (EVM.ConcreteRuntimeCode bytecode)
@@ -198,8 +197,9 @@ translateConstructor bytecode (Constructor cid iface _ preconds _ _ upds) cmap =
                          , EVM.nonce   = Just 1
                          }
 
-symAddrCnstr :: Int -> Int -> [EVM.Prop]
-symAddrCnstr start end = fmap (\i -> EVM.PNeg (EVM.PEq (EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show i))) (EVM.Lit 0))) [start..end]
+symAddrCnstr :: ContractMap -> [EVM.Prop]
+symAddrCnstr cmap =
+    (\(a1, a2) -> EVM.PNeg (EVM.PEq (EVM.WAddr a1) (EVM.WAddr a2))) <$> comb (M.keys cmap) 
 
 translateBehvs :: Monad m => ContractMap -> [Behaviour] -> ActT m [(Id, [(EVM.Expr EVM.End, ContractMap)], Calldata, Sig)]
 translateBehvs cmap behvs = do
@@ -229,14 +229,12 @@ ifaceToSig (Interface name args) = Sig (T.pack name) (fmap fromdecl args)
 
 translateBehv :: Monad m => ContractMap -> [EVM.Prop] -> Behaviour -> ActT m (EVM.Expr EVM.End, ContractMap)
 translateBehv cmap cdataprops (Behaviour _ _ _ _ preconds caseconds _ upds ret)  = do
-  fresh <- getFresh
   preconds' <- mapM (toProp cmap) preconds
   caseconds' <- mapM (toProp cmap) caseconds
   ret' <- returnsToExpr cmap ret
   cmap' <- applyUpdates cmap cmap upds
-  fresh' <- getFresh
   let acmap = abstractCmap initAddr cmap'
-  pure (EVM.Success (preconds' <> caseconds' <> cdataprops <> symAddrCnstr (fresh+1) fresh') mempty ret' (M.map fst cmap'), acmap)
+  pure (EVM.Success (preconds' <> caseconds' <> cdataprops <> symAddrCnstr acmap) mempty ret' (M.map fst cmap'), acmap)
 
 applyUpdates :: Monad m => ContractMap -> ContractMap -> [StorageUpdate] -> ActT m ContractMap
 applyUpdates readMap writeMap upds = foldM (applyUpdate readMap) writeMap upds
@@ -726,9 +724,6 @@ getInitContractState solvers iface pointers preconds cmap = do
     getContractState [] = error "Internal error: Cast cannot be empty"
     getContractState _ = error "Error: Cannot have different casts to the same address"
 
-    comb :: [a] -> [(a,a)]
-    comb xs = [(x,y) | (x:ys) <- tails xs, y <- ys]
-
     checkAliasing :: App m => ContractMap -> [ContractMap] -> ActT m (Error String ())
     checkAliasing cmap' cmaps = do
       let allkeys = M.foldrWithKey (\k (_, cid) l -> (k, cid):l) [] <$> cmaps
@@ -763,6 +758,9 @@ getInitContractState solvers iface pointers preconds cmap = do
       let pairs = comb cmaps in
       assert (nowhere, "Names of symbolic adresses must be unique") (foldl (\b (c1, c2) -> S.disjoint (M.keysSet c1) (M.keysSet c2) && b) True pairs)
 
+comb :: Show a => [a] -> [(a,a)]
+comb xs = [(x,y) | (x:ys) <- tails xs, y <- ys]
+
 checkConstructors :: App m => SolverGroup -> ByteString -> ByteString -> Contract -> ActT m (Error String ContractMap)
 checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ iface pointers preconds _ _ _)  _) = do
   -- Construct the initial contract state
@@ -773,7 +771,7 @@ checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ ifa
   (actbehvs, calldata, sig, cmap) <- translateConstructor runtimecode ctor actinitmap
   -- Symbolically execute bytecode
   -- TODO check if contrainsts about preexistsing fresh symbolic addresses are necessary
-  solbehvs <- lift $ removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata (symAddrCnstr 1 fresh) fresh
+  solbehvs <- lift $ removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata [] fresh
 
   traceM "Act"
   traceM $ showBehvs actbehvs
@@ -1053,6 +1051,7 @@ toVRes msg res = case res of
 
 checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m (Error String ())
 checkResult calldata sig res =
+  trace "Result: "$ traceShow res $
   case any isCex res of
     False ->
       case any isUnknown res || any isError res of
