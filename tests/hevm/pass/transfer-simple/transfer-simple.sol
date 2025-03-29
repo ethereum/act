@@ -9,7 +9,7 @@ contract Token {
 
 
     function transfer(uint256 value, address to) public returns (uint) {
-	balanceOf[msg.sender] = balanceOf[msg.sender] - value;
+	    balanceOf[msg.sender] = balanceOf[msg.sender] - value;
         balanceOf[to] = balanceOf[to] + value;
         return 1;
     }

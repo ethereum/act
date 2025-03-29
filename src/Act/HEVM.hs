@@ -234,7 +234,7 @@ translateBehv cmap cdataprops (Behaviour _ _ _ _ preconds caseconds _ upds ret) 
   ret' <- returnsToExpr cmap ret
   cmap' <- applyUpdates cmap cmap upds
   let acmap = abstractCmap initAddr cmap'
-  pure (EVM.Success (preconds' <> caseconds' <> cdataprops <> symAddrCnstr acmap) mempty ret' (M.map fst cmap'), acmap)
+  pure (EVM.Success (preconds' <> caseconds' <> cdataprops <> symAddrCnstr cmap') mempty ret' (M.map fst cmap'), acmap)
 
 applyUpdates :: Monad m => ContractMap -> ContractMap -> [StorageUpdate] -> ActT m ContractMap
 applyUpdates readMap writeMap upds = foldM (applyUpdate readMap) writeMap upds
@@ -773,10 +773,10 @@ checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ ifa
   -- TODO check if contrainsts about preexistsing fresh symbolic addresses are necessary
   solbehvs <- lift $ removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata [] fresh
 
-  traceM "Act"
-  traceM $ showBehvs actbehvs
-  traceM "Sol"
-  traceM $ showBehvs solbehvs
+--   traceM "Act"
+--   traceM $ showBehvs actbehvs
+--   traceM "Sol"
+--   traceM $ showBehvs solbehvs
 
   -- Check equivalence
   lift $ showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
@@ -797,6 +797,14 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
     let (behvs', fcmaps) = unzip actbehv
 
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
+
+
+    -- when (name == "upd") $ do
+    --   traceM "Act"
+    --   traceM $ showBehvs behvs'
+    --   traceM "Sol"
+    --   traceM $ showBehvs solbehvs
+
 
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
