@@ -56,6 +56,7 @@ defaultActConfig = Config
   , maxBranch = 100
   , promiseNoReent = False
   , maxBufSize = 64
+  , verb = 0
   }
 
 debugActConfig :: Config
