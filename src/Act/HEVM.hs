@@ -57,8 +57,6 @@ import EVM.Effects
 import EVM.Format as Format
 import EVM.Traversals
 
-import Debug.Trace
-
 type family ExprType a where
   ExprType 'AInteger  = EVM.EWord
   ExprType 'ABoolean  = EVM.EWord
@@ -199,7 +197,7 @@ translateConstructor bytecode (Constructor cid iface _ preconds _ _ upds) cmap =
 
 symAddrCnstr :: ContractMap -> [EVM.Prop]
 symAddrCnstr cmap =
-    (\(a1, a2) -> EVM.PNeg (EVM.PEq (EVM.WAddr a1) (EVM.WAddr a2))) <$> comb (M.keys cmap) 
+    (\(a1, a2) -> EVM.PNeg (EVM.PEq (EVM.WAddr a1) (EVM.WAddr a2))) <$> comb (M.keys cmap)
 
 translateBehvs :: Monad m => ContractMap -> [Behaviour] -> ActT m [(Id, [(EVM.Expr EVM.End, ContractMap)], Calldata, Sig)]
 translateBehvs cmap behvs = do
@@ -773,11 +771,6 @@ checkConstructors solvers initcode runtimecode (Contract ctor@(Constructor _ ifa
   -- TODO check if contrainsts about preexistsing fresh symbolic addresses are necessary
   solbehvs <- lift $ removeFails <$> getInitcodeBranches solvers initcode hevminitmap calldata [] fresh
 
---   traceM "Act"
---   traceM $ showBehvs actbehvs
---   traceM "Sol"
---   traceM $ showBehvs solbehvs
-
   -- Check equivalence
   lift $ showMsg "\x1b[1mChecking if constructor results are equivalent.\x1b[m"
   res1 <- lift $ checkResult calldata (Just sig) =<< checkEquiv solvers solbehvs actbehvs
@@ -797,14 +790,6 @@ checkBehaviours solvers (Contract _ behvs) actstorage = do
     let (behvs', fcmaps) = unzip actbehv
 
     solbehvs <- lift $ removeFails <$> getRuntimeBranches solvers hevmstorage calldata fresh
-
-
-    -- when (name == "upd") $ do
-    --   traceM "Act"
-    --   traceM $ showBehvs behvs'
-    --   traceM "Sol"
-    --   traceM $ showBehvs solbehvs
-
 
     lift $ showMsg $ "\x1b[1mChecking behavior \x1b[4m" <> name <> "\x1b[m of Act\x1b[m"
     -- equivalence check
@@ -1059,7 +1044,6 @@ toVRes msg res = case res of
 
 checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m (Error String ())
 checkResult calldata sig res =
-  trace "Result: "$ traceShow res $
   case any isCex res of
     False ->
       case any isUnknown res || any isError res of
