@@ -4,16 +4,16 @@ contract A {
     uint x;
 
     constructor(uint _x) {
-	x = _x;
+        x = _x;
     }
 
 
     function getx() public returns (uint) {
-	return x;
+        return x;
     }
 
     function setx(uint _x1) public {
-	x = _x1;
+        x = _x1;
     }
 
 }
@@ -24,15 +24,15 @@ contract B {
     A a2;
 
     constructor(address x, address y) {
-	    require(x!=y);
-	    a1 = A(x);
-	    a2 = A(y);
+        require(x!=y);
+        a1 = A(x);
+        a2 = A(y);
     }
 
 
     function upd() public {
-	    a1.setx(42);
-	    a2.setx(11);
+        a1.setx(42);
+        a2.setx(11);
     }
 
 }
