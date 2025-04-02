@@ -16,7 +16,9 @@ More in depth documentation can be found in [The Act Book](https://ethereum.gith
 
 # Building
 
-With nix:
+You can build the project with nix. If you do not have nix installed yet, you can try using the [Determinate Nix installer](https://github.com/DeterminateSystems/nix-installer).
+
+Building with nix:
 
 ```sh
 nix build
@@ -24,16 +26,15 @@ nix build
 
 # Developing
 
-Enter a nix-shell to get the dependencies of the project:
+After building, enter a nix-shell to get the dependencies of the project:
 
 ```sh
 nix develop
 ```
 
-you can then use `cabal` as normal:
+you can then use `cabal` as normal from where you have `act.cabal`, could be in `./src`:
 
 ```sh
-cd src
 cabal build # build
 cabal repl  # enter a repl instance
 ```
@@ -42,7 +43,7 @@ to execute the unit tests:
 
 ```sh
 make test # run all tests
-cd src && cabal v2-test # run haskell tests
+cabal v2-test # run haskell tests
 ```
 
 To update the project dependencies run:
@@ -50,3 +51,30 @@ To update the project dependencies run:
 ```sh
 nix flake update
 ```
+
+# Usage
+
+Once you are in the nix shell, you can use act backends as follows.
+
+## SMT
+
+```sh
+act prove --file <PATH_TO_SPEC>
+```
+
+`act prove` also accepts some configuration flags, see [The Act Book](https://ethereum.github.io/act/smt.html).
+
+## Rocq
+
+```sh
+act coq --file <PATH_TO_SPEC>
+```
+
+To fully use this feature you should also set up a `Makefile` and `_CoqProject`, see the example in `tests/coq/ERC20/`.
+
+## Hevm
+
+```sh
+act hevm --spec <PATH_TO_SPEC> --sol <PATH_TO_RUNTIME_CODE>
+```
+
