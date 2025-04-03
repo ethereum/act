@@ -1,0 +1,25 @@
+constructor of A
+interface constructor()
+
+iff
+
+  CALLVALUE == 0
+
+creates
+
+  uint128 x := 11
+  uint128 y := 42
+
+behaviour swap of A
+interface swap()
+
+iff
+
+  CALLVALUE == 0
+
+  storage
+
+    x => y
+    y => x
+
+  returns 1

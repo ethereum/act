@@ -4,7 +4,7 @@ contract C {
     uint z;
 
     constructor(uint z1) {
-	z = z1;
+        z = z1;
     }
 
 }
@@ -15,8 +15,8 @@ contract A {
     C public c;
     
     constructor(uint x1) {
-	x = x1;
-	c = new C(42);
+        x = x1;
+        c = new C(42);
     }
 }
 
@@ -26,7 +26,7 @@ contract B {
     C c;
 
     constructor(address x) {
-	a = A(x);
-	c = a.c();
+        a = A(x);
+        c = a.c();
     }
 }

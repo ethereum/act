@@ -1,0 +1,69 @@
+constructor of Map
+interface constructor()
+
+iff
+
+  CALLVALUE == 0
+
+creates
+  uint128 val := 11
+  mapping(uint => uint128) f := [11 := 42, 42 := 1]
+  mapping(uint128 => bool) g := [22 := true, 1 := false]
+  
+
+behaviour val of Map
+interface val()
+
+iff
+
+  CALLVALUE == 0
+
+returns pre(val)
+
+behaviour f of Map
+interface f(uint x)
+
+iff
+
+  CALLVALUE == 0
+
+returns pre(f[x])
+
+
+behaviour g of Map
+interface g(uint128 x)
+
+iff
+
+  CALLVALUE == 0
+
+returns pre(g[x])
+
+
+
+behaviour setf of Map
+interface setf(uint128 value, uint key)
+
+iff
+
+  CALLVALUE == 0
+
+storage
+
+  f[key] => value
+
+returns 1
+
+
+behaviour setg of Map
+interface setg(bool value,  uint128 key)
+
+iff
+
+  CALLVALUE == 0
+
+storage
+
+  g[key] => value
+
+returns 1

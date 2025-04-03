@@ -8,15 +8,13 @@ creates
 
 invariants
 
-	// Ideally this would be `not lock`
-	lock => false
+	not lock
 
 behaviour f of Mutex
 interface setX(uint256 _x)
 
 iff
-	// Ideally this would be `not lock`
-	lock => false
+	not lock
 
 storage
 	x => _x

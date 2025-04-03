@@ -1,0 +1,42 @@
+constructor of Map
+interface constructor()
+
+iff
+
+  CALLVALUE == 0
+
+creates
+  uint128 val := 11
+  mapping(uint => uint128) f := [11 := 42]
+
+behaviour val of Map
+interface val()
+
+iff
+
+  CALLVALUE == 0
+
+returns pre(val)
+
+behaviour f of Map
+interface f(uint x)
+
+iff
+
+  CALLVALUE == 0
+
+returns pre(f[x])
+
+
+behaviour set of Map
+interface set(uint128 value, uint key)
+
+iff
+
+  CALLVALUE == 0
+
+storage
+
+  f[key] => value
+
+returns 1
