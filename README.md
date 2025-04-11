@@ -26,13 +26,13 @@ nix build
 
 # Developing
 
-After building, enter a nix-shell to get the dependencies of the project:
+Enter a nix-shell to get the dependencies of the project:
 
 ```sh
 nix develop
 ```
 
-you can then use `cabal` as normal from where you have `act.cabal`, could be in `./src`:
+you can then use `cabal` as normal from the root directory of the project:
 
 ```sh
 cabal build # build
@@ -54,27 +54,17 @@ nix flake update
 
 # Usage
 
-Once you are in the nix shell, you can use act backends as follows.
-
-## SMT
+Once you are in the nix shell, you can use act backends for `smt`, `hevm` and `rocq` as follows.
 
 ```sh
-act prove --file <PATH_TO_SPEC>
+cabal run act -- <OPTIONS>
 ```
 
-`act prove` also accepts some configuration flags, see [The Act Book](https://ethereum.github.io/act/smt.html).
-
-## Rocq
+Run the following command to get the info on how to use options and configuration flags.
 
 ```sh
-act coq --file <PATH_TO_SPEC>
+cabal run act -- --help
 ```
 
-To fully use this feature you should also set up a `Makefile` and `_CoqProject`, see the example in `tests/coq/ERC20/`.
-
-## Hevm
-
-```sh
-act hevm --spec <PATH_TO_SPEC> --sol <PATH_TO_RUNTIME_CODE>
-```
-
+Alternatively, you can `make` first and then run the executable `act` as in  `act <OPTIONS>`.
+For more details on how to run each individual backend consult [The Act Book](https://ethereum.github.io/act/).

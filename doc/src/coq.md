@@ -17,6 +17,19 @@ The verification of these proofs is performed in a minimal and well-audited kern
 occasionally bugs have been found in Coq’s and other systems’ kernels, a proof in these systems is
 generally quite strong evidence of correctness.
 
+## Usage
+
+To generate the Coq code run
+```sh
+act coq --file <PATH_TO_SPEC>
+```
+against your spec.
+
+To fully use this feature you should also set up a `Makefile` and `_CoqProject`, see the example in `tests/coq/ERC20/`.
+
+If you are using Coq in your editor in an interactive mode, make sure your editor links to the Coq executables (coqtop) from the nix shell.
+Alternatively you can use a local Coq executable, if present, and `make` outside of the nix shell, once the `act coq` command has terminated.
+
 ## A Brief Introduction to Proof in Coq
 
 Coq is a complex system with a steep learning curve, and while a full tutorial on programming in Coq

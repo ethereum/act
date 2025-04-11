@@ -3,6 +3,27 @@
 Act leverages the symbolic execution engine in hevm to provide a backend that can prove equivalence
 between a contract specification and an implementation of that specification in EVM.
 
+## Usage
+
+To perform the equivalence proofs, you can simply run
+```sh
+act hevm --spec <PATH_TO_SPEC> --sol <PATH_TO_SOLIDITY_CODE>
+```
+ against your spec and runtime (solidity) code.
+
+`act hevm` also accepts the following configuration flags:
+
+- `--code TEXT`: runtime code.
+- `--initcode TEXT`: initial code.
+- `--solver`: you can choose to use `cvc5` or `z3` as the solver backend. The default is `cvc5`.
+  Sometimes `cvc5` may be able to prove things that `z3` cannot (and vice versa). You can also
+  prove the same properties with multiple solvers to gain confidence that the proofs are not
+  affected by a bug in the solver itself.
+- `--smttimeout`: the timeout (in milliseconds) given for each smt query. This is set to 20000 by default.
+- `--debug`: this prints the raw query dispatched to the SMT solver to stdout.
+
+## Description
+
 Two claims are generated for each behaviour, Pass and Fail. The Pass claim states that if all
 preconditions in the iff block are true, then all executions will succeed, storage will be updated
 according to the storage block, and the specified return value will, in fact, be returned. The Fail
@@ -20,6 +41,8 @@ call.
 In the case of a Fail claim, we can then check that each leaf represents a state in which execution
 has reverted, while for a Pass claim we can check that storage has been updated as expected, and
 that the contents of the return buffer matches what was specified in the behaviour’s returns block.
+
+## Example
 
 As an example, consider the following contract:
 
