@@ -1,8 +1,7 @@
 (** library to be included with user coq developments *)
+From Stdlib Require Import ZArith.
 
-Require Import Coq.ZArith.ZArith.
-Open Scope Z_scope.
-
+Print LoadPath.
 (** * type definitions *)
 Definition address := Z.
 
@@ -24,13 +23,13 @@ Record Env : Set :=
 
 (** * integer bounds *)
 Definition UINT_MIN (n : Z) := 0.
-Definition UINT_MAX (n : Z) := 2^n - 1.
-Definition INT_MIN  (n : Z) := 0 - 2^(n - 1).
-Definition INT_MAX  (n : Z) := 2^(n - 1) - 1.
+Definition UINT_MAX (n : Z) := (2^n - 1)%Z.
+Definition INT_MIN  (n : Z) := (0 - 2^(n - 1))%Z.
+Definition INT_MAX  (n : Z) := (2^(n - 1) - 1)%Z.
 
 (** * notations *)
 Notation "a =?? b" := (bool_eq a b) (at level 70, no associativity).
-Definition range256 (n : Z) := 0 <= n <= UINT_MAX 256.
+Definition range256 (n : Z) := (0 <= n <= UINT_MAX 256)%Z.
 
 (** * lemmas *)
 
