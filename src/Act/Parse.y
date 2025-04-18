@@ -77,6 +77,7 @@ import Act.Error
   -- symbols
   ':='                        { L ASSIGN _ }
   '=>'                        { L ARROW _ }
+  '<-'                        { L LARROW _ }
   '|->'                       { L POINTSTO _ }
   '=='                        { L EQEQ _ }
   '=/='                       { L NEQ _ }
@@ -209,7 +210,7 @@ Storage : 'storage' nonempty(Store)                   { $2 }
 Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
              | 'iff in range' AbiType nonempty(Expr)  { IffIn (posn $1) $2 $3 }
 
-Store : Entry '=>' Expr                               { Rewrite $1 $3 }
+Store : Entry '<-' Expr                               { Rewrite $1 $3 }
 
 Entry : id                                            { EVar (posn $1) (name $1) }
       | Entry '[' Expr ']' list(Index)                { EMapping (posn $2) $1 ($3:$5) }
