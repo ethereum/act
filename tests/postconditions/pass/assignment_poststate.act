@@ -9,6 +9,6 @@ behaviour f of C
 interface f()
 
 storage
-  x <- pre(x)
+  x <- post(x)
 
-returns pre(x)
+returns post(x) 

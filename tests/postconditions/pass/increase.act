@@ -10,13 +10,13 @@ interface increase(uint24 new_x)
 
 case new_x > x:
   storage
-    x => new_x
+    x <- new_x
 
   returns post(x) - pre(x)
 
 case new_x <= x:
   storage
-    x => x + new_x
+    x <- x + new_x
 
   returns post(x) - pre(x)
 
