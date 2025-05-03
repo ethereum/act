@@ -11,4 +11,7 @@ interface f()
 storage
   x <- pre(x)
 
+ensures
+  x == pre(x)
+
 returns pre(x)

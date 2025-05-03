@@ -29,8 +29,8 @@ case CALLER =/= to:
 
   storage
 
-     balanceOf[CALLER] => balanceOf[CALLER] - value
-     balanceOf[to]     => balanceOf[to] + value
+    balanceOf[CALLER] <- balanceOf[CALLER] - value
+    balanceOf[to]     <- balanceOf[to] + value
 
   returns 1
 
@@ -53,8 +53,8 @@ case src =/= dst and CALLER == src:
 
   storage
 
-     balanceOf[src] => balanceOf[src] - amount
-     balanceOf[dst] => balanceOf[dst] + amount
+    balanceOf[src] <- balanceOf[src] - amount
+    balanceOf[dst] <- balanceOf[dst] + amount
 
   returns 1
 
@@ -62,8 +62,8 @@ case src =/= dst and CALLER =/= src and allowance[src][CALLER] == 2^256 - 1:
 
   storage
 
-     balanceOf[src] => balanceOf[src] - amount
-     balanceOf[dst] => balanceOf[dst] + amount
+    balanceOf[src] <- balanceOf[src] - amount
+    balanceOf[dst] <- balanceOf[dst] + amount
 
   returns 1
 
@@ -71,13 +71,25 @@ case src =/= dst and CALLER =/= src and allowance[src][CALLER] < 2^256 - 1:
 
   storage
 
-    allowance[src][CALLER] => allowance[src][CALLER] - amount
-    balanceOf[src]         => balanceOf[src] - amount
-    balanceOf[dst]         => balanceOf[dst] + amount
+    allowance[src][CALLER] <- allowance[src][CALLER] - amount
+    balanceOf[src]         <- balanceOf[src] - amount
+    balanceOf[dst]         <- balanceOf[dst] + amount
 
   returns 1
 
 case src == dst:
 
+  storage
+
+    balanceOf[src] <- balanceOf[src] - amount
+    balanceOf[dst] <- balanceOf[dst] + amount
 
   returns 1
+
+case CALLER =/= src:
+
+  storage
+
+    allowance[src][CALLER] <- allowance[src][CALLER] - amount
+    balanceOf[src]         <- balanceOf[src] - amount
+    balanceOf[dst]         <- balanceOf[dst] + amount

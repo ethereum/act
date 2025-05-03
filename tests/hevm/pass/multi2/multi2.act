@@ -25,7 +25,7 @@ iff
    CALLVALUE == 0
 
 storage
-  x => z
+  x <- z
 
 constructor of B
 interface constructor(uint u)

@@ -16,9 +16,9 @@ iff
 case z == 0:
 
 storage
-  x => z
+  x <- z
 
 case 0 < z:
 
 storage
-  x => 0
+  x <- 0

@@ -30,8 +30,8 @@ case from =/= to:
 
   storage
 
-    balanceOf[from]  => balanceOf[from] - value
-    balanceOf[to]    => balanceOf[to] + value
+    balanceOf[from]  <- balanceOf[from] - value
+    balanceOf[to]    <- balanceOf[to] + value
 
   returns 1
 
@@ -74,11 +74,11 @@ case CALLER =/= THIS:
 
 storage
 
-    token0.balanceOf[CALLER] => token0.balanceOf[CALLER] - amt
-    token0.balanceOf[THIS]   => token0.balanceOf[THIS] + amt
+    token0.balanceOf[CALLER] <- token0.balanceOf[CALLER] - amt
+    token0.balanceOf[THIS]   <- token0.balanceOf[THIS] + amt
 
-    token1.balanceOf[THIS]   => token1.balanceOf[THIS] - ((token1.balanceOf[THIS] * amt) / (token0.balanceOf[THIS] + amt))
-    token1.balanceOf[CALLER] => token1.balanceOf[CALLER] + ((token1.balanceOf[THIS] * amt) / (token0.balanceOf[THIS] + amt))
+    token1.balanceOf[THIS]   <- token1.balanceOf[THIS] - ((token1.balanceOf[THIS] * amt) / (token0.balanceOf[THIS] + amt))
+    token1.balanceOf[CALLER] <- token1.balanceOf[CALLER] + ((token1.balanceOf[THIS] * amt) / (token0.balanceOf[THIS] + amt))
 
 returns 1
 
@@ -109,11 +109,11 @@ case CALLER =/= THIS:
 
 storage
 
-    token1.balanceOf[CALLER] => token1.balanceOf[CALLER] - amt
-    token1.balanceOf[THIS]   => token1.balanceOf[THIS] + amt
+    token1.balanceOf[CALLER] <- token1.balanceOf[CALLER] - amt
+    token1.balanceOf[THIS]   <- token1.balanceOf[THIS] + amt
 
-    token0.balanceOf[THIS]   => token0.balanceOf[THIS] - ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt))
-    token0.balanceOf[CALLER] => token0.balanceOf[CALLER] + ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt))
+    token0.balanceOf[THIS]   <- token0.balanceOf[THIS] - ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt))
+    token0.balanceOf[CALLER] <- token0.balanceOf[CALLER] + ((token0.balanceOf[THIS] * amt) / (token1.balanceOf[THIS] + amt))
 
 returns 1
 

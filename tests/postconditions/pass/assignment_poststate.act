@@ -11,4 +11,7 @@ interface f()
 storage
   x <- post(x)
 
-returns post(x) 
+ensures
+  x == post(x)
+
+returns post(x)

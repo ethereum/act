@@ -19,4 +19,4 @@ iff
 
 storage
 
-  x => 2
+  x <- 2

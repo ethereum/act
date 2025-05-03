@@ -45,9 +45,9 @@ iff
 
 storage
 
-    urns[i][u].ink => urns[i][u].ink + dink
-    urns[i][u].art => urns[i][u].art + dart
-    ilks[i].Art    => ilks[i].Art + dart
-    gem[i][v]      => gem[i][v]   - dink
-    dai[w]         => dai[w] + ilks[i].rate * dart
-    debt           => debt   + ilks[i].rate * dart
+    urns[i][u].ink <- urns[i][u].ink + dink
+    urns[i][u].art <- urns[i][u].art + dart
+    ilks[i].Art    <- ilks[i].Art + dart
+    gem[i][v]      <- gem[i][v]   - dink
+    dai[w]         <- dai[w] + ilks[i].rate * dart
+    debt           <- debt   + ilks[i].rate * dart

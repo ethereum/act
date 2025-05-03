@@ -24,7 +24,7 @@ case x == 0:
 
     storage
 
-        x => 1
+        x <- 1
 
 behaviour g of C
 interface g()
@@ -33,7 +33,7 @@ case x == 1:
 
     storage
 
-        x => 2
+        x <- 2
 
 behaviour j of C
 interface j()
@@ -42,4 +42,4 @@ case x == 7:
 
     storage
 
-        x => 100
+        x <- 100
