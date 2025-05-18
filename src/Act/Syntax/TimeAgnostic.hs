@@ -580,25 +580,18 @@ symbol s a b = object [ "symbol"   .= pack s
                       , "arity"    .= Data.Aeson.Types.Number 2
                       , "args"     .= Array (fromList [toJSON a, toJSON b]) ]
 
+-- Helper functions for integer bounds
+intmin :: Int -> Integer
+intmin a = negate $ 2 ^ (a - 1)
+
+intmax :: Int -> Integer
+intmax a = 2 ^ (a - 1) - 1
+
+uintmin :: Int -> Integer
+uintmin _ = 0
+
+uintmax :: Int -> Integer
+uintmax a = 2 ^ a - 1
+
 -- | Simplifies concrete expressions into literals.
--- Returns `Nothing` if the expression contains symbols.
-eval :: Exp a t -> Maybe (TypeOf a)
-eval e = case e of
-  And  _ a b    -> [a' && b' | a' <- eval a, b' <- eval b]
-  Or   _ a b    -> [a' || b' | a' <- eval a, b' <- eval b]
-  Impl _ a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
-  Neg  _ a      -> not <$> eval a
-  LT   _ a b    -> [a' <  b' | a' <- eval a, b' <- eval b]
-  LEQ  _ a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
-  GT   _ a b    -> [a' >  b' | a' <- eval a, b' <- eval b]
-  GEQ  _ a b    -> [a' >= b' | a' <- eval a, b' <- eval b]
-  LitBool _ a   -> pure a
-
-  Add _ a b     -> [a' + b'     | a' <- eval a, b' <- eval b]
-  Sub _ a b     -> [a' - b'     | a' <- eval a, b' <- eval b]
-  Mul _ a b     -> [a' * b'     | a' <- eval a, b' <- eval b]
-  Div _ a b     -> [a' `div` b' | a' <- eval a, b' <- eval b]
-  Mod _ a b     -> [a' `mod` b' | a' <- eval a, b' <- eval b]
-
-_Var :: SingI a => Time t -> AbiType -> Id -> Exp a t
-_Var tm at x = TEntry nowhere SCalldata (Item sing (PrimitiveType at) tm (CVar nowhere at x))
+-- Returns `
