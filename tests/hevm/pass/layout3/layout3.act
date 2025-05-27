@@ -37,6 +37,6 @@ iff
 
 storage
 
-  f[key] => value
+  f[key] <- value
 
 returns 1

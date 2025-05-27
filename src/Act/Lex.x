@@ -140,7 +140,6 @@ data LEX =
   | INRANGE
   | IFF
   | POINTERS
-  | POINTSTO
   | AND
   | NOT
   | OR
