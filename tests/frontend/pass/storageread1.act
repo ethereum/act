@@ -16,7 +16,7 @@ iff in range uint256
 storage
 
     // TODO: remove this hack once bug #81 is fixed...
-    x => x
+    x <- x
     y
 
 returns x + y

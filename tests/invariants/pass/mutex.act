@@ -17,4 +17,4 @@ iff
 	not lock
 
 storage
-	x => _x
+	x <- _x

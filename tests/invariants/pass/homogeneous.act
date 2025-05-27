@@ -18,8 +18,8 @@ iff
 	z * scalar > z
 
 storage
-	x => x * scalar
-	z => z * scalar
+	x <- x * scalar
+	z <- z * scalar
 
 
 behaviour g of Homogeneous
@@ -30,5 +30,5 @@ iff
 	z * scalar > z
 
 storage
-	y => y * scalar
-	z => z * scalar
+	y <- y * scalar
+	z <- z * scalar

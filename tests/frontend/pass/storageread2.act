@@ -20,5 +20,5 @@ interface f()
 
 storage C
 
-    x => y
+    x <- y
     y

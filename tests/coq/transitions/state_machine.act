@@ -13,7 +13,7 @@ interface f()
 iff x == 0
 
   storage
-    x => 1
+    x <- 1
 
 behaviour g of StateMachine
 interface g()
@@ -21,7 +21,7 @@ interface g()
 iff x == 1
 
   storage
-    x => 2
+    x <- 2
 
 behaviour h of StateMachine
 interface h()
@@ -29,4 +29,4 @@ interface h()
 iff x == 2
 
   storage
-    x => 0
+    x <- 0

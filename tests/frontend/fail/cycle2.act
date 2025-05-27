@@ -28,7 +28,7 @@ iff
    CALLVALUE == 0
 
 storage
-   d.x => z
+   d.x <- z
 
 constructor of C
 interface constructor(uint u)

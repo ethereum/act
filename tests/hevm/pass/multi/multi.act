@@ -14,7 +14,7 @@ iff
    CALLVALUE == 0
 
 storage
-   x => z
+   x <- z
 
 
 constructor of B
@@ -34,7 +34,7 @@ iff
    CALLVALUE == 0
 
 storage
-   a.x => z
+   a.x <- z
 
 returns 0
 
@@ -45,5 +45,5 @@ interface multi(uint z)
 iff
    CALLVALUE == 0
 storage
-   y => z
-   a.x => 42
+   y <- z
+   a.x <- 42

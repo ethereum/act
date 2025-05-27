@@ -27,8 +27,8 @@ case CALLER =/= to:
   
   storage
 
-    balanceOf[CALLER]  => balanceOf[CALLER] - value
-    balanceOf[to]      => balanceOf[to] + value
+    balanceOf[CALLER]  <- balanceOf[CALLER] - value
+    balanceOf[to]      <- balanceOf[to] + value
 
   returns 1
 

@@ -29,7 +29,7 @@ iff
 
 storage
 
-  x => x + y
+  x <- x + y
 
 
 // contract B
@@ -50,4 +50,4 @@ iff
    CALLVALUE == 0
 
 storage
-  a => create A(42)
+  a <- create A(42)

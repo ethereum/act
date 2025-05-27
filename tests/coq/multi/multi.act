@@ -11,14 +11,14 @@ interface setx(uint z)
 
 storage
 
-  a.x => z
+  a.x <- z
 
 behaviour setf of B
 interface setf(address i)
 
 storage
 
-  a.f[i] => 1
+  a.f[i] <- 1
 
 // Contract A
 constructor of A
@@ -41,12 +41,12 @@ interface setf(address i)
 
 storage
 
-  b.a.f[i] => 2
+  b.a.f[i] <- 2
 
 behaviour setxw of C
 interface setxw(address i)
 
 storage
 
-  b.a.x => 1
-  b.x => 1
+  b.a.x <- 1
+  b.x <- 1

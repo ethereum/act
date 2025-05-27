@@ -165,7 +165,7 @@ prettyLocation :: StorageLocation t -> String
 prettyLocation (Loc _ item) = prettyItem item
 
 prettyUpdate :: StorageUpdate t -> String
-prettyUpdate (Update _ item e) = prettyItem item <> " => " <> prettyExp e
+prettyUpdate (Update _ item e) = prettyItem item <> " <- " <> prettyExp e
 
 prettyEnv :: EthEnv -> String
 prettyEnv e = case e of

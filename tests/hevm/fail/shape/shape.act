@@ -25,7 +25,7 @@ iff
    CALLVALUE == 0
 
 storage
-  x => z
+  x <- z
 
 // contract B
 constructor of B
@@ -77,4 +77,4 @@ iff
   CALLVALUE == 0
   
 storage
-  a => create A(42)
+  a <- create A(42)

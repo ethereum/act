@@ -41,5 +41,5 @@ iff
 
 storage
 
-    a1 => create A(42)
-    a2 => create A(43)
+    a1 <- create A(42)
+    a2 <- create A(43)

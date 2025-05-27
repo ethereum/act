@@ -14,4 +14,4 @@ interface f(uint _x)
 
 storage
 
-    x => _x
+    x <- _x

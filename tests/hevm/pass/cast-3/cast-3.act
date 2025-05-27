@@ -30,8 +30,8 @@ case CALLER =/= to:
 
   storage
 
-    balanceOf[CALLER]  => balanceOf[CALLER] - value
-    balanceOf[to]    => balanceOf[to] + value
+    balanceOf[CALLER]  <- balanceOf[CALLER] - value
+    balanceOf[to]    <- balanceOf[to] + value
 
   returns 1
 
@@ -67,8 +67,8 @@ case CALLER =/= THIS:
 
 storage
 
-    token.balanceOf[CALLER] => token.balanceOf[CALLER] + 1
-    token.balanceOf[THIS]  => token.balanceOf[THIS] - 1
+    token.balanceOf[CALLER] <- token.balanceOf[CALLER] + 1
+    token.balanceOf[THIS]  <- token.balanceOf[THIS] - 1
 
 returns 1
 

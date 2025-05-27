@@ -12,4 +12,4 @@ interface f()
 
 storage
 
-	x => y
+	x <- y

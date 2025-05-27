@@ -29,7 +29,7 @@ iff
 
 storage
 
-  x => x + y
+  x <- x + y
 
 
 // contract B
@@ -52,7 +52,7 @@ iff
 
 storage
 
-  z => z + 1
+  z <- z + 1
 
 behaviour a_add_x of B
 interface a_add_x(uint y)
@@ -63,7 +63,7 @@ iff
 
 storage
 
-  a.x => a.x + y
+  a.x <- a.x + y
 
 
 // contract C
@@ -91,7 +91,7 @@ iff
 
 storage
 
-  b.z => b.z + 1
-  b.a.x => b.a.x + z
+  b.z <- b.z + 1
+  b.a.x <- b.a.x + z
 
 returns z

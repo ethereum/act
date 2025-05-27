@@ -26,5 +26,5 @@ iff in range uint
 
 storage
 
-    r => r * b
-    e => e - 1
+    r <- r * b
+    e <- e - 1

@@ -19,8 +19,8 @@ iff in range uint256
 
 storage
 
-    reserve0 => reserve0 + amt
-    reserve1 => (reserve0 * reserve1) / (reserve0 + amt) + 1
+    reserve0 <- reserve0 + amt
+    reserve1 <- (reserve0 * reserve1) / (reserve0 + amt) + 1
 
 behaviour swap1 of Amm
 interface swap1(uint256 amt)
@@ -31,5 +31,5 @@ iff in range uint256
 
 storage
 
-    reserve0 => (reserve0 * reserve1) / (reserve1 + amt) + 1
-    reserve1 => reserve1 + amt
+    reserve0 <- (reserve0 * reserve1) / (reserve1 + amt) + 1
+    reserve1 <- reserve1 + amt

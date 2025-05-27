@@ -23,10 +23,10 @@ iff
 
 storage
 
-  x => y
-  y => x
-  z => 11
-  flag => not flag
+  x <- y
+  y <- x
+  z <- 11
+  flag <- not flag
 
 returns 1
 
@@ -39,7 +39,7 @@ iff
 
 storage
 
-  flag => b
+  flag <- b
 
 
 behaviour get_flag of A
@@ -64,7 +64,7 @@ iff
 case flag:
 
 storage
-  y => v
+  y <- v
 
 returns 1
 

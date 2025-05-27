@@ -50,7 +50,7 @@ iff
 
 storage
 
-  f[key] => value
+  f[key] <- value
 
 returns 1
 
@@ -64,6 +64,6 @@ iff
 
 storage
 
-  g[key] => value
+  g[key] <- value
 
 returns 1

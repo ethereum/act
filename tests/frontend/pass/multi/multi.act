@@ -18,7 +18,7 @@ iff
    CALLVALUE == 0
 
 storage
-   a.x => z
+   a.x <- z
 
 behaviour multi of B
 interface multi(uint z)
@@ -27,5 +27,5 @@ iff
    CALLVALUE == 0
 
 storage
-   y => 1
-   a.x => z
+   y <- 1
+   a.x <- z

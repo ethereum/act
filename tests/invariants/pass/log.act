@@ -18,5 +18,5 @@ iff
 	n > 1
 
 storage
-	n => n / 2
-	count => count + 1
+	n <- n / 2
+	count <- count + 1
