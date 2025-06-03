@@ -594,4 +594,50 @@ uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
 -- | Simplifies concrete expressions into literals.
--- Returns `
+-- Returns `Nothing` if the expression contains symbols.
+eval :: Exp a t -> Maybe (TypeOf a)
+eval e = case e of
+  And  _ a b    -> [a' && b' | a' <- eval a, b' <- eval b]
+  Or   _ a b    -> [a' || b' | a' <- eval a, b' <- eval b]
+  Impl _ a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
+  Neg  _ a      -> not <$> eval a
+  LT   _ a b    -> [a' <  b' | a' <- eval a, b' <- eval b]
+  LEQ  _ a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
+  GT   _ a b    -> [a' >  b' | a' <- eval a, b' <- eval b]
+  GEQ  _ a b    -> [a' >= b' | a' <- eval a, b' <- eval b]
+  LitBool _ a   -> pure a
+
+  Add _ a b     -> [a' + b'     | a' <- eval a, b' <- eval b]
+  Sub _ a b     -> [a' - b'     | a' <- eval a, b' <- eval b]
+  Mul _ a b     -> [a' * b'     | a' <- eval a, b' <- eval b]
+  Div _ a b     -> [a' `div` b' | a' <- eval a, b' <- eval b]
+  Mod _ a b     -> [a' `mod` b' | a' <- eval a, b' <- eval b]
+  Exp _ a b     -> [a' ^ b'     | a' <- eval a, b' <- eval b]
+  LitInt  _ a   -> pure a
+  IntMin  _ a   -> pure $ intmin  a
+  IntMax  _ a   -> pure $ intmax  a
+  UIntMin _ a   -> pure $ uintmin a
+  UIntMax _ a   -> pure $ uintmax a
+  InRange _ _ _ -> error "TODO eval in range"
+
+  Cat _ s t     -> [s' <> t' | s' <- eval s, t' <- eval t]
+  Slice _ s a b -> [BS.pack . genericDrop a' . genericTake b' $ s'
+                            | s' <- BS.unpack <$> eval s
+                            , a' <- eval a
+                            , b' <- eval b]
+  ByStr _ s     -> pure . fromString $ s
+  ByLit _ s     -> pure s
+
+  -- TODO better way to write these?
+  Eq _ SInteger x y -> [ x' == y' | x' <- eval x, y' <- eval y]
+  Eq _ SBoolean x y -> [ x' == y' | x' <- eval x, y' <- eval y]
+  Eq _ SByteStr x y -> [ x' == y' | x' <- eval x, y' <- eval y]
+
+  NEq _ SInteger x y -> [ x' /= y' | x' <- eval x, y' <- eval y]
+  NEq _ SBoolean x y -> [ x' /= y' | x' <- eval x, y' <- eval y]
+  NEq _ SByteStr x y -> [ x' /= y' | x' <- eval x, y' <- eval y]
+
+  ITE _ a b c   -> eval a >>= \cond -> if cond then eval b else eval c
+
+  Create _ _ _ -> error "eval of contracts not supported"
+  _              -> empty
