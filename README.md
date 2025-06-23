@@ -16,7 +16,9 @@ More in depth documentation can be found in [The Act Book](https://ethereum.gith
 
 # Building
 
-With nix:
+You can build the project with nix. If you do not have nix installed yet, you can try using the [Determinate Nix installer](https://github.com/DeterminateSystems/nix-installer).
+
+Building with nix:
 
 ```sh
 nix build
@@ -30,10 +32,9 @@ Enter a nix-shell to get the dependencies of the project:
 nix develop
 ```
 
-you can then use `cabal` as normal:
+you can then use `cabal` as normal from the root directory of the project:
 
 ```sh
-cd src
 cabal build # build
 cabal repl  # enter a repl instance
 ```
@@ -42,7 +43,7 @@ to execute the unit tests:
 
 ```sh
 make test # run all tests
-cd src && cabal v2-test # run haskell tests
+cabal v2-test # run haskell tests
 ```
 
 To update the project dependencies run:
@@ -50,3 +51,20 @@ To update the project dependencies run:
 ```sh
 nix flake update
 ```
+
+# Usage
+
+Once you are in the nix shell, you can use act backends for `smt`, `hevm` and `rocq` as follows.
+
+```sh
+cabal run act -- <OPTIONS>
+```
+
+Run the following command to get the info on how to use options and configuration flags.
+
+```sh
+cabal run act -- --help
+```
+
+Alternatively, you can `make` first and then run the executable `act` as in  `act <OPTIONS>`.
+For more details on how to run each individual backend consult [The Act Book](https://ethereum.github.io/act/).
