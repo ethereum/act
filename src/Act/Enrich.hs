@@ -8,7 +8,7 @@ import Data.List (nub)
 
 import Act.Syntax
 import Act.Syntax.Annotated
-import Act.Type (defaultStore)
+import Act.Type (globalEnv)
 
 -- | Adds extra preconditions to non constructor behaviours based on the types of their variables
 enrich :: Act -> Act
@@ -53,7 +53,7 @@ mkEthEnvBounds :: [EthEnv] -> [Exp ABoolean]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
   where
     mkBound :: EthEnv -> Maybe (Exp ABoolean)
-    mkBound e = case lookup e defaultStore of
+    mkBound e = case lookup e globalEnv of
       Just AInteger -> Just $ bound (toAbiType e) (IntEnv nowhere e)
       _ -> Nothing
 

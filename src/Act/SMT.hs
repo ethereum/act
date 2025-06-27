@@ -64,7 +64,7 @@ import Act.Syntax
 import Act.Syntax.Annotated hiding (annotate)
 
 import Act.Print
-import Act.Type (defaultStore)
+import Act.Type (globalEnv)
 
 import EVM.Solvers (Solver(..))
 
@@ -492,7 +492,7 @@ getCalldataValue solver ifaceName decl@(Decl (FromAbi tp) _) = do
 getEnvironmentValue :: SolverInstance -> EthEnv -> IO (EthEnv, TypedExp)
 getEnvironmentValue solver env = do
   output <- getValue solver (prettyEnv env)
-  let val = case lookup env defaultStore of
+  let val = case lookup env globalEnv of
         Just (FromAct typ) -> parseModel typ output
         _ -> error $ "Internal Error: could not determine a type for" <> show env
   pure (env, val)
@@ -573,7 +573,7 @@ declareArg behvName d@(Decl typ _) = constant (nameFromDecl behvName d) (fromAbi
 -- | produces an SMT2 expression declaring the given EthEnv as a symbolic constant
 declareEthEnv :: EthEnv -> SMT2
 declareEthEnv env = constant (prettyEnv env) tp
-  where tp = fromJust . lookup env $ defaultStore
+  where tp = fromJust . lookup env $ globalEnv
 
 -- | encodes a typed expression as an smt2 expression
 typedExpToSMT2 :: TypedExp -> Ctx SMT2

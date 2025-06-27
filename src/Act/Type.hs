@@ -9,21 +9,21 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# Language TupleSections #-}
 
-module Act.Type (typecheck, lookupVars, defaultStore, Err) where
+module Act.Type (typecheck, lookupVars, globalEnv, Err) where
 
 import Prelude hiding (GT, LT)
 
 import EVM.ABI
-import Data.Map.Strict    (Map,keys,findWithDefault)
+import Data.Map.Strict    (Map)
 import Data.Maybe
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.Map.Strict    as Map -- abandon in favor of [(a,b)]?
+import qualified Data.Map.Strict    as Map
 import Data.Typeable hiding (typeRep)
 import Type.Reflection (typeRep)
 
 import Control.Monad (when)
-import Data.List.Extra (snoc,unsnoc)
+import Data.List.Extra (unsnoc)
 import Data.Function (on)
 import Data.Foldable
 import Data.Traversable
@@ -139,8 +139,11 @@ lookupVars = foldMap $ \case
     addSlot :: [(Id, SlotType)] -> [(Id, (SlotType, Integer))]
     addSlot l = zipWith (\(name, typ) slot -> (name, (typ, slot))) l [0..]
 
+-- | A map containing the interfaces of all available constructors together with pointer constraints
+type Constructors = Map Id [(AbiType, Maybe Id)]
 
-lookupConstructors :: [U.Contract] -> Map Id [(AbiType, Maybe Id)]
+-- | Construct the constructor map for the given spec
+lookupConstructors :: [U.Contract] -> Constructors
 lookupConstructors = foldMap $ \case
   U.Contract (U.Definition _ contract (Interface _ decls) pointers _ _ _ _) _ ->
     let ptrs = Map.fromList $ map (\(PointsTo _ x c) -> (x, c)) pointers in
@@ -148,11 +151,12 @@ lookupConstructors = foldMap $ \case
 
 -- | Extracts what we need to build a 'Store' and to verify that its names are unique.
 -- Kind of stupid return type but it makes it easier to use the same function
--- at both places (without relying on custom functions on triples.)
+-- at both places (without relying on custom functions on triples).
 fromAssign :: U.Assign -> (Pn, (Id, SlotType))
 fromAssign (U.AssignVal (U.StorageVar pn typ var) _) = (pn, (var, typ))
 fromAssign (U.AssignMany (U.StorageVar pn typ var) _) = (pn, (var, typ))
 fromAssign (U.AssignStruct _ _) = error "TODO: assignstruct"
+
 
 -- | The type checking environment.
 data Env = Env
@@ -160,14 +164,14 @@ data Env = Env
   , store        :: Map Id SlotType              -- ^ This contract's storage entry names and their types.
   , theirs       :: Store                        -- ^ Mapping from contract names to a map of their entry names and their types.
   , calldata     :: Map Id AbiType               -- ^ The calldata var names and their types.
-  , pointers     :: Map Id Id                    -- ^ Maps address calldata variables to their contract type.
-  , constructors :: Map Id [(AbiType, Maybe Id)] -- ^ Interfaces of contract contructors together with points to contraints
+  , pointers     :: Map Id Id                    -- ^ Maps address variables to their contract type.
+  , constructors :: Constructors                 -- ^ Interfaces of constructors
   }
   deriving (Show)
 
--- typing of eth env variables
-defaultStore :: [(EthEnv, ActType)]
-defaultStore =
+-- | Environment with globally available variables.
+globalEnv :: [(EthEnv, ActType)]
+globalEnv =
   [(Callvalue, AInteger),
    (Caller, AInteger),
    (Blockhash, AInteger),
@@ -184,7 +188,7 @@ defaultStore =
   ]
 
 
-mkEnv :: Id -> Store -> Map Id [(AbiType, Maybe Id)] -> Env
+mkEnv :: Id -> Store -> Constructors -> Env
 mkEnv contract store constructors = Env
   { contract = contract
   , store    = Map.map fst $ fromMaybe mempty (Map.lookup contract store)
@@ -194,21 +198,22 @@ mkEnv contract store constructors = Env
   , constructors = constructors
   }
 
--- add calldata to environment
+-- Add calldata to environment
 addCalldata :: [Decl] -> Env -> Env
 addCalldata decls env = env{ calldata = abiVars }
   where
    abiVars = Map.fromList $ map (\(Decl typ var) -> (var, typ)) decls
 
--- add pointers to environment
+-- Add pointers to environment
 addPointers :: [Pointer] -> Env -> Env
 addPointers decls env = env{ pointers = ptrs }
   where
    ptrs = Map.fromList $ map (\(PointsTo _ x c) -> (x, c)) decls
 
-checkContract :: Store -> Map Id [(AbiType, Maybe Id)] -> U.Contract -> Err Contract
+-- Type check a contract
+checkContract :: Store -> Constructors -> U.Contract -> Err Contract
 checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ _ _) trans) =
-  Contract <$> checkDefinition env constr <*> (concat <$> traverse (checkTransition env) trans) <* namesConsistent
+  Contract <$> checkConstructor env constr <*> (concat <$> traverse (checkBehavior env) trans) <* namesConsistent
   where
     env :: Env
     env = mkEnv cid store constructors
@@ -220,15 +225,16 @@ checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ 
     errmsg pn cid' = (pn, "Behavior must belong to contract " <> show cid <> " but belongs to contract " <> cid')
 
 
--- checks a transition given a typing of its storage variables
-checkTransition :: Env -> U.Transition -> Err [Behaviour]
-checkTransition env (U.Transition _ name contract iface@(Interface _ decls) ptrs iffs cases posts) =
+-- Type check a behavior
+checkBehavior :: Env -> U.Transition -> Err [Behaviour]
+checkBehavior env (U.Transition _ name contract iface@(Interface _ decls) ptrs iffs cases posts) =
   traverse (checkPointer env') ptrs *>
   noIllegalWilds *>
   -- constrain integer calldata variables (TODO: other types)
   fmap fmap (makeBehv <$> checkIffs env' iffs <*> traverse (checkExpr env' SBoolean) posts)
   <*> traverse (checkCase env') normalizedCases
   where
+    -- Add calldata variables and pointers to the typing environment
     env' = addPointers ptrs $ addCalldata decls env
 
     noIllegalWilds :: Err ()
@@ -248,26 +254,30 @@ checkTransition env (U.Transition _ name contract iface@(Interface _ decls) ptrs
                                                   Nothing -> error "Internal error: branches cannot be empty"
           negation = U.ENot nowhere $
                         foldl (\acc (U.Case _ e _) -> U.EOr nowhere e acc) (U.BoolLit nowhere False) rest
-        in rest `snoc` (if isWild lastCase then U.Case pn negation post else lastCase)
+        in rest ++ [if isWild lastCase then U.Case pn negation post else lastCase]
 
-    -- | split case into pass and fail case
+    -- Construct a behavior node
     makeBehv :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [StorageUpdate], Maybe (TypedExp Timed)) -> Behaviour
-    makeBehv iffs' postcs (if',storage,ret) = Behaviour name contract iface ptrs iffs' if' postcs storage ret
+    makeBehv pres posts' (casecond,storage,ret) = Behaviour name contract iface ptrs pres casecond posts' storage ret
 
-checkDefinition :: Env -> U.Definition -> Err Constructor
-checkDefinition env (U.Definition _ contract (Interface _ decls) ptrs iffs (U.Creates assigns) postcs invs) =
+checkConstructor :: Env -> U.Definition -> Err Constructor
+checkConstructor env (U.Definition _ contract (Interface _ decls) ptrs iffs (U.Creates assigns) postcs invs) =
   do
     traverse_ (checkPointer env') ptrs
     stateUpdates <- concat <$> traverse (checkAssign env') assigns
-    iffs' <- checkIffs (env'{ store = mempty })  iffs
+    iffs' <- checkIffs envNoStorage iffs
     traverse_ (validStorage env') assigns
     ensures <- traverse (checkExpr env' SBoolean) postcs
     invs' <- fmap (Invariant contract [] []) <$> traverse (checkExpr env' SBoolean) invs
     pure $ Constructor contract (Interface contract decls) ptrs iffs' ensures invs' stateUpdates
   where
     env' = addPointers ptrs $ addCalldata decls env
+    -- type checking environment prior to storage creation of this contract
+    envNoStorage = env'{ store = mempty }
 
-
+-- | Checks that a pointer declaration x |-> A is valid. This consists on
+-- checking that x is a calldata variable that has address type and A is a valid
+-- contract type.
 checkPointer :: Env -> U.Pointer -> Err ()
 checkPointer Env{theirs,calldata} (U.PointsTo p x c) =
   maybe (throw (p, "Contract " <> c <> " is not a valid contract type")) (\_ -> pure ()) (Map.lookup c theirs) *>
@@ -283,7 +293,7 @@ validStorage env (U.AssignVal (U.StorageVar p t _) _) = validSlotType env p t
 validStorage env (U.AssignMany (U.StorageVar p t _) _) = validSlotType env p t
 validStorage env (U.AssignStruct (U.StorageVar p t _) _) = validSlotType env p t
 
--- | Check if the a type is valid in an environment
+-- | Check if the a contract type is valid in an environment
 validType :: Env -> Pn -> ValueType -> Err ()
 validType Env{theirs} p (ContractType c) =
   maybe (throw (p, "Contract " <> c <> " is not a valid contract type")) (\_ -> pure ()) $ Map.lookup c theirs
@@ -298,7 +308,7 @@ validSlotType env p (StorageMapping ks res) = traverse_ (\k -> validType env p k
 validSlotType env p (StorageValue t) = validType env p t
 
 
--- | Typechecks a case, returning typed versions of its preconditions, rewrites and return value.
+-- | Type checks a case, returning typed versions of its preconditions, rewrites and return value.
 checkCase :: Env -> U.Case -> Err ([Exp ABoolean Untimed], [StorageUpdate], Maybe (TypedExp Timed))
 checkCase env c@(U.Case _ pre post) = do
   -- TODO isWild checks for WildExp, but WildExp is never generated
@@ -306,24 +316,21 @@ checkCase env c@(U.Case _ pre post) = do
   (storage,return') <- checkPost env post
   pure (if',storage,return')
 
--- | Ensures that none of the storage variables are read in the supplied `Expr`.
-noStorageRead :: Map Id SlotType -> U.Expr -> Err ()
-noStorageRead store expr = for_ (keys store) $ \name ->
-  for_ (findWithDefault [] name (idFromRewrites expr)) $ \pn ->
-    throw (pn,"Cannot read storage in creates block")
-
--- ensures that key types match value types in an U.Assign
+-- Check the initial assignment of a storage variable
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
-checkAssign env@Env{contract,store} (U.AssignVal (U.StorageVar pn (StorageValue vt@(FromVType typ)) name) expr)
-  = sequenceA [checkExpr env typ expr `bindValidation` \te ->
+checkAssign env@Env{contract} (U.AssignVal (U.StorageVar pn (StorageValue vt@(FromVType typ)) name) expr)
+  = sequenceA [checkExpr envNoStorage typ expr `bindValidation` \te ->
                findContractType env te `bindValidation` \ctyp ->
                _Update (_Item vt (SVar pn contract name)) te <$ validContractType pn vt ctyp]
-    <* noStorageRead store expr
+  where
+    -- type checking environment prior to storage creation of this contract
+    envNoStorage = env { store = mempty }
 
-checkAssign env@Env{store} (U.AssignMany (U.StorageVar pn (StorageMapping (keyType :| _) valType) name) defns)
-  = for defns $ \def@(U.Defn e1 e2) -> checkDefn pn env keyType valType name def
-                                       <* noStorageRead store e1
-                                       <* noStorageRead store e2
+checkAssign env (U.AssignMany (U.StorageVar pn (StorageMapping (keyType :| _) valType) name) defns)
+  = for defns $ \def -> checkDefn pn envNoStorage keyType valType name def
+  where
+    -- type checking environment prior to storage creation of this contract
+    envNoStorage = env { store = mempty }
 
 checkAssign _ (U.AssignVal (U.StorageVar _ (StorageMapping _ _) _) expr)
   = throw (getPosn expr, "Cannot assign a single expression to a composite type")
@@ -342,22 +349,16 @@ checkDefn pn env@Env{contract} keyType vt@(FromVType valType) name (U.Defn k val
   <$> (_Item vt . SMapping nowhere (SVar pn contract name) <$> checkIxs env (getPosn k) [k] [keyType])
   <*> checkExpr env valType val
 
--- | Typechecks a postcondition, returning typed versions of its storage updates and return expression.
+-- | Type checks a postcondition, returning typed versions of its storage updates and return expression.
 checkPost :: Env -> U.Post -> Err ([StorageUpdate], Maybe (TypedExp Timed))
-checkPost env@Env{contract,theirs} (U.Post storage maybeReturn) = do
-  returnexp <- traverse (typedExp $ focus contract) maybeReturn
-  storage' <- checkEntries contract storage
+checkPost env (U.Post storage maybeReturn) = do
+  returnexp <- traverse (typedExp env) maybeReturn
+  storage' <- checkEntries storage
   pure (storage', returnexp)
   where
-    checkEntries :: Id -> [U.Storage] -> Err [StorageUpdate]
-    checkEntries name entries = for entries $ \case
-      U.Rewrite  loc val -> checkStorageExpr (focus name) loc val
-
-    focus :: Id -> Env
-    focus name = env
-      { contract = name
-      , store    = Map.map fst $ Map.findWithDefault mempty name theirs
-      }
+    checkEntries :: [U.Storage] -> Err [StorageUpdate]
+    checkEntries entries = for entries $ \case
+      U.Rewrite  loc val -> checkStorageExpr env loc val
 
 checkEntry :: forall t k. Typeable t => Env -> SRefKind k -> U.Entry -> Err (SlotType, Maybe Id, Ref k t)
 checkEntry Env{contract,store,calldata, pointers} kind (U.EVar p name) = case (kind, Map.lookup name store, Map.lookup name calldata) of
@@ -406,14 +407,6 @@ validContractType pn (ContractType c1) Nothing =
   throw (pn, "Assignment to storage variable was expected to have contract type " <> c1)
 validContractType _ _ _ = pure ()
 
--- findContractTypes :: Pn ->  -> Maybe Id -> Err ()
--- findContractTypes pn (Just c1) (Just c2) =
---   assert (pn, "Assignment to storage variable was expected to have contract type " <> c1 <> " but has contract type " <> c2) (c1 == c2)
--- validContractType pn (Just c1) Nothing =
---   throw (pn, "Assignment to storage variable was expected to have contract type " <> c1)
--- validContractType _ _ _ = pure ()
-
-
 checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
 checkIffs env = foldr check (pure [])
   where
@@ -450,6 +443,7 @@ typedExp env e = findSuccess (throw (getPosn e, "Cannot find a valid type for ex
                    , TExp SByteStr <$> checkExpr env SByteStr e
                    ]
 
+-- | Helper to create to create a conjunction out of a list of expressions
 andExps :: [Exp ABoolean t] -> Exp ABoolean t
 andExps [] = LitBool nowhere True
 andExps (c:cs) = foldr (And nowhere) c cs
@@ -494,11 +488,11 @@ checkExpr env@Env{constructors, calldata} typ e = case (typ, e) of
        pure $ ITE p b e1 e2)
 
   -- Environment variables
-  (SInteger, U.EnvExp p v1) -> case lookup v1 defaultStore of
+  (SInteger, U.EnvExp p v1) -> case lookup v1 globalEnv of
     Just AInteger -> pure $ IntEnv p v1
     Just AByteStr -> throw (p, "Environment variable " <> show v1 <> " has type bytestring but an expression of type integer is expected.")
     _             -> throw (p, "Unknown environment variable " <> show v1)
-  (SByteStr, U.EnvExp p v1) -> case lookup v1 defaultStore of
+  (SByteStr, U.EnvExp p v1) -> case lookup v1 globalEnv of
     Just AInteger -> throw (p, "Environment variable " <> show v1 <> " has type integer but an expression of type bytestring is expected.")
     Just AByteStr -> pure $ ByEnv p v1
     _             -> throw (p, "Unknown environment variable " <> show v1)
