@@ -57,7 +57,7 @@ typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store cons
                              <* noDuplicateContracts
                              <* noDuplicateBehaviourNames
                              <* noDuplicateInterfaces
-                             <* traverse noDuplicateVars [creates | U.Contract (U.Definition _ _ _ _ _ creates _ _) _ <- contracts]
+                             <* traverse noDuplicateVars [creates | U.Contract (U.Constructor _ _ _ _ _ creates _ _) _ <- contracts]
   where
     store = lookupVars contracts
     constructors = lookupConstructors contracts
@@ -65,7 +65,7 @@ typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store cons
     transitions = concatMap (\(U.Contract _ ts) -> ts) contracts
 
     noDuplicateContracts :: Err ()
-    noDuplicateContracts = noDuplicates [(pn,contract) | U.Contract (U.Definition pn contract _ _ _ _ _ _) _ <- contracts]
+    noDuplicateContracts = noDuplicates [(pn,contract) | U.Contract (U.Constructor pn contract _ _ _ _ _ _) _ <- contracts]
                            $ \c -> "Multiple definitions of Contract " <> c
 
     noDuplicateVars :: U.Creates -> Err ()
@@ -135,7 +135,7 @@ topologicalSort (Act store contracts) =
 --- Finds storage declarations from constructors
 lookupVars :: [U.Contract] -> Store
 lookupVars = foldMap $ \case
-  U.Contract (U.Definition  _ contract _ _ _ (U.Creates assigns) _ _) _ ->
+  U.Contract (U.Constructor  _ contract _ _ _ (U.Creates assigns) _ _) _ ->
     Map.singleton contract . Map.fromList $ addSlot $ snd . fromAssign <$> assigns
   where
     addSlot :: [(Id, SlotType)] -> [(Id, (SlotType, Integer))]
@@ -147,7 +147,7 @@ type Constructors = Map Id [(AbiType, Maybe Id)]
 -- | Construct the constructor map for the given spec
 lookupConstructors :: [U.Contract] -> Constructors
 lookupConstructors = foldMap $ \case
-  U.Contract (U.Definition _ contract (Interface _ decls) pointers _ _ _ _) _ ->
+  U.Contract (U.Constructor _ contract (Interface _ decls) pointers _ _ _ _) _ ->
     let ptrs = Map.fromList $ map (\(PointsTo _ x c) -> (x, c)) pointers in
     Map.singleton contract (map (\(Decl t x) -> (t, Map.lookup x ptrs)) decls)
 
@@ -156,8 +156,7 @@ lookupConstructors = foldMap $ \case
 -- at both places (without relying on custom functions on triples).
 fromAssign :: U.Assign -> (Pn, (Id, SlotType))
 fromAssign (U.AssignVal (U.StorageVar pn typ var) _) = (pn, (var, typ))
-fromAssign (U.AssignMany (U.StorageVar pn typ var) _) = (pn, (var, typ))
-fromAssign (U.AssignStruct _ _) = error "TODO: assignstruct"
+fromAssign (U.AssignMapping (U.StorageVar pn typ var) _) = (pn, (var, typ))
 
 
 -- | The type checking environment.
@@ -214,7 +213,7 @@ addPointers decls env = env{ pointers = ptrs }
 
 -- Type check a contract
 checkContract :: Store -> Constructors -> U.Contract -> Err Contract
-checkContract store constructors (U.Contract constr@(U.Definition _ cid _ _ _ _ _ _) trans) =
+checkContract store constructors (U.Contract constr@(U.Constructor _ cid _ _ _ _ _ _) trans) =
   Contract <$> checkConstructor env constr <*> (concat <$> traverse (checkBehavior env) trans) <* namesConsistent
   where
     env :: Env
@@ -241,15 +240,13 @@ checkBehavior env (U.Transition _ name contract iface@(Interface _ decls) ptrs i
 
     noIllegalWilds :: Err ()
     noIllegalWilds = case cases of
-      U.Direct   _  -> pure ()
       U.Branches bs -> for_ (init bs) $ \c@(U.Case p _ _) ->
                           ((when (isWild c) ((throw (p, "Wildcard pattern must be last case")):: Err ())) :: Err ())
 
     -- translate wildcards into negation of other branches and translate a single case to a wildcard
     normalizedCases :: [U.Case]
     normalizedCases = case cases of
-      U.Direct   post -> [U.Case nowhere (U.WildExp nowhere) post]
-      U.Branches bs ->
+     U.Branches bs ->
         let
           (rest, lastCase@(U.Case pn _ post)) = case unsnoc bs of
                                                   Just r -> r
@@ -262,8 +259,8 @@ checkBehavior env (U.Transition _ name contract iface@(Interface _ decls) ptrs i
     makeBehv :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [StorageUpdate], Maybe (TypedExp Timed)) -> Behaviour
     makeBehv pres posts' (casecond,storage,ret) = Behaviour name contract iface ptrs pres casecond posts' storage ret
 
-checkConstructor :: Env -> U.Definition -> Err Constructor
-checkConstructor env (U.Definition _ contract (Interface _ decls) ptrs iffs (U.Creates assigns) postcs invs) =
+checkConstructor :: Env -> U.Constructor -> Err Constructor
+checkConstructor env (U.Constructor _ contract (Interface _ decls) ptrs iffs (U.Creates assigns) postcs invs) =
   do
     traverse_ (checkPointer env') ptrs
     stateUpdates <- concat <$> traverse (checkAssign env') assigns
@@ -292,8 +289,7 @@ checkPointer Env{theirs,calldata} (U.PointsTo p x c) =
 -- | Check if the types of storage variables are valid
 validStorage :: Env -> U.Assign -> Err ()
 validStorage env (U.AssignVal (U.StorageVar p t _) _) = validSlotType env p t
-validStorage env (U.AssignMany (U.StorageVar p t _) _) = validSlotType env p t
-validStorage env (U.AssignStruct (U.StorageVar p t _) _) = validSlotType env p t
+validStorage env (U.AssignMapping (U.StorageVar p t _) _) = validSlotType env p t
 
 -- | Check if the a contract type is valid in an environment
 validType :: Env -> Pn -> ValueType -> Err ()
@@ -328,7 +324,7 @@ checkAssign env@Env{contract} (U.AssignVal (U.StorageVar pn (StorageValue vt@(Fr
     -- type checking environment prior to storage creation of this contract
     envNoStorage = env { store = mempty }
 
-checkAssign env (U.AssignMany (U.StorageVar pn (StorageMapping (keyType :| _) valType) name) defns)
+checkAssign env (U.AssignMapping (U.StorageVar pn (StorageMapping (keyType :| _) valType) name) defns)
   = for defns $ \def -> checkDefn pn envNoStorage keyType valType name def
   where
     -- type checking environment prior to storage creation of this contract
@@ -337,16 +333,13 @@ checkAssign env (U.AssignMany (U.StorageVar pn (StorageMapping (keyType :| _) va
 checkAssign _ (U.AssignVal (U.StorageVar _ (StorageMapping _ _) _) expr)
   = throw (getPosn expr, "Cannot assign a single expression to a composite type")
 
-checkAssign _ (U.AssignMany (U.StorageVar pn (StorageValue _) _) _)
+checkAssign _ (U.AssignMapping (U.StorageVar pn (StorageValue _) _) _)
   = throw (pn, "Cannot assign multiple values to an atomic type")
-
-checkAssign _ _ = error "todo: support struct assignment in constructors"
-
 
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
-checkDefn :: Pn -> Env -> ValueType -> ValueType -> Id -> U.Defn -> Err StorageUpdate
-checkDefn pn env@Env{contract} keyType vt@(FromVType valType) name (U.Defn k val) =
+checkDefn :: Pn -> Env -> ValueType -> ValueType -> Id -> U.Mapping -> Err StorageUpdate
+checkDefn pn env@Env{contract} keyType vt@(FromVType valType) name (U.Mapping k val) =
   _Update
   <$> (_Item vt . SMapping nowhere (SVar pn contract name) <$> checkIxs env (getPosn k) [k] [keyType])
   <*> checkExpr env valType val
@@ -360,7 +353,7 @@ checkPost env (U.Post storage maybeReturn) = do
   where
     checkEntries :: [U.Storage] -> Err [StorageUpdate]
     checkEntries entries = for entries $ \case
-      U.Rewrite  loc val -> checkStorageExpr env loc val
+      U.Update loc val -> checkStorageExpr env loc val
 
 checkEntry :: forall t k. Typeable t => Env -> SRefKind k -> U.Entry -> Err (SlotType, Maybe Id, Ref k t)
 checkEntry Env{contract,store,calldata, pointers} kind (U.EVar p name) = case (kind, Map.lookup name store, Map.lookup name calldata) of
@@ -409,12 +402,8 @@ validContractType pn (ContractType c1) Nothing =
   throw (pn, "Assignment to storage variable was expected to have contract type " <> c1)
 validContractType _ _ _ = pure ()
 
-checkIffs :: Env -> [U.IffH] -> Err [Exp ABoolean Untimed]
-checkIffs env = foldr check (pure [])
-  where
-    check (U.Iff   _     exps) acc = mappend <$> traverse (checkExpr env SBoolean) exps <*> acc
-    check (U.IffIn _ typ exps) acc = mappend <$> (mconcat <$> traverse (fmap (genInRange typ) . checkExpr env SInteger) exps) <*> acc
-
+checkIffs :: Env -> U.Iff -> Err [Exp ABoolean Untimed]
+checkIffs env exps = traverse (checkExpr env SBoolean) exps
 
 -- | If an `inrange e` predicate appears in the source code, then the inrange
 -- predicate is propagated to all subexpressions of `e`. This elaboration step
@@ -502,8 +491,8 @@ inferExpr env@Env{calldata, constructors} e = case e of
     _             -> throw (p, "Unknown environment variable " <> show v1)
 
   -- Variable references
-  -- Note: untimed entries in the untyped AST and in the typed AST have
-  -- different meanings. Calldata variables are always untimed in the untimed
+  -- Note: untimed entries in the untyped AST and in the typed AST have a
+  -- different meaning. Calldata variables are always untimed in the untimed
   -- AST but they become timed (with pre) in the typed AST whene they are used
   -- in a timed context.
   U.EUTEntry entry | isCalldataEntry entry   -> checkVar entry

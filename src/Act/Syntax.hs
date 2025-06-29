@@ -36,7 +36,7 @@ locsFromBehaviour (Behaviour _ _ _ _ preconds cases postconds rewrites returns) 
   <> maybe [] locsFromTypedExp returns
 
 locsFromConstructor :: Annotated.Constructor -> [Annotated.StorageLocation]
-locsFromConstructor (Constructor _ _ _ pre post inv initialStorage) = nub $
+locsFromConstructor (Annotated.Constructor _ _ _ pre post inv initialStorage) = nub $
   concatMap locsFromExp pre
   <> concatMap locsFromExp post
   <> concatMap locsFromInvariant inv
@@ -52,7 +52,7 @@ locsFromInvariant (Invariant _ pre bounds (predpre, predpost)) =
 ------------------------------------
 
 nameOfContract :: Contract t -> Id
-nameOfContract (Contract (Constructor cname _ _ _ _ _ _) _) = cname
+nameOfContract (Contract (Annotated.Constructor cname _ _ _ _ _ _) _) = cname
 
 behvsFromAct :: Agnostic.Act t -> [Behaviour t]
 behvsFromAct (Act _ contracts) = behvsFromContracts contracts
@@ -60,15 +60,15 @@ behvsFromAct (Act _ contracts) = behvsFromContracts contracts
 behvsFromContracts :: [Contract t] -> [Behaviour t]
 behvsFromContracts contracts = concatMap (\(Contract _ b) -> b) contracts
 
-constrFromContracts :: [Contract t] -> [Constructor t]
+constrFromContracts :: [Contract t] -> [Agnostic.Constructor t]
 constrFromContracts contracts = fmap (\(Contract c _) -> c) contracts
 
 locsFromUpdate :: StorageUpdate t -> [StorageLocation t]
 locsFromUpdate update = nub $ case update of
-  (Update _ item e) -> locsFromItem SStorage item <> locsFromExp e
+  (Annotated.Update _ item e) -> locsFromItem SStorage item <> locsFromExp e
 
 locFromUpdate :: StorageUpdate t -> StorageLocation t
-locFromUpdate (Update _ item _) = _Loc item
+locFromUpdate (Annotated.Update _ item _) = _Loc item
 
 locsFromItem :: SRefKind k -> TItem a k t -> [StorageLocation t]
 locsFromItem SCalldata item = concatMap locsFromTypedExp (ixsFromItem item)
@@ -164,7 +164,7 @@ createsFromContract (Contract constr behvs) =
   createsFromConstructor constr <> concatMap createsFromBehaviour behvs
 
 createsFromConstructor :: Typed.Constructor -> [Id]
-createsFromConstructor (Constructor _ _ _ pre post inv initialStorage) = nub $
+createsFromConstructor (Typed.Constructor _ _ _ pre post inv initialStorage) = nub $
   concatMap createsFromExp pre
   <> concatMap createsFromExp post
   <> concatMap createsFromInvariant inv
@@ -176,7 +176,7 @@ createsFromInvariant (Invariant _ pre bounds ipred) =
 
 createsFromUpdate :: StorageUpdate t ->[Id]
 createsFromUpdate update = nub $ case update of
-  Update _ item e -> createsFromItem item <> createsFromExp e
+  Typed.Update _ item e -> createsFromItem item <> createsFromExp e
 
 createsFromBehaviour :: Behaviour t -> [Id]
 createsFromBehaviour (Behaviour _ _ _ _ _ preconds postconds rewrites returns) = nub $
@@ -191,7 +191,7 @@ pointersFromContract (Contract constr behvs) =
   nub $ pointersFromConstructor constr <> concatMap pointersFromBehaviour behvs
 
 pointersFromConstructor :: Typed.Constructor -> [Id]
-pointersFromConstructor (Constructor _ _ ptrs _ _ _ _) =
+pointersFromConstructor (Typed.Constructor _ _ ptrs _ _ _ _) =
   map (\(PointsTo _ _ c) -> c) ptrs
 
 pointersFromBehaviour :: Behaviour t -> [Id]
@@ -207,7 +207,7 @@ ethEnvFromBehaviour (Behaviour _ _ _ _ preconds cases postconds rewrites returns
   <> maybe [] ethEnvFromTypedExp returns
 
 ethEnvFromConstructor :: Annotated.Constructor -> [EthEnv]
-ethEnvFromConstructor (Constructor _ _ _ pre post inv initialStorage) = nub $
+ethEnvFromConstructor (Annotated.Constructor _ _ _ pre post inv initialStorage) = nub $
   concatMap ethEnvFromExp pre
   <> concatMap ethEnvFromExp post
   <> concatMap ethEnvFromInvariant inv
@@ -220,7 +220,7 @@ ethEnvFromInvariant (Invariant _ pre bounds (predpre, predpost)) =
 
 ethEnvFromUpdate :: StorageUpdate t -> [EthEnv]
 ethEnvFromUpdate rewrite = case rewrite of
-  Update _ item e -> nub $ ethEnvFromItem item <> ethEnvFromExp e
+  Typed.Update _ item e -> nub $ ethEnvFromItem item <> ethEnvFromExp e
 
 ethEnvFromItem :: TItem k a t -> [EthEnv]
 ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
@@ -276,7 +276,7 @@ idFromRef (SMapping _ e _) = idFromRef e
 idFromRef (SField _ e _ _) = idFromRef e
 
 idFromUpdate :: StorageUpdate t -> Id
-idFromUpdate (Update _ item _) = idFromItem item
+idFromUpdate (Typed.Update _ item _) = idFromItem item
 
 idFromLocation :: StorageLocation t -> Id
 idFromLocation (Loc _ item) = idFromItem item
@@ -294,7 +294,7 @@ ixsFromLocation :: StorageLocation t -> [TypedExp t]
 ixsFromLocation (Loc _ item) = ixsFromItem item
 
 ixsFromUpdate :: StorageUpdate t -> [TypedExp t]
-ixsFromUpdate (Update _ item _) = ixsFromItem item
+ixsFromUpdate (Typed.Update _ item _) = ixsFromItem item
 
 itemType :: TItem k a t -> ActType
 itemType (Item t _ _) = actType t
@@ -348,7 +348,7 @@ posnFromExp e = case e of
 --------------------------------------
 
 nameFromStorage :: Untyped.Storage -> Id
-nameFromStorage (Untyped.Rewrite e _) = nameFromEntry e
+nameFromStorage (Untyped.Update e _) = nameFromEntry e
 
 nameFromEntry :: Entry -> Id
 nameFromEntry (EVar _ x) = x
@@ -400,8 +400,8 @@ getPosn expr = case expr of
     BoolLit pn _ -> pn
     EInRange pn _ _ -> pn
 
-posFromDef :: Defn -> Pn
-posFromDef (Defn e _) = getPosn e
+posFromDef :: Mapping -> Pn
+posFromDef (Mapping e _) = getPosn e
 
 -- | Returns all the identifiers used in an expression,
 -- as well all of the positions they're used in.

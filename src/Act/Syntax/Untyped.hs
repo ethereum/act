@@ -1,6 +1,5 @@
--- data types for the parsed syntax.
--- Has the correct basic structure, but doesn't necessarily type check
--- It is also equipped with position information for extra debugging xp
+-- Data types for the Act AST after parsing. It is also equipped with position information
+-- for printing informative error messages.
 {-# LANGUAGE OverloadedStrings #-}
 
 module Act.Syntax.Untyped (module Act.Syntax.Untyped) where
@@ -20,14 +19,16 @@ type Id = String
 newtype Act = Main [Contract]
   deriving (Eq, Show)
 
-data Contract = Contract Definition [Transition]
+data Contract = Contract Constructor [Transition]
   deriving (Eq, Show)
 
-data Definition = Definition Pn Id Interface [Pointer] [IffH] Creates Ensures Invariants
+data Constructor = Constructor Pn Id Interface [Pointer] Iff Creates Ensures Invariants
   deriving (Eq, Show)
 
-data Transition = Transition Pn Id Id Interface [Pointer] [IffH] Cases Ensures
+data Transition = Transition Pn Id Id Interface [Pointer] Iff Cases Ensures
   deriving (Eq, Show)
+
+type Iff = [Expr]
 
 type Ensures = [Expr]
 
@@ -45,9 +46,7 @@ data Interface = Interface Id [Decl]
 instance Show Interface where
   show (Interface a d) = a <> "(" <> intercalate ", " (fmap show d) <> ")"
 
-data Cases
-  = Direct Post
-  | Branches [Case]
+newtype Cases = Branches [Case]
   deriving (Eq, Show)
 
 data Case = Case Pn Expr Post
@@ -61,15 +60,17 @@ newtype Creates = Creates [Assign]
   deriving (Eq, Show)
 
 data Storage
-  = Rewrite Entry Expr
+  = Update Entry Expr
   deriving (Eq, Show)
 
-data Assign = AssignVal StorageVar Expr | AssignMany StorageVar [Defn] | AssignStruct StorageVar [Defn]
+data Assign = AssignVal StorageVar Expr | AssignMapping StorageVar [Mapping]
   deriving (Eq, Show)
--- TODO AssignStruct is never used
 
-data IffH = Iff Pn [Expr] | IffIn Pn AbiType [Expr]
+data StorageVar = StorageVar Pn SlotType Id
   deriving (Eq, Show)
+
+data Decl = Decl AbiType Id
+  deriving (Eq, Ord)
 
 data Entry
   = EVar Pn Id
@@ -77,7 +78,7 @@ data Entry
   | EField Pn Entry Id
   deriving (Eq, Show)
 
-data Defn = Defn Expr Expr
+data Mapping = Mapping Expr Expr
   deriving (Eq, Show)
 
 data Expr
@@ -117,23 +118,6 @@ data Expr
   | EInRange Pn AbiType Expr
   deriving (Eq, Show)
 
-data EthEnv
-  = Caller
-  | Callvalue
-  | Calldepth
-  | Origin
-  | Blockhash
-  | Blocknumber
-  | Difficulty
-  | Chainid
-  | Gaslimit
-  | Coinbase
-  | Timestamp
-  | This
-  | Nonce
-  deriving (Show, Eq)
-
-
 data ValueType
   = ContractType Id
   | PrimitiveType AbiType
@@ -160,12 +144,21 @@ instance Show SlotType where
        <> ")")
    (show t) s
 
-
-data StorageVar = StorageVar Pn SlotType Id
-  deriving (Eq, Show)
-
-data Decl = Decl AbiType Id
-  deriving (Eq, Ord)
+data EthEnv
+  = Caller
+  | Callvalue
+  | Calldepth
+  | Origin
+  | Blockhash
+  | Blocknumber
+  | Difficulty
+  | Chainid
+  | Gaslimit
+  | Coinbase
+  | Timestamp
+  | This
+  | Nonce
+  deriving (Show, Eq)
 
 instance Show Decl where
   show (Decl t a) = show t <> " " <> a
