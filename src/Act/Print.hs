@@ -142,7 +142,7 @@ prettyExp e = case e of
 
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  TEntry _ t _ a -> timeParens t $ prettyItem a
+  TEntry _ _ a ->  prettyItem a
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
@@ -155,7 +155,7 @@ prettyItem (Item _ _ r) = prettyRef r
 prettyRef :: Ref k t -> String
 prettyRef = \case
   CVar _ _ n -> n
-  SVar _ _ n -> n
+  SVar _ n _ t -> timeParens t n
   SMapping _ r args -> prettyRef r <> concatMap (brackets . prettyTypedExp) args
   SField _ r _ n -> prettyRef r <> "." <> n
   where
@@ -197,7 +197,7 @@ prettyInvPred = prettyExp . untime . fst
     untimeTyped (TExp t e) = TExp t (untime e)
 
     untimeRef:: Ref k t -> Ref k Untimed
-    untimeRef (SVar p c a) = SVar p c a
+    untimeRef (SVar p c a _) = SVar p c a Neither
     untimeRef (CVar p c a) = CVar p c a
     untimeRef (SMapping p e xs) = SMapping p (untimeRef e) (fmap untimeTyped xs)
     untimeRef (SField p e c x) = SField p (untimeRef e) c x
@@ -235,7 +235,7 @@ prettyInvPred = prettyExp . untime . fst
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
-      TEntry p _ k (Item t vt a) -> TEntry p Neither k (Item t vt (untimeRef a))
+      TEntry p k (Item t vt a) -> TEntry p k (Item t vt (untimeRef a))
 
 
 -- | Doc type for terminal output

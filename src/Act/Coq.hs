@@ -147,7 +147,7 @@ retVal _ = return ""
 -- 'handler' defines what to do in cases where a given name isn't updated
 stateval :: Store -> Id -> (Ref Storage -> SlotType -> T.Text) -> [StorageUpdate] -> T.Text
 stateval store contract handler updates = T.unwords $
-  stateConstructor : fmap (\(n, (t, _)) -> updateVar store updates handler (SVar nowhere contract n) t) (M.toList store')
+  stateConstructor : fmap (\(n, (t, _)) -> updateVar store updates handler (SVar nowhere contract n Pre) t) (M.toList store')
   where
     store' = contractStore contract store
 
@@ -166,7 +166,7 @@ eqRef r (Update _ (Item _ _ r') _) = r == r'
 baseRef :: Ref Storage -> StorageUpdate -> Bool
 baseRef baseref (Update _ (Item _ _ r) _) = hasBase r
   where
-    hasBase (SVar _ _ _) = False
+    hasBase (SVar _ _ _ _) = False
     hasBase (SMapping _ r' _) = r' == baseref || hasBase r'
     hasBase (SField _ r' _ _) = r' == baseref || hasBase r'
 
@@ -306,7 +306,7 @@ coqexp (UIntMax _ n) = parens $ "UINT_MAX " <> T.pack (show n)
 coqexp (InRange _ t e) = coqexp (bound t e)
 
 -- polymorphic
-coqexp (TEntry _ w _ e) = entry e w
+coqexp (TEntry _ _ e) = entry e
 coqexp (ITE _ b e1 e2) = parens $ "if "
                                <> coqexp b
                                <> " then "
@@ -349,13 +349,13 @@ coqprop e = error "ill formed proposition: " <> T.pack (show e)
 typedexp :: TypedExp -> T.Text
 typedexp (TExp _ e) = coqexp e
 
-entry :: TItem k a -> When -> T.Text
-entry (Item SByteStr _ _) _ = error "bytestrings not supported"
-entry e Post = error $ "TODO: missing support for poststate references in coq backend. Entry: \n" <> show e
-entry (Item _ _ r) _ = ref r
+entry :: TItem k a -> T.Text
+entry (Item SByteStr _ _) = error "bytestrings not supported"
+entry (Item _ _ r) = ref r
 
 ref :: Ref k -> T.Text
-ref (SVar _ _ name) = parens $ T.pack name <> " " <> stateVar
+ref (SVar _ _ name Post) = error $ "TODO: missing support for poststate references in coq backend. Entry: \n" <> name
+ref (SVar _ _ name _) = parens $ T.pack name <> " " <> stateVar
 ref (CVar _ _ name) = T.pack name
 ref (SMapping _ r ixs) = parens $ ref r <> " " <> coqargs ixs
 ref (SField _ r cid name) = parens $ T.pack cid <> "." <> T.pack name <> " " <> ref r

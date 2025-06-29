@@ -277,7 +277,7 @@ mkRewrites cname (DistinctStore writes) = forM (Map.toList writes) $ \(name,(val
           AbiTupleType _ -> Left "cannot decompile methods that write to tuple in storage"
           AbiFunctionType -> Left "cannot decompile methods that store function pointers"
           _ -> do
-            pure (Update SInteger (Item SInteger v (SVar nowhere (T.unpack cname) (T.unpack name))) val)
+            pure (Update SInteger (Item SInteger v (SVar nowhere (T.unpack cname) (T.unpack name) Post)) val)
         Dynamic -> Left "cannot decompile methods that store dynamically sized types"
       ContractType {} -> Left "cannot decompile contracts that have contract types in storage"
     StorageMapping {} -> Left "cannot decompile contracts that write to mappings"
@@ -378,7 +378,7 @@ fromWord layout w = simplify <$> go w
     go :: EVM.Expr EVM.EWord -> Either Text (Exp AInteger)
     go (EVM.Lit a) = Right $ LitInt nowhere (toInteger a)
     -- TODO: get the actual abi type from the compiler output
-    go (EVM.Var a) = Right $ _Var Pre (AbiBytesType 32) (T.unpack a)
+    go (EVM.Var a) = Right $ _Var (AbiBytesType 32) (T.unpack a)
     go (EVM.TxValue) = Right $ IntEnv nowhere Callvalue
 
     -- overflow checks
@@ -438,7 +438,7 @@ fromWord layout w = simplify <$> go w
            Nothing -> Left "read from a storage location that is not present in the solc layout"
            Just (nm, tp) -> case tp of
              -- TODO: get lookup contract name by address
-             StorageValue t@(PrimitiveType _) -> Right $ TEntry nowhere Pre SStorage (Item SInteger t (SVar nowhere (T.unpack "Basic") (T.unpack nm)))
+             StorageValue t@(PrimitiveType _) -> Right $ TEntry nowhere SStorage (Item SInteger t (SVar nowhere (T.unpack "Basic") (T.unpack nm) Pre))
              _ -> Left $ "unable to handle storage reads for variables of type: " <> T.pack (show tp)
 
     go e = err e

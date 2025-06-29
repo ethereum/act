@@ -137,9 +137,9 @@ mapExpM f = \case
     b' <- mapExpM f b
     c' <- mapExpM f c
     f (ITE p a' b' c')
-  TEntry p t k i -> do
+  TEntry p k i -> do
     i' <- mapTItemM f i
-    f (TEntry p t k i')
+    f (TEntry p k i')
 
 mapTypedExpM :: Monad m => (forall a . Exp a t -> m (Exp a t)) -> TypedExp t -> m (TypedExp t)
 mapTypedExpM f (TExp s e) = do
@@ -153,7 +153,7 @@ mapTItemM f (Item s v r) = do
 
 mapRefM :: Monad m => (forall a . Exp a t -> m (Exp a t)) -> Ref k t -> m (Ref k t)
 mapRefM f = \case
-  SVar p a b -> pure (SVar p a b)
+  SVar p a b t -> pure (SVar p a b t)
   CVar p a b -> pure (CVar p a b)
   SMapping p a b -> do
     a' <- mapRefM f a

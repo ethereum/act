@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE InstanceSigs #-}
 
 {-|
 Module      : Syntax.Annotated
@@ -63,6 +64,5 @@ instance Annotatable Agnostic.Behaviour where
     }
 
 instance Annotatable Agnostic.StorageUpdate where
-  -- The timing in items only refers to the timing of mapping indices of a
-  -- storage update. Hence, it should be Pre
-  annotate (Update typ item expr) = Update typ (setPre item) (setPre expr)
+  annotate :: Agnostic.StorageUpdate Untimed -> Agnostic.StorageUpdate Timed
+  annotate (Update typ item expr) = Update typ (setPost item) (setPre expr)

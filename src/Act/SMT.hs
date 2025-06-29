@@ -540,7 +540,7 @@ parseSMTModel s = if length s0Caps == 1
 encodeUpdate :: Id -> StorageUpdate -> SMT2
 encodeUpdate behvName (Update _ item expr) =
   let
-    postentry  = withInterface behvName $ expToSMT2 (TEntry nowhere Post SStorage item)
+    postentry  = withInterface behvName $ expToSMT2 (TEntry nowhere SStorage item)
     expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
@@ -551,7 +551,7 @@ encodeConstant loc = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc 
 declareStorage :: [When] -> StorageLocation -> [SMT2]
 declareStorage times (Loc _ item@(Item _ _ ref)) = declareRef ref
   where
-    declareRef (SVar _ _ _) = (\t -> constant (nameFromSItem t item) (itemType item) ) <$> times
+    declareRef (SVar _ _ _ _) = (\t -> constant (nameFromSItem t item) (itemType item) ) <$> times
     declareRef (SMapping _ _ ixs) = (\t -> array (nameFromSItem t item) ixs (itemType item)) <$> times
     declareRef (SField _ ref' _ _) = declareRef ref'
 
@@ -625,7 +625,7 @@ expToSMT2 expr = case expr of
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
   ITE _ a b c -> triop "ite" a b c
-  TEntry _ w _ item -> entry item w
+  TEntry _ _ item -> entry item
   where
     unop :: String -> Exp a -> Ctx SMT2
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
@@ -638,11 +638,11 @@ expToSMT2 expr = case expr of
     triop op a b c = ["(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")"
                         | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
 
-    entry :: TItem k a ->  When -> Ctx SMT2
-    entry item whn = case ixsFromItem item of
-      []       -> nameFromItem whn item
+    entry :: TItem k a -> Ctx SMT2
+    entry item = case ixsFromItem item of
+      []       -> nameFromItem item
       (ix:ixs) -> do
-        name <- nameFromItem whn item
+        name <- nameFromItem item
         select name (ix :| ixs)
 
 -- | SMT2 has no support for exponentiation, but we can do some preprocessing
@@ -689,23 +689,19 @@ sType' (TExp t _) = sType $ actType t
 
 -- Construct the smt2 variable name for a given storage item
 nameFromSItem :: When -> TItem a Storage -> Id
-nameFromSItem whn (Item _ _ ref) = nameFromSRef ref @@ show whn
+nameFromSItem whn (Item _ _ ref) = nameFromSRef whn ref @@ show whn
 
-nameFromSRef :: Ref Storage -> Id
-nameFromSRef (SVar _ c name) = c @@ name
-nameFromSRef (SMapping _ e _) = nameFromSRef e
-nameFromSRef (SField _ ref c x) = nameFromSRef ref @@ c @@ x
+nameFromSRef :: When -> Ref Storage -> Id
+nameFromSRef whn (SVar _ c name _) = c @@ name @@ show whn
+nameFromSRef whn (SMapping _ e _) = nameFromSRef whn e
+nameFromSRef whn (SField _ ref c x) = nameFromSRef whn ref @@ c @@ x
 
-nameFromItem :: When -> TItem k a -> Ctx Id
-nameFromItem whn (Item _ _ ref) = do
-  name <- nameFromRef ref
-  case ref of -- TODO: this feels rather adhoc, but I can't find a better way to handle timings
-    CVar _ _ _ -> pure name
-    _ -> pure $ name @@ show whn
+nameFromItem :: TItem k a -> Ctx Id
+nameFromItem (Item _ _ ref) = nameFromRef ref
 
 nameFromRef :: Ref k -> Ctx Id
 nameFromRef (CVar _ _ name) = nameFromVarId name
-nameFromRef (SVar _ c name) = pure $ c @@ name
+nameFromRef (SVar _ c name whn) = pure $ c @@ name @@ show whn
 nameFromRef (SMapping _ e _) = nameFromRef e
 nameFromRef (SField _ ref c x) = do 
   name <- nameFromRef ref

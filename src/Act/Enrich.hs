@@ -83,7 +83,7 @@ mkStorageBounds refs = concatMap mkBound refs
 
 -- TODO why only Pre items here?
 fromItem :: TItem AInteger Storage -> Exp ABoolean
-fromItem item@(Item _ (PrimitiveType vt) _) = bound vt (TEntry nowhere Pre SStorage item)
+fromItem item@(Item _ (PrimitiveType vt) _) = bound vt (TEntry nowhere SStorage item)
 fromItem (Item _ (ContractType _) _) = LitBool nowhere True
 
 mkStorageBoundsLoc :: [StorageLocation] -> [Exp ABoolean]
@@ -95,5 +95,5 @@ mkStorageBoundsLoc refs = concatMap mkBound refs
 
 mkCallDataBounds :: [Decl] -> [Exp ABoolean]
 mkCallDataBounds = concatMap $ \(Decl typ name) -> case fromAbiType typ of
-  AInteger -> [bound typ (_Var Pre typ name)]
+  AInteger -> [bound typ (_Var typ name)]
   _ -> []

@@ -113,7 +113,7 @@ locsFromExp = nub . go
       ByEnv {} -> []
       Create _ _ es -> concatMap locsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
-      TEntry _ _ k a -> locsFromItem k a
+      TEntry _ k a -> locsFromItem k a
 
 createsFromExp :: Exp a t -> [Id]
 createsFromExp = nub . go
@@ -151,7 +151,7 @@ createsFromExp = nub . go
       ByEnv {} -> []
       Create _ f es -> [f] <> concatMap createsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
-      TEntry _ _ _ a -> createsFromItem a
+      TEntry _ _ a -> createsFromItem a
 
 createsFromItem :: TItem k a t -> [Id]
 createsFromItem item = concatMap createsFromTypedExp (ixsFromItem item)
@@ -264,13 +264,13 @@ ethEnvFromExp = nub . go
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
       Create _ _ ixs -> concatMap ethEnvFromTypedExp ixs
-      TEntry _ _ _ a -> ethEnvFromItem a
+      TEntry _ _ a -> ethEnvFromItem a
 
 idFromItem :: TItem k a t -> Id
 idFromItem (Item _ _ ref) = idFromRef ref
 
 idFromRef :: Ref k t -> Id
-idFromRef (SVar _ _ x) = x
+idFromRef (SVar _ _ x _) = x
 idFromRef (CVar _ _ x) = x
 idFromRef (SMapping _ e _) = idFromRef e
 idFromRef (SField _ e _ _) = idFromRef e
@@ -285,7 +285,7 @@ ixsFromItem :: TItem k a t -> [TypedExp t]
 ixsFromItem (Item _ _ item) = ixsFromRef item
 
 ixsFromRef :: Ref k t -> [TypedExp t]
-ixsFromRef (SVar _ _ _) = []
+ixsFromRef (SVar _ _ _ _) = []
 ixsFromRef (CVar _ _ _) = []
 ixsFromRef (SMapping _ ref ixs) = ixs ++ ixsFromRef ref
 ixsFromRef (SField _ ref _ _) = ixsFromRef ref
@@ -342,7 +342,7 @@ posnFromExp e = case e of
   Eq  p _ _ _ -> p
   NEq p _ _ _ -> p
   ITE p _ _ _ -> p
-  TEntry p _ _ _ -> p
+  TEntry p _ _ -> p
 --------------------------------------
 -- * Extraction from untyped ASTs * --
 --------------------------------------

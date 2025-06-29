@@ -17,7 +17,7 @@
 
 {-|
 Module      : Syntax.TimeAgnostic
-Description : AST data types where implicit timings may or may not have been made explicit.
+Description : Typed AST datatype.
 
 This module only exists to increase code reuse; the types defined here won't
 be used directly, but will be instantiated with different timing parameters
@@ -147,11 +147,11 @@ instance Eq (StorageLocation t) where
 -- | Distinguish the type of Refs to calladata variables and storage
 data RefKind = Storage | Calldata
   deriving (Show, Eq)
-  
+
 data SRefKind (k :: RefKind) where
   SStorage  :: SRefKind Storage
   SCalldata :: SRefKind Calldata
-  
+
 type instance Sing = SRefKind
 
 instance Show (SRefKind a) where
@@ -180,14 +180,14 @@ eqKind fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b
 -- and their name.
 data Ref (k :: RefKind) (t :: Timing) where
   CVar :: Pn -> AbiType -> Id -> Ref Calldata t     -- Calldata variable
-  SVar :: Pn -> Id -> Id -> Ref Storage t           -- Storage variable. First Id is the contract the var belogs to
+  SVar :: Pn -> Id -> Id -> Time t -> Ref Storage t           -- Storage variable. First Id is the contract the var belogs to
   SMapping :: Pn -> Ref k t -> [TypedExp t] -> Ref k t
   SField :: Pn -> Ref k t -> Id -> Id -> Ref k t    -- first Id is the contract the field belogs to
 deriving instance Show (Ref k t)
 
 instance Eq (Ref k t) where
   CVar _ at x      == CVar _ at' x'      = at == at' && x == x'
-  SVar _ c x       == SVar _ c' x'       = c == c' && x == x'
+  SVar _ c t x     == SVar _ c' t' x'    = c == c' && x == x' && t' == t
   SMapping _ r ixs == SMapping _ r' ixs' = r == r' && ixs == ixs'
   SField _ r c x   == SField _ r' c' x'  = r == r' && c == c' && x == x'
   _                == _                  = False
@@ -263,8 +263,8 @@ data Exp (a :: ActType) (t :: Timing) where
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   ITE :: Pn -> Exp ABoolean t -> Exp a t -> Exp a t -> Exp a t
-  TEntry :: Pn -> Time t -> SRefKind k -> TItem a k t -> Exp a t
-  -- Note: we could use a singleton types to avoid separating Entry and Var 
+  TEntry :: Pn -> SRefKind k -> TItem a k t -> Exp a t
+  -- Note: we could use a singleton types to avoid separating Entry and Var
 deriving instance Show (Exp a t)
 
 -- Equality modulo source file position.
@@ -304,7 +304,7 @@ instance Eq (Exp a t) where
   NEq _ SType a b == NEq _ SType c d = eqS a c && eqS b d
 
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
-  TEntry _ a SRefKind t == TEntry _ b SRefKind u = a == b && eqKind t u
+  TEntry _ SRefKind t == TEntry _ SRefKind u = eqKind t u
   Create _ a b == Create _ c d = a == c && b == d
 
   _ == _ = False
@@ -317,6 +317,7 @@ instance Monoid (Exp ABoolean t) where
   mempty = LitBool nowhere True
 
 instance Timable StorageLocation where
+  setTime :: When -> StorageLocation Untimed -> StorageLocation Timed
   setTime time (Loc t item) = Loc t $ setTime time item
 
 instance Timable TypedExp where
@@ -363,7 +364,7 @@ instance Timable (Exp a) where
     Eq  p s x y -> Eq p s (go x) (go y)
     NEq p s x y -> NEq p s (go x) (go y)
     ITE p x y z -> ITE p (go x) (go y) (go z)
-    TEntry p _ k item -> TEntry p time k (go item)
+    TEntry p k item -> TEntry p k (go item)
     where
       go :: Timable c => c Untimed -> c Timed
       go = setTime time
@@ -375,7 +376,7 @@ instance Timable (TItem a k) where
 instance Timable (Ref k) where
   setTime time (SMapping p e ixs) = SMapping p (setTime time e) (setTime time <$> ixs)
   setTime time (SField p e c x) = SField p (setTime time e) c x
-  setTime _ (SVar p c x) = SVar p c x
+  setTime time (SVar p c x _) = SVar p c x time
   setTime _ (CVar p c x) = CVar p c x
 
 
@@ -479,12 +480,12 @@ instance ToJSON (TItem a k t) where
                                ]
 
 instance ToJSON (Ref k t) where
-  toJSON (SVar _ c x) = object [ "kind" .= pack "SVar"
-                               , "svar" .=  pack x
-                               , "contract" .= pack c ]
+  toJSON (SVar _ c x _) = object [ "kind" .= pack "SVar"
+                                 , "svar" .=  pack x
+                                 , "contract" .= pack c ]
   toJSON (CVar _ at x) = object [ "kind" .= pack "Var"
-                                  , "var" .=  pack x
-                                  , "abitype" .=  toJSON at ]                                  
+                                , "var" .=  pack x
+                                , "abitype" .=  toJSON at ]
   toJSON (SMapping _ e xs) = mapping e xs
   toJSON (SField _ e c x) = field e c x
 
@@ -556,8 +557,8 @@ instance ToJSON (Exp a t) where
                               , "type" .= pack "bytestring" ]
   toJSON (ByEnv _ a) = object [ "ethEnv" .= pack (show a)
                               , "type" .= pack "bytestring" ]
-  toJSON (TEntry _ t _ a) = object [ "entry"  .= toJSON a
-                                   , "timing" .= show t ]
+  toJSON (TEntry _ t a) = object [ "entry"  .= toJSON a
+                                 , "timing" .= show t ]
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                   , "arity"  .= Data.Aeson.Types.Number 2
                                   , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
@@ -632,5 +633,5 @@ uintmin _ = 0
 uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
-_Var :: SingI a => Time t -> AbiType -> Id -> Exp a t
-_Var tm at x = TEntry nowhere tm SCalldata (Item sing (PrimitiveType at) (CVar nowhere at x))
+_Var :: SingI a => AbiType -> Id -> Exp a t
+_Var at x = TEntry nowhere SCalldata (Item sing (PrimitiveType at) (CVar nowhere at x))
