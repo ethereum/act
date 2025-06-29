@@ -44,8 +44,6 @@ import Act.Error
 import Data.Type.Equality (TestEquality(..))
 import Data.Singletons
 
-import Data.Aeson.Types (typeMismatch)
-
 
 type Err = Error String
 
@@ -445,7 +443,7 @@ checkExprVType env e (FromVType typ) = TExp typ <$> checkExpr env typ e
 
 
 typeMismatchErr :: forall a b res. Pn -> SType a -> SType b -> Err res
-typeMismatchErr p t1 t2 = (throw (p, "Type " <> show t1 <> " should match type " <> show t2 <> "\n Env:\n" <> show env))
+typeMismatchErr p t1 t2 = (throw (p, "Type " <> show t1 <> " should match type " <> show t2))
 
 -- | Check is the given expression can be typed with the given type\\
 checkExpr :: forall t a. Typeable t => Env -> SType a -> U.Expr -> Err (Exp a t)
@@ -532,7 +530,7 @@ inferExpr env@Env{calldata, constructors} e = case e of
     checkVar entry = case (eqT @t @Timed, eqT @t @Untimed) of
        (Just Refl, _) ->
          (\(vt@(FromVType typ), ref) -> TExp typ $ TEntry (getPosEntry entry) Pre SCalldata (Item typ vt ref)) <$> (validateEntry env SCalldata entry)
-       (_, Just Refl) -> validateEntry env SCalldata entry `bindValidation` \(vt@(FromVType typ'), ref) ->
+       (_, Just Refl) ->
          (\(vt@(FromVType typ), ref) -> TExp typ $ TEntry (getPosEntry entry) Neither SCalldata (Item typ vt ref)) <$> (validateEntry env SCalldata entry)
        (_,_) -> error "Internal error: Timing should be either Timed or Untimed"
 
