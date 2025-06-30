@@ -58,7 +58,7 @@ import EVM.Effects
 import Act.Syntax.Annotated
 import Act.HEVM
 import Act.HEVM_utils hiding (abstractVM)
-import Act.Enrich (enrich)
+import Act.Bounds (addBounds)
 import Act.Error
 import Act.Traversals
 
@@ -73,7 +73,7 @@ decompile contract solvers = do
   case spec of
     Left e -> pure . Left $ e
     Right s -> do
-      valid <- verifyDecompilation solvers contract.creationCode contract.runtimeCode (enrich s)
+      valid <- verifyDecompilation solvers contract.creationCode contract.runtimeCode (addBounds s)
       case valid of
         Success () -> pure . Right $ s
         Failure es -> pure . Left . T.unlines . NE.toList . fmap (T.pack . snd) $ es
