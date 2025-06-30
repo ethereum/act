@@ -28,7 +28,56 @@
         "invariants": [],
         "kind": "Constructor",
         "pointers": [],
-        "postConditions": [],
+        "postConditions": [
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "literal": "0",
+                    "type": "int"
+                  },
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "A",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "SSTorage"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              },
+              {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "A",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "SSTorage"
+                  },
+                  {
+                    "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              }
+            ],
+            "arity": 2,
+            "symbol": "and"
+          }
+        ],
         "preConditions": []
       },
       "kind": "Contract"
@@ -60,7 +109,66 @@
           "kind": "Behaviour",
           "name": "remote",
           "pointers": [],
-          "postConditions": [],
+          "postConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "A",
+                          "field": "x",
+                          "kind": "Field",
+                          "reference": {
+                            "contract": "B",
+                            "kind": "SVar",
+                            "svar": "a"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "A",
+                          "field": "x",
+                          "kind": "Field",
+                          "reference": {
+                            "contract": "B",
+                            "kind": "SVar",
+                            "svar": "a"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
           "preConditions": [
             {
               "args": [
@@ -96,7 +204,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     }
                   ],
                   "arity": 2,
@@ -116,7 +224,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -152,7 +260,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     }
                   ],
                   "arity": 2,
@@ -174,7 +282,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -251,7 +359,7 @@
                   },
                   "type": "int"
                 },
-                "timing": "Pre"
+                "timing": "SCalldata"
               }
             }
           ]
@@ -281,7 +389,114 @@
           "kind": "Behaviour",
           "name": "multi",
           "pointers": [],
-          "postConditions": [],
+          "postConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "B",
+                          "kind": "SVar",
+                          "svar": "y"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "B",
+                          "kind": "SVar",
+                          "svar": "y"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "A",
+                          "field": "x",
+                          "kind": "Field",
+                          "reference": {
+                            "contract": "B",
+                            "kind": "SVar",
+                            "svar": "a"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "A",
+                          "field": "x",
+                          "kind": "Field",
+                          "reference": {
+                            "contract": "B",
+                            "kind": "SVar",
+                            "svar": "a"
+                          }
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
           "preConditions": [
             {
               "args": [
@@ -317,7 +532,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     }
                   ],
                   "arity": 2,
@@ -337,7 +552,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -368,7 +583,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     }
                   ],
                   "arity": 2,
@@ -385,7 +600,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -421,7 +636,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     }
                   ],
                   "arity": 2,
@@ -443,7 +658,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -534,7 +749,7 @@
                   },
                   "type": "int"
                 },
-                "timing": "Pre"
+                "timing": "SCalldata"
               }
             }
           ]
@@ -586,7 +801,60 @@
         "invariants": [],
         "kind": "Constructor",
         "pointers": [],
-        "postConditions": [],
+        "postConditions": [
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "literal": "0",
+                    "type": "int"
+                  },
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "B",
+                        "kind": "SVar",
+                        "svar": "y"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "SSTorage"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              },
+              {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "B",
+                        "kind": "SVar",
+                        "svar": "y"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "SSTorage"
+                  },
+                  {
+                    "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              }
+            ],
+            "arity": 2,
+            "symbol": "and"
+          },
+          {
+            "literal": "True",
+            "type": "bool"
+          }
+        ],
         "preConditions": []
       },
       "kind": "Contract"

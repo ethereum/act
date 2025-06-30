@@ -42,7 +42,104 @@
         "invariants": [],
         "kind": "Constructor",
         "pointers": [],
-        "postConditions": [],
+        "postConditions": [
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "literal": "0",
+                    "type": "int"
+                  },
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "Modest",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "SSTorage"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              },
+              {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "Modest",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "SSTorage"
+                  },
+                  {
+                    "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              }
+            ],
+            "arity": 2,
+            "symbol": "and"
+          },
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "literal": "0",
+                    "type": "int"
+                  },
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "Modest",
+                        "kind": "SVar",
+                        "svar": "y"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "SSTorage"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              },
+              {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "Modest",
+                        "kind": "SVar",
+                        "svar": "y"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "SSTorage"
+                  },
+                  {
+                    "literal": "1461501637330902918203684832716283019655932542975",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              }
+            ],
+            "arity": 2,
+            "symbol": "and"
+          }
+        ],
         "preConditions": [
           {
             "args": [

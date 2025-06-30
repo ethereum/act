@@ -18,7 +18,7 @@
                     },
                     "type": "int"
                   },
-                  "timing": "Pre"
+                  "timing": "SCalldata"
                 },
                 {
                   "literal": "0",
@@ -47,7 +47,56 @@
           "kind": "Behaviour",
           "name": "bar",
           "pointers": [],
-          "postConditions": [],
+          "postConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
           "preConditions": [
             {
               "args": [
@@ -83,7 +132,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     }
                   ],
                   "arity": 2,
@@ -103,7 +152,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -134,7 +183,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     }
                   ],
                   "arity": 2,
@@ -151,7 +200,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -223,7 +272,7 @@
                   },
                   "type": "int"
                 },
-                "timing": "Pre"
+                "timing": "SCalldata"
               }
             }
           ]
@@ -244,7 +293,7 @@
                     },
                     "type": "int"
                   },
-                  "timing": "Pre"
+                  "timing": "SCalldata"
                 },
                 {
                   "literal": "1",
@@ -273,7 +322,56 @@
           "kind": "Behaviour",
           "name": "bar",
           "pointers": [],
-          "postConditions": [],
+          "postConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
           "preConditions": [
             {
               "args": [
@@ -309,7 +407,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     }
                   ],
                   "arity": 2,
@@ -329,7 +427,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -360,7 +458,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     }
                   ],
                   "arity": 2,
@@ -377,7 +475,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -451,7 +549,7 @@
                       },
                       "type": "int"
                     },
-                    "timing": "Pre"
+                    "timing": "SCalldata"
                   },
                   {
                     "literal": "1",
@@ -480,7 +578,7 @@
                     },
                     "type": "int"
                   },
-                  "timing": "Pre"
+                  "timing": "SCalldata"
                 },
                 {
                   "literal": "1",
@@ -509,7 +607,56 @@
           "kind": "Behaviour",
           "name": "bar",
           "pointers": [],
-          "postConditions": [],
+          "postConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "entry": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SSTorage"
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
           "preConditions": [
             {
               "args": [
@@ -545,7 +692,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     }
                   ],
                   "arity": 2,
@@ -565,7 +712,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -596,7 +743,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     }
                   ],
                   "arity": 2,
@@ -613,7 +760,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SSTorage"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -687,7 +834,7 @@
                       },
                       "type": "int"
                     },
-                    "timing": "Pre"
+                    "timing": "SCalldata"
                   },
                   {
                     "literal": "2",
@@ -727,7 +874,56 @@
         "invariants": [],
         "kind": "Constructor",
         "pointers": [],
-        "postConditions": [],
+        "postConditions": [
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "literal": "0",
+                    "type": "int"
+                  },
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "C",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "SSTorage"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              },
+              {
+                "args": [
+                  {
+                    "entry": {
+                      "item": {
+                        "contract": "C",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    },
+                    "timing": "SSTorage"
+                  },
+                  {
+                    "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              }
+            ],
+            "arity": 2,
+            "symbol": "and"
+          }
+        ],
         "preConditions": []
       },
       "kind": "Contract"

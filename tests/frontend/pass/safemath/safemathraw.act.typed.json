@@ -40,11 +40,11 @@
             {
               "args": [
                 {
-                  "size": "256",
-                  "type": "UInt"
-                },
-                {
                   "args": [
+                    {
+                      "size": "256",
+                      "type": "UInt"
+                    },
                     {
                       "entry": {
                         "item": {
@@ -57,77 +57,89 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
-                    },
-                    {
-                      "entry": {
-                        "item": {
-                          "abitype": {
-                            "size": "256",
-                            "type": "UInt"
-                          },
-                          "kind": "Var",
-                          "var": "y"
-                        },
-                        "type": "int"
-                      },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     }
                   ],
                   "arity": 2,
-                  "symbol": "+"
-                }
-              ],
-              "arity": 2,
-              "symbol": "inrange"
-            },
-            {
-              "args": [
-                {
-                  "size": "256",
-                  "type": "UInt"
+                  "symbol": "inrange"
                 },
                 {
-                  "entry": {
-                    "item": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "kind": "Var",
-                      "var": "x"
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        {
+                          "entry": {
+                            "item": {
+                              "abitype": {
+                                "size": "256",
+                                "type": "UInt"
+                              },
+                              "kind": "Var",
+                              "var": "y"
+                            },
+                            "type": "int"
+                          },
+                          "timing": "SCalldata"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
                     },
-                    "type": "int"
-                  },
-                  "timing": "Pre"
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "UInt"
+                        },
+                        {
+                          "args": [
+                            {
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "x"
+                                },
+                                "type": "int"
+                              },
+                              "timing": "SCalldata"
+                            },
+                            {
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "y"
+                                },
+                                "type": "int"
+                              },
+                              "timing": "SCalldata"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
                 }
               ],
               "arity": 2,
-              "symbol": "inrange"
-            },
-            {
-              "args": [
-                {
-                  "size": "256",
-                  "type": "UInt"
-                },
-                {
-                  "entry": {
-                    "item": {
-                      "abitype": {
-                        "size": "256",
-                        "type": "UInt"
-                      },
-                      "kind": "Var",
-                      "var": "y"
-                    },
-                    "type": "int"
-                  },
-                  "timing": "Pre"
-                }
-              ],
-              "arity": 2,
-              "symbol": "inrange"
+              "symbol": "and"
             },
             {
               "args": [
@@ -163,7 +175,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     }
                   ],
                   "arity": 2,
@@ -183,7 +195,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -217,7 +229,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     }
                   ],
                   "arity": 2,
@@ -237,7 +249,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -301,7 +313,7 @@
                     },
                     "type": "int"
                   },
-                  "timing": "Pre"
+                  "timing": "SCalldata"
                 },
                 {
                   "entry": {
@@ -315,7 +327,7 @@
                     },
                     "type": "int"
                   },
-                  "timing": "Pre"
+                  "timing": "SCalldata"
                 }
               ],
               "arity": 2,

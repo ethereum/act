@@ -49,7 +49,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     }
                   ],
                   "arity": 2,
@@ -69,7 +69,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "Pre"
+                      "timing": "SCalldata"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
