@@ -1,6 +1,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE PolyKinds #-}
 
 {-|
 Module      : Syntax.Timing
@@ -46,12 +48,12 @@ class Annotatable c where
 -- i.e. we need context to decide which time it refers to.
 class Timable c where
   -- | Takes an 'Untimed' 'Timable' thing and points it towards the prestate.
-  setPre :: c Untimed -> c Timed
+  setPre :: forall (t :: Timing). c t -> c Timed
   setPre = setTime Pre
 
   -- | Takes an 'Untimed' 'Timeable' thing and points it towards the poststate.
-  setPost :: c Untimed -> c Timed
+  setPost :: forall (t :: Timing). c t -> c Timed
   setPost = setTime Post
 
   -- | Takes an 'Untimed' 'Timeable' thing and points it towards the given state.
-  setTime :: When -> c Untimed -> c Timed
+  setTime :: forall (t :: Timing). When -> c t -> c Timed

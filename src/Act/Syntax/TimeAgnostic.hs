@@ -317,13 +317,15 @@ instance Monoid (Exp ABoolean t) where
   mempty = LitBool nowhere True
 
 instance Timable StorageLocation where
-  setTime :: When -> StorageLocation Untimed -> StorageLocation Timed
-  setTime time (Loc t item) = Loc t $ setTime time item
+  setTime :: forall (t :: Timing). When -> StorageLocation t -> StorageLocation Timed
+  setTime time (Loc t (item :: TItem a Storage t)) = Loc t $ setTime time item
 
 instance Timable TypedExp where
+  setTime :: forall (t :: Timing). When -> TypedExp t -> TypedExp Timed
   setTime time (TExp t expr) = TExp t $ setTime time expr
 
 instance Timable (Exp a) where
+  setTime :: forall (t :: Timing). When -> Exp a t -> Exp a Timed
   setTime time expr = case expr of
     -- booleans
     And p x y -> And p (go x) (go y)
@@ -366,14 +368,16 @@ instance Timable (Exp a) where
     ITE p x y z -> ITE p (go x) (go y) (go z)
     TEntry p k item -> TEntry p k (go item)
     where
-      go :: Timable c => c Untimed -> c Timed
+      go :: forall (t' :: Timing) c. Timable c => c t' -> c Timed
       go = setTime time
 
 
 instance Timable (TItem a k) where
+   setTime :: forall (t :: Timing). When -> TItem a k t -> TItem a k Timed
    setTime time (Item t vt ref) = Item t vt $ setTime time ref
 
 instance Timable (Ref k) where
+  setTime :: forall (t :: Timing). When -> Ref k t -> Ref k Timed
   setTime time (SMapping p e ixs) = SMapping p (setTime time e) (setTime time <$> ixs)
   setTime time (SField p e c x) = SField p (setTime time e) c x
   setTime time (SVar p c x _) = SVar p c x time
