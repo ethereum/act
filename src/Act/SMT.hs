@@ -190,7 +190,7 @@ mkPostconditionQueriesBehv :: Behaviour -> [Query]
 mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) _ preconds caseconds postconds stateUpdates _) = mkQuery <$> postconds
   where
     -- declare vars
-    activeLocs = locsFromBehaviour behv -- TODO this might contain redundant locations if invariants use locations that are not mentioned elsewhere in the behaviour
+    activeLocs = locsFromBehaviour behv
     storage = concatMap declareStorageLocation activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
@@ -689,7 +689,7 @@ sType' (TExp t _) = sType $ actType t
 
 -- Construct the smt2 variable name for a given storage item
 nameFromSItem :: When -> TItem a Storage -> Id
-nameFromSItem whn (Item _ _ ref) = nameFromSRef whn ref @@ show whn
+nameFromSItem whn (Item _ _ ref) = nameFromSRef whn ref
 
 nameFromSRef :: When -> Ref Storage -> Id
 nameFromSRef whn (SVar _ c name _) = c @@ name @@ show whn
