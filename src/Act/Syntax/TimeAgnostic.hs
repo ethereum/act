@@ -19,14 +19,9 @@
 Module      : Syntax.TimeAgnostic
 Description : Typed AST datatype.
 
-This module only exists to increase code reuse; the types defined here won't
-be used directly, but will be instantiated with different timing parameters
-at different steps in the AST refinement process. This way we don't have to
-update mirrored types, instances and functions in lockstep.
-
-Some terms in here are always 'Timed'. This indicates that their timing must
-*always* be explicit. For the rest, all timings must be implicit in source files
-(i.e. 'Untimed'), but will be made explicit (i.e. 'Timed') during refinement.
+This module contains the datatype for the typed AST of Act specification.
+The type of each node is annotated with its Act type, so that it is well-typed
+by construction.
 -}
 
 module Act.Syntax.TimeAgnostic (module Act.Syntax.TimeAgnostic) where
@@ -109,14 +104,15 @@ data Constructor t = Constructor
 deriving instance Show (InvariantPred t) => Show (Constructor t)
 deriving instance Eq   (InvariantPred t) => Eq   (Constructor t)
 
-
+-- After typing each behavior may be split to multiple behaviors, one for each case branch.
+-- In this case, only the `_caseconditions`, `_stateUpdates`, and `_returns` fields are different.
 data Behaviour t = Behaviour
   { _name :: Id
   , _contract :: Id
   , _interface :: Interface
   , _pointers :: [Pointer]
   , _preconditions :: [Exp ABoolean t] -- if preconditions are not satisfied execution is reverted
-  , _caseconditions :: [Exp ABoolean t] -- if preconditions are satisfied and a case condition is not, some other instance of the bahaviour should apply
+  , _caseconditions :: [Exp ABoolean t] -- if preconditions are satisfied and the case conditions are not, some other instance of the bahavior should apply
   , _postconditions :: [Exp ABoolean Timed]
   , _stateUpdates :: [StorageUpdate t]
   , _returns :: Maybe (TypedExp Timed)

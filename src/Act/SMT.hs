@@ -217,18 +217,16 @@ mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName dec
     localStorage = concatMap declareInitialStorage activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
-    constLocs = activeLocs \\ concatMap locsFromUpdate initialStorage
 
     -- constraints
     pres = mkAssert ifaceName <$> preconds
     initialStorage' = encodeUpdate ifaceName <$> initialStorage
-    constants = encodeConstant <$> constLocs
 
     mksmt e = SMTExp
       { _storage = localStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> initialStorage' <> constants
+      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> initialStorage'
       }
     mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
 
@@ -620,7 +618,7 @@ expToSMT2 expr = case expr of
   ByEnv _ a -> pure $ prettyEnv a
 
   -- contracts
-  Create _ _ _ -> error "contracts not supported"
+  Create _ _ _ -> error "contract creation not supported"
   -- polymorphic
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
