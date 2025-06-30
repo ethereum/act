@@ -205,7 +205,7 @@ Returns : 'returns' Expr                              { $2 }
 
 Storage : 'storage' nonempty(Store)                   { $2 }
 
-Precondition : 'iff' nonempty(Expr)                   { $2 }
+Precondition : optblock('iff', Expr)                  { $1 }
 
 Store : Entry '=>' Expr                               { Update $1 $3 }
 
