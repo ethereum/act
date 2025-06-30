@@ -39,7 +39,7 @@ import Act.Error
 import Act.Lex (lexer, AlexPosn(..))
 import Act.Parse
 import Act.Syntax.Annotated
-import Act.Enrich
+import Act.Bounds
 import Act.SMT as SMT
 import Act.Type
 import Act.Coq hiding (indent)
@@ -144,7 +144,7 @@ parse' f = do
 type' :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 type' f solver' smttimeout' debug' = do
   contents <- readFile f
-  proceed contents (enrich <$> compile contents) $ \claims -> do
+  proceed contents (addBounds <$> compile contents) $ \claims -> do
     checkCases claims solver' smttimeout' debug'
     B.putStrLn $ encode claims
 
@@ -160,7 +160,7 @@ prove :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 prove file' solver' smttimeout' debug' = do
   let config = SMT.SMTConfig solver' (fromMaybe 20000 smttimeout') debug'
   contents <- readFile file'
-  proceed contents (enrich <$> compile contents) $ \claims -> do
+  proceed contents (addBounds <$> compile contents) $ \claims -> do
     checkCases claims solver' smttimeout' debug'
     let
       catModels results = [m | Sat m <- results]
@@ -214,7 +214,7 @@ prove file' solver' smttimeout' debug' = do
 coq' :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 coq' f solver' smttimeout' debug' = do
   contents <- readFile f
-  proceed contents (enrich <$> compile contents) $ \claims -> do
+  proceed contents (addBounds <$> compile contents) $ \claims -> do
     checkCases claims solver' smttimeout' debug'
     TIO.putStr $ coq claims
 
@@ -243,7 +243,7 @@ hevm actspec sol' code' initcode' solver' timeout debug' = do
   let config = if debug' then debugActConfig else defaultActConfig
   cores <- liftM fromIntegral getNumProcessors
   specContents <- readFile actspec
-  proceed specContents (enrich <$> compile specContents) $ \ (Act store contracts) -> do
+  proceed specContents (addBounds <$> compile specContents) $ \ (Act store contracts) -> do
     cmap <- createContractMap contracts
     res <- runEnv (Env config) $ Solvers.withSolvers solver' cores 1 (naturalFromInteger <$> timeout) $ \solvers ->
       checkContracts solvers store cmap
