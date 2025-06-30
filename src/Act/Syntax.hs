@@ -67,6 +67,10 @@ locsFromUpdate :: StorageUpdate t -> [StorageLocation t]
 locsFromUpdate update = nub $ case update of
   (Annotated.Update _ item e) -> locsFromItem SStorage item <> locsFromExp e
 
+locsFromUpdateRHS :: StorageUpdate t -> [StorageLocation t]
+locsFromUpdateRHS update = nub $ case update of
+  (Annotated.Update _ _ e) -> locsFromExp e
+
 locFromUpdate :: StorageUpdate t -> StorageLocation t
 locFromUpdate (Annotated.Update _ item _) = _Loc item
 
