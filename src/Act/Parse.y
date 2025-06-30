@@ -26,8 +26,9 @@ import Act.Error
   'returns'                   { L RETURNS _ }
   'storage'                   { L STORAGE _ }
   'noop'                      { L NOOP _ }
-  'inRange'                   { L INRANGE _ }
   'iff'                       { L IFF _ }
+  'iff in range'              { L IFFINRANGE _ }
+  'inRange'                   { L INRANGE _ }
   'pointers'                  { L POINTERS _ }
   'and'                       { L AND _ }
   'not'                       { L NOT _ }
@@ -205,7 +206,13 @@ Returns : 'returns' Expr                              { $2 }
 
 Storage : 'storage' nonempty(Store)                   { $2 }
 
-Precondition : optblock('iff', Expr)                  { $1 }
+Precondition : RangePrecondition Precondition         { $1 ++ $2 }
+             | SimplePrecondition                     { $1 }
+
+RangePrecondition : 'iff in range' AbiType nonempty(Expr)  
+                                                      { fmap (EInRange (posn $1) $2) $3 }
+
+SimplePrecondition : optblock('iff', Expr)            { $1 }
 
 Store : Entry '=>' Expr                               { Update $1 $3 }
 
