@@ -70,7 +70,7 @@ library
     Act.Syntax.Timing
     Act.Traversals
     Act.Type
-    Act.Enrich
+    Act.Bounds
     Act.Dev
     Act.HEVM
     Act.HEVM_utils
