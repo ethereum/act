@@ -32,6 +32,11 @@ case CALLER == to:
 
   returns 1
 
+ensures
+
+  pre(balanceOf[CALLER]) + pre(balanceOf[to]) == post(balanceOf[CALLER]) + post(balanceOf[to])
+  pre(totalSupply) == post(totalSupply)
+
 behaviour transferFrom of Token
 interface transferFrom(address src, address dst, uint amount)
 
@@ -82,6 +87,11 @@ case src == dst and (CALLER == src or allowance[src][CALLER] == 2^256 - 1):
 
   returns 1
 
+ensures
+
+  pre(balanceOf[src]) + pre(balanceOf[dst]) == post(balanceOf[src]) + post(balanceOf[dst])
+  pre(totalSupply) == post(totalSupply)
+
 behaviour approve of Token
 interface approve(address spender, uint amount)
 
@@ -106,24 +116,24 @@ ensures
 
   pre(totalSupply) == post(totalSupply)
 
+
 behaviour burn of Token
 interface burn(uint256 amount)
 
 iff
 
   CALLVALUE == 0
-  //amount <= totalSupply
-  //amount <= balanceOf[CALLER]
   inRange(uint256, totalSupply - amount)
   inRange(uint256, balanceOf[CALLER] - amount)
 
-//case true:
+storage
 
-  storage
+  totalSupply => totalSupply - amount
+  balanceOf[CALLER] => balanceOf[CALLER] - amount
 
-    totalSupply => totalSupply - amount
-    balanceOf[CALLER] => balanceOf[CALLER] - amount
+ensures
 
+  pre(balanceOf[CALLER]) - post(balanceOf[CALLER]) == pre(totalSupply) - post(totalSupply)
 
 behaviour burnFrom of Token
 interface burnFrom(address src, uint256 amount)
@@ -156,6 +166,11 @@ case CALLER == src:
     totalSupply => totalSupply - amount
     balanceOf[src] => balanceOf[src] - amount
 
+ensures
+
+  pre(balanceOf[src]) - post(balanceOf[src]) == pre(totalSupply) - post(totalSupply)
+
+
 behaviour mint of Token
 interface mint(address dst, uint256 amount)
 
@@ -172,6 +187,11 @@ iff
 
     totalSupply => totalSupply + amount
     balanceOf[dst] => balanceOf[dst] + amount
+
+ensures
+
+  pre(balanceOf[CALLER]) - post(balanceOf[CALLER]) == pre(totalSupply) - post(totalSupply)
+
 
 // View functions:
 
