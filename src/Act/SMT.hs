@@ -62,11 +62,14 @@ import Data.ByteString.UTF8 (fromString)
 
 import Act.Syntax
 import Act.Syntax.Annotated hiding (annotate)
+import Act.Syntax.Timing
 
 import Act.Print
 import Act.Type (globalEnv)
 
 import EVM.Solvers (Solver(..))
+
+import Debug.Trace
 
 --- ** Data ** ---
 
@@ -187,14 +190,15 @@ mkPostconditionQueries (Act _ contr) = concatMap mkPostconditionQueriesContract 
       mkPostconditionQueriesConstr constr <> concatMap mkPostconditionQueriesBehv behvs
 
 mkPostconditionQueriesBehv :: Behaviour -> [Query]
-mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) _ preconds caseconds postconds stateUpdates _) = mkQuery <$> postconds
+mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) _ preconds caseconds postconds stateUpdates _) =
+    mkQuery <$> postconds
   where
     -- declare vars
     activeLocs = locsFromBehaviour behv
     storage = concatMap declareStorageLocation activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
-    constLocs = activeLocs \\ concatMap locsFromUpdate stateUpdates
+    constLocs = (nub $ setTime Post <$> activeLocs) \\ (locFromUpdate <$> stateUpdates)
 
     -- constraints
     pres = mkAssert ifaceName <$> preconds <> caseconds
@@ -292,7 +296,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
         behvArgs = declareArg behvIface <$> behvDecls
         activeLocs = nub $ locsFromBehaviour behv <> locsFromInvariant inv
         -- storage locs that are mentioned but not explictly updated (i.e., constant)
-        constLocs = (activeLocs \\ fmap locFromUpdate (_stateUpdates behv))
+        constLocs = ((nub $ setTime Post <$> activeLocs) \\ fmap locFromUpdate (_stateUpdates behv))
 
         storage = concatMap declareStorageLocation activeLocs
 
@@ -618,7 +622,7 @@ expToSMT2 expr = case expr of
   ByEnv _ a -> pure $ prettyEnv a
 
   -- contracts
-  Create _ _ _ -> error "contract creation not supported"
+  Create _ _ _ -> pure $ "0" -- just a dummy address for now
   -- polymorphic
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
@@ -701,7 +705,7 @@ nameFromRef :: Ref k -> Ctx Id
 nameFromRef (CVar _ _ name) = nameFromVarId name
 nameFromRef (SVar _ c name whn) = pure $ c @@ name @@ show whn
 nameFromRef (SMapping _ e _) = nameFromRef e
-nameFromRef (SField _ ref c x) = do 
+nameFromRef (SField _ ref c x) = do
   name <- nameFromRef ref
   pure $ name @@ c @@ x
 
