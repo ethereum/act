@@ -131,6 +131,8 @@ storage
   totalSupply => totalSupply - amount
   balanceOf[CALLER] => balanceOf[CALLER] - amount
 
+returns 1
+
 ensures
 
   pre(balanceOf[CALLER]) - post(balanceOf[CALLER]) == pre(totalSupply) - post(totalSupply)
@@ -151,6 +153,8 @@ case CALLER =/= src and allowance[src][CALLER] == 2^256 - 1:
     totalSupply => totalSupply - amount
     balanceOf[src] => balanceOf[src] - amount
 
+  returns 1
+
 case CALLER =/= src and allowance[src][CALLER] < 2^256 - 1:
 
   storage
@@ -159,12 +163,16 @@ case CALLER =/= src and allowance[src][CALLER] < 2^256 - 1:
     allowance[src][CALLER] => allowance[src][CALLER] - amount
     balanceOf[src]         => balanceOf[src] - amount
 
+  returns 1
+
 case CALLER == src:
 
   storage
 
     totalSupply => totalSupply - amount
     balanceOf[src] => balanceOf[src] - amount
+
+  returns 1
 
 ensures
 
@@ -183,10 +191,12 @@ iff
 
   CALLVALUE == 0
 
-  storage
+storage
 
-    totalSupply => totalSupply + amount
-    balanceOf[dst] => balanceOf[dst] + amount
+  totalSupply => totalSupply + amount
+  balanceOf[dst] => balanceOf[dst] + amount
+
+returns 1
 
 ensures
 

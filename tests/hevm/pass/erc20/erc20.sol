@@ -33,21 +33,24 @@ contract Token {
         return true;
     }
 
-    function burn(uint256 value) public {
+    function burn(uint256 value) public returns (bool) {
         totalSupply = totalSupply - value;
         balanceOf[msg.sender] = balanceOf[msg.sender] - value;
+        return true;
     }
 
-    function burnFrom(address account, uint256 value) public {
+    function burnFrom(address account, uint256 value) public returns (bool) {
         if(account != msg.sender && allowance[account][msg.sender] != type(uint256).max) {
             allowance[account][msg.sender] = allowance[account][msg.sender] - value;
         }
         totalSupply = totalSupply - value;
         balanceOf[account] = balanceOf[account] - value;
+        return true;
     }
 
-    function mint(address account, uint256 value) public {
+    function mint(address account, uint256 value) public returns (bool) {
         totalSupply = totalSupply + value;
         balanceOf[account] = balanceOf[account] + value;
+        return true;
     }
 }
