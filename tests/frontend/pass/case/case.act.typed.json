@@ -101,6 +101,174 @@
             {
               "args": [
                 {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SCalldata"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "1",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              },
+                              "timing": "SCalldata"
+                            },
+                            {
+                              "literal": "1",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SCalldata"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "2",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              },
+                              "timing": "SCalldata"
+                            },
+                            {
+                              "literal": "2",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
                   "ethEnv": "Callvalue",
                   "type": "int"
                 },
@@ -373,6 +541,174 @@
             }
           ],
           "preConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SCalldata"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "1",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              },
+                              "timing": "SCalldata"
+                            },
+                            {
+                              "literal": "1",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SCalldata"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "2",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              },
+                              "timing": "SCalldata"
+                            },
+                            {
+                              "literal": "2",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
             {
               "args": [
                 {
@@ -658,6 +994,174 @@
             }
           ],
           "preConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SCalldata"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "1",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              },
+                              "timing": "SCalldata"
+                            },
+                            {
+                              "literal": "1",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "entry": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      },
+                      "timing": "SCalldata"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "2",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "entry": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              },
+                              "timing": "SCalldata"
+                            },
+                            {
+                              "literal": "2",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
             {
               "args": [
                 {
