@@ -16,7 +16,8 @@ interface f()
 
 iff
 	n > 1
-
+    inRange(uint256, count+1)
+    
 storage
 	n => n / 2
 	count => count + 1
