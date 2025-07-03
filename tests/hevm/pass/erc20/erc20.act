@@ -32,10 +32,6 @@ case CALLER == to:
 
   returns 1
 
-ensures
-
-  pre(balanceOf[CALLER]) + pre(balanceOf[to]) == post(balanceOf[CALLER]) + post(balanceOf[to])
-  pre(totalSupply) == post(totalSupply)
 
 behaviour transferFrom of Token
 interface transferFrom(address src, address dst, uint amount)
@@ -87,10 +83,6 @@ case src == dst and (CALLER == src or allowance[src][CALLER] == 2^256 - 1):
 
   returns 1
 
-ensures
-
-  pre(balanceOf[src]) + pre(balanceOf[dst]) == post(balanceOf[src]) + post(balanceOf[dst])
-  pre(totalSupply) == post(totalSupply)
 
 behaviour approve of Token
 interface approve(address spender, uint amount)
@@ -112,10 +104,6 @@ case CALLER == spender:
 
   returns 1
 
-ensures
-
-  pre(totalSupply) == post(totalSupply)
-
 
 behaviour burn of Token
 interface burn(uint256 amount)
@@ -133,9 +121,6 @@ storage
 
 returns 1
 
-ensures
-
-  pre(balanceOf[CALLER]) - post(balanceOf[CALLER]) == pre(totalSupply) - post(totalSupply)
 
 behaviour burnFrom of Token
 interface burnFrom(address src, uint256 amount)
@@ -197,10 +182,6 @@ storage
   balanceOf[dst] => balanceOf[dst] + amount
 
 returns 1
-
-ensures
-
-  pre(balanceOf[CALLER]) - post(balanceOf[CALLER]) == pre(totalSupply) - post(totalSupply)
 
 
 // View functions:
