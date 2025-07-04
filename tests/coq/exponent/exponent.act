@@ -15,14 +15,14 @@ creates
 behaviour exp of Exponent
 interface exp()
 
-iff
-
-    e > 1
-
 iff in range uint
 
     r * b
     e - 1
+
+iff
+
+    e > 1
 
 storage
 

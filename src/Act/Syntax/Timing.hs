@@ -39,21 +39,16 @@ timeParens :: Time t -> String -> String
 timeParens t s | isTimed t = fmap toLower (show t) <> "(" <> s <> ")"
                | otherwise = s
 
--- | Types which we can always annotate with explicit timings without needing context.
-class Annotatable c where
-  -- | Defines how an 'Untimed' thing should be given explicit timings.
-  annotate :: c Untimed -> c Timed
-
 -- | Types for which all implicit timings can freely be given any explicit timing,
 -- i.e. we need context to decide which time it refers to.
 class Timable c where
   -- | Takes an 'Untimed' 'Timable' thing and points it towards the prestate.
-  setPre :: forall (t :: Timing). c t -> c Timed
+  setPre :: c Untimed -> c Timed
   setPre = setTime Pre
 
   -- | Takes an 'Untimed' 'Timeable' thing and points it towards the poststate.
-  setPost :: forall (t :: Timing). c t -> c Timed
+  setPost :: c Untimed -> c Timed
   setPost = setTime Post
 
   -- | Takes an 'Untimed' 'Timeable' thing and points it towards the given state.
-  setTime :: forall (t :: Timing). When -> c t -> c Timed
+  setTime :: When -> c Untimed -> c Timed

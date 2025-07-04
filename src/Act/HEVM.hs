@@ -37,11 +37,14 @@ import Data.Validation
 import Data.Typeable hiding (typeRep)
 
 import Act.HEVM_utils
-import Act.Syntax.Annotated as Act
+import Act.Syntax.Typed as Act
+import Act.Syntax.Untyped (makeIface, Pn, Id, SlotType(..), Decl(..), Interface(..), Pointer(..), EthEnv(..), ValueType(..))
+import Act.Syntax.Types
+import Act.Parse (nowhere)
+
 import Act.Syntax.Untyped (makeIface)
 import Act.Syntax
 import Act.Error
-import qualified Act.Syntax.TimeAgnostic as TA
 import Act.Syntax.Timing
 
 import EVM.ABI (Sig(..))
@@ -229,7 +232,7 @@ applyUpdate readMap writeMap (Update typ (Item _ _ ref) e) = do
     updateNonce c@(EVM.C _ _ _ _ Nothing) = c
     updateNonce (EVM.GVar _) = error "Internal error: contract cannot be a global variable"
 
-createContract :: Monad m => ContractMap -> ContractMap -> EVM.Expr EVM.EAddr -> Exp AInteger -> ActT m ContractMap
+createContract :: Monad m => ContractMap -> ContractMap -> EVM.Expr EVM.EAddr -> Exp AInteger Timed -> ActT m ContractMap
 createContract readMap writeMap freshAddr (Create _ cid args) = do
   codemap <- getCodemap
   case M.lookup cid codemap of
@@ -249,14 +252,14 @@ createContract _ _ _ _ = error "Internal error: constructor call expected"
 
 -- | Substitutions
 
-makeSubstMap :: Interface -> [TypedExp] -> M.Map Id TypedExp
+makeSubstMap :: Interface -> [TypedExp Timed] -> M.Map Id (TypedExp Timed)
 makeSubstMap (Interface _ decls) args =
   M.fromList $ zipWith (\(Decl _ x) texp -> (x, texp)) decls args
 
-substUpds :: M.Map Id TypedExp -> [StorageUpdate] -> [StorageUpdate]
+substUpds :: M.Map Id (TypedExp Timed) -> [StorageUpdate] -> [StorageUpdate]
 substUpds subst upds = fmap (substUpd subst) upds
 
-substUpd :: M.Map Id TypedExp -> StorageUpdate -> StorageUpdate
+substUpd :: M.Map Id (TypedExp Timed) -> StorageUpdate -> StorageUpdate
 substUpd subst (Update s item expr) = case substItem subst item of
   ETItem SStorage  i -> Update s i (substExp subst expr)
   ETItem SCalldata _ -> error "Internal error: expecting storage item"
@@ -266,17 +269,18 @@ substUpd subst (Update s item expr) = case substItem subst item of
 -- Note: it would be nice to have these abstracted in one date type that
 -- abstracts the higher-kinded type, but Haskell does not allow partially
 -- applied type synonyms
-data ETItem t = forall k. ETItem (SRefKind k) (TItem t k)
-data ERef = forall k. ERef (SRefKind k) (Ref k)
+data ETItem t = forall k. ETItem (SRefKind k) (TItem t k Timed)
+data ERef = forall k. ERef (SRefKind k) (Ref k Timed)
 
-substItem :: M.Map Id TypedExp -> TItem a k -> ETItem a
+substItem :: M.Map Id (TypedExp Timed) -> TItem a k Timed -> ETItem a
 substItem subst (Item st vt sref) = case substRef subst sref of
   ERef k ref -> ETItem k (Item st vt ref)
 
-substRef :: M.Map Id TypedExp -> Ref k -> ERef
-substRef _ var@(SVar _ _ _ _) = ERef SStorage var
+substRef :: M.Map Id (TypedExp Timed) -> Ref k Timed -> ERef
+substRef _ var@(SVar _ _ _) = ERef SStorage var
 substRef subst (CVar _ _ x) = case M.lookup x subst of
-    Just (TExp _ (TEntry _ k (Item _ _ ref))) -> ERef k ref
+    Just (TExp _ (SVarRef _ _ (Item _ _ ref))) -> ERef SStorage ref
+    Just (TExp _ (CVarRef _ (Item _ _ ref))) -> ERef SCalldata ref
     Just _ -> error "Internal error: cannot access fields of non-pointer var"
     Nothing -> error "Internal error: ill-formed substitution"
 substRef subst (SMapping pn sref args) = case substRef subst sref of
@@ -284,13 +288,13 @@ substRef subst (SMapping pn sref args) = case substRef subst sref of
 substRef subst (SField pn sref x y) = case substRef subst sref of
   ERef k ref -> ERef k $ SField pn ref x y
 
-substArgs :: M.Map Id TypedExp -> [TypedExp] -> [TypedExp]
+substArgs :: M.Map Id (TypedExp Timed) -> [TypedExp Timed] -> [TypedExp Timed]
 substArgs subst exps = fmap (substTExp subst) exps
 
-substTExp :: M.Map Id TypedExp -> TypedExp -> TypedExp
+substTExp :: M.Map Id (TypedExp Timed) -> TypedExp Timed -> TypedExp Timed
 substTExp subst (TExp st expr) = TExp st (substExp subst expr)
 
-substExp :: M.Map Id TypedExp -> Exp a -> Exp a
+substExp :: M.Map Id (TypedExp Timed) -> Exp a Timed -> Exp a Timed
 substExp subst expr = case expr of
   And pn a b -> And pn (substExp subst a) (substExp subst b)
   Or pn a b -> Or pn (substExp subst a) (substExp subst b)
@@ -328,16 +332,18 @@ substExp subst expr = case expr of
 
   ITE pn a b c -> ITE pn (substExp subst a) (substExp subst b) (substExp subst c)
 
-  TEntry _ SCalldata (Item st _ (CVar _ _ x)) -> case M.lookup x subst of
+  SVarRef _ _ (Item st _ (CVar _ _ x)) -> case M.lookup x subst of
     Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
     Nothing -> error "Internal error: Ill-defined substitution"
-  TEntry pn _ item -> case substItem subst item of
-    ETItem k' item' ->  TEntry pn k' item'
+  CVarRef pn item -> case substItem subst item of
+    ETItem SCalldata item' -> CVarRef pn item'
+  SVarRef pn t item -> case substItem subst item of
+    ETItem SStorage item' -> SVarRef pn t item'
 
   Create pn a b -> Create pn a (substArgs subst b)
 
 
-returnsToExpr :: Monad m => ContractMap -> Maybe TypedExp -> ActT m (EVM.Expr EVM.Buf)
+returnsToExpr :: Monad m => ContractMap -> Maybe (TypedExp Timed) -> ActT m (EVM.Expr EVM.Buf)
 returnsToExpr _ Nothing = pure $ EVM.ConcreteBuf ""
 returnsToExpr cmap (Just r) = typedExpToBuf cmap r
 
@@ -347,12 +353,12 @@ wordToBuf w = EVM.WriteWord (EVM.Lit 0) w (EVM.ConcreteBuf "")
 wordToProp :: EVM.Expr EVM.EWord -> EVM.Prop
 wordToProp w = EVM.PNeg (EVM.PEq w (EVM.Lit 0))
 
-typedExpToBuf :: Monad m => ContractMap -> TypedExp -> ActT m (EVM.Expr EVM.Buf)
+typedExpToBuf :: Monad m => ContractMap -> (TypedExp Timed) -> ActT m (EVM.Expr EVM.Buf)
 typedExpToBuf cmap expr =
   case expr of
     TExp styp e -> expToBuf cmap styp e
 
-expToBuf :: Monad m => forall a. ContractMap -> SType a -> Exp a  -> ActT m (EVM.Expr EVM.Buf)
+expToBuf :: Monad m => forall a. ContractMap -> SType a -> Exp a Timed -> ActT m (EVM.Expr EVM.Buf)
 expToBuf cmap styp e = do
   case styp of
     SInteger -> do
@@ -371,9 +377,9 @@ getSlot layout cid name =
       Nothing -> error $ "Internal error: invalid variable name: " <> show name
     Nothing -> error "Internal error: invalid contract name"
 
-refOffset :: Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EWord)
+refOffset :: Monad m => ContractMap -> Ref k Timed -> ActT m (EVM.Expr EVM.EWord)
 refOffset _ (CVar _ _ _) = error "Internal error: ill-typed entry"
-refOffset _ (SVar _ cid name _) = do
+refOffset _ (SVar _ cid name) = do
   layout <- getLayout
   let slot = getSlot layout cid name
   pure $ EVM.Lit (fromIntegral slot)
@@ -387,8 +393,8 @@ refOffset _ (SField _ _ cid name) = do
   let slot = getSlot layout cid name
   pure $ EVM.Lit (fromIntegral slot)
 
-baseAddr :: Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EAddr)
-baseAddr _ (SVar _ _ _ _) = getCaddr
+baseAddr :: Monad m => ContractMap -> Ref k Timed -> ActT m (EVM.Expr EVM.EAddr)
+baseAddr _ (SVar _ _ _) = getCaddr
 baseAddr _ (CVar _ _ _) = error "Internal error: ill-typed entry"
 baseAddr cmap (SField _ ref _ _) = do
   expr <- refToExp cmap ref 
@@ -421,7 +427,7 @@ ethEnvToBuf :: EthEnv -> EVM.Expr EVM.Buf
 ethEnvToBuf _ = error "Internal error: there are no bytestring environment values"
 
 
-toProp :: Monad m => ContractMap -> Exp ABoolean -> ActT m EVM.Prop
+toProp :: Monad m => ContractMap -> Exp ABoolean Timed -> ActT m EVM.Prop
 toProp cmap = \case
   (And _ e1 e2) -> pop2 EVM.PAnd e1 e2
   (Or _ e1 e2) -> pop2 EVM.POr e1 e2
@@ -445,16 +451,17 @@ toProp cmap = \case
     pure $ EVM.PNeg e
   (NEq _ _ _ _) -> error "unsupported"
   (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
-  (TEntry _ _ _) -> error "TODO" -- EVM.SLoad addr idx
+  (SVarRef _ _ _) -> error "TODO" -- EVM.SLoad addr idx
+  (CVarRef _ _) -> error "TODO" -- EVM.SLoad addr idx
   (InRange _ t e) -> toProp cmap (inRange t e)
   where
-    op2 :: Monad m => forall a b. (EVM.Expr (ExprType b) -> EVM.Expr (ExprType b) -> a) -> Exp b -> Exp b -> ActT m a
+    op2 :: Monad m => forall a b. (EVM.Expr (ExprType b) -> EVM.Expr (ExprType b) -> a) -> Exp b Timed -> Exp b Timed -> ActT m a
     op2 op e1 e2 = do
       e1' <- toExpr cmap e1
       e2' <- toExpr cmap e2
       pure $ op e1' e2'
 
-    pop2 :: Monad m => forall a. (EVM.Prop -> EVM.Prop -> a) -> Exp ABoolean -> Exp ABoolean -> ActT m a
+    pop2 :: Monad m => forall a. (EVM.Prop -> EVM.Prop -> a) -> Exp ABoolean Timed -> Exp ABoolean Timed -> ActT m a
     pop2 op e1 e2 = do
       e1' <- toProp cmap e1
       e2' <- toProp cmap e2
@@ -471,10 +478,10 @@ stripMods = mapExpr go
     go (EVM.Mod a (EVM.Lit MAX_UINT)) = a
     go a = a
 
-toExpr :: forall a m. Monad m => ContractMap -> TA.Exp a Timed -> ActT m (EVM.Expr (ExprType a))
+toExpr :: forall a m. Monad m => ContractMap -> Exp a Timed -> ActT m (EVM.Expr (ExprType a))
 toExpr cmap =  fmap stripMods . go
   where
-    go :: Monad m => Exp a -> ActT m (EVM.Expr (ExprType a))
+    go :: Monad m => Exp a Timed -> ActT m (EVM.Expr (ExprType a))
     go = \case
       -- booleans
       (And _ e1 e2) -> op2 EVM.And e1 e2
@@ -527,13 +534,14 @@ toExpr cmap =  fmap stripMods . go
         pure $ EVM.Not e
       (NEq _ _ _ _) -> error "unsupported"
 
-      (TEntry _ _ (Item SInteger _ ref)) -> refToExp cmap ref
+      (SVarRef _ _ (Item SInteger _ ref)) -> refToExp cmap ref
+      (CVarRef _ (Item SInteger _ ref)) -> refToExp cmap ref
 
       e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
 
       e ->  error $ "TODO: " <> show e
 
-    op2 :: Monad m => forall b c. (EVM.Expr (ExprType c) -> EVM.Expr (ExprType c) -> b) -> Exp c -> Exp c -> ActT m b
+    op2 :: Monad m => forall b c. (EVM.Expr (ExprType c) -> EVM.Expr (ExprType c) -> b) -> Exp c Timed -> Exp c Timed -> ActT m b
     op2 op e1 e2 = do
       e1' <- toExpr cmap e1
       e2' <- toExpr cmap e2
@@ -541,7 +549,7 @@ toExpr cmap =  fmap stripMods . go
 
 
 
-refToExp :: forall m k. Monad m => ContractMap -> Ref k -> ActT m (EVM.Expr EVM.EWord)
+refToExp :: forall m k. Monad m => ContractMap -> Ref k Timed -> ActT m (EVM.Expr EVM.EWord)
 -- calldata variable
 refToExp _ (CVar _ typ x) = pure $ fromCalldataFramgment $ symAbiArg (T.pack x) typ
 
@@ -562,7 +570,7 @@ accessStorage cmap slot addr = case M.lookup addr cmap of
   Nothing -> error "Internal error: contract not found"
 
 
-inRange :: AbiType -> Exp AInteger -> Exp ABoolean
+inRange :: AbiType -> Exp AInteger Timed -> Exp ABoolean Timed
 -- if the type has the type of machine word then check per operation
 inRange (AbiUIntType 256) e = checkOp e
 inRange (AbiIntType 256) _ = error "TODO signed integers"
@@ -570,9 +578,10 @@ inRange (AbiIntType 256) _ = error "TODO signed integers"
 inRange t e = bound t e
 
 
-checkOp :: Exp AInteger -> Exp ABoolean
+checkOp :: Exp AInteger Timed -> Exp ABoolean Timed
 checkOp (LitInt _ i) = LitBool nowhere $ i <= (fromIntegral (maxBound :: Word256))
-checkOp (TEntry _ _ _)  = LitBool nowhere True
+checkOp (CVarRef _ _)  = LitBool nowhere True
+checkOp (SVarRef _ _ _)  = LitBool nowhere True
 checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
 checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
 checkOp (Mul _ e1 e2) = Or nowhere (Eq nowhere SInteger e1 (LitInt nowhere 0))
@@ -607,7 +616,7 @@ checkEquiv solvers l1 l2 = do
 
 -- | Create the initial contract state before analysing a contract
 -- | Assumes that all calldata variables have unique names
-getInitContractState :: App m => SolverGroup -> Interface -> [Pointer] -> [Exp ABoolean] -> ContractMap -> ActT m (ContractMap, Error String ())
+getInitContractState :: App m => SolverGroup -> Interface -> [Pointer] -> [Exp ABoolean Timed] -> ContractMap -> ActT m (ContractMap, Error String ())
 getInitContractState solvers iface pointers preconds cmap = do
   let casts = (\(PointsTo _ x c) -> (x, c)) <$> pointers
   let casts' = groupBy (\x y -> fst x == fst y) casts

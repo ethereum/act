@@ -28,7 +28,12 @@ import Control.Monad.State
 
 import EVM.ABI
 import Act.Syntax
-import Act.Syntax.Annotated
+import Act.Syntax.Typed
+import Act.Syntax.Types
+import Act.Syntax.Timing
+import Act.Parse (nowhere)
+
+import Debug.Trace
 
 type Fresh = State Int
 
@@ -114,8 +119,8 @@ reachableStep (Behaviour name _ i _ conds cases _ _ _) =
 -- | definition of a base state
 base :: Store -> Constructor -> T.Text
 base store (Constructor name i _ _ _ _ updates) =
-  definition (T.pack name) (envDecl <> " " <> interface i) $
-    stateval store name (\_ t -> defaultSlotValue t) updates
+  let v = definition (T.pack name) (envDecl <> " " <> interface i) $ stateval store name (\_ t -> defaultSlotValue t) updates
+  in trace "updates" $ traceShow updates v
 
 transition :: Store -> Behaviour -> Fresh T.Text
 transition store (Behaviour name cname i _ _ _ _ rewrites _) = do
@@ -145,9 +150,9 @@ retVal _ = return ""
 
 -- | produce a state value from a list of storage updates
 -- 'handler' defines what to do in cases where a given name isn't updated
-stateval :: Store -> Id -> (Ref Storage -> SlotType -> T.Text) -> [StorageUpdate] -> T.Text
+stateval :: Store -> Id -> (Ref Storage t -> SlotType -> T.Text) -> [StorageUpdate] -> T.Text
 stateval store contract handler updates = T.unwords $
-  stateConstructor : fmap (\(n, (t, _)) -> updateVar store updates handler (SVar nowhere contract n Pre) t) (M.toList store')
+  stateConstructor : fmap (\(n, (t, _)) -> updateVar store updates handler (SVar nowhere contract n) t) (M.toList store')
   where
     store' = contractStore contract store
 
@@ -158,20 +163,20 @@ contractStore contract store = case M.lookup contract store of
 
 
 -- | Check is an update update a specific storage reference
-eqRef :: Ref Storage -> StorageUpdate -> Bool
+eqRef :: Ref Storage Timed -> StorageUpdate -> Bool
 eqRef r (Update _ (Item _ _ r') _) = r == r'
 
 -- | Check if an update updates a location that has a given storage
 -- reference as a base
-baseRef :: Ref Storage -> StorageUpdate -> Bool
+baseRef :: Ref Storage Timed -> StorageUpdate -> Bool
 baseRef baseref (Update _ (Item _ _ r) _) = hasBase r
   where
-    hasBase (SVar _ _ _ _) = False
+    hasBase (SVar _ _ _) = False
     hasBase (SMapping _ r' _) = r' == baseref || hasBase r'
     hasBase (SField _ r' _ _) = r' == baseref || hasBase r'
 
 
-updateVar :: Store -> [StorageUpdate] -> (Ref Storage -> SlotType -> T.Text) -> Ref Storage -> SlotType -> T.Text
+updateVar :: Store -> [StorageUpdate] -> (Ref Storage Timed -> SlotType -> T.Text) -> Ref Storage Timed -> SlotType -> T.Text
 updateVar store updates handler focus t@(StorageValue (ContractType cid)) =
   case (constructorUpdates, fieldUpdates) of
     -- Only some fields are updated
@@ -248,7 +253,7 @@ abiType AbiStringType = strMod <> ".string"
 abiType a = error $ show a
 
 -- | coq syntax for a return type
-returnType :: TypedExp -> T.Text
+returnType :: TypedExp t -> T.Text
 returnType (TExp SInteger _) = "Z"
 returnType (TExp SBoolean _) = "bool"
 returnType (TExp SByteStr _) = error "bytestrings not supported"
@@ -275,7 +280,7 @@ abiVal AbiStringType = strMod <> ".EmptyString"
 abiVal _ = error "TODO: missing default values"
 
 -- | coq syntax for an expression
-coqexp :: Exp a -> T.Text
+coqexp :: Exp a t -> T.Text
 -- booleans
 coqexp (LitBool _ True)  = "true"
 coqexp (LitBool _ False) = "false"
@@ -306,7 +311,8 @@ coqexp (UIntMax _ n) = parens $ "UINT_MAX " <> T.pack (show n)
 coqexp (InRange _ t e) = coqexp (bound t e)
 
 -- polymorphic
-coqexp (TEntry _ _ e) = entry e
+coqexp (SVarRef _ _ e) = entry e
+coqexp (CVarRef _ e) = entry e
 coqexp (ITE _ b e1 e2) = parens $ "if "
                                <> coqexp b
                                <> " then "
@@ -328,7 +334,7 @@ coqexp ByLit {} = error "bytestrings not supported"
 coqexp ByEnv {} = error "bytestrings not supported"
 
 -- | coq syntax for a proposition
-coqprop :: Exp a -> T.Text
+coqprop :: Exp a Timed -> T.Text
 coqprop (LitBool _ True)  = "True"
 coqprop (LitBool _ False) = "False"
 coqprop (And _ e1 e2)  = parens $ coqprop e1 <> " /\\ " <> coqprop e2
@@ -346,22 +352,21 @@ coqprop (InRange _ t e) = coqprop (bound t e)
 coqprop e = error "ill formed proposition: " <> T.pack (show e)
 
 -- | coq syntax for a typed expression
-typedexp :: TypedExp -> T.Text
+typedexp :: TypedExp t -> T.Text
 typedexp (TExp _ e) = coqexp e
 
-entry :: TItem k a -> T.Text
+entry :: TItem k a t -> T.Text
 entry (Item SByteStr _ _) = error "bytestrings not supported"
 entry (Item _ _ r) = ref r
 
-ref :: Ref k -> T.Text
-ref (SVar _ _ name Post) = error $ "TODO: missing support for poststate references in coq backend. Entry: \n" <> name
-ref (SVar _ _ name _) = parens $ T.pack name <> " " <> stateVar
+ref :: Ref k t -> T.Text
+ref (SVar _ _ name) = parens $ T.pack name <> " " <> stateVar
 ref (CVar _ _ name) = T.pack name
 ref (SMapping _ r ixs) = parens $ ref r <> " " <> coqargs ixs
 ref (SField _ r cid name) = parens $ T.pack cid <> "." <> T.pack name <> " " <> ref r
 
 -- | coq syntax for a list of arguments
-coqargs :: [TypedExp] -> T.Text
+coqargs :: [TypedExp t] -> T.Text
 coqargs es = T.unwords (map typedexp es)
 
 fresh :: Id -> Fresh T.Text

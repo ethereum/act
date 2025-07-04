@@ -55,7 +55,7 @@ import GHC.IO hiding (liftIO)
 import EVM.SMT
 import EVM.Effects
 
-import Act.Syntax.Annotated
+import Act.Syntax.Typed
 import Act.HEVM
 import Act.HEVM_utils hiding (abstractVM)
 import Act.Bounds (addBounds)

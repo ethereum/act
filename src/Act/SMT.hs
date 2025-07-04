@@ -61,15 +61,12 @@ import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
 
 import Act.Syntax
-import Act.Syntax.Annotated hiding (annotate)
 import Act.Syntax.Timing
 
 import Act.Print
 import Act.Type (globalEnv)
 
 import EVM.Solvers (Solver(..))
-
-import Debug.Trace
 
 --- ** Data ** ---
 

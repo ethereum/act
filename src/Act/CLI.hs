@@ -38,7 +38,7 @@ import Control.Lens.Getter
 import Act.Error
 import Act.Lex (lexer, AlexPosn(..))
 import Act.Parse
-import Act.Syntax.Annotated
+import Act.Syntax.Typed
 import Act.Bounds
 import Act.SMT as SMT
 import Act.Type

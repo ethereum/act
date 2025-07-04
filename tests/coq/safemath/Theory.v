@@ -21,18 +21,18 @@ Proof.
     intros.
     destruct H as [Hx [Hy Hxy]].
     apply mul0_ret_intro.
-    - assumption.
-    - assumption.
-    - assumption.
+    - split; [ assumption | ].
+      split; assumption.
     - assumption.
     - assumption.
     - eauto.
   } {
     intros. destruct H.
     split. assumption.
-    split. assumption. assumption.
+    split. assumption.
+    easy.
   }
-Qed. Check mul_correct.
+Qed.
 
 
 Theorem mul_is_mul :

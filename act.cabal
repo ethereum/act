@@ -58,8 +58,6 @@ library
     Act.Error
     Act.Print
     Act.SMT
-    Act.Syntax.Annotated
-    Act.Syntax.TimeAgnostic
     Act.Lex
     Act.Parse
     Act.Coq

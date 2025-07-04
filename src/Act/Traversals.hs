@@ -4,7 +4,7 @@
 module Act.Traversals (TraversableTerm(..)) where
 
 import Data.Functor.Identity
-import Act.Syntax.TimeAgnostic
+import Act.Syntax.Typed
 import Prelude hiding (LT, GT)
 
 -- | Generic operations over AST terms
@@ -137,9 +137,12 @@ mapExpM f = \case
     b' <- mapExpM f b
     c' <- mapExpM f c
     f (ITE p a' b' c')
-  TEntry p k i -> do
+  CVarRef p i -> do
     i' <- mapTItemM f i
-    f (TEntry p k i')
+    f (CVarRef p i')
+  SVarRef p t i -> do
+    i' <- mapTItemM f i
+    f (SVarRef p t i')
 
 mapTypedExpM :: Monad m => (forall a . Exp a t -> m (Exp a t)) -> TypedExp t -> m (TypedExp t)
 mapTypedExpM f (TExp s e) = do
@@ -153,7 +156,7 @@ mapTItemM f (Item s v r) = do
 
 mapRefM :: Monad m => (forall a . Exp a t -> m (Exp a t)) -> Ref k t -> m (Ref k t)
 mapRefM f = \case
-  SVar p a b t -> pure (SVar p a b t)
+  SVar p a b -> pure (SVar p a b)
   CVar p a b -> pure (CVar p a b)
   SMapping p a b -> do
     a' <- mapRefM f a
