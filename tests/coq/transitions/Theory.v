@@ -9,7 +9,7 @@ Import StateMachine.
 
 Theorem invariant : forall BASE s, reachable BASE s -> (x s) >= 0 /\ (x s) <= 2.
 Proof.
-  intros. induction H. {
+  intros. induction H; [ | induction H0]. {
     simpl. split.
     - intros contra. discriminate.
     - intros contra. discriminate.

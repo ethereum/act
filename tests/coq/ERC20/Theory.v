@@ -189,7 +189,7 @@ Theorem constant_balanceOf : forall BASE STATE,
     balanceOf_sum BASE = balanceOf_sum STATE.
 Proof.
   intros BASE S Hreach.
-  induction Hreach; intros; [ reflexivity | | assumption | | | | assumption ];
+  induction Hreach; intros; induction H; [ reflexivity | | assumption | | | | assumption ];
     rewrite IHHreach; destructAnds.
   - eapply (balances_after_transfer ENV); eauto.
   - eapply (balances_after_transfer ENV); eauto.

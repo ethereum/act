@@ -13,16 +13,15 @@ Proof.
   intros HR x. induction HR.
   - simpl; eauto.
 
-  - simpl. destruct (x =? i).
+  - induction H. simpl. destruct (x =? i).
+    + eauto.
     + eauto.
     + eauto. 
-
-  - eauto.
 Qed.
 
 Theorem reachable_value_x S0 S:
   reachable S0 S ->
   w S = 0 \/ w S = 1. 
 Proof.
-  intros HR. induction HR; simpl; eauto. 
+  intros HR. induction HR; [ | induction H]; simpl; eauto. 
 Qed.

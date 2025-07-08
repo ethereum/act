@@ -152,7 +152,7 @@ Theorem constant_balances : forall BASE STATE,
     reachable BASE STATE ->
     balances_sum BASE = balances_sum STATE.
 Proof.
-  intros BASE S Hreach. induction Hreach; intros.
+  intros BASE S Hreach. induction Hreach; intros; induction H.
   - reflexivity.
   - rewrite IHHreach. unfold transfer0.
     unfold balances_sum. simpl.
