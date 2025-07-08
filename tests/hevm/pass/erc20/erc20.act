@@ -193,9 +193,7 @@ iff
 
   CALLVALUE == 0
 
-case true:
-
-  returns pre(totalSupply)
+returns pre(totalSupply)
 
 behaviour balanceOf of Token
 interface balanceOf(address idx)
@@ -204,9 +202,7 @@ iff
 
   CALLVALUE == 0
 
-case true:
-
-  returns pre(balanceOf[idx])
+returns pre(balanceOf[idx])
 
 behaviour allowance of Token
 interface allowance(address idx1, address idx2)
@@ -215,6 +211,4 @@ iff
 
   CALLVALUE == 0
 
-case true:
-
-  returns pre(allowance[idx1][idx2])
+returns pre(allowance[idx1][idx2])
