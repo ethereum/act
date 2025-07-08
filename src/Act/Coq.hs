@@ -28,10 +28,7 @@ import Control.Monad.State
 
 import EVM.ABI
 import Act.Syntax
-import Act.Syntax.Typed
-import Act.Syntax.Types
-import Act.Syntax.Timing
-import Act.Parse (nowhere)
+import Act.Syntax.TypedExplicit
 
 import Debug.Trace
 
@@ -150,7 +147,7 @@ retVal _ = return ""
 
 -- | produce a state value from a list of storage updates
 -- 'handler' defines what to do in cases where a given name isn't updated
-stateval :: Store -> Id -> (Ref Storage t -> SlotType -> T.Text) -> [StorageUpdate] -> T.Text
+stateval :: Store -> Id -> (Ref Storage -> SlotType -> T.Text) -> [StorageUpdate] -> T.Text
 stateval store contract handler updates = T.unwords $
   stateConstructor : fmap (\(n, (t, _)) -> updateVar store updates handler (SVar nowhere contract n) t) (M.toList store')
   where
@@ -163,12 +160,12 @@ contractStore contract store = case M.lookup contract store of
 
 
 -- | Check is an update update a specific storage reference
-eqRef :: Ref Storage Timed -> StorageUpdate -> Bool
+eqRef :: Ref Storage -> StorageUpdate -> Bool
 eqRef r (Update _ (Item _ _ r') _) = r == r'
 
 -- | Check if an update updates a location that has a given storage
 -- reference as a base
-baseRef :: Ref Storage Timed -> StorageUpdate -> Bool
+baseRef :: Ref Storage -> StorageUpdate -> Bool
 baseRef baseref (Update _ (Item _ _ r) _) = hasBase r
   where
     hasBase (SVar _ _ _) = False
@@ -176,7 +173,7 @@ baseRef baseref (Update _ (Item _ _ r) _) = hasBase r
     hasBase (SField _ r' _ _) = r' == baseref || hasBase r'
 
 
-updateVar :: Store -> [StorageUpdate] -> (Ref Storage Timed -> SlotType -> T.Text) -> Ref Storage Timed -> SlotType -> T.Text
+updateVar :: Store -> [StorageUpdate] -> (Ref Storage -> SlotType -> T.Text) -> Ref Storage -> SlotType -> T.Text
 updateVar store updates handler focus t@(StorageValue (ContractType cid)) =
   case (constructorUpdates, fieldUpdates) of
     -- Only some fields are updated
@@ -253,7 +250,7 @@ abiType AbiStringType = strMod <> ".string"
 abiType a = error $ show a
 
 -- | coq syntax for a return type
-returnType :: TypedExp t -> T.Text
+returnType :: TypedExp -> T.Text
 returnType (TExp SInteger _) = "Z"
 returnType (TExp SBoolean _) = "bool"
 returnType (TExp SByteStr _) = error "bytestrings not supported"
@@ -280,7 +277,7 @@ abiVal AbiStringType = strMod <> ".EmptyString"
 abiVal _ = error "TODO: missing default values"
 
 -- | coq syntax for an expression
-coqexp :: Exp a t -> T.Text
+coqexp :: Exp a -> T.Text
 -- booleans
 coqexp (LitBool _ True)  = "true"
 coqexp (LitBool _ False) = "false"
@@ -334,7 +331,7 @@ coqexp ByLit {} = error "bytestrings not supported"
 coqexp ByEnv {} = error "bytestrings not supported"
 
 -- | coq syntax for a proposition
-coqprop :: Exp a Timed -> T.Text
+coqprop :: Exp a -> T.Text
 coqprop (LitBool _ True)  = "True"
 coqprop (LitBool _ False) = "False"
 coqprop (And _ e1 e2)  = parens $ coqprop e1 <> " /\\ " <> coqprop e2
@@ -352,21 +349,21 @@ coqprop (InRange _ t e) = coqprop (bound t e)
 coqprop e = error "ill formed proposition: " <> T.pack (show e)
 
 -- | coq syntax for a typed expression
-typedexp :: TypedExp t -> T.Text
+typedexp :: TypedExp -> T.Text
 typedexp (TExp _ e) = coqexp e
 
-entry :: TItem k a t -> T.Text
+entry :: TItem k a -> T.Text
 entry (Item SByteStr _ _) = error "bytestrings not supported"
 entry (Item _ _ r) = ref r
 
-ref :: Ref k t -> T.Text
+ref :: Ref k -> T.Text
 ref (SVar _ _ name) = parens $ T.pack name <> " " <> stateVar
 ref (CVar _ _ name) = T.pack name
 ref (SMapping _ r ixs) = parens $ ref r <> " " <> coqargs ixs
 ref (SField _ r cid name) = parens $ T.pack cid <> "." <> T.pack name <> " " <> ref r
 
 -- | coq syntax for a list of arguments
-coqargs :: [TypedExp t] -> T.Text
+coqargs :: [TypedExp] -> T.Text
 coqargs es = T.unwords (map typedexp es)
 
 fresh :: Id -> Fresh T.Text

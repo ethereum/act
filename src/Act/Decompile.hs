@@ -1,7 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -55,7 +54,7 @@ import GHC.IO hiding (liftIO)
 import EVM.SMT
 import EVM.Effects
 
-import Act.Syntax.Typed
+import Act.Syntax.TypedExplicit
 import Act.HEVM
 import Act.HEVM_utils hiding (abstractVM)
 import Act.Bounds (addBounds)
@@ -277,7 +276,7 @@ mkRewrites cname (DistinctStore writes) = forM (Map.toList writes) $ \(name,(val
           AbiTupleType _ -> Left "cannot decompile methods that write to tuple in storage"
           AbiFunctionType -> Left "cannot decompile methods that store function pointers"
           _ -> do
-            pure (Update SInteger (Item SInteger v (SVar nowhere (T.unpack cname) (T.unpack name) Post)) val)
+            pure (Update SInteger (Item SInteger v (SVar nowhere (T.unpack cname) (T.unpack name))) val)
         Dynamic -> Left "cannot decompile methods that store dynamically sized types"
       ContractType {} -> Left "cannot decompile contracts that have contract types in storage"
     StorageMapping {} -> Left "cannot decompile contracts that write to mappings"
@@ -438,7 +437,7 @@ fromWord layout w = simplify <$> go w
            Nothing -> Left "read from a storage location that is not present in the solc layout"
            Just (nm, tp) -> case tp of
              -- TODO: get lookup contract name by address
-             StorageValue t@(PrimitiveType _) -> Right $ TEntry nowhere SStorage (Item SInteger t (SVar nowhere (T.unpack "Basic") (T.unpack nm) Pre))
+             StorageValue t@(PrimitiveType _) -> Right $ SVarRef nowhere Pre (Item SInteger t (SVar nowhere (T.unpack "Basic") (T.unpack nm)))
              _ -> Left $ "unable to handle storage reads for variables of type: " <> T.pack (show tp)
 
     go e = err e

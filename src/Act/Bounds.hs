@@ -7,13 +7,8 @@ import Data.Maybe
 import Data.List (nub)
 
 import Act.Syntax
-import Act.Syntax.Typed
+import Act.Syntax.TypedExplicit
 import Act.Type (globalEnv)
-import Act.Syntax.Timing
-import Act.Syntax.Untyped (makeIface, Pn, Id, SlotType(..), Decl(..), Interface(..), Pointer(..), EthEnv(..), ValueType(..))
-import Act.Syntax.Types
-import Data.Typeable (Typeable)
-import Act.Parse (nowhere)
 
 
 {-|
@@ -54,14 +49,14 @@ addBoundsBehaviour behv@(Behaviour _ _ (Interface _ decls) _ pre cases post stat
       pre' = pre
              <> mkCallDataBounds decls
              <> mkStorageBounds stateUpdates Pre
-             <> mkStorageBoundsLoc Pre (nub $ concatMap locsFromExp (pre <> cases) <> concatMap locsFromUpdateRHS stateUpdates)
+             <> mkStorageBoundsLoc (nub $ concatMap locsFromExp (pre <> cases) <> concatMap locsFromUpdateRHS stateUpdates)
              <> mkEthEnvBounds (ethEnvFromBehaviour behv)
       post' = post
               <> mkStorageBounds stateUpdates Post
 
 -- | Adds type bounds for calldata, environment vars, and storage vars
 addBoundsInvariant :: Constructor -> Invariant -> Invariant
-addBoundsInvariant (Constructor _ (Interface _ decls) _ _ _ _ _) inv@(Invariant _ preconds storagebounds (predicate,_)) =
+addBoundsInvariant (Constructor _ (Interface _ decls) _ _ _ _ _) inv@(Invariant _ preconds storagebounds (PredTimed predicate _)) =
   inv { _ipreconditions = preconds', _istoragebounds = storagebounds' }
     where
       preconds' = preconds
@@ -70,10 +65,10 @@ addBoundsInvariant (Constructor _ (Interface _ decls) _ _ _ _ _) inv@(Invariant 
       storagebounds' = storagebounds
                        <> mkStorageBoundsLoc (locsFromExp predicate)
 
-mkEthEnvBounds :: Typeable t => [EthEnv] -> [Exp ABoolean t]
+mkEthEnvBounds :: [EthEnv] -> [Exp ABoolean]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
   where
-    mkBound :: EthEnv -> Maybe (Exp ABoolean t)
+    mkBound :: EthEnv -> Maybe (Exp ABoolean)
     mkBound e = case lookup e globalEnv of
       Just AInteger -> Just $ bound (toAbiType e) (IntEnv nowhere e)
       _ -> Nothing
@@ -95,25 +90,25 @@ mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
       Nonce -> AbiUIntType 256
 
 -- | Extracts bounds from the AbiTypes of Integer variables in storage
-mkStorageBounds :: [StorageUpdate] -> When -> [Exp ABoolean Timed]
+mkStorageBounds :: [StorageUpdate] -> When -> [Exp ABoolean]
 mkStorageBounds refs t = concatMap mkBound refs
   where
-    mkBound :: StorageUpdate -> [Exp ABoolean t]
+    mkBound :: StorageUpdate -> [Exp ABoolean]
     mkBound (Update SInteger item _) = [mkItemBounds t item]
     mkBound _ = []
 
-mkItemBounds :: Time t -> TItem AInteger Storage t -> Exp ABoolean t
+mkItemBounds :: When -> TItem AInteger Storage -> Exp ABoolean
 mkItemBounds whn item@(Item _ (PrimitiveType vt) _) = bound vt (SVarRef nowhere whn item)
 mkItemBounds _ (Item _ (ContractType _) _) = LitBool nowhere True
 
-mkStorageBoundsLoc :: Time t -> [StorageLocation] -> [Exp ABoolean t]
-mkStorageBoundsLoc whn refs = concatMap mkBound refs
+mkStorageBoundsLoc :: [StorageLocation] -> [Exp ABoolean]
+mkStorageBoundsLoc refs = concatMap mkBound refs
   where
-    mkBound :: StorageLocation -> [Exp ABoolean t]
-    mkBound (Loc SInteger _ item) = [mkItemBounds whn item]
+    mkBound :: StorageLocation -> [Exp ABoolean]
+    mkBound (Loc SInteger item) = [mkItemBounds Pre item]
     mkBound _ = []
 
-mkCallDataBounds :: [Decl] -> [Exp ABoolean t]
+mkCallDataBounds :: [Decl] -> [Exp ABoolean]
 mkCallDataBounds = concatMap $ \(Decl typ name) -> case fromAbiType typ of
   AInteger -> [bound typ (_Var typ name)]
   _ -> []

@@ -23,7 +23,7 @@ import Act.CLI (compile)
 import Act.Error
 import Act.Print (prettyBehaviour, prettyAct)
 import Act.SMT
-import Act.Syntax.Annotated
+import Act.Syntax.TypedExplicit
 
 import Text.Pretty.Simple
 import Data.Text.Lazy as T (unpack)
@@ -240,7 +240,7 @@ selectVar typ (Names ints bools bytes) = do
                 SByteStr -> bytes
   idx <- elements [0..((length names)-1)]
   let (x, at) = names!!idx
-  return $ TEntry nowhere SCalldata (Item typ (PrimitiveType at) (CVar nowhere at x))
+  return $ CVarRef nowhere (Item typ (PrimitiveType at) (CVar nowhere at x))
 
 -- | Generates a record type containing identifier names.
 -- Ensures each generated name appears once only.

@@ -14,7 +14,6 @@ import Data.Maybe
 import Data.String.Here
 import Data.Text (Text)
 import Data.Text.IO qualified as T
-import Data.Validation
 
 import Act.Decompile
 import Act.Print

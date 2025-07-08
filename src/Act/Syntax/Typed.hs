@@ -16,7 +16,7 @@
 {-# LANGUAGE InstanceSigs #-}
 
 {-|
-Module      : Syntax.TimeAgnostic
+Module      : Syntax.Typed
 Description : Typed AST datatype.
 
 This module contains the datatype for the typed AST of Act specification.
@@ -43,90 +43,98 @@ import Data.Type.Equality (TestEquality(..), (:~:)(..))
 
 -- Reexports
 
-import Act.Parse          as Act.Syntax.TimeAgnostic (nowhere)
-import Act.Syntax.Types   as Act.Syntax.TimeAgnostic
-import Act.Syntax.Timing  as Act.Syntax.TimeAgnostic
-import Act.Syntax.Untyped as Act.Syntax.TimeAgnostic (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..), Pointer(..))
+import Act.Parse          as Act.Syntax.Typed (nowhere)
+import Act.Syntax.Types   as Act.Syntax.Typed
+import Act.Syntax.Timing  as Act.Syntax.Typed
+import Act.Syntax.Untyped as Act.Syntax.Typed (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..), Pointer(..))
 
 -- AST post typechecking
-data Act = Act Store [Contract]
+data Act t = Act Store [Contract t]
   deriving (Show, Eq)
 
-data Contract = Contract (Constructor) [Behaviour]
+data Contract t = Contract (Constructor t) [Behaviour t]
   deriving (Show, Eq)
 
 -- For each contract, it stores the type of a storage variables and
 -- the order in which they are declared
 type Store = Map Id (Map Id (SlotType, Integer))
 
--- | Represents a contract level invariant along . The invariant is defined in
--- the context of the constructor, but must also be checked against each
--- behaviour in the contract, and thus may reference variables (i.e.,
--- constructor arguments) that are not present in a given behaviour (constructor
--- args, or storage so we additionally attach some constraints over the
--- variables referenced by the predicate in the `_ipreconditions` and
--- `_istoragebounds` fields. These fields are separated as the constraints
--- derived from the types of the storage references must be treated differently
--- in the constructor specific queries (as the storage variables have no
--- prestate in the constructor...), whereas the constraints derived from the
--- types of the environment variables and calldata args (stored in
--- _ipreconditions) have a uniform semantics over both the constructor and
--- behaviour claims.
-data Invariant = Invariant
+-- | Represents a contract level invariant. The invariant is defined in the
+-- context of the constructor, but must also be checked against each behaviour
+-- in the contract, and thus may reference variables (i.e., constructor
+-- arguments) that are not present in a given behaviour (constructor args, or
+-- storage so we additionally attach some constraints over the variables
+-- referenced by the predicate in the `_ipreconditions` and `_istoragebounds`
+-- fields. These fields are separated as the constraints derived from the types
+-- of the storage references must be treated differently in the constructor
+-- specific queries (as the storage variables have no prestate in the
+-- constructor...), whereas the constraints derived from the types of the
+-- environment variables and calldata args (stored in _ipreconditions) have a
+-- uniform semantics over both the constructor and behaviour claims.
+
+data Invariant t = Invariant
   { _icontract :: Id
-  , _ipreconditions :: [Exp ABoolean Timed]
-  , _istoragebounds :: [Exp ABoolean Timed]
-  , _predicate :: Exp ABoolean Untimed
-  } deriving (Show, Eq)
+  , _ipreconditions :: [Exp ABoolean t]
+  , _istoragebounds :: [Exp ABoolean t]
+  , _predicate :: InvariantPred t
+  }
+deriving instance Show (Invariant t)
+deriving instance Eq (Invariant t)
 
+-- | Invariant predicates are either a single predicate without explicit timing
+-- or two predicates which explicitly reference the pre- and the post-state,
+-- respectively.
+data InvariantPred (t :: Timing) where
+    PredUntimed :: Exp ABoolean Untimed -> InvariantPred Untimed
+    PredTimed :: Exp ABoolean Timed -> Exp ABoolean Timed -> InvariantPred Timed
+deriving instance Show (InvariantPred t)
+deriving instance Eq (InvariantPred t)
 
-data Constructor = Constructor
+data Constructor t = Constructor
   { _cname :: Id
   , _cinterface :: Interface
   , _cpointers :: [Pointer]
-  , _cpreconditions :: [Exp ABoolean Timed]
+  , _cpreconditions :: [Exp ABoolean t]
   , _cpostconditions :: [Exp ABoolean Timed]
-  , _invariants :: [Invariant]
-  , _initialStorage :: [StorageUpdate]
+  , _invariants :: [Invariant t]
+  , _initialStorage :: [StorageUpdate t]
   } deriving (Show, Eq)
+
 
 -- After typing each behavior may be split to multiple behaviors, one for each case branch.
 -- In this case, only the `_caseconditions`, `_stateUpdates`, and `_returns` fields are different.
-data Behaviour = Behaviour
+data Behaviour t = Behaviour
   { _name :: Id
   , _contract :: Id
   , _interface :: Interface
   , _pointers :: [Pointer]
-  , _preconditions :: [Exp ABoolean Timed]  -- if preconditions are not satisfied execution is reverted
-  , _caseconditions :: [Exp ABoolean Timed] -- if preconditions are satisfied and the case conditions are not, some other instance of the bahavior should apply
+  , _preconditions :: [Exp ABoolean t]  -- if preconditions are not satisfied execution is reverted
+  , _caseconditions :: [Exp ABoolean t] -- if preconditions are satisfied and the case conditions are not, some other instance of the bahavior should apply
   , _postconditions :: [Exp ABoolean Timed]
-  , _stateUpdates :: [StorageUpdate]
+  , _stateUpdates :: [StorageUpdate t]
   , _returns :: Maybe (TypedExp Timed)
   } deriving (Show, Eq)
 
-data StorageUpdate where
-  Update :: SType a -> TItem a Storage Timed -> Exp a Timed -> StorageUpdate
-deriving instance Show StorageUpdate
+data StorageUpdate (t :: Timing) where
+  Update :: SType a -> TItem a Storage t -> Exp a t -> StorageUpdate t
+deriving instance Show (StorageUpdate t)
 
-instance Eq StorageUpdate where
+instance Eq (StorageUpdate t) where
+  (==) :: StorageUpdate t -> StorageUpdate t -> Bool
   Update SType i1 e1 == Update SType i2 e2 = eqS' i1 i2 && eqS e1 e2
 
-_Update :: SingI a => TItem a Storage Timed -> Exp a Timed -> StorageUpdate
+_Update :: SingI a => TItem a Storage t -> Exp a t -> StorageUpdate t
 _Update item expr = Update sing item expr
 
-data StorageLocation where
-  Loc :: SType a -> Time t -> TItem a Storage t -> StorageLocation
-deriving instance Show (StorageLocation)
+data StorageLocation (t :: Timing) where
+  Loc :: SType a -> TItem a Storage t -> StorageLocation t
+deriving instance Show (StorageLocation t)
 
-instance Eq StorageLocation where
-  Loc SType Pre i1 == Loc SType Pre i2 = eqS' i1 i2
-  Loc SType Post i1 == Loc SType Post i2 = eqS' i1 i2
-  Loc SType Neither i1 == Loc SType Neither i2 = eqS' i1 i2
-  _ == _ = False
-  -- TODO use type equality to avoid exhaustive pattern matching
+instance Eq (StorageLocation t) where
+  Loc SType i1 == Loc SType i2 = eqS' i1 i2
 
-_Loc :: Time t -> TItem a Storage t -> StorageLocation
-_Loc t item@(Item s _ _) = Loc s t item
+_Loc :: TItem a Storage t -> StorageLocation t
+_Loc item@(Item s _ _) = Loc s item
 
 -- | Distinguish the type of Refs to calldata variables and storage
 data RefKind = Storage | Calldata
@@ -367,8 +375,8 @@ instance Timable (Ref k) where
   setTime :: When -> Ref k Untimed -> Ref k Timed
   setTime time (SMapping p e ixs) = SMapping p (setTime time e) (setTime time <$> ixs)
   setTime time (SField p e c x) = SField p (setTime time e) c x
-  setTime _ (SVar p c id) = SVar p c id
-  setTime _ (CVar p at id) = CVar p at id
+  setTime _ (SVar p c ref) = SVar p c ref
+  setTime _ (CVar p at ref) = CVar p at ref
 
 
 ------------------------
@@ -378,12 +386,12 @@ instance Timable (Ref k) where
 -- TODO dual instances are ugly! But at least it works for now.
 -- It was difficult to construct a function with type:
 -- `InvPredicate t -> Either (Exp Bool Timed,Exp Bool Timed) (Exp Bool Untimed)`
-instance ToJSON Act where
+instance ToJSON (Act t) where
   toJSON (Act storages contracts) = object [ "kind" .= String "Act"
                                            , "store" .= storeJSON storages
                                            , "contracts" .= toJSON contracts ]
 
-instance ToJSON Contract where
+instance ToJSON (Contract t) where
   toJSON (Contract ctor behv) = object [ "kind" .= String "Contract"
                                        , "constructor" .= toJSON ctor
                                        , "behaviours" .= toJSON behv ]
@@ -392,17 +400,17 @@ storeJSON :: Store -> Value
 storeJSON storages = object [ "kind" .= String "Storages"
                             , "storages" .= toJSON storages]
 
-instance ToJSON Constructor where
+instance ToJSON (Constructor t) where
   toJSON Constructor{..} = object [ "kind" .= String "Constructor"
                                   , "contract" .= _cname
                                   , "interface" .= toJSON _cinterface
                                   , "pointers" .= toJSON _cpointers
                                   , "preConditions" .= toJSON _cpreconditions
                                   , "postConditions" .= toJSON _cpostconditions
-                                  , "invariants" .= listValue (\i@Invariant{..} -> invariantJSON i _predicate) _invariants
+                                  , "invariants" .= listValue toJSON _invariants
                                   , "initialStorage" .= toJSON _initialStorage  ]
 
-instance ToJSON Behaviour where
+instance ToJSON (Behaviour t) where
   toJSON Behaviour{..} = object [ "kind" .= String "Behaviour"
                                 , "name" .= _name
                                 , "contract" .= _contract
@@ -431,18 +439,24 @@ instance ToJSON Pointer where
                                    , "var" .= x
                                    , "contract" .= c ]
 
-invariantJSON :: ToJSON pred => Invariant -> pred -> Value
-invariantJSON Invariant{..} predicate = object [ "kind" .= String "Invariant"
-                                               , "predicate" .= toJSON predicate
-                                               , "preconditions" .= toJSON _ipreconditions
-                                               , "storagebounds" .= toJSON _istoragebounds
-                                               , "contract" .= _icontract ]
+instance ToJSON (Invariant t) where
+  toJSON Invariant{..} = object [ "kind" .= String "Invariant"
+                                , "predicate" .= toJSON _predicate
+                                , "preconditions" .= toJSON _ipreconditions
+                                , "storagebounds" .= toJSON _istoragebounds
+                                , "contract" .= _icontract ]
 
-instance ToJSON StorageLocation where
-  toJSON (Loc _ t a) = object [ "location" .= toJSON a
-                              , "timing" .= show t ]
+instance ToJSON (InvariantPred t) where
+  toJSON (PredUntimed ipred) = object [ "kind" .= String "PredUntimed"
+                                      , "predicate" .= toJSON ipred ]
+  toJSON (PredTimed predpre predpost) = object [ "kind" .= String "PredUntimed"
+                                               , "prefpredicate" .= toJSON predpre
+                                               , "prefpredicate" .= toJSON predpost ]
 
-instance ToJSON (StorageUpdate) where
+instance ToJSON (StorageLocation t) where
+  toJSON (Loc _ a) = object [ "location" .= toJSON a ]
+
+instance ToJSON (StorageUpdate t) where
   toJSON (Update _ a b) = object [ "location" .= toJSON a ,"value" .= toJSON b ]
 
 instance ToJSON (TItem a k t) where

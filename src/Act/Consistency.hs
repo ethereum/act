@@ -19,7 +19,7 @@ import System.Exit (exitFailure)
 import Data.Maybe
 
 import Act.Syntax
-import Act.Syntax.Typed
+import Act.Syntax.TypedExplicit
 import Act.SMT as SMT
 import Act.Syntax.Untyped (makeIface)
 import Act.Print

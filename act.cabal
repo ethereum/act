@@ -64,6 +64,8 @@ library
     Act.Syntax
     Act.Syntax.Untyped
     Act.Syntax.Typed
+    Act.Syntax.TypedExplicit
+    Act.Syntax.TypedImplicit
     Act.Syntax.Types
     Act.Syntax.Timing
     Act.Traversals

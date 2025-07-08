@@ -21,7 +21,7 @@ import Control.Monad.Reader
 import Control.Monad 
 
 import Act.Syntax.Typed
-import Act.Syntax.Untyped (Interface(..), Decl(..), makeIface)
+import Act.Syntax.Untyped (makeIface)
 
 import qualified EVM.Types as EVM
 import EVM.Types (VM(..))

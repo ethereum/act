@@ -120,7 +120,7 @@ mapExpM f = \case
   Create p n as -> do
     as' <- mapM (mapTypedExpM f) as
     f (Create p n as')
-    
+
   --polymorphic
 
   Eq p s a b -> do

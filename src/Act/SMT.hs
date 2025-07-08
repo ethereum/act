@@ -61,7 +61,7 @@ import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
 
 import Act.Syntax
-import Act.Syntax.Timing
+import Act.Syntax.TypedExplicit
 
 import Act.Print
 import Act.Type (globalEnv)
@@ -195,7 +195,7 @@ mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) _ pre
     storage = concatMap declareStorageLocation activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
-    constLocs = (nub $ setTime Post <$> activeLocs) \\ (locFromUpdate <$> stateUpdates)
+    constLocs = (nub activeLocs) \\ (locFromUpdate <$> stateUpdates)
 
     -- constraints
     pres = mkAssert ifaceName <$> preconds <> caseconds
@@ -258,7 +258,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     getInvariants (Contract (c@Constructor{..}) behvs) = fmap (, c, behvs) _invariants
 
     mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
-    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) _ preconds _ _ initialStorage) = (ctor, smt)
+    mkInit (Invariant _ invConds _ (PredTimed _ invPost)) ctor@(Constructor _ (Interface ifaceName decls) _ preconds _ _ initialStorage) = (ctor, smt)
       where
         -- declare vars
         activeLocs = locsFromConstructor ctor
@@ -279,7 +279,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
           }
 
     mkBehv :: Invariant -> Constructor -> Behaviour -> (Behaviour, SMTExp)
-    mkBehv inv@(Invariant _ invConds invStorageBounds (invPre,invPost)) ctor behv = (behv, smt)
+    mkBehv inv@(Invariant _ invConds invStorageBounds (PredTimed invPre invPost)) ctor behv = (behv, smt)
       where
 
         (Interface ctorIface ctorDecls) = _cinterface ctor
@@ -293,7 +293,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
         behvArgs = declareArg behvIface <$> behvDecls
         activeLocs = nub $ locsFromBehaviour behv <> locsFromInvariant inv
         -- storage locs that are mentioned but not explictly updated (i.e., constant)
-        constLocs = ((nub $ setTime Post <$> activeLocs) \\ fmap locFromUpdate (_stateUpdates behv))
+        constLocs = ((nub activeLocs) \\ fmap locFromUpdate (_stateUpdates behv))
 
         storage = concatMap declareStorageLocation activeLocs
 
@@ -539,7 +539,7 @@ parseSMTModel s = if length s0Caps == 1
 encodeUpdate :: Id -> StorageUpdate -> SMT2
 encodeUpdate behvName (Update _ item expr) =
   let
-    postentry  = withInterface behvName $ expToSMT2 (TEntry nowhere SStorage item)
+    postentry  = withInterface behvName $ expToSMT2 (SVarRef nowhere Post item)
     expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
@@ -550,7 +550,7 @@ encodeConstant loc = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc 
 declareStorage :: [When] -> StorageLocation -> [SMT2]
 declareStorage times (Loc _ item@(Item _ _ ref)) = declareRef ref
   where
-    declareRef (SVar _ _ _ _) = (\t -> constant (nameFromSItem t item) (itemType item) ) <$> times
+    declareRef (SVar _ _ _) = (\t -> constant (nameFromSItem t item) (itemType item) ) <$> times
     declareRef (SMapping _ _ ixs) = (\t -> array (nameFromSItem t item) ixs (itemType item)) <$> times
     declareRef (SField _ ref' _ _) = declareRef ref'
 
@@ -619,12 +619,15 @@ expToSMT2 expr = case expr of
   ByEnv _ a -> pure $ prettyEnv a
 
   -- contracts
-  Create _ _ _ -> pure $ "0" -- just a dummy address for now
+  Create _ _ _ -> pure "0" -- TODO just a dummy address for now
   -- polymorphic
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
   ITE _ a b c -> triop "ite" a b c
-  TEntry _ _ item -> entry item
+  SVarRef _ whn item -> do
+    name <- entry item
+    pure (name @@ show whn)
+  CVarRef _ item -> entry item
   where
     unop :: String -> Exp a -> Ctx SMT2
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
@@ -688,19 +691,19 @@ sType' (TExp t _) = sType $ actType t
 
 -- Construct the smt2 variable name for a given storage item
 nameFromSItem :: When -> TItem a Storage -> Id
-nameFromSItem whn (Item _ _ ref) = nameFromSRef whn ref
+nameFromSItem whn (Item _ _ ref) = nameFromSRef ref @@ show whn
 
-nameFromSRef :: When -> Ref Storage -> Id
-nameFromSRef whn (SVar _ c name _) = c @@ name @@ show whn
-nameFromSRef whn (SMapping _ e _) = nameFromSRef whn e
-nameFromSRef whn (SField _ ref c x) = nameFromSRef whn ref @@ c @@ x
+nameFromSRef :: Ref Storage -> Id
+nameFromSRef (SVar _ c name) = c @@ name
+nameFromSRef (SMapping _ e _) = nameFromSRef e
+nameFromSRef (SField _ ref c x) = nameFromSRef ref @@ c @@ x
 
 nameFromItem :: TItem k a -> Ctx Id
 nameFromItem (Item _ _ ref) = nameFromRef ref
 
 nameFromRef :: Ref k -> Ctx Id
 nameFromRef (CVar _ _ name) = nameFromVarId name
-nameFromRef (SVar _ c name whn) = pure $ c @@ name @@ show whn
+nameFromRef (SVar _ c name) = pure $ c @@ name
 nameFromRef (SMapping _ e _) = nameFromRef e
 nameFromRef (SField _ ref c x) = do
   name <- nameFromRef ref

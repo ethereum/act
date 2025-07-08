@@ -52,3 +52,7 @@ class Timable c where
 
   -- | Takes an 'Untimed' 'Timeable' thing and points it towards the given state.
   setTime :: When -> c Untimed -> c Timed
+
+  -- | Defines how an 'Untimed' thing should be given explicit timings.
+class Annotatable c where
+  annotate :: c Untimed -> c Timed

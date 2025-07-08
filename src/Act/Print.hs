@@ -16,22 +16,20 @@ import EVM.ABI (abiTypeSolidity)
 
 import Data.List
 
-import Act.Syntax.Typed
-import Act.Syntax.Timing (timeParens)
-import Act.Syntax.Types
-import Act.Syntax.Untyped (ValueType(..), Pointer(..), EthEnv(..))
+import Act.Syntax.Typed hiding (annotate)
 
-prettyAct :: Act -> String
+
+prettyAct :: Act t -> String
 prettyAct (Act _ contracts)
   = unlines (fmap prettyContract contracts)
 
 prettyStore :: Store -> String
 prettyStore = show
 
-prettyContract :: Contract -> String
+prettyContract :: Contract t -> String
 prettyContract (Contract ctor behvs) = unlines $ intersperse "\n" $ (prettyCtor ctor):(fmap prettyBehaviour behvs)
 
-prettyCtor :: Constructor -> String
+prettyCtor :: Constructor t -> String
 prettyCtor (Constructor name interface ptrs pres posts invs initStore)
   =   "constructor of " <> name
   >-< "interface " <> show interface
@@ -55,7 +53,7 @@ prettyValueType = \case
   PrimitiveType t -> T.unpack (abiTypeSolidity t)
 
 
-prettyBehaviour :: Behaviour -> String
+prettyBehaviour :: Behaviour t -> String
 prettyBehaviour (Behaviour name contract interface ptrs preconditions cases postconditions stateUpdates returns)
   =   "behaviour " <> name <> " of " <> contract
   >-< "interface " <> (show interface)
@@ -165,10 +163,10 @@ prettyRef = \case
   where
     brackets str = "[" <> str <> "]"
 
-prettyLocation :: StorageLocation -> String
-prettyLocation (Loc _ t item) = timeParens t $ prettyItem item
+prettyLocation :: StorageLocation t -> String
+prettyLocation (Loc _ item) = prettyItem item
 
-prettyUpdate :: StorageUpdate -> String
+prettyUpdate :: StorageUpdate t -> String
 prettyUpdate (Update _ item e) = prettyItem item <> " => " <> prettyExp e
 
 prettyEnv :: EthEnv -> String
@@ -186,6 +184,61 @@ prettyEnv e = case e of
   Timestamp -> "TIMESTAMP"
   This -> "THIS"
   Nonce -> "NONCE"
+
+-- | Invariant predicates are represented internally as a pair of timed
+-- expressions, one over the prestate and one over the poststate.  This is good
+-- since it keeps untimed expressions away from the various backends, and
+-- maintains a nice seperation between the various compilation passes, but
+-- unfortunately requires us to strip the timing out if we want to print the
+-- invariant in a way that is easily digestible by humans, requiring a less
+-- elegant implementation here than might be hoped for...
+prettyInvPred :: InvariantPred Timed -> String
+prettyInvPred = prettyExp . untime . (\(PredTimed e _) -> e)
+  where
+    untimeTyped :: TypedExp t -> TypedExp Untimed
+    untimeTyped (TExp t e) = TExp t (untime e)
+
+    untimeRef:: Ref k t -> Ref k Untimed
+    untimeRef (SVar p c a) = SVar p c a
+    untimeRef (CVar p c a) = CVar p c a
+    untimeRef (SMapping p e xs) = SMapping p (untimeRef e) (fmap untimeTyped xs)
+    untimeRef (SField p e c x) = SField p (untimeRef e) c x
+
+    untime :: Exp a t -> Exp a Untimed
+    untime e = case e of
+      And p a b   -> And p (untime a) (untime b)
+      Or p a b    -> Or p (untime a) (untime b)
+      Impl p a b  -> Impl p (untime a) (untime b)
+      Eq p t a b  -> Eq p t (untime a) (untime b)
+      LT p a b    -> LT p (untime a) (untime b)
+      LEQ p a b   -> LEQ p (untime a) (untime b)
+      GT p a b    -> GT p (untime a) (untime b)
+      GEQ p a b   -> GEQ p (untime a) (untime b)
+      NEq p t a b -> NEq p t (untime a) (untime b)
+      Neg p a     -> Neg p (untime a)
+      Add p a b   -> Add p (untime a) (untime b)
+      Sub p a b   -> Sub p (untime a) (untime b)
+      Mul p a b   -> Mul p (untime a) (untime b)
+      Div p a b   -> Div p (untime a) (untime b)
+      Mod p a b   -> Mod p (untime a) (untime b)
+      Exp p a b   -> Exp p (untime a) (untime b)
+      Cat p a b   -> Cat p (untime a) (untime b)
+      ByStr p a   -> ByStr p a
+      ByLit p a   -> ByLit p a
+      LitInt p a  -> LitInt p a
+      IntMin p a  -> IntMin p a
+      IntMax p a  -> IntMax p a
+      UIntMin p a -> UIntMin p a
+      UIntMax p a -> UIntMax p a
+      InRange p a b -> InRange p a (untime b)
+      LitBool p a -> LitBool p a
+      Create p f xs -> Create p f (fmap untimeTyped xs)
+      IntEnv p a  -> IntEnv p a
+      ByEnv p a   -> ByEnv p a
+      ITE p x y z -> ITE p (untime x) (untime y) (untime z)
+      Slice p a b c -> Slice p (untime a) (untime b) (untime c)
+      SVarRef p _ (Item t vt a) -> SVarRef p Neither (Item t vt (untimeRef a))
+      CVarRef p (Item t vt a) -> CVarRef p (Item t vt (untimeRef a))
 
 -- | Doc type for terminal output
 type DocAnsi = Doc Term.AnsiStyle

@@ -37,11 +37,8 @@ import qualified Data.Map.Ordered as OM
 import Act.Syntax
 import Act.Syntax.Timing
 import Act.Syntax.Untyped qualified as U
-import Act.Syntax.Typed
-import Act.Syntax.Untyped (makeIface, Pn, Id, SlotType(..), Decl(..), Interface(..), Pointer(..), EthEnv(..), ValueType(..))
-import Act.Syntax.Types
-import Act.Parse (nowhere)
-
+import Act.Syntax.TypedImplicit
+import Act.Syntax.Untyped (makeIface)
 import Act.Error
 
 import Data.Type.Equality (TestEquality(..))
@@ -259,7 +256,7 @@ checkBehavior env (U.Transition _ name contract iface@(Interface _ decls) ptrs i
         in rest ++ [if isWild lastCase then U.Case pn negation post else lastCase]
 
     -- Construct a behavior node
-    makeBehv :: [Exp ABoolean Timed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Timed], [StorageUpdate], Maybe (TypedExp Timed)) -> Behaviour
+    makeBehv :: [Exp ABoolean Untimed] -> [Exp ABoolean Timed] -> ([Exp ABoolean Untimed], [StorageUpdate], Maybe (TypedExp Timed)) -> Behaviour
     makeBehv pres posts' (casecond,storage,ret) = Behaviour name contract iface ptrs pres casecond posts' storage ret
 
 checkConstructor :: Env -> U.Constructor -> Err Constructor
@@ -270,7 +267,7 @@ checkConstructor env (U.Constructor _ contract (Interface _ decls) ptrs iffs (U.
     iffs' <- checkIffs envNoStorage iffs
     traverse_ (validStorage env') assigns
     ensures <- traverse (checkExpr env' SBoolean) postcs
-    invs' <- fmap (Invariant contract [] []) <$> traverse (checkExpr env' SBoolean) invs
+    invs' <- fmap (Invariant contract [] [] . PredUntimed) <$> traverse (checkExpr env' SBoolean) invs
     pure $ Constructor contract (Interface contract decls) ptrs iffs' ensures invs' stateUpdates
   where
     env' = addPointers ptrs $ addCalldata decls env
@@ -310,10 +307,10 @@ validSlotType env p (StorageValue t) = validType env p t
 
 
 -- | Type checks a case, returning typed versions of its preconditions, rewrites and return value.
-checkCase :: Env -> U.Case -> Err ([Exp ABoolean Timed], [StorageUpdate], Maybe (TypedExp Timed))
+checkCase :: Env -> U.Case -> Err ([Exp ABoolean Untimed], [StorageUpdate], Maybe (TypedExp Timed))
 checkCase env c@(U.Case _ pre post) = do
   -- TODO isWild checks for WildExp, but WildExp is never generated
-  if' <- traverse (fmap (setTime Pre) . checkExpr env SBoolean) $ if isWild c then [U.BoolLit nowhere True] else [pre]
+  if' <- traverse (checkExpr env SBoolean) $ if isWild c then [U.BoolLit nowhere True] else [pre]
   (storage,return') <- checkPost env post
   pure (if',storage,return')
 
@@ -345,7 +342,7 @@ checkDefn :: Pn -> Env -> ValueType -> ValueType -> Id -> U.Mapping -> Err Stora
 checkDefn pn env@Env{contract} keyType vt@(FromVType valType) name (U.Mapping k val) =
   _Update
   <$> (_Item vt . SMapping nowhere (SVar pn contract name) <$> checkIxs env (getPosn k) [k] [keyType])
-  <*> (setTime Pre <$> checkExpr env valType val)
+  <*> checkExpr env valType val
 
 -- | Type checks a postcondition, returning typed versions of its storage updates and return expression.
 checkPost :: Env -> U.Post -> Err ([StorageUpdate], Maybe (TypedExp Timed))
@@ -405,8 +402,8 @@ validContractType pn (ContractType c1) Nothing =
   throw (pn, "Assignment to storage variable was expected to have contract type " <> c1)
 validContractType _ _ _ = pure ()
 
-checkIffs :: Env -> U.Iff -> Err [Exp ABoolean Timed]
-checkIffs env exps = traverse (fmap setPre . checkExpr env SBoolean) exps
+checkIffs :: Env -> U.Iff -> Err [Exp ABoolean Untimed]
+checkIffs env exps = traverse (checkExpr env SBoolean) exps
 
 -- | If an `inrange e` predicate appears in the source code, then the inrange
 -- predicate is propagated to all subexpressions of `e`. This elaboration step
@@ -516,7 +513,7 @@ inferExpr env@Env{calldata, constructors} e = case e of
         maybe (typeMismatchErr pn t1 t2) (\Refl -> pure $ cons pn t1 te1 te2) $ testEquality t1 t2
 
     checkVar :: U.Entry -> Err (TypedExp t)
-    checkVar entry = 
+    checkVar entry =
         (\(vt@(FromVType typ), ref) -> TExp typ $ CVarRef (getPosEntry entry) (Item typ vt ref)) <$> (validateEntry env SCalldata entry)
 
     -- Type check a storage variable
@@ -555,7 +552,7 @@ findContractType env (ITE p _ a b) =
 findContractType _ (Create _ c _) = pure $ Just c
 findContractType _ (SVarRef _ _ (Item _ (ContractType c) _)) = pure $ Just c
 findContractType _ e@(CVarRef _ (Item _ (ContractType c) _)) =
-    throw (posnFromExp e, "Internal error: Calldata variable cannot have contract type" <> c) 
+    throw (posnFromExp e, "Internal error: Calldata variable cannot have contract type" <> c)
 findContractType _ _ =  pure Nothing
 
 -- | Check if an expression has the expected contract id, if any

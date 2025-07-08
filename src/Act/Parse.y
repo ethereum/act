@@ -185,7 +185,6 @@ Ensures : optblock('ensures', Expr)                   { $1 }
 Invariants : optblock('invariants', Expr)             { $1 }
 
 Pointers : optblock('pointers', Pointer)              { $1 }
-
 Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface (name $2) $4 }
 
 CInterface : 'interface' 'constructor' '(' seplist(Decl, ',') ')' { Interface "constructor" $4 }
