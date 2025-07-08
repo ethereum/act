@@ -54,6 +54,7 @@ contractCode store (Contract ctor@Constructor{..} behvs) = T.unlines $
   <> [ base store ctor ]
   <> (concatMap (evalSeq (transition store)) (groups behvs))
   <> (filter ((/=) "") $ concatMap (evalSeq retVal) (groups behvs))
+  <> [ step (groups behvs)]
   <> [ reachable ctor (groups behvs) ]
   <> [ "End " <> T.pack _cname <> "." ]
   where
@@ -69,11 +70,35 @@ contractCode store (Contract ctor@Constructor{..} behvs) = T.unlines $
 
     store' = contractStore _cname store
 
+-- | inductive definition of step relation of 2 states
+step :: [[Behaviour]] -> T.Text
+step behvs = inductive
+  stepType "" (stateType <> " -> " <> stateType <> " -> Prop") body
+  where
+    body = concat (evalSeq stepBehv <$> behvs)
+
+-- | constructor for the step relation
+stepBehv :: Behaviour -> Fresh T.Text
+stepBehv (Behaviour name _ i _ conds cases _ _ _) =
+  fresh name >>= continuation where
+  continuation name' =
+    return $ name'
+      <> stepSuffix <> " : forall "
+      <> envDecl <> " "
+      <> parens (stateVar <> " : " <> stateType) <> " "
+      <> interface i <> ",\n"
+      <> constructorBody where
+
+    constructorBody = (indent 2) . implication $
+      (coqprop <$> cases ++ conds)
+      <> [ stepType <> " " <> stateVar <> " " <> parens (name' <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)]
+
+
 -- | inductive definition of reachable states
 reachable :: Constructor -> [[Behaviour]] -> T.Text
 reachable constructor behvs = inductive
   reachableType "" (stateType <> " -> " <> stateType <> " -> Prop") body where
-  body = (baseCase constructor) : concat (evalSeq reachableStep <$> behvs)
+  body = (baseCase constructor) : [reachableStep]
 
 -- | non-recursive constructor for the reachable relation
 baseCase :: Constructor -> T.Text
@@ -92,23 +117,17 @@ baseCase (Constructor name i@(Interface _ decls) _ conds _ _ _ ) =
        else interface i) <> ","
 
 -- | recursive constructor for the reachable relation
-reachableStep :: Behaviour -> Fresh T.Text
-reachableStep (Behaviour name _ i _ conds cases _ _ _) =
-  fresh name >>= continuation where
-  continuation name' =
-    return $ name'
-      <> stepSuffix <> " : forall "
-      <> envDecl <> " "
-      <> parens (baseVar <> " " <> stateVar <> " : " <> stateType) <> " "
-      <> interface i <> ",\n"
-      <> constructorBody where
+reachableStep :: T.Text
+reachableStep  =
+   reachStep <> " : forall "
+  <> envDecl <> " "
+  <> parens (baseVar <> " " <> stateVar <> " " <> nextVar <> " : " <> stateType) <> ",\n"
+  <> constructorBody where
 
-    constructorBody = (indent 2) . implication $
-      [ reachableType <> " " <> baseVar <> " " <> stateVar ]
-      <> (coqprop <$> cases ++ conds)
-      <> [ reachableType <> " " <> baseVar <> " "
-           <> parens (name' <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)
-         ]
+  constructorBody = (indent 2) . implication $
+    [ reachableType <> " " <> baseVar <> " " <> stateVar ]
+    <> [stepType <> " " <> stateVar <> " " <> nextVar ]
+    <> [reachableType <> " " <> baseVar <> " " <> nextVar ]
 
 
 -- | definition of a base state
@@ -415,6 +434,9 @@ stateType = "State"
 stateVar :: T.Text
 stateVar = "STATE"
 
+nextVar :: T.Text
+nextVar = "NEXT"
+
 stateDecl :: T.Text
 stateDecl = parens $ stateVar <> " : " <> stateType
 
@@ -433,8 +455,14 @@ stepSuffix = "_step"
 introSuffix :: T.Text
 introSuffix = "_intro"
 
+stepType :: T.Text
+stepType = "step"
+
 reachableType :: T.Text
 reachableType = "reachable"
+
+reachStep:: T.Text
+reachStep= "reach_step"
 
 envType :: T.Text
 envType = "Env"
