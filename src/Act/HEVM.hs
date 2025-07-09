@@ -25,11 +25,13 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8 (pack)
 import Data.ByteString (ByteString)
 import Data.Text.Encoding (encodeUtf8)
+
 import Control.Concurrent.Async
 import Control.Monad
 import Data.Foldable (sequenceA_, traverse_)
 import Data.DoubleWord
 import Data.Maybe
+import Data.Type.Equality (TestEquality(..), (:~:)(Refl))
 import Control.Monad.State
 import Data.List.NonEmpty qualified as NE
 import Data.Validation
@@ -274,7 +276,7 @@ substRef _ var@(SVar _ _ _) = ERef SStorage var
 substRef subst (CVar _ _ x) = case M.lookup x subst of
     Just (TExp _ (SVarRef _ _ (Item _ _ ref))) -> ERef SStorage ref
     Just (TExp _ (CVarRef _ (Item _ _ ref))) -> ERef SCalldata ref
-    Just _ -> error "Internal error: cannot access fields of non-pointer var"
+    Just e -> error $ "Internal error: cannot access fields of non-pointer var"
     Nothing -> error "Internal error: ill-formed substitution"
 substRef subst (SMapping pn sref args) = case substRef subst sref of
   ERef k ref -> ERef k $ SMapping pn ref (substArgs subst args)
@@ -325,6 +327,9 @@ substExp subst expr = case expr of
 
   ITE pn a b c -> ITE pn (substExp subst a) (substExp subst b) (substExp subst c)
 
+  CVarRef _ (Item st _ (CVar _ _ x)) -> case M.lookup x subst of
+    Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
+    Nothing -> error "Internal error: Ill-defined substitution"
   CVarRef pn item -> case substItem subst item of
     ETItem SCalldata item' -> CVarRef pn item'
     ETItem SStorage item' -> SVarRef pn Pre item'
