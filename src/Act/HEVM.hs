@@ -276,7 +276,7 @@ substRef _ var@(SVar _ _ _) = ERef SStorage var
 substRef subst (CVar _ _ x) = case M.lookup x subst of
     Just (TExp _ (SVarRef _ _ (Item _ _ ref))) -> ERef SStorage ref
     Just (TExp _ (CVarRef _ (Item _ _ ref))) -> ERef SCalldata ref
-    Just e -> error $ "Internal error: cannot access fields of non-pointer var"
+    Just _ -> error $ "Internal error: cannot access fields of non-pointer var"
     Nothing -> error "Internal error: ill-formed substitution"
 substRef subst (SMapping pn sref args) = case substRef subst sref of
   ERef k ref -> ERef k $ SMapping pn ref (substArgs subst args)
