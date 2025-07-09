@@ -624,10 +624,8 @@ expToSMT2 expr = case expr of
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
   ITE _ a b c -> triop "ite" a b c
-  SVarRef _ whn item -> do
-    name <- entry item
-    pure (name @@ show whn)
-  CVarRef _ item -> entry item
+  SVarRef _ whn item -> entry whn item
+  CVarRef _ item -> entry Pre item
   where
     unop :: String -> Exp a -> Ctx SMT2
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
@@ -640,11 +638,11 @@ expToSMT2 expr = case expr of
     triop op a b c = ["(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")"
                         | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
 
-    entry :: TItem k a -> Ctx SMT2
-    entry item = case ixsFromItem item of
-      []       -> nameFromItem item
+    entry :: When -> TItem k a -> Ctx SMT2
+    entry whn item = case ixsFromItem item of
+      []       -> nameFromItem whn item
       (ix:ixs) -> do
-        name <- nameFromItem item
+        name <- nameFromItem whn item
         select name (ix :| ixs)
 
 -- | SMT2 has no support for exponentiation, but we can do some preprocessing
@@ -691,22 +689,22 @@ sType' (TExp t _) = sType $ actType t
 
 -- Construct the smt2 variable name for a given storage item
 nameFromSItem :: When -> TItem a Storage -> Id
-nameFromSItem whn (Item _ _ ref) = nameFromSRef ref @@ show whn
+nameFromSItem whn (Item _ _ ref) = nameFromSRef whn ref
 
-nameFromSRef :: Ref Storage -> Id
-nameFromSRef (SVar _ c name) = c @@ name
-nameFromSRef (SMapping _ e _) = nameFromSRef e
-nameFromSRef (SField _ ref c x) = nameFromSRef ref @@ c @@ x
+nameFromSRef :: When -> Ref Storage -> Id
+nameFromSRef whn (SVar _ c name) = c @@ name @@ show whn
+nameFromSRef whn (SMapping _ e _) = nameFromSRef whn e
+nameFromSRef whn (SField _ ref c x) = nameFromSRef whn ref @@ c @@ x
 
-nameFromItem :: TItem k a -> Ctx Id
-nameFromItem (Item _ _ ref) = nameFromRef ref
+nameFromItem ::When ->  TItem k a -> Ctx Id
+nameFromItem whn (Item _ _ ref) = nameFromRef whn ref
 
-nameFromRef :: Ref k -> Ctx Id
-nameFromRef (CVar _ _ name) = nameFromVarId name
-nameFromRef (SVar _ c name) = pure $ c @@ name
-nameFromRef (SMapping _ e _) = nameFromRef e
-nameFromRef (SField _ ref c x) = do
-  name <- nameFromRef ref
+nameFromRef :: When -> Ref k -> Ctx Id
+nameFromRef _ (CVar _ _ name) = nameFromVarId name
+nameFromRef whn (SVar _ c name) = pure $ c @@ name @@ show whn
+nameFromRef whn (SMapping _ e _) = nameFromRef whn e
+nameFromRef whn (SField _ ref c x) = do
+  name <- nameFromRef whn ref
   pure $ name @@ c @@ x
 
 

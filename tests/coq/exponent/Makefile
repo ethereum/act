@@ -11,5 +11,5 @@ CoqMakefile: _CoqProject
 .PHONY: clean
 clean:
 	if [[ -f CoqMakefile ]]; then make -f CoqMakefile clean; fi
-#	rm -f Exponent.v CoqMakefile CoqMakefile.conf
+	rm -f Exponent.v CoqMakefile CoqMakefile.conf
 	rm -f *.glob *.vo *.vok *.vos

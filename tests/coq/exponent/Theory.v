@@ -31,9 +31,8 @@ Proof.
     rewrite Z.sub_1_r.
     rewrite <- (pow_pred (b STATE) (e STATE - 1)).
     + rewrite Z.mul_assoc. reflexivity.
-    + apply Z.gt_lt in H1.
-      apply (proj1 (Z.sub_lt_mono_r 1 (e STATE) 1)).
-      assumption.
+    + apply (proj1 (Z.sub_lt_mono_r 1 (e STATE) 1)).
+      apply Z.gt_lt. easy.
 Qed.
 
 Theorem exp_correct : forall base s,
@@ -44,4 +43,4 @@ Proof.
   rewrite He in H. simpl in H.
   rewrite (Z.mul_1_r (r s)) in H.
   assumption.
-Qed. Check exp_correct.
+Qed.
