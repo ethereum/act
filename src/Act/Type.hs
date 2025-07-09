@@ -151,9 +151,8 @@ lookupConstructors = foldMap $ \case
     let ptrs = Map.fromList $ map (\(PointsTo _ x c) -> (x, c)) pointers in
     Map.singleton contract (map (\(Decl t x) -> (t, Map.lookup x ptrs)) decls)
 
--- | Extracts what we need to build a 'Store' and to verify that its names are unique.
--- Kind of stupid return type but it makes it easier to use the same function
--- at both places (without relying on custom functions on triples).
+-- | Extracts what we need to build a 'Store' and to verify that its names are
+-- unique.
 fromAssign :: U.Assign -> (Pn, (Id, SlotType))
 fromAssign (U.AssignVal (U.StorageVar pn typ var) _) = (pn, (var, typ))
 fromAssign (U.AssignMapping (U.StorageVar pn typ var) _) = (pn, (var, typ))
@@ -551,8 +550,7 @@ findContractType env (ITE p _ a b) =
     (_, _ )-> pure Nothing
 findContractType _ (Create _ c _) = pure $ Just c
 findContractType _ (SVarRef _ _ (Item _ (ContractType c) _)) = pure $ Just c
-findContractType _ e@(CVarRef _ (Item _ (ContractType c) _)) =
-    throw (posnFromExp e, "Internal error: Calldata variable cannot have contract type" <> c)
+findContractType _ (CVarRef _ (Item _ (ContractType c) _)) = pure $ Just c
 findContractType _ _ =  pure Nothing
 
 -- | Check if an expression has the expected contract id, if any
