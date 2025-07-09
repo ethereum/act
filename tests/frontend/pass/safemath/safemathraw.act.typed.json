@@ -46,7 +46,7 @@
                       "type": "UInt"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -56,8 +56,7 @@
                           "var": "x"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -72,7 +71,7 @@
                           "type": "UInt"
                         },
                         {
-                          "entry": {
+                          "cvar": {
                             "item": {
                               "abitype": {
                                 "size": "256",
@@ -82,8 +81,7 @@
                               "var": "y"
                             },
                             "type": "int"
-                          },
-                          "timing": "SCalldata"
+                          }
                         }
                       ],
                       "arity": 2,
@@ -98,7 +96,7 @@
                         {
                           "args": [
                             {
-                              "entry": {
+                              "cvar": {
                                 "item": {
                                   "abitype": {
                                     "size": "256",
@@ -108,11 +106,10 @@
                                   "var": "x"
                                 },
                                 "type": "int"
-                              },
-                              "timing": "SCalldata"
+                              }
                             },
                             {
-                              "entry": {
+                              "cvar": {
                                 "item": {
                                   "abitype": {
                                     "size": "256",
@@ -122,8 +119,7 @@
                                   "var": "y"
                                 },
                                 "type": "int"
-                              },
-                              "timing": "SCalldata"
+                              }
                             }
                           ],
                           "arity": 2,
@@ -164,7 +160,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -174,8 +170,7 @@
                           "var": "x"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -184,7 +179,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -194,8 +189,7 @@
                           "var": "x"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -218,7 +212,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -228,8 +222,7 @@
                           "var": "y"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -238,7 +231,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -248,8 +241,7 @@
                           "var": "y"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -302,7 +294,7 @@
             "expression": {
               "args": [
                 {
-                  "entry": {
+                  "cvar": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -312,11 +304,10 @@
                       "var": "x"
                     },
                     "type": "int"
-                  },
-                  "timing": "SCalldata"
+                  }
                 },
                 {
-                  "entry": {
+                  "cvar": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -326,8 +317,7 @@
                       "var": "y"
                     },
                     "type": "int"
-                  },
-                  "timing": "SCalldata"
+                  }
                 }
               ],
               "arity": 2,

@@ -38,7 +38,7 @@
                     "type": "int"
                   },
                   {
-                    "entry": {
+                    "svar": {
                       "item": {
                         "contract": "A",
                         "kind": "SVar",
@@ -46,7 +46,7 @@
                       },
                       "type": "int"
                     },
-                    "timing": "SSTorage"
+                    "timing": "Post"
                   }
                 ],
                 "arity": 2,
@@ -55,7 +55,7 @@
               {
                 "args": [
                   {
-                    "entry": {
+                    "svar": {
                       "item": {
                         "contract": "A",
                         "kind": "SVar",
@@ -63,7 +63,7 @@
                       },
                       "type": "int"
                     },
-                    "timing": "SSTorage"
+                    "timing": "Post"
                   },
                   {
                     "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -119,7 +119,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -132,7 +132,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     }
                   ],
                   "arity": 2,
@@ -141,7 +141,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -154,7 +154,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -193,7 +193,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -203,8 +203,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -213,7 +212,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -223,8 +222,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -247,7 +245,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -260,7 +258,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -269,7 +267,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -282,7 +280,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -348,7 +346,7 @@
                 "type": "int"
               },
               "value": {
-                "entry": {
+                "cvar": {
                   "item": {
                     "abitype": {
                       "size": "256",
@@ -358,8 +356,7 @@
                     "var": "z"
                   },
                   "type": "int"
-                },
-                "timing": "SCalldata"
+                }
               }
             }
           ]
@@ -399,7 +396,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "B",
                           "kind": "SVar",
@@ -407,7 +404,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     }
                   ],
                   "arity": 2,
@@ -416,7 +413,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "B",
                           "kind": "SVar",
@@ -424,7 +421,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -447,7 +444,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -460,7 +457,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     }
                   ],
                   "arity": 2,
@@ -469,7 +466,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -482,7 +479,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -521,7 +518,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -531,8 +528,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -541,7 +537,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -551,8 +547,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -575,7 +570,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "B",
                           "kind": "SVar",
@@ -583,7 +578,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -592,7 +587,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "B",
                           "kind": "SVar",
@@ -600,7 +595,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -623,7 +618,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -636,7 +631,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -645,7 +640,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -658,7 +653,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -738,7 +733,7 @@
                 "type": "int"
               },
               "value": {
-                "entry": {
+                "cvar": {
                   "item": {
                     "abitype": {
                       "size": "256",
@@ -748,8 +743,7 @@
                     "var": "z"
                   },
                   "type": "int"
-                },
-                "timing": "SCalldata"
+                }
               }
             }
           ]
@@ -811,7 +805,7 @@
                     "type": "int"
                   },
                   {
-                    "entry": {
+                    "svar": {
                       "item": {
                         "contract": "B",
                         "kind": "SVar",
@@ -819,7 +813,7 @@
                       },
                       "type": "int"
                     },
-                    "timing": "SSTorage"
+                    "timing": "Post"
                   }
                 ],
                 "arity": 2,
@@ -828,7 +822,7 @@
               {
                 "args": [
                   {
-                    "entry": {
+                    "svar": {
                       "item": {
                         "contract": "B",
                         "kind": "SVar",
@@ -836,7 +830,7 @@
                       },
                       "type": "int"
                     },
-                    "timing": "SSTorage"
+                    "timing": "Post"
                   },
                   {
                     "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",

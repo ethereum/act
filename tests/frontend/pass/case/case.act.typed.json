@@ -7,7 +7,7 @@
             {
               "args": [
                 {
-                  "entry": {
+                  "cvar": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -17,8 +17,7 @@
                       "var": "z"
                     },
                     "type": "int"
-                  },
-                  "timing": "SCalldata"
+                  }
                 },
                 {
                   "literal": "0",
@@ -57,7 +56,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -65,7 +64,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     }
                   ],
                   "arity": 2,
@@ -74,7 +73,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -82,7 +81,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -107,7 +106,7 @@
                       "type": "Int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -117,8 +116,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -149,7 +147,7 @@
                         {
                           "args": [
                             {
-                              "entry": {
+                              "cvar": {
                                 "item": {
                                   "abitype": {
                                     "size": "256",
@@ -159,8 +157,7 @@
                                   "var": "z"
                                 },
                                 "type": "int"
-                              },
-                              "timing": "SCalldata"
+                              }
                             },
                             {
                               "literal": "1",
@@ -191,7 +188,7 @@
                       "type": "Int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -201,8 +198,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -233,7 +229,7 @@
                         {
                           "args": [
                             {
-                              "entry": {
+                              "cvar": {
                                 "item": {
                                   "abitype": {
                                     "size": "256",
@@ -243,8 +239,7 @@
                                   "var": "z"
                                 },
                                 "type": "int"
-                              },
-                              "timing": "SCalldata"
+                              }
                             },
                             {
                               "literal": "2",
@@ -289,7 +284,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -299,8 +294,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -309,7 +303,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -319,8 +313,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -343,7 +336,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -351,7 +344,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -360,7 +353,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -368,7 +361,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -429,7 +422,7 @@
                 "type": "int"
               },
               "value": {
-                "entry": {
+                "cvar": {
                   "item": {
                     "abitype": {
                       "size": "256",
@@ -439,8 +432,7 @@
                     "var": "z"
                   },
                   "type": "int"
-                },
-                "timing": "SCalldata"
+                }
               }
             }
           ]
@@ -450,7 +442,7 @@
             {
               "args": [
                 {
-                  "entry": {
+                  "cvar": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -460,8 +452,7 @@
                       "var": "z"
                     },
                     "type": "int"
-                  },
-                  "timing": "SCalldata"
+                  }
                 },
                 {
                   "literal": "1",
@@ -500,7 +491,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -508,7 +499,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     }
                   ],
                   "arity": 2,
@@ -517,7 +508,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -525,7 +516,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -550,7 +541,7 @@
                       "type": "Int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -560,8 +551,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -592,7 +582,7 @@
                         {
                           "args": [
                             {
-                              "entry": {
+                              "cvar": {
                                 "item": {
                                   "abitype": {
                                     "size": "256",
@@ -602,8 +592,7 @@
                                   "var": "z"
                                 },
                                 "type": "int"
-                              },
-                              "timing": "SCalldata"
+                              }
                             },
                             {
                               "literal": "1",
@@ -634,7 +623,7 @@
                       "type": "Int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -644,8 +633,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -676,7 +664,7 @@
                         {
                           "args": [
                             {
-                              "entry": {
+                              "cvar": {
                                 "item": {
                                   "abitype": {
                                     "size": "256",
@@ -686,8 +674,7 @@
                                   "var": "z"
                                 },
                                 "type": "int"
-                              },
-                              "timing": "SCalldata"
+                              }
                             },
                             {
                               "literal": "2",
@@ -732,7 +719,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -742,8 +729,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -752,7 +738,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -762,8 +748,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -786,7 +771,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -794,7 +779,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -803,7 +788,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -811,7 +796,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -874,7 +859,7 @@
               "value": {
                 "args": [
                   {
-                    "entry": {
+                    "cvar": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -884,8 +869,7 @@
                         "var": "z"
                       },
                       "type": "int"
-                    },
-                    "timing": "SCalldata"
+                    }
                   },
                   {
                     "literal": "1",
@@ -903,7 +887,7 @@
             {
               "args": [
                 {
-                  "entry": {
+                  "cvar": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -913,8 +897,7 @@
                       "var": "z"
                     },
                     "type": "int"
-                  },
-                  "timing": "SCalldata"
+                  }
                 },
                 {
                   "literal": "1",
@@ -953,7 +936,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -961,7 +944,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     }
                   ],
                   "arity": 2,
@@ -970,7 +953,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -978,7 +961,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Post"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -1003,7 +986,7 @@
                       "type": "Int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -1013,8 +996,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -1045,7 +1027,7 @@
                         {
                           "args": [
                             {
-                              "entry": {
+                              "cvar": {
                                 "item": {
                                   "abitype": {
                                     "size": "256",
@@ -1055,8 +1037,7 @@
                                   "var": "z"
                                 },
                                 "type": "int"
-                              },
-                              "timing": "SCalldata"
+                              }
                             },
                             {
                               "literal": "1",
@@ -1087,7 +1068,7 @@
                       "type": "Int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -1097,8 +1078,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -1129,7 +1109,7 @@
                         {
                           "args": [
                             {
-                              "entry": {
+                              "cvar": {
                                 "item": {
                                   "abitype": {
                                     "size": "256",
@@ -1139,8 +1119,7 @@
                                   "var": "z"
                                 },
                                 "type": "int"
-                              },
-                              "timing": "SCalldata"
+                              }
                             },
                             {
                               "literal": "2",
@@ -1185,7 +1164,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -1195,8 +1174,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -1205,7 +1183,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "cvar": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -1215,8 +1193,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "SCalldata"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -1239,7 +1216,7 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -1247,7 +1224,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     }
                   ],
                   "arity": 2,
@@ -1256,7 +1233,7 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "svar": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
@@ -1264,7 +1241,7 @@
                         },
                         "type": "int"
                       },
-                      "timing": "SSTorage"
+                      "timing": "Pre"
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -1327,7 +1304,7 @@
               "value": {
                 "args": [
                   {
-                    "entry": {
+                    "cvar": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -1337,8 +1314,7 @@
                         "var": "z"
                       },
                       "type": "int"
-                    },
-                    "timing": "SCalldata"
+                    }
                   },
                   {
                     "literal": "2",
@@ -1388,7 +1364,7 @@
                     "type": "int"
                   },
                   {
-                    "entry": {
+                    "svar": {
                       "item": {
                         "contract": "C",
                         "kind": "SVar",
@@ -1396,7 +1372,7 @@
                       },
                       "type": "int"
                     },
-                    "timing": "SSTorage"
+                    "timing": "Post"
                   }
                 ],
                 "arity": 2,
@@ -1405,7 +1381,7 @@
               {
                 "args": [
                   {
-                    "entry": {
+                    "svar": {
                       "item": {
                         "contract": "C",
                         "kind": "SVar",
@@ -1413,7 +1389,7 @@
                       },
                       "type": "int"
                     },
-                    "timing": "SSTorage"
+                    "timing": "Post"
                   },
                   {
                     "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
