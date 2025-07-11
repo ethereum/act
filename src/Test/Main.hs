@@ -240,7 +240,7 @@ selectVar typ (Names ints bools bytes) = do
                 SByteStr -> bytes
   idx <- elements [0..((length names)-1)]
   let (x, at) = names!!idx
-  return $ CVarRef nowhere (Item typ (PrimitiveType at) (CVar nowhere at x))
+  return $ VarRef nowhere Pre SCalldata (Item typ (PrimitiveType at) (CVar nowhere at x))
 
 -- | Generates a record type containing identifier names.
 -- Ensures each generated name appears once only.
