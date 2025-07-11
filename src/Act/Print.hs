@@ -158,7 +158,7 @@ prettyRef :: Ref k t -> String
 prettyRef = \case
   CVar _ _ n -> n
   SVar _ _ n -> n
-  SMapping _ r args -> prettyRef r <> concatMap (brackets . prettyTypedExp) args
+  SMapping _ r _ args -> prettyRef r <> concatMap (brackets . prettyTypedExp) args
   SField _ r _ n -> prettyRef r <> "." <> n
   where
     brackets str = "[" <> str <> "]"
@@ -201,7 +201,7 @@ prettyInvPred = prettyExp . untime . (\(PredTimed e _) -> e)
     untimeRef:: Ref k t -> Ref k Untimed
     untimeRef (SVar p c a) = SVar p c a
     untimeRef (CVar p c a) = CVar p c a
-    untimeRef (SMapping p e xs) = SMapping p (untimeRef e) (fmap untimeTyped xs)
+    untimeRef (SMapping p e ts xs) = SMapping p (untimeRef e) ts (fmap untimeTyped xs)
     untimeRef (SField p e c x) = SField p (untimeRef e) c x
 
     untime :: Exp a t -> Exp a Untimed

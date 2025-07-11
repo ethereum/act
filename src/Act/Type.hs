@@ -340,7 +340,7 @@ checkAssign _ (U.AssignMapping (U.StorageVar pn (StorageValue _) _) _)
 checkDefn :: Pn -> Env -> ValueType -> ValueType -> Id -> U.Mapping -> Err StorageUpdate
 checkDefn pn env@Env{contract} keyType vt@(FromVType valType) name (U.Mapping k val) =
   _Update
-  <$> (_Item vt . SMapping nowhere (SVar pn contract name) <$> checkIxs env (getPosn k) [k] [keyType])
+  <$> (_Item vt . SMapping nowhere (SVar pn contract name) vt <$> checkIxs env (getPosn k) [k] [keyType])
   <*> checkExpr env valType val
 
 -- | Type checks a postcondition, returning typed versions of its storage updates and return expression.
@@ -366,7 +366,8 @@ checkEntry Env{contract,store,calldata, pointers} kind (U.EVar p name) = case (k
 checkEntry env kind (U.EMapping p e args) =
   checkEntry env kind e `bindValidation` \(typ, _, ref) -> case typ of
     StorageValue _ -> throw (p, "Expression should have a mapping type" <> show e)
-    StorageMapping argtyps restyp -> (StorageValue restyp, Nothing,) . SMapping p ref <$> checkIxs env p args (NonEmpty.toList argtyps)
+    StorageMapping argtyps restyp -> 
+        (StorageValue restyp, Nothing,) . SMapping p ref restyp <$> checkIxs env p args (NonEmpty.toList argtyps)
 checkEntry env@Env{theirs} kind (U.EField p e x) =
   checkEntry env kind e `bindValidation` \(_, oc, ref) -> case oc of
     Just c -> case Map.lookup c theirs of

@@ -293,7 +293,7 @@ ixsFromLocation (Loc _ item) = ixsFromItem item
 idFromRef :: Ref k t -> Id
 idFromRef (SVar _ _ x) = x
 idFromRef (CVar _ _ x) = x
-idFromRef (SMapping _ e _) = idFromRef e
+idFromRef (SMapping _ e _ _) = idFromRef e
 idFromRef (SField _ e _ _) = idFromRef e
 
 idFromUpdate :: StorageUpdate t -> Id
@@ -308,7 +308,7 @@ ixsFromItem (Item _ _ item) = ixsFromRef item
 ixsFromRef :: Ref k t -> [TypedExp t]
 ixsFromRef (SVar _ _ _) = []
 ixsFromRef (CVar _ _ _) = []
-ixsFromRef (SMapping _ ref ixs) = ixs ++ ixsFromRef ref
+ixsFromRef (SMapping _ ref _ ixs) = ixs ++ ixsFromRef ref
 ixsFromRef (SField _ ref _ _) = ixsFromRef ref
 
 ixsFromUpdate :: StorageUpdate t -> [TypedExp t]
@@ -323,7 +323,7 @@ isMapping (Loc _ (Item _ _ ref)) = isMappingRef ref
 isMappingRef :: Ref k t -> Bool
 isMappingRef (SVar _ _ _) = False
 isMappingRef (CVar _ _ _) = False
-isMappingRef (SMapping _ _ _) = True
+isMappingRef (SMapping _ _ _ _) = True
 isMappingRef (SField _ ref _ _) = isMappingRef ref
 
 posnFromExp :: Exp a t -> Pn

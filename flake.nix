@@ -5,7 +5,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     hevm = {
-      url = "github:ethereum/hevm/dynamic-flake-output";
+      url = "github:ethereum/hevm";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -42,6 +42,7 @@
             pkgs.z3
             pkgs.cvc5
             pkgs.coq
+            pkgs.coqPackages.stdlib
             pkgs.solc
             pkgs.mdbook
             pkgs.mdbook-mermaid

@@ -167,7 +167,7 @@ baseRef :: Ref Storage -> StorageUpdate -> Bool
 baseRef baseref (Update _ (Item _ _ r) _) = hasBase r
   where
     hasBase (SVar _ _ _) = False
-    hasBase (SMapping _ r' _) = r' == baseref || hasBase r'
+    hasBase (SMapping _ r' _ _) = r' == baseref || hasBase r'
     hasBase (SField _ r' _ _) = r' == baseref || hasBase r'
 
 
@@ -356,7 +356,7 @@ entry (Item _ _ r) = ref r
 ref :: Ref k -> T.Text
 ref (SVar _ _ name) = parens $ T.pack name <> " " <> stateVar
 ref (CVar _ _ name) = T.pack name
-ref (SMapping _ r ixs) = parens $ ref r <> " " <> coqargs ixs
+ref (SMapping _ r _ ixs) = parens $ ref r <> " " <> coqargs ixs
 ref (SField _ r cid name) = parens $ T.pack cid <> "." <> T.pack name <> " " <> ref r
 
 -- | coq syntax for a list of arguments

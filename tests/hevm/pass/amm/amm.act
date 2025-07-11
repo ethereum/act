@@ -41,17 +41,21 @@ case from == to:
 
 
 constructor of Amm
-interface constructor(uint256 amt1, uint256 amt2)
+interface constructor(address t0, address t1)
+
+pointers
+   t0 |-> Token
+   t1 |-> Token
 
 iff
 
     CALLVALUE == 0
-
+    t0 =/= t1
 
 creates
 
-    Token token0 := create Token(amt1)
-    Token token1 := create Token(amt2)
+    Token token0 := t0 
+    Token token1 := t1
 
 behaviour swap0 of Amm
 interface swap0(uint256 amt)
@@ -86,7 +90,6 @@ ensures
 
     pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) <= post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS])
     post(token0.balanceOf[THIS]) * post(token1.balanceOf[THIS]) <= pre(token0.balanceOf[THIS]) * pre(token1.balanceOf[THIS]) + pre(token0.balanceOf[THIS]) + amt
-
 
 
 behaviour swap1 of Amm

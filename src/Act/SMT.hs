@@ -551,7 +551,7 @@ declareStorage :: [When] -> StorageLocation -> [SMT2]
 declareStorage times (Loc _ item@(Item _ _ ref)) = declareRef ref
   where
     declareRef (SVar _ _ _) = (\t -> constant (nameFromSItem t item) (itemType item) ) <$> times
-    declareRef (SMapping _ _ ixs) = (\t -> array (nameFromSItem t item) ixs (itemType item)) <$> times
+    declareRef (SMapping _ _ _ ixs) = (\t -> array (nameFromSItem t item) ixs (itemType item)) <$> times
     declareRef (SField _ ref' _ _) = declareRef ref'
 
 
@@ -692,7 +692,7 @@ nameFromSItem whn (Item _ _ ref) = nameFromSRef whn ref
 
 nameFromSRef :: When -> Ref Storage -> Id
 nameFromSRef whn (SVar _ c name) = c @@ name @@ show whn
-nameFromSRef whn (SMapping _ e _) = nameFromSRef whn e
+nameFromSRef whn (SMapping _ e _ _) = nameFromSRef whn e
 nameFromSRef whn (SField _ ref c x) = nameFromSRef whn ref @@ c @@ x
 
 nameFromItem ::When ->  TItem k a -> Ctx Id
@@ -701,7 +701,7 @@ nameFromItem whn (Item _ _ ref) = nameFromRef whn ref
 nameFromRef :: When -> Ref k -> Ctx Id
 nameFromRef _ (CVar _ _ name) = nameFromVarId name
 nameFromRef whn (SVar _ c name) = pure $ c @@ name @@ show whn
-nameFromRef whn (SMapping _ e _) = nameFromRef whn e
+nameFromRef whn (SMapping _ e _ _) = nameFromRef whn e
 nameFromRef whn (SField _ ref c x) = do
   name <- nameFromRef whn ref
   pure $ name @@ c @@ x

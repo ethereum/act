@@ -22,9 +22,10 @@ contract Amm {
     Token token0;
     Token token1;
 
-    constructor(uint256 amt1, uint256 amt2) {
-        token0 = new Token(amt1);
-        token1 = new Token(amt2);
+    constructor(address t0, address t1) {
+        require (t0 != t1);
+        token0 = Token(t0);
+        token1 = Token(t1);
     }
 
     function swap0(uint256 amt) public returns (uint) {

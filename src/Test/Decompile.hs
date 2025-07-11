@@ -18,7 +18,7 @@ import Data.Validation
 
 import Act.Decompile
 import Act.Print
-import Act.CLI
+import Act.CLI ( compile, prettyErrs )
 import Act.HEVM_utils
 
 import qualified EVM.Solvers as Solvers

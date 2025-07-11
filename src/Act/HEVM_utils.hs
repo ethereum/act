@@ -49,12 +49,14 @@ defaultActConfig = Config
   , dumpExprs = False
   , dumpEndStates = False
   , debug = False
-  , abstRefineArith = False
-  , abstRefineMem   = False
   , dumpTrace = False
   , numCexFuzz = 0
   , onlyCexFuzz = False
   , decomposeStorage = False
+  , maxBranch = 100
+  , promiseNoReent = False
+  , maxBufSize = 64
+  , verb = 0
   }
 
 debugActConfig :: Config
@@ -67,12 +69,12 @@ makeCalldata iface@(Interface _ decls) =
     mkArg (Decl typ x) = symAbiArg (T.pack x) typ
     makeSig = T.pack $ makeIface iface
     calldatas = fmap mkArg decls
-    (cdBuf, _) = combineFragments calldatas (EVM.ConcreteBuf "")
+    (cdBuf, props) = combineFragments calldatas (EVM.ConcreteBuf "")
     withSelector = writeSelector cdBuf makeSig
     sizeConstraints
       = (bufLength withSelector EVM..>= cdLen calldatas)
         EVM..&& (bufLength withSelector EVM..< (EVM.Lit (2 ^ (64 :: Integer))))
-  in (withSelector, [sizeConstraints])
+  in (withSelector, sizeConstraints:props)
 
 makeCtrCalldata :: Interface -> Calldata
 makeCtrCalldata (Interface _ decls) =

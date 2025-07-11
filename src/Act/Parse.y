@@ -234,15 +234,15 @@ Decl : AbiType id                                     { Decl $1 (name $2) }
 StorageVar : SlotType id                              { StorageVar (posn $2) $1 (name $2) }
 
 AbiType : 'uint'
-         { case validsize $1 of
-	     True  -> AbiUIntType $1
-	     False -> error $ "invalid uint size: uint" <> (show $1)
-	 }
-       | 'int'
-         { case validsize $1 of
-	     True  -> AbiIntType $1
-	     False -> error $ "invalid int size: int" <> (show $1)
-	 }
+        { case validsize $1 of
+         True  -> AbiUIntType $1
+         False -> error $ "invalid uint size: uint" <> (show $1)
+        }
+        | 'int'
+        { case validsize $1 of
+            True  -> AbiIntType $1
+            False -> error $ "invalid int size: int" <> (show $1)
+        }
        | 'bytes'                                      { AbiBytesType $1 }
        | AbiType '[' ilit ']'                         { AbiArrayType (fromIntegral $ value $3) $1 }
        | 'address'                                    { AbiAddressType }

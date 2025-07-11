@@ -172,17 +172,17 @@ eqKind fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b
 data Ref (k :: RefKind) (t :: Timing) where
   CVar :: Pn -> AbiType -> Id -> Ref Calldata t     -- Calldata variable
   SVar :: Pn -> Id -> Id -> Ref Storage t           -- Storage variable. First `Id` is the contract the var belongs to and the second the name.
-  SMapping :: Pn -> Ref k t -> [TypedExp t] -> Ref k t
+  SMapping :: Pn -> Ref k t -> ValueType -> [TypedExp t] -> Ref k t
   SField :: Pn -> Ref k t -> Id -> Id -> Ref k t    -- Field access (for accessing storage variables of contracts).
                                                     -- The first Id is the name of the contract that the field belongs to.
 deriving instance Show (Ref k t)
 
 instance Eq (Ref k t) where
-  CVar _ at x      == CVar _ at' x'      = at == at' && x == x'
-  SVar _ c x       == SVar _ c' x'    = c == c' && x == x'
-  SMapping _ r ixs == SMapping _ r' ixs' = r == r' && ixs == ixs'
-  SField _ r c x   == SField _ r' c' x'  = r == r' && c == c' && x == x'
-  _                == _                  = False
+  CVar _ at x         == CVar _ at' x'          = at == at' && x == x'
+  SVar _ c x          == SVar _ c' x'           = c == c' && x == x'
+  SMapping _ r ts ixs == SMapping _ r' ts' ixs' = r == r' && ts == ts' && ixs == ixs'
+  SField _ r c x      == SField _ r' c' x'      = r == r' && c == c' && x == x'
+  _                   == _                      = False
 
 -- | Item is a reference together with its Act type. The type is
 -- parametrized on a timing `t`, a type `a`, and the reference kind
@@ -370,7 +370,7 @@ instance Timable (TItem a k) where
 
 instance Timable (Ref k) where
   setTime :: When -> Ref k Untimed -> Ref k Timed
-  setTime time (SMapping p e ixs) = SMapping p (setTime time e) (setTime time <$> ixs)
+  setTime time (SMapping p e ts ixs) = SMapping p (setTime time e) ts (setTime time <$> ixs)
   setTime time (SField p e c x) = SField p (setTime time e) c x
   setTime _ (SVar p c ref) = SVar p c ref
   setTime _ (CVar p at ref) = CVar p at ref
@@ -468,7 +468,7 @@ instance ToJSON (Ref k t) where
   toJSON (CVar _ at x) = object [ "kind" .= pack "Var"
                                 , "var" .=  pack x
                                 , "abitype" .=  toJSON at ]
-  toJSON (SMapping _ e xs) = mapping e xs
+  toJSON (SMapping _ e _ xs) = mapping e xs
   toJSON (SField _ e c x) = field e c x
 
 

@@ -403,6 +403,13 @@ fromWord layout w = simplify <$> go w
         a' <- go a
         b' <- go b
         pure . evmbool $ InRange nowhere (AbiUIntType 256) (Mul nowhere a' b')
+    go (EVM.Or (EVM.Eq b (EVM.Div (EVM.Mod (EVM.Mul c d) (EVM.Lit MAX_UINT)) e)) (EVM.IsZero a))
+      | a == c
+      , a == e
+      , b == d = do
+        a' <- go a
+        b' <- go b
+        pure . evmbool $ InRange nowhere (AbiUIntType 256) (Mul nowhere a' b')
 
 
     -- SLT (max(a, length txdata) - 4) b == 0  if a - 4 = b
@@ -441,7 +448,6 @@ fromWord layout w = simplify <$> go w
              _ -> Left $ "unable to handle storage reads for variables of type: " <> T.pack (show tp)
 
     go e = err e
-
 
 -- Verification ------------------------------------------------------------------------------------
 
