@@ -30,8 +30,6 @@ import EVM.ABI
 import Act.Syntax
 import Act.Syntax.TypedExplicit
 
-import Debug.Trace
-
 type Fresh = State Int
 
 header :: T.Text
@@ -116,8 +114,8 @@ reachableStep (Behaviour name _ i _ conds cases _ _ _) =
 -- | definition of a base state
 base :: Store -> Constructor -> T.Text
 base store (Constructor name i _ _ _ _ updates) =
-  let v = definition (T.pack name) (envDecl <> " " <> interface i) $ stateval store name (\_ t -> defaultSlotValue t) updates
-  in trace "updates" $ traceShow updates v
+  definition (T.pack name) (envDecl <> " " <> interface i) $
+    stateval store name (\_ t -> defaultSlotValue t) updates
 
 transition :: Store -> Behaviour -> Fresh T.Text
 transition store (Behaviour name cname i _ _ _ _ rewrites _) = do

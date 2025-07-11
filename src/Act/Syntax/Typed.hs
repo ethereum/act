@@ -19,9 +19,14 @@
 Module      : Syntax.Typed
 Description : Typed AST datatype.
 
-This module contains the datatype for the typed AST of Act specification.
-The type of each node is annotated with its Act type, so that it is well-typed
-by construction.
+This module contains the datatype for the typed AST of an Act specification.
+The typed AST is constructed during type checking. The type of each node is 
+annotated with its Act type, so that it is well-typed by construction. 
+The type of expressions is also annotated with a timing index: when the index
+is `Timed` then all references to storage must be explicitly timed with `Pre` 
+or `Post`. When the index is `Untimed` then expressions are not annotated with 
+a time. After typechecking, in a separate pass, all expressions become `Timed`.
+
 -}
 
 module Act.Syntax.Typed (module Act.Syntax.Typed) where
@@ -62,20 +67,14 @@ type Store = Map Id (Map Id (SlotType, Integer))
 -- | Represents a contract level invariant. The invariant is defined in the
 -- context of the constructor, but must also be checked against each behaviour
 -- in the contract, and thus may reference variables (i.e., constructor
--- arguments) that are not present in a given behaviour (constructor args, or
--- storage so we additionally attach some constraints over the variables
--- referenced by the predicate in the `_ipreconditions` and `_istoragebounds`
--- fields. These fields are separated as the constraints derived from the types
--- of the storage references must be treated differently in the constructor
--- specific queries (as the storage variables have no prestate in the
--- constructor...), whereas the constraints derived from the types of the
--- environment variables and calldata args (stored in _ipreconditions) have a
--- uniform semantics over both the constructor and behaviour claims.
-
+-- arguments) that are not present in a given behavior so we additionally 
+-- attach some constraints over the variables referenced by the predicate in 
+-- the `_ipreconditions` field. The `_istoragebounds` field contains bound 
+-- constraints for the storage variables referenced by the invariant predicate.
 data Invariant t = Invariant
   { _icontract :: Id
   , _ipreconditions :: [Exp ABoolean t]
-  , _istoragebounds :: [Exp ABoolean t]
+  , _istoragebounds :: [Exp ABoolean t] -- TODO check if this is indeed needed
   , _predicate :: InvariantPred t
   }
 deriving instance Show (Invariant t)
