@@ -65,7 +65,7 @@ constrFromContracts contracts = fmap (\(Contract c _) -> c) contracts
 
 locsFromUpdate :: StorageUpdate t -> [StorageLocation t]
 locsFromUpdate update = nub $ case update of
-  (Update _ item e) -> locsFromSItem item <> locsFromExp e
+  (Update _ item e) -> locsFromItem SStorage item <> locsFromExp e
 
 locsFromUpdateRHS :: StorageUpdate t -> [StorageLocation t]
 locsFromUpdateRHS update = nub $ case update of
@@ -74,11 +74,9 @@ locsFromUpdateRHS update = nub $ case update of
 locFromUpdate :: StorageUpdate t -> StorageLocation t
 locFromUpdate (Update _ item _) = _Loc item
 
-locsFromCItem :: TItem a Calldata t -> [StorageLocation t]
-locsFromCItem item = concatMap locsFromTypedExp (ixsFromItem item)
-
-locsFromSItem :: TItem a 'Storage t  -> [StorageLocation t]
-locsFromSItem item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
+locsFromItem :: SRefKind k -> TItem a k t -> [StorageLocation t]
+locsFromItem SCalldata item = concatMap locsFromTypedExp (ixsFromItem item)
+locsFromItem SStorage item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
 
 -- untimeItem :: TItem a k t -> TItem a k Untimed
 -- untimeItem (Item s vt ref) = untimeItem (Item s vt (untimeRef ref))
@@ -126,8 +124,7 @@ locsFromExp = nub . go
       ByEnv {} -> []
       Create _ _ es -> concatMap locsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
-      CVarRef _ a -> locsFromCItem a
-      SVarRef _ _ a -> locsFromSItem a
+      VarRef _ _ k a -> locsFromItem k a
 
 createsFromExp :: Exp a t -> [Id]
 createsFromExp = nub . go
@@ -165,8 +162,7 @@ createsFromExp = nub . go
       ByEnv {} -> []
       Create _ f es -> [f] <> concatMap createsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
-      CVarRef _ a -> createsFromItem a
-      SVarRef _ _ a -> createsFromItem a
+      VarRef _ _ _ a -> createsFromItem a
 
 createsFromItem :: TItem k a t -> [Id]
 createsFromItem item = concatMap createsFromTypedExp (ixsFromItem item)
@@ -286,8 +282,7 @@ ethEnvFromExp = nub . go
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
       Create _ _ ixs -> concatMap ethEnvFromTypedExp ixs
-      SVarRef _ _ a -> ethEnvFromItem a
-      CVarRef _ a -> ethEnvFromItem a
+      VarRef _ _ _ a -> ethEnvFromItem a
 
 idFromItem :: TItem k a t -> Id
 idFromItem (Item _ _ ref) = idFromRef ref
@@ -371,8 +366,8 @@ posnFromExp e = case e of
   Eq  p _ _ _ -> p
   NEq p _ _ _ -> p
   ITE p _ _ _ -> p
-  SVarRef p _ _ -> p
-  CVarRef p _ -> p
+  VarRef p _ _ _ -> p
+
 --------------------------------------
 -- * Extraction from untyped ASTs * --
 --------------------------------------

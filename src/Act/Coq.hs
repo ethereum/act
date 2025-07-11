@@ -306,8 +306,7 @@ coqexp (UIntMax _ n) = parens $ "UINT_MAX " <> T.pack (show n)
 coqexp (InRange _ t e) = coqexp (bound t e)
 
 -- polymorphic
-coqexp (SVarRef _ _ e) = entry e
-coqexp (CVarRef _ e) = entry e
+coqexp (VarRef _ _ _ e) = entry e
 coqexp (ITE _ b e1 e2) = parens $ "if "
                                <> coqexp b
                                <> " then "

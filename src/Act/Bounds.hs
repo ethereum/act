@@ -98,7 +98,7 @@ mkStorageBounds refs t = concatMap mkBound refs
     mkBound _ = []
 
 mkItemBounds :: When -> TItem AInteger Storage -> Exp ABoolean
-mkItemBounds whn item@(Item _ (PrimitiveType vt) _) = bound vt (SVarRef nowhere whn item)
+mkItemBounds whn item@(Item _ (PrimitiveType vt) _) = bound vt (VarRef nowhere whn SStorage item)
 mkItemBounds _ (Item _ (ContractType _) _) = LitBool nowhere True
 
 mkStorageBoundsLoc :: [StorageLocation] -> [Exp ABoolean]

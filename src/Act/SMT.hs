@@ -539,7 +539,7 @@ parseSMTModel s = if length s0Caps == 1
 encodeUpdate :: Id -> StorageUpdate -> SMT2
 encodeUpdate behvName (Update _ item expr) =
   let
-    postentry  = withInterface behvName $ expToSMT2 (SVarRef nowhere Post item)
+    postentry  = withInterface behvName $ expToSMT2 (VarRef nowhere Post SStorage item)
     expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
@@ -624,8 +624,7 @@ expToSMT2 expr = case expr of
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
   ITE _ a b c -> triop "ite" a b c
-  SVarRef _ whn item -> entry whn item
-  CVarRef _ item -> entry Pre item
+  VarRef _ whn _ item -> entry whn item
   where
     unop :: String -> Exp a -> Ctx SMT2
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]

@@ -143,8 +143,8 @@ prettyExp e = case e of
 
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  SVarRef _ t a -> timeParens t $ prettyItem a
-  CVarRef _ a -> prettyItem a
+  VarRef _ t SStorage a -> timeParens t $ prettyItem a
+  VarRef _ _ SCalldata a -> prettyItem a
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
@@ -237,8 +237,7 @@ prettyInvPred = prettyExp . untime . (\(PredTimed e _) -> e)
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
-      SVarRef p _ (Item t vt a) -> SVarRef p Neither (Item t vt (untimeRef a))
-      CVarRef p (Item t vt a) -> CVarRef p (Item t vt (untimeRef a))
+      VarRef p _  k (Item t vt a) -> VarRef p Neither k (Item t vt (untimeRef a))
 
 -- | Doc type for terminal output
 type DocAnsi = Doc Term.AnsiStyle

@@ -437,7 +437,7 @@ fromWord layout w = simplify <$> go w
            Nothing -> Left "read from a storage location that is not present in the solc layout"
            Just (nm, tp) -> case tp of
              -- TODO: get lookup contract name by address
-             StorageValue t@(PrimitiveType _) -> Right $ SVarRef nowhere Pre (Item SInteger t (SVar nowhere (T.unpack "Basic") (T.unpack nm)))
+             StorageValue t@(PrimitiveType _) -> Right $ VarRef nowhere Pre SStorage (Item SInteger t (SVar nowhere (T.unpack "Basic") (T.unpack nm)))
              _ -> Left $ "unable to handle storage reads for variables of type: " <> T.pack (show tp)
 
     go e = err e

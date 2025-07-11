@@ -409,8 +409,7 @@ checkIffs env exps = traverse (checkExpr env SBoolean) exps
 -- happens here.
 genInRange :: AbiType -> Exp AInteger t -> [Exp ABoolean t]
 genInRange t e@(LitInt _ _) = [InRange nowhere t e]
-genInRange t e@(SVarRef _ _ _)  = [InRange nowhere t e]
-genInRange t e@(CVarRef _ _)  = [InRange nowhere t e]
+genInRange t e@(VarRef _ _ _ _)  = [InRange nowhere t e]
 genInRange t e@(Add _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
 genInRange t e@(Sub _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
 genInRange t e@(Mul _ e1 e2) = [InRange nowhere t e] <> genInRange t e1 <> genInRange t e2
@@ -491,8 +490,11 @@ inferExpr env@Env{calldata, constructors} e = case e of
     _             -> throw (p, "Unknown environment variable " <> show v1)
 
   -- Variable references
-  U.EUTEntry entry | isCalldataEntry entry   -> checkVar entry
-  U.EPreEntry entry | isCalldataEntry entry  -> checkVar entry
+  U.EUTEntry entry | isCalldataEntry entry -> case (eqT @t @Timed, eqT @t @Untimed) of
+    (Just Refl, _) -> checkVar Pre entry
+    (_, Just Refl) -> checkVar Neither entry
+    (_,_) -> error "Internal error: Timing should be either Timed or Untimed"
+  U.EPreEntry entry | isCalldataEntry entry  -> error $ "Internal error: Calldata variables cannot be pre" <> show e
   U.EPostEntry entry | isCalldataEntry entry -> error $ "Internal error: Calldata variables cannot be post" <> show e
   -- Storage references
   U.EUTEntry entry   -> checkStorage entry Neither
@@ -511,16 +513,16 @@ inferExpr env@Env{calldata, constructors} e = case e of
         inferExpr env e2 `bindValidation` \(TExp (t2 :: SType a2) (te2 :: Exp a2 t)) ->
         maybe (typeMismatchErr pn t1 t2) (\Refl -> pure $ cons pn t1 te1 te2) $ testEquality t1 t2
 
-    checkVar :: U.Entry -> Err (TypedExp t)
-    checkVar entry =
-        (\(vt@(FromVType typ), ref) -> TExp typ $ CVarRef (getPosEntry entry) (Item typ vt ref)) <$> (validateEntry env SCalldata entry)
+    checkVar :: forall t0. Typeable t0 => Time t0 -> U.Entry -> Err (TypedExp t0)
+    checkVar whn entry =
+        (\(vt@(FromVType typ), ref) -> TExp typ $ VarRef (getPosEntry entry) whn SCalldata (Item typ vt ref)) <$> (validateEntry env SCalldata entry)
 
     -- Type check a storage variable
     checkStorage :: forall t0.  Typeable t0 => U.Entry -> Time t0 -> Err (TypedExp t)
     checkStorage entry time =
         -- check that the timing is correct
        checkTime (getPosEntry entry) <*>
-       ((\(vt@(FromVType typ), ref) -> TExp typ $ SVarRef (getPosEntry entry) time (Item typ vt ref)) <$> validateEntry env SStorage entry)
+       ((\(vt@(FromVType typ), ref) -> TExp typ $ VarRef (getPosEntry entry) time SStorage (Item typ vt ref)) <$> validateEntry env SStorage entry)
 
     -- Check that an expression is typed with the right timing
     checkTime :: forall t0. Typeable t0 => Pn -> Err (TypedExp t0 -> TypedExp t)
@@ -549,8 +551,7 @@ findContractType env (ITE p _ a b) =
     (Just c1, Just c2) -> Just c1 <$ assert (p, "Type of if-then-else branches does not match") (c1 == c2)
     (_, _ )-> pure Nothing
 findContractType _ (Create _ c _) = pure $ Just c
-findContractType _ (SVarRef _ _ (Item _ (ContractType c) _)) = pure $ Just c
-findContractType _ (CVarRef _ (Item _ (ContractType c) _)) = pure $ Just c
+findContractType _ (VarRef _ _ _ (Item _ (ContractType c) _)) = pure $ Just c
 findContractType _ _ =  pure Nothing
 
 -- | Check if an expression has the expected contract id, if any

@@ -255,10 +255,10 @@ data Exp (a :: ActType) (t :: Timing) where
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   ITE :: Pn -> Exp ABoolean t -> Exp a t -> Exp a t -> Exp a t
-  -- Calldata references
-  CVarRef :: Pn -> TItem a Calldata t -> Exp a t
-    -- Calldata and storage variable references
-  SVarRef :: Pn -> Time t -> TItem a Storage t -> Exp a t
+  -- Calldata references and storage variable references. 
+  -- Note that the timing annotation does not make a difference 
+  -- when the variable refers to calldata
+  VarRef :: Pn -> Time t -> SRefKind k -> TItem a k t -> Exp a t
 
 deriving instance Show (Exp a t)
 
@@ -300,8 +300,7 @@ instance Eq (Exp a t) where
   NEq _ SType a b == NEq _ SType c d = eqS a c && eqS b d
 
   ITE _ a b c == ITE _ d e f = a == d && b == e && c == f
-  SVarRef _ t a == SVarRef _ u b = t == u && a == b
-  CVarRef _ a == CVarRef _ b = a == b
+  VarRef _ a SRefKind t == VarRef _ b SRefKind u = a == b && eqKind t u
   Create _ a b == Create _ c d = a == c && b == d
 
   _ == _ = False
@@ -359,8 +358,7 @@ instance Timable (Exp a) where
     Eq  p s x y -> Eq p s (go x) (go y)
     NEq p s x y -> NEq p s (go x) (go y)
     ITE p x y z -> ITE p (go x) (go y) (go z)
-    CVarRef p item -> CVarRef p (go item)
-    SVarRef p _ item -> SVarRef p time (go item)
+    VarRef p _ k item -> VarRef p time k (go item)
     where
       go ::Timable c => c Untimed -> c Timed
       go = setTime time
@@ -541,9 +539,8 @@ instance ToJSON (Exp a t) where
                               , "type" .= pack "bytestring" ]
   toJSON (ByEnv _ a) = object [ "ethEnv" .= pack (show a)
                               , "type" .= pack "bytestring" ]
-  toJSON (CVarRef _ a) = object [ "cvar"  .= toJSON a ]
-  toJSON (SVarRef _ t a) = object [ "svar"  .= toJSON a
-                                  , "timing" .= show t ]
+  toJSON (VarRef _ t _ a) = object [ "var"  .= toJSON a
+                                   , "timing" .= show t ]
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
                                   , "arity"  .= Data.Aeson.Types.Number 2
                                   , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
@@ -618,5 +615,5 @@ uintmin _ = 0
 uintmax :: Int -> Integer
 uintmax a = 2 ^ a - 1
 
-_Var :: SingI a => AbiType -> Id -> Exp a t
-_Var at x = CVarRef nowhere (Item sing (PrimitiveType at) (CVar nowhere at x))
+_Var :: SingI a => AbiType -> Id -> Exp a Timed
+_Var at x = VarRef nowhere Pre SCalldata (Item sing (PrimitiveType at) (CVar nowhere at x))
