@@ -11,7 +11,8 @@
                   "type": "int"
                 },
                 {
-                  "cvar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "type": "Address"
@@ -62,7 +63,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -82,8 +84,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -92,7 +93,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -112,8 +114,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -136,12 +137,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -164,8 +167,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -174,12 +176,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -202,8 +206,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -236,7 +239,8 @@
             {
               "args": [
                 {
-                  "cvar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -249,7 +253,8 @@
                   }
                 },
                 {
-                  "svar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "indexes": [
                         {
@@ -269,8 +274,7 @@
                       }
                     },
                     "type": "int"
-                  },
-                  "timing": "Pre"
+                  }
                 }
               ],
               "arity": 2,
@@ -285,7 +289,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -305,12 +310,14 @@
                     {
                       "args": [
                         {
-                          "svar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "indexes": [
                                 {
                                   "expression": {
-                                    "cvar": {
+                                    "timing": "Pre",
+                                    "var": {
                                       "item": {
                                         "abitype": {
                                           "type": "Address"
@@ -333,11 +340,11 @@
                               }
                             },
                             "type": "int"
-                          },
-                          "timing": "Pre"
+                          }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "size": "256",
@@ -384,7 +391,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -403,7 +411,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -436,7 +445,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -454,7 +464,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -486,7 +497,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -506,8 +518,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -516,7 +527,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -536,8 +548,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -560,12 +571,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -588,8 +601,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -598,12 +610,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -626,8 +640,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -650,7 +663,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -670,8 +684,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -680,7 +693,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -700,8 +714,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -724,12 +737,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -752,8 +767,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -762,12 +776,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -790,8 +806,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -908,7 +923,8 @@
               "value": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "indexes": [
                           {
@@ -928,11 +944,11 @@
                         }
                       },
                       "type": "int"
-                    },
-                    "timing": "Pre"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -955,7 +971,8 @@
                   "indexes": [
                     {
                       "expression": {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "type": "Address"
@@ -982,12 +999,14 @@
               "value": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "indexes": [
                           {
                             "expression": {
-                              "cvar": {
+                              "timing": "Pre",
+                              "var": {
                                 "item": {
                                   "abitype": {
                                     "type": "Address"
@@ -1010,11 +1029,11 @@
                         }
                       },
                       "type": "int"
-                    },
-                    "timing": "Pre"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -1042,7 +1061,8 @@
                   "type": "int"
                 },
                 {
-                  "cvar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "type": "Address"
@@ -1102,7 +1122,8 @@
             {
               "args": [
                 {
-                  "cvar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -1115,7 +1136,8 @@
                   }
                 },
                 {
-                  "svar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "indexes": [
                         {
@@ -1135,8 +1157,7 @@
                       }
                     },
                     "type": "int"
-                  },
-                  "timing": "Pre"
+                  }
                 }
               ],
               "arity": 2,
@@ -1151,7 +1172,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -1171,12 +1193,14 @@
                     {
                       "args": [
                         {
-                          "svar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "indexes": [
                                 {
                                   "expression": {
-                                    "cvar": {
+                                    "timing": "Pre",
+                                    "var": {
                                       "item": {
                                         "abitype": {
                                           "type": "Address"
@@ -1199,11 +1223,11 @@
                               }
                             },
                             "type": "int"
-                          },
-                          "timing": "Pre"
+                          }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "size": "256",
@@ -1250,7 +1274,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -1269,7 +1294,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -1302,7 +1328,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -1320,7 +1347,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -1352,7 +1380,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -1372,8 +1401,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -1382,7 +1410,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -1402,8 +1431,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -1426,12 +1454,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -1454,8 +1484,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -1464,12 +1493,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -1492,8 +1523,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -1593,7 +1623,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -1605,7 +1636,8 @@
                       }
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -1627,7 +1659,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -1689,12 +1722,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -1717,8 +1752,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -1727,12 +1761,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -1755,8 +1791,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -1779,12 +1814,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -1807,8 +1844,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -1817,12 +1853,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -1845,8 +1883,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -1865,7 +1902,8 @@
             {
               "args": [
                 {
-                  "cvar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -1878,7 +1916,8 @@
                   }
                 },
                 {
-                  "svar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "indexes": [
                         {
@@ -1898,8 +1937,7 @@
                       }
                     },
                     "type": "int"
-                  },
-                  "timing": "Pre"
+                  }
                 }
               ],
               "arity": 2,
@@ -1910,7 +1948,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -1922,7 +1961,8 @@
                       }
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -1942,12 +1982,14 @@
                     {
                       "args": [
                         {
-                          "svar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "indexes": [
                                 {
                                   "expression": {
-                                    "cvar": {
+                                    "timing": "Pre",
+                                    "var": {
                                       "item": {
                                         "abitype": {
                                           "type": "Address"
@@ -1970,11 +2012,11 @@
                               }
                             },
                             "type": "int"
-                          },
-                          "timing": "Pre"
+                          }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "size": "256",
@@ -2021,7 +2063,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -2045,12 +2088,14 @@
                     {
                       "args": [
                         {
-                          "svar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "indexes": [
                                 {
                                   "expression": {
-                                    "cvar": {
+                                    "timing": "Pre",
+                                    "var": {
                                       "item": {
                                         "abitype": {
                                           "type": "Address"
@@ -2081,11 +2126,11 @@
                               }
                             },
                             "type": "int"
-                          },
-                          "timing": "Pre"
+                          }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "size": "256",
@@ -2132,7 +2177,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -2150,7 +2196,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -2182,7 +2229,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -2200,7 +2248,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -2232,7 +2281,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -2251,7 +2301,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -2284,12 +2335,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -2312,8 +2365,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -2322,12 +2374,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -2350,8 +2404,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -2374,12 +2427,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -2402,8 +2457,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -2412,12 +2466,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -2440,8 +2496,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -2464,7 +2519,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -2484,8 +2540,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -2494,7 +2549,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -2514,8 +2570,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -2538,12 +2593,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -2566,8 +2623,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -2576,12 +2632,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -2604,8 +2662,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -2628,12 +2685,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -2664,8 +2723,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -2674,12 +2732,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -2710,8 +2770,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -2734,12 +2793,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -2762,8 +2823,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -2772,12 +2832,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -2800,8 +2862,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -2899,7 +2960,8 @@
                   "indexes": [
                     {
                       "expression": {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "type": "Address"
@@ -2926,12 +2988,14 @@
               "value": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "indexes": [
                           {
                             "expression": {
-                              "cvar": {
+                              "timing": "Pre",
+                              "var": {
                                 "item": {
                                   "abitype": {
                                     "type": "Address"
@@ -2954,11 +3018,11 @@
                         }
                       },
                       "type": "int"
-                    },
-                    "timing": "Pre"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -2981,7 +3045,8 @@
                   "indexes": [
                     {
                       "expression": {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "type": "Address"
@@ -3008,12 +3073,14 @@
               "value": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "indexes": [
                           {
                             "expression": {
-                              "cvar": {
+                              "timing": "Pre",
+                              "var": {
                                 "item": {
                                   "abitype": {
                                     "type": "Address"
@@ -3036,11 +3103,11 @@
                         }
                       },
                       "type": "int"
-                    },
-                    "timing": "Pre"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -3068,7 +3135,8 @@
                     {
                       "args": [
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "type": "Address"
@@ -3080,7 +3148,8 @@
                           }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "type": "Address"
@@ -3102,7 +3171,8 @@
                           "type": "int"
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "type": "Address"
@@ -3124,12 +3194,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -3160,8 +3232,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "args": [
@@ -3238,12 +3309,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -3266,8 +3339,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -3276,12 +3348,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -3304,8 +3378,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -3328,12 +3401,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -3356,8 +3431,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -3366,12 +3440,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -3394,8 +3470,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -3414,7 +3489,8 @@
             {
               "args": [
                 {
-                  "cvar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -3427,7 +3503,8 @@
                   }
                 },
                 {
-                  "svar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "indexes": [
                         {
@@ -3447,8 +3524,7 @@
                       }
                     },
                     "type": "int"
-                  },
-                  "timing": "Pre"
+                  }
                 }
               ],
               "arity": 2,
@@ -3459,7 +3535,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -3471,7 +3548,8 @@
                       }
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -3491,12 +3569,14 @@
                     {
                       "args": [
                         {
-                          "svar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "indexes": [
                                 {
                                   "expression": {
-                                    "cvar": {
+                                    "timing": "Pre",
+                                    "var": {
                                       "item": {
                                         "abitype": {
                                           "type": "Address"
@@ -3519,11 +3599,11 @@
                               }
                             },
                             "type": "int"
-                          },
-                          "timing": "Pre"
+                          }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "size": "256",
@@ -3570,7 +3650,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -3594,12 +3675,14 @@
                     {
                       "args": [
                         {
-                          "svar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "indexes": [
                                 {
                                   "expression": {
-                                    "cvar": {
+                                    "timing": "Pre",
+                                    "var": {
                                       "item": {
                                         "abitype": {
                                           "type": "Address"
@@ -3630,11 +3713,11 @@
                               }
                             },
                             "type": "int"
-                          },
-                          "timing": "Pre"
+                          }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "size": "256",
@@ -3681,7 +3764,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -3699,7 +3783,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -3731,7 +3816,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -3749,7 +3835,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -3781,7 +3868,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -3800,7 +3888,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -3833,12 +3922,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -3861,8 +3952,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -3871,12 +3961,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -3899,8 +3991,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -3923,12 +4014,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -3951,8 +4044,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -3961,12 +4053,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -3989,8 +4083,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -4013,7 +4106,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -4033,8 +4127,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -4043,7 +4136,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -4063,8 +4157,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -4087,12 +4180,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -4115,8 +4210,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -4125,12 +4219,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -4153,8 +4249,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -4177,12 +4272,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -4213,8 +4310,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -4223,12 +4319,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -4259,8 +4357,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -4283,12 +4380,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -4311,8 +4410,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -4321,12 +4419,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -4349,8 +4449,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -4448,7 +4547,8 @@
                   "indexes": [
                     {
                       "expression": {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "type": "Address"
@@ -4475,12 +4575,14 @@
               "value": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "indexes": [
                           {
                             "expression": {
-                              "cvar": {
+                              "timing": "Pre",
+                              "var": {
                                 "item": {
                                   "abitype": {
                                     "type": "Address"
@@ -4503,11 +4605,11 @@
                         }
                       },
                       "type": "int"
-                    },
-                    "timing": "Pre"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -4530,7 +4632,8 @@
                   "indexes": [
                     {
                       "expression": {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "type": "Address"
@@ -4557,12 +4660,14 @@
               "value": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "indexes": [
                           {
                             "expression": {
-                              "cvar": {
+                              "timing": "Pre",
+                              "var": {
                                 "item": {
                                   "abitype": {
                                     "type": "Address"
@@ -4585,11 +4690,11 @@
                         }
                       },
                       "type": "int"
-                    },
-                    "timing": "Pre"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -4617,7 +4722,8 @@
                     {
                       "args": [
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "type": "Address"
@@ -4629,7 +4735,8 @@
                           }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "type": "Address"
@@ -4651,7 +4758,8 @@
                           "type": "int"
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "type": "Address"
@@ -4673,12 +4781,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -4709,8 +4819,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "args": [
@@ -4787,12 +4896,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -4823,8 +4934,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -4833,12 +4943,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -4869,8 +4981,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -4893,12 +5004,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -4921,8 +5034,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -4931,12 +5043,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -4959,8 +5073,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -4983,12 +5096,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -5011,8 +5126,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -5021,12 +5135,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -5049,8 +5165,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -5069,7 +5184,8 @@
             {
               "args": [
                 {
-                  "cvar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -5082,7 +5198,8 @@
                   }
                 },
                 {
-                  "svar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "indexes": [
                         {
@@ -5102,8 +5219,7 @@
                       }
                     },
                     "type": "int"
-                  },
-                  "timing": "Pre"
+                  }
                 }
               ],
               "arity": 2,
@@ -5114,7 +5230,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -5126,7 +5243,8 @@
                       }
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -5146,12 +5264,14 @@
                     {
                       "args": [
                         {
-                          "svar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "indexes": [
                                 {
                                   "expression": {
-                                    "cvar": {
+                                    "timing": "Pre",
+                                    "var": {
                                       "item": {
                                         "abitype": {
                                           "type": "Address"
@@ -5174,11 +5294,11 @@
                               }
                             },
                             "type": "int"
-                          },
-                          "timing": "Pre"
+                          }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "size": "256",
@@ -5225,7 +5345,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -5249,12 +5370,14 @@
                     {
                       "args": [
                         {
-                          "svar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "indexes": [
                                 {
                                   "expression": {
-                                    "cvar": {
+                                    "timing": "Pre",
+                                    "var": {
                                       "item": {
                                         "abitype": {
                                           "type": "Address"
@@ -5285,11 +5408,11 @@
                               }
                             },
                             "type": "int"
-                          },
-                          "timing": "Pre"
+                          }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "size": "256",
@@ -5336,7 +5459,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -5354,7 +5478,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -5386,7 +5511,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -5404,7 +5530,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -5436,7 +5563,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -5455,7 +5583,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -5488,12 +5617,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -5524,8 +5655,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -5534,12 +5664,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -5570,8 +5702,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -5594,12 +5725,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -5622,8 +5755,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -5632,12 +5764,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -5660,8 +5794,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -5684,12 +5817,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -5712,8 +5847,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -5722,12 +5856,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -5750,8 +5886,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -5774,7 +5909,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -5794,8 +5930,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -5804,7 +5939,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -5824,8 +5960,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -5848,12 +5983,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -5876,8 +6013,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -5886,12 +6022,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -5914,8 +6052,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -5938,12 +6075,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -5974,8 +6113,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -5984,12 +6122,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -6020,8 +6160,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -6044,12 +6183,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -6072,8 +6213,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -6082,12 +6222,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -6110,8 +6252,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -6209,7 +6350,8 @@
                   "indexes": [
                     {
                       "expression": {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "type": "Address"
@@ -6244,12 +6386,14 @@
               "value": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "indexes": [
                           {
                             "expression": {
-                              "cvar": {
+                              "timing": "Pre",
+                              "var": {
                                 "item": {
                                   "abitype": {
                                     "type": "Address"
@@ -6280,11 +6424,11 @@
                         }
                       },
                       "type": "int"
-                    },
-                    "timing": "Pre"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -6307,7 +6451,8 @@
                   "indexes": [
                     {
                       "expression": {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "type": "Address"
@@ -6334,12 +6479,14 @@
               "value": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "indexes": [
                           {
                             "expression": {
-                              "cvar": {
+                              "timing": "Pre",
+                              "var": {
                                 "item": {
                                   "abitype": {
                                     "type": "Address"
@@ -6362,11 +6509,11 @@
                         }
                       },
                       "type": "int"
-                    },
-                    "timing": "Pre"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -6389,7 +6536,8 @@
                   "indexes": [
                     {
                       "expression": {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "type": "Address"
@@ -6416,12 +6564,14 @@
               "value": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "indexes": [
                           {
                             "expression": {
-                              "cvar": {
+                              "timing": "Pre",
+                              "var": {
                                 "item": {
                                   "abitype": {
                                     "type": "Address"
@@ -6444,11 +6594,11 @@
                         }
                       },
                       "type": "int"
-                    },
-                    "timing": "Pre"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -6472,7 +6622,8 @@
             {
               "args": [
                 {
-                  "cvar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "type": "Address"
@@ -6484,7 +6635,8 @@
                   }
                 },
                 {
-                  "cvar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "type": "Address"
@@ -6537,7 +6689,8 @@
             {
               "args": [
                 {
-                  "cvar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -6550,7 +6703,8 @@
                   }
                 },
                 {
-                  "svar": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "indexes": [
                         {
@@ -6570,8 +6724,7 @@
                       }
                     },
                     "type": "int"
-                  },
-                  "timing": "Pre"
+                  }
                 }
               ],
               "arity": 2,
@@ -6582,7 +6735,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -6594,7 +6748,8 @@
                       }
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -6614,12 +6769,14 @@
                     {
                       "args": [
                         {
-                          "svar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "indexes": [
                                 {
                                   "expression": {
-                                    "cvar": {
+                                    "timing": "Pre",
+                                    "var": {
                                       "item": {
                                         "abitype": {
                                           "type": "Address"
@@ -6642,11 +6799,11 @@
                               }
                             },
                             "type": "int"
-                          },
-                          "timing": "Pre"
+                          }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "size": "256",
@@ -6693,7 +6850,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -6717,12 +6875,14 @@
                     {
                       "args": [
                         {
-                          "svar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "indexes": [
                                 {
                                   "expression": {
-                                    "cvar": {
+                                    "timing": "Pre",
+                                    "var": {
                                       "item": {
                                         "abitype": {
                                           "type": "Address"
@@ -6753,11 +6913,11 @@
                               }
                             },
                             "type": "int"
-                          },
-                          "timing": "Pre"
+                          }
                         },
                         {
-                          "cvar": {
+                          "timing": "Pre",
+                          "var": {
                             "item": {
                               "abitype": {
                                 "size": "256",
@@ -6804,7 +6964,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -6822,7 +6983,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -6854,7 +7016,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -6872,7 +7035,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "type": "Address"
@@ -6904,7 +7068,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -6923,7 +7088,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -6956,7 +7122,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -6976,8 +7143,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -6986,7 +7152,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
@@ -7006,8 +7173,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -7030,12 +7196,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -7058,8 +7226,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -7068,12 +7235,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -7096,8 +7265,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -7120,12 +7288,14 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -7156,8 +7326,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -7166,12 +7335,14 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "indexes": [
                             {
                               "expression": {
-                                "cvar": {
+                                "timing": "Pre",
+                                "var": {
                                   "item": {
                                     "abitype": {
                                       "type": "Address"
@@ -7202,8 +7373,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -7310,7 +7480,8 @@
               "type": "bytestring"
             },
             "value": {
-              "cvar": {
+              "timing": "Pre",
+              "var": {
                 "item": {
                   "abitype": {
                     "type": "String"
@@ -7332,7 +7503,8 @@
               "type": "bytestring"
             },
             "value": {
-              "cvar": {
+              "timing": "Pre",
+              "var": {
                 "item": {
                   "abitype": {
                     "type": "String"
@@ -7354,7 +7526,8 @@
               "type": "int"
             },
             "value": {
-              "cvar": {
+              "timing": "Pre",
+              "var": {
                 "item": {
                   "abitype": {
                     "size": "256",
@@ -7390,7 +7563,8 @@
               "type": "int"
             },
             "value": {
-              "cvar": {
+              "timing": "Pre",
+              "var": {
                 "item": {
                   "abitype": {
                     "size": "256",
@@ -7453,7 +7627,8 @@
                         "type": "int"
                       },
                       {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "size": "256",
@@ -7472,7 +7647,8 @@
                   {
                     "args": [
                       {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "size": "256",
@@ -7502,18 +7678,19 @@
               "prefpredicate": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "Token",
                         "kind": "SVar",
                         "svar": "totalSupply"
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -7540,15 +7717,15 @@
                         "type": "int"
                       },
                       {
-                        "svar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "contract": "Token",
                             "kind": "SVar",
                             "svar": "totalSupply"
                           },
                           "type": "int"
-                        },
-                        "timing": "Pre"
+                        }
                       }
                     ],
                     "arity": 2,
@@ -7557,15 +7734,15 @@
                   {
                     "args": [
                       {
-                        "svar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "contract": "Token",
                             "kind": "SVar",
                             "svar": "totalSupply"
                           },
                           "type": "int"
-                        },
-                        "timing": "Pre"
+                        }
                       },
                       {
                         "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -7594,7 +7771,8 @@
                         "type": "int"
                       },
                       {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "size": "256",
@@ -7613,7 +7791,8 @@
                   {
                     "args": [
                       {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "size": "256",
@@ -7643,18 +7822,19 @@
               "prefpredicate": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "Token",
                         "kind": "SVar",
                         "svar": "name"
                       },
                       "type": "bytestring"
-                    },
-                    "timing": "Post"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "abitype": {
                           "type": "String"
@@ -7685,7 +7865,8 @@
                         "type": "int"
                       },
                       {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "size": "256",
@@ -7704,7 +7885,8 @@
                   {
                     "args": [
                       {
-                        "cvar": {
+                        "timing": "Pre",
+                        "var": {
                           "item": {
                             "abitype": {
                               "size": "256",
@@ -7734,18 +7916,19 @@
               "prefpredicate": {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "Token",
                         "kind": "SVar",
                         "svar": "symbol"
                       },
                       "type": "bytestring"
-                    },
-                    "timing": "Post"
+                    }
                   },
                   {
-                    "cvar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "abitype": {
                           "type": "String"
@@ -7776,15 +7959,15 @@
                     "type": "int"
                   },
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "Token",
                         "kind": "SVar",
                         "svar": "totalSupply"
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   }
                 ],
                 "arity": 2,
@@ -7793,15 +7976,15 @@
               {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "Token",
                         "kind": "SVar",
                         "svar": "totalSupply"
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   },
                   {
                     "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -7824,7 +8007,8 @@
                     "type": "int"
                   },
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "indexes": [
                           {
@@ -7844,8 +8028,7 @@
                         }
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   }
                 ],
                 "arity": 2,
@@ -7854,7 +8037,8 @@
               {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "indexes": [
                           {
@@ -7874,8 +8058,7 @@
                         }
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   },
                   {
                     "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -7900,7 +8083,8 @@
                     "type": "int"
                   },
                   {
-                    "cvar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -7919,7 +8103,8 @@
               {
                 "args": [
                   {
-                    "cvar": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",

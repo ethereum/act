@@ -38,7 +38,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -57,7 +58,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",

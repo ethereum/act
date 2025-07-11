@@ -52,15 +52,15 @@
                     "type": "int"
                   },
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "Modest",
                         "kind": "SVar",
                         "svar": "x"
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   }
                 ],
                 "arity": 2,
@@ -69,15 +69,15 @@
               {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "Modest",
                         "kind": "SVar",
                         "svar": "x"
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   },
                   {
                     "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -100,15 +100,15 @@
                     "type": "int"
                   },
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "Modest",
                         "kind": "SVar",
                         "svar": "y"
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   }
                 ],
                 "arity": 2,
@@ -117,15 +117,15 @@
               {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "Modest",
                         "kind": "SVar",
                         "svar": "y"
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   },
                   {
                     "literal": "1461501637330902918203684832716283019655932542975",

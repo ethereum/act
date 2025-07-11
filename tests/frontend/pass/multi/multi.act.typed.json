@@ -38,15 +38,15 @@
                     "type": "int"
                   },
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "A",
                         "kind": "SVar",
                         "svar": "x"
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   }
                 ],
                 "arity": 2,
@@ -55,15 +55,15 @@
               {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "A",
                         "kind": "SVar",
                         "svar": "x"
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   },
                   {
                     "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -119,7 +119,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -131,8 +132,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -141,7 +141,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -153,8 +154,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -193,7 +193,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -212,7 +213,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -245,7 +247,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -257,8 +260,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -267,7 +269,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -279,8 +282,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -346,7 +348,8 @@
                 "type": "int"
               },
               "value": {
-                "cvar": {
+                "timing": "Pre",
+                "var": {
                   "item": {
                     "abitype": {
                       "size": "256",
@@ -396,15 +399,15 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "contract": "B",
                           "kind": "SVar",
                           "svar": "y"
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -413,15 +416,15 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "contract": "B",
                           "kind": "SVar",
                           "svar": "y"
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -444,7 +447,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -456,8 +460,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -466,7 +469,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Post",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -478,8 +482,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Post"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -518,7 +521,8 @@
                       "type": "int"
                     },
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -537,7 +541,8 @@
                 {
                   "args": [
                     {
-                      "cvar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -570,15 +575,15 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "B",
                           "kind": "SVar",
                           "svar": "y"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -587,15 +592,15 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "B",
                           "kind": "SVar",
                           "svar": "y"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -618,7 +623,8 @@
                       "type": "int"
                     },
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -630,8 +636,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -640,7 +645,8 @@
                 {
                   "args": [
                     {
-                      "svar": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -652,8 +658,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -733,7 +738,8 @@
                 "type": "int"
               },
               "value": {
-                "cvar": {
+                "timing": "Pre",
+                "var": {
                   "item": {
                     "abitype": {
                       "size": "256",
@@ -805,15 +811,15 @@
                     "type": "int"
                   },
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "B",
                         "kind": "SVar",
                         "svar": "y"
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   }
                 ],
                 "arity": 2,
@@ -822,15 +828,15 @@
               {
                 "args": [
                   {
-                    "svar": {
+                    "timing": "Post",
+                    "var": {
                       "item": {
                         "contract": "B",
                         "kind": "SVar",
                         "svar": "y"
                       },
                       "type": "int"
-                    },
-                    "timing": "Post"
+                    }
                   },
                   {
                     "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
