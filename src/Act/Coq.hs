@@ -55,7 +55,11 @@ contractCode store (Contract ctor@Constructor{..} behvs) = T.unlines $
   <> (concatMap (evalSeq (transition store)) (groups behvs))
   <> (filter ((/=) "") $ concatMap (evalSeq retVal) (groups behvs))
   <> [ step (groups behvs)]
-  <> [ reachable ctor (groups behvs) ]
+  <> [ initPred ctor ]
+  <> [ multistep ]
+  <> [ reachable ]
+  <> [ reachableFromInit ]
+  <> [ stepMultistep ]
   <> [ "End " <> T.pack _cname <> "." ]
   where
     groups = groupBy (\b b' -> _name b == _name b')
@@ -95,10 +99,64 @@ stepBehv (Behaviour name _ i _ conds cases _ _ _) =
 
 
 -- | inductive definition of reachable states
-reachable :: Constructor -> [[Behaviour]] -> T.Text
-reachable constructor behvs = inductive
-  reachableType "" (stateType <> " -> " <> stateType <> " -> Prop") body where
-  body = (baseCase constructor) : [reachableStep]
+reachable :: T.Text
+reachable = definition
+  reachableType args value
+  where
+    args = parens $ stateVar <> " : " <> stateType
+    value = "exists " <> stateVar' <> ", " <> initType <>
+      " " <> stateVar' <> " /\\ " <> multistepType <> " " <>
+      stateVar' <> " " <> stateVar
+    stateVar' = stateVar <> "'"
+
+multistep :: T.Text
+multistep = definition
+  multistepType args value
+  where
+    args = parens $ stateVar <> " " <> stateVar' <> " : " <> stateType
+    value = multistepType <> " " <> stepType <> " " <> stateVar <> " " <> stateVar'
+    stateVar' = stateVar <> "'"
+
+multistepType :: T.Text
+multistepType = "multistep"
+
+reachableFromInit :: T.Text
+reachableFromInit = definition
+  reachableFromInitType args value
+  where
+    args = parens $ stateVar <> " " <> stateVar' <> " : " <> stateType
+    value = initType <>
+      " " <> stateVar <> " /\\ " <> multistepType <> " " <>
+      stateVar <> " " <> stateVar'
+    stateVar' = stateVar <> "'"
+
+reachableFromInitType :: T.Text
+reachableFromInitType = "reachableFromInit"
+
+stepMultistepType :: T.Text
+stepMultistepType = "step_multi_step"
+
+stepMultistep :: T.Text
+stepMultistep = definition
+  stepMultistepType "" $ stepMultistepType <> " " <> stepType
+
+
+initPred :: Constructor -> T.Text
+initPred (Constructor name i@(Interface _ decls) _ conds _ _ _ ) = inductive
+  initType "" (stateType <> " -> " <> " Prop") [body]
+  where
+    body = "Init : " <> universal <> "\n" <> constructorBody
+    baseval = parens $ T.pack name <> " " <> envVar <> " " <> arguments i
+    constructorBody = (indent 2) . implication . concat $
+      [ coqprop <$> conds
+      , [initType <> " " <> baseval]
+      ]
+    universal =
+      "forall " <> envDecl <> " " <>
+      (if null decls
+       then ""
+       else interface i) <> ","
+
 
 -- | non-recursive constructor for the reachable relation
 baseCase :: Constructor -> T.Text
@@ -457,6 +515,9 @@ introSuffix = "_intro"
 
 stepType :: T.Text
 stepType = "step"
+
+initType :: T.Text
+initType = "init"
 
 reachableType :: T.Text
 reachableType = "reachable"
