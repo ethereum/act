@@ -18,28 +18,28 @@ Proof.
 Qed.
 
 Lemma invariant : forall base s,
-  reachable base s -> (r s) * (b s) ^ ((e s) - 1) = (b base) ^ (e base).
+  reachableFromInit base s -> (r s) * (b s) ^ ((e s) - 1) = (b base) ^ (e base).
 Proof.
-  intros base s H. induction H.
-  - simpl.
+  intros base s Hreach. destruct Hreach as [ Hinit Hmulti ]. induction Hmulti as [ | s s' Hstep ].
+  - simpl. induction Hinit.
     rewrite Z.sub_1_r.
     apply pow_pred.
     apply Z.gt_lt.
     assumption.
   - simpl.
-    rewrite <- IHreachable.
+    rewrite <- IHHmulti.
     rewrite Z.sub_1_r.
-    rewrite <- (pow_pred (b STATE) (e STATE - 1)).
-    + induction H0.
+    rewrite <- (pow_pred (b s) (e s - 1)).
+    + induction Hstep.
       rewrite Z.mul_assoc. reflexivity.
-    + induction H0.
-      apply Z.gt_lt in H1.
+    + induction Hstep.
+      apply Z.gt_lt in H0.
       apply (proj1 (Z.sub_lt_mono_r 1 (e STATE) 1)).
       assumption.
 Qed.
 
 Theorem exp_correct : forall base s,
-  reachable base s -> e s = 1 -> r s = (b base) ^ (e base).
+  reachableFromInit base s -> e s = 1 -> r s = (b base) ^ (e base).
 Proof.
   intros base s H He.
   apply invariant in H.

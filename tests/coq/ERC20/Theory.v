@@ -185,16 +185,21 @@ Proof.
 Qed.
 
 Theorem constant_balanceOf : forall BASE STATE,
-    reachable BASE STATE ->
+    multistep BASE STATE ->
     balanceOf_sum BASE = balanceOf_sum STATE.
 Proof.
-  intros BASE S Hreach.
-  induction Hreach; intros; induction H; [ reflexivity | | assumption | | | | assumption ];
-    rewrite IHHreach; destructAnds.
-  - eapply (balances_after_transfer ENV); eauto.
-  - eapply (balances_after_transfer ENV); eauto.
-  - eapply (balances_after_transfer ENV); eauto.
-  - assert (Hthm := balances_after_transfer ENV STATE).
-    unfold balanceOf_sum, transferFrom0, transferFrom2 in *.
-    eapply Hthm; eauto.
+  intros BASE S.
+  eapply step_multi_step with (P := fun s1 s2 => balanceOf_sum s1 = balanceOf_sum s2).
+  - intros. induction H; destructAnds.
+    + eapply (balances_after_transfer ENV); eauto.
+    + reflexivity.
+    + eapply (balances_after_transfer ENV); eauto.
+    + eapply (balances_after_transfer ENV); eauto.
+    + assert (Hthm := balances_after_transfer ENV STATE).
+      unfold balanceOf_sum, transferFrom0, transferFrom2 in *.
+      apply Hthm; eauto.
+    + reflexivity.
+    
+  - unfold Relation_Definitions.reflexive. reflexivity.
+  - unfold Relation_Definitions.transitive. lia.
 Qed.
