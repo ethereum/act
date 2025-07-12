@@ -184,22 +184,171 @@ Proof.
     unfold MAX_ADDRESS. unfold UINT_MAX. lia.
 Qed.
 
-Theorem constant_balanceOf : forall BASE STATE,
-    multistep BASE STATE ->
-    balanceOf_sum BASE = balanceOf_sum STATE.
+Lemma balances_after_burn ENV STATE src  amount :
+  0 <= src <= MAX_ADDRESS ->
+  balanceOf_sum STATE - amount =
+  balanceOf_sum (burnFrom0 ENV STATE src amount).
 Proof.
-  intros BASE S.
-  eapply step_multi_step with (P := fun s1 s2 => balanceOf_sum s1 = balanceOf_sum s2).
-  - intros. induction H; destructAnds.
-    + eapply (balances_after_transfer ENV); eauto.
+  intros. unfold balanceOf_sum; simpl.
+  
+  assert (forall map amt addr acc, src <= addr ->
+    balanceOf_sum' (transfer_from map src amt) (Z.to_nat addr) acc =
+    balanceOf_sum' map (Z.to_nat addr) acc - amt) as Htransfer_from.
+  { intros. rewrite balanceOf_sum_transfer_from.
+
+    destruct (Z.to_nat src <=? Z.to_nat addr)%nat eqn:Hleq.
     + reflexivity.
-    + eapply (balances_after_transfer ENV); eauto.
-    + eapply (balances_after_transfer ENV); eauto.
-    + assert (Hthm := balances_after_transfer ENV STATE).
+    + apply Nat.leb_nle in Hleq. lia.
+    + lia.
+  }
+
+  erewrite <- Htransfer_from with (map := (balanceOf STATE)) (addr := MAX_ADDRESS) (amt := amount).
+  + reflexivity.
+  + lia.
+Qed.
+
+Lemma balances_after_mint ENV STATE dst  amount :
+  0 <= dst <= MAX_ADDRESS ->
+  balanceOf_sum STATE + amount =
+  balanceOf_sum (mint0 ENV STATE dst amount).
+Proof.
+  intros. unfold balanceOf_sum; simpl.
+  
+  assert (forall map amt addr acc, dst <= addr ->
+  balanceOf_sum' (transfer_to map dst amt) (Z.to_nat addr) acc =
+  balanceOf_sum' map (Z.to_nat addr) acc + amt).
+  { intros. rewrite balanceOf_sum_transfer_to.
+
+    destruct (Z.to_nat dst <=? Z.to_nat addr)%nat eqn:Hleq.
+    + reflexivity.
+    + apply Nat.leb_nle in Hleq. lia.
+    + lia.
+  }
+  
+  erewrite <- H0 with (map := (balanceOf STATE)) (addr := MAX_ADDRESS) (amt := amount).
+  + reflexivity.
+  + lia.
+Qed.
+
+Theorem initialSupply': forall ENV _totalSupply (n : nat),
+    0 <= Caller ENV ->
+    balanceOf_sum' (balanceOf (Token ENV _totalSupply)) n 0 = 
+    if (Z.of_nat n <? (Caller ENV)) then 0 else totalSupply (Token ENV _totalSupply).
+Proof.
+  intros.
+  unfold Token; simpl.
+  
+  assert (forall n : nat, Z.of_nat n < Caller ENV -> 
+      balanceOf_sum' (fun _binding_0 : address => if _binding_0 =? Caller ENV then _totalSupply else 0) n 0 = 0) as H0.
+  { intros. induction n0.
+    - simpl. destruct (Caller ENV); [discriminate | |]; reflexivity.
+    - simpl. rewrite -> balanceOf_sum_acc.
+      destruct (Z.of_nat (S n0) =? Caller ENV) eqn:Heq.
+      + apply Z.eqb_eq in Heq. apply Z.lt_neq in H0. contradiction.
+      + rewrite IHn0.
+        * reflexivity.
+        * lia.
+  }
+  
+  induction n.
+  - simpl.
+    destruct (Caller ENV) eqn:Hcaller.
+      + assert ( Z.of_nat 0 <? 0 = false). 
+        * apply Z.ltb_ge. lia.
+        * rewrite H1. lia.
+      + reflexivity.
+      + contradiction.
+  - simpl. rewrite balanceOf_sum_acc.
+    destruct (Z.of_nat (S n) <? Caller ENV) eqn:Hlt.
+    + destruct (Z.of_nat (S n) =? Caller ENV) eqn:Heq.
+      * lia.
+      * rewrite H0.
+        reflexivity.
+        apply Zlt_is_lt_bool in Hlt. lia.
+        
+    + destruct (Z.of_nat (S n) =? Caller ENV) eqn:Heq.
+      * rewrite H0.
+        -- lia.
+        -- apply Z.eqb_eq in Heq. lia.
+      * rewrite IHn.
+        assert ( Z.of_nat n <? Caller ENV = false).
+        { apply Z.ltb_ge in Hlt. apply Z.eqb_neq in Heq. lia. }
+        rewrite H1. lia.
+Qed.
+
+Theorem initialSupply: forall ENV _totalSupply,
+    0 <= Caller ENV <= MAX_ADDRESS ->
+    balanceOf_sum (Token ENV _totalSupply) = 
+    totalSupply (Token ENV _totalSupply).
+Proof.
+  intros.
+  unfold balanceOf_sum.
+  rewrite -> initialSupply'.
+  unfold Token; simpl.
+  rewrite Z2Nat.id.
+  destruct (MAX_ADDRESS <? Caller ENV) eqn:Hineq.
+  + apply Z.ltb_lt in Hineq. lia.
+  + reflexivity.
+  + unfold MAX_ADDRESS. unfold UINT_MAX. lia.
+  + unfold MAX_ADDRESS. unfold UINT_MAX. lia.
+Qed.
+
+Theorem deltas: forall x1 x2 y1 y2,
+  x1 = y1 -> x1 - x2 = y1 - y2 -> x2 = y2.
+Proof.
+  intros. lia.
+Qed.
+
+Theorem constant_balanceOf : forall STATE,
+    reachable STATE ->
+    balanceOf_sum STATE = totalSupply STATE.
+Proof.
+  intros STATE Hreach.
+  destruct Hreach as [ BASE Hreach ], Hreach as [ Hinit Hmulti ].
+  
+  induction Hmulti as [ | STATE NEXT Hstep ].
+  - destruct Hinit.
+    apply initialSupply. destructAnds. split; assumption. 
+  
+  - assert ( forall a b, a - (a - b) = b) as Ha1. lia.
+    assert ( forall a b c,
+      a - b =  c <-> a - c = b) as Ha2. lia.
+    assert ( forall a b, a - (a + b) = - b) as Ha3. lia.
+    assert ( forall a b c,
+      a - b = -c <-> a + c = b) as Ha4. lia.
+
+    induction Hstep; [ | assumption | | | | assumption | assumption | assumption | assumption 
+                       | | | | | | assumption | assumption | assumption ];
+    (apply deltas with (x1 := balanceOf_sum STATE) (y1 := totalSupply STATE); [ assumption | simpl; destructAnds ]).
+    + rewrite Z.sub_diag with (n := totalSupply STATE);
+      apply Zeq_minus;
+      apply (balances_after_transfer ENV); auto.
+    + rewrite Z.sub_diag with (n := totalSupply STATE). 
+      apply Zeq_minus.
+      apply (balances_after_transfer ENV); auto.
+    + rewrite Z.sub_diag with (n := totalSupply STATE). 
+      apply Zeq_minus.
+      apply (balances_after_transfer ENV); auto.
+    + rewrite Z.sub_diag with (n := totalSupply STATE). 
+      apply Zeq_minus.
+      assert (Hthm := balances_after_transfer ENV STATE).
       unfold balanceOf_sum, transferFrom0, transferFrom2 in *.
-      apply Hthm; eauto.
-    + reflexivity.
-    
-  - unfold Relation_Definitions.reflexive. reflexivity.
-  - unfold Relation_Definitions.transitive. lia.
+      apply Hthm; auto.
+    + rewrite Ha1.
+      apply Ha2.
+      apply (balances_after_burn ENV). split; auto.
+    + rewrite Ha1.
+      apply Ha2.
+      apply (balances_after_burn ENV). split; auto.
+    + rewrite Ha1.
+      apply Ha2.
+      assert (Hthm := balances_after_burn ENV STATE).
+      unfold balanceOf_sum, burnFrom0, burnFrom1 in *.
+      apply Hthm. split; eauto.
+    + rewrite Ha1.
+      apply Ha2.
+      apply (balances_after_burn ENV). split; auto.
+    + rewrite Ha3.
+      apply Ha4.
+      apply (balances_after_mint ENV). split; auto.
 Qed.
