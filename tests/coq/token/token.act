@@ -23,8 +23,8 @@ case CALLER =/= to:
 
   storage
 
-	balances[CALLER] => balances[CALLER] - amt
-	balances[to] => balances[to] + amt
+	balances[CALLER] <- balances[CALLER] - amt
+	balances[to] <- balances[to] + amt
 
   returns 1
 

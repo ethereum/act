@@ -90,6 +90,7 @@ tokens :-
   -- symbols
   ":="                                  { mk ASSIGN }
   "=>"                                  { mk ARROW }
+  "<-"                                  { mk LARROW }
   "|->"                                 { mk POINTSTO }
   "=="                                  { mk EQEQ }
   "=/="                                 { mk NEQ }
@@ -139,7 +140,6 @@ data LEX =
   | INRANGE
   | IFF
   | POINTERS
-  | POINTSTO
   | AND
   | NOT
   | OR
@@ -186,6 +186,8 @@ data LEX =
   -- symbols
   | ASSIGN
   | ARROW
+  | LARROW
+  | POINTSTO
   | EQEQ
   | NEQ
   | GE

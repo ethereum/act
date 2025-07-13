@@ -10,7 +10,7 @@ interface f(uint24 y)
 
 storage
 
-  x => x + y
+  x <- x + y
 
 ensures
 

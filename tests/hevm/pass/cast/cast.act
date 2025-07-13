@@ -26,7 +26,7 @@ iff
   CALLVALUE == 0
 
 storage
-  x => x1
+  x <- x1
 
 
 constructor of B
@@ -53,5 +53,5 @@ iff
   CALLVALUE == 0
 
 storage
-  a1.x => 42
-  a2.x => 11
+  a1.x <- 42
+  a2.x <- 11

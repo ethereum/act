@@ -16,18 +16,16 @@ case z < 10:
 
     storage
 
-        x => if z == 5 then 4 else 1
+        x <- if z == 5 then 4 else 1
 
 case 10 <= z and z < 100:
 
     storage
 
-        x => if z == 50 then 3 else 2
-
-
+        x <- if z == 50 then 3 else 2
 
 case z >= 100:
 
     storage
 
-        x => if z == 50 then 3 else 2
+        x <- if z == 50 then 3 else 2

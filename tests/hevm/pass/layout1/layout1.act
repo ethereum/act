@@ -19,7 +19,7 @@ iff
 
   storage
 
-    x => y
-    y => x
+    x <- y
+    y <- x
 
   returns 1
