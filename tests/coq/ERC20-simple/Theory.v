@@ -151,7 +151,7 @@ Ltac destructAnds :=
   repeat match goal with
     [ H : _ /\ _ |- _ ] => destruct H
   end.
- 
+
 Ltac convert_neq :=
   repeat match goal with
     [ H : _ <> _ |- _ ] => eapply not_eq_sym in H; eapply Z.eqb_neq in H
@@ -164,12 +164,12 @@ Ltac rewrite_eqs :=
 
 Lemma balances_after_transfer ENV STATE src dst amount :
   0 <= src <= MAX_ADDRESS ->
-  0 <= dst <= MAX_ADDRESS ->                       
+  0 <= dst <= MAX_ADDRESS ->
   src <> dst ->
   balanceOf_sum STATE =
   balanceOf_sum (transferFrom0 ENV STATE src dst amount).
 Proof.
-  intros. unfold balanceOf_sum; simpl. 
+  intros. unfold balanceOf_sum; simpl.
   erewrite <- transfer_thm.
 
   + unfold transfer, transfer_to, transfer_from.
@@ -177,7 +177,7 @@ Proof.
 
   + eauto.
 
-  + rewrite Z2Nat.id. assumption. 
+  + rewrite Z2Nat.id. assumption.
     unfold MAX_ADDRESS. unfold UINT_MAX. lia.
 
   + rewrite Z2Nat.id. assumption.
@@ -199,7 +199,7 @@ Proof.
       unfold balanceOf_sum, transferFrom0, transferFrom2 in *.
       apply Hthm; eauto.
     + reflexivity.
-    
+
   - unfold Relation_Definitions.reflexive. reflexivity.
   - unfold Relation_Definitions.transitive. lia.
 Qed.

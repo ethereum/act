@@ -56,7 +56,7 @@ Lemma ite_true {A : Type} : forall (b : bool) (x y z : A),
 Proof.
   intros b x y H Heq.
   induction b.
-  - reflexivity. 
+  - reflexivity.
   - intros Hneq.
     rewrite Heq in Hneq.
     apply except.

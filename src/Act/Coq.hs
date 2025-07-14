@@ -59,7 +59,6 @@ contractCode store (Contract ctor@Constructor{..} behvs) = T.unlines $
   <> [ multistep ]
   <> [ reachable ]
   <> [ reachableFromInit ]
-  <> [ stepMultistep ]
   <> [ "End " <> T.pack _cname <> "." ]
   where
     groups = groupBy (\b b' -> _name b == _name b')
@@ -129,12 +128,7 @@ reachableFromInit = definition
       stateVar <> " " <> stateVar'
     stateVar' = stateVar <> "'"
 
--- | specialization of generic multistep lemma
-stepMultistep :: T.Text
-stepMultistep = definition
-  stepMultistepType "" $ stepMultistepType <> " " <> stepType
-
--- | definition of preconditions for initial state
+-- | predicate characterizing all initial (post constructor) states
 initPred :: Constructor -> T.Text
 initPred (Constructor name i@(Interface _ decls) _ conds _ _ _ ) = inductive
   initType "" (stateType <> " -> " <> " Prop") [body]
@@ -490,9 +484,6 @@ reachableType = "reachable"
 
 reachableFromInitType :: T.Text
 reachableFromInitType = "reachableFromInit"
-
-stepMultistepType :: T.Text
-stepMultistepType = "step_multi_step"
 
 reachStep:: T.Text
 reachStep= "reach_step"

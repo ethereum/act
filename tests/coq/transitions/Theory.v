@@ -9,8 +9,8 @@ Import StateMachine.
 
 Theorem invariant : forall s, reachable s -> (x s) >= 0 /\ (x s) <= 2.
 Proof.
-  intros. destruct H as [s0 Hreach]. 
-  destruct Hreach as [ Hinit Hmulti ]. 
+  intros. destruct H as [s0 Hreach].
+  destruct Hreach as [ Hinit Hmulti ].
   induction Hmulti as [ | s s' Hstep]; [induction Hinit | induction Hstep]. {
     simpl. split.
     - intros contra. discriminate.

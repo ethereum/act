@@ -157,9 +157,9 @@ Proof.
   - intros s s' Hstep.
     induction Hstep. unfold transfer0.
     unfold balances_sum. simpl.
-    
+
     erewrite <- transfer_thm.
-    
+
     + unfold transfer, transfer_to, transfer_from.
       eapply not_eq_sym in H. eapply Z.eqb_neq in H.
       rewrite H. reflexivity.
@@ -170,10 +170,10 @@ Proof.
 
     + rewrite Z2Nat.id. assumption.
       unfold MAX_ADDRESS. unfold UINT_MAX. lia.
-    
+
     + unfold transfer1.
     reflexivity.
-    
+
   - unfold Relation_Definitions.reflexive. reflexivity.
   - unfold Relation_Definitions.transitive. lia.
 Qed.

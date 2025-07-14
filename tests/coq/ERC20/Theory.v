@@ -151,7 +151,7 @@ Ltac destructAnds :=
   repeat match goal with
     [ H : _ /\ _ |- _ ] => destruct H
   end.
- 
+
 Ltac convert_neq :=
   repeat match goal with
     [ H : _ <> _ |- _ ] => eapply not_eq_sym in H; eapply Z.eqb_neq in H
@@ -164,12 +164,12 @@ Ltac rewrite_eqs :=
 
 Lemma balances_after_transfer ENV STATE src dst amount :
   0 <= src <= MAX_ADDRESS ->
-  0 <= dst <= MAX_ADDRESS ->                       
+  0 <= dst <= MAX_ADDRESS ->
   src <> dst ->
   balanceOf_sum STATE =
   balanceOf_sum (transferFrom0 ENV STATE src dst amount).
 Proof.
-  intros. unfold balanceOf_sum; simpl. 
+  intros. unfold balanceOf_sum; simpl.
   erewrite <- transfer_thm.
 
   + unfold transfer, transfer_to, transfer_from.
@@ -177,7 +177,7 @@ Proof.
 
   + eauto.
 
-  + rewrite Z2Nat.id. assumption. 
+  + rewrite Z2Nat.id. assumption.
     unfold MAX_ADDRESS. unfold UINT_MAX. lia.
 
   + rewrite Z2Nat.id. assumption.
@@ -190,7 +190,7 @@ Lemma balances_after_burn ENV STATE src  amount :
   balanceOf_sum (burnFrom0 ENV STATE src amount).
 Proof.
   intros. unfold balanceOf_sum; simpl.
-  
+
   assert (forall map amt addr acc, src <= addr ->
     balanceOf_sum' (transfer_from map src amt) (Z.to_nat addr) acc =
     balanceOf_sum' map (Z.to_nat addr) acc - amt) as Htransfer_from.
@@ -213,7 +213,7 @@ Lemma balances_after_mint ENV STATE dst  amount :
   balanceOf_sum (mint0 ENV STATE dst amount).
 Proof.
   intros. unfold balanceOf_sum; simpl.
-  
+
   assert (forall map amt addr acc, dst <= addr ->
   balanceOf_sum' (transfer_to map dst amt) (Z.to_nat addr) acc =
   balanceOf_sum' map (Z.to_nat addr) acc + amt).
@@ -224,7 +224,7 @@ Proof.
     + apply Nat.leb_nle in Hleq. lia.
     + lia.
   }
-  
+
   erewrite <- H0 with (map := (balanceOf STATE)) (addr := MAX_ADDRESS) (amt := amount).
   + reflexivity.
   + lia.
@@ -232,13 +232,13 @@ Qed.
 
 Theorem initialSupply': forall ENV _totalSupply (n : nat),
     0 <= Caller ENV ->
-    balanceOf_sum' (balanceOf (Token ENV _totalSupply)) n 0 = 
+    balanceOf_sum' (balanceOf (Token ENV _totalSupply)) n 0 =
     if (Z.of_nat n <? (Caller ENV)) then 0 else totalSupply (Token ENV _totalSupply).
 Proof.
   intros.
   unfold Token; simpl.
-  
-  assert (forall n : nat, Z.of_nat n < Caller ENV -> 
+
+  assert (forall n : nat, Z.of_nat n < Caller ENV ->
       balanceOf_sum' (fun _binding_0 : address => if _binding_0 =? Caller ENV then _totalSupply else 0) n 0 = 0) as H0.
   { intros. induction n0.
     - simpl. destruct (Caller ENV); [discriminate | |]; reflexivity.
@@ -249,11 +249,11 @@ Proof.
         * reflexivity.
         * lia.
   }
-  
+
   induction n.
   - simpl.
     destruct (Caller ENV) eqn:Hcaller.
-      + assert ( Z.of_nat 0 <? 0 = false). 
+      + assert ( Z.of_nat 0 <? 0 = false).
         * apply Z.ltb_ge. lia.
         * rewrite H1. lia.
       + reflexivity.
@@ -265,7 +265,7 @@ Proof.
       * rewrite H0.
         reflexivity.
         apply Zlt_is_lt_bool in Hlt. lia.
-        
+
     + destruct (Z.of_nat (S n) =? Caller ENV) eqn:Heq.
       * rewrite H0.
         -- lia.
@@ -278,7 +278,7 @@ Qed.
 
 Theorem initialSupply: forall ENV _totalSupply,
     0 <= Caller ENV <= MAX_ADDRESS ->
-    balanceOf_sum (Token ENV _totalSupply) = 
+    balanceOf_sum (Token ENV _totalSupply) =
     totalSupply (Token ENV _totalSupply).
 Proof.
   intros.
@@ -305,11 +305,11 @@ Theorem constant_balanceOf : forall STATE,
 Proof.
   intros STATE Hreach.
   destruct Hreach as [ BASE Hreach ], Hreach as [ Hinit Hmulti ].
-  
+
   induction Hmulti as [ | STATE NEXT Hstep ].
   - destruct Hinit.
-    apply initialSupply. destructAnds. split; assumption. 
-  
+    apply initialSupply. destructAnds. split; assumption.
+
   - assert ( forall a b, a - (a - b) = b) as Ha1. lia.
     assert ( forall a b c,
       a - b =  c <-> a - c = b) as Ha2. lia.
@@ -317,19 +317,19 @@ Proof.
     assert ( forall a b c,
       a - b = -c <-> a + c = b) as Ha4. lia.
 
-    induction Hstep; [ | assumption | | | | assumption | assumption | assumption | assumption 
+    induction Hstep; [ | assumption | | | | assumption | assumption | assumption | assumption
                        | | | | | | assumption | assumption | assumption ];
     (apply deltas with (x1 := balanceOf_sum STATE) (y1 := totalSupply STATE); [ assumption | simpl; destructAnds ]).
     + rewrite Z.sub_diag with (n := totalSupply STATE);
       apply Zeq_minus;
       apply (balances_after_transfer ENV); auto.
-    + rewrite Z.sub_diag with (n := totalSupply STATE). 
+    + rewrite Z.sub_diag with (n := totalSupply STATE).
       apply Zeq_minus.
       apply (balances_after_transfer ENV); auto.
-    + rewrite Z.sub_diag with (n := totalSupply STATE). 
+    + rewrite Z.sub_diag with (n := totalSupply STATE).
       apply Zeq_minus.
       apply (balances_after_transfer ENV); auto.
-    + rewrite Z.sub_diag with (n := totalSupply STATE). 
+    + rewrite Z.sub_diag with (n := totalSupply STATE).
       apply Zeq_minus.
       assert (Hthm := balances_after_transfer ENV STATE).
       unfold balanceOf_sum, transferFrom0, transferFrom2 in *.
