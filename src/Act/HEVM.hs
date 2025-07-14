@@ -49,9 +49,8 @@ import EVM.ABI (Sig(..))
 import qualified EVM hiding (bytecode)
 import qualified EVM.Types as EVM hiding (FrameState(..))
 import EVM.Expr hiding (op2, inRange, div, xor, readStorage)
-import EVM.SymExec hiding (EquivResult, isPartial, reachable)
-import qualified EVM.SymExec as SymExec (EquivResult, ProofResult(..))
-import EVM.SMT (SMTCex(..), assertProps)
+import EVM.SymExec hiding (isPartial, reachable)
+import EVM.SMT (assertProps)
 import EVM.Solvers
 import EVM.Effects
 import EVM.Format as Format
@@ -73,7 +72,7 @@ type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract, Id)
 -- when we encounter a constructor call.
 type CodeMap = M.Map Id (Contract, BS.ByteString, BS.ByteString)
 
-type EquivResult = ProofResult () (T.Text, SMTCex) T.Text T.Text
+type EquivResult = EVM.ProofResult (T.Text, EVM.SMTCex) T.Text
 
 initAddr :: EVM.Expr EVM.EAddr
 initAddr = EVM.SymAddr "entrypoint"
@@ -677,14 +676,14 @@ checkOp (Create _ _ _) = error "Internal error: invalid in range expression"
 -- | Wrapper for the equivalenceCheck function of hevm
 checkEquiv :: App m => SolverGroup -> [EVM.Expr EVM.End] -> [EVM.Expr EVM.End] -> m [EquivResult]
 checkEquiv solvers l1 l2 = do
-  (res, _) <- equivalenceCheck' solvers l1 l2 False
-  pure $ fmap toEquivRes res
+  EqIssues res _ <- equivalenceCheck' solvers l1 l2 False
+  pure $ fmap (toEquivRes . fst) res
   where
-    toEquivRes :: SymExec.EquivResult -> EquivResult
-    toEquivRes (Cex cex) = Cex ("\x1b[1mThe following input results in different behaviours\x1b[m", cex)
-    toEquivRes (Qed a) = Qed a
-    toEquivRes (SymExec.Unknown ()) = SymExec.Unknown ""
-    toEquivRes (SymExec.Error b) = SymExec.Error (T.pack b)
+    toEquivRes :: EVM.EquivResult -> EquivResult
+    toEquivRes (EVM.Cex cex) = EVM.Cex ("\x1b[1mThe following input results in different behaviours\x1b[m", cex)
+    toEquivRes EVM.Qed = EVM.Qed
+    toEquivRes (EVM.Unknown ()) = EVM.Unknown ""
+    toEquivRes (EVM.Error b) = EVM.Error (T.pack b)
 
 
 -- | Create the initial contract state before analysing a contract
@@ -962,8 +961,8 @@ checkInputSpaces solvers l1 l2 = do
                    _ -> error "Internal error: impossible"
 
   case all isQed results' of
-    True -> pure [Qed ()]
-    False -> pure $ filter (/= Qed ()) results'
+    True -> pure [EVM.Qed]
+    False -> pure $ filter (/= EVM.Qed) results'
 
 
 
@@ -1034,12 +1033,12 @@ assertSelector txdata sig =
 
 -- * Utils
 
-toVRes :: T.Text -> CheckSatResult -> EquivResult
+toVRes :: T.Text -> EVM.SMTResult -> EquivResult
 toVRes msg res = case res of
-  Sat cex -> Cex (msg, cex)
-  EVM.Solvers.Unknown e -> SymExec.Unknown (T.pack e)
-  Unsat -> Qed ()
-  EVM.Solvers.Error e -> SymExec.Error (T.pack e)
+  EVM.Cex cex -> EVM.Cex (msg, cex)
+  EVM.Unknown e -> EVM.Unknown (T.pack e)
+  EVM.Qed -> EVM.Qed
+  EVM.Error e -> EVM.Error (T.pack e)
 
 
 checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m (Error String ())
