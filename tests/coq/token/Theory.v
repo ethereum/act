@@ -149,12 +149,13 @@ Qed.
 
 
 Theorem constant_balances : forall BASE STATE,
-    reachable BASE STATE ->
+    multistep BASE STATE ->
     balances_sum BASE = balances_sum STATE.
 Proof.
-  intros BASE S Hreach. induction Hreach; intros.
-  - reflexivity.
-  - rewrite IHHreach. unfold transfer0.
+  intros B S.
+  eapply step_multi_step with (P := fun s1 s2 => balances_sum s1 = balances_sum s2).
+  - intros s s' Hstep.
+    induction Hstep. unfold transfer0.
     unfold balances_sum. simpl.
 
     erewrite <- transfer_thm.
@@ -170,6 +171,9 @@ Proof.
     + rewrite Z2Nat.id. assumption.
       unfold MAX_ADDRESS. unfold UINT_MAX. lia.
 
-  - unfold transfer1. rewrite IHHreach.
+    + unfold transfer1.
     reflexivity.
+
+  - unfold Relation_Definitions.reflexive. reflexivity.
+  - unfold Relation_Definitions.transitive. lia.
 Qed.
