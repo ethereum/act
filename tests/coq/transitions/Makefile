@@ -1,15 +1,15 @@
 .PHONY: verify
-verify: CoqMakefile StateMachine.v
-	make -f CoqMakefile
+verify: RocqMakefile StateMachine.v
+	make -f RocqMakefile
 
 StateMachine.v: state_machine.act
 	act coq --file state_machine.act > StateMachine.v
 
-CoqMakefile: _CoqProject
-	coq_makefile -f _CoqProject -o CoqMakefile
+RocqMakefile: _CoqProject
+	rocq makefile -f _CoqProject -o RocqMakefile
 
 .PHONY: clean
 clean:
-	if [[ -f CoqMakefile ]]; then make -f CoqMakefile clean; fi
-	rm -f StateMachine.v CoqMakefile CoqMakefile.conf
+	if [[ -f RocqMakefile ]]; then make -f RocqMakefile clean; fi
+	rm -f StateMachine.v RocqMakefile RocqMakefile.conf
 	rm -f *.glob *.vo *.vok *.vos

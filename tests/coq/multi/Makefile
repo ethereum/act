@@ -1,15 +1,15 @@
 .PHONY: verify
-verify: CoqMakefile Multi.v
-	make -f CoqMakefile
+verify: RocqMakefile Multi.v
+	make -f RocqMakefile
 
 Multi.v: multi.act
 	act coq --file multi.act > Multi.v
 
-CoqMakefile: _CoqProject
-	coq_makefile -f _CoqProject -o CoqMakefile
+RocqMakefile: _CoqProject
+	rocq makefile -f _CoqProject -o RocqMakefile
 
 .PHONY: clean
 clean:
-	if [[ -f CoqMakefile ]]; then make -f CoqMakefile clean; fi
-	rm -f Multi.v CoqMakefile CoqMakefile.conf
+	if [[ -f RocqMakefile ]]; then make -f RocqMakefile clean; fi
+	rm -f Multi.v RocqMakefile RocqMakefile.conf
 	rm -f *.glob *.vo *.vok *.vos

@@ -54,7 +54,11 @@ contractCode store (Contract ctor@Constructor{..} behvs) = T.unlines $
   <> [ base store ctor ]
   <> (concatMap (evalSeq (transition store)) (groups behvs))
   <> (filter ((/=) "") $ concatMap (evalSeq retVal) (groups behvs))
-  <> [ reachable ctor (groups behvs) ]
+  <> [ step (groups behvs)]
+  <> [ initPred ctor ]
+  <> [ multistep ]
+  <> [ reachable ]
+  <> [ reachableFromInit ]
   <> [ "End " <> T.pack _cname <> "." ]
   where
     groups = groupBy (\b b' -> _name b == _name b')
@@ -69,47 +73,77 @@ contractCode store (Contract ctor@Constructor{..} behvs) = T.unlines $
 
     store' = contractStore _cname store
 
--- | inductive definition of reachable states
-reachable :: Constructor -> [[Behaviour]] -> T.Text
-reachable constructor behvs = inductive
-  reachableType "" (stateType <> " -> " <> stateType <> " -> Prop") body where
-  body = (baseCase constructor) : concat (evalSeq reachableStep <$> behvs)
-
--- | non-recursive constructor for the reachable relation
-baseCase :: Constructor -> T.Text
-baseCase (Constructor name i@(Interface _ decls) _ conds _ _ _ ) =
-  T.pack name <> baseSuffix <> " : " <> universal <> "\n" <> constructorBody
+-- | inductive definition of step relation of 2 states
+step :: [[Behaviour]] -> T.Text
+step behvs = inductive
+  stepType "" (stateType <> " -> " <> stateType <> " -> Prop") body
   where
+    body = concat (evalSeq stepBehv <$> behvs)
+
+-- | constructor for the step relation
+stepBehv :: Behaviour -> Fresh T.Text
+stepBehv (Behaviour name _ i _ conds cases _ _ _) =
+  fresh name >>= continuation where
+  continuation name' =
+    return $ name'
+      <> stepSuffix <> " : forall "
+      <> envDecl <> " "
+      <> parens (stateVar <> " : " <> stateType) <> " "
+      <> interface i <> ",\n"
+      <> constructorBody where
+
+    constructorBody = (indent 2) . implication $
+      (coqprop <$> cases ++ conds)
+      <> [ stepType <> " " <> stateVar <> " " <> parens (name' <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)]
+
+
+-- | definition of reachable states
+reachable :: T.Text
+reachable = definition
+  reachableType args value
+  where
+    args = parens $ stateVar <> " : " <> stateType
+    value = "exists " <> stateVar' <> ", " <> initType <>
+      " " <> stateVar' <> " /\\ " <> multistepType <> " " <>
+      stateVar' <> " " <> stateVar
+    stateVar' = stateVar <> "'"
+
+-- | specialization of generic multistep
+multistep :: T.Text
+multistep = definition
+  multistepType args value
+  where
+    args = parens $ stateVar <> " " <> stateVar' <> " : " <> stateType
+    value = multistepType <> " " <> stepType <> " " <> stateVar <> " " <> stateVar'
+    stateVar' = stateVar <> "'"
+
+-- | definition of reachable states from initial state
+reachableFromInit :: T.Text
+reachableFromInit = definition
+  reachableFromInitType args value
+  where
+    args = parens $ stateVar <> " " <> stateVar' <> " : " <> stateType
+    value = initType <>
+      " " <> stateVar <> " /\\ " <> multistepType <> " " <>
+      stateVar <> " " <> stateVar'
+    stateVar' = stateVar <> "'"
+
+-- | predicate characterizing all initial (post constructor) states
+initPred :: Constructor -> T.Text
+initPred (Constructor name i@(Interface _ decls) _ conds _ _ _ ) = inductive
+  initType "" (stateType <> " -> " <> " Prop") [body]
+  where
+    body = "Init : " <> universal <> "\n" <> constructorBody
     baseval = parens $ T.pack name <> " " <> envVar <> " " <> arguments i
     constructorBody = (indent 2) . implication . concat $
       [ coqprop <$> conds
-      , [reachableType <> " " <> baseval <> " " <> baseval]
+      , [initType <> " " <> baseval]
       ]
     universal =
       "forall " <> envDecl <> " " <>
       (if null decls
        then ""
        else interface i) <> ","
-
--- | recursive constructor for the reachable relation
-reachableStep :: Behaviour -> Fresh T.Text
-reachableStep (Behaviour name _ i _ conds cases _ _ _) =
-  fresh name >>= continuation where
-  continuation name' =
-    return $ name'
-      <> stepSuffix <> " : forall "
-      <> envDecl <> " "
-      <> parens (baseVar <> " " <> stateVar <> " : " <> stateType) <> " "
-      <> interface i <> ",\n"
-      <> constructorBody where
-
-    constructorBody = (indent 2) . implication $
-      [ reachableType <> " " <> baseVar <> " " <> stateVar ]
-      <> (coqprop <$> cases ++ conds)
-      <> [ reachableType <> " " <> baseVar <> " "
-           <> parens (name' <> " " <> envVar <> " " <> stateVar <> " " <> arguments i)
-         ]
-
 
 -- | definition of a base state
 base :: Store -> Constructor -> T.Text
@@ -414,6 +448,9 @@ stateType = "State"
 stateVar :: T.Text
 stateVar = "STATE"
 
+nextVar :: T.Text
+nextVar = "NEXT"
+
 stateDecl :: T.Text
 stateDecl = parens $ stateVar <> " : " <> stateType
 
@@ -432,8 +469,23 @@ stepSuffix = "_step"
 introSuffix :: T.Text
 introSuffix = "_intro"
 
+stepType :: T.Text
+stepType = "step"
+
+initType :: T.Text
+initType = "init"
+
+multistepType :: T.Text
+multistepType = "multistep"
+
 reachableType :: T.Text
 reachableType = "reachable"
+
+reachableFromInitType :: T.Text
+reachableFromInitType = "reachableFromInit"
+
+reachStep:: T.Text
+reachStep= "reach_step"
 
 envType :: T.Text
 envType = "Env"

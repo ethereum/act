@@ -5,24 +5,25 @@ Require Import ActLib.ActLib.
 
 Import C.
 
-       
-Theorem reachable_value_f S0 S:
-  reachable S0 S ->
+
+Theorem reachable_value_f S:
+  reachable S ->
   forall x, A.f (B.a (b S)) x = 0 \/ A.f (B.a (b S)) x = 2.
 Proof.
-  intros HR x. induction HR.
-  - simpl; eauto.
+  intros HR x. destruct HR as [ S0 Hreach], Hreach as [ Hinit Hmulti ].
+  induction Hmulti as [ | S' S'' Hstep ].
+  - induction Hinit. simpl; eauto.
 
-  - simpl. destruct (x =? i).
+  -  induction Hstep. simpl. destruct (x =? i).
     + eauto.
-    + eauto. 
-
-  - eauto.
+    + eauto.
+    + eauto.
 Qed.
 
-Theorem reachable_value_x S0 S:
-  reachable S0 S ->
-  w S = 0 \/ w S = 1. 
+Theorem reachable_value_x S:
+  reachable S ->
+  w S = 0 \/ w S = 1.
 Proof.
-  intros HR. induction HR; simpl; eauto. 
+  intros HR. destruct HR as [ S0 Hreach], Hreach as [ Hinit Hmulti ].
+  induction Hmulti as [ | S' S'' Hstep ]; [induction Hinit | induction Hstep ]; simpl; auto.
 Qed.
