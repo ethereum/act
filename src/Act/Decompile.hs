@@ -47,8 +47,8 @@ import EVM.Solidity hiding (SlotType(..))
 import EVM.Solidity qualified as EVM (SlotType(..))
 import EVM.Types qualified as EVM
 import EVM.Types ((.<=), (.>=), (.==))
-import EVM.Solvers (SolverGroup, checkSat, CheckSatResult(..))
-import EVM.SymExec hiding (EquivResult)
+import EVM.Solvers (SolverGroup, checkSat)
+import EVM.SymExec
 import EVM.Expr qualified as Expr
 import EVM.Traversals (mapExprM)
 import GHC.IO hiding (liftIO)
@@ -112,7 +112,7 @@ summarize solvers contract = do
       let fragments = fmap (uncurry symAbiArg) contract.constructorInputs
           args = combineFragments' fragments 0 (EVM.ConcreteBuf "")
       initVM <- liftIO $ stToIO $ abstractVM (fst args, []) contract.creationCode Nothing True
-      expr <- Expr.simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
+      expr <- Expr.simplify <$> interpret (Fetch.oracle solvers Nothing) iterConfig initVM runExpr
       let branches = flattenExpr expr
       if any isPartial branches
       then pure . Left $ "partially explored branches in creation code:\n" <> T.unlines (fmap formatExpr (filter isPartial branches))
@@ -127,7 +127,7 @@ summarize solvers contract = do
                      . (flip combineFragments) (EVM.AbstractBuf "txdata")
                      $ fmap (uncurry symAbiArg) method.inputs
         prestate <- liftIO $ stToIO $ abstractVM (fst calldata, []) contract.runtimeCode Nothing False
-        expr <- Expr.simplify <$> interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
+        expr <- Expr.simplify <$> interpret (Fetch.oracle solvers Nothing) iterConfig prestate runExpr
         let branches = flattenExpr expr
         if any isPartial branches
         then pure . Left $ "partially explored branches in runtime code:\n" <> T.unlines (fmap formatExpr (filter isPartial branches))
@@ -169,8 +169,8 @@ makeIntSafe solvers expr = evalStateT (mapExprM go expr) mempty
                , fromMaybe (EVM.PBool True) (Map.lookup r s)
                , EVM.PNeg safe
                ]
-      liftIO (checkSat solvers (assertProps defaultActConfig ps)) >>= \case
-        Unsat -> do
+      liftIO (checkSat solvers Nothing (assertProps defaultActConfig ps)) >>= \case
+        EVM.Qed -> do
           put $ Map.insert full safe s
           pure full
         _ -> pure $ EVM.Mod full (EVM.Lit MAX_UINT)

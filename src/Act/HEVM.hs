@@ -72,7 +72,7 @@ type ContractMap = M.Map (EVM.Expr EVM.EAddr) (EVM.Expr EVM.EContract, Id)
 -- when we encounter a constructor call.
 type CodeMap = M.Map Id (Contract, BS.ByteString, BS.ByteString)
 
-type EquivResult = EVM.ProofResult (T.Text, EVM.SMTCex) T.Text
+type EquivResult = EVM.ProofResult (String, EVM.SMTCex) String
 
 initAddr :: EVM.Expr EVM.EAddr
 initAddr = EVM.SymAddr "entrypoint"
@@ -682,8 +682,8 @@ checkEquiv solvers l1 l2 = do
     toEquivRes :: EVM.EquivResult -> EquivResult
     toEquivRes (EVM.Cex cex) = EVM.Cex ("\x1b[1mThe following input results in different behaviours\x1b[m", cex)
     toEquivRes EVM.Qed = EVM.Qed
-    toEquivRes (EVM.Unknown ()) = EVM.Unknown ""
-    toEquivRes (EVM.Error b) = EVM.Error (T.pack b)
+    toEquivRes (EVM.Unknown s) = EVM.Unknown s
+    toEquivRes (EVM.Error b) = EVM.Error b
 
 
 -- | Create the initial contract state before analysing a contract
@@ -737,7 +737,7 @@ getInitContractState solvers iface pointers preconds cmap = do
     checkQueries :: App m => [EVM.Prop] -> m (Error String ())
     checkQueries queries = do
       conf <- readConfig
-      res <- liftIO $ checkSat solvers (assertProps conf queries)
+      res <- liftIO $ checkSat solvers Nothing (assertProps conf queries)
       checkResult (makeCalldata iface) Nothing [toVRes msg res]
 
     makeSymAddr n = EVM.WAddr (EVM.SymAddr $ "freshSymAddr" <> (T.pack $ show n))
@@ -954,13 +954,13 @@ checkInputSpaces solvers l1 l2 = do
   let queries = fmap (assertProps conf) [ [ EVM.PNeg (EVM.por p1), EVM.por p2 ]
                                         , [ EVM.por p1, EVM.PNeg (EVM.por p2) ] ]
 
-  results <- liftIO $ mapConcurrently (checkSat solvers) queries
+  results <- liftIO $ mapConcurrently (checkSat solvers Nothing) queries
   let results' = case results of
                    [r1, r2] -> [ toVRes "\x1b[1mThe following inputs are accepted by Act but not EVM\x1b[m" r1
                                , toVRes "\x1b[1mThe following inputs are accepted by EVM but not Act\x1b[m" r2 ]
                    _ -> error "Internal error: impossible"
 
-  case all isQed results' of
+  case all EVM.isQed results' of
     True -> pure [EVM.Qed]
     False -> pure $ filter (/= EVM.Qed) results'
 
@@ -977,7 +977,7 @@ checkAbi solver contract cmap = do
   evmBehvs <- getRuntimeBranches solver hevmstorage (txdata, []) 0 -- TODO what freshAddr goes here?
   conf <- readConfig
   let queries =  fmap (assertProps conf) $ filter (/= []) $ fmap (checkBehv selectorProps) evmBehvs
-  res <- liftIO $ mapConcurrently (checkSat solver) queries
+  res <- liftIO $ mapConcurrently (checkSat solver Nothing) queries
   checkResult (txdata, []) Nothing (fmap (toVRes msg) res)
 
   where
@@ -1033,19 +1033,19 @@ assertSelector txdata sig =
 
 -- * Utils
 
-toVRes :: T.Text -> EVM.SMTResult -> EquivResult
+toVRes :: String -> EVM.SMTResult -> EquivResult
 toVRes msg res = case res of
   EVM.Cex cex -> EVM.Cex (msg, cex)
-  EVM.Unknown e -> EVM.Unknown (T.pack e)
+  EVM.Unknown e -> EVM.Unknown e
   EVM.Qed -> EVM.Qed
-  EVM.Error e -> EVM.Error (T.pack e)
+  EVM.Error e -> EVM.Error e
 
 
 checkResult :: App m => Calldata -> Maybe Sig -> [EquivResult] -> m (Error String ())
 checkResult calldata sig res =
-  case any isCex res of
+  case any EVM.isCex res of
     False ->
-      case any isUnknown res || any isError res of
+      case any EVM.isUnknown res || any EVM.isError res of
         True -> do
           showMsg "\x1b[41mNo discrepancies found but timeouts or solver errors were encountered. \x1b[m"
           pure $ Failure $ NE.singleton (nowhere, "Failure: Cannot prove equivalence.")
@@ -1054,7 +1054,7 @@ checkResult calldata sig res =
           pure $ Success ()
     True -> do
       let cexs = mapMaybe getCex res
-      showMsg $ T.unpack . T.unlines $ [ "\x1b[41mNot equivalent.\x1b[m", "" , "-----", ""] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> msg <> "\n" <> formatCex (fst calldata) sig cex) cexs)
+      showMsg $ T.unpack . T.unlines $ [ "\x1b[41mNot equivalent.\x1b[m", "" , "-----", ""] <> (intersperse (T.unlines [ "", "-----" ]) $ fmap (\(msg, cex) -> T.pack msg <> "\n" <> formatCex (fst calldata) sig cex) cexs)
       pure $ Failure $ NE.singleton (nowhere, "Failure: Cannot prove equivalence.")
 
 -- | Pretty prints a list of hevm behaviours for debugging purposes
