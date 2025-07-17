@@ -434,7 +434,7 @@ checkExprVType env e (FromVType typ) = TExp typ <$> checkExpr env typ e
 typeMismatchErr :: forall a b res. Pn -> SType a -> SType b -> Err res
 typeMismatchErr p t1 t2 = (throw (p, "Type " <> show t1 <> " should match type " <> show t2))
 
--- | Check is the given expression can be typed with the given type\\
+-- | Check if the given expression can be typed with the given type
 checkExpr :: forall t a. Typeable t => Env -> SType a -> U.Expr -> Err (Exp a t)
 checkExpr env t1 e =
     -- No idea why type annotation is required here
