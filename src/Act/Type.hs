@@ -273,7 +273,7 @@ checkConstructor env (U.Constructor _ contract (Interface _ decls) ptrs iffs (U.
     -- type checking environment prior to storage creation of this contract
     envNoStorage = env'{ store = mempty }
 
--- | Checks that a pointer declaration x |-> A is valid. This consists on
+-- | Checks that a pointer declaration x |-> A is valid. This consists of
 -- checking that x is a calldata variable that has address type and A is a valid
 -- contract type.
 checkPointer :: Env -> U.Pointer -> Err ()
