@@ -78,13 +78,6 @@ locsFromItem :: SRefKind k -> TItem a k t -> [StorageLocation t]
 locsFromItem SCalldata item = concatMap locsFromTypedExp (ixsFromItem item)
 locsFromItem SStorage item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
 
--- untimeItem :: TItem a k t -> TItem a k Untimed
--- untimeItem (Item s vt ref) = untimeItem (Item s vt (untimeRef ref))
-
--- untimeRef ref@(CVar{}) = ref
--- untimeRef (SVar pn c x _) = SVar pn c x Neither
--- untimeRef (SMapping pn r ixs) =
-
 locsFromTypedExp :: TypedExp t -> [StorageLocation t]
 locsFromTypedExp (TExp _ e) = locsFromExp e
 
