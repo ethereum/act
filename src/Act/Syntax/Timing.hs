@@ -8,7 +8,7 @@
 Module      : Syntax.Timing
 Description : Timing annotations for references to storage variables. In the source code, a 
               reference to a storage variable can be explicitly time with `Pre` or `Post` or 
-              implicitly timed (`Neither`). After typing, in aa separate `annotate` pass, all
+              implicitly timed (`Neither`). After typing, in a separate `annotate` pass, all
               timing are made explicit.
 -}
 module Act.Syntax.Timing where
