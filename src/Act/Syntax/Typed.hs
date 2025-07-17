@@ -174,7 +174,7 @@ data Ref (k :: RefKind) (t :: Timing) where
   SVar :: Pn -> Id -> Id -> Ref Storage t           -- Storage variable. First `Id` is the contract the var belongs to and the second the name.
   SMapping :: Pn -> Ref k t -> ValueType -> [TypedExp t] -> Ref k t
   SField :: Pn -> Ref k t -> Id -> Id -> Ref k t    -- Field access (for accessing storage variables of contracts).
-                                                    -- The first Id is the name of the contract that the field belongs to.
+                                                    -- The first `Id` is the name of the contract that the field belongs to.
 deriving instance Show (Ref k t)
 
 instance Eq (Ref k t) where
