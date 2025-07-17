@@ -108,7 +108,7 @@ data Behaviour t = Behaviour
   , _interface :: Interface
   , _pointers :: [Pointer]
   , _preconditions :: [Exp ABoolean t]  -- if preconditions are not satisfied execution is reverted
-  , _caseconditions :: [Exp ABoolean t] -- if preconditions are satisfied and the case conditions are not, some other instance of the bahavior should apply
+  , _caseconditions :: [Exp ABoolean t] -- if preconditions are satisfied and the case conditions are not, some other instance of the behavior should apply
   , _postconditions :: [Exp ABoolean Timed]
   , _stateUpdates :: [StorageUpdate t]
   , _returns :: Maybe (TypedExp Timed)
