@@ -360,7 +360,7 @@ instance Timable (Exp a) where
     ITE p x y z -> ITE p (go x) (go y) (go z)
     VarRef p _ k item -> VarRef p time k (go item)
     where
-      go ::Timable c => c Untimed -> c Timed
+      go :: Timable c => c Untimed -> c Timed
       go = setTime time
 
 
