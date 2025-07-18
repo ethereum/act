@@ -38,7 +38,8 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -48,8 +49,7 @@
                           "var": "x"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -58,7 +58,8 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -68,8 +69,7 @@
                           "var": "x"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",

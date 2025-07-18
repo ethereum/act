@@ -1,10 +1,15 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE PolyKinds #-}
 
 {-|
 Module      : Syntax.Timing
-Description : Stuff relating to explicit and implicit references to pre-/post-states.
+Description : Timing annotations for references to storage variables. In the source code, a 
+              reference to a storage variable can be explicitly time with `Pre` or `Post` or 
+              implicitly timed (`Neither`). After typing, in a separate `annotate` pass, all
+              timing are made explicit.
 -}
 module Act.Syntax.Timing where
 
@@ -37,11 +42,6 @@ timeParens :: Time t -> String -> String
 timeParens t s | isTimed t = fmap toLower (show t) <> "(" <> s <> ")"
                | otherwise = s
 
--- | Types which we can always annotate with explicit timings without needing context.
-class Annotatable c where
-  -- | Defines how an 'Untimed' thing should be given explicit timings.
-  annotate :: c Untimed -> c Timed
-
 -- | Types for which all implicit timings can freely be given any explicit timing,
 -- i.e. we need context to decide which time it refers to.
 class Timable c where
@@ -55,3 +55,7 @@ class Timable c where
 
   -- | Takes an 'Untimed' 'Timeable' thing and points it towards the given state.
   setTime :: When -> c Untimed -> c Timed
+
+  -- | Defines how an 'Untimed' thing should be given explicit timings.
+class Annotatable c where
+  annotate :: c Untimed -> c Timed

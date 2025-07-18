@@ -8,6 +8,9 @@ creates
 behaviour increase of C
 interface increase(uint24 new_x)
 
+iff 
+  new_x <= x => inRange(uint24, x + new_x)
+ 
 case new_x > x:
   storage
     x => new_x

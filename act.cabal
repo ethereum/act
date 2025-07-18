@@ -58,19 +58,19 @@ library
     Act.Error
     Act.Print
     Act.SMT
-    Act.Syntax.Annotated
-    Act.Syntax.TimeAgnostic
     Act.Lex
     Act.Parse
     Act.Coq
     Act.Syntax
     Act.Syntax.Untyped
     Act.Syntax.Typed
+    Act.Syntax.TypedExplicit
+    Act.Syntax.TypedImplicit
     Act.Syntax.Types
     Act.Syntax.Timing
     Act.Traversals
     Act.Type
-    Act.Enrich
+    Act.Bounds
     Act.Dev
     Act.HEVM
     Act.HEVM_utils

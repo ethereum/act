@@ -26,9 +26,9 @@ import Act.Error
   'returns'                   { L RETURNS _ }
   'storage'                   { L STORAGE _ }
   'noop'                      { L NOOP _ }
+  'iff'                       { L IFF _ }
   'iff in range'              { L IFFINRANGE _ }
   'inRange'                   { L INRANGE _ }
-  'iff'                       { L IFF _ }
   'pointers'                  { L POINTERS _ }
   'and'                       { L AND _ }
   'not'                       { L NOT _ }
@@ -166,7 +166,7 @@ Contract : Constructor list(Transition)              { Contract $1 $2 }
 Transition : 'behaviour' id 'of' id
              Interface
              Pointers
-             list(Precondition)
+             Precondition
              Cases
              Ensures                                  { Transition (posn $1) (name $2) (name $4)
                                                         $5 $6 $7 $8 $9 }
@@ -174,10 +174,10 @@ Transition : 'behaviour' id 'of' id
 Constructor : 'constructor' 'of' id
               CInterface
               Pointers
-              list(Precondition)
+              Precondition
               Creation
               Ensures
-              Invariants                              { Definition (posn $3) (name $3)
+              Invariants                              { Constructor (posn $3) (name $3)
                                                          $4 $5 $6 $7 $8 $9 }
 
 Ensures : optblock('ensures', Expr)                   { $1 }
@@ -185,14 +185,13 @@ Ensures : optblock('ensures', Expr)                   { $1 }
 Invariants : optblock('invariants', Expr)             { $1 }
 
 Pointers : optblock('pointers', Pointer)              { $1 }
-
 Interface : 'interface' id '(' seplist(Decl, ',') ')' { Interface (name $2) $4 }
 
 CInterface : 'interface' 'constructor' '(' seplist(Decl, ',') ')' { Interface "constructor" $4 }
 
 Pointer : id '|->' id                                 { PointsTo (posn $2) (name $1) (name $3) }
 
-Cases : Post                                          { Direct $1 }
+Cases : Post                                          { Branches [Case nowhere (BoolLit nowhere True) $1] }
       | nonempty(Case)                                { Branches $1 }
 
 Case : 'case' Expr ':' Post                           { Case (posn $1) $2 $4 }
@@ -206,10 +205,15 @@ Returns : 'returns' Expr                              { $2 }
 
 Storage : 'storage' nonempty(Store)                   { $2 }
 
-Precondition : 'iff' nonempty(Expr)                   { Iff (posn $1) $2 }
-             | 'iff in range' AbiType nonempty(Expr)  { IffIn (posn $1) $2 $3 }
+Precondition : RangePrecondition Precondition         { $1 ++ $2 }
+             | SimplePrecondition                     { $1 }
 
-Store : Entry '=>' Expr                               { Rewrite $1 $3 }
+RangePrecondition : 'iff in range' AbiType nonempty(Expr)  
+                                                      { fmap (EInRange (posn $1) $2) $3 }
+
+SimplePrecondition : optblock('iff', Expr)            { $1 }
+
+Store : Entry '=>' Expr                               { Update $1 $3 }
 
 Entry : id                                            { EVar (posn $1) (name $1) }
       | Entry '[' Expr ']' list(Index)                { EMapping (posn $2) $1 ($3:$5) }
@@ -221,9 +225,10 @@ Index : '[' Expr ']'                                  { $2 }
 Creation : optblock('creates',Assign)                 { Creates $1 }
 
 Assign : StorageVar ':=' Expr                         { AssignVal $1 $3 }
-       | StorageVar ':=' '[' seplist(Defn, ',') ']'   { AssignMany $1 $4 }
+       | StorageVar ':=' '[' seplist(Defn, ',') ']'   { AssignMapping $1 $4 }
 
-Defn : Expr ':=' Expr                                 { Defn $1 $3 }
+Defn : Expr ':=' Expr                                 { Mapping $1 $3 }
+
 Decl : AbiType id                                     { Decl $1 (name $2) }
 
 StorageVar : SlotType id                              { StorageVar (posn $2) $1 (name $2) }
@@ -324,7 +329,7 @@ parseError ((L token pn):_) =
     "parsing error at token ",
     show token])
 
-emptyConstructor :: Transition -> Definition
-emptyConstructor (Transition _ _ c _ _ _ _ _) = Definition nowhere c (Interface "constructor" []) [] [] (Creates []) [] []
+emptyConstructor :: Transition -> Constructor
+emptyConstructor (Transition _ _ c _ _ _ _ _) = Constructor nowhere c (Interface "constructor" []) [] [] (Creates []) [] []
 
 }

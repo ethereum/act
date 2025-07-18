@@ -16,7 +16,8 @@ import EVM.ABI (abiTypeSolidity)
 
 import Data.List
 
-import Act.Syntax.TimeAgnostic hiding (annotate)
+import Act.Syntax.Typed hiding (annotate)
+
 
 prettyAct :: Act t -> String
 prettyAct (Act _ contracts)
@@ -142,7 +143,8 @@ prettyExp e = case e of
 
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
-  TEntry _ t _ a -> timeParens t $ prettyItem a
+  VarRef _ t SStorage a -> timeParens t $ prettyItem a
+  VarRef _ _ SCalldata a -> prettyItem a
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
@@ -191,7 +193,7 @@ prettyEnv e = case e of
 -- invariant in a way that is easily digestible by humans, requiring a less
 -- elegant implementation here than might be hoped for...
 prettyInvPred :: InvariantPred Timed -> String
-prettyInvPred = prettyExp . untime . fst
+prettyInvPred = prettyExp . untime . (\(PredTimed e _) -> e)
   where
     untimeTyped :: TypedExp t -> TypedExp Untimed
     untimeTyped (TExp t e) = TExp t (untime e)
@@ -235,8 +237,7 @@ prettyInvPred = prettyExp . untime . fst
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)
       Slice p a b c -> Slice p (untime a) (untime b) (untime c)
-      TEntry p _ k (Item t vt a) -> TEntry p Neither k (Item t vt (untimeRef a))
-
+      VarRef p _  k (Item t vt a) -> VarRef p Neither k (Item t vt (untimeRef a))
 
 -- | Doc type for terminal output
 type DocAnsi = Doc Term.AnsiStyle
@@ -263,7 +264,7 @@ bold :: DocAnsi -> DocAnsi
 bold = annotate Term.bold
 
 (<$$>) :: Doc ann -> Doc ann -> Doc ann
-(<$$>) = \x y -> vsep [x,y]
+(<$$>) x y = vsep [x,y]
 
 string :: String -> DocAnsi
 string = pretty

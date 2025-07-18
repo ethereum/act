@@ -1,6 +1,9 @@
 constructor of Exponentiation
 interface constructor(uint256 x)
 
+iff in range uint256
+    x ^ (100 - 5 * 19)
+
 creates
 
     uint256 xpow5 := x ^ (100 - 5 * 19)

@@ -9,15 +9,13 @@ behaviour transfer of Token
 interface transfer(address to, uint256 amt)
 
 
-iff
-
-  amt <= balances[CALLER]
-  
-
 iff in range uint256
   
   balances[to] + amt
 
+iff
+
+  amt <= balances[CALLER]
 
 case CALLER =/= to:
 
