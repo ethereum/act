@@ -26,7 +26,7 @@ import Act.Syntax.Untyped (makeIface)
 import qualified EVM.Types as EVM
 import EVM.Types (VM(..))
 import EVM.Expr hiding (op2, inRange)
-import EVM.SymExec hiding (EquivResult, isPartial, abstractVM, loadSymVM)
+import EVM.SymExec hiding (isPartial, abstractVM, loadSymVM)
 import EVM.Solvers
 import qualified EVM.Format as Format
 import qualified EVM.Fetch as Fetch
@@ -53,11 +53,14 @@ defaultActConfig = Config
   , numCexFuzz = 0
   , onlyCexFuzz = False
   , decomposeStorage = False
-  , maxBranch = 100
   , promiseNoReent = False
   , maxBufSize = 64
+  , maxWidth = 100
+  , maxDepth = Nothing
   , verb = 0
+  , simp = True
   }
+
 
 debugActConfig :: Config
 debugActConfig = defaultActConfig { dumpQueries = True, dumpExprs = True, dumpEndStates = True, debug = True }
@@ -107,11 +110,19 @@ checkPartial nodes =
      showMsg ""
      showMsg . T.unpack . T.unlines . fmap (Format.indent 2 . ("- " <>)) . fmap Format.formatPartial . nubOrd $ (getPartials nodes)
 
+
+iterConfig :: IterConfig
+iterConfig = IterConfig
+  { maxIter = Nothing
+  , askSmtIters = 1
+  , loopHeuristic = StackBased
+  }
+
 -- | decompiles the given EVM bytecode into a list of Expr branches
 getRuntimeBranches :: App m => SolverGroup -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> Calldata -> Int -> m [EVM.Expr EVM.End]
 getRuntimeBranches solvers contracts calldata fresh = do
   prestate <- liftIO $ stToIO $ abstractVM contracts calldata fresh
-  expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased prestate runExpr
+  expr <- interpret (Fetch.oracle solvers Nothing) iterConfig prestate runExpr
   let simpl = simplify expr
   let nodes = flattenExpr simpl
   checkPartial nodes
@@ -122,7 +133,7 @@ getRuntimeBranches solvers contracts calldata fresh = do
 getInitcodeBranches :: App m => SolverGroup -> BS.ByteString -> [(EVM.Expr EVM.EAddr, EVM.Contract)] -> Calldata -> [EVM.Prop] -> Int -> m [EVM.Expr EVM.End]
 getInitcodeBranches solvers initcode contracts calldata precond fresh = do
   initVM <- liftIO $ stToIO $ abstractInitVM initcode contracts calldata precond fresh
-  expr <- interpret (Fetch.oracle solvers Nothing) Nothing 1 StackBased initVM runExpr
+  expr <- interpret (Fetch.oracle solvers Nothing) iterConfig initVM runExpr
   let simpl = simplify expr
   let nodes = flattenExpr simpl
   checkPartial nodes
@@ -170,7 +181,7 @@ loadSymVM (entryaddr, entrycontract) othercontracts callvalue cd create fresh =
      , origin = EVM.SymAddr "origin"
      , gas = ()
      , gaslimit = 0xffffffffffffffff
-     , number = 0
+     , number = EVM.Lit 0
      , timestamp = EVM.Lit 0
      , coinbase = EVM.SymAddr "coinbase"
      , prevRandao = 42069
