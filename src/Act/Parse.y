@@ -225,9 +225,13 @@ Index : '[' Expr ']'                                  { $2 }
 Creation : optblock('creates',Assign)                 { Creates $1 }
 
 Assign : StorageVar ':=' Expr                         { AssignVal $1 $3 }
+       | StorageVar ':=' ExprList                     { AssignArray $1 $3 }
        | StorageVar ':=' '[' seplist(Defn, ',') ']'   { AssignMapping $1 $4 }
 
 Defn : Expr ':=' Expr                                 { Mapping $1 $3 }
+
+ExprList : '[' seplist(Expr, ',') ']'                 { ExprList $2 }
+         | '[' seplist(ExprList, ',') ']'             { NestedList $2 }
 
 Decl : AbiType id                                     { Decl $1 (name $2) }
 

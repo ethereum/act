@@ -155,6 +155,7 @@ lookupConstructors = foldMap $ \case
 -- unique.
 fromAssign :: U.Assign -> (Pn, (Id, SlotType))
 fromAssign (U.AssignVal (U.StorageVar pn typ var) _) = (pn, (var, typ))
+fromAssign (U.AssignArray (U.StorageVar pn typ var) _) = (pn, (var, typ))
 fromAssign (U.AssignMapping (U.StorageVar pn typ var) _) = (pn, (var, typ))
 
 
@@ -329,11 +330,15 @@ checkAssign env (U.AssignMapping (U.StorageVar pn (StorageMapping (keyType :| _)
     -- type checking environment prior to storage creation of this contract
     envNoStorage = env { store = mempty }
 
+checkAssign _ (U.AssignArray (U.StorageVar pn (StorageValue  valType) name) exprs) = undefined
+
 checkAssign _ (U.AssignVal (U.StorageVar _ (StorageMapping _ _) _) expr)
   = throw (getPosn expr, "Cannot assign a single expression to a composite type")
 
 checkAssign _ (U.AssignMapping (U.StorageVar pn (StorageValue _) _) _)
   = throw (pn, "Cannot assign multiple values to an atomic type")
+
+checkAssign _ (U.AssignArray (U.StorageVar pn (StorageMapping _ valType) name) defns) = undefined
 
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings

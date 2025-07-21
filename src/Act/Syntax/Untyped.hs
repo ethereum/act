@@ -1,6 +1,7 @@
 -- Data types for the Act AST after parsing. It is also equipped with position information
 -- for printing informative error messages.
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Act.Syntax.Untyped (module Act.Syntax.Untyped) where
 
@@ -63,7 +64,7 @@ data Storage
   = Update Entry Expr
   deriving (Eq, Show)
 
-data Assign = AssignVal StorageVar Expr | AssignMapping StorageVar [Mapping]
+data Assign = AssignVal StorageVar Expr | AssignMapping StorageVar [Mapping] | AssignArray StorageVar ExprList
   deriving (Eq, Show)
 
 data StorageVar = StorageVar Pn SlotType Id
@@ -162,6 +163,27 @@ data EthEnv
 
 instance Show Decl where
   show (Decl t a) = show t <> " " <> a
+
+data NestedList a
+  = LeafList [a]
+  | NodeList [NestedList a] 
+  deriving (Show, Eq)
+
+instance Functor NestedList where
+  fmap f (LeafList l) = LeafList $ fmap f l
+  fmap f (NodeList l) = NodeList $ (fmap . fmap) f l
+
+instance Foldable NestedList where
+  foldr f c (LeafList l) = foldr f c l
+  foldr _ c (NodeList []) = c
+  foldr f c (NodeList (h:t)) = foldr f (foldr f c (NodeList t)) h
+
+instance Traversable NestedList where
+  traverse f (LeafList l) = fmap LeafList $ traverse f l
+  traverse f (NodeList l) = fmap NodeList $ traverse (traverse f) l
+
+
+type ExprList = NestedList Expr
 
 instance ToJSON SlotType where
   toJSON (StorageValue t) = object ["kind" .= String "ValueType"

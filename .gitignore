@@ -18,9 +18,9 @@ src/dist/
 *.vok
 *.vos
 *.glob
-**/CoqMakefile
-**/CoqMakefile.conf
-**/.CoqMakefile.d
+**/RocqMakefile
+**/RocqMakefile.conf
+**/.RocqMakefile.d
 **/.lia.cache
 *.aux
 **/.coqdeps.d
