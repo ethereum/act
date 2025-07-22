@@ -222,7 +222,7 @@ decompile' :: FilePath -> Text -> Solvers.Solver -> Maybe Integer -> Bool -> IO 
 decompile' solFile' cid solver' timeout debug' = do
   let config = if debug' then debugActConfig else defaultActConfig
   cores <- fmap fromIntegral getNumProcessors
-  json <-flip (solc Solidity) False =<< TIO.readFile solFile'
+  json <- flip (solc Solidity) False =<< TIO.readFile solFile'
   let (Contracts contracts, _, _) = fromJust $ readStdJSON json
   case Map.lookup ("hevm.sol:" <> cid) contracts of
     Nothing -> do
