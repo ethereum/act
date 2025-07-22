@@ -16,6 +16,7 @@ interface swap0(uint256 amt)
 iff in range uint256
 
     reserve0 + amt
+    (reserve0 * reserve1) / (reserve0 + amt) + 1
 
 storage
 
@@ -28,6 +29,7 @@ interface swap1(uint256 amt)
 iff in range uint256
 
     reserve1 + amt
+    (reserve0 * reserve1) / (reserve1 + amt) + 1
 
 storage
 

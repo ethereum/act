@@ -61,10 +61,10 @@ import GHC.IO.Handle (Handle, hGetLine, hPutStr, hFlush)
 import Data.ByteString.UTF8 (fromString)
 
 import Act.Syntax
-import Act.Syntax.Annotated hiding (annotate)
+import Act.Syntax.TypedExplicit
 
 import Act.Print
-import Act.Type (defaultStore)
+import Act.Type (globalEnv)
 
 import EVM.Solvers (Solver(..))
 
@@ -187,14 +187,15 @@ mkPostconditionQueries (Act _ contr) = concatMap mkPostconditionQueriesContract 
       mkPostconditionQueriesConstr constr <> concatMap mkPostconditionQueriesBehv behvs
 
 mkPostconditionQueriesBehv :: Behaviour -> [Query]
-mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) _ preconds caseconds postconds stateUpdates _) = mkQuery <$> postconds
+mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) _ preconds caseconds postconds stateUpdates _) =
+    mkQuery <$> postconds
   where
     -- declare vars
-    activeLocs = locsFromBehaviour behv -- TODO this might contain redundant locations if invariants use locations that are not mentioned elsewhere in the behaviour
+    activeLocs = locsFromBehaviour behv
     storage = concatMap declareStorageLocation activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
-    constLocs = activeLocs \\ concatMap locsFromUpdate stateUpdates
+    constLocs = (nub activeLocs) \\ (locFromUpdate <$> stateUpdates)
 
     -- constraints
     pres = mkAssert ifaceName <$> preconds <> caseconds
@@ -217,18 +218,16 @@ mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName dec
     localStorage = concatMap declareInitialStorage activeLocs
     args = declareArg ifaceName <$> decls
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
-    constLocs = activeLocs \\ concatMap locsFromUpdate initialStorage
 
     -- constraints
     pres = mkAssert ifaceName <$> preconds
     initialStorage' = encodeUpdate ifaceName <$> initialStorage
-    constants = encodeConstant <$> constLocs
 
     mksmt e = SMTExp
       { _storage = localStorage
       , _calldata = args
       , _environment = envs
-      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> initialStorage' <> constants
+      , _assertions = [mkAssert ifaceName . Neg nowhere $ e] <> pres <> initialStorage'
       }
     mkQuery e = Postcondition (Ctor constructor) e (mksmt e)
 
@@ -259,7 +258,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     getInvariants (Contract (c@Constructor{..}) behvs) = fmap (, c, behvs) _invariants
 
     mkInit :: Invariant -> Constructor -> (Constructor, SMTExp)
-    mkInit (Invariant _ invConds _ (_,invPost)) ctor@(Constructor _ (Interface ifaceName decls) _ preconds _ _ initialStorage) = (ctor, smt)
+    mkInit (Invariant _ invConds _ (PredTimed _ invPost)) ctor@(Constructor _ (Interface ifaceName decls) _ preconds _ _ initialStorage) = (ctor, smt)
       where
         -- declare vars
         activeLocs = locsFromConstructor ctor
@@ -280,7 +279,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
           }
 
     mkBehv :: Invariant -> Constructor -> Behaviour -> (Behaviour, SMTExp)
-    mkBehv inv@(Invariant _ invConds invStorageBounds (invPre,invPost)) ctor behv = (behv, smt)
+    mkBehv inv@(Invariant _ invConds invStorageBounds (PredTimed invPre invPost)) ctor behv = (behv, smt)
       where
 
         (Interface ctorIface ctorDecls) = _cinterface ctor
@@ -294,7 +293,7 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
         behvArgs = declareArg behvIface <$> behvDecls
         activeLocs = nub $ locsFromBehaviour behv <> locsFromInvariant inv
         -- storage locs that are mentioned but not explictly updated (i.e., constant)
-        constLocs = (activeLocs \\ fmap locFromUpdate (_stateUpdates behv))
+        constLocs = ((nub activeLocs) \\ fmap locFromUpdate (_stateUpdates behv))
 
         storage = concatMap declareStorageLocation activeLocs
 
@@ -492,7 +491,7 @@ getCalldataValue solver ifaceName decl@(Decl (FromAbi tp) _) = do
 getEnvironmentValue :: SolverInstance -> EthEnv -> IO (EthEnv, TypedExp)
 getEnvironmentValue solver env = do
   output <- getValue solver (prettyEnv env)
-  let val = case lookup env defaultStore of
+  let val = case lookup env globalEnv of
         Just (FromAct typ) -> parseModel typ output
         _ -> error $ "Internal Error: could not determine a type for" <> show env
   pure (env, val)
@@ -540,7 +539,7 @@ parseSMTModel s = if length s0Caps == 1
 encodeUpdate :: Id -> StorageUpdate -> SMT2
 encodeUpdate behvName (Update _ item expr) =
   let
-    postentry  = withInterface behvName $ expToSMT2 (TEntry nowhere Post SStorage item)
+    postentry  = withInterface behvName $ expToSMT2 (VarRef nowhere Post SStorage item)
     expression = withInterface behvName $ expToSMT2 expr
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
@@ -573,7 +572,7 @@ declareArg behvName d@(Decl typ _) = constant (nameFromDecl behvName d) (fromAbi
 -- | produces an SMT2 expression declaring the given EthEnv as a symbolic constant
 declareEthEnv :: EthEnv -> SMT2
 declareEthEnv env = constant (prettyEnv env) tp
-  where tp = fromJust . lookup env $ defaultStore
+  where tp = fromJust . lookup env $ globalEnv
 
 -- | encodes a typed expression as an smt2 expression
 typedExpToSMT2 :: TypedExp -> Ctx SMT2
@@ -620,12 +619,12 @@ expToSMT2 expr = case expr of
   ByEnv _ a -> pure $ prettyEnv a
 
   -- contracts
-  Create _ _ _ -> error "contracts not supported"
+  Create _ _ _ -> pure "0" -- TODO just a dummy address for now
   -- polymorphic
   Eq _ _ a b -> binop "=" a b
   NEq p s a b -> unop "not" (Eq p s a b)
   ITE _ a b c -> triop "ite" a b c
-  TEntry _ w _ item -> entry item w
+  VarRef _ whn _ item -> entry whn item
   where
     unop :: String -> Exp a -> Ctx SMT2
     unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
@@ -638,8 +637,8 @@ expToSMT2 expr = case expr of
     triop op a b c = ["(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")"
                         | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
 
-    entry :: TItem k a ->  When -> Ctx SMT2
-    entry item whn = case ixsFromItem item of
+    entry :: When -> TItem k a -> Ctx SMT2
+    entry whn item = case ixsFromItem item of
       []       -> nameFromItem whn item
       (ix:ixs) -> do
         name <- nameFromItem whn item
@@ -689,26 +688,22 @@ sType' (TExp t _) = sType $ actType t
 
 -- Construct the smt2 variable name for a given storage item
 nameFromSItem :: When -> TItem a Storage -> Id
-nameFromSItem whn (Item _ _ ref) = nameFromSRef ref @@ show whn
+nameFromSItem whn (Item _ _ ref) = nameFromSRef whn ref
 
-nameFromSRef :: Ref Storage -> Id
-nameFromSRef (SVar _ c name) = c @@ name
-nameFromSRef (SMapping _ e _ _) = nameFromSRef e
-nameFromSRef (SField _ ref c x) = nameFromSRef ref @@ c @@ x
+nameFromSRef :: When -> Ref Storage -> Id
+nameFromSRef whn (SVar _ c name) = c @@ name @@ show whn
+nameFromSRef whn (SMapping _ e _ _) = nameFromSRef whn e
+nameFromSRef whn (SField _ ref c x) = nameFromSRef whn ref @@ c @@ x
 
-nameFromItem :: When -> TItem k a -> Ctx Id
-nameFromItem whn (Item _ _ ref) = do
-  name <- nameFromRef ref
-  case ref of -- TODO: this feels rather adhoc, but I can't find a better way to handle timings
-    CVar _ _ _ -> pure name
-    _ -> pure $ name @@ show whn
+nameFromItem ::When ->  TItem k a -> Ctx Id
+nameFromItem whn (Item _ _ ref) = nameFromRef whn ref
 
-nameFromRef :: Ref k -> Ctx Id
-nameFromRef (CVar _ _ name) = nameFromVarId name
-nameFromRef (SVar _ c name) = pure $ c @@ name
-nameFromRef (SMapping _ e _ _) = nameFromRef e
-nameFromRef (SField _ ref c x) = do 
-  name <- nameFromRef ref
+nameFromRef :: When -> Ref k -> Ctx Id
+nameFromRef _ (CVar _ _ name) = nameFromVarId name
+nameFromRef whn (SVar _ c name) = pure $ c @@ name @@ show whn
+nameFromRef whn (SMapping _ e _ _) = nameFromRef whn e
+nameFromRef whn (SField _ ref c x) = do
+  name <- nameFromRef whn ref
   pure $ name @@ c @@ x
 
 

@@ -1,7 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -55,10 +54,10 @@ import GHC.IO hiding (liftIO)
 import EVM.SMT
 import EVM.Effects
 
-import Act.Syntax.Annotated
+import Act.Syntax.TypedExplicit
 import Act.HEVM
 import Act.HEVM_utils hiding (abstractVM)
-import Act.Enrich (enrich)
+import Act.Bounds (addBounds)
 import Act.Error
 import Act.Traversals
 
@@ -73,7 +72,7 @@ decompile contract solvers = do
   case spec of
     Left e -> pure . Left $ e
     Right s -> do
-      valid <- verifyDecompilation solvers contract.creationCode contract.runtimeCode (enrich s)
+      valid <- verifyDecompilation solvers contract.creationCode contract.runtimeCode (addBounds s)
       case valid of
         Success () -> pure . Right $ s
         Failure es -> pure . Left . T.unlines . NE.toList . fmap (T.pack . snd) $ es
@@ -378,7 +377,7 @@ fromWord layout w = simplify <$> go w
     go :: EVM.Expr EVM.EWord -> Either Text (Exp AInteger)
     go (EVM.Lit a) = Right $ LitInt nowhere (toInteger a)
     -- TODO: get the actual abi type from the compiler output
-    go (EVM.Var a) = Right $ _Var Pre (AbiBytesType 32) (T.unpack a)
+    go (EVM.Var a) = Right $ _Var (AbiBytesType 32) (T.unpack a)
     go (EVM.TxValue) = Right $ IntEnv nowhere Callvalue
 
     -- overflow checks
@@ -445,7 +444,7 @@ fromWord layout w = simplify <$> go w
            Nothing -> Left "read from a storage location that is not present in the solc layout"
            Just (nm, tp) -> case tp of
              -- TODO: get lookup contract name by address
-             StorageValue t@(PrimitiveType _) -> Right $ TEntry nowhere Pre SStorage (Item SInteger t (SVar nowhere (T.unpack "Basic") (T.unpack nm)))
+             StorageValue t@(PrimitiveType _) -> Right $ VarRef nowhere Pre SStorage (Item SInteger t (SVar nowhere (T.unpack "Basic") (T.unpack nm)))
              _ -> Left $ "unable to handle storage reads for variables of type: " <> T.pack (show tp)
 
     go e = err e

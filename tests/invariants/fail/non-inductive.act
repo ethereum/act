@@ -20,7 +20,7 @@ invariants
 behaviour f of C
 interface f()
 
-case x == 0:
+iff x == 0
 
     storage
 
@@ -29,7 +29,7 @@ case x == 0:
 behaviour g of C
 interface g()
 
-case x == 1:
+iff x == 1
 
     storage
 
@@ -38,7 +38,7 @@ case x == 1:
 behaviour j of C
 interface j()
 
-case x == 7:
+iff x == 7
 
     storage
 

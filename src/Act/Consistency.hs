@@ -19,7 +19,7 @@ import System.Exit (exitFailure)
 import Data.Maybe
 
 import Act.Syntax
-import Act.Syntax.Annotated
+import Act.Syntax.TypedExplicit
 import Act.SMT as SMT
 import Act.Syntax.Untyped (makeIface)
 import Act.Print
@@ -40,7 +40,7 @@ combine lst = combine' lst []
 -- simultaneously. The query must be unsat.
 mkNonoverlapAssertion :: [Exp ABoolean] -> Exp ABoolean
 mkNonoverlapAssertion caseconds =
-  mkOr $ (\(x, y) -> And nowhere x y) <$> combine caseconds
+  mkOr $ (uncurry $ And nowhere) <$> combine caseconds
   where
     mkOr [] = LitBool nowhere False
     mkOr (c:cs) = Or nowhere c (mkOr cs)

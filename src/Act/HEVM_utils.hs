@@ -20,7 +20,7 @@ import Control.Monad.ST (stToIO, ST)
 import Control.Monad.Reader
 import Control.Monad 
 
-import Act.Syntax.Annotated
+import Act.Syntax.Typed
 import Act.Syntax.Untyped (makeIface)
 
 import qualified EVM.Types as EVM

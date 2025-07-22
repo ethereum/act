@@ -28,7 +28,56 @@
         "invariants": [],
         "kind": "Constructor",
         "pointers": [],
-        "postConditions": [],
+        "postConditions": [
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "literal": "0",
+                    "type": "int"
+                  },
+                  {
+                    "timing": "Post",
+                    "var": {
+                      "item": {
+                        "contract": "A",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    }
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              },
+              {
+                "args": [
+                  {
+                    "timing": "Post",
+                    "var": {
+                      "item": {
+                        "contract": "A",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    }
+                  },
+                  {
+                    "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              }
+            ],
+            "arity": 2,
+            "symbol": "and"
+          }
+        ],
         "preConditions": []
       },
       "kind": "Contract"
@@ -60,7 +109,66 @@
           "kind": "Behaviour",
           "name": "remote",
           "pointers": [],
-          "postConditions": [],
+          "postConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "A",
+                          "field": "x",
+                          "kind": "Field",
+                          "reference": {
+                            "contract": "B",
+                            "kind": "SVar",
+                            "svar": "a"
+                          }
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "A",
+                          "field": "x",
+                          "kind": "Field",
+                          "reference": {
+                            "contract": "B",
+                            "kind": "SVar",
+                            "svar": "a"
+                          }
+                        },
+                        "type": "int"
+                      }
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
           "preConditions": [
             {
               "args": [
@@ -85,7 +193,8 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -95,8 +204,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -105,7 +213,8 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -115,8 +224,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -139,7 +247,8 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -151,8 +260,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -161,7 +269,8 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -173,8 +282,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -240,7 +348,8 @@
                 "type": "int"
               },
               "value": {
-                "entry": {
+                "timing": "Pre",
+                "var": {
                   "item": {
                     "abitype": {
                       "size": "256",
@@ -250,8 +359,7 @@
                     "var": "z"
                   },
                   "type": "int"
-                },
-                "timing": "Pre"
+                }
               }
             }
           ]
@@ -281,7 +389,114 @@
           "kind": "Behaviour",
           "name": "multi",
           "pointers": [],
-          "postConditions": [],
+          "postConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "B",
+                          "kind": "SVar",
+                          "svar": "y"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "B",
+                          "kind": "SVar",
+                          "svar": "y"
+                        },
+                        "type": "int"
+                      }
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "A",
+                          "field": "x",
+                          "kind": "Field",
+                          "reference": {
+                            "contract": "B",
+                            "kind": "SVar",
+                            "svar": "a"
+                          }
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "A",
+                          "field": "x",
+                          "kind": "Field",
+                          "reference": {
+                            "contract": "B",
+                            "kind": "SVar",
+                            "svar": "a"
+                          }
+                        },
+                        "type": "int"
+                      }
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
           "preConditions": [
             {
               "args": [
@@ -306,7 +521,8 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -316,8 +532,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -326,7 +541,8 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -336,8 +552,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -360,15 +575,15 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "B",
                           "kind": "SVar",
                           "svar": "y"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -377,15 +592,15 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "B",
                           "kind": "SVar",
                           "svar": "y"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -408,7 +623,8 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -420,8 +636,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -430,7 +645,8 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "A",
                           "field": "x",
@@ -442,8 +658,7 @@
                           }
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -523,7 +738,8 @@
                 "type": "int"
               },
               "value": {
-                "entry": {
+                "timing": "Pre",
+                "var": {
                   "item": {
                     "abitype": {
                       "size": "256",
@@ -533,8 +749,7 @@
                     "var": "z"
                   },
                   "type": "int"
-                },
-                "timing": "Pre"
+                }
               }
             }
           ]
@@ -586,7 +801,60 @@
         "invariants": [],
         "kind": "Constructor",
         "pointers": [],
-        "postConditions": [],
+        "postConditions": [
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "literal": "0",
+                    "type": "int"
+                  },
+                  {
+                    "timing": "Post",
+                    "var": {
+                      "item": {
+                        "contract": "B",
+                        "kind": "SVar",
+                        "svar": "y"
+                      },
+                      "type": "int"
+                    }
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              },
+              {
+                "args": [
+                  {
+                    "timing": "Post",
+                    "var": {
+                      "item": {
+                        "contract": "B",
+                        "kind": "SVar",
+                        "svar": "y"
+                      },
+                      "type": "int"
+                    }
+                  },
+                  {
+                    "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              }
+            ],
+            "arity": 2,
+            "symbol": "and"
+          },
+          {
+            "literal": "True",
+            "type": "bool"
+          }
+        ],
         "preConditions": []
       },
       "kind": "Contract"

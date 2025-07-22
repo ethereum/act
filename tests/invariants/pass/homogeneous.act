@@ -13,9 +13,9 @@ invariants
 behaviour f of Homogeneous
 interface f(uint256 scalar)
 
-iff
-	x * scalar > x
-	z * scalar > z
+iff in range uint256
+	x * scalar
+	z * scalar
 
 storage
 	x => x * scalar
@@ -25,9 +25,9 @@ storage
 behaviour g of Homogeneous
 interface g(uint256 scalar)
 
-iff
-	y * scalar > y
-	z * scalar > z
+iff in range uint256
+	y * scalar
+	z * scalar
 
 storage
 	y => y * scalar

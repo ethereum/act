@@ -8,6 +8,9 @@ creates
 behaviour f of C
 interface f(uint24 y)
 
+iff in range uint24 
+  x + y
+
 storage
 
   x => x + y

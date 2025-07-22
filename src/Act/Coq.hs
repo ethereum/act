@@ -28,7 +28,7 @@ import Control.Monad.State
 
 import EVM.ABI
 import Act.Syntax
-import Act.Syntax.Annotated
+import Act.Syntax.TypedExplicit
 
 type Fresh = State Int
 
@@ -340,7 +340,7 @@ coqexp (UIntMax _ n) = parens $ "UINT_MAX " <> T.pack (show n)
 coqexp (InRange _ t e) = coqexp (bound t e)
 
 -- polymorphic
-coqexp (TEntry _ w _ e) = entry e w
+coqexp (VarRef _ _ _ e) = entry e
 coqexp (ITE _ b e1 e2) = parens $ "if "
                                <> coqexp b
                                <> " then "
@@ -383,10 +383,9 @@ coqprop e = error "ill formed proposition: " <> T.pack (show e)
 typedexp :: TypedExp -> T.Text
 typedexp (TExp _ e) = coqexp e
 
-entry :: TItem k a -> When -> T.Text
-entry (Item SByteStr _ _) _ = error "bytestrings not supported"
-entry e Post = error $ "TODO: missing support for poststate references in coq backend. Entry: \n" <> show e
-entry (Item _ _ r) _ = ref r
+entry :: TItem k a -> T.Text
+entry (Item SByteStr _ _) = error "bytestrings not supported"
+entry (Item _ _ r) = ref r
 
 ref :: Ref k -> T.Text
 ref (SVar _ _ name) = parens $ T.pack name <> " " <> stateVar

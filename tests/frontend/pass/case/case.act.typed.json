@@ -7,7 +7,8 @@
             {
               "args": [
                 {
-                  "entry": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -17,8 +18,7 @@
                       "var": "z"
                     },
                     "type": "int"
-                  },
-                  "timing": "Pre"
+                  }
                 },
                 {
                   "literal": "0",
@@ -47,8 +47,225 @@
           "kind": "Behaviour",
           "name": "bar",
           "pointers": [],
-          "postConditions": [],
+          "postConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      }
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
           "preConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "timing": "Pre",
+                      "var": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "1",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "timing": "Pre",
+                              "var": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              }
+                            },
+                            {
+                              "literal": "1",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "timing": "Pre",
+                      "var": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "2",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "timing": "Pre",
+                              "var": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              }
+                            },
+                            {
+                              "literal": "2",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
             {
               "args": [
                 {
@@ -72,7 +289,8 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -82,8 +300,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -92,7 +309,8 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -102,8 +320,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -126,15 +343,15 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
                           "svar": "x"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -143,15 +360,15 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
                           "svar": "x"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -212,7 +429,8 @@
                 "type": "int"
               },
               "value": {
-                "entry": {
+                "timing": "Pre",
+                "var": {
                   "item": {
                     "abitype": {
                       "size": "256",
@@ -222,8 +440,7 @@
                     "var": "z"
                   },
                   "type": "int"
-                },
-                "timing": "Pre"
+                }
               }
             }
           ]
@@ -233,7 +450,8 @@
             {
               "args": [
                 {
-                  "entry": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -243,8 +461,7 @@
                       "var": "z"
                     },
                     "type": "int"
-                  },
-                  "timing": "Pre"
+                  }
                 },
                 {
                   "literal": "1",
@@ -273,8 +490,225 @@
           "kind": "Behaviour",
           "name": "bar",
           "pointers": [],
-          "postConditions": [],
+          "postConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      }
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
           "preConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "timing": "Pre",
+                      "var": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "1",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "timing": "Pre",
+                              "var": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              }
+                            },
+                            {
+                              "literal": "1",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "timing": "Pre",
+                      "var": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "2",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "timing": "Pre",
+                              "var": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              }
+                            },
+                            {
+                              "literal": "2",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
             {
               "args": [
                 {
@@ -298,7 +732,8 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -308,8 +743,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -318,7 +752,8 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -328,8 +763,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -352,15 +786,15 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
                           "svar": "x"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -369,15 +803,15 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
                           "svar": "x"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -440,7 +874,8 @@
               "value": {
                 "args": [
                   {
-                    "entry": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -450,8 +885,7 @@
                         "var": "z"
                       },
                       "type": "int"
-                    },
-                    "timing": "Pre"
+                    }
                   },
                   {
                     "literal": "1",
@@ -469,7 +903,8 @@
             {
               "args": [
                 {
-                  "entry": {
+                  "timing": "Pre",
+                  "var": {
                     "item": {
                       "abitype": {
                         "size": "256",
@@ -479,8 +914,7 @@
                       "var": "z"
                     },
                     "type": "int"
-                  },
-                  "timing": "Pre"
+                  }
                 },
                 {
                   "literal": "1",
@@ -509,8 +943,225 @@
           "kind": "Behaviour",
           "name": "bar",
           "pointers": [],
-          "postConditions": [],
+          "postConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "timing": "Post",
+                      "var": {
+                        "item": {
+                          "contract": "C",
+                          "kind": "SVar",
+                          "svar": "x"
+                        },
+                        "type": "int"
+                      }
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            }
+          ],
           "preConditions": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "timing": "Pre",
+                      "var": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "1",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "timing": "Pre",
+                              "var": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              }
+                            },
+                            {
+                              "literal": "1",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "size": "256",
+                      "type": "Int"
+                    },
+                    {
+                      "timing": "Pre",
+                      "var": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "z"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "inrange"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "literal": "2",
+                          "type": "int"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    },
+                    {
+                      "args": [
+                        {
+                          "size": "256",
+                          "type": "Int"
+                        },
+                        {
+                          "args": [
+                            {
+                              "timing": "Pre",
+                              "var": {
+                                "item": {
+                                  "abitype": {
+                                    "size": "256",
+                                    "type": "UInt"
+                                  },
+                                  "kind": "Var",
+                                  "var": "z"
+                                },
+                                "type": "int"
+                              }
+                            },
+                            {
+                              "literal": "2",
+                              "type": "int"
+                            }
+                          ],
+                          "arity": 2,
+                          "symbol": "+"
+                        }
+                      ],
+                      "arity": 2,
+                      "symbol": "inrange"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "and"
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
             {
               "args": [
                 {
@@ -534,7 +1185,8 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -544,8 +1196,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -554,7 +1205,8 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "abitype": {
                             "size": "256",
@@ -564,8 +1216,7 @@
                           "var": "z"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -588,15 +1239,15 @@
                       "type": "int"
                     },
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
                           "svar": "x"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     }
                   ],
                   "arity": 2,
@@ -605,15 +1256,15 @@
                 {
                   "args": [
                     {
-                      "entry": {
+                      "timing": "Pre",
+                      "var": {
                         "item": {
                           "contract": "C",
                           "kind": "SVar",
                           "svar": "x"
                         },
                         "type": "int"
-                      },
-                      "timing": "Pre"
+                      }
                     },
                     {
                       "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
@@ -676,7 +1327,8 @@
               "value": {
                 "args": [
                   {
-                    "entry": {
+                    "timing": "Pre",
+                    "var": {
                       "item": {
                         "abitype": {
                           "size": "256",
@@ -686,8 +1338,7 @@
                         "var": "z"
                       },
                       "type": "int"
-                    },
-                    "timing": "Pre"
+                    }
                   },
                   {
                     "literal": "2",
@@ -727,7 +1378,56 @@
         "invariants": [],
         "kind": "Constructor",
         "pointers": [],
-        "postConditions": [],
+        "postConditions": [
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "literal": "0",
+                    "type": "int"
+                  },
+                  {
+                    "timing": "Post",
+                    "var": {
+                      "item": {
+                        "contract": "C",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    }
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              },
+              {
+                "args": [
+                  {
+                    "timing": "Post",
+                    "var": {
+                      "item": {
+                        "contract": "C",
+                        "kind": "SVar",
+                        "svar": "x"
+                      },
+                      "type": "int"
+                    }
+                  },
+                  {
+                    "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "type": "int"
+                  }
+                ],
+                "arity": 2,
+                "symbol": "<="
+              }
+            ],
+            "arity": 2,
+            "symbol": "and"
+          }
+        ],
         "preConditions": []
       },
       "kind": "Contract"

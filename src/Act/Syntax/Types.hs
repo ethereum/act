@@ -8,9 +8,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-
--- These extensions should be removed once we remove the defs at the end of this file.
-{-# LANGUAGE RankNTypes, TypeApplications, StandaloneKindSignatures, PolyKinds #-}
+{-# LANGUAGE RankNTypes, TypeApplications, PolyKinds #-}
 
 {-|
 Module      : Syntax.Types
@@ -32,9 +30,8 @@ data ActType
   | ABoolean
   | AByteStr
 
--- | Singleton runtime witness for Act types
--- Sometimes we need to examine type tags at runime. Tagging structures
--- with this type will let us do that.
+-- | Singleton runtime witness for Act types. Sometimes we need to examine type
+-- tags at runtime. Tagging structures with this type will let us do that.
 data SType (a :: ActType) where
   SInteger  :: SType AInteger
   SBoolean  :: SType ABoolean
@@ -70,8 +67,8 @@ instance SingI 'AInteger where sing = SInteger
 instance SingI 'ABoolean where sing = SBoolean
 instance SingI 'AByteStr where sing = SByteStr
 
--- | Reflection of an Act type into a haskell type. Useful to define
--- the result type of the evaluation function.
+-- | Reflection of an Act type into a haskell type. Used to define the result
+-- type of the evaluation function.
 type family TypeOf a where
   TypeOf 'AInteger = Integer
   TypeOf 'ABoolean = Bool
@@ -125,7 +122,6 @@ pattern FromAct t <- (someType -> FromSome t)
 pattern FromVType :: () => (SingI a) => SType a -> ValueType
 pattern FromVType t <- (someType . fromValueType -> FromSome t)
 {-# COMPLETE FromVType #-}
-
 
 -- | Helper pattern to retrieve the 'SingI' instances of the type
 -- represented by an 'SType'.

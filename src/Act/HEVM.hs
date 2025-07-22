@@ -38,11 +38,11 @@ import Data.Typeable hiding (typeRep)
 import qualified Data.Vector as V
 
 import Act.HEVM_utils
-import Act.Syntax.Annotated as Act
+import Act.Syntax.TypedExplicit as Act
 import Act.Syntax.Untyped (makeIface)
 import Act.Syntax
 import Act.Error
-import qualified Act.Syntax.TimeAgnostic as TA
+import qualified Act.Syntax.Typed as TA
 import Act.Syntax.Timing
 
 import EVM.ABI (Sig(..))
@@ -333,7 +333,7 @@ substItem subst (Item st vt sref) = case substRef subst sref of
 substRef :: M.Map Id TypedExp -> Ref k -> ERef
 substRef _ var@(SVar _ _ _) = ERef SStorage var
 substRef subst (CVar _ _ x) = case M.lookup x subst of
-    Just (TExp _ (TEntry _ _ k (Item _ _ ref))) -> ERef k ref
+    Just (TExp _ (VarRef _ _ k (Item _ _ ref))) -> ERef k ref
     Just _ -> error "Internal error: cannot access fields of non-pointer var"
     Nothing -> error "Internal error: ill-formed substitution"
 substRef subst (SMapping pn sref ts args) = case substRef subst sref of
@@ -385,11 +385,11 @@ substExp subst expr = case expr of
 
   ITE pn a b c -> ITE pn (substExp subst a) (substExp subst b) (substExp subst c)
 
-  TEntry _ _ SCalldata (Item st _ (CVar _ _ x)) -> case M.lookup x subst of
+  VarRef _ _ SCalldata (Item st _ (CVar _ _ x)) -> case M.lookup x subst of
     Just (TExp st' exp') -> maybe (error "Internal error: type missmatch") (\Refl -> exp') $ testEquality st st'
     Nothing -> error "Internal error: Ill-defined substitution"
-  TEntry pn whn _ item -> case substItem subst item of
-    ETItem k' item' ->  TEntry pn whn k' item'
+  VarRef pn whn _ item -> case substItem subst item of
+    ETItem k' item' ->  VarRef pn whn k' item'
 
   Create pn a b -> Create pn a (substArgs subst b)
 
@@ -517,7 +517,7 @@ toProp cmap = \case
     pure $ EVM.PNeg e
   (NEq _ _ _ _) -> error "unsupported"
   (ITE _ _ _ _) -> error "Internal error: expecting flat expression"
-  (TEntry _ _ _ (Item SBoolean _ ref)) -> EVM.PEq (EVM.Lit 0) <$> EVM.IsZero <$> refToExp cmap ref
+  (VarRef _ _ _ (Item SBoolean _ ref)) -> EVM.PEq (EVM.Lit 0) <$> EVM.IsZero <$> refToExp cmap ref
   (InRange _ t e) -> toProp cmap (inRange t e)
   where
     op2 :: Monad m => forall a b. (EVM.Expr (ExprType b) -> EVM.Expr (ExprType b) -> a) -> Exp b -> Exp b -> ActT m a
@@ -599,8 +599,8 @@ toExpr cmap =  fmap stripMods . go
         pure $ EVM.Not e
       (NEq _ _ _ _) -> error "unsupported"
 
-      (TEntry _ _ _ (Item SInteger _ ref)) -> refToExp cmap ref
-      (TEntry _ _ _ (Item SBoolean _ ref)) -> refToExp cmap ref
+      (VarRef _ _ _ (Item SInteger _ ref)) -> refToExp cmap ref
+      (VarRef _ _ _ (Item SBoolean _ ref)) -> refToExp cmap ref
 
       e@(ITE _ _ _ _) -> error $ "Internal error: expecting flat expression. got: " <> show e
 
@@ -653,7 +653,7 @@ inRange t e = bound t e
 
 checkOp :: Exp AInteger -> Exp ABoolean
 checkOp (LitInt _ i) = LitBool nowhere $ i <= (fromIntegral (maxBound :: Word256))
-checkOp (TEntry _ _ _ _)  = LitBool nowhere True
+checkOp (VarRef _ _ _ _)  = LitBool nowhere True
 checkOp e@(Add _ e1 _) = LEQ nowhere e1 e -- check for addition overflow
 checkOp e@(Sub _ e1 _) = LEQ nowhere e e1
 checkOp (Mul _ e1 e2) = Or nowhere (Eq nowhere SInteger e1 (LitInt nowhere 0))

@@ -1,6 +1,6 @@
 Require Import Exponent.Exponent.
 Require Import ActLib.ActLib.
-Require Import Coq.ZArith.ZArith.
+Require Import Coq.ZArith.ZArith Lia.
 Open Scope Z_scope.
 
 Import Exponent.
@@ -32,10 +32,7 @@ Proof.
     rewrite <- (pow_pred (b s) (e s - 1)).
     + induction Hstep.
       rewrite Z.mul_assoc. reflexivity.
-    + induction Hstep.
-      apply Z.gt_lt in H0.
-      apply (proj1 (Z.sub_lt_mono_r 1 (e STATE) 1)).
-      assumption.
+    + induction Hstep. lia. 
 Qed.
 
 Theorem exp_correct : forall base s,
@@ -46,4 +43,4 @@ Proof.
   rewrite He in H. simpl in H.
   rewrite (Z.mul_1_r (r s)) in H.
   assumption.
-Qed. Check exp_correct.
+Qed.
