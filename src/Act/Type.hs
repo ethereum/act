@@ -22,7 +22,7 @@ import qualified Data.Map.Strict    as Map
 import Data.Typeable ( Typeable, (:~:)(Refl), eqT )
 import Type.Reflection (typeRep)
 
-import Control.Monad (when)
+import Control.Monad (when, join)
 import Data.Functor
 import Data.List.Extra (unsnoc)
 import Data.Function (on)
@@ -323,6 +323,7 @@ checkAssign env@Env{contract} (U.AssignVal (U.StorageVar pn (StorageValue vt@(Fr
   where
     -- type checking environment prior to storage creation of this contract
     envNoStorage = env { store = mempty }
+-- TODO: above has a problem if vt is array, cannot patternmatch!
 
 checkAssign env (U.AssignMapping (U.StorageVar pn (StorageMapping (keyType :| _) valType) name) defns)
   = for defns $ \def -> checkDefn pn envNoStorage keyType valType name def
@@ -330,7 +331,41 @@ checkAssign env (U.AssignMapping (U.StorageVar pn (StorageMapping (keyType :| _)
     -- type checking environment prior to storage creation of this contract
     envNoStorage = env { store = mempty }
 
-checkAssign _ (U.AssignArray (U.StorageVar pn (StorageValue  valType) name) exprs) = undefined
+checkAssign env@Env{contract} (U.AssignArray (U.StorageVar pn (StorageValue valType@(PrimitiveType abiType)) name) exprs)
+  = 
+      U.pfctHeight exprs `bindValidation` \rhDim ->
+      parseArrayType abiType `bindValidation` \(abiBaseType,vtDim) ->
+      (Success $ U.flattenedIdxs (toList exprs) vtDim) `bindValidation` \flatExprs ->
+      fmap Control.Monad.join $ traverse (traverseCheck $ PrimitiveType abiBaseType) flatExprs
+      <* compDims rhDim vtDim 
+  where
+    envNoStorage = env { store = mempty }
+
+    --checkDim :: U.ExprList -> Err ([Int])
+    --checkDim l = 
+    --  case U.pfktHeight l of
+    --    pure dim -> pure dim
+    --    Nothing -> throw "Inconsistent dimensions of array initializing StorageVar " <>
+    --      show name <> " at " <> show pn
+
+    parseArrayType :: AbiType -> Err ((AbiType,[Int]))
+    parseArrayType (AbiArrayType n typ@(AbiArrayType _ _)) =
+      parseArrayType typ `bindValidation` \(vt, li) -> pure (vt, n : li)
+    parseArrayType (AbiArrayType n typ) = pure (typ,[n]) 
+    parseArrayType _ = throw (pn,"Array literal assigned to non-array StorageVar "
+      <> show name <> " at " <> show pn)
+
+    compDims :: [Int] -> [Int] -> Err ()
+    compDims d1 d2 = if d1 == d2 then pure ()
+                     else throw (pn,"Different dimensions between assigned array type and storage var type") --TODO: better error 
+
+    traverseCheck :: ValueType -> (U.Expr,[Int]) -> Err ([StorageUpdate])
+    traverseCheck vt@(FromVType typ) (expr,idxs) = sequenceA [ checkExpr envNoStorage typ expr `bindValidation` \te ->
+                        findContractType env te `bindValidation` \ctyp ->
+                        _Update (_Item vt (SMapping nowhere (SVar pn contract name) vt $ fmap ((TExp SInteger) . (LitInt nowhere) . toInteger) idxs  )) te
+                        <$ validContractType pn vt ctyp ]
+
+-- TODO: better errors
 
 checkAssign _ (U.AssignVal (U.StorageVar _ (StorageMapping _ _) _) expr)
   = throw (getPosn expr, "Cannot assign a single expression to a composite type")
@@ -339,6 +374,7 @@ checkAssign _ (U.AssignMapping (U.StorageVar pn (StorageValue _) _) _)
   = throw (pn, "Cannot assign multiple values to an atomic type")
 
 checkAssign _ (U.AssignArray (U.StorageVar pn (StorageMapping _ valType) name) defns) = undefined
+
 
 -- ensures key and value types match when assigning a defn to a mapping
 -- TODO: handle nested mappings
