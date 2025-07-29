@@ -206,7 +206,7 @@ pfctHeight (NodeList pn l) = foldrMap1 pfctHeight g l `bindValidation` (pure . (
 flattenedIdxs :: [a] -> [Int] -> [(a,[Int])]
 flattenedIdxs l typ = zip l (idxs)
   where
-    typeAcc = flip (++) [1] $ drop 1 $ scanr (*) 1 typ
+    typeAcc = drop 1 $ scanr (*) 1 typ
     
     idxs = map idx [0..(length l - 1)]
     idx e = map (\(x1,x2) -> (e `div` x2) `mod` x1) $ (zip typ typeAcc)

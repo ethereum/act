@@ -44,6 +44,7 @@ import Act.Error
 import Data.Type.Equality (TestEquality(..))
 import Data.Singletons
 
+import Debug.Trace
 
 type Err = Error String
 
@@ -290,6 +291,7 @@ checkPointer Env{theirs,calldata} (U.PointsTo p x c) =
 validStorage :: Env -> U.Assign -> Err ()
 validStorage env (U.AssignVal (U.StorageVar p t _) _) = validSlotType env p t
 validStorage env (U.AssignMapping (U.StorageVar p t _) _) = validSlotType env p t
+validStorage env (U.AssignArray (U.StorageVar p t _) _) = validSlotType env p t
 
 -- | Check if the a contract type is valid in an environment
 validType :: Env -> Pn -> ValueType -> Err ()
@@ -314,6 +316,21 @@ checkCase env c@(U.Case _ pre post) = do
   (storage,return') <- checkPost env post
   pure (if',storage,return')
 
+
+-- Given a possible nested Array ABI Type, returns the 
+-- final ABI type stored, as well as the size at each level
+-- TODO: problematic with mappings inside arrays
+-- TODO, this was inside the checkAssign array case
+-- where the error made sense, change it, also used in checkEntry now
+-- Maybe return self + [] ?
+parseArrayType :: AbiType -> Err ((AbiType,[Int]))
+parseArrayType (AbiArrayType n typ@(AbiArrayType _ _)) =
+  parseArrayType typ `bindValidation` \(vt, li) -> pure (vt, n : li)
+parseArrayType (AbiArrayType n typ) = pure (typ,[n]) 
+parseArrayType _ = throw (nowhere, "attempting to parse non array type as array")
+--parseArrayType _ = throw (pn,"Array literal assigned to non-array StorageVar "
+--  <> show name <> " at " <> show pn)
+
 -- Check the initial assignment of a storage variable
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
 checkAssign env@Env{contract} (U.AssignVal (U.StorageVar pn (StorageValue vt@(FromVType typ)) name) expr)
@@ -331,7 +348,8 @@ checkAssign env (U.AssignMapping (U.StorageVar pn (StorageMapping (keyType :| _)
     -- type checking environment prior to storage creation of this contract
     envNoStorage = env { store = mempty }
 
-checkAssign env@Env{contract} (U.AssignArray (U.StorageVar pn (StorageValue valType@(PrimitiveType abiType)) name) exprs)
+-- TODO: should the StorageVar type be enforced to be array?
+checkAssign env@Env{contract} (U.AssignArray (U.StorageVar pn (StorageValue (PrimitiveType abiType)) name) exprs)
   = 
       U.pfctHeight exprs `bindValidation` \rhDim ->
       parseArrayType abiType `bindValidation` \(abiBaseType,vtDim) ->
@@ -341,19 +359,6 @@ checkAssign env@Env{contract} (U.AssignArray (U.StorageVar pn (StorageValue valT
   where
     envNoStorage = env { store = mempty }
 
-    --checkDim :: U.ExprList -> Err ([Int])
-    --checkDim l = 
-    --  case U.pfktHeight l of
-    --    pure dim -> pure dim
-    --    Nothing -> throw "Inconsistent dimensions of array initializing StorageVar " <>
-    --      show name <> " at " <> show pn
-
-    parseArrayType :: AbiType -> Err ((AbiType,[Int]))
-    parseArrayType (AbiArrayType n typ@(AbiArrayType _ _)) =
-      parseArrayType typ `bindValidation` \(vt, li) -> pure (vt, n : li)
-    parseArrayType (AbiArrayType n typ) = pure (typ,[n]) 
-    parseArrayType _ = throw (pn,"Array literal assigned to non-array StorageVar "
-      <> show name <> " at " <> show pn)
 
     compDims :: [Int] -> [Int] -> Err ()
     compDims d1 d2 = if d1 == d2 then pure ()
@@ -362,7 +367,7 @@ checkAssign env@Env{contract} (U.AssignArray (U.StorageVar pn (StorageValue valT
     traverseCheck :: ValueType -> (U.Expr,[Int]) -> Err ([StorageUpdate])
     traverseCheck vt@(FromVType typ) (expr,idxs) = sequenceA [ checkExpr envNoStorage typ expr `bindValidation` \te ->
                         findContractType env te `bindValidation` \ctyp ->
-                        _Update (_Item vt (SMapping nowhere (SVar pn contract name) vt $ fmap ((TExp SInteger) . (LitInt nowhere) . toInteger) idxs  )) te
+                        _Update (_Item vt (SArray nowhere (SVar pn contract name) vt $ fmap ((TExp SInteger) . (LitInt nowhere) . toInteger) idxs  )) te
                         <$ validContractType pn vt ctyp ]
 
 -- TODO: better errors
@@ -371,9 +376,11 @@ checkAssign _ (U.AssignVal (U.StorageVar _ (StorageMapping _ _) _) expr)
   = throw (getPosn expr, "Cannot assign a single expression to a composite type")
 
 checkAssign _ (U.AssignMapping (U.StorageVar pn (StorageValue _) _) _)
-  = throw (pn, "Cannot assign multiple values to an atomic type")
+  = throw (nowhere, "Cannot assign multiple values to an atomic type")
 
-checkAssign _ (U.AssignArray (U.StorageVar pn (StorageMapping _ valType) name) defns) = undefined
+checkAssign _ (U.AssignArray (U.StorageVar _ _  _) exprs)
+  = throw (nowhere, "Cannot assign an array single expression to an non-array type")
+-- TODO, maybe better pn showing in error?
 
 
 -- ensures key and value types match when assigning a defn to a mapping
@@ -406,7 +413,10 @@ checkEntry Env{contract,store,calldata, pointers} kind (U.EVar p name) = case (k
   (_, Nothing, Nothing) -> throw (p, "Unknown variable " <> show name)
 checkEntry env kind (U.EMapping p e args) =
   checkEntry env kind e `bindValidation` \(typ, _, ref) -> case typ of
-    StorageValue _ -> throw (p, "Expression should have a mapping type" <> show e)
+    StorageValue (PrimitiveType typ) ->
+        parseArrayType typ `bindValidation` \(restyp,sizes) ->
+        (StorageValue (PrimitiveType restyp), Nothing,) . SArray p ref (PrimitiveType restyp) <$> checkArrayIxs env p args (reverse sizes)
+    StorageValue (ContractType _) -> throw (p, "Expression should have a mapping type" <> show e)
     StorageMapping argtyps restyp -> 
         (StorageValue restyp, Nothing,) . SMapping p ref restyp <$> checkIxs env p args (NonEmpty.toList argtyps)
 checkEntry env@Env{theirs} kind (U.EField p e x) =
@@ -611,3 +621,18 @@ checkIxs :: forall t. Typeable t => Env -> Pn -> [U.Expr] -> [ValueType] -> Err 
 checkIxs env pn exprs types = if length exprs /= length types
                               then throw (pn, "Index mismatch for entry")
                               else traverse (uncurry $ checkExprVType env) (exprs `zip` types)
+
+-- | Checks that there are as many expressions as expected by the array,
+-- and checks that each one of them is with the levels' size
+checkArrayIxs :: forall t. Typeable t => Env -> Pn -> [U.Expr] -> [Int] -> Err [TypedExp t]
+checkArrayIxs env pn exprs ixs = if length exprs /= length ixs
+                              then throw (pn, "Index mismatch for entry")
+                              else traverse trav (exprs `zip` ixs)
+  where
+    trav t@(exp,size) =
+      checkExpr env SInteger exp `bindValidation` \exp ->
+        case eval exp of
+          Just n -> if fromIntegral n < size then pure $ TExp SInteger exp else throw (pn, "array index out of range")
+          Nothing -> throw (pn, "array idxs must be literals (for now)")
+
+-- TODO: think about to what extent you can check array bounds

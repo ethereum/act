@@ -158,6 +158,7 @@ prettyRef :: Ref k t -> String
 prettyRef = \case
   CVar _ _ n -> n
   SVar _ _ n -> n
+  SArray _ r _ args -> prettyRef r <> concatMap (brackets . prettyTypedExp) args
   SMapping _ r _ args -> prettyRef r <> concatMap (brackets . prettyTypedExp) args
   SField _ r _ n -> prettyRef r <> "." <> n
   where

@@ -144,9 +144,10 @@ parse' f = do
 type' :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 type' f solver' smttimeout' debug' = do
   contents <- readFile f
-  proceed contents (addBounds <$> compile contents) $ \claims -> do
-    checkCases claims solver' smttimeout' debug'
-    B.putStrLn $ encode claims
+  validation (prettyErrs contents) print (compile contents)
+--  proceed contents (addBounds <$> compile contents) $ \claims -> do
+--    checkCases claims solver' smttimeout' debug'
+--    B.putStrLn $ encode claims
 
 parseSolver :: Maybe Text -> IO Solvers.Solver
 parseSolver s = case s of

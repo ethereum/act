@@ -172,6 +172,7 @@ eqKind fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b
 data Ref (k :: RefKind) (t :: Timing) where
   CVar :: Pn -> AbiType -> Id -> Ref Calldata t     -- Calldata variable
   SVar :: Pn -> Id -> Id -> Ref Storage t           -- Storage variable. First `Id` is the contract the var belongs to and the second the name.
+  SArray :: Pn -> Ref k t -> ValueType -> [TypedExp t] -> Ref k t
   SMapping :: Pn -> Ref k t -> ValueType -> [TypedExp t] -> Ref k t
   SField :: Pn -> Ref k t -> Id -> Id -> Ref k t    -- Field access (for accessing storage variables of contracts).
                                                     -- The first `Id` is the name of the contract that the field belongs to.
@@ -180,6 +181,7 @@ deriving instance Show (Ref k t)
 instance Eq (Ref k t) where
   CVar _ at x         == CVar _ at' x'          = at == at' && x == x'
   SVar _ c x          == SVar _ c' x'           = c == c' && x == x'
+  SArray _ r ts ixs   == SArray _ r' ts' ixs'   = r == r' && ts == ts' && ixs == ixs'
   SMapping _ r ts ixs == SMapping _ r' ts' ixs' = r == r' && ts == ts' && ixs == ixs'
   SField _ r c x      == SField _ r' c' x'      = r == r' && c == c' && x == x'
   _                   == _                      = False
@@ -371,6 +373,7 @@ instance Timable (TItem a k) where
 instance Timable (Ref k) where
   setTime :: When -> Ref k Untimed -> Ref k Timed
   setTime time (SMapping p e ts ixs) = SMapping p (setTime time e) ts (setTime time <$> ixs)
+  setTime time (SArray p e ts ixs) = SArray p (setTime time e) ts (setTime time <$> ixs)
   setTime time (SField p e c x) = SField p (setTime time e) c x
   setTime _ (SVar p c ref) = SVar p c ref
   setTime _ (CVar p at ref) = CVar p at ref
@@ -468,9 +471,15 @@ instance ToJSON (Ref k t) where
   toJSON (CVar _ at x) = object [ "kind" .= pack "Var"
                                 , "var" .=  pack x
                                 , "abitype" .=  toJSON at ]
+  toJSON (SArray _ e _ xs) = arrayTODO e xs
   toJSON (SMapping _ e _ xs) = mapping e xs
   toJSON (SField _ e c x) = field e c x
 
+-- TODO why is this exported?
+arrayTODO :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
+arrayTODO a b = object [ "kind"      .= pack "Array"
+                   , "indexes"   .= toJSON b
+                   , "reference" .= toJSON a]
 
 mapping :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
 mapping a b = object [ "kind"      .= pack "Mapping"
