@@ -223,7 +223,7 @@ decompile' :: FilePath -> Text -> Solvers.Solver -> Maybe Integer -> Bool -> IO 
 decompile' solFile' cid solver' timeout debug' = do
   let config = if debug' then debugActConfig else defaultActConfig
   cores <- fmap fromIntegral getNumProcessors
-  json <- solc Solidity =<< TIO.readFile solFile'
+  json <- flip (solc Solidity) False =<< TIO.readFile solFile'
   let (Contracts contracts, _, _) = fromJust $ readStdJSON json
   case Map.lookup ("hevm.sol:" <> cid) contracts of
     Nothing -> do
@@ -275,7 +275,7 @@ hevm actspec sol' code' initcode' solver' timeout debug' = do
 
 bytecodes :: Text -> Text -> IO (BS.ByteString, BS.ByteString)
 bytecodes cid src = do
-  json <- solc Solidity src
+  json <- solc Solidity src False
   let (Contracts sol', _, _) = fromJust $ readStdJSON json
   let err = error $ "Cannot find Solidity contract " <> Text.unpack cid
   pure ((fromMaybe err . Map.lookup ("hevm.sol" <> ":" <> cid) $ sol').creationCode,

@@ -106,7 +106,7 @@ decompilerTests = testGroup "decompiler"
 
 checkDecompilation :: Text -> Text -> Assertion
 checkDecompilation contract src = do
-  json <- solc Solidity src
+  json <- solc Solidity src False
   let (Contracts sol, _, _) = fromJust $ readStdJSON json
   let c = fromJust $ Map.lookup ("hevm.sol:" <> contract) sol
   runEnv (Env defaultActConfig) (Solvers.withSolvers CVC5 1 1 (Just 100000000) (decompile c)) >>= \case
