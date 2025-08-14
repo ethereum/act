@@ -10,7 +10,6 @@ import Data.List (nub, partition)
 import Act.Syntax
 import Act.Syntax.TypedExplicit
 import Act.Type (globalEnv)
-import Debug.Trace
 
 
 {-|

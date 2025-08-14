@@ -22,8 +22,6 @@ import System.Exit (exitFailure)
 import Data.Maybe
 import Control.Monad (forM, forM_)
 import Data.Semigroup (Arg (..))
-import Data.Typeable ( Typeable, (:~:)(Refl), eqT )
-import Data.Type.Equality (TestEquality(..))
 
 import Act.Syntax
 import Act.Syntax.TypedExplicit
