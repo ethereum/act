@@ -16,13 +16,13 @@ import Prelude hiding (GT, LT)
 import EVM.ABI
 import Data.Map.Strict    (Map)
 import Data.Maybe
-import Data.List.NonEmpty (NonEmpty(..))
-import qualified Data.List.NonEmpty as NonEmpty
+import Data.List.NonEmpty (NonEmpty(..), (<|))
+import qualified Data.List.NonEmpty as NonEmpty (map, scanr, toList, singleton)
 import qualified Data.Map.Strict    as Map
 import Data.Typeable ( Typeable, (:~:)(Refl), eqT )
 import Type.Reflection (typeRep)
 
-import Control.Monad (when, join)
+import Control.Monad (when)
 import Data.Functor
 import Data.List.Extra (unsnoc)
 import Data.Function (on)
@@ -38,13 +38,11 @@ import Act.Syntax
 import Act.Syntax.Timing
 import Act.Syntax.Untyped qualified as U
 import Act.Syntax.TypedImplicit
-import Act.Syntax.Untyped (makeIface)
 import Act.Error
 
 import Data.Type.Equality (TestEquality(..))
 import Data.Singletons
 
-import Debug.Trace
 
 type Err = Error String
 
@@ -267,6 +265,7 @@ checkConstructor env (U.Constructor _ contract (Interface _ decls) ptrs iffs (U.
     stateUpdates <- concat <$> traverse (checkAssign env') assigns
     iffs' <- checkIffs envNoStorage iffs
     traverse_ (validStorage env') assigns
+    traverse_ checkConstrPost postcs
     ensures <- traverse (checkExpr env' SBoolean) postcs
     invs' <- fmap (Invariant contract [] [] . PredUntimed) <$> traverse (checkExpr env' SBoolean) invs
     pure $ Constructor contract (Interface contract decls) ptrs iffs' ensures invs' stateUpdates
@@ -274,6 +273,55 @@ checkConstructor env (U.Constructor _ contract (Interface _ decls) ptrs iffs (U.
     env' = addPointers ptrs $ addCalldata decls env
     -- type checking environment prior to storage creation of this contract
     envNoStorage = env'{ store = mempty }
+
+
+-- | Checks that a postcondition has no pre-entries
+checkConstrPost :: U.Expr -> Err ()
+checkConstrPost = noPres
+  where
+    noPres :: U.Expr -> Err ()
+    noPres e' = case e' of
+      U.ENot    _ v1    -> noPres v1
+      U.EAnd    _ v1 v2 -> noPres v1 *> noPres v2
+      U.EOr     _ v1 v2 -> noPres v1 *> noPres v2
+      U.EImpl   _ v1 v2 -> noPres v1 *> noPres v2
+      U.ELT     _ v1 v2 -> noPres v1 *> noPres v2
+      U.ELEQ    _ v1 v2 -> noPres v1 *> noPres v2
+      U.EGEQ    _ v1 v2 -> noPres v1 *> noPres v2
+      U.EGT     _ v1 v2 -> noPres v1 *> noPres v2
+      U.EEq     _ v1 v2 -> noPres v1 *> noPres v2
+      U.ENeq    _ v1 v2 -> noPres v1 *> noPres v2
+      U.BoolLit _ _    -> pure ()
+      U.EInRange _ _ v -> noPres v
+
+      -- Arithemetic expressions
+      U.EAdd   _ v1 v2 -> noPres v1 *> noPres v2
+      U.ESub   _ v1 v2 -> noPres v1 *> noPres v2
+      U.EMul   _ v1 v2 -> noPres v1 *> noPres v2
+      U.EDiv   _ v1 v2 -> noPres v1 *> noPres v2
+      U.EMod   _ v1 v2 -> noPres v1 *> noPres v2
+      U.EExp   _ v1 v2 -> noPres v1 *> noPres v2
+      U.IntLit _ _    -> Success ()
+
+        -- Constructor calls
+      U.ECreate _ _ args -> traverse_ noPres args
+
+      -- Control
+      U.EITE _ e1 e2 e3 -> noPres e1 *> noPres e2 *> noPres e3
+
+      -- Environment variables
+      U.EnvExp _ _ -> pure ()
+
+      -- Storage references
+      U.EUTEntry _   -> pure ()
+      U.EPreEntry _  -> throw (getPosn e', "No pre-entries allowed in constructor postconditions")
+      U.EPostEntry entry -> noPresEntry entry
+      _ -> pure ()
+
+    noPresEntry :: U.Entry -> Err()
+    noPresEntry (U.EVar _ _) = pure ()
+    noPresEntry (U.EMapping _ entry es) = noPresEntry entry *> traverse_ noPres es
+    noPresEntry (U.EField _ entry _) = noPresEntry entry
 
 -- | Checks that a pointer declaration x |-> A is valid. This consists of
 -- checking that x is a calldata variable that has address type and A is a valid
@@ -317,22 +365,37 @@ checkCase env c@(U.Case _ pre post) = do
   pure (if',storage,return')
 
 
--- Given a possible nested Array ABI Type, returns the 
--- final ABI type stored, as well as the size at each level
--- TODO: problematic with mappings inside arrays
--- TODO, this was inside the checkAssign array case
--- where the error made sense, change it, also used in checkEntry now
--- Maybe return self + [] ?
-parseArrayType :: AbiType -> Err ((AbiType,[Int]))
-parseArrayType (AbiArrayType n typ@(AbiArrayType _ _)) =
-  parseArrayType typ `bindValidation` \(vt, li) -> pure (vt, n : li)
-parseArrayType (AbiArrayType n typ) = pure (typ,[n]) 
-parseArrayType _ = throw (nowhere, "attempting to parse non array type as array")
---parseArrayType _ = throw (pn,"Array literal assigned to non-array StorageVar "
---  <> show name <> " at " <> show pn)
+-- | Returns list of list lengths at each nesting level, outer to inner,
+-- if it is consistent for each level
+-- TODO: Currently only the innermost shape discrepancies will be displayed as errors
+checkExprList :: U.ExprList -> Err (NonEmpty Int)
+checkExprList (LeafList l) = pure $ NonEmpty.singleton $ length l
+checkExprList (NodeList pn l) = foldr1 g (NonEmpty.map checkExprList l) `bindValidation` (pure . (<|) (length l))
+  where
+    g :: Err (NonEmpty Int) -> Err (NonEmpty Int) -> Err (NonEmpty Int)
+    g (Success s1) (Success s2) | s1 == s2 = pure s1
+    g (Success _) (Success _) = Failure $ pure (pn, "Sub-arrays have different shapes")
+    g (Success _) (Failure e) = Failure e
+    g (Failure e) (Success _) = Failure e
+    g (Failure e1) (Failure e2) = Failure (e1 <> e2)
+
+-- | Given the shape of a nested list (outer to inner lengths)
+-- returns an array of all indices
+exprListIdcs :: NonEmpty Int -> [[Int]]
+exprListIdcs typ = map idx [0..(len - 1)]
+  where
+    -- The result of scanr is always non-empty
+    (len :| typeAcc) = NonEmpty.scanr (*) 1 typ
+    idx e = zipWith (\ x1 x2 -> (e `div` x2) `mod` x1) (toList typ) typeAcc
+
+parseArrayTypeErr :: Pn -> String -> AbiType -> Err (AbiType, NonEmpty Int)
+parseArrayTypeErr p err t = maybe (throw (p,err)) Success $ parseArrayType t
 
 -- Check the initial assignment of a storage variable
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
+checkAssign _ (U.AssignVal (U.StorageVar pn (StorageValue (PrimitiveType (AbiArrayType _ _))) _) _)
+  = throw (pn, "Cannot assign a single expression to an array type")
+
 checkAssign env@Env{contract} (U.AssignVal (U.StorageVar pn (StorageValue vt@(FromVType typ)) name) expr)
   = sequenceA [checkExpr envNoStorage typ expr `bindValidation` \te ->
                findContractType env te `bindValidation` \ctyp ->
@@ -340,7 +403,6 @@ checkAssign env@Env{contract} (U.AssignVal (U.StorageVar pn (StorageValue vt@(Fr
   where
     -- type checking environment prior to storage creation of this contract
     envNoStorage = env { store = mempty }
--- TODO: above has a problem if vt is array, cannot patternmatch!
 
 checkAssign env (U.AssignMapping (U.StorageVar pn (StorageMapping (keyType :| _) valType) name) defns)
   = for defns $ \def -> checkDefn pn envNoStorage keyType valType name def
@@ -348,39 +410,38 @@ checkAssign env (U.AssignMapping (U.StorageVar pn (StorageMapping (keyType :| _)
     -- type checking environment prior to storage creation of this contract
     envNoStorage = env { store = mempty }
 
--- TODO: should the StorageVar type be enforced to be array?
 checkAssign env@Env{contract} (U.AssignArray (U.StorageVar pn (StorageValue (PrimitiveType abiType)) name) exprs)
-  = 
-      U.pfctHeight exprs `bindValidation` \rhDim ->
-      parseArrayType abiType `bindValidation` \(abiBaseType,vtDim) ->
-      (Success $ U.flattenedIdxs (toList exprs) vtDim) `bindValidation` \flatExprs ->
-      fmap Control.Monad.join $ traverse (traverseCheck $ PrimitiveType abiBaseType) flatExprs
-      <* compDims rhDim vtDim 
+  = checkExprList exprs `bindValidation` \rhDim ->
+      parseArrayTypeErr' abiType `bindValidation` \(abiBaseType,vtDim) ->
+      let flatExprs = zip (toList exprs) (exprListIdcs vtDim) in
+      concat <$> traverse (traverseCheck (toList rhDim) $ PrimitiveType abiBaseType) flatExprs
+      <* compDims vtDim rhDim
   where
     envNoStorage = env { store = mempty }
 
+    parseArrayTypeErr' :: AbiType -> Err (AbiType, NonEmpty Int)
+    parseArrayTypeErr' = parseArrayTypeErr pn "Cannot assign an array literal to non-array type"
 
-    compDims :: [Int] -> [Int] -> Err ()
+    compDims :: NonEmpty Int -> NonEmpty Int -> Err ()
     compDims d1 d2 = if d1 == d2 then pure ()
-                     else throw (pn,"Different dimensions between assigned array type and storage var type") --TODO: better error 
+                     else throw (pn, "Storage array and assigned array literal have different dimensions "
+                                    <> concatMap (show . singleton) (toList d1) <> " against "
+                                    <> concatMap (show . singleton) (toList d2))
 
-    traverseCheck :: ValueType -> (U.Expr,[Int]) -> Err ([StorageUpdate])
-    traverseCheck vt@(FromVType typ) (expr,idxs) = sequenceA [ checkExpr envNoStorage typ expr `bindValidation` \te ->
+    traverseCheck :: [Int] -> ValueType -> (U.Expr,[Int]) -> Err [StorageUpdate]
+    traverseCheck bounds vt@(FromVType typ) (expr,idxs) = sequenceA [ checkExpr envNoStorage typ expr `bindValidation` \te ->
                         findContractType env te `bindValidation` \ctyp ->
-                        _Update (_Item vt (SArray nowhere (SVar pn contract name) vt $ fmap ((TExp SInteger) . (LitInt nowhere) . toInteger) idxs  )) te
+                        _Update (_Item vt (SArray nowhere (SVar pn contract name) vt $ zip (fmap (TExp SInteger . LitInt nowhere . toInteger) idxs) bounds)) te
                         <$ validContractType pn vt ctyp ]
-
--- TODO: better errors
 
 checkAssign _ (U.AssignVal (U.StorageVar _ (StorageMapping _ _) _) expr)
   = throw (getPosn expr, "Cannot assign a single expression to a composite type")
 
 checkAssign _ (U.AssignMapping (U.StorageVar pn (StorageValue _) _) _)
-  = throw (nowhere, "Cannot assign multiple values to an atomic type")
+  = throw (pn, "Cannot assign initial mapping to a non-mapping slot")
 
-checkAssign _ (U.AssignArray (U.StorageVar _ _  _) exprs)
-  = throw (nowhere, "Cannot assign an array single expression to an non-array type")
--- TODO, maybe better pn showing in error?
+checkAssign _ (U.AssignArray (U.StorageVar pn _  _) _)
+  = throw (pn, "Cannot assign an array literal to a non-array type")
 
 
 -- ensures key and value types match when assigning a defn to a mapping
@@ -403,21 +464,23 @@ checkPost env (U.Post storage maybeReturn) = do
       U.Update loc val -> checkStorageExpr env loc val
 
 checkEntry :: forall t k. Typeable t => Env -> SRefKind k -> U.Entry -> Err (SlotType, Maybe Id, Ref k t)
-checkEntry Env{contract,store,calldata, pointers} kind (U.EVar p name) = case (kind, Map.lookup name store, Map.lookup name calldata) of
+checkEntry Env{contract,store,calldata,pointers} kind (U.EVar p name) = case (kind, Map.lookup name store, Map.lookup name calldata) of
   (_, Just _, Just _) -> throw (p, "Ambiguous variable " <> name)
   (SStorage, Just typ@(StorageValue (ContractType c)), Nothing) -> pure (typ, Just c, SVar p contract name)
   (SStorage, Just typ, Nothing) -> pure (typ, Nothing, SVar p contract name)
   (SCalldata, Nothing, Just typ) -> pure (StorageValue (PrimitiveType typ), Map.lookup name pointers, CVar p typ name)
-  (SStorage, _, Just _) -> error "Internal error: Expected storage variable but found calldata variable"
-  (SCalldata, Just _, _) -> error "Internal error: Expected storage variable but found calldata variable"
+  (SStorage, _, Just _) -> error "Internal error: Expected storage variable but found storage variable"
+  (SCalldata, Just _, _) -> error "Internal error: Expected calldata variable but found calldata variable"
   (_, Nothing, Nothing) -> throw (p, "Unknown variable " <> show name)
 checkEntry env kind (U.EMapping p e args) =
-  checkEntry env kind e `bindValidation` \(typ, _, ref) -> case typ of
+  checkEntry env kind e `bindValidation` \(slotTyp, _, ref) -> case slotTyp of
     StorageValue (PrimitiveType typ) ->
-        parseArrayType typ `bindValidation` \(restyp,sizes) ->
-        (StorageValue (PrimitiveType restyp), Nothing,) . SArray p ref (PrimitiveType restyp) <$> checkArrayIxs env p args (reverse sizes)
+      let parseArrayTypeErr' = parseArrayTypeErr p "Variable of value type cannot be indexed into" in
+        parseArrayTypeErr' typ `bindValidation` \(restyp,sizes) ->
+        (StorageValue (PrimitiveType restyp), Nothing,) . SArray p ref (PrimitiveType restyp) <$>
+          checkArrayIxs env p args (toList sizes)
     StorageValue (ContractType _) -> throw (p, "Expression should have a mapping type" <> show e)
-    StorageMapping argtyps restyp -> 
+    StorageMapping argtyps restyp ->
         (StorageValue restyp, Nothing,) . SMapping p ref restyp <$> checkIxs env p args (NonEmpty.toList argtyps)
 checkEntry env@Env{theirs} kind (U.EField p e x) =
   checkEntry env kind e `bindValidation` \(_, oc, ref) -> case oc of
@@ -623,16 +686,10 @@ checkIxs env pn exprs types = if length exprs /= length types
                               else traverse (uncurry $ checkExprVType env) (exprs `zip` types)
 
 -- | Checks that there are as many expressions as expected by the array,
--- and checks that each one of them is with the levels' size
-checkArrayIxs :: forall t. Typeable t => Env -> Pn -> [U.Expr] -> [Int] -> Err [TypedExp t]
-checkArrayIxs env pn exprs ixs = if length exprs /= length ixs
+-- and checks that each one of them can be typed into Integer
+checkArrayIxs :: forall t. Typeable t => Env -> Pn -> [U.Expr] -> [Int] -> Err [(TypedExp t,Int)]
+checkArrayIxs env pn exprs ixsBounds = if length exprs /= length ixsBounds
                               then throw (pn, "Index mismatch for entry")
-                              else traverse trav (exprs `zip` ixs)
+                              else traverse check (zip exprs ixsBounds)
   where
-    trav t@(exp,size) =
-      checkExpr env SInteger exp `bindValidation` \exp ->
-        case eval exp of
-          Just n -> if fromIntegral n < size then pure $ TExp SInteger exp else throw (pn, "array index out of range")
-          Nothing -> throw (pn, "array idxs must be literals (for now)")
-
--- TODO: think about to what extent you can check array bounds
+    check (e,i) = checkExpr env SInteger e `bindValidation` (pure . (\e' -> (TExp SInteger e', i)))

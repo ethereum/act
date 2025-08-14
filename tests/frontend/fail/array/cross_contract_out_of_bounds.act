@@ -1,0 +1,19 @@
+constructor of A
+interface constructor()
+
+creates
+
+  uint[3] ar := [1,2,3]
+
+
+
+constructor of B
+interface constructor(address a)
+
+pointers
+
+  a |-> A
+
+creates
+
+  int y := a.ar[3]

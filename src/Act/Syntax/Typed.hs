@@ -43,6 +43,7 @@ import Data.Map.Strict (Map)
 import Data.String (fromString)
 import Data.Text (pack)
 import Data.Vector (fromList)
+import Data.Bifunctor
 import Data.Singletons
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 
@@ -51,7 +52,7 @@ import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import Act.Parse          as Act.Syntax.Typed (nowhere)
 import Act.Syntax.Types   as Act.Syntax.Typed
 import Act.Syntax.Timing  as Act.Syntax.Typed
-import Act.Syntax.Untyped as Act.Syntax.Typed (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..), Pointer(..))
+import Act.Syntax.Untyped as Act.Syntax.Typed (Id, Pn, ExprList, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..), Pointer(..), NestedList(..), makeIface)
 
 -- AST post typechecking
 data Act t = Act Store [Contract t]
@@ -135,6 +136,16 @@ instance Eq (StorageLocation t) where
 _Loc :: TItem a Storage t -> StorageLocation t
 _Loc item@(Item s _ _) = Loc s item
 
+data CalldataLocation (t :: Timing) where
+  Call :: SType a -> TItem a Calldata t -> CalldataLocation t
+deriving instance Show (CalldataLocation t)
+
+instance Eq (CalldataLocation t) where
+  Call SType i1 == Call SType i2 = eqS' i1 i2
+
+_Call :: TItem a Calldata t -> CalldataLocation t
+_Call item@(Item s _ _) = Call s item
+
 -- | Distinguish the type of Refs to calldata variables and storage
 data RefKind = Storage | Calldata
   deriving (Show, Eq)
@@ -172,7 +183,7 @@ eqKind fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b
 data Ref (k :: RefKind) (t :: Timing) where
   CVar :: Pn -> AbiType -> Id -> Ref Calldata t     -- Calldata variable
   SVar :: Pn -> Id -> Id -> Ref Storage t           -- Storage variable. First `Id` is the contract the var belongs to and the second the name.
-  SArray :: Pn -> Ref k t -> ValueType -> [TypedExp t] -> Ref k t
+  SArray :: Pn -> Ref k t -> ValueType -> [(TypedExp t, Int)] -> Ref k t
   SMapping :: Pn -> Ref k t -> ValueType -> [TypedExp t] -> Ref k t
   SField :: Pn -> Ref k t -> Id -> Id -> Ref k t    -- Field access (for accessing storage variables of contracts).
                                                     -- The first `Id` is the name of the contract that the field belongs to.
@@ -325,7 +336,7 @@ instance Timable (Exp a) where
     And p x y -> And p (go x) (go y)
     Or   p x y -> Or p (go x) (go y)
     Impl p x y -> Impl p (go x) (go y)
-    Neg p x -> Neg p(go x)
+    Neg p x -> Neg p (go x)
     LT p x y -> LT p (go x) (go y)
     LEQ p x y -> LEQ p (go x) (go y)
     GEQ p x y -> GEQ p (go x) (go y)
@@ -373,7 +384,7 @@ instance Timable (TItem a k) where
 instance Timable (Ref k) where
   setTime :: When -> Ref k Untimed -> Ref k Timed
   setTime time (SMapping p e ts ixs) = SMapping p (setTime time e) ts (setTime time <$> ixs)
-  setTime time (SArray p e ts ixs) = SArray p (setTime time e) ts (setTime time <$> ixs)
+  setTime time (SArray p e ts ixs) = SArray p (setTime time e) ts ((first (setTime time)) <$> ixs)
   setTime time (SField p e c x) = SField p (setTime time e) c x
   setTime _ (SVar p c ref) = SVar p c ref
   setTime _ (CVar p at ref) = CVar p at ref
@@ -471,13 +482,12 @@ instance ToJSON (Ref k t) where
   toJSON (CVar _ at x) = object [ "kind" .= pack "Var"
                                 , "var" .=  pack x
                                 , "abitype" .=  toJSON at ]
-  toJSON (SArray _ e _ xs) = arrayTODO e xs
+  toJSON (SArray _ e _ xs) = array e xs
   toJSON (SMapping _ e _ xs) = mapping e xs
   toJSON (SField _ e c x) = field e c x
 
--- TODO why is this exported?
-arrayTODO :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
-arrayTODO a b = object [ "kind"      .= pack "Array"
+array :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
+array a b = object [ "kind"      .= pack "Array"
                    , "indexes"   .= toJSON b
                    , "reference" .= toJSON a]
 
@@ -567,22 +577,22 @@ symbol s a b = object [ "symbol"   .= pack s
 -- Returns `Nothing` if the expression contains symbols.
 eval :: Exp a t -> Maybe (TypeOf a)
 eval e = case e of
-  And  _ a b    -> [a' && b' | a' <- eval a, b' <- eval b]
-  Or   _ a b    -> [a' || b' | a' <- eval a, b' <- eval b]
-  Impl _ a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
+  And  _ a b    -> [ a' && b' | a' <- eval a, b' <- eval b]
+  Or   _ a b    -> [ a' || b' | a' <- eval a, b' <- eval b]
+  Impl _ a b    -> [ a' <= b' | a' <- eval a, b' <- eval b]
   Neg  _ a      -> not <$> eval a
-  LT   _ a b    -> [a' <  b' | a' <- eval a, b' <- eval b]
-  LEQ  _ a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
-  GT   _ a b    -> [a' >  b' | a' <- eval a, b' <- eval b]
-  GEQ  _ a b    -> [a' >= b' | a' <- eval a, b' <- eval b]
+  LT   _ a b    -> [ a' <  b' | a' <- eval a, b' <- eval b]
+  LEQ  _ a b    -> [ a' <= b' | a' <- eval a, b' <- eval b]
+  GT   _ a b    -> [ a' >  b' | a' <- eval a, b' <- eval b]
+  GEQ  _ a b    -> [ a' >= b' | a' <- eval a, b' <- eval b]
   LitBool _ a   -> pure a
 
-  Add _ a b     -> [a' + b'     | a' <- eval a, b' <- eval b]
-  Sub _ a b     -> [a' - b'     | a' <- eval a, b' <- eval b]
-  Mul _ a b     -> [a' * b'     | a' <- eval a, b' <- eval b]
-  Div _ a b     -> [a' `div` b' | a' <- eval a, b' <- eval b]
-  Mod _ a b     -> [a' `mod` b' | a' <- eval a, b' <- eval b]
-  Exp _ a b     -> [a' ^ b'     | a' <- eval a, b' <- eval b]
+  Add _ a b     -> [ a' + b'     | a' <- eval a, b' <- eval b]
+  Sub _ a b     -> [ a' - b'     | a' <- eval a, b' <- eval b]
+  Mul _ a b     -> [ a' * b'     | a' <- eval a, b' <- eval b]
+  Div _ a b     -> [ a' `div` b' | a' <- eval a, b' <- eval b]
+  Mod _ a b     -> [ a' `mod` b' | a' <- eval a, b' <- eval b]
+  Exp _ a b     -> [ a' ^ b'     | a' <- eval a, b' <- eval b]
   LitInt  _ a   -> pure a
   IntMin  _ a   -> pure $ intmin  a
   IntMax  _ a   -> pure $ intmax  a
@@ -590,11 +600,11 @@ eval e = case e of
   UIntMax _ a   -> pure $ uintmax a
   InRange _ _ _ -> error "TODO eval in range"
 
-  Cat _ s t     -> [s' <> t' | s' <- eval s, t' <- eval t]
-  Slice _ s a b -> [BS.pack . genericDrop a' . genericTake b' $ s'
-                            | s' <- BS.unpack <$> eval s
-                            , a' <- eval a
-                            , b' <- eval b]
+  Cat _ s t     -> [ s' <> t' | s' <- eval s, t' <- eval t]
+  Slice _ s a b -> [ BS.pack . genericDrop a' . genericTake b' $ s'
+                             | s' <- BS.unpack <$> eval s
+                             , a' <- eval a
+                             , b' <- eval b]
   ByStr _ s     -> pure . fromString $ s
   ByLit _ s     -> pure s
 
@@ -626,3 +636,6 @@ uintmax a = 2 ^ a - 1
 
 _Var :: SingI a => AbiType -> Id -> Exp a Timed
 _Var at x = VarRef nowhere Pre SCalldata (Item sing (PrimitiveType at) (CVar nowhere at x))
+
+_Array :: SingI a => AbiType -> Id -> [(TypedExp Timed, Int)] -> Exp a Timed
+_Array at x ix = VarRef nowhere Pre SCalldata (Item sing (PrimitiveType at) (SArray nowhere (CVar nowhere at x) (PrimitiveType at) ix))

@@ -1,0 +1,18 @@
+constructor of B
+interface constructor()
+
+creates
+
+  uint x := 0
+  int[3] a := [1,2,3]
+
+
+behaviour f of B
+interface f()
+
+iff
+
+  a[x] > 0
+  x < 3
+
+returns 1

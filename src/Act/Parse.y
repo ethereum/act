@@ -233,8 +233,8 @@ Assign : StorageVar ':=' Expr                         { AssignVal $1 $3 }
 
 Defn : Expr ':=' Expr                                 { Mapping $1 $3 }
 
-ExprList : '[' neseplist(Expr, ',') ']'                 { LeafList $2 }
-         | '[' neseplist(ExprList, ',') ']'             { NodeList (posn $1) $2 }
+ExprList : '[' seplist(Expr, ',') ']'                 { LeafList $2 }
+         | '[' neseplist(ExprList, ',') ']'           { NodeList (posn $1) $2 }
 
 Decl : AbiType id                                     { Decl $1 (name $2) }
 

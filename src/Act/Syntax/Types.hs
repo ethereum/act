@@ -4,6 +4,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -19,6 +20,7 @@ module Act.Syntax.Types (module Act.Syntax.Types) where
 
 import Data.Singletons
 import Data.ByteString
+import Data.List.NonEmpty
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import EVM.ABI            as Act.Syntax.Types (AbiType(..))
 
@@ -28,7 +30,6 @@ import Act.Syntax.Untyped (ValueType(..))
 data ActType
   = AInteger
   | ABoolean
-  --  | AArray Nat ActType
   | AByteStr
 
 -- | Singleton runtime witness for Act types. Sometimes we need to examine type
@@ -36,7 +37,6 @@ data ActType
 data SType (a :: ActType) where
   SInteger  :: SType AInteger
   SBoolean  :: SType ABoolean
- -- SArray    :: SNat n -> SType b -> SType (AArray n b)
   SByteStr  :: SType AByteStr
 deriving instance Eq (SType a)
 
@@ -44,7 +44,6 @@ instance Show (SType a) where
   show = \case
     SInteger -> "int"
     SBoolean -> "bool"
---    SArray n v -> "array " <> show n <> show v
     SByteStr -> "bytestring"
 
 type instance Sing = SType
@@ -53,13 +52,6 @@ instance TestEquality SType where
   testEquality SInteger SInteger = Just Refl
   testEquality SBoolean SBoolean = Just Refl
   testEquality SByteStr SByteStr = Just Refl
-  -- testEquality (SArray n1 v1) (SArray n2 v2) = 
-  --   case testEquality n1 n2 of
-  --     Just Refl ->
-  --       case testEquality v1 v2 of
-  --         Just Refl -> Just Refl
-  --         Nothing -> Nothing
-  --     Nothing -> Nothing
   testEquality _ _ = Nothing
 
 
@@ -76,16 +68,21 @@ eqS' fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b)
 instance SingI 'AInteger where sing = SInteger
 instance SingI 'ABoolean where sing = SBoolean
 instance SingI 'AByteStr where sing = SByteStr
---instance SingI ('AArray n v) where sing = SArray (natSing :: SNat 0) (sing :: Sing v)
 
 -- | Reflection of an Act type into a haskell type. Used to define the result
 -- type of the evaluation function.
 type family TypeOf a where
   TypeOf 'AInteger = Integer
   TypeOf 'ABoolean = Bool
---  TypeOf (AArray n v) = Array Int (TypeOf v)
   TypeOf 'AByteStr = ByteString
 
+-- Given a possibly nested Array ABI Type, returns the 
+-- final ABI type stored, as well as the size at each level
+parseArrayType :: AbiType -> Maybe (AbiType, NonEmpty Int)
+parseArrayType (AbiArrayType n t) = case parseArrayType t of
+  Just (bt, li) -> Just (bt, n <| li)
+  Nothing -> Just (t, pure n)
+parseArrayType _ = Nothing
 
 fromAbiType :: AbiType -> ActType
 fromAbiType (AbiUIntType _)     = AInteger
@@ -95,7 +92,6 @@ fromAbiType AbiBoolType         = ABoolean
 fromAbiType (AbiBytesType n)    = if n <= 32 then AInteger else AByteStr
 fromAbiType AbiBytesDynamicType = AByteStr
 fromAbiType AbiStringType       = AByteStr
---fromAbiType (AbiArrayType n v)  = AArray (fromIntegral n) $ fromAbiType v
 fromAbiType _ = error "Syntax.Types.actType: TODO"
 
 
@@ -103,16 +99,11 @@ someType :: ActType -> SomeType
 someType AInteger = SomeType SInteger
 someType ABoolean = SomeType SBoolean
 someType AByteStr = SomeType SByteStr
--- someType (AArray n v) = 
---   case someType v of
---     FromSome sv ->
---       withSomeSNat n $ \sn -> SomeType $ SArray sn sv
 
 actType :: SType s -> ActType
 actType SInteger = AInteger
 actType SBoolean = ABoolean
 actType SByteStr = AByteStr
---actType (SArray n v) = AArray (fromSNat n) (actType v)
 
 fromValueType :: ValueType -> ActType
 fromValueType (PrimitiveType t) = fromAbiType t

@@ -15,6 +15,8 @@ import Data.Text qualified as T
 import EVM.ABI (abiTypeSolidity)
 
 import Data.List
+import Data.List.NonEmpty (NonEmpty(..))
+import Data.Bifunctor
 
 import Act.Syntax.Typed hiding (annotate)
 
@@ -151,6 +153,13 @@ prettyExp e = case e of
 prettyTypedExp :: TypedExp t -> String
 prettyTypedExp (TExp _ e) = prettyExp e
 
+prettyNestedTypedExp :: NestedList p (TypedExp t) -> String
+prettyNestedTypedExp (LeafList []) = "[]"
+prettyNestedTypedExp (LeafList (h:t)) =
+  "[" <> (foldl (\s te -> s <> ", " <> (prettyTypedExp te)) (prettyTypedExp h) t) <> "]"
+prettyNestedTypedExp (NodeList _ (h :| t)) =
+  "[" <> prettyNestedTypedExp h <> (foldr (\te s -> (prettyNestedTypedExp te) <> ", " <> s)  "" t) <> "]"
+
 prettyItem :: TItem k a t -> String
 prettyItem (Item _ _ r) = prettyRef r
 
@@ -158,7 +167,7 @@ prettyRef :: Ref k t -> String
 prettyRef = \case
   CVar _ _ n -> n
   SVar _ _ n -> n
-  SArray _ r _ args -> prettyRef r <> concatMap (brackets . prettyTypedExp) args
+  SArray _ r _ args -> prettyRef r <> concatMap (brackets . prettyTypedExp . fst) args
   SMapping _ r _ args -> prettyRef r <> concatMap (brackets . prettyTypedExp) args
   SField _ r _ n -> prettyRef r <> "." <> n
   where
@@ -202,6 +211,7 @@ prettyInvPred = prettyExp . untime . (\(PredTimed e _) -> e)
     untimeRef:: Ref k t -> Ref k Untimed
     untimeRef (SVar p c a) = SVar p c a
     untimeRef (CVar p c a) = CVar p c a
+    untimeRef (SArray p e ts xs) = SArray p (untimeRef e) ts (fmap (first untimeTyped) xs)
     untimeRef (SMapping p e ts xs) = SMapping p (untimeRef e) ts (fmap untimeTyped xs)
     untimeRef (SField p e c x) = SField p (untimeRef e) c x
 

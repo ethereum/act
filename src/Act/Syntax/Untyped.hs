@@ -7,9 +7,7 @@ module Act.Syntax.Untyped (module Act.Syntax.Untyped) where
 
 import Data.Aeson
 import Data.List (intercalate)
-import Data.List.NonEmpty (NonEmpty(..), nonEmpty)
-import Data.Foldable1
-import Data.Validation
+import Data.List.NonEmpty (NonEmpty(..), nonEmpty, toList)
 import Data.Text as T (pack)
 
 import EVM.ABI
@@ -121,6 +119,19 @@ data Expr
   | EInRange Pn AbiType Expr
   deriving (Eq, Show)
 
+-- Experiments for arrays of contracts
+--newtype PrimitiveAbiType = PrimitiveAbiType AbiType
+--  deriving Eq
+--abiUIntType n = PrimitiveAbiType $ AbiUIntType n
+--abiIntType n = PrimitiveAbiType $ AbiIntType n
+--abiAddressType = PrimitiveAbiType AbiAddressType
+--abiBoolType = PrimitiveAbiType AbiBoolType
+--abiBytesType n = PrimitiveAbiType $ AbiBytesType n
+--abiFunctionType = PrimitiveAbiType AbiFunctionType
+--
+--instance Show PrimitiveAbiType where
+--  show (PrimitiveAbiType at) = show at 
+
 data ValueType
   = ContractType Id
   | PrimitiveType AbiType
@@ -167,9 +178,13 @@ instance Show Decl where
   show (Decl t a) = show t <> " " <> a
 
 data NestedList p a
-  = LeafList (NonEmpty a)
+  = LeafList [a]
   | NodeList p (NonEmpty (NestedList p a)) 
-  deriving (Show, Eq)
+  deriving (Eq)
+
+instance Show a => Show (NestedList p a) where
+  show (LeafList l) = show l
+  show (NodeList _ l) = show $ toList l
 
 instance Functor (NestedList p) where
   fmap f (LeafList l) = LeafList $ fmap f l
@@ -186,32 +201,9 @@ instance Traversable (NestedList p) where
   traverse f (LeafList l) = fmap LeafList $ traverse f l
   traverse f (NodeList p l) = fmap (NodeList p) $ traverse (traverse f) l
 
--- | returns list of length at each level, if its consistent for each level
-pfctHeight :: (Show p) => NestedList p a -> Validation (NonEmpty (Pn,String)) [Int]
-pfctHeight (LeafList l) = pure $ [ length l ]
-pfctHeight (NodeList pn l) = foldrMap1 pfctHeight g l `bindValidation` (pure . ((:) (length l)))
-  where
-    g :: (Show p) => NestedList p a -> Validation (NonEmpty (Pn,String)) [Int] -> Validation (NonEmpty (Pn,String)) [Int]
-    g x y = if pfctHeight x == y then y else Failure $ (AlexPn 0 0 0, "Sub-arrays have different sizes at " <> show pn) :| []
--- TODO: current implementation accumulates errors, meaning that for the last
--- level, for each difference -- or maybe not? seems foldrMap1 uses bind ??
-
-    -- printArraySize :: [Int] -> String
-    -- printArraySize [] = []
-    -- printArraySize (h : t) = concat (printArraySize t) $ "[" <> show h <> "]" 
-    -- TODO: try to print where size mismatch happens
-
--- TODO: consider incomporating below to above
--- toList, and:
-flattenedIdxs :: [a] -> [Int] -> [(a,[Int])]
-flattenedIdxs l typ = zip l (idxs)
-  where
-    typeAcc = drop 1 $ scanr (*) 1 typ
-    
-    idxs = map idx [0..(length l - 1)]
-    idx e = map (\(x1,x2) -> (e `div` x2) `mod` x1) $ (zip typ typeAcc)
 
 type ExprList = NestedList Pn Expr
+
 
 instance ToJSON SlotType where
   toJSON (StorageValue t) = object ["kind" .= String "ValueType"
@@ -226,7 +218,6 @@ instance ToJSON ValueType where
                                    , "name" .= show c ]
   toJSON (PrimitiveType abiType) = object [ "kind" .= String "AbiType"
                                           , "abiType" .= toJSON abiType ]
-
 
 instance ToJSON AbiType where
   toJSON (AbiUIntType n)          = object [ "type" .= String "UInt"

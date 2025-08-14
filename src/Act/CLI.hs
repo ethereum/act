@@ -144,10 +144,11 @@ parse' f = do
 type' :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 type' f solver' smttimeout' debug' = do
   contents <- readFile f
-  validation (prettyErrs contents) print (compile contents)
---  proceed contents (addBounds <$> compile contents) $ \claims -> do
---    checkCases claims solver' smttimeout' debug'
---    B.putStrLn $ encode claims
+  proceed contents (addBounds <$> compile contents) $ \claims -> do
+    checkCases claims solver' smttimeout' debug'
+    checkArrayBounds claims solver' smttimeout' debug'
+    checkRewriteAliasing claims solver' smttimeout' debug'
+    B.putStrLn $ encode claims
 
 parseSolver :: Maybe Text -> IO Solvers.Solver
 parseSolver s = case s of
@@ -163,6 +164,7 @@ prove file' solver' smttimeout' debug' = do
   contents <- readFile file'
   proceed contents (addBounds <$> compile contents) $ \claims -> do
     checkCases claims solver' smttimeout' debug'
+    checkArrayBounds claims solver' smttimeout' debug'
     let
       catModels results = [m | Sat m <- results]
       catErrors results = [e | e@SMT.Error {} <- results]
@@ -217,6 +219,7 @@ coq' f solver' smttimeout' debug' = do
   contents <- readFile f
   proceed contents (addBounds <$> compile contents) $ \claims -> do
     checkCases claims solver' smttimeout' debug'
+    checkArrayBounds claims solver' smttimeout' debug'
     TIO.putStr $ coq claims
 
 decompile' :: FilePath -> Text -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()

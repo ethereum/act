@@ -1,0 +1,15 @@
+constructor of B
+interface constructor()
+
+creates
+
+  int[3] a := [0,0,0]
+
+
+behaviour f of B
+interface f()
+
+
+storage
+
+  a[1] => a[a[2]]

@@ -156,6 +156,10 @@ mapRefM :: Monad m => (forall a . Exp a t -> m (Exp a t)) -> Ref k t -> m (Ref k
 mapRefM f = \case
   SVar p a b -> pure (SVar p a b)
   CVar p a b -> pure (CVar p a b)
+  SArray p a ts b -> do
+    a' <- mapRefM f a
+    b' <- mapM (mapTypedExpM f) (fst <$> b)
+    pure $ SMapping p a' ts b'
   SMapping p a ts b -> do
     a' <- mapRefM f a
     b' <- mapM (mapTypedExpM f) b

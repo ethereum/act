@@ -1,0 +1,31 @@
+constructor of A
+interface constructor()
+
+creates
+
+  uint[3] ar := [1,2,3]
+
+
+
+constructor of B
+interface constructor(address a1, address a2, address a3)
+
+pointers
+
+  a1 |-> A
+  a2 |-> A
+  a3 |-> A
+
+creates
+
+  A[3] x := [a1, a2, a3]
+
+
+behaviour f of B
+interface f()
+
+storage
+
+  x[0].ar[0] => 1
+  x[1].ar[0] => 2
+  x[0].ar[1] => 3

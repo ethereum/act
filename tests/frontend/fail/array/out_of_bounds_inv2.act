@@ -1,0 +1,11 @@
+constructor of B
+interface constructor()
+
+creates
+
+  uint x := 0
+  int[3] arr := [1,2,3]
+
+invariants
+
+  arr[x] == 0

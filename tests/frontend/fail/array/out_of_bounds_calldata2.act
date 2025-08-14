@@ -1,0 +1,27 @@
+constructor of B
+interface constructor(uint[3] c)
+
+iff
+
+  c[4] > 0
+
+creates
+
+  uint x := c[-1]
+  int[3] y := [0,0,0]
+
+
+behaviour f of B
+interface f(uint[3][2][2] c)
+
+storage
+
+  x => c[4][3][2]
+
+
+behaviour g of B
+interface g(uint[3][2][2] c)
+
+storage
+
+  y[c[0][0][0]] => 1

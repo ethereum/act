@@ -391,7 +391,7 @@ entry (Item _ _ r) = ref r
 ref :: Ref k -> T.Text
 ref (SVar _ _ name) = parens $ T.pack name <> " " <> stateVar
 ref (CVar _ _ name) = T.pack name
-ref (SArray _ r _ ixs) = parens $ ref r <> " " <> coqargs ixs
+ref (SArray _ r _ ixs) = parens $ ref r <> " " <> coqargs (fst <$> ixs)
 ref (SMapping _ r _ ixs) = parens $ ref r <> " " <> coqargs ixs
 ref (SField _ r cid name) = parens $ T.pack cid <> "." <> T.pack name <> " " <> ref r
 
