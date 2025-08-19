@@ -158,7 +158,7 @@ mapRefM f = \case
   CVar p a b -> pure (CVar p a b)
   SArray p a ts b -> do
     a' <- mapRefM f a
-    b' <- mapM (mapTypedExpM f) (fst <$> b)
+    b' <- mapM (mapTypedExpM f . fst) b
     pure $ SMapping p a' ts b'
   SMapping p a ts b -> do
     a' <- mapRefM f a

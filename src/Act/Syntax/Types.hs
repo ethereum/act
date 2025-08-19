@@ -4,7 +4,6 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -76,13 +75,13 @@ type family TypeOf a where
   TypeOf 'ABoolean = Bool
   TypeOf 'AByteStr = ByteString
 
--- Given a possibly nested Array ABI Type, returns the 
--- final ABI type stored, as well as the size at each level
-parseArrayType :: AbiType -> Maybe (AbiType, NonEmpty Int)
-parseArrayType (AbiArrayType n t) = case parseArrayType t of
+-- Given a possibly nested ABI Array Type, returns the
+-- elements' ABI type, as well as the size at each level
+parseAbiArrayType :: AbiType -> Maybe (AbiType, NonEmpty Int)
+parseAbiArrayType (AbiArrayType n t) = case parseAbiArrayType t of
   Just (bt, li) -> Just (bt, n <| li)
   Nothing -> Just (t, pure n)
-parseArrayType _ = Nothing
+parseAbiArrayType _ = Nothing
 
 fromAbiType :: AbiType -> ActType
 fromAbiType (AbiUIntType _)     = AInteger

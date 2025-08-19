@@ -219,7 +219,7 @@ SimplePrecondition : optblock('iff', Expr)            { $1 }
 Store : Entry '=>' Expr                               { Update $1 $3 }
 
 Entry : id                                            { EVar (posn $1) (name $1) }
-      | Entry '[' Expr ']' list(Index)                { EMapping (posn $2) $1 ($3:$5) }
+      | Entry '[' Expr ']' list(Index)                { EIndexed (posn $2) $1 ($3:$5) }
       | Entry '.' id                                  { EField (posn $2) $1 (name $3) }
 
 Index : '[' Expr ']'                                  { $2 }
@@ -233,7 +233,7 @@ Assign : StorageVar ':=' Expr                         { AssignVal $1 $3 }
 
 Defn : Expr ':=' Expr                                 { Mapping $1 $3 }
 
-ExprList : '[' seplist(Expr, ',') ']'                 { LeafList $2 }
+ExprList : '[' neseplist(Expr, ',') ']'               { LeafList $ NonEmpty.toList $2 }
          | '[' neseplist(ExprList, ',') ']'           { NodeList (posn $1) $2 }
 
 Decl : AbiType id                                     { Decl $1 (name $2) }

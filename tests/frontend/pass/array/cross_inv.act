@@ -3,8 +3,7 @@ interface constructor()
 
 creates
 
-  uint[3] ar := [1,2,3]
-
+  uint x := 100
 
 
 constructor of B
@@ -14,8 +13,14 @@ pointers
 
   a |-> A
 
+iff
+
+  a.x < 3
+
 creates
 
-  A x := a
+  uint[3] arr := [1,2,3]
 
-ensures post(x.ar[2]) * 0 == 0
+invariants
+
+  arr[a.x] >= 0

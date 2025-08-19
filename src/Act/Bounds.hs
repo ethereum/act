@@ -3,9 +3,8 @@
 
 module Act.Bounds (addBounds) where
 
-import Data.Maybe ( catMaybes )
+import Data.Maybe
 import Data.List (nub, partition)
---import Data.List.NonEmpty as NonEmpty (NonEmpty(..), fromList)
 
 import Act.Syntax
 import Act.Syntax.TypedExplicit
@@ -37,12 +36,12 @@ addBoundsConstructor ctor@(Constructor _ (Interface _ decls) _ pre post invs sta
     where
       pre' = pre
              <> mkCallDataBounds decls
-             <> mkCalldataLocationBounds (concatMap calldataFromExp pre
-                                       <> concatMap calldataFromExp post
-                                       <> concatMap calldataFromInvariant invs
-                                       <> concatMap calldataFromUpdate stateUpdates)
+             <> mkCalldataLocationBounds (concatMap clocsFromExp pre
+                                       <> concatMap clocsFromExp post
+                                       <> concatMap clocsFromInvariant invs
+                                       <> concatMap clocsFromUpdate stateUpdates)
              <> mkEthEnvBounds (ethEnvFromConstructor ctor)
-             <> mkStorageBoundsLoc (nub $ concatMap locsFromExp pre <> concatMap locsFromUpdateRHS stateUpdates)
+             <> mkStorageBoundsLoc (nub $ concatMap slocsFromExp pre <> concatMap slocsFromUpdateRHS stateUpdates)
       invs' = addBoundsInvariant ctor <$> invs
       post' = post <> mkStorageBounds stateUpdates Post
 
@@ -53,11 +52,11 @@ addBoundsBehaviour behv@(Behaviour _ _ (Interface _ decls) _ pre cases post stat
     where
       pre' = pre
              <> mkCallDataBounds decls
-             <> mkCalldataLocationBounds (concatMap calldataFromExp pre
-                                       <> concatMap calldataFromExp post
-                                       <> concatMap calldataFromUpdate stateUpdates)
+             <> mkCalldataLocationBounds (concatMap clocsFromExp pre
+                                       <> concatMap clocsFromExp post
+                                       <> concatMap clocsFromUpdate stateUpdates)
              <> mkStorageBounds stateUpdates Pre
-             <> mkStorageBoundsLoc (nub $ concatMap locsFromExp (pre <> cases) <> concatMap locsFromUpdateRHS stateUpdates)
+             <> mkStorageBoundsLoc (nub $ concatMap slocsFromExp (pre <> cases) <> concatMap slocsFromUpdateRHS stateUpdates)
              <> mkEthEnvBounds (ethEnvFromBehaviour behv)
       post' = post
               <> mkStorageBounds stateUpdates Post
@@ -69,15 +68,15 @@ addBoundsInvariant (Constructor _ (Interface ifaceName decls) _ _ _ _ _) inv@(In
     where
       preconds' = preconds
                   <> mkCallDataBounds decls
-                  <> mkCalldataLocationBounds (concatMap calldataFromExp preconds
-                                            <> concatMap calldataFromExp storagebounds
-                                            <> calldataFromExp predicate)
+                  <> mkCalldataLocationBounds (concatMap clocsFromExp preconds
+                                            <> concatMap clocsFromExp storagebounds
+                                            <> clocsFromExp predicate)
                   <> mkEthEnvBounds (ethEnvFromExp predicate)
-                  <> mkStorageBoundsLoc theirLocs
+                  <> mkStorageBoundsLoc otherLocs
       storagebounds' = storagebounds
                        <> mkStorageBoundsLoc localLocs
-      locs = locsFromExp predicate
-      (localLocs, theirLocs) = partition ((==) ifaceName . ctorFromLocation) locs
+      locs = slocsFromExp predicate
+      (localLocs, otherLocs) = partition ((==) ifaceName . ctorFromLocation) locs
 
 mkEthEnvBounds :: [EthEnv] -> [Exp ABoolean]
 mkEthEnvBounds vars = catMaybes $ mkBound <$> nub vars
@@ -119,22 +118,22 @@ mkStorageBoundsLoc :: [StorageLocation] -> [Exp ABoolean]
 mkStorageBoundsLoc refs = concatMap mkBound refs
   where
     mkBound :: StorageLocation -> [Exp ABoolean]
-    mkBound (Loc SInteger item) = [mkSItemBounds Pre item]
-    mkBound _ = []
-
-mkCalldataLocationBounds :: [CalldataLocation] -> [Exp ABoolean]
-mkCalldataLocationBounds refs = concatMap mkBound refs
-  where
-    mkBound :: CalldataLocation -> [Exp ABoolean]
-    mkBound (Call SInteger item) = [mkCItemBounds item]
+    mkBound (SLoc SInteger item) = [mkSItemBounds Pre item]
     mkBound _ = []
 
 mkCItemBounds :: TItem AInteger Calldata -> Exp ABoolean
 mkCItemBounds item@(Item _ (PrimitiveType vt) _) = bound vt (VarRef nowhere Pre SCalldata item)
 mkCItemBounds (Item _ (ContractType _) _) = LitBool nowhere True
 
+mkCalldataLocationBounds :: [CalldataLocation] -> [Exp ABoolean]
+mkCalldataLocationBounds refs = concatMap mkBound refs
+  where
+    mkBound :: CalldataLocation -> [Exp ABoolean]
+    mkBound (CLoc SInteger item) = [mkCItemBounds item]
+    mkBound _ = []
+
 mkCallDataBounds :: [Decl] -> [Exp ABoolean]
-mkCallDataBounds = concatMap $ \(Decl typ name) -> case typ of 
+mkCallDataBounds = concatMap $ \(Decl typ name) -> case typ of
   -- Array bounds are applied lazily when needed in mkCalldataLocationBounds
   (AbiArrayType _ _) -> []
   _ -> case fromAbiType typ of

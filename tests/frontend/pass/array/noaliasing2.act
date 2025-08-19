@@ -8,12 +8,18 @@ creates
   uint w := 0
   uint z := 0
   uint[3][3] arr1 := [[0,0,0],[0,0,0],[0,0,0]]
-  uint[3][3] arr2 := [[0,0,0],[0,0,0],[0,0,0]]
 
 behaviour f of A
 interface f(uint a, uint b)
 
 iff
+
+  x =/= y
+  x =/= a
+  x =/= b
+  y =/= a
+  y =/= b
+  a =/= b
 
   x < 3
   y < 3
@@ -22,8 +28,8 @@ iff
 
 storage
 
-  arr1[x][x] => 1
-  arr1[y][y] => 2
-  arr2[a][b] => 1
-  arr2[b][a] => 2
+  arr1[x][y] => 1
+  arr1[y][x] => 2
+  arr1[a][b] => 1
+  arr1[b][a] => 2
 

@@ -1,7 +1,6 @@
 -- Data types for the Act AST after parsing. It is also equipped with position information
 -- for printing informative error messages.
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE InstanceSigs #-}
 
 module Act.Syntax.Untyped (module Act.Syntax.Untyped) where
 
@@ -75,7 +74,7 @@ data Decl = Decl AbiType Id
 
 data Entry
   = EVar Pn Id
-  | EMapping Pn Entry [Expr]
+  | EIndexed Pn Entry [Expr]
   | EField Pn Entry Id
   deriving (Eq, Show)
 
@@ -118,19 +117,6 @@ data Expr
   | BoolLit Pn Bool
   | EInRange Pn AbiType Expr
   deriving (Eq, Show)
-
--- Experiments for arrays of contracts
---newtype PrimitiveAbiType = PrimitiveAbiType AbiType
---  deriving Eq
---abiUIntType n = PrimitiveAbiType $ AbiUIntType n
---abiIntType n = PrimitiveAbiType $ AbiIntType n
---abiAddressType = PrimitiveAbiType AbiAddressType
---abiBoolType = PrimitiveAbiType AbiBoolType
---abiBytesType n = PrimitiveAbiType $ AbiBytesType n
---abiFunctionType = PrimitiveAbiType AbiFunctionType
---
---instance Show PrimitiveAbiType where
---  show (PrimitiveAbiType at) = show at 
 
 data ValueType
   = ContractType Id
@@ -179,7 +165,7 @@ instance Show Decl where
 
 data NestedList p a
   = LeafList [a]
-  | NodeList p (NonEmpty (NestedList p a)) 
+  | NodeList p (NonEmpty (NestedList p a))
   deriving (Eq)
 
 instance Show a => Show (NestedList p a) where
@@ -192,14 +178,14 @@ instance Functor (NestedList p) where
 
 instance Foldable (NestedList p) where
   foldr f c (LeafList l) = foldr f c l
-  foldr f c (NodeList p (h:|t)) = 
+  foldr f c (NodeList p (h:|t)) =
     case nonEmpty t of
       Just net -> foldr f (foldr f c (NodeList p net)) h
       Nothing -> foldr f c h
 
 instance Traversable (NestedList p) where
-  traverse f (LeafList l) = fmap LeafList $ traverse f l
-  traverse f (NodeList p l) = fmap (NodeList p) $ traverse (traverse f) l
+  traverse f (LeafList l) = LeafList <$> traverse f l
+  traverse f (NodeList p l) = NodeList p <$> traverse (traverse f) l
 
 
 type ExprList = NestedList Pn Expr
@@ -218,6 +204,7 @@ instance ToJSON ValueType where
                                    , "name" .= show c ]
   toJSON (PrimitiveType abiType) = object [ "kind" .= String "AbiType"
                                           , "abiType" .= toJSON abiType ]
+
 
 instance ToJSON AbiType where
   toJSON (AbiUIntType n)          = object [ "type" .= String "UInt"

@@ -27,49 +27,49 @@ import qualified Act.Syntax.Untyped as Untyped
 invExp :: TypedExplicit.InvariantPred -> TypedExplicit.Exp ABoolean
 invExp (PredTimed pre post) = pre <> post
 
-locsFromBehaviour :: TypedExplicit.Behaviour -> [TypedExplicit.StorageLocation]
-locsFromBehaviour (Behaviour _ _ _ _ preconds cases postconds rewrites returns) = nub $
-  concatMap locsFromExp preconds
-  <> concatMap locsFromExp cases
-  <> concatMap locsFromExp postconds
-  <> concatMap locsFromUpdate rewrites
-  <> maybe [] locsFromTypedExp returns
+slocsFromBehaviour :: TypedExplicit.Behaviour -> [TypedExplicit.StorageLocation]
+slocsFromBehaviour (Behaviour _ _ _ _ preconds cases postconds rewrites returns) = nub $
+  concatMap slocsFromExp preconds
+  <> concatMap slocsFromExp cases
+  <> concatMap slocsFromExp postconds
+  <> concatMap slocsFromUpdate rewrites
+  <> maybe [] slocsFromTypedExp returns
 
-locsFromConstructor :: TypedExplicit.Constructor -> [TypedExplicit.StorageLocation]
-locsFromConstructor (TypedExplicit.Constructor _ _ _ pre post inv initialStorage) = nub $
-  concatMap locsFromExp pre
-  <> concatMap locsFromExp post
-  <> concatMap locsFromConstrInvariant inv
-  <> concatMap locsFromUpdate initialStorage
+slocsFromConstructor :: TypedExplicit.Constructor -> [TypedExplicit.StorageLocation]
+slocsFromConstructor (TypedExplicit.Constructor _ _ _ pre post inv initialStorage) = nub $
+  concatMap slocsFromExp pre
+  <> concatMap slocsFromExp post
+  <> concatMap slocsFromConstrInvariant inv
+  <> concatMap slocsFromUpdate initialStorage
 
-locsFromInvariant :: TypedExplicit.Invariant -> [TypedExplicit.StorageLocation]
-locsFromInvariant (Invariant _ pre bounds (PredTimed predpre predpost)) =
-  concatMap locsFromExp pre <>  concatMap locsFromExp bounds
-  <> locsFromExp predpre <> locsFromExp predpost
+slocsFromInvariant :: TypedExplicit.Invariant -> [TypedExplicit.StorageLocation]
+slocsFromInvariant (Invariant _ pre bounds (PredTimed predpre predpost)) =
+  concatMap slocsFromExp pre <>  concatMap slocsFromExp bounds
+  <> slocsFromExp predpre <> slocsFromExp predpost
 
-locsFromConstrInvariant :: TypedExplicit.Invariant -> [TypedExplicit.StorageLocation]
-locsFromConstrInvariant (Invariant _ pre _ (PredTimed _ predpost)) =
-  concatMap locsFromExp pre <> locsFromExp predpost
+slocsFromConstrInvariant :: TypedExplicit.Invariant -> [TypedExplicit.StorageLocation]
+slocsFromConstrInvariant (Invariant _ pre _ (PredTimed _ predpost)) =
+  concatMap slocsFromExp pre <> slocsFromExp predpost
 
-calldataFromBehaviour :: TypedExplicit.Behaviour -> [TypedExplicit.CalldataLocation]
-calldataFromBehaviour (Behaviour _ _ _ _ preconds cases postconds rewrites returns) = nub $
-  concatMap calldataFromExp preconds
-  <> concatMap calldataFromExp cases
-  <> concatMap calldataFromExp postconds
-  <> concatMap calldataFromUpdate rewrites
-  <> maybe [] calldataFromTypedExp returns
+clocsFromBehaviour :: TypedExplicit.Behaviour -> [TypedExplicit.CalldataLocation]
+clocsFromBehaviour (Behaviour _ _ _ _ preconds cases postconds rewrites returns) = nub $
+  concatMap clocsFromExp preconds
+  <> concatMap clocsFromExp cases
+  <> concatMap clocsFromExp postconds
+  <> concatMap clocsFromUpdate rewrites
+  <> maybe [] clocsFromTypedExp returns
 
-calldataFromConstructor :: TypedExplicit.Constructor -> [TypedExplicit.CalldataLocation]
-calldataFromConstructor (TypedExplicit.Constructor _ _ _ pre post inv initialStorage) = nub $
-  concatMap calldataFromExp pre
-  <> concatMap calldataFromExp post
-  <> concatMap calldataFromInvariant inv
-  <> concatMap calldataFromUpdate initialStorage
+clocsFromConstructor :: TypedExplicit.Constructor -> [TypedExplicit.CalldataLocation]
+clocsFromConstructor (TypedExplicit.Constructor _ _ _ pre post inv initialStorage) = nub $
+  concatMap clocsFromExp pre
+  <> concatMap clocsFromExp post
+  <> concatMap clocsFromInvariant inv
+  <> concatMap clocsFromUpdate initialStorage
 
-calldataFromInvariant :: TypedExplicit.Invariant -> [TypedExplicit.CalldataLocation]
-calldataFromInvariant (Invariant _ pre bounds (PredTimed predpre predpost)) =
-  concatMap calldataFromExp pre <>  concatMap calldataFromExp bounds
-  <> calldataFromExp predpre <> calldataFromExp predpost
+clocsFromInvariant :: TypedExplicit.Invariant -> [TypedExplicit.CalldataLocation]
+clocsFromInvariant (Invariant _ pre bounds (PredTimed predpre predpost)) =
+  concatMap clocsFromExp pre <>  concatMap clocsFromExp bounds
+  <> clocsFromExp predpre <> clocsFromExp predpost
 
 ------------------------------------
 -- * Extract from any typed AST * --
@@ -87,26 +87,26 @@ behvsFromContracts contracts = concatMap (\(Contract _ b) -> b) contracts
 constrFromContracts :: [Contract t] -> [Constructor t]
 constrFromContracts contracts = fmap (\(Contract c _) -> c) contracts
 
-locsFromUpdate :: StorageUpdate t -> [StorageLocation t]
-locsFromUpdate update = nub $ case update of
-  (Update _ item e) -> locsFromItem SStorage item <> locsFromExp e
+slocsFromUpdate :: StorageUpdate t -> [StorageLocation t]
+slocsFromUpdate update = nub $ case update of
+  (Update _ item e) -> slocsFromItem SStorage item <> slocsFromExp e
 
-locsFromUpdateRHS :: StorageUpdate t -> [StorageLocation t]
-locsFromUpdateRHS update = nub $ case update of
-  (Update _ _ e) -> locsFromExp e
+slocsFromUpdateRHS :: StorageUpdate t -> [StorageLocation t]
+slocsFromUpdateRHS update = nub $ case update of
+  (Update _ _ e) -> slocsFromExp e
 
 locFromUpdate :: StorageUpdate t -> StorageLocation t
-locFromUpdate (Update _ item _) = _Loc item
+locFromUpdate (Update _ item _) = _SLoc item
 
-locsFromItem :: SRefKind k -> TItem a k t -> [StorageLocation t]
-locsFromItem SCalldata item = concatMap locsFromTypedExp (ixsFromItem item)
-locsFromItem SStorage item = _Loc item : concatMap locsFromTypedExp (ixsFromItem item)
+slocsFromItem :: SRefKind k -> TItem a k t -> [StorageLocation t]
+slocsFromItem SCalldata item = concatMap slocsFromTypedExp (ixsFromItem item)
+slocsFromItem SStorage item = _SLoc item : concatMap slocsFromTypedExp (ixsFromItem item)
 
-locsFromTypedExp :: TypedExp t -> [StorageLocation t]
-locsFromTypedExp (TExp _ e) = locsFromExp e
+slocsFromTypedExp :: TypedExp t -> [StorageLocation t]
+slocsFromTypedExp (TExp _ e) = slocsFromExp e
 
-locsFromExp :: Exp a t -> [StorageLocation t]
-locsFromExp = nub . go
+slocsFromExp :: Exp a t -> [StorageLocation t]
+slocsFromExp = nub . go
   where
     go :: Exp a t -> [StorageLocation t]
     go e = case e of
@@ -139,27 +139,27 @@ locsFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Create _ _ es -> concatMap locsFromTypedExp es
+      Create _ _ es -> concatMap slocsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
-      VarRef _ _ k a -> locsFromItem k a
+      VarRef _ _ k a -> slocsFromItem k a
 
-calldataFromUpdate :: StorageUpdate t -> [CalldataLocation t]
-calldataFromUpdate update = nub $ case update of
-  (Update _ item e) -> calldataFromItem SStorage item <> calldataFromExp e
+clocsFromUpdate :: StorageUpdate t -> [CalldataLocation t]
+clocsFromUpdate update = nub $ case update of
+  (Update _ item e) -> clocsFromItem SStorage item <> clocsFromExp e
 
-calldataFromUpdateRHS :: StorageUpdate t -> [CalldataLocation t]
-calldataFromUpdateRHS update = nub $ case update of
-  (Update _ _ e) -> calldataFromExp e
+clocsFromUpdateRHS :: StorageUpdate t -> [CalldataLocation t]
+clocsFromUpdateRHS update = nub $ case update of
+  (Update _ _ e) -> clocsFromExp e
 
-calldataFromItem :: SRefKind k -> TItem a k t -> [CalldataLocation t]
-calldataFromItem SCalldata item = _Call item : concatMap calldataFromTypedExp (ixsFromItem item)
-calldataFromItem SStorage item = concatMap calldataFromTypedExp (ixsFromItem item)
+clocsFromItem :: SRefKind k -> TItem a k t -> [CalldataLocation t]
+clocsFromItem SCalldata item = _CLoc item : concatMap clocsFromTypedExp (ixsFromItem item)
+clocsFromItem SStorage item = concatMap clocsFromTypedExp (ixsFromItem item)
 
-calldataFromTypedExp :: TypedExp t -> [CalldataLocation t]
-calldataFromTypedExp (TExp _ e) = calldataFromExp e
+clocsFromTypedExp :: TypedExp t -> [CalldataLocation t]
+clocsFromTypedExp (TExp _ e) = clocsFromExp e
 
-calldataFromExp :: Exp a t -> [CalldataLocation t]
-calldataFromExp = nub . go
+clocsFromExp :: Exp a t -> [CalldataLocation t]
+clocsFromExp = nub . go
   where
     go :: Exp a t -> [CalldataLocation t]
     go e = case e of
@@ -192,9 +192,9 @@ calldataFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Create _ _ es -> concatMap calldataFromTypedExp es
+      Create _ _ es -> concatMap clocsFromTypedExp es
       ITE _ x y z -> go x <> go y <> go z
-      VarRef _ _ k a -> calldataFromItem k a
+      VarRef _ _ k a -> clocsFromItem k a
 
 createsFromExp :: Exp a t -> [Id]
 createsFromExp = nub . go
@@ -368,13 +368,13 @@ idFromUpdate :: StorageUpdate t -> Id
 idFromUpdate (TypedExplicit.Update _ item _) = idFromItem item
 
 idFromLocation :: StorageLocation t -> Id
-idFromLocation (Loc _ item) = idFromItem item
+idFromLocation (SLoc _ item) = idFromItem item
 
 idFromCalldataLocation :: CalldataLocation t -> Id
-idFromCalldataLocation (Call _ item) = idFromItem item
+idFromCalldataLocation (CLoc _ item) = idFromItem item
 
 ctorFromLocation :: StorageLocation t -> Id
-ctorFromLocation (Loc _ item) = ctorFromItem item
+ctorFromLocation (SLoc _ item) = ctorFromItem item
 
 ctorFromItem :: TItem a 'Storage t -> Id
 ctorFromItem (Item _ _ ref) = ctorFromRef ref
@@ -383,12 +383,13 @@ ctorFromRef :: Ref 'Storage t -> Id
 ctorFromRef (SVar _ c _) = c
 ctorFromRef (SArray _ e _ _) = ctorFromRef e
 ctorFromRef (SMapping _ e _ _) = ctorFromRef e
-ctorFromRef (SField _ e _ _) = ctorFromRef e
+ctorFromRef (SField _ _ c _) = c
 
+-- Used to compare all identifiers in a location access
 type MergedIds = String
 
 idsFromLocation :: StorageLocation t -> MergedIds
-idsFromLocation (Loc _ item) = idsFromItem item
+idsFromLocation (SLoc _ item) = idsFromItem item
 
 idsFromItem :: TItem a k t -> MergedIds
 idsFromItem (Item _ _ ref) = idsFromRef ref
@@ -404,7 +405,10 @@ ixsFromItem :: TItem k a t -> [TypedExp t]
 ixsFromItem (Item _ _ item) = ixsFromRef item
 
 ixsFromLocation :: StorageLocation t -> [TypedExp t]
-ixsFromLocation (Loc _ item) = ixsFromItem item
+ixsFromLocation (SLoc _ item) = ixsFromItem item
+
+ixsFromCalldata :: CalldataLocation t -> [TypedExp t]
+ixsFromCalldata (CLoc _ item) = ixsFromItem item
 
 ixsFromRef :: Ref k t -> [TypedExp t]
 ixsFromRef (SVar _ _ _) = []
@@ -420,10 +424,10 @@ itemType :: TItem k a t -> ActType
 itemType (Item t _ _) = actType t
 
 isArray :: StorageLocation t -> Bool
-isArray (Loc _ (Item _ _ ref)) = isArrayRef ref
+isArray (SLoc _ (Item _ _ ref)) = isArrayRef ref
 
 isCalldataArray :: CalldataLocation t -> Bool
-isCalldataArray (Call _ (Item _ _ ref)) = isArrayRef ref
+isCalldataArray (CLoc _ (Item _ _ ref)) = isArrayRef ref
 
 isArrayRef :: Ref k t -> Bool
 isArrayRef (SVar _ _ _) = False
@@ -433,13 +437,16 @@ isArrayRef (SMapping _ _ _ _) = False  -- may change in the future
 isArrayRef (SField _ ref _ _) = isArrayRef ref
 
 isMapping :: StorageLocation t -> Bool
-isMapping (Loc _ (Item _ _ ref)) = isMappingRef ref
+isMapping (SLoc _ (Item _ _ ref)) = isMappingRef ref
+
+isCalldataMapping :: CalldataLocation t -> Bool
+isCalldataMapping (CLoc _ (Item _ _ ref)) = isMappingRef ref
 
 isMappingRef :: Ref k t -> Bool
 isMappingRef (SVar _ _ _) = False
 isMappingRef (CVar _ _ _) = False
-isMappingRef (SArray _ _ _ _) = False
-isMappingRef (SMapping _ _ _ _) = True  -- may change in the future
+isMappingRef (SArray _ _ _ _) = False  -- may change in the future
+isMappingRef (SMapping _ _ _ _) = True
 isMappingRef (SField _ ref _ _) = isMappingRef ref
 
 posnFromExp :: Exp a t -> Pn
@@ -484,6 +491,13 @@ posnFromExp e = case e of
   ITE p _ _ _ -> p
   VarRef p _ _ _ -> p
 
+posnFromRef :: Ref a k -> Pn
+posnFromRef (CVar p _ _) = p
+posnFromRef (SVar p _ _) = p
+posnFromRef (SArray p _ _ _) = p
+posnFromRef (SMapping p _ _ _) = p
+posnFromRef (SField p _ _ _) = p
+
 --------------------------------------
 -- * Extraction from untyped ASTs * --
 --------------------------------------
@@ -493,7 +507,7 @@ nameFromStorage (Untyped.Update e _) = nameFromEntry e
 
 nameFromEntry :: Entry -> Id
 nameFromEntry (EVar _ x) = x
-nameFromEntry (EMapping _ e _) = nameFromEntry e
+nameFromEntry (EIndexed _ e _) = nameFromEntry e
 nameFromEntry (EField _ e _) = nameFromEntry e
 
 nameFromBehv :: TypedExplicit.Behaviour -> Id
@@ -501,7 +515,7 @@ nameFromBehv (Behaviour _ _ (Interface ifaceName _) _ _ _ _ _ _) = ifaceName
 
 getPosEntry :: Entry -> Pn
 getPosEntry (EVar pn _) = pn
-getPosEntry (EMapping pn _ _) = pn
+getPosEntry (EIndexed pn _ _) = pn
 getPosEntry (EField pn _ _) = pn
 
 getPosn :: Expr -> Pn
@@ -587,7 +601,7 @@ idFromRewrites e = case e of
 
     idFromEntry :: Entry -> Map Id [Pn]
     idFromEntry (EVar p x) = singleton x [p]
-    idFromEntry (EMapping _ en xs) = unionWith (<>) (idFromEntry en) (idFromRewrites' xs)
+    idFromEntry (EIndexed _ en xs) = unionWith (<>) (idFromEntry en) (idFromRewrites' xs)
     idFromEntry (EField _ en _) = idFromEntry en
 
 -- | True iff the case is a wildcard.

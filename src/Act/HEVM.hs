@@ -39,7 +39,6 @@ import qualified Data.Vector as V
 
 import Act.HEVM_utils
 import Act.Syntax.TypedExplicit as Act
-import Act.Syntax.Untyped (makeIface)
 import Act.Syntax
 import Act.Error
 import qualified Act.Syntax.Typed as TA
@@ -340,6 +339,7 @@ substRef subst (SMapping pn sref ts args) = case substRef subst sref of
   ERef k ref -> ERef k $ SMapping pn ref ts (substArgs subst args)
 substRef subst (SField pn sref x y) = case substRef subst sref of
   ERef k ref -> ERef k $ SField pn ref x y
+substRef _ (SArray _ _ _ _) = error "TODO"
 
 substArgs :: M.Map Id TypedExp -> [TypedExp] -> [TypedExp]
 substArgs subst exps = fmap (substTExp subst) exps
@@ -455,6 +455,7 @@ refOffset _ (SField _ _ cid name) = do
   layout <- getLayout
   let (slot, off, size) = getPosition layout cid name
   pure (EVM.Lit (fromIntegral slot), EVM.Lit $ fromIntegral off, size)
+refOffset _ (SArray _ _ _ _) = error "TODO"
 
 
 -- | Get the address of the contract whoose storage contrains the given
@@ -468,6 +469,7 @@ baseAddr cmap (SField _ ref _ _) = do
     EVM.WAddr symaddr -> pure symaddr
     e -> error $ "Internal error: did not find a symbolic address: " <> show e
 baseAddr cmap (SMapping _ ref _ _) = baseAddr cmap ref
+baseAddr _ (SArray _ _ _ _) = error "TODO"
 
 
 ethEnvToWord :: Monad m => EthEnv -> ActT m (EVM.Expr EVM.EWord)

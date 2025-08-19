@@ -1,13 +1,9 @@
 constructor of B
-interface constructor(uint[3] c)
-
-iff
-
-  c[4] > 0
+interface constructor()
 
 creates
 
-  uint x := c[-1]
+  uint x := 0
   int[3] y := [0,0,0]
 
 

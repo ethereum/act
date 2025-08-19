@@ -156,9 +156,9 @@ prettyTypedExp (TExp _ e) = prettyExp e
 prettyNestedTypedExp :: NestedList p (TypedExp t) -> String
 prettyNestedTypedExp (LeafList []) = "[]"
 prettyNestedTypedExp (LeafList (h:t)) =
-  "[" <> (foldl (\s te -> s <> ", " <> (prettyTypedExp te)) (prettyTypedExp h) t) <> "]"
+  "[" <> foldl (\s te -> s <> ", " <> prettyTypedExp te) (prettyTypedExp h) t <> "]"
 prettyNestedTypedExp (NodeList _ (h :| t)) =
-  "[" <> prettyNestedTypedExp h <> (foldr (\te s -> (prettyNestedTypedExp te) <> ", " <> s)  "" t) <> "]"
+  "[" <> foldl (\s te -> s <> ", " <> prettyNestedTypedExp te) (prettyNestedTypedExp h) t <> "]"
 
 prettyItem :: TItem k a t -> String
 prettyItem (Item _ _ r) = prettyRef r
@@ -174,7 +174,7 @@ prettyRef = \case
     brackets str = "[" <> str <> "]"
 
 prettyLocation :: StorageLocation t -> String
-prettyLocation (Loc _ item) = prettyItem item
+prettyLocation (SLoc _ item) = prettyItem item
 
 prettyUpdate :: StorageUpdate t -> String
 prettyUpdate (Update _ item e) = prettyItem item <> " => " <> prettyExp e

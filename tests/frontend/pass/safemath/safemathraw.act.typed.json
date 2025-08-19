@@ -272,6 +272,114 @@
                       "type": "int"
                     },
                     {
+                      "timing": "Pre",
+                      "var": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "x"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "timing": "Pre",
+                      "var": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "x"
+                        },
+                        "type": "int"
+                      }
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
+                      "timing": "Pre",
+                      "var": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "y"
+                        },
+                        "type": "int"
+                      }
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                },
+                {
+                  "args": [
+                    {
+                      "timing": "Pre",
+                      "var": {
+                        "item": {
+                          "abitype": {
+                            "size": "256",
+                            "type": "UInt"
+                          },
+                          "kind": "Var",
+                          "var": "y"
+                        },
+                        "type": "int"
+                      }
+                    },
+                    {
+                      "literal": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                      "type": "int"
+                    }
+                  ],
+                  "arity": 2,
+                  "symbol": "<="
+                }
+              ],
+              "arity": 2,
+              "symbol": "and"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "literal": "0",
+                      "type": "int"
+                    },
+                    {
                       "ethEnv": "Callvalue",
                       "type": "int"
                     }

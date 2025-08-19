@@ -5,7 +5,6 @@ creates
 
   uint y := 1
   uint yn := 2
-  mapping(uint=>uint) x := [0 := 1]
   uint[3] z := [11,22,33]
 
 behaviour f of A

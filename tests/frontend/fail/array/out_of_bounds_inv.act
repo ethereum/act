@@ -13,9 +13,6 @@ pointers
 
   a |-> A
 
-iff
-
-  a.x < 3
 
 creates
 

@@ -1,0 +1,99 @@
+{
+  "contracts": [
+    {
+      "behaviours": [
+        {
+          "case": [
+            {
+              "literal": "True",
+              "type": "bool"
+            }
+          ],
+          "contract": "A",
+          "interface": {
+            "args": [
+              {
+                "abitype": {
+                  "arrayType": {
+                    "type": "Address"
+                  },
+                  "size": "2",
+                  "type": "Array"
+                },
+                "id": "\"xs\"",
+                "kind": "Declaration"
+              }
+            ],
+            "id": "\"f\"",
+            "kind": "Interface"
+          },
+          "kind": "Behaviour",
+          "name": "f",
+          "pointers": [],
+          "postConditions": [],
+          "preConditions": [],
+          "returns": {
+            "expression": {
+              "timing": "Pre",
+              "var": {
+                "item": {
+                  "indexes": [
+                    [
+                      {
+                        "expression": {
+                          "literal": "1",
+                          "type": "int"
+                        },
+                        "kind": "TypedExpr",
+                        "type": "int"
+                      },
+                      2
+                    ]
+                  ],
+                  "kind": "Array",
+                  "reference": {
+                    "abitype": {
+                      "arrayType": {
+                        "type": "Address"
+                      },
+                      "size": "2",
+                      "type": "Array"
+                    },
+                    "kind": "Var",
+                    "var": "xs"
+                  }
+                },
+                "type": "int"
+              }
+            },
+            "kind": "TypedExpr",
+            "type": "int"
+          },
+          "stateUpdates": []
+        }
+      ],
+      "constructor": {
+        "contract": "A",
+        "initialStorage": [],
+        "interface": {
+          "args": [],
+          "id": "\"A\"",
+          "kind": "Interface"
+        },
+        "invariants": [],
+        "kind": "Constructor",
+        "pointers": [],
+        "postConditions": [],
+        "preConditions": []
+      },
+      "kind": "Contract"
+    }
+  ],
+  "kind": "Act",
+  "store": {
+    "kind": "Storages",
+    "storages": {
+      "A": {}
+    }
+  }
+}

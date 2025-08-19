@@ -14,6 +14,7 @@ module Act.SMT (
   SMTExp(..),
   SolverInstance(..),
   Model(..),
+  CallDataValue(..),
   Transition(..),
   SMT2,
   spawnSolver,
@@ -39,6 +40,7 @@ module Act.SMT (
   declareEthEnv,
   getStorageValue,
   getCalldataValue,
+  getCalldataLocValue,
   getEnvironmentValue,
   declareInitialStorage,
   declareStorageLocation,
@@ -72,7 +74,6 @@ import Act.Print
 import Act.Type (globalEnv)
 
 import EVM.Solvers (Solver(..))
-import Debug.Trace
 
 --- ** Data ** ---
 
@@ -145,6 +146,7 @@ data Model = Model
   { _mprestate :: [(StorageLocation, TypedExp)]
   , _mpoststate :: [(StorageLocation, TypedExp)]
   , _mcalldata :: (String, [(Decl, CallDataValue)])
+  , _mcalllocs :: [(CalldataLocation, TypedExp)]
   , _menvironment :: [(EthEnv, TypedExp)]
   -- invariants always have access to the constructor context
   , _minitargs :: [(Decl, CallDataValue)]
@@ -152,7 +154,7 @@ data Model = Model
   deriving (Show)
 
 instance PrettyAnsi Model where
-  prettyAnsi (Model prestate poststate (ifaceName, args) environment initargs) =
+  prettyAnsi (Model prestate poststate (ifaceName, args) _ environment initargs) =
     (underline . pretty $ "counterexample:") <$$> line
       <> (indent 2
         (    calldata'
@@ -204,14 +206,14 @@ mkPostconditionQueriesBehv behv@(Behaviour _ _ (Interface ifaceName decls) _ pre
     mkQuery <$> postconds
   where
     -- declare vars
-    activeLocs = locsFromBehaviour behv
-    storage = concatMap declareStorageLocation activeLocs
-    activeCallds = calldataFromBehaviour behv
+    activeSLocs = slocsFromBehaviour behv
+    storage = concatMap declareStorageLocation activeSLocs
+    activeCLocs = clocsFromBehaviour behv
     ifaceArgs = declareArg ifaceName <$> decls
-    activeArgs = declareCalldataLocation ifaceName <$> activeCallds
+    activeArgs = declareCalldataLocation ifaceName <$> activeCLocs
     args = nub ifaceArgs <> activeArgs
     envs = declareEthEnv <$> ethEnvFromBehaviour behv
-    constLocs = (nub activeLocs) \\ (locFromUpdate <$> stateUpdates)
+    constLocs = (nub activeSLocs) \\ (locFromUpdate <$> stateUpdates)
 
     -- constraints
     pres = mkAssert ifaceName <$> preconds <> caseconds
@@ -230,11 +232,11 @@ mkPostconditionQueriesConstr :: Constructor -> [Query]
 mkPostconditionQueriesConstr constructor@(Constructor _ (Interface ifaceName decls) _ preconds postconds _ initialStorage) = mkQuery <$> postconds
   where
     -- declare vars
-    activeLocs = locsFromConstructor constructor
-    localStorage = concatMap declareInitialStorage activeLocs
-    activeCallds = calldataFromConstructor constructor
+    activeSLocs = slocsFromConstructor constructor
+    localStorage = concatMap declareInitialStorage activeSLocs
+    activeCLocs = clocsFromConstructor constructor
     ifaceArgs = declareArg ifaceName <$> decls
-    activeArgs = declareCalldataLocation ifaceName <$> activeCallds
+    activeArgs = declareCalldataLocation ifaceName <$> activeCLocs
     args = nub ifaceArgs <> activeArgs
     envs = declareEthEnv <$> ethEnvFromConstructor constructor
 
@@ -280,11 +282,11 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
     mkInit (Invariant _ invConds _ (PredTimed _ invPost)) ctor@(Constructor _ (Interface ifaceName decls) _ preconds _ _ initialStorage) = (ctor, smt)
       where
         -- declare vars
-        activeLocs = locsFromConstructor ctor
-        localStorage = concatMap declareInitialStorage activeLocs
-        activeCallds = calldataFromConstructor ctor
+        activeSLocs = slocsFromConstructor ctor
+        localStorage = concatMap declareInitialStorage activeSLocs
+        activeCLocs = clocsFromConstructor ctor
         ifaceArgs = declareArg ifaceName <$> decls
-        activeArgs = declareCalldataLocation ifaceName <$> activeCallds
+        activeArgs = declareCalldataLocation ifaceName <$> activeCLocs
         args = nub ifaceArgs <> activeArgs
         envs = declareEthEnv <$> ethEnvFromConstructor ctor
 
@@ -313,12 +315,10 @@ mkInvariantQueries (Act _ contracts) = fmap mkQuery gathered
         behvEnv = declareEthEnv <$> ethEnvFromBehaviour behv
         initArgs = declareArg ctorIface <$> ctorDecls
         behvArgs = declareArg behvIface <$> behvDecls
-        activeCallds = calldataFromInvariant inv
-        -- is ctorIface correct for the active calldata locations?
-        -- there should not be any behvArgs inside the invariant
-        activeArgs = declareCalldataLocation ctorIface <$> activeCallds
+        activeCLocs = clocsFromInvariant inv
+        activeArgs = declareCalldataLocation ctorIface <$> activeCLocs
         args = nub initArgs <> behvArgs <> activeArgs
-        activeLocs = nub $ locsFromBehaviour behv <> locsFromInvariant inv
+        activeLocs = nub $ slocsFromBehaviour behv <> slocsFromInvariant inv
         -- storage locs that are mentioned but not explictly updated (i.e., constant)
         constLocs = ((nub activeLocs) \\ fmap locFromUpdate (_stateUpdates behv))
 
@@ -426,7 +426,6 @@ sendCommand (SolverInstance _ stdin stdout _ _) cmd =
   else do
     hPutStr stdin (cmd <> "\n")
     hFlush stdin
-    traceM cmd
     hGetLine stdout
 
 
@@ -439,17 +438,20 @@ sendCommand (SolverInstance _ stdin stdout _ _) cmd =
 getPostconditionModel :: Transition -> SolverInstance -> IO Model
 getPostconditionModel (Ctor ctor) solver = getCtorModel ctor solver
 getPostconditionModel (Behv behv) solver = do
-  let locs = locsFromBehaviour behv
+  let slocs = slocsFromBehaviour behv
+      clocs = clocsFromBehaviour behv
       env = ethEnvFromBehaviour behv
       Interface ifaceName decls = _interface behv
-  prestate <- mapM (getStorageValue solver ifaceName Pre) locs
-  poststate <- mapM (getStorageValue solver ifaceName Post) locs
+  prestate <- mapM (getStorageValue solver ifaceName Pre) slocs
+  poststate <- mapM (getStorageValue solver ifaceName Post) slocs
   calldata <- mapM (getCalldataValue solver ifaceName) decls
+  calllocs <- mapM (getCalldataLocValue solver ifaceName) clocs
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
     { _mprestate = prestate
     , _mpoststate = poststate
     , _mcalldata = (ifaceName, calldata)
+    , _mcalllocs = calllocs
     , _menvironment = environment
     , _minitargs = []
     }
@@ -460,20 +462,23 @@ getPostconditionModel (Behv behv) solver = do
 getInvariantModel :: InvariantPred -> Constructor -> Maybe Behaviour -> SolverInstance -> IO Model
 getInvariantModel _ ctor Nothing solver = getCtorModel ctor solver
 getInvariantModel predicate ctor (Just behv) solver = do
-  let locs = nub $ locsFromBehaviour behv <> locsFromExp (invExp predicate)
+  let slocs = nub $ slocsFromBehaviour behv <> slocsFromExp (invExp predicate)
+      clocs = clocsFromExp (invExp predicate)
       env = nub $ ethEnvFromBehaviour behv <> ethEnvFromExp (invExp predicate)
       Interface behvIface behvDecls = _interface behv
       Interface ctorIface ctorDecls = _cinterface ctor
   -- TODO: v ugly to ignore the ifaceName here, but it's safe...
-  prestate <- mapM (getStorageValue solver "" Pre) locs
-  poststate <- mapM (getStorageValue solver "" Post) locs
+  prestate <- mapM (getStorageValue solver "" Pre) slocs
+  poststate <- mapM (getStorageValue solver "" Post) slocs
   behvCalldata <- mapM (getCalldataValue solver behvIface) behvDecls
   ctorCalldata <- mapM (getCalldataValue solver ctorIface) ctorDecls
+  calllocs <- mapM (getCalldataLocValue solver ctorIface) clocs
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
     { _mprestate = prestate
     , _mpoststate = poststate
     , _mcalldata = (behvIface, behvCalldata)
+    , _mcalllocs = calllocs
     , _menvironment = environment
     , _minitargs = ctorCalldata
     }
@@ -481,23 +486,26 @@ getInvariantModel predicate ctor (Just behv) solver = do
 -- | Extracts an assignment for the variables in the given constructor
 getCtorModel :: Constructor -> SolverInstance -> IO Model
 getCtorModel ctor solver = do
-  let locs = locsFromConstructor ctor
+  let slocs = slocsFromConstructor ctor
+      clocs = clocsFromConstructor ctor
       env = ethEnvFromConstructor ctor
       Interface ifaceName decls = _cinterface ctor
-  poststate <- mapM (getStorageValue solver ifaceName Post) locs
+  poststate <- mapM (getStorageValue solver ifaceName Post) slocs
   calldata <- mapM (getCalldataValue solver ifaceName) decls
+  calllocs <- mapM (getCalldataLocValue solver ifaceName) clocs
   environment <- mapM (getEnvironmentValue solver) env
   pure $ Model
     { _mprestate = []
     , _mpoststate = poststate
     , _mcalldata = (ifaceName, calldata)
+    , _mcalllocs = calllocs
     , _menvironment = environment
     , _minitargs = []
     }
 
 -- | Gets a concrete value from the solver for the given storage location
 getStorageValue :: SolverInstance -> Id -> When -> StorageLocation -> IO (StorageLocation, TypedExp)
-getStorageValue solver ifaceName whn loc@(Loc typ _) = do
+getStorageValue solver ifaceName whn loc@(SLoc typ _) = do
   output <- getValue solver name
   -- TODO: handle errors here...
   pure (loc, parseModel typ output)
@@ -505,24 +513,37 @@ getStorageValue solver ifaceName whn loc@(Loc typ _) = do
     name = if isMapping loc || isArray loc
             then withInterface ifaceName
                  $ select
-                    (nameFromLoc whn loc)
+                    (nameFromSLoc whn loc)
                     (NonEmpty.fromList $ ixsFromLocation loc)
-            else nameFromLoc whn loc
+            else nameFromSLoc whn loc
+
+getCalldataLocValue :: SolverInstance -> Id -> CalldataLocation -> IO (CalldataLocation, TypedExp)
+getCalldataLocValue solver ifaceName call@(CLoc typ _) = do
+  output <- getValue solver name
+  -- TODO: handle errors here...
+  pure (call, parseModel typ output)
+  where
+    name = if isCalldataMapping call || isCalldataArray call
+            then withInterface ifaceName
+                 $ select
+                    (nameFromCLoc ifaceName call)
+                    (NonEmpty.fromList $ ixsFromCalldata call)
+            else nameFromCLoc ifaceName call
 
 -- | Gets a concrete value from the solver for the given calldata argument
 getCalldataValue :: SolverInstance -> Id -> Decl -> IO (Decl, CallDataValue)
 getCalldataValue solver ifaceName decl@(Decl vt _) =
-  case parseArrayType vt of
+  case parseAbiArrayType vt of
     Just (baseTyp, shape) -> do
-      tree <- traverse (getTypedExp baseTyp) (nestedListIdcs shape [])
-      pure (decl, CallArray tree)
+      array' <- traverse (getTypedExp baseTyp) (nestedListIdcs shape [])
+      pure (decl, CallArray array')
     Nothing ->
       case vt of
         (FromAbi tp) -> do
           val <- parseModel tp <$> getValue solver (nameFromDecl ifaceName decl)
           pure (decl, CallValue val)
   where
-    name idcs = selectIdx (nameFromDecl ifaceName decl) (NonEmpty.fromList idcs)
+    name idcs = selectIntIdx (nameFromDecl ifaceName decl) (NonEmpty.fromList idcs)
 
     -- Creates a nested list of the given shape
     -- (i.e. list sizes a each level, starting from the outer level),
@@ -571,10 +592,9 @@ parseSMTModel s
   where
     -- output should be in the form "((reference value))" for positive integers / booleans / strings
     -- or "((reference (value)))" for negative integers.
-    -- where reference is either an identifier or a nested sequence of selections
-    -- TODO: add all possible symbols to select
-    noPar = "\\`\\(\\([ \\(\\)a-zA-Z0-9_\\-\\+\\*\\=\\<\\>\\.]+ ([ \"a-zA-Z0-9_\\-]+)\\)\\)\\'" :: String
-    par = "\\`\\(\\([ \\(\\)a-zA-Z0-9_\\-\\+\\*\\=\\<\\>\\.]+ \\(([ \"a-zA-Z0-9_\\-]+)\\)\\)\\)\\'" :: String
+    -- where reference is either an identifier or a sequence of nested selections
+    noPar = "\\`\\(\\([ \\(\\)a-zA-Z0-9_\\+\\*\\=\\<\\>\\.\\-]+ ([ \"a-zA-Z0-9_\\-]+)\\)\\)\\'" :: String
+    par = "\\`\\(\\([ \\(\\)a-zA-Z0-9_\\+\\*\\=\\<\\>\\.\\-]+ \\(([ \"a-zA-Z0-9_\\-]+)\\)\\)\\)\\'" :: String
 
     capNoPar = getCaptures s noPar
     capPar = getCaptures s par
@@ -596,24 +616,25 @@ encodeUpdate behvName (Update _ item expr) =
   in "(assert (= " <> postentry <> " " <> expression <> "))"
 
 encodeConstant :: StorageLocation -> SMT2
-encodeConstant loc = "(assert (= " <> nameFromLoc Pre loc <> " " <> nameFromLoc Post loc <> "))"
+encodeConstant loc = "(assert (= " <> nameFromSLoc Pre loc <> " " <> nameFromSLoc Post loc <> "))"
 
 -- | declares a storage location with the given timing
+-- TODO: support nested references i.e. array field
 declareStorage :: [When] -> StorageLocation -> [SMT2]
-declareStorage times (Loc _ item@(Item _ _ ref)) = declareRef ref
+declareStorage times (SLoc _ item@(Item _ _ ref)) = declareRef ref
   where
     declareRef (SVar _ _ _) = (\t -> constant (nameFromSItem t item) (itemType item) ) <$> times
     declareRef (SArray _ _ _ ixs) = (\t -> array (nameFromSItem t item) (length ixs) (itemType item)) <$> times
-    declareRef (SMapping _ _ _ ixs) = (\t -> mapArray (nameFromSItem t item) ixs (itemType item)) <$> times
+    declareRef (SMapping _ _ _ ixs) = (\t -> mappingArray (nameFromSItem t item) ixs (itemType item)) <$> times
     declareRef (SField _ ref' _ _) = declareRef ref'
 
 -- | declares a calldata location
 declareCalldataLocation :: Id -> CalldataLocation -> SMT2
-declareCalldataLocation behvName (Call _ item@(Item _ _ ref)) = declareRef ref
+declareCalldataLocation behvName (CLoc _ item@(Item _ _ ref)) = declareRef ref
   where
     declareRef (CVar {}) = constant (nameFromCItem behvName item) (itemType item)
     declareRef (SArray _ _ _ ixs) = array (nameFromCItem behvName item) (length ixs) (itemType item)
-    declareRef (SMapping _ _ _ ixs) = mapArray (nameFromCItem behvName item) ixs (itemType item)
+    declareRef (SMapping _ _ _ ixs) = mappingArray (nameFromCItem behvName item) ixs (itemType item)
     declareRef (SField _ ref' _ _) = declareRef ref'
 
 
@@ -630,7 +651,7 @@ declareStorageLocation item = declareStorage [Pre, Post] item
 -- | produces an SMT2 expression declaring the given decl as a symbolic constant
 declareArg :: Id -> Decl -> SMT2
 declareArg behvName d@(Decl typ _) =
-  case parseArrayType typ of
+  case parseAbiArrayType typ of
     Just (baseTyp, shape) ->
        array (nameFromDecl behvName d) (length shape) (fromAbiType baseTyp)
     Nothing -> constant (nameFromDecl behvName d) (fromAbiType typ)
@@ -693,15 +714,15 @@ expToSMT2 expr = case expr of
   VarRef _ whn _ item -> entry whn item
   where
     unop :: String -> Exp a -> Ctx SMT2
-    unop op a = [ "(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
+    unop op a = ["(" <> op <> " " <> a' <> ")" | a' <- expToSMT2 a]
 
     binop :: String -> Exp a -> Exp b -> Ctx SMT2
-    binop op a b = [ "(" <> op <> " " <> a' <> " " <> b' <> ")"
-                       | a' <- expToSMT2 a, b' <- expToSMT2 b]
+    binop op a b = ["(" <> op <> " " <> a' <> " " <> b' <> ")"
+                      | a' <- expToSMT2 a, b' <- expToSMT2 b]
 
     triop :: String -> Exp a -> Exp b -> Exp c -> Ctx SMT2
-    triop op a b c = [ "(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")"
-                         | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
+    triop op a b c = ["(" <> op <> " " <> a' <> " " <> b' <> " " <> c' <> ")"
+                        | a' <- expToSMT2 a, b' <- expToSMT2 b, c' <- expToSMT2 c]
 
     entry :: When -> TItem k a -> Ctx SMT2
     entry whn item = case ixsFromItem item of
@@ -714,8 +735,8 @@ expToSMT2 expr = case expr of
 --   if the RHS is concrete to provide some limited support for exponentiation
 simplifyExponentiation :: Exp AInteger -> Exp AInteger -> Exp AInteger
 simplifyExponentiation a b = fromMaybe (error "Internal Error: no support for symbolic exponents in SMT lib")
-                           $ [ LitInt nowhere $ a' ^ b'                         | a' <- eval a, b' <- evalb]
-                         <|> [ foldr (Mul nowhere) (LitInt nowhere 1) (genericReplicate b' a) | b' <- evalb]
+                           $ [LitInt nowhere $ a' ^ b'                         | a' <- eval a, b' <- evalb]
+                         <|> [foldr (Mul nowhere) (LitInt nowhere 1) (genericReplicate b' a) | b' <- evalb]
   where
     evalb = eval b -- TODO is this actually necessary to prevent double evaluation?
 
@@ -735,22 +756,22 @@ array name argNum ret = "(declare-const " <> name <> valueDecl argNum <> ")"
     valueDecl n = "(Array " <> sType AInteger <> " " <> valueDecl (n-1) <> ")"
 
 -- | declare a (potentially nested) array representing a mapping in smt2
-mapArray :: Id -> [TypedExp] -> ActType -> SMT2
-mapArray name args ret = "(declare-const " <> name <> valueDecl args <> ")"
+mappingArray :: Id -> [TypedExp] -> ActType -> SMT2
+mappingArray name args ret = "(declare-const " <> name <> valueDecl args <> ")"
   where
     valueDecl [] = sType ret
     valueDecl (h : t) = "(Array " <> sType' h <> " " <> valueDecl t <> ")"
 
 -- | encode an array lookup with Integer indices in smt2
-selectIdx :: String -> NonEmpty Int -> SMT2
-selectIdx name (hd :| tl) = do
+selectIntIdx :: String -> NonEmpty Int -> SMT2
+selectIntIdx name (hd :| tl) = do
   foldl (\smt ix -> "(select " <> smt <> " " <> show ix <> ")" ) ("(select " <> name <> " " <> show hd <> ")") tl
 
 -- | encode an indexed lookup in smt2
 select :: String -> NonEmpty TypedExp -> Ctx SMT2
 select name (hd :| tl) = do
-  inner <- [ "(select " <> name <> " " <> hd' <> ")" | hd' <- typedExpToSMT2 hd]
-  foldM (\smt ix -> [ "(select " <> smt <> " " <> ix' <> ")" | ix' <- typedExpToSMT2 ix]) inner tl
+  inner <- ["(select " <> name <> " " <> hd' <> ")" | hd' <- typedExpToSMT2 hd]
+  foldM (\smt ix -> ["(select " <> smt <> " " <> ix' <> ")" | ix' <- typedExpToSMT2 ix]) inner tl
 
 -- | act -> smt2 type translation
 sType :: ActType -> SMT2
@@ -797,8 +818,11 @@ nameFromRef whn (SField _ ref c x) = do
 
 
 -- Construct the smt2 variable name for a given storage location
-nameFromLoc :: When -> StorageLocation -> Id
-nameFromLoc whn (Loc _ item) = nameFromSItem whn item
+nameFromSLoc :: When -> StorageLocation -> Id
+nameFromSLoc whn (SLoc _ item) = nameFromSItem whn item
+
+nameFromCLoc :: Id -> CalldataLocation -> Id
+nameFromCLoc behvName (CLoc _ item) = nameFromCItem behvName item
 
 -- Construct the smt2 variable name for a given decl
 nameFromDecl :: Id -> Decl -> Id
@@ -806,7 +830,7 @@ nameFromDecl ifaceName (Decl _ name) = ifaceName @@ name
 
 -- Construct the smt2 variable name for a given act variable
 nameFromVarId :: Id -> Ctx Id
-nameFromVarId name = [ behvName @@ name | behvName <- ask]
+nameFromVarId name = [behvName @@ name | behvName <- ask]
 
 (@@) :: String -> String -> String
 x @@ y = x <> "_" <> y

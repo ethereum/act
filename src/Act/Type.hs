@@ -103,7 +103,7 @@ typecheck' (U.Main contracts) = Act store <$> traverse (checkContract store cons
 topologicalSort :: Act -> Err Act
 topologicalSort (Act store contracts) =
   -- OM.assoc will return the nodes in the reverse order they were
-  -- visited (post-order). Reversing this gives as a topological
+  -- visited (post-order). Reversing this gives us a topological
   -- ordering of the nodes.
   Act store . reverse . map snd . OM.assocs <$> foldValidation doDFS OM.empty (map fst calls)
   where
@@ -320,7 +320,7 @@ checkConstrPost = noPres
 
     noPresEntry :: U.Entry -> Err()
     noPresEntry (U.EVar _ _) = pure ()
-    noPresEntry (U.EMapping _ entry es) = noPresEntry entry *> traverse_ noPres es
+    noPresEntry (U.EIndexed _ entry es) = noPresEntry entry *> traverse_ noPres es
     noPresEntry (U.EField _ entry _) = noPresEntry entry
 
 -- | Checks that a pointer declaration x |-> A is valid. This consists of
@@ -366,18 +366,18 @@ checkCase env c@(U.Case _ pre post) = do
 
 
 -- | Returns list of list lengths at each nesting level, outer to inner,
--- if it is consistent for each level
+-- if the lengths are consistent for each level
 -- TODO: Currently only the innermost shape discrepancies will be displayed as errors
 checkExprList :: U.ExprList -> Err (NonEmpty Int)
 checkExprList (LeafList l) = pure $ NonEmpty.singleton $ length l
-checkExprList (NodeList pn l) = foldr1 g (NonEmpty.map checkExprList l) `bindValidation` (pure . (<|) (length l))
+checkExprList (NodeList pn l) = foldr1 go (NonEmpty.map checkExprList l) `bindValidation` (pure . (<|) (length l))
   where
-    g :: Err (NonEmpty Int) -> Err (NonEmpty Int) -> Err (NonEmpty Int)
-    g (Success s1) (Success s2) | s1 == s2 = pure s1
-    g (Success _) (Success _) = Failure $ pure (pn, "Sub-arrays have different shapes")
-    g (Success _) (Failure e) = Failure e
-    g (Failure e) (Success _) = Failure e
-    g (Failure e1) (Failure e2) = Failure (e1 <> e2)
+    go :: Err (NonEmpty Int) -> Err (NonEmpty Int) -> Err (NonEmpty Int)
+    go (Success s1) (Success s2) | s1 == s2 = pure s1
+    go (Success _) (Success _) = Failure $ pure (pn, "Sub-arrays have different shapes")
+    go (Success _) (Failure e) = Failure e
+    go (Failure e) (Success _) = Failure e
+    go (Failure e1) (Failure e2) = Failure (e1 <> e2)
 
 -- | Given the shape of a nested list (outer to inner lengths)
 -- returns an array of all indices
@@ -388,8 +388,8 @@ exprListIdcs typ = map idx [0..(len - 1)]
     (len :| typeAcc) = NonEmpty.scanr (*) 1 typ
     idx e = zipWith (\ x1 x2 -> (e `div` x2) `mod` x1) (toList typ) typeAcc
 
-parseArrayTypeErr :: Pn -> String -> AbiType -> Err (AbiType, NonEmpty Int)
-parseArrayTypeErr p err t = maybe (throw (p,err)) Success $ parseArrayType t
+parseAbiArrayTypeErr :: Pn -> String -> AbiType -> Err (AbiType, NonEmpty Int)
+parseAbiArrayTypeErr p err t = maybe (throw (p,err)) Success $ parseAbiArrayType t
 
 -- Check the initial assignment of a storage variable
 checkAssign :: Env -> U.Assign -> Err [StorageUpdate]
@@ -412,15 +412,15 @@ checkAssign env (U.AssignMapping (U.StorageVar pn (StorageMapping (keyType :| _)
 
 checkAssign env@Env{contract} (U.AssignArray (U.StorageVar pn (StorageValue (PrimitiveType abiType)) name) exprs)
   = checkExprList exprs `bindValidation` \rhDim ->
-      parseArrayTypeErr' abiType `bindValidation` \(abiBaseType,vtDim) ->
+      parseAbiArrayTypeErr' abiType `bindValidation` \(abiBaseType,vtDim) ->
       let flatExprs = zip (toList exprs) (exprListIdcs vtDim) in
       concat <$> traverse (traverseCheck (toList rhDim) $ PrimitiveType abiBaseType) flatExprs
       <* compDims vtDim rhDim
   where
     envNoStorage = env { store = mempty }
 
-    parseArrayTypeErr' :: AbiType -> Err (AbiType, NonEmpty Int)
-    parseArrayTypeErr' = parseArrayTypeErr pn "Cannot assign an array literal to non-array type"
+    parseAbiArrayTypeErr' :: AbiType -> Err (AbiType, NonEmpty Int)
+    parseAbiArrayTypeErr' = parseAbiArrayTypeErr pn "Cannot assign an array literal to non-array type"
 
     compDims :: NonEmpty Int -> NonEmpty Int -> Err ()
     compDims d1 d2 = if d1 == d2 then pure ()
@@ -438,7 +438,7 @@ checkAssign _ (U.AssignVal (U.StorageVar _ (StorageMapping _ _) _) expr)
   = throw (getPosn expr, "Cannot assign a single expression to a composite type")
 
 checkAssign _ (U.AssignMapping (U.StorageVar pn (StorageValue _) _) _)
-  = throw (pn, "Cannot assign initial mapping to a non-mapping slot")
+  = throw (pn, "Cannot assign initializing mapping to a non-mapping slot")
 
 checkAssign _ (U.AssignArray (U.StorageVar pn _  _) _)
   = throw (pn, "Cannot assign an array literal to a non-array type")
@@ -469,16 +469,17 @@ checkEntry Env{contract,store,calldata,pointers} kind (U.EVar p name) = case (ki
   (SStorage, Just typ@(StorageValue (ContractType c)), Nothing) -> pure (typ, Just c, SVar p contract name)
   (SStorage, Just typ, Nothing) -> pure (typ, Nothing, SVar p contract name)
   (SCalldata, Nothing, Just typ) -> pure (StorageValue (PrimitiveType typ), Map.lookup name pointers, CVar p typ name)
-  (SStorage, _, Just _) -> error "Internal error: Expected storage variable but found storage variable"
-  (SCalldata, Just _, _) -> error "Internal error: Expected calldata variable but found calldata variable"
+  (SStorage, _, Just _) -> error "Internal error: Expected storage variable but found calldata variable"
+  (SCalldata, Just _, _) -> error "Internal error: Expected calldata variable but found storage variable"
   (_, Nothing, Nothing) -> throw (p, "Unknown variable " <> show name)
-checkEntry env kind (U.EMapping p e args) =
+checkEntry env kind (U.EIndexed p e args) =
   checkEntry env kind e `bindValidation` \(slotTyp, _, ref) -> case slotTyp of
     StorageValue (PrimitiveType typ) ->
-      let parseArrayTypeErr' = parseArrayTypeErr p "Variable of value type cannot be indexed into" in
-        parseArrayTypeErr' typ `bindValidation` \(restyp,sizes) ->
+        parseAbiArrayTypeErr' typ `bindValidation` \(restyp,sizes) ->
         (StorageValue (PrimitiveType restyp), Nothing,) . SArray p ref (PrimitiveType restyp) <$>
           checkArrayIxs env p args (toList sizes)
+        where
+          parseAbiArrayTypeErr' = parseAbiArrayTypeErr p "Variable of value type cannot be indexed into"
     StorageValue (ContractType _) -> throw (p, "Expression should have a mapping type" <> show e)
     StorageMapping argtyps restyp ->
         (StorageValue restyp, Nothing,) . SMapping p ref restyp <$> checkIxs env p args (NonEmpty.toList argtyps)
@@ -648,7 +649,7 @@ inferExpr env@Env{calldata, constructors} e = case e of
     isCalldataEntry (U.EVar _ name) = case Map.lookup name calldata of
       Just _  -> True
       _ -> False
-    isCalldataEntry (U.EMapping _ entry _) = isCalldataEntry entry
+    isCalldataEntry (U.EIndexed _ entry _) = isCalldataEntry entry
     isCalldataEntry (U.EField _ entry _) = isCalldataEntry entry
 
 -- | Helper to create to create a conjunction out of a list of expressions

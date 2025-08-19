@@ -25,6 +25,8 @@ Proof.
       split; assumption.
     - assumption.
     - assumption.
+    - assumption.
+    - assumption.
     - eauto.
   } {
     intros. destruct H.

@@ -127,24 +127,24 @@ _Update :: SingI a => TItem a Storage t -> Exp a t -> StorageUpdate t
 _Update item expr = Update sing item expr
 
 data StorageLocation (t :: Timing) where
-  Loc :: SType a -> TItem a Storage t -> StorageLocation t
+  SLoc :: SType a -> TItem a Storage t -> StorageLocation t
 deriving instance Show (StorageLocation t)
 
 instance Eq (StorageLocation t) where
-  Loc SType i1 == Loc SType i2 = eqS' i1 i2
-
-_Loc :: TItem a Storage t -> StorageLocation t
-_Loc item@(Item s _ _) = Loc s item
+  SLoc SType i1 == SLoc SType i2 = eqS' i1 i2
+ 
+_SLoc :: TItem a Storage t -> StorageLocation t
+_SLoc item@(Item s _ _) = SLoc s item
 
 data CalldataLocation (t :: Timing) where
-  Call :: SType a -> TItem a Calldata t -> CalldataLocation t
+  CLoc :: SType a -> TItem a Calldata t -> CalldataLocation t
 deriving instance Show (CalldataLocation t)
 
 instance Eq (CalldataLocation t) where
-  Call SType i1 == Call SType i2 = eqS' i1 i2
+  CLoc SType i1 == CLoc SType i2 = eqS' i1 i2
 
-_Call :: TItem a Calldata t -> CalldataLocation t
-_Call item@(Item s _ _) = Call s item
+_CLoc :: TItem a Calldata t -> CalldataLocation t
+_CLoc item@(Item s _ _) = CLoc s item
 
 -- | Distinguish the type of Refs to calldata variables and storage
 data RefKind = Storage | Calldata
@@ -184,6 +184,7 @@ data Ref (k :: RefKind) (t :: Timing) where
   CVar :: Pn -> AbiType -> Id -> Ref Calldata t     -- Calldata variable
   SVar :: Pn -> Id -> Id -> Ref Storage t           -- Storage variable. First `Id` is the contract the var belongs to and the second the name.
   SArray :: Pn -> Ref k t -> ValueType -> [(TypedExp t, Int)] -> Ref k t
+                                                    -- Array access. `Int` in indices list stores the corresponding index upper bound
   SMapping :: Pn -> Ref k t -> ValueType -> [TypedExp t] -> Ref k t
   SField :: Pn -> Ref k t -> Id -> Id -> Ref k t    -- Field access (for accessing storage variables of contracts).
                                                     -- The first `Id` is the name of the contract that the field belongs to.
@@ -219,6 +220,7 @@ data TypedExp t
 deriving instance Show (TypedExp t)
 
 instance Eq (TypedExp t) where
+  (==) :: TypedExp t -> TypedExp t -> Bool
   TExp SType e1 == TExp SType e2 = eqS e1 e2
 
 _TExp :: SingI a => Exp a t -> TypedExp t
@@ -465,7 +467,7 @@ instance ToJSON (InvariantPred t) where
                                                , "prefpredicate" .= toJSON predpost ]
 
 instance ToJSON (StorageLocation t) where
-  toJSON (Loc _ a) = object [ "location" .= toJSON a ]
+  toJSON (SLoc _ a) = object [ "location" .= toJSON a ]
 
 instance ToJSON (StorageUpdate t) where
   toJSON (Update _ a b) = object [ "location" .= toJSON a ,"value" .= toJSON b ]
@@ -577,22 +579,22 @@ symbol s a b = object [ "symbol"   .= pack s
 -- Returns `Nothing` if the expression contains symbols.
 eval :: Exp a t -> Maybe (TypeOf a)
 eval e = case e of
-  And  _ a b    -> [ a' && b' | a' <- eval a, b' <- eval b]
-  Or   _ a b    -> [ a' || b' | a' <- eval a, b' <- eval b]
-  Impl _ a b    -> [ a' <= b' | a' <- eval a, b' <- eval b]
+  And  _ a b    -> [a' && b' | a' <- eval a, b' <- eval b]
+  Or   _ a b    -> [a' || b' | a' <- eval a, b' <- eval b]
+  Impl _ a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
   Neg  _ a      -> not <$> eval a
-  LT   _ a b    -> [ a' <  b' | a' <- eval a, b' <- eval b]
-  LEQ  _ a b    -> [ a' <= b' | a' <- eval a, b' <- eval b]
-  GT   _ a b    -> [ a' >  b' | a' <- eval a, b' <- eval b]
-  GEQ  _ a b    -> [ a' >= b' | a' <- eval a, b' <- eval b]
+  LT   _ a b    -> [a' <  b' | a' <- eval a, b' <- eval b]
+  LEQ  _ a b    -> [a' <= b' | a' <- eval a, b' <- eval b]
+  GT   _ a b    -> [a' >  b' | a' <- eval a, b' <- eval b]
+  GEQ  _ a b    -> [a' >= b' | a' <- eval a, b' <- eval b]
   LitBool _ a   -> pure a
 
-  Add _ a b     -> [ a' + b'     | a' <- eval a, b' <- eval b]
-  Sub _ a b     -> [ a' - b'     | a' <- eval a, b' <- eval b]
-  Mul _ a b     -> [ a' * b'     | a' <- eval a, b' <- eval b]
-  Div _ a b     -> [ a' `div` b' | a' <- eval a, b' <- eval b]
-  Mod _ a b     -> [ a' `mod` b' | a' <- eval a, b' <- eval b]
-  Exp _ a b     -> [ a' ^ b'     | a' <- eval a, b' <- eval b]
+  Add _ a b     -> [a' + b'     | a' <- eval a, b' <- eval b]
+  Sub _ a b     -> [a' - b'     | a' <- eval a, b' <- eval b]
+  Mul _ a b     -> [a' * b'     | a' <- eval a, b' <- eval b]
+  Div _ a b     -> [a' `div` b' | a' <- eval a, b' <- eval b]
+  Mod _ a b     -> [a' `mod` b' | a' <- eval a, b' <- eval b]
+  Exp _ a b     -> [a' ^ b'     | a' <- eval a, b' <- eval b]
   LitInt  _ a   -> pure a
   IntMin  _ a   -> pure $ intmin  a
   IntMax  _ a   -> pure $ intmax  a
@@ -600,8 +602,8 @@ eval e = case e of
   UIntMax _ a   -> pure $ uintmax a
   InRange _ _ _ -> error "TODO eval in range"
 
-  Cat _ s t     -> [ s' <> t' | s' <- eval s, t' <- eval t]
-  Slice _ s a b -> [ BS.pack . genericDrop a' . genericTake b' $ s'
+  Cat _ s t     -> [s' <> t' | s' <- eval s, t' <- eval t]
+  Slice _ s a b -> [BS.pack . genericDrop a' . genericTake b' $ s'
                              | s' <- BS.unpack <$> eval s
                              , a' <- eval a
                              , b' <- eval b]
