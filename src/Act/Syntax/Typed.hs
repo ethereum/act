@@ -604,9 +604,9 @@ eval e = case e of
 
   Cat _ s t     -> [s' <> t' | s' <- eval s, t' <- eval t]
   Slice _ s a b -> [BS.pack . genericDrop a' . genericTake b' $ s'
-                             | s' <- BS.unpack <$> eval s
-                             , a' <- eval a
-                             , b' <- eval b]
+                            | s' <- BS.unpack <$> eval s
+                            , a' <- eval a
+                            , b' <- eval b]
   ByStr _ s     -> pure . fromString $ s
   ByLit _ s     -> pure s
 
