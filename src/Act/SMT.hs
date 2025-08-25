@@ -550,8 +550,8 @@ getCalldataValue solver ifaceName decl@(Decl vt _) =
     -- with a list of the element idcs at each leaf element
     --                Shape        -> Idcs  -> ...
     nestedListIdcs :: NonEmpty Int -> [Int] -> NestedList () [Int]
-    nestedListIdcs (h:|[]) idcs = LeafList $ map ((++) idcs . singleton)  [0..(h-1)]
-    nestedListIdcs (h:|_) _ | h <= 0 = LeafList []
+    nestedListIdcs (h:|[]) idcs = LeafList () $ map ((++) idcs . singleton)  [0..(h-1)]
+    nestedListIdcs (h:|_) _ | h <= 0 = LeafList () []
     nestedListIdcs (h:|t) idcs = NodeList () $ NonEmpty.fromList $
       nestedListIdcs (NonEmpty.fromList t) <$> map ((++) idcs . singleton)  [0..(h-1)]
 

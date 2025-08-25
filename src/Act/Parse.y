@@ -228,13 +228,16 @@ Index : '[' Expr ']'                                  { $2 }
 Creation : optblock('creates',Assign)                 { Creates $1 }
 
 Assign : StorageVar ':=' Expr                         { AssignVal $1 $3 }
-       | StorageVar ':=' ExprList                     { AssignArray $1 $3 }
+       | StorageVar ':=' NEExprList                   { AssignArray $1 $3 }
        | StorageVar ':=' '[' seplist(Defn, ',') ']'   { AssignMapping $1 $4 }
 
 Defn : Expr ':=' Expr                                 { Mapping $1 $3 }
 
-ExprList : '[' neseplist(Expr, ',') ']'               { LeafList $ NonEmpty.toList $2 }
+ExprList : '[' seplist(Expr, ',') ']'                 { LeafList (posn $1) $2 }
          | '[' neseplist(ExprList, ',') ']'           { NodeList (posn $1) $2 }
+
+NEExprList : '[' neseplist(Expr, ',') ']'             { LeafList (posn $1) $ NonEmpty.toList $2 }
+           | '[' neseplist(ExprList, ',') ']'         { NodeList (posn $1) $2 }
 
 Decl : AbiType id                                     { Decl $1 (name $2) }
 
@@ -266,6 +269,8 @@ SlotType : 'mapping' '(' MappingArgs ')'              { (uncurry StorageMapping)
 MappingArgs : Type '=>' Type                          { ($1 NonEmpty.:| [], $3) }
             | Type '=>' 'mapping' '(' MappingArgs ')' { (NonEmpty.cons $1 (fst $5), snd $5)  }
 
+Argument : Expr                                       { ValueArg $1 }
+         | ExprList                                   { ArrayArg $1 }
 
 Expr : '(' Expr ')'                                   { $2 }
 
@@ -301,7 +306,7 @@ Expr : '(' Expr ')'                                   { $2 }
   | Entry                                             { EUTEntry $1 }
   | 'pre'  '(' Entry ')'                              { EPreEntry $3 }
   | 'post' '(' Entry ')'                              { EPostEntry $3 }
-  | 'create' id '(' seplist(Expr, ',') ')'            { ECreate (posn $2) (name $2) $4 }
+  | 'create' id '(' seplist(Argument, ',') ')'       { ECreate (posn $2) (name $2) $4 }
   | Expr '++' Expr                                    { ECat   (posn $2) $1 $3 }
 --  | id '[' Expr '..' Expr ']'                       { ESlice (posn $2) $1 $3 $5 }
   | 'CALLER'                                          { EnvExp (posn $1) Caller }

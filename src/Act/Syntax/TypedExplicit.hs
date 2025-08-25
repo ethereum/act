@@ -13,7 +13,7 @@ import qualified Act.Syntax.Typed as Typed
 import Act.Syntax.Typed (Timing(..),setPre,setPost)
 
 -- Reexports
-import Act.Syntax.Typed as Act.Syntax.TypedExplicit hiding (Timing(..),Timable(..),Time,Neither,Act,Contract,Invariant,InvariantPred,Constructor,Behaviour,StorageUpdate,StorageLocation,CalldataLocation,TItem,Exp,TypedExp,Ref)
+import Act.Syntax.Typed as Act.Syntax.TypedExplicit hiding (Timing(..),Timable(..),Time,Neither,Act,Contract,Invariant,InvariantPred,Constructor,Behaviour,StorageUpdate,StorageLocation,CalldataLocation,TItem,Exp,TypedExp,TypedArgument,Ref)
 import Act.Syntax.Typed as Act.Syntax.TypedExplicit (pattern Act, pattern Contract, pattern Invariant, pattern Constructor, pattern Behaviour, pattern Exp)
 
 
@@ -31,6 +31,7 @@ type Ref            k = Typed.Ref            k Timed
 type TItem        k a = Typed.TItem        k a Timed
 type Exp            a = Typed.Exp            a Timed
 type TypedExp         = Typed.TypedExp         Timed
+type TypedArgument    = Typed.TypedArgument    Timed
 
 ------------------------------------------
 -- * How to make all timings explicit * --

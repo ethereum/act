@@ -226,6 +226,12 @@ instance Eq (TypedExp t) where
 _TExp :: SingI a => Exp a t -> TypedExp t
 _TExp expr = TExp sing expr
 
+type TypedExprList t = NestedList Pn (TypedExp t)
+
+data TypedArgument t = TValueArg (TypedExp t) | TArrayArg (TypedExprList t)
+deriving instance Eq (TypedArgument t)
+deriving instance Show (TypedArgument t)
+
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
 -- All storage entries within an `Exp a t` contain a value of type `Time t`.
 -- If `t ~ Timed`, the only possible such values are `Pre, Post :: Time Timed`, so each storage entry
@@ -265,7 +271,7 @@ data Exp (a :: ActType) (t :: Timing) where
   ByLit :: Pn -> ByteString -> Exp AByteStr t
   ByEnv :: Pn -> EthEnv -> Exp AByteStr t
   -- contracts
-  Create   :: Pn -> Id -> [TypedExp t] -> Exp AInteger t
+  Create   :: Pn -> Id -> [TypedArgument t] -> Exp AInteger t
   -- polymorphic
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
@@ -330,6 +336,11 @@ instance Monoid (Exp ABoolean t) where
 instance Timable TypedExp where
   setTime :: When -> TypedExp Untimed -> TypedExp Timed
   setTime time (TExp t expr) = TExp t $ setTime time expr
+
+instance Timable TypedArgument where
+  setTime :: When -> TypedArgument Untimed -> TypedArgument Timed
+  setTime time (TValueArg (TExp t expr)) = TValueArg $ TExp t $ setTime time expr
+  setTime time (TArrayArg nl) = TArrayArg $ setTime time <$> nl
 
 instance Timable (Exp a) where
   setTime :: When -> Exp a Untimed -> Exp a Timed
@@ -511,6 +522,16 @@ instance ToJSON (TypedExp t) where
                                , "type"       .= pack (show typ)
                                , "expression" .= toJSON a ]
 
+instance ToJSON (TypedExprList t) where
+  toJSON (LeafList _ a) = toJSON a
+  toJSON (NodeList _ nl) = toJSON nl
+
+instance ToJSON (TypedArgument t) where
+  toJSON (TValueArg a) = object [ "kind"       .= pack "ValueArg"
+                                , "expression" .= toJSON a ]
+  toJSON (TArrayArg nl) = object [ "kind"       .= pack "ArrayArg"
+                                 , "expression" .= toJSON nl ]
+
 instance ToJSON (Exp a t) where
   toJSON (Add _ a b) = symbol "+" a b
   toJSON (Sub _ a b) = symbol "-" a b
@@ -563,7 +584,7 @@ instance ToJSON (Exp a t) where
   toJSON (VarRef _ t _ a) = object [ "var"  .= toJSON a
                                    , "timing" .= show t ]
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
-                                  , "arity"  .= Data.Aeson.Types.Number 2
+                                  , "arity"  .= Data.Aeson.Types.Number (fromIntegral $ length xs)
                                   , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
 
   toJSON v = error $ "todo: json ast for: " <> show v

@@ -6,6 +6,7 @@ creates
   uint x := [1]
   uint[2] y := 3
   bool[3] b := [1, 2, false]
+  uint[3] u := [true, false]
   bytes1[2][2] n1 := [[1,2,3],[4,5]]
   int32[3][2] n2 := [[1,2],[3,4]]
   mapping(uint => uint) m := [-1,-2]

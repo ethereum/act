@@ -265,7 +265,6 @@ checkConstructor env (U.Constructor _ contract (Interface _ decls) ptrs iffs (U.
     stateUpdates <- concat <$> traverse (checkAssign env') assigns
     iffs' <- checkIffs envNoStorage iffs
     traverse_ (validStorage env') assigns
-    traverse_ checkConstrPost postcs
     ensures <- traverse (checkExpr env' SBoolean) postcs
     invs' <- fmap (Invariant contract [] [] . PredUntimed) <$> traverse (checkExpr env' SBoolean) invs
     pure $ Constructor contract (Interface contract decls) ptrs iffs' ensures invs' stateUpdates
@@ -273,55 +272,6 @@ checkConstructor env (U.Constructor _ contract (Interface _ decls) ptrs iffs (U.
     env' = addPointers ptrs $ addCalldata decls env
     -- type checking environment prior to storage creation of this contract
     envNoStorage = env'{ store = mempty }
-
-
--- | Checks that a postcondition has no pre-entries
-checkConstrPost :: U.Expr -> Err ()
-checkConstrPost = noPres
-  where
-    noPres :: U.Expr -> Err ()
-    noPres e' = case e' of
-      U.ENot    _ v1    -> noPres v1
-      U.EAnd    _ v1 v2 -> noPres v1 *> noPres v2
-      U.EOr     _ v1 v2 -> noPres v1 *> noPres v2
-      U.EImpl   _ v1 v2 -> noPres v1 *> noPres v2
-      U.ELT     _ v1 v2 -> noPres v1 *> noPres v2
-      U.ELEQ    _ v1 v2 -> noPres v1 *> noPres v2
-      U.EGEQ    _ v1 v2 -> noPres v1 *> noPres v2
-      U.EGT     _ v1 v2 -> noPres v1 *> noPres v2
-      U.EEq     _ v1 v2 -> noPres v1 *> noPres v2
-      U.ENeq    _ v1 v2 -> noPres v1 *> noPres v2
-      U.BoolLit _ _    -> pure ()
-      U.EInRange _ _ v -> noPres v
-
-      -- Arithemetic expressions
-      U.EAdd   _ v1 v2 -> noPres v1 *> noPres v2
-      U.ESub   _ v1 v2 -> noPres v1 *> noPres v2
-      U.EMul   _ v1 v2 -> noPres v1 *> noPres v2
-      U.EDiv   _ v1 v2 -> noPres v1 *> noPres v2
-      U.EMod   _ v1 v2 -> noPres v1 *> noPres v2
-      U.EExp   _ v1 v2 -> noPres v1 *> noPres v2
-      U.IntLit _ _    -> Success ()
-
-        -- Constructor calls
-      U.ECreate _ _ args -> traverse_ noPres args
-
-      -- Control
-      U.EITE _ e1 e2 e3 -> noPres e1 *> noPres e2 *> noPres e3
-
-      -- Environment variables
-      U.EnvExp _ _ -> pure ()
-
-      -- Storage references
-      U.EUTEntry _   -> pure ()
-      U.EPreEntry _  -> throw (getPosn e', "No pre-entries allowed in constructor postconditions")
-      U.EPostEntry entry -> noPresEntry entry
-      _ -> pure ()
-
-    noPresEntry :: U.Entry -> Err()
-    noPresEntry (U.EVar _ _) = pure ()
-    noPresEntry (U.EIndexed _ entry es) = noPresEntry entry *> traverse_ noPres es
-    noPresEntry (U.EField _ entry _) = noPresEntry entry
 
 -- | Checks that a pointer declaration x |-> A is valid. This consists of
 -- checking that x is a calldata variable that has address type and A is a valid
@@ -365,19 +315,49 @@ checkCase env c@(U.Case _ pre post) = do
   pure (if',storage,return')
 
 
--- | Returns list of list lengths at each nesting level, outer to inner,
+-- | Returns an typed version of the expression list,
+-- if all elements type to the same SType, as well as
+-- a list of list lengths at each nesting level, outer to inner,
 -- if the lengths are consistent for each level
 -- TODO: Currently only the innermost shape discrepancies will be displayed as errors
-checkExprList :: U.ExprList -> Err (NonEmpty Int)
-checkExprList (LeafList l) = pure $ NonEmpty.singleton $ length l
-checkExprList (NodeList pn l) = foldr1 go (NonEmpty.map checkExprList l) `bindValidation` (pure . (<|) (length l))
+checkExprList :: Typeable t => Env -> U.ExprList -> Err (TypedExprList t, NonEmpty Int)
+checkExprList env exprs = liftA2 (,) (checkExprListTypes exprs) (checkExprListShape exprs)
   where
-    go :: Err (NonEmpty Int) -> Err (NonEmpty Int) -> Err (NonEmpty Int)
-    go (Success s1) (Success s2) | s1 == s2 = pure s1
-    go (Success _) (Success _) = Failure $ pure (pn, "Sub-arrays have different shapes")
-    go (Success _) (Failure e) = Failure e
-    go (Failure e) (Success _) = Failure e
-    go (Failure e1) (Failure e2) = Failure (e1 <> e2)
+    checkExprListShape :: U.ExprList -> Err (NonEmpty Int)
+    checkExprListShape (LeafList _ l) = pure $ NonEmpty.singleton $ length l
+    checkExprListShape (NodeList pn l) = foldr1 go (NonEmpty.map checkExprListShape l) `bindValidation` (pure . (<|) (length l))
+      where
+        go :: Err (NonEmpty Int) -> Err (NonEmpty Int) -> Err (NonEmpty Int)
+        go (Success s1) (Success s2) | s1 == s2 = pure s1
+        go (Success _) (Success _) = Failure $ pure (pn, "Sub-arrays have different shapes")
+        go (Success _) (Failure e) = Failure e
+        go (Failure e) (Success _) = Failure e
+        go (Failure e1) (Failure e2) = Failure (e1 <> e2)
+
+    checkExprListTypes :: Typeable t => U.ExprList -> Err (TypedExprList t)
+    checkExprListTypes exprs' =
+      case traverse (\e' -> (e',) <$> inferExpr env e') exprs' of
+        Success ptexprs -> case getFirstNlElement ptexprs of
+          -- Check that all ExprList elements have the same type as the first
+          Just (_,TExp styp _) ->
+            traverse_ check ptexprs *> (Success $ snd <$> ptexprs)
+               where
+                 check :: (U.Expr, TypedExp t) -> Err ()
+                 check (e, TExp styp' _) = maybe (arrayTypeMismatchErr (getPosn e) styp styp') (\Refl -> pure ()) $ testEquality styp styp'
+          -- Nested list is empty, so all elements are of the same type
+          Nothing -> Success $ snd <$> ptexprs
+        Failure es -> Failure es
+
+getFirstNlElement :: NestedList a b -> Maybe b
+getFirstNlElement (LeafList _ []) = Nothing
+getFirstNlElement (LeafList _ (h:_)) = Just h
+getFirstNlElement (NodeList _ (h:|_)) = getFirstNlElement h
+
+checkExprListBaseType :: AbiType -> TypedExprList t -> Err ()
+checkExprListBaseType (FromAbi t1) texprs = case getFirstNlElement texprs of
+  Just (TExp t2 _) -> maybe (typeMismatchErr (getPosNL texprs) t1 t2) (\Refl -> pure ()) $ testEquality t1 t2
+  Nothing -> Success ()
+
 
 -- | Given the shape of a nested list (outer to inner lengths)
 -- returns an array of all indices
@@ -411,31 +391,31 @@ checkAssign env (U.AssignMapping (U.StorageVar pn (StorageMapping (keyType :| _)
     envNoStorage = env { store = mempty }
 
 checkAssign env@Env{contract} (U.AssignArray (U.StorageVar pn (StorageValue (PrimitiveType abiType)) name) exprs)
-  = checkExprList exprs `bindValidation` \rhDim ->
-      parseAbiArrayTypeErr' abiType `bindValidation` \(abiBaseType,vtDim) ->
-      let flatExprs = zip (toList exprs) (exprListIdcs vtDim) in
-      concat <$> traverse (traverseCheck (toList rhDim) $ PrimitiveType abiBaseType) flatExprs
-      <* compDims vtDim rhDim
+  = liftA2 (,) (checkExprList envNoStorage exprs) (parseAbiArrayTypeErr' abiType) `bindValidation` \((texprs,rhDim),(abiBaseType,stDim)) ->
+    let flatTExprs = zip (toList texprs) (exprListIdcs stDim) in
+    concat <$> traverse (createUpdates (toList rhDim) $ PrimitiveType abiBaseType) flatTExprs
+    <* checkExprListBaseType abiBaseType texprs
+    <* compDims abiBaseType stDim rhDim
   where
     envNoStorage = env { store = mempty }
 
     parseAbiArrayTypeErr' :: AbiType -> Err (AbiType, NonEmpty Int)
     parseAbiArrayTypeErr' = parseAbiArrayTypeErr pn "Cannot assign an array literal to non-array type"
 
-    compDims :: NonEmpty Int -> NonEmpty Int -> Err ()
-    compDims d1 d2 = if d1 == d2 then pure ()
-                     else throw (pn, "Storage array and assigned array literal have different dimensions "
-                                    <> concatMap (show . singleton) (toList d1) <> " against "
-                                    <> concatMap (show . singleton) (toList d2))
+    compDims :: AbiType -> NonEmpty Int -> NonEmpty Int -> Err ()
+    compDims at d1 d2 = if d1 == d2 then pure ()
+                     else throw (pn, "Storage array and assigned array literal have different dimensions: "
+                                    <> show at <> concatMap (show . singleton) (reverse $ toList d1) <> " against "
+                                    <> show at <> concatMap (show . singleton) (reverse $ toList d2))
 
-    traverseCheck :: [Int] -> ValueType -> (U.Expr,[Int]) -> Err [StorageUpdate]
-    traverseCheck bounds vt@(FromVType typ) (expr,idxs) = sequenceA [ checkExpr envNoStorage typ expr `bindValidation` \te ->
-                        findContractType env te `bindValidation` \ctyp ->
-                        _Update (_Item vt (SArray nowhere (SVar pn contract name) vt $ zip (fmap (TExp SInteger . LitInt nowhere . toInteger) idxs) bounds)) te
-                        <$ validContractType pn vt ctyp ]
+    createUpdates :: [Int] -> ValueType -> (TypedExp Untimed,[Int]) -> Err [StorageUpdate]
+    createUpdates bounds vt (TExp styp te, idxs)
+      = sequenceA [ findContractType env te `bindValidation` \ctyp ->
+                    Update styp (Item styp vt (SArray nowhere (SVar pn contract name) vt $ zip (fmap (TExp SInteger . LitInt nowhere . toInteger) idxs) bounds)) te
+                    <$ validContractType pn vt ctyp ]
 
-checkAssign _ (U.AssignVal (U.StorageVar _ (StorageMapping _ _) _) expr)
-  = throw (getPosn expr, "Cannot assign a single expression to a composite type")
+checkAssign _ (U.AssignVal (U.StorageVar pn (StorageMapping _ _) _) _)
+  = throw (pn, "Cannot assign a single expression to a composite type")
 
 checkAssign _ (U.AssignMapping (U.StorageVar pn (StorageValue _) _) _)
   = throw (pn, "Cannot assign initializing mapping to a non-mapping slot")
@@ -473,7 +453,7 @@ checkEntry Env{contract,store,calldata,pointers} kind (U.EVar p name) = case (ki
   (SCalldata, Just _, _) -> error "Internal error: Expected calldata variable but found storage variable"
   (_, Nothing, Nothing) -> throw (p, "Unknown variable " <> show name)
 checkEntry env kind (U.EIndexed p e args) =
-  checkEntry env kind e `bindValidation` \(slotTyp, _, ref) -> case slotTyp of
+  checkEntry env kind e `bindValidation` \(typ, _, ref) -> case typ of
     StorageValue (PrimitiveType typ) ->
         parseAbiArrayTypeErr' typ `bindValidation` \(restyp,sizes) ->
         (StorageValue (PrimitiveType restyp), Nothing,) . SArray p ref (PrimitiveType restyp) <$>
@@ -549,6 +529,9 @@ checkExprVType env e (FromVType typ) = TExp typ <$> checkExpr env typ e
 typeMismatchErr :: forall a b res. Pn -> SType a -> SType b -> Err res
 typeMismatchErr p t1 t2 = (throw (p, "Type " <> show t1 <> " should match type " <> show t2))
 
+arrayTypeMismatchErr :: forall a b res. Pn -> SType a -> SType b -> Err res
+arrayTypeMismatchErr p t1 t2 = (throw (p, "Inconsistent array type: Type " <> show t1 <> " should match type " <> show t2))
+
 -- | Check if the given expression can be typed with the given type
 checkExpr :: forall t a. Typeable t => Env -> SType a -> U.Expr -> Err (Exp a t)
 checkExpr env t1 e =
@@ -588,11 +571,17 @@ inferExpr env@Env{calldata, constructors} e = case e of
     Just sig ->
       let (typs, ptrs) = unzip sig in
       -- check the types of arguments to constructor call
-      checkIxs env p args (fmap PrimitiveType typs) `bindValidation` (\args' ->
+      checkCreateArgs env p args typs `bindValidation` (\args' ->
       -- then check that all arguments that need to be valid pointers to a contract have a contract type
-      traverse_ (uncurry $ checkContractType env) (zip args' ptrs) $>
+      (traverse_ (uncurry $ checkContractType env) $ concatMap (uncurry flattenArgs) (zip args' ptrs)) $>
       TExp SInteger (Create p c args'))
     Nothing -> throw (p, "Unknown constructor " <> show c)
+    where
+      -- Assume that all elements in an array of addresses point to the same type of contract
+      flattenArgs :: TypedArgument t -> Maybe Id -> [(TypedExp t, Maybe Id)]
+      flattenArgs (TValueArg te) mid = [(te, mid)]
+      flattenArgs (TArrayArg nl) mid = map (,mid) (toList nl)
+
 
    -- Control
   U.EITE p e1 e2 e3 ->
@@ -678,6 +667,30 @@ checkContractType env (TExp _ e) (Just c) =
     Just c' -> assert (posnFromExp e, "Expression was expected to have contract type " <> c <> " but has contract type " <> c') (c == c')
     Nothing -> throw (posnFromExp e, "Expression was expected to have contract type " <> c)
 
+-- | Checks that there are as many expressions as expected by the types,
+-- and checks that each one of them agree with its type.
+checkCreateArgs :: forall t. Typeable t => Env -> Pn -> [U.Argument] -> [AbiType] -> Err [TypedArgument t]
+checkCreateArgs env pn args types = if length args /= length types
+                              then throw (pn, "Insufficient amount of arguments")
+                              else traverse (uncurry checkArg) (args `zip` types)
+  where
+    checkArg :: Typeable t => U.Argument -> AbiType -> Err (TypedArgument t)
+    checkArg (U.ValueArg e) at = case parseAbiArrayType at of
+      Nothing -> TValueArg <$> (checkExprVType env e $ PrimitiveType at)
+      _ -> throw (getPosn e, "Expected array argument")
+    checkArg (U.ArrayArg nl) at =
+      liftA2 (,) (checkExprList env nl :: Err (TypedExprList t,NonEmpty Int)) (parseAbiArrayTypeErr' at) `bindValidation` \((texprs,rhDim),(abiBaseType,vtDim)) ->
+      (pure $ TArrayArg texprs)
+      <* checkExprListBaseType abiBaseType texprs
+      <* compDims abiBaseType vtDim rhDim
+      where
+        parseAbiArrayTypeErr' = parseAbiArrayTypeErr (getPosNL nl) "Expected non-array argument"
+
+        compDims :: AbiType -> NonEmpty Int -> NonEmpty Int -> Err ()
+        compDims t d1 d2 = if d1 == d2 then pure ()
+                         else throw (pn, "Expected and given array dimensions differ: "
+                                        <> show t <> concatMap (show . singleton) (reverse $ toList d1) <> " against "
+                                        <> show t <> concatMap (show . singleton) (reverse $ toList d2))
 
 -- | Checks that there are as many expressions as expected by the types,
 -- and checks that each one of them agree with its type.

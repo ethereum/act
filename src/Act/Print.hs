@@ -141,7 +141,7 @@ prettyExp e = case e of
   ByEnv _ a -> prettyEnv a
 
   -- contracts
-  Create _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
+  Create _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedArgument ixs) <> ")"
 
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
@@ -150,12 +150,16 @@ prettyExp e = case e of
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
+prettyTypedArgument :: TypedArgument t -> String
+prettyTypedArgument (TValueArg te) = prettyTypedExp te
+prettyTypedArgument (TArrayArg nl) = prettyNestedTypedExp nl
+
 prettyTypedExp :: TypedExp t -> String
 prettyTypedExp (TExp _ e) = prettyExp e
 
 prettyNestedTypedExp :: NestedList p (TypedExp t) -> String
-prettyNestedTypedExp (LeafList []) = "[]"
-prettyNestedTypedExp (LeafList (h:t)) =
+prettyNestedTypedExp (LeafList _ []) = "[]"
+prettyNestedTypedExp (LeafList _ (h:t)) =
   "[" <> foldl (\s te -> s <> ", " <> prettyTypedExp te) (prettyTypedExp h) t <> "]"
 prettyNestedTypedExp (NodeList _ (h :| t)) =
   "[" <> foldl (\s te -> s <> ", " <> prettyNestedTypedExp te) (prettyNestedTypedExp h) t <> "]"
@@ -205,6 +209,10 @@ prettyEnv e = case e of
 prettyInvPred :: InvariantPred Timed -> String
 prettyInvPred = prettyExp . untime . (\(PredTimed e _) -> e)
   where
+    untimeArg :: TypedArgument t -> TypedArgument Untimed
+    untimeArg (TValueArg te) = TValueArg $ untimeTyped te
+    untimeArg (TArrayArg nl) = TArrayArg $ untimeTyped <$> nl
+
     untimeTyped :: TypedExp t -> TypedExp Untimed
     untimeTyped (TExp t e) = TExp t (untime e)
 
@@ -243,7 +251,7 @@ prettyInvPred = prettyExp . untime . (\(PredTimed e _) -> e)
       UIntMax p a -> UIntMax p a
       InRange p a b -> InRange p a (untime b)
       LitBool p a -> LitBool p a
-      Create p f xs -> Create p f (fmap untimeTyped xs)
+      Create p f xs -> Create p f (fmap untimeArg xs)
       IntEnv p a  -> IntEnv p a
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)

@@ -102,6 +102,10 @@ slocsFromItem :: SRefKind k -> TItem a k t -> [StorageLocation t]
 slocsFromItem SCalldata item = concatMap slocsFromTypedExp (ixsFromItem item)
 slocsFromItem SStorage item = _SLoc item : concatMap slocsFromTypedExp (ixsFromItem item)
 
+slocsFromArgument :: TypedArgument t -> [StorageLocation t]
+slocsFromArgument (TValueArg te) = slocsFromTypedExp te
+slocsFromArgument (TArrayArg nl) = concatMap slocsFromTypedExp nl
+
 slocsFromTypedExp :: TypedExp t -> [StorageLocation t]
 slocsFromTypedExp (TExp _ e) = slocsFromExp e
 
@@ -139,7 +143,7 @@ slocsFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Create _ _ es -> concatMap slocsFromTypedExp es
+      Create _ _ es -> concatMap slocsFromArgument es
       ITE _ x y z -> go x <> go y <> go z
       VarRef _ _ k a -> slocsFromItem k a
 
@@ -154,6 +158,10 @@ clocsFromUpdateRHS update = nub $ case update of
 clocsFromItem :: SRefKind k -> TItem a k t -> [CalldataLocation t]
 clocsFromItem SCalldata item = _CLoc item : concatMap clocsFromTypedExp (ixsFromItem item)
 clocsFromItem SStorage item = concatMap clocsFromTypedExp (ixsFromItem item)
+
+clocsFromArgument :: TypedArgument t -> [CalldataLocation t]
+clocsFromArgument (TValueArg te) = clocsFromTypedExp te
+clocsFromArgument (TArrayArg nl) = concatMap clocsFromTypedExp nl
 
 clocsFromTypedExp :: TypedExp t -> [CalldataLocation t]
 clocsFromTypedExp (TExp _ e) = clocsFromExp e
@@ -192,7 +200,7 @@ clocsFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Create _ _ es -> concatMap clocsFromTypedExp es
+      Create _ _ es -> concatMap clocsFromArgument es
       ITE _ x y z -> go x <> go y <> go z
       VarRef _ _ k a -> clocsFromItem k a
 
@@ -230,12 +238,16 @@ createsFromExp = nub . go
       LitBool {} -> []
       IntEnv {} -> []
       ByEnv {} -> []
-      Create _ f es -> [f] <> concatMap createsFromTypedExp es
+      Create _ f es -> [f] <> concatMap createsFromArgument es
       ITE _ x y z -> go x <> go y <> go z
       VarRef _ _ _ a -> createsFromItem a
 
 createsFromItem :: TItem k a t -> [Id]
 createsFromItem item = concatMap createsFromTypedExp (ixsFromItem item)
+
+createsFromArgument :: TypedArgument t -> [Id]
+createsFromArgument (TValueArg te) = createsFromTypedExp te
+createsFromArgument (TArrayArg nl) = concatMap createsFromTypedExp nl
 
 createsFromTypedExp :: TypedExp t -> [Id]
 createsFromTypedExp (TExp _ e) = createsFromExp e
@@ -313,6 +325,10 @@ ethEnvFromUpdate rewrite = case rewrite of
 ethEnvFromItem :: TItem k a t -> [EthEnv]
 ethEnvFromItem = nub . concatMap ethEnvFromTypedExp . ixsFromItem
 
+ethEnvFromArgument :: TypedArgument t -> [EthEnv]
+ethEnvFromArgument (TValueArg te) = ethEnvFromTypedExp te
+ethEnvFromArgument (TArrayArg nl) = concatMap ethEnvFromTypedExp nl
+
 ethEnvFromTypedExp :: TypedExp t -> [EthEnv]
 ethEnvFromTypedExp (TExp _ e) = ethEnvFromExp e
 
@@ -351,7 +367,7 @@ ethEnvFromExp = nub . go
       InRange _ _ a -> go a
       IntEnv _ a -> [a]
       ByEnv _ a -> [a]
-      Create _ _ ixs -> concatMap ethEnvFromTypedExp ixs
+      Create _ _ ixs -> concatMap ethEnvFromArgument ixs
       VarRef _ _ _ a -> ethEnvFromItem a
 
 idFromItem :: TItem a k t -> Id
@@ -518,6 +534,10 @@ getPosEntry (EVar pn _) = pn
 getPosEntry (EIndexed pn _ _) = pn
 getPosEntry (EField pn _ _) = pn
 
+getPosNL :: NestedList Pn a -> Pn
+getPosNL (LeafList pn _) = pn
+getPosNL (NodeList pn _) = pn
+
 getPosn :: Expr -> Pn
 getPosn expr = case expr of
     EAnd pn  _ _ -> pn
@@ -582,7 +602,7 @@ idFromRewrites e = case e of
   EUTEntry en       -> idFromEntry en
   EPreEntry en      -> idFromEntry en
   EPostEntry en     -> idFromEntry en
-  ECreate p x es    -> insertWith (<>) x [p] $ idFromRewrites' es
+  ECreate p x es    -> insertWith (<>) x [p] $ idFromArguments es
   ListConst a       -> idFromRewrites a
   ECat _ a b        -> idFromRewrites' [a,b]
   ESlice _ a b c    -> idFromRewrites' [a,b,c]
@@ -603,6 +623,13 @@ idFromRewrites e = case e of
     idFromEntry (EVar p x) = singleton x [p]
     idFromEntry (EIndexed _ en xs) = unionWith (<>) (idFromEntry en) (idFromRewrites' xs)
     idFromEntry (EField _ en _) = idFromEntry en
+
+    idFromArguments :: [Argument] -> Map Id [Pn]
+    idFromArguments args = unionsWith (<>) $ fmap idFromArgument args
+
+    idFromArgument :: Argument -> Map Id [Pn]
+    idFromArgument (Untyped.ValueArg a) = idFromRewrites a
+    idFromArgument (Untyped.ArrayArg nl) = unionsWith (<>) $ fmap idFromRewrites nl
 
 -- | True iff the case is a wildcard.
 isWild :: Case -> Bool

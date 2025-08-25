@@ -896,7 +896,7 @@
                 },
                 []
               ],
-              "arity": 2,
+              "arity": 0,
               "symbol": "create"
             }
           }

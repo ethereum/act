@@ -102,7 +102,7 @@ data Expr
   | EUTEntry Entry
   | EPreEntry Entry
   | EPostEntry Entry
-  | ECreate Pn Id [Expr]
+  | ECreate Pn Id [Argument]
   | ListConst Expr
   | ECat Pn Expr Expr
   | ESlice Pn Expr Expr Expr
@@ -116,6 +116,9 @@ data Expr
   | IntLit Pn Integer
   | BoolLit Pn Bool
   | EInRange Pn AbiType Expr
+  deriving (Eq, Show)
+
+data Argument = ValueArg Expr | ArrayArg ExprList
   deriving (Eq, Show)
 
 data ValueType
@@ -164,27 +167,27 @@ instance Show Decl where
   show (Decl t a) = show t <> " " <> a
 
 data NestedList p a
-  = LeafList [a]
+  = LeafList p [a]
   | NodeList p (NonEmpty (NestedList p a))
   deriving (Eq)
 
 instance Show a => Show (NestedList p a) where
-  show (LeafList l) = show l
+  show (LeafList _ l) = show l
   show (NodeList _ l) = show $ toList l
 
 instance Functor (NestedList p) where
-  fmap f (LeafList l) = LeafList $ fmap f l
+  fmap f (LeafList p l) = LeafList p $ fmap f l
   fmap f (NodeList p l) = NodeList p $ (fmap . fmap) f l
 
 instance Foldable (NestedList p) where
-  foldr f c (LeafList l) = foldr f c l
+  foldr f c (LeafList _ l) = foldr f c l
   foldr f c (NodeList p (h:|t)) =
     case nonEmpty t of
       Just net -> foldr f (foldr f c (NodeList p net)) h
       Nothing -> foldr f c h
 
 instance Traversable (NestedList p) where
-  traverse f (LeafList l) = LeafList <$> traverse f l
+  traverse f (LeafList p l) = LeafList p <$> traverse f l
   traverse f (NodeList p l) = NodeList p <$> traverse (traverse f) l
 
 
