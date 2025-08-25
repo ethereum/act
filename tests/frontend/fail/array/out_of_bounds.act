@@ -1,0 +1,27 @@
+constructor of B
+interface constructor()
+
+creates
+
+  int[3] a := [1,2,3]
+  uint[2][3][5] x := [ [ [ 0,0 ], [ 0,0 ], [ 0,0 ] ],
+                       [ [ 0,0 ], [ 0,0 ], [ 0,0 ] ],
+                       [ [ 0,0 ], [ 0,0 ], [ 0,0 ] ],
+                       [ [ 0,0 ], [ 0,0 ], [ 0,0 ] ],
+                       [ [ 0,0 ], [ 0,0 ], [ 0,0 ] ] ]
+
+behaviour f of B
+interface f()
+
+iff
+
+  a[15] > 4
+
+case x[5][4][3] < 0:
+
+  storage
+
+    a[-1] => x[10][0][2]
+    x[2][3][5] => 4
+
+returns post(x[pre(a[2])][0][0])

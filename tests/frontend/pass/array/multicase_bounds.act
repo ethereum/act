@@ -1,0 +1,34 @@
+constructor of A
+interface constructor()
+
+creates
+
+  uint y := 1
+  uint yn := 2
+  uint[3] z := [11,22,33]
+
+behaviour f of A
+interface f(int[2] xs)
+
+iff
+
+  1 <= xs[1] and xs[1] < 4
+
+case y < 3:
+
+returns post(z[pre(y)])
+
+
+case y <= 10 and 3 <= y and yn < y - 7:
+
+returns post(z[pre(yn)])
+
+
+case y > 10:
+
+returns post(z[xs[1] - 1])
+
+
+case y <= 10 and 3 <= y and yn >= y - 7:
+
+returns post(z[xs[1] / 2])

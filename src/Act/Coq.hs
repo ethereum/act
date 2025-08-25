@@ -201,6 +201,7 @@ baseRef :: Ref Storage -> StorageUpdate -> Bool
 baseRef baseref (Update _ (Item _ _ r) _) = hasBase r
   where
     hasBase (SVar _ _ _) = False
+    hasBase (SArray _ r' _ _) = r' == baseref || hasBase r'
     hasBase (SMapping _ r' _ _) = r' == baseref || hasBase r'
     hasBase (SField _ r' _ _) = r' == baseref || hasBase r'
 
@@ -380,6 +381,10 @@ coqprop (InRange _ t e) = coqprop (bound t e)
 coqprop e = error "ill formed proposition: " <> T.pack (show e)
 
 -- | coq syntax for a typed expression
+typedarg :: TypedArgument -> T.Text
+typedarg (TValueArg e) = typedexp e
+typedarg (TArrayArg _) = error "TODO"
+
 typedexp :: TypedExp -> T.Text
 typedexp (TExp _ e) = coqexp e
 
@@ -390,12 +395,17 @@ entry (Item _ _ r) = ref r
 ref :: Ref k -> T.Text
 ref (SVar _ _ name) = parens $ T.pack name <> " " <> stateVar
 ref (CVar _ _ name) = T.pack name
-ref (SMapping _ r _ ixs) = parens $ ref r <> " " <> coqargs ixs
+ref (SArray _ r _ ixs) = parens $ ref r <> " " <> coqidcs (fst <$> ixs)
+ref (SMapping _ r _ ixs) = parens $ ref r <> " " <> coqidcs ixs
 ref (SField _ r cid name) = parens $ T.pack cid <> "." <> T.pack name <> " " <> ref r
 
+-- | coq syntax for a list of indices
+coqidcs :: [TypedExp] -> T.Text
+coqidcs es = T.unwords (map typedexp es)
+
 -- | coq syntax for a list of arguments
-coqargs :: [TypedExp] -> T.Text
-coqargs es = T.unwords (map typedexp es)
+coqargs :: [TypedArgument] -> T.Text
+coqargs as = T.unwords (map typedarg as)
 
 fresh :: Id -> Fresh T.Text
 fresh name = state $ \s -> (T.pack (name <> show s), s + 1)

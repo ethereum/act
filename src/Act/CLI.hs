@@ -145,7 +145,9 @@ type' :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 type' f solver' smttimeout' debug' = do
   contents <- readFile f
   proceed contents (addBounds <$> compile contents) $ \claims -> do
+    checkArrayBounds claims solver' smttimeout' debug'
     checkCases claims solver' smttimeout' debug'
+    checkRewriteAliasing claims solver' smttimeout' debug'
     B.putStrLn $ encode claims
 
 parseSolver :: Maybe Text -> IO Solvers.Solver
@@ -161,7 +163,9 @@ prove file' solver' smttimeout' debug' = do
   let config = SMT.SMTConfig solver' (fromMaybe 20000 smttimeout') debug'
   contents <- readFile file'
   proceed contents (addBounds <$> compile contents) $ \claims -> do
+    checkArrayBounds claims solver' smttimeout' debug'
     checkCases claims solver' smttimeout' debug'
+    checkRewriteAliasing claims solver' smttimeout' debug'
     let
       catModels results = [m | Sat m <- results]
       catErrors results = [e | e@SMT.Error {} <- results]
@@ -215,7 +219,9 @@ coq' :: FilePath -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()
 coq' f solver' smttimeout' debug' = do
   contents <- readFile f
   proceed contents (addBounds <$> compile contents) $ \claims -> do
+    checkArrayBounds claims solver' smttimeout' debug'
     checkCases claims solver' smttimeout' debug'
+    checkRewriteAliasing claims solver' smttimeout' debug'
     TIO.putStr $ coq claims
 
 decompile' :: FilePath -> Text -> Solvers.Solver -> Maybe Integer -> Bool -> IO ()

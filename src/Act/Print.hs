@@ -15,6 +15,8 @@ import Data.Text qualified as T
 import EVM.ABI (abiTypeSolidity)
 
 import Data.List
+import Data.List.NonEmpty (NonEmpty(..))
+import Data.Bifunctor
 
 import Act.Syntax.Typed hiding (annotate)
 
@@ -139,7 +141,7 @@ prettyExp e = case e of
   ByEnv _ a -> prettyEnv a
 
   -- contracts
-  Create _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedExp ixs) <> ")"
+  Create _ f ixs -> f <> "(" <> (intercalate "," $ fmap prettyTypedArgument ixs) <> ")"
 
   --polymorphic
   ITE _ a b c -> "(if " <> prettyExp a <> " then " <> prettyExp b <> " else " <> prettyExp c <> ")"
@@ -148,8 +150,19 @@ prettyExp e = case e of
   where
     print2 sym a b = "(" <> prettyExp a <> " " <> sym <> " " <> prettyExp b <> ")"
 
+prettyTypedArgument :: TypedArgument t -> String
+prettyTypedArgument (TValueArg te) = prettyTypedExp te
+prettyTypedArgument (TArrayArg nl) = prettyNestedTypedExp nl
+
 prettyTypedExp :: TypedExp t -> String
 prettyTypedExp (TExp _ e) = prettyExp e
+
+prettyNestedTypedExp :: NestedList p (TypedExp t) -> String
+prettyNestedTypedExp (LeafList _ []) = "[]"
+prettyNestedTypedExp (LeafList _ (h:t)) =
+  "[" <> foldl (\s te -> s <> ", " <> prettyTypedExp te) (prettyTypedExp h) t <> "]"
+prettyNestedTypedExp (NodeList _ (h :| t)) =
+  "[" <> foldl (\s te -> s <> ", " <> prettyNestedTypedExp te) (prettyNestedTypedExp h) t <> "]"
 
 prettyItem :: TItem k a t -> String
 prettyItem (Item _ _ r) = prettyRef r
@@ -158,13 +171,14 @@ prettyRef :: Ref k t -> String
 prettyRef = \case
   CVar _ _ n -> n
   SVar _ _ n -> n
+  SArray _ r _ args -> prettyRef r <> concatMap (brackets . prettyTypedExp . fst) args
   SMapping _ r _ args -> prettyRef r <> concatMap (brackets . prettyTypedExp) args
   SField _ r _ n -> prettyRef r <> "." <> n
   where
     brackets str = "[" <> str <> "]"
 
 prettyLocation :: StorageLocation t -> String
-prettyLocation (Loc _ item) = prettyItem item
+prettyLocation (SLoc _ item) = prettyItem item
 
 prettyUpdate :: StorageUpdate t -> String
 prettyUpdate (Update _ item e) = prettyItem item <> " => " <> prettyExp e
@@ -195,12 +209,17 @@ prettyEnv e = case e of
 prettyInvPred :: InvariantPred Timed -> String
 prettyInvPred = prettyExp . untime . (\(PredTimed e _) -> e)
   where
+    untimeArg :: TypedArgument t -> TypedArgument Untimed
+    untimeArg (TValueArg te) = TValueArg $ untimeTyped te
+    untimeArg (TArrayArg nl) = TArrayArg $ untimeTyped <$> nl
+
     untimeTyped :: TypedExp t -> TypedExp Untimed
     untimeTyped (TExp t e) = TExp t (untime e)
 
     untimeRef:: Ref k t -> Ref k Untimed
     untimeRef (SVar p c a) = SVar p c a
     untimeRef (CVar p c a) = CVar p c a
+    untimeRef (SArray p e ts xs) = SArray p (untimeRef e) ts (fmap (first untimeTyped) xs)
     untimeRef (SMapping p e ts xs) = SMapping p (untimeRef e) ts (fmap untimeTyped xs)
     untimeRef (SField p e c x) = SField p (untimeRef e) c x
 
@@ -232,7 +251,7 @@ prettyInvPred = prettyExp . untime . (\(PredTimed e _) -> e)
       UIntMax p a -> UIntMax p a
       InRange p a b -> InRange p a (untime b)
       LitBool p a -> LitBool p a
-      Create p f xs -> Create p f (fmap untimeTyped xs)
+      Create p f xs -> Create p f (fmap untimeArg xs)
       IntEnv p a  -> IntEnv p a
       ByEnv p a   -> ByEnv p a
       ITE p x y z -> ITE p (untime x) (untime y) (untime z)

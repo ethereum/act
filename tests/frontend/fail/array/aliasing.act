@@ -1,0 +1,29 @@
+constructor of A
+interface constructor()
+
+creates
+
+  uint x := 0
+  uint y := 0
+  uint w := 0
+  uint z := 0
+  uint[3][3] arr1 := [[0,0,0],[0,0,0],[0,0,0]]
+  uint[3][3] arr2 := [[0,0,0],[0,0,0],[0,0,0]]
+
+behaviour f of A
+interface f()
+
+iff
+
+  x < 3
+  y < 3
+  w < 3
+  z < 3
+
+storage
+
+  arr1[x][x] => 1
+  arr1[y][y] => 2
+  arr2[w][w] => 1
+  arr2[z][z] => 2
+

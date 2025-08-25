@@ -19,6 +19,7 @@ module Act.Syntax.Types (module Act.Syntax.Types) where
 
 import Data.Singletons
 import Data.ByteString
+import Data.List.NonEmpty
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import EVM.ABI            as Act.Syntax.Types (AbiType(..))
 
@@ -74,6 +75,13 @@ type family TypeOf a where
   TypeOf 'ABoolean = Bool
   TypeOf 'AByteStr = ByteString
 
+-- Given a possibly nested ABI Array Type, returns the
+-- elements' ABI type, as well as the size at each level
+parseAbiArrayType :: AbiType -> Maybe (AbiType, NonEmpty Int)
+parseAbiArrayType (AbiArrayType n t) = case parseAbiArrayType t of
+  Just (bt, li) -> Just (bt, n <| li)
+  Nothing -> Just (t, pure n)
+parseAbiArrayType _ = Nothing
 
 fromAbiType :: AbiType -> ActType
 fromAbiType (AbiUIntType _)     = AInteger

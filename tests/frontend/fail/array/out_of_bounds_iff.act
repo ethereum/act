@@ -1,0 +1,16 @@
+constructor of B
+interface constructor()
+
+creates
+
+  int[3] a := [1,2,3]
+
+
+behaviour f of B
+interface f()
+
+iff
+
+  a[15] > 4
+
+returns 1

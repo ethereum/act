@@ -1,0 +1,14 @@
+constructor of B
+interface constructor()
+
+creates
+
+  int[2] a := [0,0]
+
+behaviour f of B
+interface f()
+
+
+case a[0] < 0:
+
+returns post(a[100])

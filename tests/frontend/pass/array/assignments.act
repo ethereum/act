@@ -1,0 +1,12 @@
+constructor of A
+interface constructor()
+
+creates
+
+  uint[3] x := [1, 2, 3]
+  int[3][2][3] y := [
+                      [ [0,0,0], [0,0,0] ],
+                      [ [0,0,0], [0,0,0] ],
+                      [ [0,0,0], [0,0,0] ]
+                    ]
+  bool[4] b := [true, false, true, false]

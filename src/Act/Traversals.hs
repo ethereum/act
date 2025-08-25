@@ -118,7 +118,7 @@ mapExpM f = \case
   --contracts
 
   Create p n as -> do
-    as' <- mapM (mapTypedExpM f) as
+    as' <- mapM (mapTypedArgM f) as
     f (Create p n as')
 
   --polymorphic
@@ -141,6 +141,13 @@ mapExpM f = \case
     i' <- mapTItemM f i
     f (VarRef p t k i')
 
+mapTypedArgM :: Monad m => (forall a . Exp a t -> m (Exp a t)) -> TypedArgument t -> m (TypedArgument t)
+mapTypedArgM f (TValueArg te) = do
+  te' <- mapTypedExpM f te
+  pure $ TValueArg te'
+mapTypedArgM f (TArrayArg nl) = do
+  nl' <- mapM (mapTypedExpM f) nl
+  pure $ TArrayArg nl'
 
 mapTypedExpM :: Monad m => (forall a . Exp a t -> m (Exp a t)) -> TypedExp t -> m (TypedExp t)
 mapTypedExpM f (TExp s e) = do
@@ -156,6 +163,10 @@ mapRefM :: Monad m => (forall a . Exp a t -> m (Exp a t)) -> Ref k t -> m (Ref k
 mapRefM f = \case
   SVar p a b -> pure (SVar p a b)
   CVar p a b -> pure (CVar p a b)
+  SArray p a ts b -> do
+    a' <- mapRefM f a
+    b' <- mapM (mapTypedExpM f . fst) b
+    pure $ SMapping p a' ts b'
   SMapping p a ts b -> do
     a' <- mapRefM f a
     b' <- mapM (mapTypedExpM f) b

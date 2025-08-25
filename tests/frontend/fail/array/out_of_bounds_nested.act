@@ -1,0 +1,19 @@
+constructor of B
+interface constructor()
+
+creates
+
+  uint[2][3][5] x := [ [ [ 0,0 ], [ 0,0 ], [ 0,0 ] ],
+                       [ [ 0,0 ], [ 0,0 ], [ 0,0 ] ],
+                       [ [ 0,0 ], [ 0,0 ], [ 0,0 ] ],
+                       [ [ 0,0 ], [ 0,0 ], [ 0,0 ] ],
+                       [ [ 0,0 ], [ 0,0 ], [ 0,0 ] ] ]
+
+behaviour f of B
+interface f()
+
+
+
+storage
+
+  x[1][2][4] => 4

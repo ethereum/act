@@ -43,6 +43,7 @@ import Data.Map.Strict (Map)
 import Data.String (fromString)
 import Data.Text (pack)
 import Data.Vector (fromList)
+import Data.Bifunctor
 import Data.Singletons
 import Data.Type.Equality (TestEquality(..), (:~:)(..))
 
@@ -51,7 +52,7 @@ import Data.Type.Equality (TestEquality(..), (:~:)(..))
 import Act.Parse          as Act.Syntax.Typed (nowhere)
 import Act.Syntax.Types   as Act.Syntax.Typed
 import Act.Syntax.Timing  as Act.Syntax.Typed
-import Act.Syntax.Untyped as Act.Syntax.Typed (Id, Pn, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..), Pointer(..))
+import Act.Syntax.Untyped as Act.Syntax.Typed (Id, Pn, ExprList, Interface(..), EthEnv(..), Decl(..), SlotType(..), ValueType(..), Pointer(..), NestedList(..), makeIface)
 
 -- AST post typechecking
 data Act t = Act Store [Contract t]
@@ -126,14 +127,24 @@ _Update :: SingI a => TItem a Storage t -> Exp a t -> StorageUpdate t
 _Update item expr = Update sing item expr
 
 data StorageLocation (t :: Timing) where
-  Loc :: SType a -> TItem a Storage t -> StorageLocation t
+  SLoc :: SType a -> TItem a Storage t -> StorageLocation t
 deriving instance Show (StorageLocation t)
 
 instance Eq (StorageLocation t) where
-  Loc SType i1 == Loc SType i2 = eqS' i1 i2
+  SLoc SType i1 == SLoc SType i2 = eqS' i1 i2
+ 
+_SLoc :: TItem a Storage t -> StorageLocation t
+_SLoc item@(Item s _ _) = SLoc s item
 
-_Loc :: TItem a Storage t -> StorageLocation t
-_Loc item@(Item s _ _) = Loc s item
+data CalldataLocation (t :: Timing) where
+  CLoc :: SType a -> TItem a Calldata t -> CalldataLocation t
+deriving instance Show (CalldataLocation t)
+
+instance Eq (CalldataLocation t) where
+  CLoc SType i1 == CLoc SType i2 = eqS' i1 i2
+
+_CLoc :: TItem a Calldata t -> CalldataLocation t
+_CLoc item@(Item s _ _) = CLoc s item
 
 -- | Distinguish the type of Refs to calldata variables and storage
 data RefKind = Storage | Calldata
@@ -172,6 +183,8 @@ eqKind fa fb = maybe False (\Refl -> fa == fb) $ testEquality (sing @a) (sing @b
 data Ref (k :: RefKind) (t :: Timing) where
   CVar :: Pn -> AbiType -> Id -> Ref Calldata t     -- Calldata variable
   SVar :: Pn -> Id -> Id -> Ref Storage t           -- Storage variable. First `Id` is the contract the var belongs to and the second the name.
+  SArray :: Pn -> Ref k t -> ValueType -> [(TypedExp t, Int)] -> Ref k t
+                                                    -- Array access. `Int` in indices list stores the corresponding index upper bound
   SMapping :: Pn -> Ref k t -> ValueType -> [TypedExp t] -> Ref k t
   SField :: Pn -> Ref k t -> Id -> Id -> Ref k t    -- Field access (for accessing storage variables of contracts).
                                                     -- The first `Id` is the name of the contract that the field belongs to.
@@ -180,6 +193,7 @@ deriving instance Show (Ref k t)
 instance Eq (Ref k t) where
   CVar _ at x         == CVar _ at' x'          = at == at' && x == x'
   SVar _ c x          == SVar _ c' x'           = c == c' && x == x'
+  SArray _ r ts ixs   == SArray _ r' ts' ixs'   = r == r' && ts == ts' && ixs == ixs'
   SMapping _ r ts ixs == SMapping _ r' ts' ixs' = r == r' && ts == ts' && ixs == ixs'
   SField _ r c x      == SField _ r' c' x'      = r == r' && c == c' && x == x'
   _                   == _                      = False
@@ -206,10 +220,17 @@ data TypedExp t
 deriving instance Show (TypedExp t)
 
 instance Eq (TypedExp t) where
+  (==) :: TypedExp t -> TypedExp t -> Bool
   TExp SType e1 == TExp SType e2 = eqS e1 e2
 
 _TExp :: SingI a => Exp a t -> TypedExp t
 _TExp expr = TExp sing expr
+
+type TypedExprList t = NestedList Pn (TypedExp t)
+
+data TypedArgument t = TValueArg (TypedExp t) | TArrayArg (TypedExprList t)
+deriving instance Eq (TypedArgument t)
+deriving instance Show (TypedArgument t)
 
 -- | Expressions parametrized by a timing `t` and a type `a`. `t` can be either `Timed` or `Untimed`.
 -- All storage entries within an `Exp a t` contain a value of type `Time t`.
@@ -250,7 +271,7 @@ data Exp (a :: ActType) (t :: Timing) where
   ByLit :: Pn -> ByteString -> Exp AByteStr t
   ByEnv :: Pn -> EthEnv -> Exp AByteStr t
   -- contracts
-  Create   :: Pn -> Id -> [TypedExp t] -> Exp AInteger t
+  Create   :: Pn -> Id -> [TypedArgument t] -> Exp AInteger t
   -- polymorphic
   Eq  :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
   NEq :: Pn -> SType a -> Exp a t -> Exp a t -> Exp ABoolean t
@@ -316,6 +337,11 @@ instance Timable TypedExp where
   setTime :: When -> TypedExp Untimed -> TypedExp Timed
   setTime time (TExp t expr) = TExp t $ setTime time expr
 
+instance Timable TypedArgument where
+  setTime :: When -> TypedArgument Untimed -> TypedArgument Timed
+  setTime time (TValueArg (TExp t expr)) = TValueArg $ TExp t $ setTime time expr
+  setTime time (TArrayArg nl) = TArrayArg $ setTime time <$> nl
+
 instance Timable (Exp a) where
   setTime :: When -> Exp a Untimed -> Exp a Timed
   setTime time expr = case expr of
@@ -323,7 +349,7 @@ instance Timable (Exp a) where
     And p x y -> And p (go x) (go y)
     Or   p x y -> Or p (go x) (go y)
     Impl p x y -> Impl p (go x) (go y)
-    Neg p x -> Neg p(go x)
+    Neg p x -> Neg p (go x)
     LT p x y -> LT p (go x) (go y)
     LEQ p x y -> LEQ p (go x) (go y)
     GEQ p x y -> GEQ p (go x) (go y)
@@ -371,6 +397,7 @@ instance Timable (TItem a k) where
 instance Timable (Ref k) where
   setTime :: When -> Ref k Untimed -> Ref k Timed
   setTime time (SMapping p e ts ixs) = SMapping p (setTime time e) ts (setTime time <$> ixs)
+  setTime time (SArray p e ts ixs) = SArray p (setTime time e) ts ((first (setTime time)) <$> ixs)
   setTime time (SField p e c x) = SField p (setTime time e) c x
   setTime _ (SVar p c ref) = SVar p c ref
   setTime _ (CVar p at ref) = CVar p at ref
@@ -451,7 +478,7 @@ instance ToJSON (InvariantPred t) where
                                                , "prefpredicate" .= toJSON predpost ]
 
 instance ToJSON (StorageLocation t) where
-  toJSON (Loc _ a) = object [ "location" .= toJSON a ]
+  toJSON (SLoc _ a) = object [ "location" .= toJSON a ]
 
 instance ToJSON (StorageUpdate t) where
   toJSON (Update _ a b) = object [ "location" .= toJSON a ,"value" .= toJSON b ]
@@ -468,9 +495,14 @@ instance ToJSON (Ref k t) where
   toJSON (CVar _ at x) = object [ "kind" .= pack "Var"
                                 , "var" .=  pack x
                                 , "abitype" .=  toJSON at ]
+  toJSON (SArray _ e _ xs) = array e xs
   toJSON (SMapping _ e _ xs) = mapping e xs
   toJSON (SField _ e c x) = field e c x
 
+array :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
+array a b = object [ "kind"      .= pack "Array"
+                   , "indexes"   .= toJSON b
+                   , "reference" .= toJSON a]
 
 mapping :: (ToJSON a1, ToJSON a2) => a1 -> a2 -> Value
 mapping a b = object [ "kind"      .= pack "Mapping"
@@ -489,6 +521,16 @@ instance ToJSON (TypedExp t) where
   toJSON (TExp typ a) = object [ "kind"       .= pack "TypedExpr"
                                , "type"       .= pack (show typ)
                                , "expression" .= toJSON a ]
+
+instance ToJSON (TypedExprList t) where
+  toJSON (LeafList _ a) = toJSON a
+  toJSON (NodeList _ nl) = toJSON nl
+
+instance ToJSON (TypedArgument t) where
+  toJSON (TValueArg a) = object [ "kind"       .= pack "ValueArg"
+                                , "expression" .= toJSON a ]
+  toJSON (TArrayArg nl) = object [ "kind"       .= pack "ArrayArg"
+                                 , "expression" .= toJSON nl ]
 
 instance ToJSON (Exp a t) where
   toJSON (Add _ a b) = symbol "+" a b
@@ -542,7 +584,7 @@ instance ToJSON (Exp a t) where
   toJSON (VarRef _ t _ a) = object [ "var"  .= toJSON a
                                    , "timing" .= show t ]
   toJSON (Create _ f xs) = object [ "symbol" .= pack "create"
-                                  , "arity"  .= Data.Aeson.Types.Number 2
+                                  , "arity"  .= Data.Aeson.Types.Number (fromIntegral $ length xs)
                                   , "args"   .= Array (fromList [object [ "fun" .=  String (pack f) ], toJSON xs]) ]
 
   toJSON v = error $ "todo: json ast for: " <> show v
@@ -617,3 +659,6 @@ uintmax a = 2 ^ a - 1
 
 _Var :: SingI a => AbiType -> Id -> Exp a Timed
 _Var at x = VarRef nowhere Pre SCalldata (Item sing (PrimitiveType at) (CVar nowhere at x))
+
+_Array :: SingI a => AbiType -> Id -> [(TypedExp Timed, Int)] -> Exp a Timed
+_Array at x ix = VarRef nowhere Pre SCalldata (Item sing (PrimitiveType at) (SArray nowhere (CVar nowhere at x) (PrimitiveType at) ix))

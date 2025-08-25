@@ -1,0 +1,16 @@
+constructor of M
+interface constructor()
+
+creates
+
+  uint[3] a := [1,2,3]
+
+
+behaviour f of M
+interface f()
+
+iff
+
+  a[1 > 3] > 4
+
+returns 1

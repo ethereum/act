@@ -1,0 +1,23 @@
+constructor of A
+interface constructor()
+
+creates
+
+  uint x := 100
+
+
+constructor of B
+interface constructor(address a)
+
+pointers
+
+  a |-> A
+
+
+creates
+
+  int[3] arr := [1,2,3]
+
+invariants
+
+  arr[a.x] == 0

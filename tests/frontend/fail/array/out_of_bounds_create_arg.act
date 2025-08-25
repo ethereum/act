@@ -1,0 +1,16 @@
+constructor of A
+interface constructor(int x, uint[2][3] y)
+
+
+constructor of B
+interface constructor()
+
+creates
+  A a := create A(-1, [ [1,2], [3,4], [5,6] ])
+  uint[2][2] arr := [[0,0],[0,0]]
+
+behaviour f of B
+interface f()
+
+storage
+  a => create A(2, [ [1,arr[100][0]], [3,4], [5,6] ])
