@@ -453,7 +453,7 @@ checkEntry Env{contract,store,calldata,pointers} kind (U.EVar p name) = case (ki
   (SCalldata, Just _, _) -> error "Internal error: Expected calldata variable but found storage variable"
   (_, Nothing, Nothing) -> throw (p, "Unknown variable " <> show name)
 checkEntry env kind (U.EIndexed p e args) =
-  checkEntry env kind e `bindValidation` \(typ, _, ref) -> case typ of
+  checkEntry env kind e `bindValidation` \(styp, _, ref) -> case styp of
     StorageValue (PrimitiveType typ) ->
         parseAbiArrayTypeErr' typ `bindValidation` \(restyp,sizes) ->
         (StorageValue (PrimitiveType restyp), Nothing,) . SArray p ref (PrimitiveType restyp) <$>
