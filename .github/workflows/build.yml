@@ -18,6 +18,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
+      - name: Remove existing build user if present (macOS only)
+        if: runner.os == 'macOS'
+        run: |
+          if dscl . -list /Users | grep -q _nixbld1; then
+            sudo dscl . -delete /Users/_nixbld1
+          fi
       - uses: cachix/install-nix-action@v22
         with:
           skip_adding_nixpkgs_channel: false
