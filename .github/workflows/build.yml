@@ -24,6 +24,7 @@ jobs:
           if dscl . -list /Users | grep -q _nixbld1; then
             sudo dscl . -delete /Users/_nixbld1
           fi
+          sudo rm -rf /Users/_nixbld1
       - uses: cachix/install-nix-action@v22
         with:
           skip_adding_nixpkgs_channel: false
